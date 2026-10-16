@@ -338,24 +338,6 @@ func (n NameInterner) InternNamespace(uri string) (NamespaceID, error) {
 	return id, nil
 }
 
-// InternLocal interns local and returns its local-name ID.
-func (n NameInterner) InternLocal(local string) (LocalNameID, error) {
-	table := n.table
-	if id, ok := table.localIndex[local]; ok {
-		return id, nil
-	}
-	if err := table.checkLimit(1); err != nil {
-		return 0, err
-	}
-	id, err := nextLocalNameID(len(table.locals))
-	if err != nil {
-		return 0, err
-	}
-	table.locals = append(table.locals, local)
-	table.localIndex[local] = id
-	return id, nil
-}
-
 // InternQName interns ns and local and returns the corresponding QName.
 func (n NameInterner) InternQName(ns, local string) (QName, error) {
 	table := n.table

@@ -6,14 +6,22 @@ import (
 	"github.com/jacoelho/xsd/internal/value"
 )
 
-func TestTypeInfoProjection(t *testing.T) {
+func TestSchemaTypeInfoProjection(t *testing.T) {
 	t.Parallel()
 
-	info := newTypeInfo(typeInfoShape{Block: DerivationRestriction, Abstract: true})
-	if info.Block != DerivationRestriction || !info.Abstract {
-		t.Fatalf("NewTypeInfo() = %+v, want projected facts", info)
+	rt := &Schema{program: schemaProgram{ComplexTypes: newComplexTypeReads([]ComplexType{
+		{Block: DerivationRestriction, Abstract: true},
+		{Block: DerivationRestriction},
+	})}}
+	info, ok := rt.TypeInfo(ComplexRef(0))
+	if !ok || info != (TypeInfo{Block: DerivationRestriction, Abstract: true}) {
+		t.Fatalf("TypeInfo(abstract) = %+v, %v, want restriction block and abstract", info, ok)
 	}
-	if info == newTypeInfo(typeInfoShape{Block: DerivationRestriction}) {
+	concrete, ok := rt.TypeInfo(ComplexRef(1))
+	if !ok || concrete != (TypeInfo{Block: DerivationRestriction}) {
+		t.Fatalf("TypeInfo(concrete) = %+v, %v, want restriction block and concrete", concrete, ok)
+	}
+	if info == concrete {
 		t.Fatal("type info values match despite different abstract flag")
 	}
 }
@@ -22,7 +30,11 @@ func TestSchemaTypeInfoClassifiesUnavailableSimpleDependencies(t *testing.T) {
 	t.Parallel()
 
 	builder := value.NewBuilder(value.BuilderOptions{})
-	availableList, err := builder.Add(value.TypeSpec{
+	availableList, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(availableList, value.TypeSpec{
 		Variety:           value.List,
 		Primitive:         value.PrimitiveString,
 		Whitespace:        value.WhitespaceCollapse,
@@ -31,7 +43,7 @@ func TestSchemaTypeInfoClassifiesUnavailableSimpleDependencies(t *testing.T) {
 		ListItem:          value.BuiltinType(value.PrimitiveString),
 	})
 	if err != nil {
-		t.Fatalf("value.Builder.Add() error = %v", err)
+		t.Fatalf("value.Builder.Complete() error = %v", err)
 	}
 	program, err := builder.Seal()
 	if err != nil {

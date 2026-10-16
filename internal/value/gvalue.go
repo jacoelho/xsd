@@ -19,6 +19,7 @@ type GValue struct {
 
 // ParseGValue parses s as one of the XML Schema g* primitive values.
 func ParseGValue(kind PrimitiveKind, s string) (GValue, error) {
+	//nolint:exhaustive // Only the five g* primitives are valid; all others share one error.
 	switch kind {
 	case PrimitiveGYearMonth:
 		return parseGYearMonthValue(s)
@@ -30,13 +31,9 @@ func ParseGValue(kind PrimitiveKind, s string) (GValue, error) {
 		return parseGDayValue(s)
 	case PrimitiveGMonth:
 		return parseGMonthValue(s)
-	case PrimitiveString, PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble,
-		PrimitiveDuration, PrimitiveDateTime, PrimitiveTime, PrimitiveDate,
-		PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
-		return GValue{}, errors.New("invalid g value primitive")
 	default:
+		return GValue{}, errors.New("invalid g value primitive")
 	}
-	return GValue{}, errors.New("invalid g value primitive")
 }
 
 // CanonicalText returns the XML Schema canonical lexical form for v.
@@ -97,7 +94,7 @@ func parseGYearMonthValue(s string) (GValue, error) {
 		}
 		return GValue{}, errors.New("invalid gYearMonth")
 	}
-	month, next, ok := parseTwoDigits(s, next+1)
+	month, next, ok := parseTwoDateDigits(s, next+1)
 	if !ok || month < 1 || month > 12 {
 		return GValue{}, errors.New("invalid gYearMonth")
 	}
@@ -124,12 +121,12 @@ func parseGMonthDayValue(s string) (GValue, error) {
 	if !strings.HasPrefix(s, "--") {
 		return GValue{}, errors.New("invalid gMonthDay")
 	}
-	month, next, ok := parseTwoDigits(s, 2)
+	month, next, ok := parseTwoDateDigits(s, 2)
 	if !ok || next >= len(s) || s[next] != '-' {
 		return GValue{}, errors.New("invalid gMonthDay")
 	}
-	day, next, ok := parseTwoDigits(s, next+1)
-	if !ok || month < 1 || month > 12 || day < 1 || day > maxGMonthDayOfMonth(month) {
+	day, next, ok := parseTwoDateDigits(s, next+1)
+	if !ok || month < 1 || month > 12 || day < 1 || day > daysInMonthForLeap(month, true) {
 		return GValue{}, errors.New("invalid gMonthDay")
 	}
 	tz, err := parseXSDTimezoneToEnd(s, next, "gMonthDay")
@@ -143,7 +140,7 @@ func parseGDayValue(s string) (GValue, error) {
 	if !strings.HasPrefix(s, "---") {
 		return GValue{}, errors.New("invalid gDay")
 	}
-	day, next, ok := parseTwoDigits(s, 3)
+	day, next, ok := parseTwoDateDigits(s, 3)
 	if !ok || day < 1 || day > 31 {
 		return GValue{}, errors.New("invalid gDay")
 	}
@@ -158,7 +155,7 @@ func parseGMonthValue(s string) (GValue, error) {
 	if !strings.HasPrefix(s, "--") {
 		return GValue{}, errors.New("invalid gMonth")
 	}
-	month, next, ok := parseTwoDigits(s, 2)
+	month, next, ok := parseTwoDateDigits(s, 2)
 	if !ok || month < 1 || month > 12 {
 		return GValue{}, errors.New("invalid gMonth")
 	}

@@ -14,11 +14,6 @@ type LexicalAttribute struct {
 	Present bool
 }
 
-func schemaLexicalAttribute(n *schemaNode, name string) LexicalAttribute {
-	value, present := n.attr(name)
-	return LexicalAttribute{Value: value, Present: present}
-}
-
 // BooleanAttr is the raw attribute state needed to parse an XML Schema boolean
 // attribute.
 type BooleanAttr struct {
@@ -52,19 +47,6 @@ type FormAttr struct {
 	DefaultQualified bool
 }
 
-// SchemaDefaultAttrs is the raw attribute state needed to parse schema-level
-// defaults from xs:schema.
-type SchemaDefaultAttrs struct {
-	TargetNamespace         string
-	BlockDefault            string
-	FinalDefault            string
-	ElementFormDefault      string
-	AttributeFormDefault    string
-	HasTargetNamespace      bool
-	HasElementFormDefault   bool
-	HasAttributeFormDefault bool
-}
-
 // SchemaDefaults is the parsed xs:schema default state used by compilation.
 type SchemaDefaults struct {
 	TargetNamespace    string
@@ -75,36 +57,36 @@ type SchemaDefaults struct {
 }
 
 // ParseSchemaDefaults validates and parses xs:schema target/default attributes.
-func ParseSchemaDefaults(attrs SchemaDefaultAttrs) (SchemaDefaults, error) {
-	if err := ValidateSchemaTargetNamespace(LexicalAttribute{Value: attrs.TargetNamespace, Present: attrs.HasTargetNamespace}); err != nil {
+func ParseSchemaDefaults(attrs schemaDocumentSource) (SchemaDefaults, error) {
+	if err := ValidateSchemaTargetNamespace(attrs.TargetNamespace); err != nil {
 		return SchemaDefaults{}, err
 	}
-	blockDefault, err := ParseDerivationSet(attrs.BlockDefault, "schema blockDefault", DerivationBlockDefaultMask)
+	blockDefault, err := ParseDerivationSet(attrs.BlockDefault.Value, "schema blockDefault", DerivationBlockDefaultMask)
 	if err != nil {
 		return SchemaDefaults{}, err
 	}
-	finalDefault, err := ParseDerivationSet(attrs.FinalDefault, "schema finalDefault", DerivationFinalDefaultMask)
+	finalDefault, err := ParseDerivationSet(attrs.FinalDefault.Value, "schema finalDefault", DerivationFinalDefaultMask)
 	if err != nil {
 		return SchemaDefaults{}, err
 	}
 	elementQualified, err := ParseFormDefaultAttr(FormAttr{
 		Name:     vocab.XSDAttrElementFormDefault,
-		Value:    attrs.ElementFormDefault,
-		HasValue: attrs.HasElementFormDefault,
+		Value:    attrs.ElementFormDefault.Value,
+		HasValue: attrs.ElementFormDefault.Present,
 	})
 	if err != nil {
 		return SchemaDefaults{}, err
 	}
 	attributeQualified, err := ParseFormDefaultAttr(FormAttr{
 		Name:     vocab.XSDAttrAttributeFormDefault,
-		Value:    attrs.AttributeFormDefault,
-		HasValue: attrs.HasAttributeFormDefault,
+		Value:    attrs.AttributeFormDefault.Value,
+		HasValue: attrs.AttributeFormDefault.Present,
 	})
 	if err != nil {
 		return SchemaDefaults{}, err
 	}
 	return SchemaDefaults{
-		TargetNamespace:    attrs.TargetNamespace,
+		TargetNamespace:    attrs.TargetNamespace.Value,
 		BlockDefault:       blockDefault,
 		FinalDefault:       finalDefault,
 		ElementQualified:   elementQualified,

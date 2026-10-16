@@ -1,6 +1,9 @@
 package schema
 
 import (
+	"encoding/xml"
+	"errors"
+
 	valuepkg "github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
@@ -20,7 +23,7 @@ func (c *compiler) compileAttributeByQName(q QName) (AttributeID, error) {
 	if err := c.spendComponentDependency(source); err != nil {
 		return 0, err
 	}
-	if id, ok := c.attributeDone[q]; ok {
+	if id, ok := c.rt.GlobalAttributes[q]; ok {
 		return id, nil
 	}
 	label := c.rt.formatName(q)
@@ -40,11 +43,10 @@ func (c *compiler) compileAttributeByQName(q QName) (AttributeID, error) {
 	if err != nil {
 		return 0, err
 	}
-	c.attributeDone[q] = id
 	return id, nil
 }
 
-func (c *compiler) compileAttributeDecl(n *schemaNode, ctx *schemaContext, q QName) (AttributeDecl, error) {
+func (c *compiler) compileAttributeDecl(n *schemaNode, ctx *schemaSetDocument, q QName) (AttributeDecl, error) {
 	if err := checkAttributeDeclarationChildren(n); err != nil {
 		return AttributeDecl{}, err
 	}
@@ -66,20 +68,20 @@ func (c *compiler) compileAttributeDecl(n *schemaNode, ctx *schemaContext, q QNa
 	return decl, nil
 }
 
-func (c *compiler) compileAttributeDeclType(n *schemaNode, ctx *schemaContext) (SimpleTypeID, error) {
-	source := n.semantic.attribute()
+func (c *compiler) compileAttributeDeclType(n *schemaNode, ctx *schemaSetDocument) (SimpleTypeID, error) {
+	source := semanticSource[*schemaAttributeSource](&n.semantic)
 	if source == nil {
 		return NoSimpleType, withSchemaCompileLocation(n, xsderrors.InternalInvariant("attribute node has no typed attribute source"))
 	}
 	if typeLex := source.Type.Lexical; typeLex.Present {
-		source := AttributeTypeSource{
+		typeSource := AttributeTypeSource{
 			Type:               typeLex,
 			HasSimpleTypeChild: n.firstXS(vocab.XSDElemSimpleType) != nil,
 		}
-		if err := ValidateAttributeTypeSource(source); err != nil {
+		if err := ValidateAttributeTypeSource(typeSource); err != nil {
 			return NoSimpleType, withSchemaCompileLocation(n, err)
 		}
-		q, err := c.resolveQNameChecked(n, ctx, typeLex.Value)
+		q, err := c.referenceQName(n, ctx, source.Type.Name)
 		if err != nil {
 			return NoSimpleType, err
 		}
@@ -88,11 +90,11 @@ func (c *compiler) compileAttributeDeclType(n *schemaNode, ctx *schemaContext) (
 	if simple := n.firstXS(vocab.XSDElemSimpleType); simple != nil {
 		return c.compileAnonymousSimple(simple, ctx)
 	}
-	return c.rt.builtinIDs().AnySimpleType, nil
+	return valuepkg.AnySimpleTypeID, nil
 }
 
 func readAttributeDeclValueConstraints(n *schemaNode, decl *AttributeDecl) {
-	source := n.semantic.attribute()
+	source := semanticSource[*schemaAttributeSource](&n.semantic)
 	if source == nil {
 		return
 	}
@@ -176,7 +178,7 @@ func schemaQNameResolver(n *schemaNode) valuepkg.QNameResolver {
 	}
 }
 
-func (c *compiler) compileAttributeUses(parent *schemaNode, ctx *schemaContext, inherited []AttributeUse, inheritedWildcard WildcardID, mode AttributeMergeMode) (AttributeUseSetID, error) {
+func (c *compiler) compileAttributeUses(parent *schemaNode, ctx *schemaSetDocument, inherited []AttributeUse, inheritedWildcard WildcardID, mode AttributeMergeMode) (AttributeUseSetID, error) {
 	if parent.local == vocab.XSDElemAttributeGroup {
 		if err := checkAttributeGroupDeclarationChildren(parent); err != nil {
 			return NoAttributeUseSet, err
@@ -185,20 +187,14 @@ func (c *compiler) compileAttributeUses(parent *schemaNode, ctx *schemaContext, 
 	if id, ok, err := c.compileDirectAttributeGroupUse(parent, ctx, inherited, inheritedWildcard, mode); ok {
 		return id, err
 	}
-	compilation := attributeUseCompilation{
-		compiler:  c,
-		ctx:       ctx,
-		uses:      inherited,
-		merger:    NewAttributeUseMerger(inherited, inheritedWildcard, mode),
-		wildcards: NewAttributeWildcardBuilder(inheritedWildcard, mode),
-	}
+	compilation := newAttributeUseCompilation(c, ctx, inherited, inheritedWildcard, mode)
 	if err := compilation.addChildren(parent); err != nil {
 		return NoAttributeUseSet, err
 	}
 	return compilation.finish(parent, inheritedWildcard, mode)
 }
 
-func (c *compiler) compileDirectAttributeGroupUse(parent *schemaNode, ctx *schemaContext, inherited []AttributeUse, inheritedWildcard WildcardID, mode AttributeMergeMode) (AttributeUseSetID, bool, error) {
+func (c *compiler) compileDirectAttributeGroupUse(parent *schemaNode, ctx *schemaSetDocument, inherited []AttributeUse, inheritedWildcard WildcardID, mode AttributeMergeMode) (AttributeUseSetID, bool, error) {
 	if mode != AttributeMergeDirect || len(inherited) != 0 || inheritedWildcard != NoWildcard {
 		return NoAttributeUseSet, false, nil
 	}
@@ -216,7 +212,7 @@ func (c *compiler) compileDirectAttributeGroupUse(parent *schemaNode, ctx *schem
 func soleAttributeGroupChild(parent *schemaNode) (*schemaNode, bool) {
 	var group *schemaNode
 	for child := range parent.xsdChildren() {
-		if child.kind == schemaKindForeign || child.local == vocab.XSDElemAnnotation {
+		if child.local == vocab.XSDElemAnnotation {
 			continue
 		}
 		if child.local != vocab.XSDElemAttributeGroup || group != nil {
@@ -227,17 +223,36 @@ func soleAttributeGroupChild(parent *schemaNode) (*schemaNode, bool) {
 	return group, group != nil
 }
 
+// attributeUseCompilation owns both use storage and its name index until finish.
 type attributeUseCompilation struct {
-	compiler  *compiler
-	ctx       *schemaContext
-	merger    AttributeUseMerger
-	uses      []AttributeUse
-	wildcards AttributeWildcardBuilder
+	compiler          *compiler
+	ctx               *schemaSetDocument
+	seen              map[QName]int
+	uses              []AttributeUse
+	wildcards         AttributeWildcardBuilder
+	inheritedWildcard WildcardID
+	mode              AttributeMergeMode
+}
+
+func newAttributeUseCompilation(c *compiler, ctx *schemaSetDocument, inherited []AttributeUse, inheritedWildcard WildcardID, mode AttributeMergeMode) attributeUseCompilation {
+	seen := make(map[QName]int, len(inherited))
+	for i := range inherited {
+		seen[inherited[i].Name] = i
+	}
+	return attributeUseCompilation{
+		compiler:          c,
+		ctx:               ctx,
+		seen:              seen,
+		uses:              inherited,
+		wildcards:         NewAttributeWildcardBuilder(inheritedWildcard, mode),
+		inheritedWildcard: inheritedWildcard,
+		mode:              mode,
+	}
 }
 
 func (b *attributeUseCompilation) addChildren(parent *schemaNode) error {
-	for _, child := range typedXSDChildren(parent) {
-		if child.kind == schemaKindForeign || child.local == vocab.XSDElemAnnotation {
+	for child := range parent.xsdChildren() {
+		if child.local == vocab.XSDElemAnnotation {
 			continue
 		}
 		if err := b.add(child); err != nil {
@@ -248,16 +263,13 @@ func (b *attributeUseCompilation) addChildren(parent *schemaNode) error {
 }
 
 func (b *attributeUseCompilation) add(child *schemaNode) error {
-	switch ClassifyAttributeUseChild(child.local) {
-	case AttributeUseChildAttribute:
+	switch child.local {
+	case vocab.XSDElemAttribute:
 		return b.addAttribute(child)
-	case AttributeUseChildGroup:
+	case vocab.XSDElemAttributeGroup:
 		return b.addGroup(child)
-	case AttributeUseChildWildcard:
+	case vocab.XSDElemAnyAttribute:
 		return b.addWildcard(child)
-	case AttributeUseChildIgnored:
-		return nil
-	default:
 	}
 	return nil
 }
@@ -267,8 +279,7 @@ func (b *attributeUseCompilation) addAttribute(child *schemaNode) error {
 	if err != nil {
 		return err
 	}
-	b.uses, err = b.compiler.mergeAttributeUse(b.uses, &b.merger, use)
-	return withSchemaCompileLocation(child, err)
+	return withSchemaCompileLocation(child, b.mergeUse(use))
 }
 
 func (b *attributeUseCompilation) addGroup(child *schemaNode) error {
@@ -277,8 +288,7 @@ func (b *attributeUseCompilation) addGroup(child *schemaNode) error {
 		return err
 	}
 	for _, use := range uses {
-		b.uses, err = b.compiler.mergeAttributeUse(b.uses, &b.merger, use)
-		if err != nil {
+		if err := b.mergeUse(use); err != nil {
 			return withSchemaCompileLocation(child, err)
 		}
 	}
@@ -324,16 +334,49 @@ func (b *attributeUseCompilation) finish(parent *schemaNode, inheritedWildcard W
 	return b.compiler.addAttributeUseSet(set)
 }
 
-func (c *compiler) mergeAttributeUse(uses []AttributeUse, merger *AttributeUseMerger, use AttributeUse) ([]AttributeUse, error) {
-	result, err := merger.Add(&c.rt, uses, use, c.rt.spendTypeDerivationWork)
-	if err != nil {
-		return nil, err
+func (b *attributeUseCompilation) mergeUse(use AttributeUse) error {
+	if b.mode == AttributeMergeInvalid {
+		return xsderrors.InternalInvariant("invalid attribute merge mode")
 	}
-	if result.Appended {
-		return append(uses, use), nil
+	if b.mode > AttributeMergeRestriction {
+		return xsderrors.InternalInvariant("unknown attribute merge mode")
 	}
-	uses[result.Index] = use
-	return uses, nil
+	if index, ok := b.seen[use.Name]; ok {
+		if err := b.validateReplacement(use, index, b.compiler.rt.spendTypeDerivationWork); err != nil {
+			return err
+		}
+		b.uses[index] = use
+		return nil
+	}
+	if b.mode == AttributeMergeRestriction && !use.Prohibited && !b.inheritedWildcardAllows(use.Name) {
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "new restricted attribute is not allowed by base wildcard")
+	}
+	b.seen[use.Name] = len(b.uses)
+	b.uses = append(b.uses, use)
+	return nil
+}
+
+func (b *attributeUseCompilation) validateReplacement(use AttributeUse, index int, work func(int) error) error {
+	if b.mode != AttributeMergeRestriction && !b.uses[index].Prohibited && !use.Prohibited {
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate attribute use")
+	}
+	if b.mode == AttributeMergeRestriction {
+		if err := ValidateAttributeUseRestriction(&b.compiler.rt, b.uses[index], use, work); err != nil {
+			if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
+				return err
+			}
+			return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error())
+		}
+	}
+	return nil
+}
+
+func (b *attributeUseCompilation) inheritedWildcardAllows(name QName) bool {
+	if b.inheritedWildcard == NoWildcard {
+		return false
+	}
+	wildcard, ok := WildcardByID(b.compiler.rt.Wildcards, b.inheritedWildcard)
+	return ok && WildcardAllowsNamespace(wildcard, name.Namespace)
 }
 
 type attributeWildcardProvenance struct {
@@ -359,12 +402,6 @@ func newAttributeUseSet(uses []AttributeUse, wildcard WildcardID, provenance att
 			return AttributeUseSet{}, err
 		}
 		set.Index[use.Name] = slot
-		if use.Required {
-			set.Required = append(set.Required, slot)
-		}
-		if use.Default != nil || use.Fixed != nil {
-			set.ValueConstraints = append(set.ValueConstraints, slot)
-		}
 	}
 	return set, nil
 }
@@ -375,7 +412,7 @@ type attributeUseBase struct {
 	ref      bool
 }
 
-func (c *compiler) compileAttributeUse(n *schemaNode, ctx *schemaContext) (AttributeUse, error) {
+func (c *compiler) compileAttributeUse(n *schemaNode, ctx *schemaSetDocument) (AttributeUse, error) {
 	base, err := c.compileAttributeUseBase(n, ctx)
 	if err != nil {
 		return AttributeUse{}, err
@@ -412,7 +449,7 @@ type attributeUseOverrides struct {
 }
 
 func readAttributeUseOverrides(n *schemaNode) attributeUseOverrides {
-	source := n.semantic.attribute()
+	source := semanticSource[*schemaAttributeSource](&n.semantic)
 	if source == nil {
 		return attributeUseOverrides{}
 	}
@@ -474,26 +511,26 @@ func applyValidatedAttributeUseOverrides(use *AttributeUse, decl AttributeDecl, 
 	}
 }
 
-func (c *compiler) compileAttributeUseBase(n *schemaNode, ctx *schemaContext) (attributeUseBase, error) {
-	source := n.semantic.attribute()
+func (c *compiler) compileAttributeUseBase(n *schemaNode, ctx *schemaSetDocument) (attributeUseBase, error) {
+	source := semanticSource[*schemaAttributeSource](&n.semantic)
 	if source == nil {
 		return attributeUseBase{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("attribute use has no typed attribute source"))
 	}
 	if source.Ref.Lexical.Present {
-		return c.compileAttributeRefUse(n, ctx, source.Ref.Lexical.Value)
+		return c.compileAttributeRefUse(n, ctx, source.Ref.Name)
 	}
 	use, err := c.compileLocalAttributeUse(n, ctx)
 	return attributeUseBase{use: use}, err
 }
 
-func (c *compiler) compileAttributeRefUse(n *schemaNode, ctx *schemaContext, ref string) (attributeUseBase, error) {
+func (c *compiler) compileAttributeRefUse(n *schemaNode, ctx *schemaSetDocument, ref xml.Name) (attributeUseBase, error) {
 	if err := checkAttributeRefAttributes(n); err != nil {
 		return attributeUseBase{}, err
 	}
 	if err := checkAttributeRefChildren(n); err != nil {
 		return attributeUseBase{}, err
 	}
-	q, err := c.resolveQNameChecked(n, ctx, ref)
+	q, err := c.referenceQName(n, ctx, ref)
 	if err != nil {
 		return attributeUseBase{}, err
 	}
@@ -509,7 +546,7 @@ func (c *compiler) compileAttributeRefUse(n *schemaNode, ctx *schemaContext, ref
 	return base, nil
 }
 
-func (c *compiler) compileLocalAttributeUse(n *schemaNode, ctx *schemaContext) (AttributeUse, error) {
+func (c *compiler) compileLocalAttributeUse(n *schemaNode, ctx *schemaSetDocument) (AttributeUse, error) {
 	if err := c.spendComponentDependency(n); err != nil {
 		return AttributeUse{}, err
 	}
@@ -521,7 +558,7 @@ func (c *compiler) compileLocalAttributeUse(n *schemaNode, ctx *schemaContext) (
 	if err = checkAttributeUseSource(n); err != nil {
 		return AttributeUse{}, err
 	}
-	source := n.semantic.attribute()
+	source := semanticSource[*schemaAttributeSource](&n.semantic)
 	if source == nil {
 		return AttributeUse{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("attribute use has no typed attribute source"))
 	}
@@ -531,13 +568,13 @@ func (c *compiler) compileLocalAttributeUse(n *schemaNode, ctx *schemaContext) (
 	qualified, err := ParseAttributeFormAttr(FormAttr{
 		Value:            form,
 		HasValue:         hasForm,
-		DefaultQualified: ctx.attrQualified,
+		DefaultQualified: ctx.doc.defaults.AttributeQualified,
 	})
 	if err != nil {
 		return AttributeUse{}, withSchemaCompileLocation(n, err)
 	}
 	if qualified {
-		ns = ctx.targetNS
+		ns = ctx.effectiveTargetNS
 	}
 	nameID, err := c.rt.internQName(ns, name)
 	if err != nil {
@@ -559,7 +596,7 @@ func attributeUseFromDecl(decl AttributeDecl) AttributeUse {
 	}
 }
 
-func (c *compiler) compileAttributeGroupUse(n *schemaNode, ctx *schemaContext) ([]AttributeUse, WildcardID, error) {
+func (c *compiler) compileAttributeGroupUse(n *schemaNode, ctx *schemaSetDocument) ([]AttributeUse, WildcardID, error) {
 	id, err := c.compileAttributeGroupUseID(n, ctx)
 	if err != nil {
 		return nil, NoWildcard, withSchemaCompileLocation(n, err)
@@ -568,19 +605,18 @@ func (c *compiler) compileAttributeGroupUse(n *schemaNode, ctx *schemaContext) (
 	return uses, wildcard, nil
 }
 
-func (c *compiler) compileAttributeGroupUseID(n *schemaNode, ctx *schemaContext) (AttributeUseSetID, error) {
+func (c *compiler) compileAttributeGroupUseID(n *schemaNode, ctx *schemaSetDocument) (AttributeUseSetID, error) {
 	if err := checkAttributeGroupUseChildren(n); err != nil {
 		return NoAttributeUseSet, err
 	}
 	if err := checkAttributeGroupUseSource(n); err != nil {
 		return NoAttributeUseSet, err
 	}
-	source := n.semantic.attributeGroup()
+	source := semanticSource[*schemaAttributeGroupSource](&n.semantic)
 	if source == nil {
 		return NoAttributeUseSet, withSchemaCompileLocation(n, xsderrors.InternalInvariant("attributeGroup use has no typed attributeGroup source"))
 	}
-	ref := source.Ref.Lexical.Value
-	q, err := c.resolveQNameChecked(n, ctx, ref)
+	q, err := c.referenceQName(n, ctx, source.Ref.Name)
 	if err != nil {
 		return NoAttributeUseSet, err
 	}

@@ -59,24 +59,23 @@ func (s *substitutionCompilation) linkHeads() error {
 
 func (s *substitutionCompilation) linkHead(memberQName QName) error {
 	raw := s.compiler.elementComponents[memberQName]
-	source := raw.sourceNode().semantic.element()
+	source := semanticSource[*schemaElementSource](&raw.sourceNode().semantic)
 	if source == nil {
 		return xsderrors.InternalInvariant("element substitution source is not typed")
 	}
 	if !source.SubstitutionGroup.Lexical.Present {
 		return nil
 	}
-	headLexical := source.SubstitutionGroup.Lexical.Value
-	member, ok := s.compiler.elementDone[memberQName]
+	member, ok := s.compiler.rt.GlobalElements[memberQName]
 	if !ok || !ValidElementID(member, len(s.elements)) {
 		return xsderrors.InternalInvariant("substitution member was not compiled")
 	}
 	s.inheritsType[member] = elementUsesSubstitutionType(raw.sourceNode())
-	headQName, err := s.compiler.resolveQNameChecked(raw.sourceNode(), raw.ctx, headLexical)
+	headQName, err := s.compiler.referenceQName(raw.sourceNode(), raw.ctx, source.SubstitutionGroup.Name)
 	if err != nil {
 		return err
 	}
-	head, ok := s.compiler.elementDone[headQName]
+	head, ok := s.compiler.rt.GlobalElements[headQName]
 	if !ok {
 		return nil
 	}
@@ -110,7 +109,7 @@ func (s *substitutionCompilation) propagateInheritedTypes() {
 
 func (s *substitutionCompilation) rejectCycles() error {
 	for _, memberQName := range s.members {
-		member, ok := s.compiler.elementDone[memberQName]
+		member, ok := s.compiler.rt.GlobalElements[memberQName]
 		if !ok || s.indegree[member] == 0 {
 			continue
 		}
@@ -213,7 +212,7 @@ func substitutionCycleElement(start ElementID, elements []ElementDecl) (ElementI
 }
 
 func elementUsesSubstitutionType(n *schemaNode) bool {
-	source := n.semantic.element()
+	source := semanticSource[*schemaElementSource](&n.semantic)
 	if source == nil {
 		return false
 	}
@@ -227,11 +226,8 @@ func elementUsesSubstitutionType(n *schemaNode) bool {
 }
 
 func (c *compiler) resolveTypeQName(q QName) (TypeID, error) {
-	if id, ok := c.simpleDone[q]; ok {
-		return SimpleRef(id), nil
-	}
-	if id, ok := c.complexDone[q]; ok {
-		return ComplexRef(id), nil
+	if typ, ok := c.rt.GlobalTypes[q]; ok {
+		return typ, nil
 	}
 	if _, ok := c.simpleComponents[q]; ok {
 		id, err := c.compileSimpleByQName(q)
@@ -260,7 +256,7 @@ func (c *compiler) typeQNameMayBeUnavailable(q QName) bool {
 }
 
 func (c *compiler) simpleTypeQNameKnown(q QName) bool {
-	if _, ok := c.simpleDone[q]; ok {
+	if c.rt.GlobalTypes[q].IsSimple() {
 		return true
 	}
 	_, ok := c.simpleComponents[q]
@@ -268,7 +264,7 @@ func (c *compiler) simpleTypeQNameKnown(q QName) bool {
 }
 
 func (c *compiler) complexTypeQNameKnown(q QName) bool {
-	if _, ok := c.complexDone[q]; ok {
+	if c.rt.GlobalTypes[q].IsComplex() {
 		return true
 	}
 	_, ok := c.complexComponents[q]

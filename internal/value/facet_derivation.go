@@ -6,76 +6,53 @@ import "slices"
 // typed facet literals are compiled.  Type shape is the source of truth for
 // facet applicability; the effective program is checked separately after
 // inherited facet values are available.
-func validateFacetSource(spec typeDef, facets FacetSpec, own facetProgram) error {
+func validateFacetSource(spec typeDef, facets FacetSpec, own facetProgram, missing FacetMask) error {
 	if err := validateFacetShape(spec, own); err != nil {
 		return facetFailure(err.Error())
 	}
-	for _, entry := range []struct {
-		flag    FacetMask
-		present bool
-	}{
-		{FacetLength, facets.Length.Present},
-		{FacetMinLength, facets.MinLength.Present},
-		{FacetMaxLength, facets.MaxLength.Present},
-		{FacetTotalDigits, facets.TotalDigits.Present},
-		{FacetFractionDigits, facets.FractionDigits.Present},
-	} {
-		if own.present&entry.flag != 0 && !entry.present {
-			return ErrMetadata
-		}
+	if missing&(FacetLength|FacetMinLength|FacetMaxLength|FacetTotalDigits|FacetFractionDigits) != 0 {
+		return ErrMetadata
 	}
-	if !facetMaskAllowed(spec.variety, spec.primitive, own.present) {
+	if own.present&^allowedFacetMask(spec.variety, spec.primitive) != 0 {
 		return facetFailure("facet is not allowed for simple type")
 	}
 	if facets.Fixed&(FacetPattern|FacetEnumeration) != 0 {
 		return facetFailure("pattern and enumeration facets cannot be fixed")
 	}
-	return validateFacetCardinalityShape(own)
-}
-
-func facetMaskAllowed(variety Variety, primitive PrimitiveKind, mask FacetMask) bool {
-	for bit := FacetLength; bit <= FacetWhiteSpace; bit <<= 1 {
-		if mask&bit != 0 && !FacetAllowed(variety, primitive, bit) {
-			return false
-		}
-		mask &^= bit
-	}
-	return mask == 0
+	return nil
 }
 
 // FacetAllowed reports whether one facet is permitted for a simple-type variety and primitive.
 func FacetAllowed(variety Variety, primitive PrimitiveKind, bit FacetMask) bool {
+	return bit != 0 && bit&(bit-1) == 0 && bit&allowedFacetMask(variety, primitive) != 0
+}
+
+func allowedFacetMask(variety Variety, primitive PrimitiveKind) FacetMask {
+	const common = FacetPattern | FacetEnumeration
 	switch variety {
-	case Atomic:
-		return atomicFacetBitAllowed(primitive, bit)
 	case List:
-		return listFacetBitAllowed(bit)
+		return common | FacetWhiteSpace | lengthFacetMask
 	case Union:
-		return bit == FacetPattern || bit == FacetEnumeration
+		return common
+	case Atomic:
+		mask := common | FacetWhiteSpace
+		//nolint:exhaustive // Unknown primitive kinds retain the common atomic facets.
+		switch primitive {
+		case PrimitiveString, PrimitiveAnyURI, PrimitiveHexBinary, PrimitiveBase64Binary,
+			PrimitiveQName, PrimitiveNotation:
+			return mask | lengthFacetMask
+		case PrimitiveDecimal:
+			return mask | orderedFacetMask | FacetTotalDigits | FacetFractionDigits
+		case PrimitiveFloat, PrimitiveDouble, PrimitiveDuration,
+			PrimitiveDateTime, PrimitiveTime, PrimitiveDate, PrimitiveGYearMonth,
+			PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth:
+			return mask | orderedFacetMask
+		default:
+			return mask
+		}
 	default:
-		return false
+		return 0
 	}
-}
-
-func atomicFacetBitAllowed(primitive PrimitiveKind, bit FacetMask) bool {
-	//nolint:exhaustive // FacetMask is a bitmask; composite masks are not individual cases.
-	switch bit {
-	case FacetPattern, FacetEnumeration, FacetWhiteSpace:
-		return true
-	case FacetLength, FacetMinLength, FacetMaxLength:
-		return primitiveHasLengthFacet(primitive)
-	case FacetMinInclusive, FacetMaxInclusive, FacetMinExclusive, FacetMaxExclusive:
-		return primitiveHasOrderFacet(primitive)
-	case FacetTotalDigits, FacetFractionDigits:
-		return primitive == PrimitiveDecimal
-	default:
-		return false
-	}
-}
-
-func listFacetBitAllowed(bit FacetMask) bool {
-	return bit == FacetLength || bit == FacetMinLength || bit == FacetMaxLength ||
-		bit == FacetPattern || bit == FacetEnumeration || bit == FacetWhiteSpace
 }
 
 func primitiveHasPartialOrder(kind PrimitiveKind) bool {
@@ -89,49 +66,37 @@ func primitiveHasPartialOrder(kind PrimitiveKind) bool {
 	}
 }
 
-// validateFacetDerivation owns the restriction contract between a type and
+// deriveFacetProgram owns the restriction contract between a type and
 // its direct base. Source shape has already been validated before typed facet
 // values are compiled; keeping this step focused on inheritance avoids
 // repeating that validation while preserving its original error ordering.
-func (p *Program) validateFacetDerivation(id TypeID, own facetProgram) error {
-	derived, ok := p.typeDef(id)
-	if !ok {
-		return ErrMetadata
-	}
-	if derived.base == NoType {
-		return nil
-	}
-	base, ok := p.typeDef(derived.base)
-	if !ok {
-		return ErrMetadata
-	}
-	return validateInheritedFacetDerivation(*derived, *base, own)
-}
-
-func validateInheritedFacetDerivation(derived, base typeDef, own facetProgram) error {
+func deriveFacetProgram(derived, base typeDef, own facetProgram) (facetProgram, error) {
 	if err := validateTypeDerivation(derived.base, derived, base); err != nil {
-		return err
+		return facetProgram{}, err
 	}
 	if err := validateWhitespaceDerivation(derived.whitespace, base.whitespace); err != nil {
-		return err
+		return facetProgram{}, err
 	}
 	if err := validateDeclaredCardinalityRestriction(own, base.facets); err != nil {
-		return err
+		return facetProgram{}, err
 	}
 	if err := validateDeclaredOrderedRestriction(own, base.facets); err != nil {
-		return err
+		return facetProgram{}, err
 	}
 	if err := validateEnumerationRestriction(own, base.facets); err != nil {
-		return err
+		return facetProgram{}, err
 	}
 	candidate := mergeFacetPrograms(base.facets, own)
-	if err := validateFacetCardinalityShape(candidate); err != nil {
-		return err
+	if err := facetCardinalityViolation(candidate); err != nil {
+		return facetProgram{}, err
 	}
 	if err := validateLengthAncestry(candidate, base.facets); err != nil {
-		return err
+		return facetProgram{}, err
 	}
-	return validateFixedFacetDerivation(derived, own, candidate, base)
+	if err := validateFixedFacetDerivation(derived, own, candidate, base); err != nil {
+		return facetProgram{}, err
+	}
+	return candidate, nil
 }
 
 // anySimpleType is the one XSD base whose restriction may choose the variety
@@ -140,7 +105,7 @@ func validateInheritedFacetDerivation(derived, base typeDef, own facetProgram) e
 func validateTypeDerivation(baseID TypeID, derived, base typeDef) error {
 	// anySimpleType is the only XSD base whose restriction may choose a new
 	// variety and primitive family. Its lexical policy is intentionally broad.
-	if baseID == builtinAnySimpleType {
+	if baseID == AnySimpleTypeID {
 		return nil
 	}
 	if derived.variety != base.variety || derived.primitive != base.primitive || derived.builtin != base.builtin || derived.identity != base.identity {
@@ -176,7 +141,7 @@ func validateWhitespaceDerivation(derived, base WhitespaceMode) error {
 	return nil
 }
 
-func validateFacetCardinalityShape(f facetProgram) error {
+func facetCardinalityViolation(f facetProgram) error {
 	if f.length.Present && f.minLength.Present && f.length.Value < f.minLength.Value {
 		return facetFailure("length cannot be less than minLength")
 	}
@@ -290,7 +255,7 @@ func orderedLowerRestricts(derived, base boundValue) bool {
 	if !ok {
 		return false
 	}
-	return OrderedFacetLowerRestricts(boundKind(derived), boundKind(base), relation)
+	return OrderedFacetLowerRestricts(derived.exclusive, base.exclusive, relation)
 }
 
 func orderedUpperRestricts(derived, base boundValue) bool {
@@ -298,12 +263,12 @@ func orderedUpperRestricts(derived, base boundValue) bool {
 	if !ok {
 		return false
 	}
-	return OrderedFacetUpperRestricts(boundKind(derived), boundKind(base), relation)
+	return OrderedFacetUpperRestricts(derived.exclusive, base.exclusive, relation)
 }
 
 func compareDerivationBounds(derived, base boundValue) (OrderedFacetRelation, bool) {
-	if derived.value.atom.kind != PrimitiveTime || base.value.atom.kind != PrimitiveTime {
-		return compareValue(&derived.value, &base.value)
+	if derived.value.kind != PrimitiveTime || base.value.kind != PrimitiveTime {
+		return compareAtomic(&derived.value, &base.value)
 	}
 	left := rawTimeProjection(derived)
 	right := rawTimeProjection(base)
@@ -311,16 +276,9 @@ func compareDerivationBounds(derived, base boundValue) (OrderedFacetRelation, bo
 }
 
 func rawTimeProjection(bound boundValue) TimeValue {
-	time := bound.value.atom.time
+	time := bound.value.time
 	time.second += int(bound.timeDayOffset) * daySeconds
 	return time
-}
-
-func boundKind(bound boundValue) OrderedFacetBound {
-	if bound.exclusive {
-		return OrderedFacetBound{Kind: OrderedFacetBoundExclusive}
-	}
-	return OrderedFacetBound{Kind: OrderedFacetBoundInclusive}
 }
 
 func validateFixedFacetDerivation(derived typeDef, own, candidate facetProgram, base typeDef) error {
@@ -378,28 +336,26 @@ func validateFixedBound(fixed FacetMask, flag FacetMask, own, base []boundValue)
 	if fixed&flag == 0 {
 		return nil
 	}
-	boundKind := OrderedFacetBoundInclusive
-	if flag == FacetMinExclusive || flag == FacetMaxExclusive {
-		boundKind = OrderedFacetBoundExclusive
-	}
-	baseBound, ok := findBound(base, boundKind)
+	exclusive := flag == FacetMinExclusive || flag == FacetMaxExclusive
+	baseBound, ok := findBound(base, exclusive)
 	if !ok {
 		return ErrMetadata
 	}
-	declared, hasDeclared := findBound(own, boundKind)
-	if hasDeclared && !equalParsed(&declared.value, &baseBound.value) {
+	declared, hasDeclared := findBound(own, exclusive)
+	if hasDeclared && !equalAtomic(&declared.value, &baseBound.value) {
 		return facetFailure("fixed ordered facet cannot change")
 	}
 	return nil
 }
 
-func findBound(bounds []boundValue, kind OrderedFacetBoundKind) (boundValue, bool) {
+//nolint:revive // Exclusivity is the admitted bound fact sought by this lookup.
+func findBound(bounds []boundValue, exclusive bool) (boundValue, bool) {
 	// The effective program retains every inherited bound so partial-order
 	// restrictions can be checked against the complete ancestry. A fixed facet
 	// names the effective value from the nearest declaration, which is the last
 	// bound of that kind in declaration order.
 	for _, bound := range slices.Backward(bounds) {
-		if boundKind(bound).Kind == kind {
+		if bound.exclusive == exclusive {
 			return bound, true
 		}
 	}

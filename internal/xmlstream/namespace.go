@@ -103,8 +103,7 @@ func (s *stack) StartStream(start *StartElement, values *cache) (frame, Element,
 		if !IsLexicalNamespaceName(attr.Name) {
 			continue
 		}
-		value, available := attr.materializeValue(values)
-		if err := s.appendStreamBinding(streamBindingInput{name: attr.Name, value: value, available: available}); err != nil {
+		if err := s.appendStreamBinding(attr, values); err != nil {
 			return s.abortAdmission(mark, previous, err)
 		}
 	}
@@ -126,17 +125,12 @@ func (s *stack) StartStream(start *StartElement, values *cache) (frame, Element,
 	return admitted, element, nil
 }
 
-type streamBindingInput struct {
-	name      xml.Name
-	value     string
-	available bool
-}
-
-func (s *stack) appendStreamBinding(input streamBindingInput) error {
-	if !input.available {
+func (s *stack) appendStreamBinding(attr *Attr, values *cache) error {
+	value, available := attr.materializeValue(values)
+	if !available {
 		return errors.New("namespace declaration requires an attribute value cache")
 	}
-	return s.appendBinding(input.name, input.value)
+	return s.appendBinding(attr.Name, value)
 }
 
 func replaceStreamAttributeNames(start *StartElement, resolved []xml.Name) {

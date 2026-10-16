@@ -46,12 +46,6 @@ func (e *Error) Error() string {
 	return "xsdregex: " + e.What
 }
 
-// IsSyntax reports whether err is a pattern syntax error.
-func IsSyntax(err error) bool {
-	var e *Error
-	return errors.As(err, &e) && e.Kind == ErrorSyntax
-}
-
 // IsLimit reports whether err is a compile or match resource-limit error.
 func IsLimit(err error) bool {
 	var e *Error
@@ -79,18 +73,6 @@ const (
 	defaultMaxRepeat       = math.MaxUint64
 )
 
-// DefaultCompileOptions returns the default bounded compile policy.
-func DefaultCompileOptions() CompileOptions {
-	return CompileOptions{
-		MaxPatternBytes: defaultMaxPatternBytes,
-		MaxNodes:        defaultMaxNodes,
-		MaxStates:       defaultMaxStates,
-		MaxRanges:       defaultMaxRanges,
-		MaxDepth:        defaultMaxDepth,
-		MaxRepeat:       defaultMaxRepeat,
-	}
-}
-
 // MatchOptions bounds one match operation. MaxWork counts decoding,
 // transitions, and epsilon-closure work. MaxStates bounds one reachable NFA
 // state set and, for linear patterns, the number of input rune positions plus
@@ -103,11 +85,6 @@ type MatchOptions struct {
 const (
 	defaultMaxWork = 16 << 20
 )
-
-// DefaultMatchOptions returns the default bounded match policy.
-func DefaultMatchOptions() MatchOptions {
-	return MatchOptions{MaxWork: defaultMaxWork, MaxStates: defaultMaxStates}
-}
 
 // Pattern is an immutable compiled XSD regular expression. Concatenations of
 // character sets use the bounded run-length matcher; general expressions use
@@ -197,21 +174,8 @@ func (p *Pattern) Source() string {
 	return p.source
 }
 
-// MatchString matches complete XML text using the default match limits.
-// Callers must supply valid UTF-8 XML character data; the matcher does not
-// repeat the XML stream's input validation.
-func (p *Pattern) MatchString(input string) (bool, error) {
-	return p.MatchStringWithScratch(input, MatchOptions{}, nil)
-}
-
-// MatchStringWithOptions matches complete XML text under explicit limits. A
-// Scratch value can be supplied with MatchStringWithScratch to reuse matcher
-// storage across calls.
-func (p *Pattern) MatchStringWithOptions(input string, options MatchOptions) (bool, error) {
-	return p.MatchStringWithScratch(input, options, nil)
-}
-
-// MatchStringWithScratch matches input using caller-owned bounded scratch.
+// MatchStringWithScratch matches complete valid UTF-8 XML text using
+// caller-owned bounded scratch. Nil scratch keeps storage local to this call.
 // Scratch is not safe for concurrent use by multiple goroutines.
 func (p *Pattern) MatchStringWithScratch(input string, options MatchOptions, scratch *Scratch) (bool, error) {
 	if p == nil {
@@ -220,19 +184,9 @@ func (p *Pattern) MatchStringWithScratch(input string, options MatchOptions, scr
 	return matchString(p, input, normalizeMatchOptions(options), scratch)
 }
 
-// MatchBytes matches complete UTF-8 XML text using the default match limits.
-// Callers must validate the byte stream before matching.
-func (p *Pattern) MatchBytes(input []byte) (bool, error) {
-	return p.MatchBytesWithScratch(input, MatchOptions{}, nil)
-}
-
-// MatchBytesWithOptions matches complete UTF-8 XML text under explicit limits.
-func (p *Pattern) MatchBytesWithOptions(input []byte, options MatchOptions) (bool, error) {
-	return p.MatchBytesWithScratch(input, options, nil)
-}
-
 // MatchBytesWithScratch matches validated XML bytes using caller-owned bounded
-// scratch.
+// scratch. Callers must validate the byte stream before matching. Nil scratch
+// keeps storage local to this call.
 func (p *Pattern) MatchBytesWithScratch(input []byte, options MatchOptions, scratch *Scratch) (bool, error) {
 	if p == nil {
 		return false, &Error{Kind: ErrorSyntax, Offset: -1, What: nilPatternError}

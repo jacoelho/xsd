@@ -146,7 +146,7 @@ func resolveFallbackWithoutBase(base ReferenceBase, reference uriref.Reference) 
 
 func resolveFallbackAgainst(fallbackBase string, reference uriref.Reference) (string, error) {
 	if isLocalName(fallbackBase) {
-		resolved, err := ResolveReference(fallbackBase, reference.Escaped())
+		resolved, err := resolveLocalFallback(fallbackBase, reference)
 		if IsReferenceUnavailable(err) {
 			return "", nil
 		}
@@ -170,7 +170,7 @@ func resolveFallbackAgainst(fallbackBase string, reference uriref.Reference) (st
 }
 
 func canonicalFallbackReference(reference uriref.Reference) (string, error) {
-	resolved, err := ResolveReference("", reference.Escaped())
+	resolved, err := resolveLocalFallback("", reference)
 	if IsReferenceUnavailable(err) {
 		return "", nil
 	}
@@ -593,50 +593,23 @@ func localResolverBase(path string, query resolverQuery) resolverBase {
 	}
 }
 
-// ResolveReference resolves one URI reference against base and returns its
-// singular document identity.
-func ResolveReference(base, reference string) (string, error) {
-	baseLocal := isLocalName(base)
-	if reference == "" {
-		if baseLocal {
-			return canonicalLocalReference(base, localPathFormOf(base)), nil
-		}
-		return resolveEmptyURIReference(base)
+// resolveLocalFallback receives a nonempty, fragmentless admitted reference.
+// URI-base composition belongs to uriref; this path only projects local and
+// absolute references into the built-in backend's escaped identity spelling.
+func resolveLocalFallback(base string, reference uriref.Reference) (string, error) {
+	escaped := reference.Escaped()
+	if filepath.VolumeName(escaped) != "" && filepath.IsAbs(escaped) {
+		return canonicalLocalReference(escaped, localPathFormOf(escaped)), nil
 	}
-	if strings.IndexByte(reference, '#') >= 0 {
-		return "", errors.New("schema reference fragments are not supported")
-	}
-	if baseLocal && filepath.VolumeName(reference) != "" && filepath.IsAbs(reference) {
-		return canonicalLocalReference(reference, localPathFormOf(reference)), nil
-	}
-	ref, err := url.Parse(reference)
+	ref, err := url.Parse(escaped)
 	if err != nil {
 		return "", err
 	}
-	refAuthority := parseURIAuthoritySyntax(reference, ref.Scheme)
+	authority := parseURIAuthoritySyntax(escaped, ref.Scheme)
 	if ref.Scheme != "" {
-		return resolveAbsoluteReference(ref, refAuthority)
+		return resolveAbsoluteReference(ref, authority)
 	}
-	if baseLocal {
-		return resolveLocalReference(base, ref, refAuthority)
-	}
-	return resolveURIReference(base, ref, refAuthority)
-}
-
-func resolveEmptyURIReference(base string) (string, error) {
-	baseURL, err := url.Parse(base)
-	if err != nil {
-		return "", err
-	}
-	syntax := uriReferenceSyntaxFor(base, baseURL)
-	if file, ok := localFileURIPath(baseURL, syntax.fragment); ok {
-		return file, nil
-	}
-	canonical, ok := canonicalURL(baseURL, syntax)
-	if !ok {
-		return "", errors.New("schema base has an invalid URI path")
-	}
-	return canonical, nil
+	return resolveLocalReference(base, ref, authority)
 }
 
 func resolveAbsoluteReference(ref *url.URL, authority uriAuthoritySyntax) (string, error) {
@@ -696,26 +669,6 @@ func resolveLocalReferencePath(base, refPath string) string {
 		resolved = filepath.Join(filepath.Dir(base), resolved)
 	}
 	return canonicalLocalReference(resolved, localPathFormOf(refPath))
-}
-
-func resolveURIReference(base string, ref *url.URL, authority uriAuthoritySyntax) (string, error) {
-	baseURL, err := url.Parse(base)
-	if err != nil {
-		return "", err
-	}
-	if authority.kind != uriAuthorityAbsent {
-		return resolveAuthorityReference(baseURL.Scheme, ref, authority)
-	}
-	if baseURL.Opaque != "" || ref.Opaque != "" {
-		return "", errReferenceUnavailable
-	}
-	resolved := baseURL.ResolveReference(ref)
-	baseAuthority := parseURIAuthoritySyntax(base, baseURL.Scheme)
-	canonical, ok := canonicalURL(resolved, uriReferenceSyntax{authority: baseAuthority, fragment: uriFragmentAbsent})
-	if !ok {
-		return "", errors.New("schema reference has an invalid URI path")
-	}
-	return canonical, nil
 }
 
 type uriAuthorityKind uint8
@@ -885,34 +838,6 @@ func parseURIAuthoritySyntax(raw, scheme string) uriAuthoritySyntax {
 		return uriAuthoritySyntax{kind: uriAuthorityEmpty, escapedPath: hierarchy}
 	}
 	return uriAuthoritySyntax{kind: uriAuthorityNonEmpty}
-}
-
-func resolveAuthorityReference(scheme string, ref *url.URL, authority uriAuthoritySyntax) (string, error) {
-	switch authority.kind {
-	case uriAuthorityEmpty:
-		decodedPath, err := url.PathUnescape(authority.escapedPath)
-		if err != nil || strings.IndexByte(decodedPath, 0) >= 0 {
-			return "", errors.New("schema reference has an invalid escaped path")
-		}
-		ref.Path = decodedPath
-		ref.RawPath = authority.escapedPath
-		plain := &url.URL{Path: decodedPath}
-		if plain.EscapedPath() == authority.escapedPath {
-			ref.RawPath = ""
-		}
-	case uriAuthorityNonEmpty:
-	case uriAuthorityInvalid, uriAuthorityAbsent:
-		return "", errors.New("schema reference has invalid authority syntax")
-	default:
-		err := errors.New("schema reference has invalid authority syntax")
-		return "", err
-	}
-	ref.Scheme = scheme
-	canonical, ok := canonicalURL(ref, uriReferenceSyntax{authority: authority, fragment: uriFragmentAbsent})
-	if !ok {
-		return "", errors.New("schema reference has an invalid URI path")
-	}
-	return canonical, nil
 }
 
 // removeURLDotSegments applies RFC 3986 path resolution without collapsing

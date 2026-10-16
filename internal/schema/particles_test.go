@@ -1,12 +1,15 @@
 package schema
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 func TestContentModelAnalysisBoundsAndMemoizesFacts(t *testing.T) {
 	t.Parallel()
 
 	one := Occurrence{Min: 1, Max: 1}
-	rt := testParticleRuntime{
+	rt := particleFixture{
 		models: []ContentModel{
 			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ModelParticle(1, one)}},
 			{Kind: ModelEmpty},
@@ -18,7 +21,7 @@ func TestContentModelAnalysisBoundsAndMemoizesFacts(t *testing.T) {
 		spent += steps
 		return nil
 	}
-	analysis, err := NewContentModelAnalysis(rt, work)
+	analysis, err := NewContentModelAnalysis(rt.build(), work)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,12 +46,12 @@ func TestContentModelAnalysisBoundsAndMemoizesFacts(t *testing.T) {
 		t.Fatalf("memoized count range spent %d additional steps", spent-afterRange)
 	}
 
-	cyclic := testParticleRuntime{models: []ContentModel{{
+	cyclic := particleFixture{models: []ContentModel{{
 		Kind:      ModelSequence,
 		Occurs:    one,
 		Particles: []Particle{ModelParticle(0, one)},
 	}}}
-	cycleAnalysis := unlimitedContentModelAnalysis(cyclic)
+	cycleAnalysis := unlimitedContentModelAnalysis(cyclic.build())
 	if _, err := cycleAnalysis.ModelEmptiable(0); err == nil {
 		t.Fatal("ModelEmptiable() accepted a model cycle")
 	}
@@ -61,7 +64,7 @@ func TestContentModelAnalysisBoundsAndMemoizesFacts(t *testing.T) {
 	if _, err := NewContentModelAnalysis(nil, work); err == nil {
 		t.Fatal("NewContentModelAnalysis() accepted nil runtime")
 	}
-	if _, err := NewContentModelAnalysis(rt, nil); err == nil {
+	if _, err := NewContentModelAnalysis(rt.build(), nil); err == nil {
 		t.Fatal("NewContentModelAnalysis() accepted nil work budget")
 	}
 }
@@ -71,7 +74,7 @@ func TestParticleModelEmptiability(t *testing.T) {
 
 	one := Occurrence{Min: 1, Max: 1}
 	optional := Occurrence{Min: 0, Max: 1}
-	rt := testParticleRuntime{
+	rt := particleFixture{
 		models: []ContentModel{
 			{Kind: ModelEmpty},
 			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(0, one)}},
@@ -100,7 +103,7 @@ func TestParticleModelEmptiability(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := unlimitedContentModelAnalysis(rt).ModelEmptiable(tt.model)
+			got, err := unlimitedContentModelAnalysis(rt.build()).ModelEmptiable(tt.model)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("ModelEmptiable() succeeded, want error")
@@ -121,7 +124,7 @@ func TestParticleModelHasNoParticles(t *testing.T) {
 	t.Parallel()
 
 	one := Occurrence{Min: 1, Max: 1}
-	rt := testParticleRuntime{
+	rt := particleFixture{
 		models: []ContentModel{
 			{Kind: ModelEmpty},
 			{Kind: ModelSequence, Occurs: one},
@@ -145,7 +148,7 @@ func TestParticleModelHasNoParticles(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := ModelHasNoParticles(rt, tt.model); got != tt.want {
+			if got := ModelHasNoParticles(rt.build(), tt.model); got != tt.want {
 				t.Fatalf("ModelHasNoParticles() = %v, want %v", got, tt.want)
 			}
 		})
@@ -158,7 +161,7 @@ func TestParticleCountRange(t *testing.T) {
 	one := Occurrence{Min: 1, Max: 1}
 	optional := Occurrence{Min: 0, Max: 1}
 	repeat := Occurrence{Min: 2, Max: 3}
-	rt := testParticleRuntime{
+	rt := particleFixture{
 		models: []ContentModel{
 			{
 				Kind:   ModelSequence,
@@ -188,7 +191,7 @@ func TestParticleCountRange(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := unlimitedContentModelAnalysis(rt).ModelCountRange(tt.model)
+			got, err := unlimitedContentModelAnalysis(rt.build()).ModelCountRange(tt.model)
 			if err != nil {
 				t.Fatalf("ModelCountRange() error = %v", err)
 			}
@@ -197,7 +200,7 @@ func TestParticleCountRange(t *testing.T) {
 			}
 		})
 	}
-	got, err := unlimitedContentModelAnalysis(rt).ParticleCountRange(ModelParticle(0, Occurrence{Min: 2, Max: 2}))
+	got, err := unlimitedContentModelAnalysis(rt.build()).ParticleCountRange(ModelParticle(0, Occurrence{Min: 2, Max: 2}))
 	if err != nil {
 		t.Fatalf("ParticleCountRange() error = %v", err)
 	}
@@ -228,7 +231,7 @@ func TestParticlesOverlap(t *testing.T) {
 	nameA := QName{Namespace: EmptyNamespaceID, Local: 1}
 	nameB := QName{Namespace: EmptyNamespaceID, Local: 2}
 	nameC := QName{Namespace: EmptyNamespaceID, Local: 3}
-	rt := testParticleRuntime{
+	rt := particleFixture{
 		models: []ContentModel{
 			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(1, optional), ElementParticle(2, one)}},
 			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(1, one), ElementParticle(2, one)}},
@@ -309,7 +312,7 @@ func TestParticlesOverlap(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			gotName, got, err := unlimitedContentModelAnalysis(rt).Overlap(tt.a, tt.b)
+			gotName, got, err := unlimitedContentModelAnalysis(rt.build()).Overlap(tt.a, tt.b)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("Overlap() succeeded, want error")
@@ -326,7 +329,7 @@ func TestParticlesOverlap(t *testing.T) {
 	}
 }
 
-type testParticleRuntime struct {
+type particleFixture struct {
 	substitutionLookup map[ElementID]map[QName]ElementID
 	substitutions      map[ElementID][]ElementID
 	models             []ContentModel
@@ -334,40 +337,26 @@ type testParticleRuntime struct {
 	wildcards          []Wildcard
 }
 
-func (rt testParticleRuntime) ContentModel(id ContentModelID) (ContentModel, bool) {
-	if !ValidUint32Index(uint32(id), len(rt.models)) {
-		return ContentModel{}, false
+func fixtureElements(names []QName, restrictions []ParticleRestrictionElement) []ElementDecl {
+	out := make([]ElementDecl, max(len(names), len(restrictions)))
+	for i, name := range names {
+		out[i].Name = name
 	}
-	return rt.models[id], true
-}
-
-func (rt testParticleRuntime) ElementName(id ElementID) (QName, bool) {
-	if !ValidUint32Index(uint32(id), len(rt.elements)) {
-		return QName{}, false
-	}
-	return rt.elements[id], true
-}
-
-func (rt testParticleRuntime) Wildcard(id WildcardID) (Wildcard, bool) {
-	if !ValidUint32Index(uint32(id), len(rt.wildcards)) {
-		return Wildcard{}, false
-	}
-	return rt.wildcards[id], true
-}
-
-func (rt testParticleRuntime) ForEachSubstitutionMember(id ElementID, fn func(ElementID) bool) {
-	for _, member := range rt.substitutions[id] {
-		if !fn(member) {
-			return
+	for i, r := range restrictions {
+		out[i].Type = r.Type
+		out[i].Scope = r.Scope
+		out[i].Nillable = r.Nillable
+		out[i].Block = r.Block
+		out[i].Identity = slices.Clone(r.Identities.values)
+		if r.Fixed.Present {
+			out[i].Fixed = &ValueConstraint{Lexical: r.Fixed.Lexical, Canonical: r.Fixed.Canonical, Value: r.Fixed.Value, ResolvedNames: slices.Clone(r.Fixed.ResolvedNames), qnameContext: r.Fixed.qnameContext}
 		}
 	}
+	return out
 }
 
-func (rt testParticleRuntime) SubstitutionMemberByName(id ElementID, name QName) (ElementID, bool) {
-	members := rt.substitutionLookup[id]
-	if members == nil {
-		return NoElement, false
-	}
-	member, ok := members[name]
-	return member, ok
+func (f particleFixture) build() *schemaBuild {
+	b := &schemaBuild{Models: cloneContentModels(f.models), Elements: fixtureElements(f.elements, nil), Wildcards: slices.Clone(f.wildcards)}
+	b.Substitutions = fixtureSubstitutions(b.Elements, f.substitutions, f.substitutionLookup)
+	return b
 }

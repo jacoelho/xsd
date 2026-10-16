@@ -3,6 +3,8 @@ package schema
 import (
 	"strings"
 	"testing"
+
+	valuepkg "github.com/jacoelho/xsd/internal/value"
 )
 
 func TestElementDeclByID(t *testing.T) {
@@ -47,18 +49,18 @@ func TestValidateElementDeclRuntime(t *testing.T) {
 	tests := []struct {
 		name    string
 		wantErr string
-		decl    ElementDeclValidation
+		decl    ElementDecl
 	}{
 		{
 			name: "valid",
-			decl: ElementDeclValidation{
+			decl: ElementDecl{
 				Name: validName,
 				Type: SimpleRef(0),
 			},
 		},
 		{
 			name: "invalid name",
-			decl: ElementDeclValidation{
+			decl: ElementDecl{
 				Name: QName{Namespace: 9, Local: 9},
 				Type: SimpleRef(0),
 			},
@@ -66,7 +68,7 @@ func TestValidateElementDeclRuntime(t *testing.T) {
 		},
 		{
 			name: "invalid type",
-			decl: ElementDeclValidation{
+			decl: ElementDecl{
 				Name: validName,
 				Type: ComplexRef(1),
 			},
@@ -74,7 +76,7 @@ func TestValidateElementDeclRuntime(t *testing.T) {
 		},
 		{
 			name: "invalid block",
-			decl: ElementDeclValidation{
+			decl: ElementDecl{
 				Name:  validName,
 				Type:  SimpleRef(0),
 				Block: DerivationList,
@@ -83,7 +85,7 @@ func TestValidateElementDeclRuntime(t *testing.T) {
 		},
 		{
 			name: "invalid final",
-			decl: ElementDeclValidation{
+			decl: ElementDecl{
 				Name:  validName,
 				Type:  SimpleRef(0),
 				Final: DerivationUnion,
@@ -92,7 +94,7 @@ func TestValidateElementDeclRuntime(t *testing.T) {
 		},
 		{
 			name: "invalid substitution head",
-			decl: ElementDeclValidation{
+			decl: ElementDecl{
 				Name:      validName,
 				Type:      SimpleRef(0),
 				SubstHead: 1,
@@ -101,11 +103,11 @@ func TestValidateElementDeclRuntime(t *testing.T) {
 		},
 		{
 			name: "default and fixed",
-			decl: ElementDeclValidation{
-				Name:       validName,
-				Type:       SimpleRef(0),
-				HasDefault: true,
-				HasFixed:   true,
+			decl: ElementDecl{
+				Name:    validName,
+				Type:    SimpleRef(0),
+				Default: &ValueConstraint{},
+				Fixed:   &ValueConstraint{},
 			},
 			wantErr: "element declaration stores both default and fixed value constraints",
 		},
@@ -148,39 +150,39 @@ func TestValidateAttributeDeclRuntime(t *testing.T) {
 	tests := []struct {
 		name    string
 		wantErr string
-		decl    AttributeDeclValidation
+		decl    AttributeDecl
 	}{
 		{
 			name: "valid",
-			decl: AttributeDeclValidation{Name: validName, Type: 0},
+			decl: AttributeDecl{Name: validName, Type: 0},
 		},
 		{
 			name:    "invalid name",
-			decl:    AttributeDeclValidation{Name: QName{Namespace: 9, Local: 9}, Type: 0},
+			decl:    AttributeDecl{Name: QName{Namespace: 9, Local: 9}, Type: 0},
 			wantErr: "attribute declaration references invalid name or type",
 		},
 		{
 			name:    "invalid type",
-			decl:    AttributeDeclValidation{Name: validName, Type: 1},
+			decl:    AttributeDecl{Name: validName, Type: 1},
 			wantErr: "attribute declaration references invalid name or type",
 		},
 		{
 			name:    "xmlns name",
-			decl:    AttributeDeclValidation{Name: xmlnsName, Type: 0},
+			decl:    AttributeDecl{Name: xmlnsName, Type: 0},
 			wantErr: "attribute cannot be named xmlns",
 		},
 		{
 			name:    "xsi namespace",
-			decl:    AttributeDeclValidation{Name: xsiName, Type: 0},
+			decl:    AttributeDecl{Name: xsiName, Type: 0},
 			wantErr: "attribute target namespace cannot be XMLSchema-instance",
 		},
 		{
 			name: "default and fixed",
-			decl: AttributeDeclValidation{
-				Name:       validName,
-				Type:       0,
-				HasDefault: true,
-				HasFixed:   true,
+			decl: AttributeDecl{
+				Name:    validName,
+				Type:    0,
+				Default: &ValueConstraint{},
+				Fixed:   &ValueConstraint{},
 			},
 			wantErr: "attribute declaration stores both default and fixed value constraints",
 		},
@@ -205,54 +207,38 @@ func TestValidateAttributeDeclRuntime(t *testing.T) {
 
 func TestValidateElementDeclValueConstraintRuntime(t *testing.T) {
 	t.Parallel()
-
-	rt := declarationValueConstraintRuntimeStub{
-		identity: map[SimpleTypeID]SimpleIdentityKind{
-			0: SimpleIdentityNone,
-			1: SimpleIdentityID,
-			2: SimpleIdentityNone,
-			3: SimpleIdentityNone,
-			4: SimpleIdentityNone,
-			5: SimpleIdentityNone,
-		},
-		types: map[SimpleTypeID]ValueConstraintSimpleType{
-			0: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveString},
-			1: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveString},
-			2: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveNotation},
-			3: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveNotation, HasEnumeration: true},
-			4: {Variety: SimpleVarietyList, ListItem: 2, Primitive: PrimitiveString},
-			5: {Variety: SimpleVarietyUnion, Union: []SimpleTypeID{0, 2}, Primitive: PrimitiveString},
-		},
+	fixture := notationConstraintFixture(t)
+	rt := fixture.build
+	stringID := valuepkg.BuiltinType(valuepkg.PrimitiveString)
+	id, found := valuepkg.BuiltinTypeID("ID")
+	if !found {
+		t.Fatal("missing builtin ID")
 	}
 	tests := []struct {
 		name       string
-		wantErr    string
 		typ        SimpleTypeID
 		constraint DeclarationValueConstraint
 		nilRuntime bool
+		wantErr    string
 	}{
-		{name: "absent constraint", typ: 1},
+		{name: "absent constraint", typ: id},
 		{name: "mixed constraint", typ: NoSimpleType, constraint: DeclarationValueConstraintDefault},
-		{name: "non-ID default", typ: 0, constraint: DeclarationValueConstraintDefault},
-		{name: "ID default", typ: 1, constraint: DeclarationValueConstraintDefault, wantErr: "ID-typed element declaration stores value constraint"},
-		{name: "ID fixed", typ: 1, constraint: DeclarationValueConstraintFixed, wantErr: "ID-typed element declaration stores value constraint"},
-		{name: "bare notation default", typ: 2, constraint: DeclarationValueConstraintDefault, wantErr: "NOTATION value constraint requires enumeration"},
-		{name: "enumerated notation default", typ: 3, constraint: DeclarationValueConstraintDefault},
-		{name: "bare notation list item", typ: 4, constraint: DeclarationValueConstraintDefault, wantErr: "NOTATION value constraint requires enumeration"},
-		{name: "bare notation union member", typ: 5, constraint: DeclarationValueConstraintDefault, wantErr: "NOTATION value constraint requires enumeration"},
-		{name: "invalid value type", typ: 9, constraint: DeclarationValueConstraintDefault, wantErr: "declaration value constraint references invalid type"},
-		{name: "missing runtime", typ: 0, constraint: DeclarationValueConstraintDefault, nilRuntime: true, wantErr: "declaration value constraint references invalid type"},
-		{name: "conflicting constraint", typ: 0, constraint: DeclarationValueConstraintConflict, wantErr: "declaration stores conflicting value constraints"},
-		{name: "unknown constraint", typ: 0, constraint: DeclarationValueConstraint(99), wantErr: "declaration value constraint kind is unknown"},
+		{name: "non-ID default", typ: stringID, constraint: DeclarationValueConstraintDefault},
+		{name: "ID default", typ: id, constraint: DeclarationValueConstraintDefault, wantErr: "ID-typed element declaration stores value constraint"},
+		{name: "ID fixed", typ: id, constraint: DeclarationValueConstraintFixed, wantErr: "ID-typed element declaration stores value constraint"},
+		{name: "bare notation default", typ: fixture.bare, constraint: DeclarationValueConstraintDefault, wantErr: "NOTATION value constraint requires enumeration"},
+		{name: "enumerated notation default", typ: fixture.enumerated, constraint: DeclarationValueConstraintDefault},
+		{name: "bare notation list item", typ: fixture.list, constraint: DeclarationValueConstraintDefault, wantErr: "NOTATION value constraint requires enumeration"},
+		{name: "bare notation union member", typ: fixture.union, constraint: DeclarationValueConstraintDefault, wantErr: "NOTATION value constraint requires enumeration"},
+		{name: "invalid value type", typ: 999, constraint: DeclarationValueConstraintDefault, wantErr: "declaration value constraint references invalid type"},
+		{name: "missing runtime", typ: stringID, constraint: DeclarationValueConstraintDefault, nilRuntime: true, wantErr: "declaration value constraint references invalid type"},
+		{name: "conflicting constraint", typ: stringID, constraint: DeclarationValueConstraintConflict, wantErr: "declaration stores conflicting value constraints"},
+		{name: "unknown constraint", typ: stringID, constraint: DeclarationValueConstraint(99), wantErr: "declaration value constraint kind is unknown"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-
-			var runtime interface {
-				SimpleTypeIdentityRuntime
-				ValueConstraintRuntime
-			} = rt
+			runtime := rt
 			if tt.nilRuntime {
 				runtime = nil
 			}
@@ -270,49 +256,35 @@ func TestValidateElementDeclValueConstraintRuntime(t *testing.T) {
 	}
 }
 
-type declarationValueConstraintRuntimeStub struct {
-	identity map[SimpleTypeID]SimpleIdentityKind
-	types    map[SimpleTypeID]ValueConstraintSimpleType
-}
-
-func (s declarationValueConstraintRuntimeStub) SimpleTypeIdentity(id SimpleTypeID) (SimpleIdentityKind, bool) {
-	identity, ok := s.identity[id]
-	return identity, ok
-}
-
-func (s declarationValueConstraintRuntimeStub) ValueConstraintSimpleType(id SimpleTypeID) (ValueConstraintSimpleType, bool) {
-	typ, ok := s.types[id]
-	return typ, ok
-}
-
 func TestValidateAttributeDeclValueConstraintRuntime(t *testing.T) {
 	t.Parallel()
-
-	rt := declarationValueConstraintRuntimeStub{identity: map[SimpleTypeID]SimpleIdentityKind{
-		0: SimpleIdentityNone,
-		1: SimpleIdentityID,
-	}}
+	b := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+	rt := &schemaBuild{valueBuilder: b, SimpleTypes: make([]SimpleType, valuepkg.BuiltinTypeCount)}
+	stringID := valuepkg.BuiltinType(valuepkg.PrimitiveString)
+	id, found := valuepkg.BuiltinTypeID("ID")
+	if !found {
+		t.Fatal("missing builtin ID")
+	}
 	tests := []struct {
 		name       string
-		wantErr    string
 		typ        SimpleTypeID
 		constraint DeclarationValueConstraint
 		nilRuntime bool
+		wantErr    string
 	}{
-		{name: "absent constraint", typ: 1},
-		{name: "non-ID default", typ: 0, constraint: DeclarationValueConstraintDefault},
-		{name: "ID default", typ: 1, constraint: DeclarationValueConstraintDefault, wantErr: "ID-typed attribute declaration stores value constraint"},
-		{name: "ID fixed", typ: 1, constraint: DeclarationValueConstraintFixed, wantErr: "ID-typed attribute declaration stores value constraint"},
-		{name: "invalid value type", typ: 9, constraint: DeclarationValueConstraintDefault, wantErr: "declaration value constraint references invalid type"},
-		{name: "missing runtime", typ: 0, constraint: DeclarationValueConstraintDefault, nilRuntime: true, wantErr: "declaration value constraint references invalid type"},
-		{name: "conflicting constraint", typ: 0, constraint: DeclarationValueConstraintConflict, wantErr: "declaration stores conflicting value constraints"},
-		{name: "unknown constraint", typ: 0, constraint: DeclarationValueConstraint(99), wantErr: "declaration value constraint kind is unknown"},
+		{name: "absent constraint", typ: id},
+		{name: "non-ID default", typ: stringID, constraint: DeclarationValueConstraintDefault},
+		{name: "ID default", typ: id, constraint: DeclarationValueConstraintDefault, wantErr: "ID-typed attribute declaration stores value constraint"},
+		{name: "ID fixed", typ: id, constraint: DeclarationValueConstraintFixed, wantErr: "ID-typed attribute declaration stores value constraint"},
+		{name: "invalid value type", typ: 999, constraint: DeclarationValueConstraintDefault, wantErr: "declaration value constraint references invalid type"},
+		{name: "missing runtime", typ: stringID, constraint: DeclarationValueConstraintDefault, nilRuntime: true, wantErr: "declaration value constraint references invalid type"},
+		{name: "conflicting constraint", typ: stringID, constraint: DeclarationValueConstraintConflict, wantErr: "declaration stores conflicting value constraints"},
+		{name: "unknown constraint", typ: stringID, constraint: DeclarationValueConstraint(99), wantErr: "declaration value constraint kind is unknown"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-
-			var runtime SimpleTypeIdentityRuntime = rt
+			runtime := rt
 			if tt.nilRuntime {
 				runtime = nil
 			}

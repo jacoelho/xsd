@@ -29,7 +29,7 @@ func TestNodeAdmissionConstructorBoundaries(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Compile(%q, MaxNodes=%d) error = %v, want nil", test.source, maxNodes, err)
 				}
-				matched, err := pattern.MatchString(test.input)
+				matched, err := pattern.MatchStringWithScratch(test.input, MatchOptions{}, nil)
 				if err != nil || !matched {
 					t.Fatalf("MatchString(%q) = %v, %v; want true, nil", test.input, matched, err)
 				}

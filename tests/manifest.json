@@ -9,14 +9,1586 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 14551,
-    "schemaCases": 14501,
-    "instanceRuns": 25209,
+    "cases": 14584,
+    "schemaCases": 14534,
+    "instanceRuns": 25284,
     "w3cCases": 14414,
-    "internalRuns": 124,
+    "internalRuns": 157,
     "xercesJCases": 13
   },
   "cases": [
+    {
+      "id": "project/string-enumeration-unicode-exact",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/string-enumeration-unicode-exact"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/string-enumeration-unicode-exact/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "equal",
+          "file": "corpus/project/string-enumeration-unicode-exact/equal.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "different",
+          "file": "corpus/project/string-enumeration-unicode-exact/different.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "decomposed",
+          "file": "corpus/project/string-enumeration-unicode-exact/decomposed.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/string-enumeration-unicode-exact/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/string-enumeration-unicode-exact/equal.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/string-enumeration-unicode-exact/different.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/string-enumeration-unicode-exact/decomposed.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/integer-magnitude-positive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/integer-magnitude-positive"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/integer-magnitude-positive/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "inside",
+          "file": "corpus/project/integer-magnitude-positive/inside.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "outside-0",
+          "file": "corpus/project/integer-magnitude-positive/outside-0.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "outside-1",
+          "file": "corpus/project/integer-magnitude-positive/outside-1.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/integer-magnitude-positive/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/integer-magnitude-positive/inside.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/integer-magnitude-positive/outside-0.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/integer-magnitude-positive/outside-1.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/integer-magnitude-negative",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/integer-magnitude-negative"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/integer-magnitude-negative/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "inside",
+          "file": "corpus/project/integer-magnitude-negative/inside.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "outside-0",
+          "file": "corpus/project/integer-magnitude-negative/outside-0.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "outside-1",
+          "file": "corpus/project/integer-magnitude-negative/outside-1.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "outside-2",
+          "file": "corpus/project/integer-magnitude-negative/outside-2.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "outside-3",
+          "file": "corpus/project/integer-magnitude-negative/outside-3.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/integer-magnitude-negative/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/integer-magnitude-negative/inside.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/integer-magnitude-negative/outside-0.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/integer-magnitude-negative/outside-1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/integer-magnitude-negative/outside-2.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/integer-magnitude-negative/outside-3.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/inherited-notation-default",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/inherited-notation-default"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/inherited-notation-default/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "default",
+          "file": "corpus/project/inherited-notation-default/default.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/inherited-notation-default/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/inherited-notation-default/default.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/temporal-year-boundaries",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/temporal-year-boundaries"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/temporal-year-boundaries/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "bce-leap",
+          "file": "corpus/project/temporal-year-boundaries/bce-leap.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "bce-four-century",
+          "file": "corpus/project/temporal-year-boundaries/bce-four-century.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "bce-common-century",
+          "file": "corpus/project/temporal-year-boundaries/bce-common-century.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "bce-common-year",
+          "file": "corpus/project/temporal-year-boundaries/bce-common-year.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "wide-date",
+          "file": "corpus/project/temporal-year-boundaries/wide-date.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "wide-year",
+          "file": "corpus/project/temporal-year-boundaries/wide-year.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "wide-month",
+          "file": "corpus/project/temporal-year-boundaries/wide-month.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/temporal-year-boundaries/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/temporal-year-boundaries/bce-leap.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/temporal-year-boundaries/bce-four-century.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/temporal-year-boundaries/bce-common-century.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/temporal-year-boundaries/bce-common-year.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/temporal-year-boundaries/wide-date.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/temporal-year-boundaries/wide-year.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/temporal-year-boundaries/wide-month.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/time-midnight-fraction",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/time-midnight-fraction"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/time-midnight-fraction/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "zero-fraction",
+          "file": "corpus/project/time-midnight-fraction/zero-fraction.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "nonzero-fraction",
+          "file": "corpus/project/time-midnight-fraction/nonzero-fraction.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/time-midnight-fraction/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/time-midnight-fraction/zero-fraction.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/time-midnight-fraction/nonzero-fraction.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/integer-non-xml-whitespace",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/integer-non-xml-whitespace"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/integer-non-xml-whitespace/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "nbsp",
+          "file": "corpus/project/integer-non-xml-whitespace/nbsp.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "xml-whitespace",
+          "file": "corpus/project/integer-non-xml-whitespace/xml-whitespace.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/integer-non-xml-whitespace/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/integer-non-xml-whitespace/nbsp.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/integer-non-xml-whitespace/xml-whitespace.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/duration-negative-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/duration-negative-prefix"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/duration-negative-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "sign",
+          "file": "corpus/project/duration-negative-prefix/sign.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "period",
+          "file": "corpus/project/duration-negative-prefix/period.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "time",
+          "file": "corpus/project/duration-negative-prefix/time.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/duration-negative-prefix/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/duration-negative-prefix/sign.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/duration-negative-prefix/period.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/duration-negative-prefix/time.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/double-bounds-nan-lower",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/double-bounds-nan-lower"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/double-bounds-nan-lower/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/double-bounds-nan-lower/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/double-bounds-nan-upper",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/double-bounds-nan-upper"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/double-bounds-nan-upper/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/double-bounds-nan-upper/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/double-bounds-nan-equal",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/double-bounds-nan-equal"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/double-bounds-nan-equal/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/double-bounds-nan-equal/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/early-year-whitespace-mininclusive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/early-year-whitespace-mininclusive"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/early-year-whitespace-mininclusive/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "accepted-0",
+          "file": "corpus/project/early-year-whitespace-mininclusive/accepted-0.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "accepted-1",
+          "file": "corpus/project/early-year-whitespace-mininclusive/accepted-1.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "outside-facet",
+          "file": "corpus/project/early-year-whitespace-mininclusive/outside-facet.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/early-year-whitespace-mininclusive/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/early-year-whitespace-mininclusive/accepted-0.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/early-year-whitespace-mininclusive/accepted-1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/early-year-whitespace-mininclusive/outside-facet.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/early-year-whitespace-enumeration",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/early-year-whitespace-enumeration"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/early-year-whitespace-enumeration/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "accepted-0",
+          "file": "corpus/project/early-year-whitespace-enumeration/accepted-0.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "outside-facet",
+          "file": "corpus/project/early-year-whitespace-enumeration/outside-facet.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/early-year-whitespace-enumeration/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/early-year-whitespace-enumeration/accepted-0.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/early-year-whitespace-enumeration/outside-facet.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/scalar-union-list",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/scalar-union-list"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/scalar-union-list/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "mixed",
+          "file": "corpus/project/scalar-union-list/mixed.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/scalar-union-list/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/scalar-union-list/mixed.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/unavailable-scalar-union-list",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/unavailable-scalar-union-list"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/unavailable-scalar-union-list/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "independent",
+          "file": "corpus/project/unavailable-scalar-union-list/independent.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "unavailable",
+          "file": "corpus/project/unavailable-scalar-union-list/unavailable.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/unavailable-scalar-union-list/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/unavailable-scalar-union-list/independent.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/unavailable-scalar-union-list/unavailable.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-id-document-local",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/schema-id-document-local"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-id-document-local/first.xsd",
+            "role": "principal"
+          },
+          {
+            "file": "corpus/project/schema-id-document-local/second.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "first",
+          "file": "corpus/project/schema-id-document-local/first.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "second",
+          "file": "corpus/project/schema-id-document-local/second.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "bad-first",
+          "file": "corpus/project/schema-id-document-local/bad-first.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "bad-second",
+          "file": "corpus/project/schema-id-document-local/bad-second.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/schema-id-document-local/first.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/schema-id-document-local/second.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/schema-id-document-local/first.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/schema-id-document-local/second.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/schema-id-document-local/bad-first.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/schema-id-document-local/bad-second.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/final-default-inherited",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/final-default-inherited"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/final-default-inherited/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.reference"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/final-default-inherited/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/final-default-cleared",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/final-default-cleared"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/final-default-cleared/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/final-default-cleared/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/empty-attribute-reference-default",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/empty-attribute-reference-default"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/empty-attribute-reference-default/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "empty",
+          "file": "corpus/project/empty-attribute-reference-default/empty.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "explicit",
+          "file": "corpus/project/empty-attribute-reference-default/explicit.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "mismatch",
+          "file": "corpus/project/empty-attribute-reference-default/mismatch.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/empty-attribute-reference-default/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/empty-attribute-reference-default/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/empty-attribute-reference-default/explicit.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/empty-attribute-reference-default/mismatch.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/empty-attribute-reference-fixed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/empty-attribute-reference-fixed"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/empty-attribute-reference-fixed/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "empty",
+          "file": "corpus/project/empty-attribute-reference-fixed/empty.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "explicit",
+          "file": "corpus/project/empty-attribute-reference-fixed/explicit.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "mismatch",
+          "file": "corpus/project/empty-attribute-reference-fixed/mismatch.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/empty-attribute-reference-fixed/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/empty-attribute-reference-fixed/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/empty-attribute-reference-fixed/explicit.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/empty-attribute-reference-fixed/mismatch.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/empty-element-fixed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/empty-element-fixed"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/empty-element-fixed/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "self-closing",
+          "file": "corpus/project/empty-element-fixed/self-closing.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "empty-text",
+          "file": "corpus/project/empty-element-fixed/empty-text.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "nonempty",
+          "file": "corpus/project/empty-element-fixed/nonempty.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/empty-element-fixed/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/empty-element-fixed/self-closing.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/empty-element-fixed/empty-text.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/empty-element-fixed/nonempty.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/empty-enumeration-simple",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/empty-enumeration-simple"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/empty-enumeration-simple/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "self-closing",
+          "file": "corpus/project/empty-enumeration-simple/self-closing.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "empty-text",
+          "file": "corpus/project/empty-enumeration-simple/empty-text.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "nonempty",
+          "file": "corpus/project/empty-enumeration-simple/nonempty.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/empty-enumeration-simple/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/empty-enumeration-simple/self-closing.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/empty-enumeration-simple/empty-text.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/empty-enumeration-simple/nonempty.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/empty-enumeration-simple-content",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/empty-enumeration-simple-content"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/empty-enumeration-simple-content/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "self-closing",
+          "file": "corpus/project/empty-enumeration-simple-content/self-closing.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "empty-text",
+          "file": "corpus/project/empty-enumeration-simple-content/empty-text.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "nonempty",
+          "file": "corpus/project/empty-enumeration-simple-content/nonempty.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/empty-enumeration-simple-content/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/empty-enumeration-simple-content/self-closing.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/empty-enumeration-simple-content/empty-text.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/empty-enumeration-simple-content/nonempty.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/numeric-false-facet-fixed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/numeric-false-facet-fixed"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/numeric-false-facet-fixed/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "narrowed",
+          "file": "corpus/project/numeric-false-facet-fixed/narrowed.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "too-short",
+          "file": "corpus/project/numeric-false-facet-fixed/too-short.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/numeric-false-facet-fixed/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/numeric-false-facet-fixed/narrowed.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/numeric-false-facet-fixed/too-short.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/simple-content-forward-base",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/simple-content-forward-base"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/simple-content-forward-base/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "text",
+          "file": "corpus/project/simple-content-forward-base/text.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/simple-content-forward-base/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/simple-content-forward-base/text.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/simple-content-final-base-without-facets",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/simple-content-final-base-without-facets"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/simple-content-final-base-without-facets/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "text",
+          "file": "corpus/project/simple-content-final-base-without-facets/text.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/simple-content-final-base-without-facets/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/simple-content-final-base-without-facets/text.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/attribute-group-wildcard-expressible",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/attribute-group-wildcard-expressible"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attribute-group-wildcard-expressible/root.xsd",
+            "role": "principal"
+          },
+          {
+            "file": "corpus/project/attribute-group-wildcard-expressible/a.xsd",
+            "role": "principal"
+          },
+          {
+            "file": "corpus/project/attribute-group-wildcard-expressible/b.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "root",
+          "file": "corpus/project/attribute-group-wildcard-expressible/root.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/attribute-group-wildcard-expressible/root.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attribute-group-wildcard-expressible/a.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attribute-group-wildcard-expressible/b.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attribute-group-wildcard-expressible/root.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/local-attribute-wildcard-expressible",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/local-attribute-wildcard-expressible"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/local-attribute-wildcard-expressible/root.xsd",
+            "role": "principal"
+          },
+          {
+            "file": "corpus/project/local-attribute-wildcard-expressible/a.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "foreign-attribute",
+          "file": "corpus/project/local-attribute-wildcard-expressible/foreign-attribute.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/local-attribute-wildcard-expressible/root.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/local-attribute-wildcard-expressible/a.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/local-attribute-wildcard-expressible/foreign-attribute.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/unused-attribute-group-default",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/unused-attribute-group-default"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/unused-attribute-group-default/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "root",
+          "file": "corpus/project/unused-attribute-group-default/root.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/unused-attribute-group-default/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/unused-attribute-group-default/root.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/recursive-extension-default",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/recursive-extension-default"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/recursive-extension-default/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "nested",
+          "file": "corpus/project/recursive-extension-default/nested.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/recursive-extension-default/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/recursive-extension-default/nested.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/chameleon-defaults-and-identity",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/chameleon-defaults-and-identity"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/chameleon-defaults-and-identity/a.xsd",
+            "role": "principal"
+          },
+          {
+            "file": "corpus/project/chameleon-defaults-and-identity/b.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "a-qualified",
+          "file": "corpus/project/chameleon-defaults-and-identity/a-qualified.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "a-missing-key",
+          "file": "corpus/project/chameleon-defaults-and-identity/a-missing-key.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        },
+        {
+          "testName": "a-unqualified-child",
+          "file": "corpus/project/chameleon-defaults-and-identity/a-unqualified-child.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element"
+        },
+        {
+          "testName": "a-qualified-attribute",
+          "file": "corpus/project/chameleon-defaults-and-identity/a-qualified-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "b-qualified",
+          "file": "corpus/project/chameleon-defaults-and-identity/b-qualified.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "b-missing-key",
+          "file": "corpus/project/chameleon-defaults-and-identity/b-missing-key.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        },
+        {
+          "testName": "b-unqualified-child",
+          "file": "corpus/project/chameleon-defaults-and-identity/b-unqualified-child.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element"
+        },
+        {
+          "testName": "b-qualified-attribute",
+          "file": "corpus/project/chameleon-defaults-and-identity/b-qualified-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/chameleon-defaults-and-identity/a.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/chameleon-defaults-and-identity/b.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/chameleon-defaults-and-identity/common.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/chameleon-defaults-and-identity/a-qualified.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/chameleon-defaults-and-identity/a-missing-key.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/chameleon-defaults-and-identity/a-unqualified-child.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/chameleon-defaults-and-identity/a-qualified-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/chameleon-defaults-and-identity/b-qualified.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/chameleon-defaults-and-identity/b-missing-key.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/chameleon-defaults-and-identity/b-unqualified-child.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/chameleon-defaults-and-identity/b-qualified-attribute.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/negative-zero-occurrence",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/negative-zero-occurrence"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/negative-zero-occurrence/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.occurrence"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/negative-zero-occurrence/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/negative-zero-size-facet",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/negative-zero-size-facet"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/negative-zero-size-facet/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "empty",
+          "file": "corpus/project/negative-zero-size-facet/empty.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "nonempty",
+          "file": "corpus/project/negative-zero-size-facet/nonempty.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/negative-zero-size-facet/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/negative-zero-size-facet/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/negative-zero-size-facet/nonempty.xml",
+          "role": "instance"
+        }
+      ]
+    },
     {
       "id": "project/decimal-total-digits-fraction-leading-zeros",
       "expectedSource": "project",
@@ -1044,6 +2616,30 @@
           "file": "corpus/project/streaming-literal-xml-characters/invalid-control-text.xml",
           "expected": "invalid",
           "errorCode": "validation.xml"
+        },
+        {
+          "testName": "invalid-pi-eof",
+          "file": "corpus/project/streaming-literal-xml-characters/invalid-pi-eof.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "invalid-pi-utf8",
+          "file": "corpus/project/streaming-literal-xml-characters/invalid-pi-utf8.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "invalid-pi-control",
+          "file": "corpus/project/streaming-literal-xml-characters/invalid-pi-control.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "invalid-attribute-markup",
+          "file": "corpus/project/streaming-literal-xml-characters/invalid-attribute-markup.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
         }
       ],
       "files": [
@@ -1062,6 +2658,22 @@
         {
           "file": "corpus/project/streaming-literal-xml-characters/schema.xsd",
           "role": "principal"
+        },
+        {
+          "file": "corpus/project/streaming-literal-xml-characters/invalid-pi-eof.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/streaming-literal-xml-characters/invalid-pi-utf8.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/streaming-literal-xml-characters/invalid-pi-control.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/streaming-literal-xml-characters/invalid-attribute-markup.xml",
+          "role": "instance"
         }
       ]
     },

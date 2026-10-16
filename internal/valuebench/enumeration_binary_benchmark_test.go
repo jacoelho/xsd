@@ -128,7 +128,11 @@ func BenchmarkAuditStringEnumerationCompile(b *testing.B) {
 				b.ReportAllocs()
 				for b.Loop() {
 					builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
-					if _, err := builder.Add(valuepkg.TypeSpec{
+					reservedID, reserveErr := builder.Reserve()
+					if reserveErr != nil {
+						b.Fatalf("Reserve() error = %v", reserveErr)
+					}
+					if err := builder.Complete(reservedID, valuepkg.TypeSpec{
 						Variety: valuepkg.Atomic, Primitive: valuepkg.PrimitiveString,
 						Whitespace: valuepkg.WhitespacePreserve, WhitespacePresent: true,
 						Base: valuepkg.NoType, ListItem: valuepkg.NoType,
@@ -149,7 +153,11 @@ func auditStringEnumerationProgram(tb testing.TB, size int, shape string) (*valu
 	tb.Helper()
 	values := auditStringEnumerationLiterals(size, shape)
 	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
-	id, err := builder.Add(valuepkg.TypeSpec{
+	id, err := builder.Reserve()
+	if err != nil {
+		tb.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(id, valuepkg.TypeSpec{
 		Variety: valuepkg.Atomic, Primitive: valuepkg.PrimitiveString,
 		Whitespace: valuepkg.WhitespacePreserve, WhitespacePresent: true,
 		Base: valuepkg.NoType, ListItem: valuepkg.NoType,
@@ -174,7 +182,11 @@ func auditBase64EnumerationProgram(tb testing.TB, payloadSize, groupSize int) (*
 		literals[i] = valuepkg.LiteralSpec{Lexical: values[i], Type: valuepkg.NoType}
 	}
 	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
-	id, err := builder.Add(valuepkg.TypeSpec{
+	id, err := builder.Reserve()
+	if err != nil {
+		tb.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(id, valuepkg.TypeSpec{
 		Variety: valuepkg.Atomic, Primitive: valuepkg.PrimitiveBase64Binary,
 		Whitespace: valuepkg.WhitespaceCollapse, WhitespacePresent: true,
 		Base: valuepkg.NoType, ListItem: valuepkg.NoType,

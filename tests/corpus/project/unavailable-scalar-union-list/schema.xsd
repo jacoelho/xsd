@@ -1,0 +1,7 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:m="urn:missing">
+  <xs:import namespace="urn:missing"/>
+  <xs:simpleType name="item"><xs:union memberTypes="m:absent xs:int"/></xs:simpleType>
+  <xs:simpleType name="values"><xs:list itemType="item"/></xs:simpleType>
+  <xs:element name="good" type="xs:int"/>
+  <xs:element name="bad" type="values"/>
+</xs:schema>

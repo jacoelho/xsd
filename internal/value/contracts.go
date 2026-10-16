@@ -2,6 +2,7 @@ package value
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/jacoelho/xsd/internal/xsdregex"
 	"github.com/jacoelho/xsd/xsderrors"
@@ -277,160 +278,55 @@ func orderedFacetRelationFromInt(n int) OrderedFacetRelation {
 
 func (r OrderedFacetRelation) valid() bool { return r <= OrderedFacetIncomparable }
 
+// Fractions are normalized without trailing zeroes, so lexical order
+// agrees with order after padding the shorter fraction with zeroes.
 func compareFraction(a, b string) int {
-	n := max(len(a), len(b))
-	for i := range n {
-		ad, bd := byte('0'), byte('0')
-		if i < len(a) {
-			ad = a[i]
-		}
-		if i < len(b) {
-			bd = b[i]
-		}
-		if ad < bd {
-			return -1
-		}
-		if ad > bd {
-			return 1
-		}
-	}
-	return 0
+	return strings.Compare(a, b)
 }
 
-// byteText lets lexical validators operate over strings and borrowed byte
-// slices without converting the input before checking it.
+// byteText lets lexical validators accept strings and borrowed byte slices.
 type byteText interface {
 	~string | ~[]byte
 }
 
-// OrderedFacetBoundKind identifies whether an ordered facet bound is absent,
-// inclusive, or exclusive.
-type OrderedFacetBoundKind uint8
-
-const (
-	// OrderedFacetBoundAbsent means no bound is present.
-	OrderedFacetBoundAbsent OrderedFacetBoundKind = iota
-	// OrderedFacetBoundInclusive includes the boundary value.
-	OrderedFacetBoundInclusive
-	// OrderedFacetBoundExclusive excludes the boundary value.
-	OrderedFacetBoundExclusive
-)
-
-// OrderedFacetBound describes the inclusivity of one ordered bound.
-type OrderedFacetBound struct{ Kind OrderedFacetBoundKind }
-
-func (b OrderedFacetBound) valid() bool { return b.Kind <= OrderedFacetBoundExclusive }
-
-func (b OrderedFacetBound) present() bool { return b.Kind != OrderedFacetBoundAbsent }
-
-// OrderedFacetLowerBoundAccepts reports whether relation satisfies bound as a
-// lower bound.
-func OrderedFacetLowerBoundAccepts(bound OrderedFacetBound, relation OrderedFacetRelation) bool {
-	if !bound.valid() || !relation.valid() {
+// OrderedFacetLowerBoundAccepts reports whether relation satisfies an admitted
+// lower bound with the given exclusivity.
+func OrderedFacetLowerBoundAccepts(exclusive bool, relation OrderedFacetRelation) bool {
+	if !relation.valid() {
 		return false
 	}
-	switch bound.Kind {
-	case OrderedFacetBoundAbsent:
-		return true
-	case OrderedFacetBoundInclusive:
-		return relation == OrderedFacetEqual || relation == OrderedFacetGreater
-	case OrderedFacetBoundExclusive:
-		return relation == OrderedFacetGreater
-	default:
-		return false
-	}
+	return relation == OrderedFacetGreater || relation == OrderedFacetEqual && !exclusive
 }
 
-// OrderedFacetUpperBoundAccepts reports whether relation satisfies bound as an
-// upper bound.
-func OrderedFacetUpperBoundAccepts(bound OrderedFacetBound, relation OrderedFacetRelation) bool {
-	if !bound.valid() || !relation.valid() {
+// OrderedFacetUpperBoundAccepts reports whether relation satisfies an admitted
+// upper bound with the given exclusivity.
+func OrderedFacetUpperBoundAccepts(exclusive bool, relation OrderedFacetRelation) bool {
+	if !relation.valid() {
 		return false
 	}
-	switch bound.Kind {
-	case OrderedFacetBoundAbsent:
-		return true
-	case OrderedFacetBoundInclusive:
-		return relation == OrderedFacetEqual || relation == OrderedFacetLess
-	case OrderedFacetBoundExclusive:
-		return relation == OrderedFacetLess
-	default:
-		return false
-	}
+	return relation == OrderedFacetLess || relation == OrderedFacetEqual && !exclusive
 }
 
-// OrderedFacetLowerRestricts reports whether a derived lower bound narrows a
-// base lower bound.
-func OrderedFacetLowerRestricts(derived, base OrderedFacetBound, relation OrderedFacetRelation) bool {
-	if !derived.valid() || !base.valid() || !relation.valid() {
+// OrderedFacetLowerRestricts reports whether an admitted derived lower bound
+// narrows an admitted base lower bound.
+func OrderedFacetLowerRestricts(derivedExclusive, baseExclusive bool, relation OrderedFacetRelation) bool {
+	if !relation.valid() {
 		return false
 	}
-	if !base.present() {
-		return true
-	}
-	if !derived.present() {
-		return false
-	}
-	if relation == OrderedFacetIncomparable {
-		return false
-	}
-	if relation == OrderedFacetGreater || relation == OrderedFacetEqual && derived.Kind >= base.Kind {
-		return true
-	}
-	return false
+	return relation == OrderedFacetGreater || relation == OrderedFacetEqual && (derivedExclusive || !baseExclusive)
 }
 
-// OrderedFacetUpperRestricts reports whether a derived upper bound narrows a
-// base upper bound.
-func OrderedFacetUpperRestricts(derived, base OrderedFacetBound, relation OrderedFacetRelation) bool {
-	if !derived.valid() || !base.valid() || !relation.valid() {
+// OrderedFacetUpperRestricts reports whether an admitted derived upper bound
+// narrows an admitted base upper bound.
+func OrderedFacetUpperRestricts(derivedExclusive, baseExclusive bool, relation OrderedFacetRelation) bool {
+	if !relation.valid() {
 		return false
 	}
-	if !base.present() {
-		return true
-	}
-	if !derived.present() {
-		return false
-	}
-	if relation == OrderedFacetIncomparable {
-		return false
-	}
-	if relation == OrderedFacetLess || relation == OrderedFacetEqual && derived.Kind >= base.Kind {
-		return true
-	}
-	return false
-}
-
-// OrderedFacetBoundsValidation describes one lower/upper bound relationship.
-type OrderedFacetBoundsValidation struct {
-	Primitive PrimitiveKind
-	Lower     OrderedFacetBound
-	Upper     OrderedFacetBound
-	Relation  OrderedFacetRelation
+	return relation == OrderedFacetLess || relation == OrderedFacetEqual && (derivedExclusive || !baseExclusive)
 }
 
 // FacetCardinalityValue is an optional unsigned facet value.
 type FacetCardinalityValue struct {
 	Value   uint32
 	Present bool
-}
-
-// ValidateOrderedFacetBounds rejects an empty or invalid ordered interval.
-func ValidateOrderedFacetBounds(shape OrderedFacetBoundsValidation) error {
-	if !shape.Lower.valid() || !shape.Upper.valid() || !shape.Relation.valid() {
-		return ErrMetadata
-	}
-	if !shape.Lower.present() || !shape.Upper.present() {
-		return nil
-	}
-	if shape.Relation == OrderedFacetIncomparable {
-		return errors.New("ordered facet bounds are incomparable")
-	}
-	if shape.Relation == OrderedFacetGreater {
-		return errors.New("lower bound cannot exceed upper bound")
-	}
-	if shape.Relation == OrderedFacetEqual && (shape.Lower.Kind == OrderedFacetBoundExclusive || shape.Upper.Kind == OrderedFacetBoundExclusive) {
-		return errors.New("exclusive ordered bounds have an empty value space")
-	}
-	return nil
 }

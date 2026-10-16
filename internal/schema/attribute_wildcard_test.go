@@ -1,6 +1,8 @@
 package schema
 
 import (
+	"errors"
+	"slices"
 	"testing"
 
 	"github.com/jacoelho/xsd/xsderrors"
@@ -137,6 +139,7 @@ func TestAttributeWildcardDerivation(t *testing.T) {
 
 type attributeWildcardStore struct {
 	wildcards []Wildcard
+	failure   error
 }
 
 func newAttributeWildcardStore() *attributeWildcardStore {
@@ -153,6 +156,9 @@ func (s *attributeWildcardStore) Wildcard(id WildcardID) (Wildcard, bool) {
 }
 
 func (s *attributeWildcardStore) AddWildcard(w Wildcard) (WildcardID, error) {
+	if s.failure != nil {
+		return NoWildcard, s.failure
+	}
 	id, err := checkedSchemaUint32(len(s.wildcards), "wildcard limit exceeded")
 	if err != nil {
 		return NoWildcard, err
@@ -167,4 +173,85 @@ func (s *attributeWildcardStore) mustAdd(w Wildcard) WildcardID {
 		panic(err)
 	}
 	return id
+}
+
+func TestAttributeWildcardIntersectionStorageFailureAllowsRetry(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name    string
+		group   bool
+		process ProcessContents
+	}{
+		{name: "group", group: true, process: ProcessStrict},
+		{name: "local", process: ProcessLax},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			store := &attributeWildcardStore{wildcards: []Wildcard{
+				{Mode: WildcardList, Namespaces: []NamespaceID{1, 2}, Process: ProcessStrict},
+				{Mode: WildcardList, Namespaces: []NamespaceID{2, 3}, Process: ProcessLax},
+			}}
+			builder := NewAttributeWildcardBuilder(NoWildcard, AttributeMergeDirect)
+			if err := builder.AddAnyAttribute(store, 0); err != nil {
+				t.Fatal(err)
+			}
+			add := func() error {
+				if tc.group {
+					return builder.AddGroup(store, 1)
+				}
+				return builder.AddAnyAttribute(store, 1)
+			}
+			failure := errors.New("wildcard storage unavailable")
+			store.failure = failure
+			if err := add(); !errors.Is(err, failure) {
+				t.Fatalf("storage error = %v, want %v", err, failure)
+			}
+			if builder.Declared() != 0 {
+				t.Fatal("failed intersection replaced the declared wildcard")
+			}
+			store.failure = nil
+			if err := add(); err != nil {
+				t.Fatalf("intersection retry: %v", err)
+			}
+			wildcard, ok := store.Wildcard(builder.Declared())
+			if !ok || wildcard.Mode != WildcardList || wildcard.Process != tc.process || !slices.Equal(wildcard.Namespaces, []NamespaceID{2}) {
+				t.Fatalf("retried intersection = %#v, want namespace 2 and process %v", wildcard, tc.process)
+			}
+		})
+	}
+}
+
+func TestAttributeWildcardExtensionStorageFailureAllowsRetry(t *testing.T) {
+	t.Parallel()
+
+	store := &attributeWildcardStore{wildcards: []Wildcard{
+		{Mode: WildcardList, Namespaces: []NamespaceID{1}, Process: ProcessStrict},
+		{Mode: WildcardList, Namespaces: []NamespaceID{2}, Process: ProcessLax},
+	}}
+	builder := NewAttributeWildcardBuilder(0, AttributeMergeExtension)
+	if err := builder.AddAnyAttribute(store, 1); err != nil {
+		t.Fatal(err)
+	}
+	failure := errors.New("wildcard storage unavailable")
+	store.failure = failure
+	if id, err := builder.Finish(store); id != NoWildcard || !errors.Is(err, failure) {
+		t.Fatalf("failed extension = %v, %v; want no wildcard and %v", id, err, failure)
+	}
+	if builder.Declared() != 1 {
+		t.Fatal("failed extension replaced the local declaration")
+	}
+	store.failure = nil
+	id, err := builder.Finish(store)
+	if err != nil {
+		t.Fatalf("extension retry: %v", err)
+	}
+	wildcard, ok := store.Wildcard(id)
+	if !ok || wildcard.Mode != WildcardList || wildcard.Process != ProcessLax || !slices.Equal(wildcard.Namespaces, []NamespaceID{1, 2}) {
+		t.Fatalf("retried extension = %#v, want namespaces 1,2 with lax processing", wildcard)
+	}
+	if builder.Declared() != 1 {
+		t.Fatal("extension result replaced the local declaration")
+	}
 }

@@ -90,6 +90,17 @@ func TestFacetAllowed(t *testing.T) {
 			facet:     value.FacetWhiteSpace,
 		},
 		{
+			name:      "zero facet mask",
+			variety:   value.Atomic,
+			primitive: value.PrimitiveString,
+		},
+		{
+			name:      "unknown facet bit",
+			variety:   value.Atomic,
+			primitive: value.PrimitiveString,
+			facet:     value.FacetMask(1 << 15),
+		},
+		{
 			name:      "invalid facet mask",
 			variety:   value.Atomic,
 			primitive: value.PrimitiveString,
@@ -110,6 +121,51 @@ func TestFacetAllowed(t *testing.T) {
 			got := value.FacetAllowed(test.variety, test.primitive, test.facet)
 			if got != test.want {
 				t.Fatalf("FacetAllowed(%d, %d, %d) = %v, want %v", test.variety, test.primitive, test.facet, got, test.want)
+			}
+		})
+	}
+}
+
+func TestOrderedFacetApplicabilityContract(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		kind value.PrimitiveKind
+		want bool
+	}{
+		{"string", value.PrimitiveString, false},
+		{"boolean", value.PrimitiveBoolean, false},
+		{"decimal", value.PrimitiveDecimal, true},
+		{"float", value.PrimitiveFloat, true},
+		{"double", value.PrimitiveDouble, true},
+		{"duration", value.PrimitiveDuration, true},
+		{"dateTime", value.PrimitiveDateTime, true},
+		{"time", value.PrimitiveTime, true},
+		{"date", value.PrimitiveDate, true},
+		{"gYearMonth", value.PrimitiveGYearMonth, true},
+		{"gYear", value.PrimitiveGYear, true},
+		{"gMonthDay", value.PrimitiveGMonthDay, true},
+		{"gDay", value.PrimitiveGDay, true},
+		{"gMonth", value.PrimitiveGMonth, true},
+		{"hexBinary", value.PrimitiveHexBinary, false},
+		{"base64Binary", value.PrimitiveBase64Binary, false},
+		{"anyURI", value.PrimitiveAnyURI, false},
+		{"QName", value.PrimitiveQName, false},
+		{"NOTATION", value.PrimitiveNotation, false},
+		{"invalid next", value.PrimitiveKind(19), false},
+		{"invalid maximum", value.PrimitiveKind(255), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			for _, facet := range []value.FacetMask{value.FacetMinInclusive, value.FacetMinExclusive, value.FacetMaxInclusive, value.FacetMaxExclusive} {
+				if got := value.FacetAllowed(value.Atomic, tc.kind, facet); got != tc.want {
+					t.Fatalf("FacetAllowed(atomic, %d, %d) = %t, want %t", tc.kind, facet, got, tc.want)
+				}
+				for _, variety := range []value.Variety{value.List, value.Union, value.Variety(255)} {
+					if value.FacetAllowed(variety, tc.kind, facet) {
+						t.Fatalf("FacetAllowed(%d, %d, %d) accepted a non-atomic ordered facet", variety, tc.kind, facet)
+					}
+				}
 			}
 		})
 	}

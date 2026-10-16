@@ -8,7 +8,6 @@ import (
 	"errors"
 	"math/bits"
 
-	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -17,66 +16,28 @@ type contentDerivationSource struct {
 	kind ContentDerivationKind
 }
 
-func typedXSDChildren(n *schemaNode) []*schemaNode {
-	if n == nil || len(n.children) == 0 {
-		return nil
-	}
-	children := make([]*schemaNode, 0, len(n.children))
-	for child := range n.xsdChildren() {
-		children = append(children, child)
-	}
-	return children
-}
-
-func typedChildLocalNames(children []*schemaNode) []string {
-	if len(children) == 0 {
-		return nil
-	}
-	locals := make([]string, len(children))
-	for i, child := range children {
-		locals[i] = child.local
-	}
-	return locals
-}
-
-func typedChildOrderIssue(n *schemaNode, children []*schemaNode, issue *ChildOrderError, parentCode xsderrors.Code) error {
-	if issue.Index < 0 {
-		return schemaCompileAt(n, parentCode, issue.Message)
-	}
-	if issue.Index < len(children) {
-		return schemaCompileAt(children[issue.Index], xsderrors.CodeSchemaContentModel, issue.Message)
-	}
-	return issue
-}
-
 func checkOrderedXSDChildren(n *schemaNode, order ChildOrder) error {
-	children := typedXSDChildren(n)
-	if err := CheckOrderedChildren(typedChildLocalNames(children), order); err != nil {
-		if issue, ok := errors.AsType[*ChildOrderError](err); ok {
-			return typedChildOrderIssue(n, children, issue, xsderrors.CodeSchemaContentModel)
+	state := childOrderState{maxLevelSeen: -1}
+	index := 0
+	for child := range n.xsdChildren() {
+		if err := state.accept(index, child.local, order); err != nil {
+			issue, ok := errors.AsType[*ChildOrderError](err)
+			if !ok {
+				return err
+			}
+			target := child
+			if issue.Index < 0 {
+				target = n
+			}
+			return schemaCompileAt(target, xsderrors.CodeSchemaContentModel, issue.Message)
 		}
-		return err
-	}
-	return nil
-}
-
-func checkChildOrderRules(n *schemaNode, order ChildOrder) error {
-	return checkOrderedXSDChildren(n, order)
-}
-
-func checkChildOrder(n *schemaNode, validate func([]string) error) error {
-	children := typedXSDChildren(n)
-	if err := validate(typedChildLocalNames(children)); err != nil {
-		if issue, ok := errors.AsType[*ChildOrderError](err); ok {
-			return typedChildOrderIssue(n, children, issue, xsderrors.CodeSchemaContentModel)
-		}
-		return err
+		index++
 	}
 	return nil
 }
 
 func checkComplexTypeChildren(n *schemaNode) error {
-	return checkChildOrderRules(n, complexTypeChildOrder)
+	return checkOrderedXSDChildren(n, complexTypeChildOrder)
 }
 
 func checkComplexContentSyntax(n *schemaNode) (contentDerivationSource, error) {
@@ -91,7 +52,7 @@ func checkContentDerivation(n *schemaNode, container string, order ChildOrder) (
 	if err := checkOrderedXSDChildren(n, order); err != nil {
 		return contentDerivationSource{}, err
 	}
-	for _, child := range typedXSDChildren(n) {
+	for child := range n.xsdChildren() {
 		switch child.local {
 		case extensionChild:
 			return contentDerivationSource{node: child, kind: ContentDerivationExtension}, nil
@@ -103,39 +64,39 @@ func checkContentDerivation(n *schemaNode, container string, order ChildOrder) (
 }
 
 func checkSimpleContentRestrictionChildren(n *schemaNode) error {
-	return checkChildOrderRules(n, simpleContentRestrictionChildOrder)
+	return checkOrderedXSDChildren(n, simpleContentRestrictionChildOrder)
 }
 
 func checkSimpleContentExtensionChildren(n *schemaNode) error {
-	return checkChildOrderRules(n, simpleContentExtensionChildOrder)
+	return checkOrderedXSDChildren(n, simpleContentExtensionChildOrder)
 }
 
 func checkComplexContentRestrictionChildren(n *schemaNode) error {
-	return checkChildOrderRules(n, complexContentRestrictionChildOrder)
+	return checkOrderedXSDChildren(n, complexContentRestrictionChildOrder)
 }
 
 func checkComplexContentExtensionChildren(n *schemaNode) error {
-	return checkChildOrderRules(n, complexContentExtensionChildOrder)
+	return checkOrderedXSDChildren(n, complexContentExtensionChildOrder)
 }
 
 func checkAnyParticleChildren(n *schemaNode) error {
-	return checkChildOrderRules(n, anyParticleChildOrder)
+	return checkOrderedXSDChildren(n, anyParticleChildOrder)
 }
 
 func checkAnyAttributeChildren(n *schemaNode) error {
-	return checkChildOrderRules(n, anyAttributeChildOrder)
+	return checkOrderedXSDChildren(n, anyAttributeChildOrder)
 }
 
 func checkElementRefChildren(n *schemaNode) error {
-	return checkChildOrderRules(n, elementRefChildOrder)
+	return checkOrderedXSDChildren(n, elementRefChildOrder)
 }
 
 func checkAttributeRefChildren(n *schemaNode) error {
-	return checkChildOrderRules(n, attributeRefChildOrder)
+	return checkOrderedXSDChildren(n, attributeRefChildOrder)
 }
 
 func checkAttributeGroupUseChildren(n *schemaNode) error {
-	return checkChildOrderRules(n, attributeGroupUseChildOrder)
+	return checkOrderedXSDChildren(n, attributeGroupUseChildOrder)
 }
 
 func checkElementRefAttributes(n *schemaNode) error {
@@ -164,17 +125,23 @@ func checkAllowedTypedAttributes(n *schemaNode, label string, allowed func(strin
 }
 
 func checkLocalElementAttributes(n *schemaNode) error {
-	for _, attr := range []string{vocab.XSDAttrAbstract, vocab.XSDAttrFinal, vocab.XSDAttrSubstitutionGroup} {
-		if _, ok := n.attr(attr); ok {
-			return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "local element cannot have "+attr)
-		}
+	source := semanticSource[*schemaElementSource](&n.semantic)
+	if source.Abstract.Present {
+		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "local element cannot have abstract")
+	}
+	if source.Final.Present {
+		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "local element cannot have final")
+	}
+	if source.SubstitutionGroup.Lexical.Present {
+		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "local element cannot have substitutionGroup")
 	}
 	return nil
 }
 
 func checkLocalElementSource(n *schemaNode) error {
+	source := semanticSource[*schemaElementSource](&n.semantic)
 	if err := ValidateLocalElementSource(NameReferenceSource{
-		Name: schemaLexicalAttribute(n, vocab.XSDAttrName), Reference: schemaLexicalAttribute(n, vocab.XSDAttrRef),
+		Name: source.Global.Name, Reference: source.Ref.Lexical,
 	}); err != nil {
 		return withSchemaCompileLocation(n, err)
 	}
@@ -182,94 +149,108 @@ func checkLocalElementSource(n *schemaNode) error {
 }
 
 func checkLocalSimpleTypeAttributes(n *schemaNode) error {
-	for _, attr := range []string{vocab.XSDAttrName, vocab.XSDAttrFinal} {
-		if _, ok := n.attr(attr); ok {
-			return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "local simpleType cannot have "+attr)
-		}
+	source, ok := n.semantic.kind.(*schemaSimpleTypeSource)
+	if !ok || source == nil {
+		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("simpleType node has no typed simpleType source"))
+	}
+	if source.Global.Name.Present {
+		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "local simpleType cannot have name")
+	}
+	if source.Final.Present {
+		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "local simpleType cannot have final")
 	}
 	return nil
 }
 
 func checkLocalComplexTypeAttributes(n *schemaNode) error {
-	for _, attr := range []string{vocab.XSDAttrName, vocab.XSDAttrAbstract, vocab.XSDAttrBlock, vocab.XSDAttrFinal} {
-		if _, ok := n.attr(attr); ok {
-			return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "local complexType cannot have "+attr)
-		}
+	source := semanticSource[*schemaComplexTypeSource](&n.semantic)
+	if source.Global.Name.Present {
+		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "local complexType cannot have name")
+	}
+	if source.Abstract.Present {
+		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "local complexType cannot have abstract")
+	}
+	if source.Block.Present {
+		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "local complexType cannot have block")
+	}
+	if source.Final.Present {
+		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "local complexType cannot have final")
 	}
 	return nil
 }
 
 func checkAttributeGroupDeclarationChildren(n *schemaNode) error {
-	return checkChildOrderRules(n, attributeGroupDeclarationChildOrder)
+	return checkOrderedXSDChildren(n, attributeGroupDeclarationChildOrder)
 }
 
+//nolint:gocognit // Child grammar must complete before occurrence checks, with each failure attached to its source node.
 func checkTopLevelGroupChildren(n *schemaNode) (*schemaNode, error) {
-	children := typedXSDChildren(n)
-	in := make([]TopLevelGroupChild, len(children))
-	for i, child := range children {
-		_, hasMin := child.attr(vocab.XSDAttrMinOccurs)
-		_, hasMax := child.attr(vocab.XSDAttrMaxOccurs)
-		in[i] = TopLevelGroupChild{Local: child.local, HasMinOccurs: hasMin, HasMaxOccurs: hasMax}
-	}
-	syntax, err := ValidateTopLevelGroupChildren(in)
-	if err != nil {
-		if issue, ok := errors.AsType[*TopLevelGroupSyntaxError](err); ok {
-			target := n
-			if issue.Index >= 0 && issue.Index < len(children) {
-				target = children[issue.Index]
+	var model *schemaNode
+	seenAnnotation := false
+	for child := range n.xsdChildren() {
+		switch child.local {
+		case annotationChild:
+			if seenAnnotation {
+				return nil, schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "top-level group can contain at most one annotation")
 			}
-			return nil, schemaCompileAt(target, issue.Code, issue.Message)
+			if model != nil {
+				return nil, schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "top-level group annotation must be first")
+			}
+			seenAnnotation = true
+		case sequenceChild, choiceChild, allChild:
+			if model != nil {
+				return nil, schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "top-level group must contain exactly one model group")
+			}
+			model = child
+		case groupChild:
+			return nil, schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "top-level group cannot contain group ref")
+		default:
+			return nil, schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "invalid top-level group child "+child.local)
 		}
-		return nil, err
 	}
-	if syntax.Model < 0 || syntax.Model >= len(children) {
-		return nil, xsderrors.InternalInvariant("top-level group syntax returned invalid model index")
+	if model == nil {
+		return nil, schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "top-level group must contain exactly one model group")
 	}
-	return children[syntax.Model], nil
+	if semanticSource[*schemaModelSource](&model.semantic).MinOccurs.Present {
+		return nil, schemaCompileAt(model, xsderrors.CodeSchemaOccurrence, "top-level model group cannot have minOccurs")
+	}
+	if semanticSource[*schemaModelSource](&model.semantic).MaxOccurs.Present {
+		return nil, schemaCompileAt(model, xsderrors.CodeSchemaOccurrence, "top-level model group cannot have maxOccurs")
+	}
+	return model, nil
 }
 
 func checkNotationDeclaration(n *schemaNode) error {
-	declaration := NotationDeclaration{
-		Text:     schemaNodeTextMarkerTyped(n),
-		Children: make([]NotationChild, len(n.children)),
-		Name:     schemaLexicalAttribute(n, vocab.XSDAttrName),
-		Public:   schemaLexicalAttribute(n, vocab.XSDAttrPublic),
-		System:   schemaLexicalAttribute(n, vocab.XSDAttrSystem),
+	if n.hasNonWhitespaceText {
+		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "notation can contain only annotation")
 	}
-	for i, id := range n.children {
+	for _, id := range n.children {
 		child := n.doc.node(id)
-		if child == nil {
-			continue
+		if child == nil || child.local != annotationChild {
+			return schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "notation can contain only annotation")
 		}
-		declaration.Children[i] = NotationChild{Local: child.local, XSD: child.kind != schemaKindForeign}
 	}
-	if err := ValidateNotationDeclaration(declaration); err != nil {
-		if issue, ok := errors.AsType[*NotationSyntaxError](err); ok {
-			target := n
-			if issue.Index >= 0 && issue.Index < len(n.children) {
-				target = n.doc.node(n.children[issue.Index])
-			}
-			return schemaCompileAt(target, issue.Code, issue.Message)
-		}
-		return err
+	source, ok := n.semantic.kind.(*schemaNotationSource)
+	if !ok || source == nil {
+		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("notation node has no typed notation source"))
+	}
+	if !source.Global.Name.Present {
+		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "notation missing name")
+	}
+	if !source.Public.Present && !source.System.Present {
+		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "notation requires public or system")
 	}
 	return nil
 }
 
-func schemaNodeTextMarkerTyped(n *schemaNode) string {
-	if n != nil && n.hasNonWhitespaceText {
-		return "x"
-	}
-	return ""
-}
-
 func checkAttributeDeclarationChildren(n *schemaNode) error {
-	return checkChildOrder(n, ValidateAttributeDeclarationChildren)
+	return checkOrderedXSDChildren(n, attributeDeclarationChildOrder)
 }
 
 func checkAttributeUseSource(n *schemaNode) error {
+	source := semanticSource[*schemaAttributeSource](&n.semantic)
 	if err := ValidateAttributeUseSource(NameReferenceSource{
-		Name: schemaLexicalAttribute(n, vocab.XSDAttrName), Reference: schemaLexicalAttribute(n, vocab.XSDAttrRef),
+		Name: source.Global.Name, Reference: source.Ref.Lexical,
 	}); err != nil {
 		return withSchemaCompileLocation(n, err)
 	}
@@ -277,7 +258,7 @@ func checkAttributeUseSource(n *schemaNode) error {
 }
 
 func checkAttributeGroupUseSource(n *schemaNode) error {
-	if err := ValidateAttributeGroupUseSource(schemaLexicalAttribute(n, vocab.XSDAttrRef)); err != nil {
+	if err := ValidateAttributeGroupUseSource(semanticSource[*schemaAttributeGroupSource](&n.semantic).Ref.Lexical); err != nil {
 		return withSchemaCompileLocation(n, err)
 	}
 	return nil
@@ -287,7 +268,7 @@ func checkElementDeclarationChildren(n *schemaNode) error {
 	if err := checkOrderedXSDChildren(n, elementDeclarationChildOrder); err != nil {
 		return err
 	}
-	if _, hasType := n.attr(vocab.XSDAttrType); hasType && hasAnonymousTypedElementType(n) {
+	if semanticSource[*schemaElementSource](&n.semantic).Type.Lexical.Present && hasAnonymousTypedElementType(n) {
 		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "element cannot have both type and anonymous type")
 	}
 	return nil
@@ -300,43 +281,6 @@ func hasAnonymousTypedElementType(n *schemaNode) bool {
 		}
 	}
 	return false
-}
-
-func checkIdentityConstraintChildren(n *schemaNode) (identityConstraintSyntax, error) {
-	children := typedXSDChildren(n)
-	in := make([]IdentityConstraintChild, len(children))
-	for i, child := range children {
-		xpath, hasXPath := child.attr(vocab.XSDAttrXPath)
-		in[i] = IdentityConstraintChild{Local: child.local, XPath: xpath, HasXPath: hasXPath, Children: typedChildLocalNames(typedXSDChildren(child))}
-	}
-	syntax, err := ValidateIdentityConstraintChildren(in)
-	if err != nil {
-		if issue, ok := errors.AsType[*IdentityConstraintSyntaxError](err); ok {
-			target := identityConstraintErrorTarget(n, children, issue)
-			return identityConstraintSyntax{}, schemaCompileAt(target, issue.Code, issue.Message)
-		}
-		return identityConstraintSyntax{}, err
-	}
-	out := identityConstraintSyntax{selector: children[syntax.Selector]}
-	for _, index := range syntax.Fields {
-		out.fields = append(out.fields, children[index])
-	}
-	return out, nil
-}
-
-func identityConstraintErrorTarget(parent *schemaNode, children []*schemaNode, issue *IdentityConstraintSyntaxError) *schemaNode {
-	if issue.ChildIndex < 0 || issue.ChildIndex >= len(children) {
-		return parent
-	}
-	target := children[issue.ChildIndex]
-	if issue.NestedChildIndex < 0 {
-		return target
-	}
-	nested := typedXSDChildren(target)
-	if issue.NestedChildIndex < len(nested) {
-		return nested[issue.NestedChildIndex]
-	}
-	return target
 }
 
 func checkContentDerivationBase(n *schemaNode, base ContentDerivationBase) error {

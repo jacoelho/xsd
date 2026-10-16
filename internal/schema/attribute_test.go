@@ -1,8 +1,6 @@
 package schema
 
 import (
-	"maps"
-	"slices"
 	"strings"
 	"testing"
 
@@ -29,20 +27,33 @@ func TestAttributeWildcardDerivationValidity(t *testing.T) {
 func TestAttributeUseRead(t *testing.T) {
 	t.Parallel()
 
-	name := QName{Local: 1}
-	fixed := newValueConstraintRead("01", "1", builtinValueForTest(t, "integer", "01"))
-	def := newValueConstraintRead("02", "2", builtinValueForTest(t, "integer", "02"))
-	use := newTestAttributeUseRead(attributeUseReadShape{
-		Name:                 name,
-		Type:                 7,
-		Label:                "a",
-		Fixed:                fixed,
-		Default:              def,
-		Required:             true,
-		HasFixed:             true,
-		HasDefault:           true,
-		FixedFromDeclaration: true,
-	})
+	names, err := NewNameTable(8, []string{EmptyNamespaceURI}, nil)
+	if err != nil {
+		t.Fatalf("NewNameTable() error = %v", err)
+	}
+	name, err := NewNameInterner(&names).InternQName("", "a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixedValue := testQNameValue(t, "urn:fixed")
+	defaultValue := testQNameValue(t, "urn:default")
+	fixed := &ValueConstraint{
+		Lexical: "p:item", Canonical: "{urn:fixed}item", Value: fixedValue,
+		ResolvedNames: []ResolvedValueName{{Lexical: "p:item", NS: "urn:fixed", Local: "item"}},
+		qnameContext:  &valueConstraintQNameContext{bindings: []valueConstraintQNameBinding{{prefix: "p", namespace: "urn:fixed", bound: true}}},
+	}
+	def := &ValueConstraint{
+		Lexical: "p:item", Canonical: "{urn:default}item", Value: defaultValue,
+		ResolvedNames: []ResolvedValueName{{Lexical: "p:item", NS: "urn:default", Local: "item"}},
+		qnameContext:  &valueConstraintQNameContext{bindings: []valueConstraintQNameBinding{{prefix: "p", namespace: "urn:default", bound: true}}},
+	}
+	// Both pointers exercise read precedence; schema admission rejects that shape.
+	use := newAttributeUseReadForSimpleTypes(&names, AttributeUse{
+		Name: name, Type: 7, Fixed: fixed, Default: def, Required: true, FixedFromDeclaration: true,
+	}, testAttributeSimpleTypes())
+	defaulted := newAttributeUseReadForSimpleTypes(&names, AttributeUse{Name: name, Type: 7, Default: def}, testAttributeSimpleTypes())
+	fixed.qnameContext.bindings[0].namespace = "urn:changed"
+	def.qnameContext.bindings[0].bound = false
 	if use.Name() != name {
 		t.Fatalf("Name() = %v, want %v", use.Name(), name)
 	}
@@ -58,22 +69,50 @@ func TestAttributeUseRead(t *testing.T) {
 	if !use.FixedUsesValueSpace() {
 		t.Fatal("FixedUsesValueSpace() = false, want true")
 	}
-	if !use.CanValidateFixedStringFast() {
+	if use.CanValidateFixedStringFast() {
+		t.Fatal("CanValidateFixedStringFast() = true for QName, want false")
+	}
+	for range 2 {
+		fixedRead, hasFixed := use.FixedValue()
+		if !hasFixed || fixedRead.ApplicationText() != "p:item" || fixedRead.CanonicalText() != "{urn:fixed}item" || fixedRead.Value().CanonicalText() != "{urn:fixed}item" || !fixedRead.Value().Equal(fixedValue) {
+			t.Fatalf("FixedValue() = %+v, %v; want p:item, {urn:fixed}item, typed QName, true", fixedRead, hasFixed)
+		}
+		if resolved, ok := fixedRead.ResolveQName("p:item"); !ok || resolved != (valuepkg.ExpandedName{Namespace: "urn:fixed", Local: "item"}) {
+			t.Fatalf("fixed QName = %v, %v; want {urn:fixed}item, true", resolved, ok)
+		}
+		if got, ok := use.AbsentValueConstraint(); !ok || got != fixedRead {
+			t.Fatalf("AbsentValueConstraint() = %+v, %v; want fixed, true", got, ok)
+		}
+		defaultRead, hasDefault := defaulted.AbsentValueConstraint()
+		if !hasDefault || defaultRead.ApplicationText() != "p:item" || defaultRead.CanonicalText() != "{urn:default}item" || defaultRead.Value().CanonicalText() != "{urn:default}item" || !defaultRead.Value().Equal(defaultValue) {
+			t.Fatalf("AbsentValueConstraint(defaulted) = %+v, %v; want p:item, {urn:default}item, typed QName, true", defaultRead, hasDefault)
+		}
+		if resolved, ok := defaultRead.ResolveQName("p:item"); !ok || resolved != (valuepkg.ExpandedName{Namespace: "urn:default", Local: "item"}) {
+			t.Fatalf("default QName = %v, %v; want {urn:default}item, true", resolved, ok)
+		}
+	}
+	stringUse := AttributeUse{Name: name, Type: 8, Fixed: &ValueConstraint{
+		Lexical: "fixed", Canonical: "fixed", Value: builtinValueForTest(t, "string", "fixed"),
+	}}
+	if !newAttributeUseReadForSimpleTypes(&names, stringUse, testAttributeSimpleTypes()).CanValidateFixedStringFast() {
 		t.Fatal("CanValidateFixedStringFast() = false, want true")
 	}
-	if newAttributeUseReadForSimpleTypes(attributeUseReadShape{Type: 7, HasFixed: true}, nil).CanValidateFixedStringFast() {
+	if newAttributeUseReadForSimpleTypes(&names, stringUse, nil).CanValidateFixedStringFast() {
 		t.Fatal("CanValidateFixedStringFast() = true without simple-value read, want false")
 	}
-	if got, ok := use.FixedValue(); !ok || got != fixed {
-		t.Fatalf("FixedValue() = %+v, %v; want fixed, true", got, ok)
+	absent := newAttributeUseReadForSimpleTypes(&names, AttributeUse{Name: name, Type: 8}, testAttributeSimpleTypes())
+	if absent.CanValidateFixedStringFast() {
+		t.Fatal("CanValidateFixedStringFast() = true without fixed value, want false")
 	}
-	if got, ok := use.AbsentValueConstraint(); !ok || got != fixed {
-		t.Fatalf("AbsentValueConstraint() = %+v, %v; want fixed, true", got, ok)
+	if got, ok := absent.FixedValue(); ok || got != (ValueConstraintRead{}) {
+		t.Fatalf("absent FixedValue() = %+v, %v; want zero, false", got, ok)
 	}
-
-	defaulted := newTestAttributeUseRead(attributeUseReadShape{Default: def, HasDefault: true})
-	if got, ok := defaulted.AbsentValueConstraint(); !ok || got != def {
-		t.Fatalf("AbsentValueConstraint(defaulted) = %+v, %v; want default, true", got, ok)
+	if got, ok := absent.AbsentValueConstraint(); ok || got != (ValueConstraintRead{}) {
+		t.Fatalf("absent AbsentValueConstraint() = %+v, %v; want zero, false", got, ok)
+	}
+	empty := newAttributeUseReadForSimpleTypes(&names, AttributeUse{Fixed: &ValueConstraint{}}, nil)
+	if got, ok := empty.FixedValue(); !ok || got != (ValueConstraintRead{}) {
+		t.Fatalf("present-empty FixedValue() = %+v, %v; want zero, true", got, ok)
 	}
 
 	var zero AttributeUseRead
@@ -88,22 +127,44 @@ func TestAttributeUseRead(t *testing.T) {
 func TestAttributeDeclRead(t *testing.T) {
 	t.Parallel()
 
-	name := QName{Local: 1}
-	fixed := newValueConstraintRead("01", "1", builtinValueForTest(t, "integer", "01"))
-	decl := newAttributeDeclRead(attributeDeclReadShape{
-		Name:     name,
-		Type:     7,
-		Fixed:    fixed,
-		HasFixed: true,
-	})
+	names, err := NewNameTable(8, []string{EmptyNamespaceURI}, nil)
+	if err != nil {
+		t.Fatalf("NewNameTable() error = %v", err)
+	}
+	name, err := NewNameInterner(&names).InternQName("", "a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	value := testQNameValue(t, "urn:fixed")
+	fixed := &ValueConstraint{
+		Lexical: "p:item", Canonical: "{urn:fixed}item", Value: value,
+		ResolvedNames: []ResolvedValueName{{Lexical: "p:item", NS: "urn:fixed", Local: "item"}},
+		qnameContext:  &valueConstraintQNameContext{bindings: []valueConstraintQNameBinding{{prefix: "p", namespace: "urn:fixed", bound: true}}},
+	}
+	decl := newAttributeDeclRead(AttributeDecl{Name: name, Type: 7, Fixed: fixed})
+	defaultOnly := newAttributeDeclRead(AttributeDecl{Name: name, Type: 7, Default: fixed})
+	fixed.qnameContext.bindings[0].namespace = "urn:changed"
 	if decl.Name() != name {
 		t.Fatalf("Name() = %v, want %v", decl.Name(), name)
 	}
 	if decl.TypeID() != 7 {
 		t.Fatalf("TypeID() = %d, want 7", decl.TypeID())
 	}
-	if got, ok := decl.FixedValue(); !ok || got != fixed {
-		t.Fatalf("FixedValue() = %+v, %v; want fixed, true", got, ok)
+	for range 2 {
+		got, present := decl.FixedValue()
+		if !present || got.ApplicationText() != "p:item" || got.CanonicalText() != "{urn:fixed}item" || got.Value().CanonicalText() != "{urn:fixed}item" || !got.Value().Equal(value) {
+			t.Fatalf("FixedValue() = %+v, %v; want p:item, {urn:fixed}item, typed QName, true", got, present)
+		}
+		if resolved, ok := got.ResolveQName("p:item"); !ok || resolved != (valuepkg.ExpandedName{Namespace: "urn:fixed", Local: "item"}) {
+			t.Fatalf("declaration QName = %v, %v; want {urn:fixed}item, true", resolved, ok)
+		}
+	}
+	if got, ok := defaultOnly.FixedValue(); ok || got != (ValueConstraintRead{}) {
+		t.Fatalf("default declaration FixedValue() = %+v, %v; want zero, false", got, ok)
+	}
+	empty := newAttributeDeclRead(AttributeDecl{Fixed: &ValueConstraint{}})
+	if got, ok := empty.FixedValue(); !ok || got != (ValueConstraintRead{}) {
+		t.Fatalf("present-empty declaration FixedValue() = %+v, %v; want zero, true", got, ok)
 	}
 
 	var zero AttributeDeclRead
@@ -112,79 +173,55 @@ func TestAttributeDeclRead(t *testing.T) {
 	}
 }
 
-func newTestAttributeUseRead(shape attributeUseReadShape) AttributeUseRead {
-	return newAttributeUseReadForSimpleTypes(shape, testAttributeSimpleTypes())
-}
-
-type testAttributeUseSetReadShape struct {
-	Index            map[QName]uint32
-	Uses             []attributeUseReadShape
-	Required         []uint32
-	ValueConstraints []uint32
-	Wildcard         WildcardID
-}
-
-func newTestAttributeUseSetRead(shape testAttributeUseSetReadShape) AttributeUseSetRead {
-	uses := make([]AttributeUseRead, len(shape.Uses))
-	for i := range shape.Uses {
-		uses[i] = newTestAttributeUseRead(shape.Uses[i])
-	}
-	read := AttributeUseSetRead{
-		index:            maps.Clone(shape.Index),
-		uses:             uses,
-		required:         slices.Clone(shape.Required),
-		valueConstraints: slices.Clone(shape.ValueConstraints),
-		wildcard:         shape.Wildcard,
-	}
-	read.singleUse = attributeUseSetReadHasSingleUse(read)
-	return read
-}
-
 func testAttributeSimpleTypes() []SimpleType {
-	types := make([]SimpleType, 8)
-	types[7] = SimpleType{
-		ValueSpec: valuepkg.TypeSpec{
-			Variety:    SimpleVarietyAtomic,
-			Primitive:  PrimitiveString,
-			Whitespace: WhitespacePreserve,
-		},
-	}
+	types := make([]SimpleType, 9)
+	types[7] = SimpleType{ValueSpec: valuepkg.TypeSpec{
+		Variety: valuepkg.Atomic, Primitive: valuepkg.PrimitiveQName, Whitespace: valuepkg.WhitespaceCollapse,
+	}}
+	types[8] = SimpleType{ValueSpec: valuepkg.TypeSpec{
+		Variety: valuepkg.Atomic, Primitive: valuepkg.PrimitiveString, Whitespace: valuepkg.WhitespacePreserve,
+	}}
 	return types
 }
 
 func TestAttributeUseSetRead(t *testing.T) {
 	t.Parallel()
 
-	firstName := QName{Local: 1}
-	secondName := QName{Local: 2}
-	firstUse := attributeUseReadShape{Name: firstName, Label: "first", Required: true}
-	secondUse := attributeUseReadShape{Name: secondName, Label: "second"}
+	names, firstName, secondName := attributeUseNameTable(t)
+	firstUse := AttributeUse{Name: firstName, Required: true}
+	secondUse := AttributeUse{Name: secondName, Default: &ValueConstraint{}}
 	index := map[QName]uint32{
 		firstName:  0,
 		secondName: 1,
 	}
-	uses := []attributeUseReadShape{firstUse, secondUse}
-	required := []uint32{0}
-	valueConstraints := []uint32{1}
+	uses := []AttributeUse{firstUse, secondUse}
 
-	set := newTestAttributeUseSetRead(testAttributeUseSetReadShape{
-		Index:            index,
-		Uses:             uses,
-		Required:         required,
-		ValueConstraints: valueConstraints,
-		Wildcard:         7,
-	})
+	set := newAttributeUseSetReads(&names, []AttributeUseSet{{
+		Index:    index,
+		Uses:     uses,
+		Wildcard: 7,
+	}}, testAttributeSimpleTypes())[0]
 
 	index[firstName] = 99
-	uses[0] = attributeUseReadShape{}
-	required[0] = 99
-	valueConstraints[0] = 99
+	uses[0] = AttributeUse{}
+	uses[1].Default = nil
 
 	if set.UseCount() != 2 {
 		t.Fatalf("UseCount() = %d, want 2", set.UseCount())
 	}
 	if set.Wildcard() != 7 {
 		t.Fatalf("Wildcard() = %d, want 7", set.Wildcard())
+	}
+	if first, ok := set.UseAt(0); !ok || first.Label() != "first" {
+		t.Fatalf("UseAt(0).Label() = %q, %v; want first, true", first.Label(), ok)
+	}
+	if second, ok := set.UseAt(1); !ok || second.Label() != "second" {
+		t.Fatalf("UseAt(1).Label() = %q, %v; want second, true", second.Label(), ok)
+	}
+	for _, slot := range []int{-1, 2} {
+		if got, ok := set.UseAt(slot); ok || got != (AttributeUseRead{}) {
+			t.Fatalf("UseAt(%d) = %+v, %v; want zero, false", slot, got, ok)
+		}
 	}
 	got, slot, found := set.DeclaredUse(firstName)
 	if !found || slot != 0 || got.Name() != firstName || !got.Required() {
@@ -213,28 +250,89 @@ func TestAttributeUseSetRead(t *testing.T) {
 	if !ok || valueConstraintUse.Name() != secondName {
 		t.Fatalf("UseAt(value constraint) = %v, %v; want second, true", valueConstraintUse.Name(), ok)
 	}
+	if got, ok := valueConstraintUse.AbsentValueConstraint(); !ok || got != (ValueConstraintRead{}) {
+		t.Fatalf("present-empty default = %+v, %v; want zero, true", got, ok)
+	}
+	for _, slot := range []int{-1, 1} {
+		if got, ok := requiredSlots.At(slot); ok || got != 0 {
+			t.Fatalf("RequiredSlots().At(%d) = %d, %v; want zero, false", slot, got, ok)
+		}
+		if got, ok := valueConstraintSlots.At(slot); ok || got != 0 {
+			t.Fatalf("ValueConstraintSlots().At(%d) = %d, %v; want zero, false", slot, got, ok)
+		}
+	}
+}
+
+func TestAttributeUseSetReadDerivesOrderedSlots(t *testing.T) {
+	t.Parallel()
+	names, first, second := attributeUseNameTable(t)
+	interner := NewNameInterner(&names)
+	third, err := interner.InternQName("", "third")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fourth, err := interner.InternQName("", "fourth")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name                  string
+		uses                  []AttributeUse
+		required, constraints []uint32
+	}{
+		{name: "absent"},
+		{name: "optional", uses: []AttributeUse{{Name: first}}},
+		{name: "required only", uses: []AttributeUse{{Name: first, Required: true}}, required: []uint32{0}},
+		{name: "empty default only", uses: []AttributeUse{{Name: first, Default: &ValueConstraint{}}}, constraints: []uint32{0}},
+		{name: "mixed", uses: []AttributeUse{
+			{Name: first},
+			{Name: second, Required: true},
+			{Name: third, Default: &ValueConstraint{}},
+			{Name: fourth, Required: true, Fixed: &ValueConstraint{Canonical: "fixed"}},
+		}, required: []uint32{1, 3}, constraints: []uint32{2, 3}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			read := newAttributeUseSetReads(&names, []AttributeUseSet{{Uses: test.uses}}, testAttributeSimpleTypes())[0]
+			for _, slots := range []struct {
+				name string
+				got  AttributeUseSlots
+				want []uint32
+			}{{"required", read.RequiredSlots(), test.required}, {"constraints", read.ValueConstraintSlots(), test.constraints}} {
+				if slots.got.Len() != len(slots.want) {
+					t.Fatalf("%s length = %d, want %d", slots.name, slots.got.Len(), len(slots.want))
+				}
+				for i, want := range slots.want {
+					if got, ok := slots.got.At(i); !ok || got != want {
+						t.Fatalf("%s slot %d = %d, %v; want %d", slots.name, i, got, ok, want)
+					}
+				}
+			}
+		})
+	}
 }
 
 func TestAttributeUseSetReadRejectsInvalidDeclaredUseLookup(t *testing.T) {
 	t.Parallel()
 
-	name := QName{Local: 1}
-	use := attributeUseReadShape{Name: name}
-	if _, _, ok := newTestAttributeUseSetRead(testAttributeUseSetReadShape{
-		Uses: []attributeUseReadShape{use},
-	}).DeclaredUse(name); ok {
+	names, name, _ := attributeUseNameTable(t)
+	use := AttributeUse{Name: name}
+	if got, slot, ok := newAttributeUseSetReads(&names, []AttributeUseSet{{
+		Uses: []AttributeUse{use},
+	}}, testAttributeSimpleTypes())[0].DeclaredUse(name); ok || slot != -1 || got != (AttributeUseRead{}) {
 		t.Fatal("DeclaredUse() succeeded without index entry")
 	}
-	if _, _, ok := newTestAttributeUseSetRead(testAttributeUseSetReadShape{
+	if got, slot, ok := newAttributeUseSetReads(&names, []AttributeUseSet{{
 		Index: map[QName]uint32{name: 99},
-		Uses:  []attributeUseReadShape{use},
-	}).DeclaredUse(name); ok {
+		Uses:  []AttributeUse{use},
+	}}, testAttributeSimpleTypes())[0].DeclaredUse(name); ok || slot != -1 || got != (AttributeUseRead{}) {
 		t.Fatal("DeclaredUse() succeeded with invalid index slot")
 	}
-	if _, _, ok := newTestAttributeUseSetRead(testAttributeUseSetReadShape{
+	if got, slot, ok := newAttributeUseSetReads(&names, []AttributeUseSet{{
 		Index: map[QName]uint32{name: 0},
-		Uses:  []attributeUseReadShape{{Name: NoQName()}},
-	}).DeclaredUse(name); ok {
+		Uses:  []AttributeUse{{Name: NoQName()}},
+	}}, testAttributeSimpleTypes())[0].DeclaredUse(name); ok || slot != -1 || got != (AttributeUseRead{}) {
 		t.Fatal("DeclaredUse() succeeded with stale index name")
 	}
 }
@@ -242,11 +340,11 @@ func TestAttributeUseSetReadRejectsInvalidDeclaredUseLookup(t *testing.T) {
 func TestAttributeUseSetReadReturnsUsesByValue(t *testing.T) {
 	t.Parallel()
 
-	name := QName{Local: 1}
-	set := newTestAttributeUseSetRead(testAttributeUseSetReadShape{
+	names, name, _ := attributeUseNameTable(t)
+	set := newAttributeUseSetReads(&names, []AttributeUseSet{{
 		Index: map[QName]uint32{name: 0},
-		Uses:  []attributeUseReadShape{{Name: name}},
-	})
+		Uses:  []AttributeUse{{Name: name}},
+	}}, testAttributeSimpleTypes())[0]
 
 	declared, _, ok := set.DeclaredUse(name)
 	if !ok {
@@ -286,7 +384,7 @@ func TestValidateAttributeWildcardProvenance(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UnionWildcard() error = %v", err)
 	}
-	rt := attributeWildcardRuntimeStub{
+	rt := attributeWildcardFixture{
 		baseID:     base,
 		declaredID: declared,
 		unionID:    union,
@@ -295,71 +393,71 @@ func TestValidateAttributeWildcardProvenance(t *testing.T) {
 	tests := []struct {
 		name    string
 		wantErr string
-		state   AttributeWildcardState
+		state   AttributeUseSet
 	}{
 		{
 			name:  "none matches declared wildcard",
-			state: attributeWildcardState(declaredID, NoWildcard, declaredID, AttributeWildcardNone),
+			state: attributeWildcardUseSet(declaredID, NoWildcard, declaredID, AttributeWildcardNone),
 		},
 		{
 			name:    "none rejects base provenance",
-			state:   attributeWildcardState(declaredID, baseID, declaredID, AttributeWildcardNone),
+			state:   attributeWildcardUseSet(declaredID, baseID, declaredID, AttributeWildcardNone),
 			wantErr: "attribute wildcard does not match declared wildcard",
 		},
 		{
 			name:  "restriction keeps declared subset",
-			state: attributeWildcardState(declaredID, baseID, declaredID, AttributeWildcardRestriction),
+			state: attributeWildcardUseSet(declaredID, baseID, declaredID, AttributeWildcardRestriction),
 		},
 		{
 			name:    "restriction rejects non-subset",
-			state:   attributeWildcardState(baseID, declaredID, baseID, AttributeWildcardRestriction),
+			state:   attributeWildcardUseSet(baseID, declaredID, baseID, AttributeWildcardRestriction),
 			wantErr: "attribute wildcard restriction does not match provenance",
 		},
 		{
 			name:    "restriction rejects missing base",
-			state:   attributeWildcardState(declaredID, NoWildcard, declaredID, AttributeWildcardRestriction),
+			state:   attributeWildcardUseSet(declaredID, NoWildcard, declaredID, AttributeWildcardRestriction),
 			wantErr: "attribute wildcard restriction has no base wildcard",
 		},
 		{
 			name:    "restriction rejects undeclared wildcard",
-			state:   attributeWildcardState(declaredID, NoWildcard, NoWildcard, AttributeWildcardRestriction),
+			state:   attributeWildcardUseSet(declaredID, NoWildcard, NoWildcard, AttributeWildcardRestriction),
 			wantErr: "attribute wildcard restriction stores undeclared wildcard",
 		},
 		{
 			name:  "extension inherits base when no declared wildcard",
-			state: attributeWildcardState(baseID, baseID, NoWildcard, AttributeWildcardExtension),
+			state: attributeWildcardUseSet(baseID, baseID, NoWildcard, AttributeWildcardExtension),
 		},
 		{
 			name:  "extension uses declared wildcard when no base wildcard",
-			state: attributeWildcardState(declaredID, NoWildcard, declaredID, AttributeWildcardExtension),
+			state: attributeWildcardUseSet(declaredID, NoWildcard, declaredID, AttributeWildcardExtension),
 		},
 		{
 			name:  "extension validates stored union",
-			state: attributeWildcardState(unionID, baseID, declaredID, AttributeWildcardExtension),
+			state: attributeWildcardUseSet(unionID, baseID, declaredID, AttributeWildcardExtension),
 		},
 		{
 			name:    "extension rejects wrong union",
-			state:   attributeWildcardState(declaredID, baseID, declaredID, AttributeWildcardExtension),
+			state:   attributeWildcardUseSet(declaredID, baseID, declaredID, AttributeWildcardExtension),
 			wantErr: "attribute wildcard extension does not match provenance",
 		},
 		{
 			name:    "invalid wildcard id",
-			state:   attributeWildcardState(WildcardID(99), NoWildcard, NoWildcard, AttributeWildcardNone),
+			state:   attributeWildcardUseSet(WildcardID(99), NoWildcard, NoWildcard, AttributeWildcardNone),
 			wantErr: "attribute use set references invalid wildcard",
 		},
 		{
 			name:    "invalid base id",
-			state:   attributeWildcardState(NoWildcard, WildcardID(99), NoWildcard, AttributeWildcardNone),
+			state:   attributeWildcardUseSet(NoWildcard, WildcardID(99), NoWildcard, AttributeWildcardNone),
 			wantErr: "attribute use set references invalid base wildcard",
 		},
 		{
 			name:    "invalid declared id",
-			state:   attributeWildcardState(NoWildcard, NoWildcard, WildcardID(99), AttributeWildcardNone),
+			state:   attributeWildcardUseSet(NoWildcard, NoWildcard, WildcardID(99), AttributeWildcardNone),
 			wantErr: "attribute use set references invalid declared wildcard",
 		},
 		{
 			name:    "invalid derivation",
-			state:   attributeWildcardState(NoWildcard, NoWildcard, NoWildcard, AttributeWildcardDerivation(99)),
+			state:   attributeWildcardUseSet(NoWildcard, NoWildcard, NoWildcard, AttributeWildcardDerivation(99)),
 			wantErr: "attribute use set has invalid wildcard derivation",
 		},
 	}
@@ -367,7 +465,7 @@ func TestValidateAttributeWildcardProvenance(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateAttributeWildcardProvenance(rt, tt.state)
+			err := ValidateAttributeWildcardProvenance(rt.build(), tt.state)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateAttributeWildcardProvenance() error = %v", err)
@@ -385,20 +483,20 @@ func TestValidateAttributeWildcardDerivation(t *testing.T) {
 	t.Parallel()
 
 	const baseID WildcardID = 1
-	rt := attributeWildcardRuntimeStub{
+	rt := attributeWildcardFixture{
 		baseID: {Mode: WildcardLocal, Process: ProcessStrict},
 	}
-	base := attributeWildcardState(baseID, NoWildcard, NoWildcard, AttributeWildcardNone)
-	derived := attributeWildcardState(baseID, baseID, NoWildcard, AttributeWildcardExtension)
-	if err := ValidateAttributeWildcardDerivation(rt, base, derived, AttributeWildcardExtension); err != nil {
+	base := attributeWildcardUseSet(baseID, NoWildcard, NoWildcard, AttributeWildcardNone)
+	derived := attributeWildcardUseSet(baseID, baseID, NoWildcard, AttributeWildcardExtension)
+	if err := ValidateAttributeWildcardDerivation(rt.build(), base, derived, AttributeWildcardExtension); err != nil {
 		t.Fatalf("ValidateAttributeWildcardDerivation() error = %v", err)
 	}
-	if err := ValidateAttributeWildcardDerivation(rt, base, derived, AttributeWildcardRestriction); err == nil ||
+	if err := ValidateAttributeWildcardDerivation(rt.build(), base, derived, AttributeWildcardRestriction); err == nil ||
 		!strings.Contains(err.Error(), "attribute wildcard derivation does not match owning type") {
 		t.Fatalf("ValidateAttributeWildcardDerivation() wrong derivation error = %v", err)
 	}
-	derived.Base = NoWildcard
-	if err := ValidateAttributeWildcardDerivation(rt, base, derived, AttributeWildcardExtension); err == nil ||
+	derived.WildcardBase = NoWildcard
+	if err := ValidateAttributeWildcardDerivation(rt.build(), base, derived, AttributeWildcardExtension); err == nil ||
 		!strings.Contains(err.Error(), "attribute wildcard base does not match owning type") {
 		t.Fatalf("ValidateAttributeWildcardDerivation() wrong base error = %v", err)
 	}
@@ -480,43 +578,14 @@ func TestValidateAttributeUseSetRecord(t *testing.T) {
 				set.Uses[0].Type = 1
 				set.Uses[1].Type = 1
 				set.Uses[1].Default = nil
-				set.ValueConstraints = nil
 			},
 			wantErr: "attribute use set stores multiple ID attributes",
 		},
-		{
-			name: "required slots drift",
-			mutate: func(set *AttributeUseSet) {
-				set.Required = nil
-			},
-			wantErr: "attribute use set required slots do not match uses",
-		},
-		{
-			name: "value constraint slots drift",
-			mutate: func(set *AttributeUseSet) {
-				set.ValueConstraints = nil
-			},
-			wantErr: "attribute use set value constraint slots do not match uses",
-		},
-		{
-			name: "required slot invalid",
-			mutate: func(set *AttributeUseSet) {
-				set.Required = []uint32{1}
-			},
-			wantErr: "attribute use set required slots do not match uses",
-		},
-		{
-			name: "value constraint slot invalid",
-			mutate: func(set *AttributeUseSet) {
-				set.ValueConstraints = []uint32{0}
-			},
-			wantErr: "attribute use set value constraint slots do not match uses",
-		},
 	}
-	rt := attributeUseSetRuntimeStub{
-		identities: map[SimpleTypeID]SimpleIdentityKind{
-			0: SimpleIdentityNone,
-			1: SimpleIdentityID,
+	rt := attributeUseSetFixture{
+		identities: map[SimpleTypeID]valuepkg.IdentityKind{
+			0: valuepkg.IdentityNone,
+			1: valuepkg.IdentityID,
 		},
 	}
 	for _, tt := range tests {
@@ -527,7 +596,7 @@ func TestValidateAttributeUseSetRecord(t *testing.T) {
 			if tt.mutate != nil {
 				tt.mutate(&set)
 			}
-			err := ValidateAttributeUseSetRecord(&names, rt, set)
+			err := ValidateAttributeUseSetRecord(&names, rt.build(), set)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateAttributeUseSetRecord() error = %v", err)
@@ -544,21 +613,21 @@ func TestValidateAttributeUseSetRecord(t *testing.T) {
 func TestValidateAttributeUseRestriction(t *testing.T) {
 	t.Parallel()
 
-	rt := derivationRuntimeStub{
+	rt := derivationFixture{
 		simple: []SimpleTypeDerivation{
-			{Base: NoSimpleType, Variety: SimpleVarietyAtomic},
-			{Base: 0, Variety: SimpleVarietyAtomic},
-			{Base: NoSimpleType, Variety: SimpleVarietyAtomic},
+			{Base: NoSimpleType, Variety: valuepkg.Atomic},
+			{Base: 0, Variety: valuepkg.Atomic},
+			{Base: NoSimpleType, Variety: valuepkg.Atomic},
 		},
 		complex: []ComplexTypeDerivation{{Kind: DerivationKindNone}},
 	}
-	base := AttributeUseRestrictionValidation{Type: 0}
-	derived := AttributeUseRestrictionValidation{Type: 1}
+	base := AttributeUse{Type: 0}
+	derived := AttributeUse{Type: 1}
 	tests := []struct {
 		name    string
 		wantErr string
-		base    AttributeUseRestrictionValidation
-		derived AttributeUseRestrictionValidation
+		base    AttributeUse
+		derived AttributeUse
 	}{
 		{
 			name:    "derived type restricts base type",
@@ -568,18 +637,18 @@ func TestValidateAttributeUseRestriction(t *testing.T) {
 		{
 			name: "optional base can be prohibited",
 			base: base,
-			derived: AttributeUseRestrictionValidation{
+			derived: AttributeUse{
 				Type:       1,
 				Prohibited: true,
 			},
 		},
 		{
 			name: "required base cannot be prohibited",
-			base: AttributeUseRestrictionValidation{
+			base: AttributeUse{
 				Type:     0,
 				Required: true,
 			},
-			derived: AttributeUseRestrictionValidation{
+			derived: AttributeUse{
 				Type:       1,
 				Prohibited: true,
 			},
@@ -587,7 +656,7 @@ func TestValidateAttributeUseRestriction(t *testing.T) {
 		},
 		{
 			name: "required base cannot become optional",
-			base: AttributeUseRestrictionValidation{
+			base: AttributeUse{
 				Type:     0,
 				Required: true,
 			},
@@ -597,40 +666,40 @@ func TestValidateAttributeUseRestriction(t *testing.T) {
 		{
 			name: "derived type must derive from base type",
 			base: base,
-			derived: AttributeUseRestrictionValidation{
+			derived: AttributeUse{
 				Type: 2,
 			},
 			wantErr: "restricted attribute type is not derived from base",
 		},
 		{
 			name: "fixed value preserved",
-			base: AttributeUseRestrictionValidation{
+			base: AttributeUse{
 				Type:  0,
-				Fixed: valueConstraintIdentity(t, "decimal", "5.0"),
+				Fixed: attributeUseConstraintForTest(t, "decimal", "5.0"),
 			},
-			derived: AttributeUseRestrictionValidation{
+			derived: AttributeUse{
 				Type:  1,
-				Fixed: valueConstraintIdentity(t, "decimal", "5"),
+				Fixed: attributeUseConstraintForTest(t, "decimal", "5"),
 			},
 		},
 		{
 			name: "fixed missing",
-			base: AttributeUseRestrictionValidation{
+			base: AttributeUse{
 				Type:  0,
-				Fixed: valueConstraintIdentity(t, "string", "fixed"),
+				Fixed: attributeUseConstraintForTest(t, "string", "fixed"),
 			},
 			derived: derived,
 			wantErr: "fixed attribute constraint must be preserved by restriction",
 		},
 		{
 			name: "fixed value mismatch",
-			base: AttributeUseRestrictionValidation{
+			base: AttributeUse{
 				Type:  0,
-				Fixed: valueConstraintIdentity(t, "string", "true"),
+				Fixed: attributeUseConstraintForTest(t, "string", "true"),
 			},
-			derived: AttributeUseRestrictionValidation{
+			derived: AttributeUse{
 				Type:  1,
-				Fixed: valueConstraintIdentity(t, "boolean", "true"),
+				Fixed: attributeUseConstraintForTest(t, "boolean", "true"),
 			},
 			wantErr: "fixed attribute constraint must be preserved by restriction",
 		},
@@ -639,7 +708,7 @@ func TestValidateAttributeUseRestriction(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateAttributeUseRestriction(rt, tt.base, tt.derived, unboundedTypeDerivationWork)
+			err := ValidateAttributeUseRestriction(rt.build(), tt.base, tt.derived, unboundedTypeDerivationWork)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateAttributeUseRestriction() error = %v", err)
@@ -653,9 +722,9 @@ func TestValidateAttributeUseRestriction(t *testing.T) {
 	}
 }
 
-type attributeUseRestrictionRuntimeStub struct {
-	attributeWildcardRuntimeStub
-	derivationRuntimeStub
+type attributeUseRestrictionFixture struct {
+	attributeWildcardFixture
+	derivationFixture
 }
 
 func TestValidateAttributeUseSetRestriction(t *testing.T) {
@@ -668,50 +737,50 @@ func TestValidateAttributeUseSetRestriction(t *testing.T) {
 	first := QName{Namespace: 1, Local: 1}
 	second := QName{Namespace: 1, Local: 2}
 	third := QName{Namespace: 2, Local: 3}
-	rt := attributeUseRestrictionRuntimeStub{
+	rt := attributeUseRestrictionFixture{
 		simple: []SimpleTypeDerivation{
-			{Base: NoSimpleType, Variety: SimpleVarietyAtomic},
-			{Base: 0, Variety: SimpleVarietyAtomic},
-			{Base: NoSimpleType, Variety: SimpleVarietyAtomic},
+			{Base: NoSimpleType, Variety: valuepkg.Atomic},
+			{Base: 0, Variety: valuepkg.Atomic},
+			{Base: NoSimpleType, Variety: valuepkg.Atomic},
 		},
 		complex: []ComplexTypeDerivation{{Kind: DerivationKindNone}},
-		attributeWildcardRuntimeStub: attributeWildcardRuntimeStub{
+		attributeWildcardFixture: attributeWildcardFixture{
 			baseWildcard:    {Mode: WildcardAny, Process: ProcessStrict},
 			derivedWildcard: {Mode: WildcardList, Namespaces: []NamespaceID{third.Namespace}, Process: ProcessStrict},
 		},
 	}
-	base := []AttributeUseRestrictionValidation{
+	base := []AttributeUse{
 		{Name: first, Type: 0, Required: true},
 		{Name: second, Type: 0},
 	}
-	derived := []AttributeUseRestrictionValidation{
+	derived := []AttributeUse{
 		{Name: first, Type: 1, Required: true},
 		{Name: second, Type: 1},
 	}
-	withExtra := func(use AttributeUseRestrictionValidation) []AttributeUseRestrictionValidation {
-		out := append([]AttributeUseRestrictionValidation(nil), derived...)
+	withExtra := func(use AttributeUse) []AttributeUse {
+		out := append([]AttributeUse(nil), derived...)
 		return append(out, use)
 	}
-	baseState := AttributeWildcardState{Wildcard: baseWildcard}
-	derivedState := AttributeWildcardState{
-		Wildcard:   derivedWildcard,
-		Base:       baseWildcard,
-		Declared:   derivedWildcard,
-		Derivation: AttributeWildcardRestriction,
+	baseState := AttributeUseSet{Wildcard: baseWildcard}
+	derivedState := AttributeUseSet{
+		Wildcard:         derivedWildcard,
+		WildcardBase:     baseWildcard,
+		WildcardDeclared: derivedWildcard,
+		WildcardDerive:   AttributeWildcardRestriction,
 	}
 	tests := []struct {
 		name         string
 		wantErr      string
-		derived      []AttributeUseRestrictionValidation
-		baseState    AttributeWildcardState
-		derivedState AttributeWildcardState
+		derived      []AttributeUse
+		baseState    AttributeUseSet
+		derivedState AttributeUseSet
 		binding      AttributeWildcardBinding
 	}{
 		{
 			name:         "valid restriction without wildcard binding",
 			derived:      derived,
 			baseState:    baseState,
-			derivedState: NoAttributeWildcardState(),
+			derivedState: AttributeUseSet{Wildcard: NoWildcard, WildcardBase: NoWildcard, WildcardDeclared: NoWildcard},
 		},
 		{
 			name:         "valid restriction with wildcard binding",
@@ -722,34 +791,34 @@ func TestValidateAttributeUseSetRestriction(t *testing.T) {
 		},
 		{
 			name: "missing required base use",
-			derived: []AttributeUseRestrictionValidation{
+			derived: []AttributeUse{
 				{Name: second, Type: 1},
 			},
 			baseState:    baseState,
-			derivedState: NoAttributeWildcardState(),
+			derivedState: AttributeUseSet{Wildcard: NoWildcard, WildcardBase: NoWildcard, WildcardDeclared: NoWildcard},
 			wantErr:      "complex restriction omits required base attribute",
 		},
 		{
 			name: "pairwise restriction must be valid",
-			derived: []AttributeUseRestrictionValidation{
+			derived: []AttributeUse{
 				{Name: first, Type: 2, Required: true},
 				{Name: second, Type: 1},
 			},
 			baseState:    baseState,
-			derivedState: NoAttributeWildcardState(),
+			derivedState: AttributeUseSet{Wildcard: NoWildcard, WildcardBase: NoWildcard, WildcardDeclared: NoWildcard},
 			wantErr:      "complex restriction attribute use is invalid",
 		},
 		{
 			name:         "derived-only use allowed by base wildcard",
-			derived:      withExtra(AttributeUseRestrictionValidation{Name: third, Type: 1}),
+			derived:      withExtra(AttributeUse{Name: third, Type: 1}),
 			baseState:    baseState,
-			derivedState: NoAttributeWildcardState(),
+			derivedState: AttributeUseSet{Wildcard: NoWildcard, WildcardBase: NoWildcard, WildcardDeclared: NoWildcard},
 		},
 		{
 			name:         "derived-only use requires base wildcard",
-			derived:      withExtra(AttributeUseRestrictionValidation{Name: third, Type: 1}),
-			baseState:    NoAttributeWildcardState(),
-			derivedState: NoAttributeWildcardState(),
+			derived:      withExtra(AttributeUse{Name: third, Type: 1}),
+			baseState:    AttributeUseSet{Wildcard: NoWildcard, WildcardBase: NoWildcard, WildcardDeclared: NoWildcard},
+			derivedState: AttributeUseSet{Wildcard: NoWildcard, WildcardBase: NoWildcard, WildcardDeclared: NoWildcard},
 			wantErr:      "complex restriction adds attribute outside base wildcard",
 		},
 		{
@@ -763,7 +832,7 @@ func TestValidateAttributeUseSetRestriction(t *testing.T) {
 			name:         "explicit wildcard derivation is checked",
 			derived:      derived,
 			baseState:    baseState,
-			derivedState: AttributeWildcardState{Wildcard: derivedWildcard, Base: baseWildcard, Declared: derivedWildcard},
+			derivedState: AttributeUseSet{Wildcard: derivedWildcard, WildcardBase: baseWildcard, WildcardDeclared: derivedWildcard},
 			binding:      AttributeWildcardBound,
 			wantErr:      "attribute wildcard derivation does not match owning type",
 		},
@@ -780,7 +849,11 @@ func TestValidateAttributeUseSetRestriction(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateAttributeUseSetRestriction(rt, AttributeUseRestrictionSet{Uses: base, Wildcard: tt.baseState}, AttributeUseRestrictionSet{Uses: tt.derived, Wildcard: tt.derivedState}, tt.binding, unboundedTypeDerivationWork)
+			baseSet := tt.baseState
+			baseSet.Uses = base
+			derivedSet := tt.derivedState
+			derivedSet.Uses = tt.derived
+			err := ValidateAttributeUseSetRestriction(rt.build(), baseSet, derivedSet, tt.binding, unboundedTypeDerivationWork)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateAttributeUseSetRestriction() error = %v", err)
@@ -807,20 +880,18 @@ func TestValidateAttributeUseSetExtension(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	value := ValueConstraintIdentity{
+	value := &ValueConstraint{
 		ResolvedNames: []ResolvedValueName{{Lexical: "p:item", NS: "urn:test", Local: "item"}},
 		Lexical:       "p:item",
 		Canonical:     "p:item",
 		Value:         qname,
-		Present:       true,
 	}
-	fixed := ValueConstraintIdentity{
+	fixed := &ValueConstraint{
 		Lexical:   "fixed",
 		Canonical: "fixed",
 		Value:     builtinValueForTest(t, "string", "fixed"),
-		Present:   true,
 	}
-	base := []AttributeUseExtensionValidation{
+	base := []AttributeUse{
 		{
 			Default:  value,
 			Name:     QName{Namespace: 1, Local: 1},
@@ -835,7 +906,7 @@ func TestValidateAttributeUseSetExtension(t *testing.T) {
 	}
 	tests := []struct {
 		name    string
-		mutate  func([]AttributeUseExtensionValidation) []AttributeUseExtensionValidation
+		mutate  func([]AttributeUse) []AttributeUse
 		wantErr string
 	}{
 		{
@@ -843,14 +914,14 @@ func TestValidateAttributeUseSetExtension(t *testing.T) {
 		},
 		{
 			name: "missing base use",
-			mutate: func(uses []AttributeUseExtensionValidation) []AttributeUseExtensionValidation {
+			mutate: func(uses []AttributeUse) []AttributeUse {
 				return uses[:1]
 			},
 			wantErr: "complex extension does not preserve base attribute use",
 		},
 		{
 			name: "type mismatch",
-			mutate: func(uses []AttributeUseExtensionValidation) []AttributeUseExtensionValidation {
+			mutate: func(uses []AttributeUse) []AttributeUse {
 				uses[0].Type = 3
 				return uses
 			},
@@ -858,7 +929,7 @@ func TestValidateAttributeUseSetExtension(t *testing.T) {
 		},
 		{
 			name: "required mismatch",
-			mutate: func(uses []AttributeUseExtensionValidation) []AttributeUseExtensionValidation {
+			mutate: func(uses []AttributeUse) []AttributeUse {
 				uses[0].Required = false
 				return uses
 			},
@@ -866,7 +937,7 @@ func TestValidateAttributeUseSetExtension(t *testing.T) {
 		},
 		{
 			name: "prohibited mismatch",
-			mutate: func(uses []AttributeUseExtensionValidation) []AttributeUseExtensionValidation {
+			mutate: func(uses []AttributeUse) []AttributeUse {
 				uses[0].Prohibited = true
 				return uses
 			},
@@ -874,15 +945,15 @@ func TestValidateAttributeUseSetExtension(t *testing.T) {
 		},
 		{
 			name: "default presence mismatch",
-			mutate: func(uses []AttributeUseExtensionValidation) []AttributeUseExtensionValidation {
-				uses[0].Default = ValueConstraintIdentity{}
+			mutate: func(uses []AttributeUse) []AttributeUse {
+				uses[0].Default = nil
 				return uses
 			},
 			wantErr: "complex extension does not preserve base attribute use",
 		},
 		{
 			name: "default canonical mismatch",
-			mutate: func(uses []AttributeUseExtensionValidation) []AttributeUseExtensionValidation {
+			mutate: func(uses []AttributeUse) []AttributeUse {
 				uses[0].Default.Canonical = "other"
 				return uses
 			},
@@ -890,7 +961,7 @@ func TestValidateAttributeUseSetExtension(t *testing.T) {
 		},
 		{
 			name: "default value mismatch",
-			mutate: func(uses []AttributeUseExtensionValidation) []AttributeUseExtensionValidation {
+			mutate: func(uses []AttributeUse) []AttributeUse {
 				uses[0].Default.Value = builtinValueForTest(t, "string", "other")
 				return uses
 			},
@@ -898,7 +969,7 @@ func TestValidateAttributeUseSetExtension(t *testing.T) {
 		},
 		{
 			name: "default resolved name mismatch",
-			mutate: func(uses []AttributeUseExtensionValidation) []AttributeUseExtensionValidation {
+			mutate: func(uses []AttributeUse) []AttributeUse {
 				uses[0].Default.ResolvedNames[0].Local = "other"
 				return uses
 			},
@@ -906,7 +977,7 @@ func TestValidateAttributeUseSetExtension(t *testing.T) {
 		},
 		{
 			name: "fixed canonical mismatch",
-			mutate: func(uses []AttributeUseExtensionValidation) []AttributeUseExtensionValidation {
+			mutate: func(uses []AttributeUse) []AttributeUse {
 				uses[1].Fixed.Canonical = "other"
 				return uses
 			},
@@ -914,7 +985,7 @@ func TestValidateAttributeUseSetExtension(t *testing.T) {
 		},
 		{
 			name: "fixed provenance mismatch",
-			mutate: func(uses []AttributeUseExtensionValidation) []AttributeUseExtensionValidation {
+			mutate: func(uses []AttributeUse) []AttributeUse {
 				uses[1].FixedFromDeclaration = true
 				return uses
 			},
@@ -925,11 +996,11 @@ func TestValidateAttributeUseSetExtension(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			derived := cloneAttributeUseExtensionValidations(base)
+			derived := cloneAttributeUsesForTest(base)
 			if tt.mutate != nil {
 				derived = tt.mutate(derived)
 			}
-			err := ValidateAttributeUseSetExtension(base, derived)
+			err := ValidateAttributeUseSetExtension(AttributeUseSet{Uses: base}, AttributeUseSet{Uses: derived})
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateAttributeUseSetExtension() error = %v", err)
@@ -943,44 +1014,43 @@ func TestValidateAttributeUseSetExtension(t *testing.T) {
 	}
 }
 
-func cloneAttributeUseExtensionValidations(in []AttributeUseExtensionValidation) []AttributeUseExtensionValidation {
-	out := append([]AttributeUseExtensionValidation(nil), in...)
+func cloneAttributeUsesForTest(in []AttributeUse) []AttributeUse {
+	out := append([]AttributeUse(nil), in...)
 	for i := range out {
-		out[i].Default.ResolvedNames = append([]ResolvedValueName(nil), out[i].Default.ResolvedNames...)
-		out[i].Fixed.ResolvedNames = append([]ResolvedValueName(nil), out[i].Fixed.ResolvedNames...)
+		if out[i].Default != nil {
+			cloned := *out[i].Default
+			cloned.ResolvedNames = append([]ResolvedValueName(nil), cloned.ResolvedNames...)
+			out[i].Default = &cloned
+		}
+		if out[i].Fixed != nil {
+			cloned := *out[i].Fixed
+			cloned.ResolvedNames = append([]ResolvedValueName(nil), cloned.ResolvedNames...)
+			out[i].Fixed = &cloned
+		}
 	}
 	return out
 }
 
-type attributeWildcardRuntimeStub map[WildcardID]Wildcard
+func attributeUseConstraintForTest(tb testing.TB, typeName, lexical string) *ValueConstraint {
+	tb.Helper()
+	validated := builtinValueForTest(tb, typeName, lexical)
+	return &ValueConstraint{Lexical: lexical, Canonical: validated.CanonicalText(), Value: validated}
+}
 
-type attributeUseSetRuntimeStub struct {
+type attributeWildcardFixture map[WildcardID]Wildcard
+
+type attributeUseSetFixture struct {
 	wildcards  map[WildcardID]Wildcard
-	identities map[SimpleTypeID]SimpleIdentityKind
+	identities map[SimpleTypeID]valuepkg.IdentityKind
 }
 
-func attributeWildcardState(wildcard, base, declared WildcardID, derivation AttributeWildcardDerivation) AttributeWildcardState {
-	return AttributeWildcardState{
-		Wildcard:   wildcard,
-		Base:       base,
-		Declared:   declared,
-		Derivation: derivation,
+func attributeWildcardUseSet(wildcard, base, declared WildcardID, derivation AttributeWildcardDerivation) AttributeUseSet {
+	return AttributeUseSet{
+		Wildcard:         wildcard,
+		WildcardBase:     base,
+		WildcardDeclared: declared,
+		WildcardDerive:   derivation,
 	}
-}
-
-func (rt attributeWildcardRuntimeStub) Wildcard(id WildcardID) (Wildcard, bool) {
-	w, ok := rt[id]
-	return w, ok
-}
-
-func (rt attributeUseSetRuntimeStub) Wildcard(id WildcardID) (Wildcard, bool) {
-	w, ok := rt.wildcards[id]
-	return w, ok
-}
-
-func (rt attributeUseSetRuntimeStub) SimpleTypeIdentity(id SimpleTypeID) (SimpleIdentityKind, bool) {
-	identity, ok := rt.identities[id]
-	return identity, ok
 }
 
 func attributeUseNameTable(t *testing.T) (names NameTable, first, second QName) {
@@ -1011,10 +1081,26 @@ func validAttributeUseSet(first, second QName) AttributeUseSet {
 			{Name: first, Type: 0, Required: true},
 			{Name: second, Type: 0, Default: &ValueConstraint{}},
 		},
-		Required:         []uint32{0},
-		ValueConstraints: []uint32{1},
 		Wildcard:         NoWildcard,
 		WildcardBase:     NoWildcard,
 		WildcardDeclared: NoWildcard,
 	}
+}
+
+func (f attributeWildcardFixture) build() *schemaBuild {
+	return &schemaBuild{Wildcards: fixtureMapSlice(f)}
+}
+
+func (f attributeUseSetFixture) build() *schemaBuild {
+	b := &schemaBuild{Wildcards: fixtureMapSlice(f.wildcards), SimpleTypes: make([]SimpleType, len(fixtureMapSlice(f.identities)))}
+	for id, identity := range f.identities {
+		b.SimpleTypes[id].ValueSpec.Identity = identity
+	}
+	return b
+}
+
+func (f attributeUseRestrictionFixture) build() *schemaBuild {
+	b := f.derivationFixture.build()
+	b.Wildcards = fixtureMapSlice(f.attributeWildcardFixture)
+	return b
 }

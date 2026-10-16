@@ -19,25 +19,13 @@ const (
 	CompiledModelDFA
 )
 
-// ValidCompiledModelKind reports whether kind is a known compiled-model kind.
-func ValidCompiledModelKind(kind CompiledModelKind) bool {
-	switch kind {
-	case CompiledModelEmpty, CompiledModelAny, CompiledModelAll, CompiledModelDFA:
-		return true
-	default:
-		return false
-	}
-}
-
 // CompiledModel stores a runtime-ready content model.
 type CompiledModel struct {
 	Rows      []CompiledModelRow
 	All       []CompiledAllTerm
-	Source    ContentModelID
 	Start     uint32
 	AllBitLen uint32
 	Kind      CompiledModelKind
-	Mixed     bool
 	Empty     bool
 }
 
@@ -74,13 +62,6 @@ type CompiledAllTerm struct {
 	Required bool
 }
 
-// CompiledModelRuntime supplies element, wildcard, content, and substitution
-// metadata needed while constructing compiled content models.
-type CompiledModelRuntime interface {
-	ParticleRuntime
-	DFARowIndexRuntime
-}
-
 // SameCompiledParticle reports whether two compiled particles reference the
 // same runtime term. Occurrence and nested model IDs are intentionally ignored:
 // compiled transitions contain direct element or wildcard particles.
@@ -91,14 +72,14 @@ func SameCompiledParticle(a, b Particle) bool {
 const compiledDFARowIndexMinEdges = 8
 
 type dfaRowIndexAnalysis struct {
-	rt      DFARowIndexRuntime
+	rt      *schemaBuild
 	work    ContentModelWork
 	entries map[ElementID][]QName
 }
 
 // IndexCompiledModelsRows builds row indexes for a model table and
 // reuses each substitution head's expanded entries across the table.
-func IndexCompiledModelsRows(rt DFARowIndexRuntime, models []CompiledModel, work ContentModelWork) error {
+func IndexCompiledModelsRows(rt *schemaBuild, models []CompiledModel, work ContentModelWork) error {
 	if err := requireContentModelWork(work); err != nil {
 		return err
 	}
@@ -114,7 +95,7 @@ func IndexCompiledModelsRows(rt DFARowIndexRuntime, models []CompiledModel, work
 	return nil
 }
 
-func newDFARowIndexAnalysis(rt DFARowIndexRuntime, work ContentModelWork) *dfaRowIndexAnalysis {
+func newDFARowIndexAnalysis(rt *schemaBuild, work ContentModelWork) *dfaRowIndexAnalysis {
 	return &dfaRowIndexAnalysis{
 		rt:      rt,
 		work:    work,
@@ -207,7 +188,7 @@ func (a *dfaRowIndexAnalysis) substitutionEntries(id ElementID) ([]QName, error)
 	}
 	var entries []QName
 	var workErr error
-	a.rt.ForEachSubstitutionEntry(id, func(name QName, _ ElementID) bool {
+	a.rt.Substitutions.ForEachEntry(id, func(name QName, _ ElementID) bool {
 		workErr = spendContentModelWork(a.work)
 		if workErr != nil {
 			return false
@@ -239,10 +220,4 @@ func CompiledCountingException(index uint32, row CompiledModelRow, a, b Compiled
 	aLoop := a.To == index && SameCompiledParticle(a.Particle, row.CountParticle)
 	bLoop := b.To == index && SameCompiledParticle(b.Particle, row.CountParticle)
 	return (aLoop && b.To != index) || (bLoop && a.To != index)
-}
-
-// DFARowIndexRuntime supplies declarations needed to validate a DFA row index.
-type DFARowIndexRuntime interface {
-	ElementName(id ElementID) (QName, bool)
-	ForEachSubstitutionEntry(id ElementID, fn func(QName, ElementID) bool)
 }

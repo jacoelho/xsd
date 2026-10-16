@@ -16,7 +16,7 @@ const facetTotalDigits = "totalDigits"
 // fractionDigits facet values.
 func ParseSizeFacetValue(name, value string) (uint32, error) {
 	value = lex.CollapseXMLWhitespace(value)
-	size, err := parseSizeFacetInteger(value)
+	size, err := parseSchemaNonNegativeInteger(value)
 	if err != nil {
 		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "invalid "+name+" facet "+value)
 	}
@@ -78,7 +78,9 @@ func ElementValueConstraintRuntimeError(err error) error {
 	return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error())
 }
 
-func parseSizeFacetInteger(value string) (uint64, error) {
+// parseSchemaNonNegativeInteger is exact through uint32. Larger results signal
+// overflow; every remaining byte is still checked for valid integer syntax.
+func parseSchemaNonNegativeInteger(value string) (uint64, error) {
 	start, negative, err := parseSizeFacetSign(value)
 	if err != nil {
 		return 0, err

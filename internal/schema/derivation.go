@@ -3,13 +3,15 @@ package schema
 import (
 	"errors"
 	"slices"
+
+	valuepkg "github.com/jacoelho/xsd/internal/value"
 )
 
 // SimpleTypeDerivation is the graph metadata needed to test simple-type derivation.
 type SimpleTypeDerivation struct {
 	Union   []SimpleTypeID
 	Base    SimpleTypeID
-	Variety SimpleVariety
+	Variety valuepkg.Variety
 }
 
 // newSimpleTypeDerivationForSimpleType returns the runtime derivation
@@ -21,15 +23,6 @@ func newSimpleTypeDerivationForSimpleType(st SimpleType) SimpleTypeDerivation {
 		Base:    spec.Base,
 		Variety: spec.Variety,
 	})
-}
-
-// equalSimpleTypeDerivationForSimpleType reports whether projection exposes
-// the runtime derivation facts for st.
-func equalSimpleTypeDerivationForSimpleType(projection SimpleTypeDerivation, st SimpleType) bool {
-	spec := st.ValueSpec
-	return projection.Base == spec.Base &&
-		projection.Variety == spec.Variety &&
-		slices.Equal(projection.Union, spec.Union)
 }
 
 // ComplexTypeDerivation is the graph metadata needed to test complex-type derivation.
@@ -47,18 +40,6 @@ func newComplexTypeDerivationForComplexType(ct ComplexType) ComplexTypeDerivatio
 		Kind:  ct.Derivation,
 		Block: ct.Block,
 	}
-}
-
-// equalComplexTypeDerivations reports whether two complex-type derivation
-// projections expose the same runtime derivation graph node.
-func equalComplexTypeDerivations(a, b ComplexTypeDerivation) bool {
-	return a == b
-}
-
-// equalComplexTypeDerivationForComplexType reports whether projection exposes
-// the runtime derivation facts for ct.
-func equalComplexTypeDerivationForComplexType(projection ComplexTypeDerivation, ct ComplexType) bool {
-	return equalComplexTypeDerivations(projection, newComplexTypeDerivationForComplexType(ct))
 }
 
 // typeDerivationRead is the freeze-published type-derivation index used by
@@ -333,24 +314,8 @@ func (r typeDerivationRead) ComplexTypeCount() int {
 	return len(r.index.complexIn)
 }
 
-func (r typeDerivationRead) simpleTypeTable() []SimpleTypeDerivation {
-	if r.index == nil {
-		return nil
-	}
-	return r.index.simpleTypes
-}
-
-// TypeDerivationRuntime supplies runtime type-derivation graph metadata.
-type TypeDerivationRuntime interface {
-	AnyTypeID() ComplexTypeID
-	SimpleTypeCount() int
-	ComplexTypeCount() int
-	SimpleTypeDerivation(id SimpleTypeID) (SimpleTypeDerivation, bool)
-	ComplexTypeDerivation(id ComplexTypeID) (ComplexTypeDerivation, bool)
-}
-
-func deriveTypeMask[T TypeDerivationRuntime](
-	rt T,
+func deriveTypeMask(
+	rt *schemaBuild,
 	derived, base TypeID,
 	work func(int) error,
 ) (DerivationMask, bool, error) {
@@ -360,7 +325,7 @@ func deriveTypeMask[T TypeDerivationRuntime](
 	if derived == base {
 		return 0, true, nil
 	}
-	if base == ComplexRef(rt.AnyTypeID()) {
+	if base == ComplexRef(rt.AnyType) {
 		if id, ok := derived.Complex(); ok {
 			return complexAnyTypeDerivationMask(rt, id, work)
 		}
@@ -375,8 +340,8 @@ func deriveTypeMask[T TypeDerivationRuntime](
 	return 0, false, nil
 }
 
-func complexDerivedTypeDerivationMask[T TypeDerivationRuntime](
-	rt T,
+func complexDerivedTypeDerivationMask(
+	rt *schemaBuild,
 	derived ComplexTypeID,
 	base TypeID,
 	work func(int) error,
@@ -390,8 +355,8 @@ func complexDerivedTypeDerivationMask[T TypeDerivationRuntime](
 	return 0, false, nil
 }
 
-func simpleDerivedTypeDerivationMask[T TypeDerivationRuntime](
-	rt T,
+func simpleDerivedTypeDerivationMask(
+	rt *schemaBuild,
 	derived SimpleTypeID,
 	base TypeID,
 	work func(int) error,
@@ -674,7 +639,7 @@ func (r typeDerivationRead) complexAnyTypeDerivation(derived ComplexTypeID) (Der
 	return 0, false
 }
 
-func substitutionTypeBlocks(rt TypeDerivationRuntime, derived, base TypeID, work func(int) error) (DerivationMask, error) {
+func substitutionTypeBlocks(rt *schemaBuild, derived, base TypeID, work func(int) error) (DerivationMask, error) {
 	if derived == base {
 		return 0, nil
 	}
@@ -683,7 +648,7 @@ func substitutionTypeBlocks(rt TypeDerivationRuntime, derived, base TypeID, work
 	if !ok {
 		return blocks, nil
 	}
-	for range rt.ComplexTypeCount() {
+	for range len(rt.ComplexTypes) {
 		if err := work(1); err != nil {
 			return 0, err
 		}
@@ -697,7 +662,7 @@ func substitutionTypeBlocks(rt TypeDerivationRuntime, derived, base TypeID, work
 	return blocks, nil
 }
 
-func baseSubstitutionTypeBlock(rt TypeDerivationRuntime, base TypeID) DerivationMask {
+func baseSubstitutionTypeBlock(rt *schemaBuild, base TypeID) DerivationMask {
 	baseID, ok := base.Complex()
 	if !ok {
 		return 0
@@ -710,7 +675,7 @@ func baseSubstitutionTypeBlock(rt TypeDerivationRuntime, base TypeID) Derivation
 }
 
 func nextSubstitutionTypeBlock(
-	rt TypeDerivationRuntime,
+	rt *schemaBuild,
 	current ComplexTypeID,
 	base TypeID,
 ) (DerivationMask, ComplexTypeID, bool) {
@@ -742,14 +707,14 @@ func derivationKindMask(kind DerivationKind) DerivationMask {
 	return 0
 }
 
-func complexSimpleTypeDerivationMask[T TypeDerivationRuntime](
-	rt T,
+func complexSimpleTypeDerivationMask(
+	rt *schemaBuild,
 	derived ComplexTypeID,
 	base SimpleTypeID,
 	work func(int) error,
 ) (DerivationMask, bool, error) {
 	var mask DerivationMask
-	for range rt.ComplexTypeCount() {
+	for range len(rt.ComplexTypes) {
 		step, err := nextComplexSimpleDerivation(rt, derived, base, work)
 		if err != nil {
 			return 0, false, err
@@ -773,8 +738,8 @@ type complexSimpleDerivationStep struct {
 	valid bool
 }
 
-func nextComplexSimpleDerivation[T TypeDerivationRuntime](
-	rt T,
+func nextComplexSimpleDerivation(
+	rt *schemaBuild,
 	derived ComplexTypeID,
 	base SimpleTypeID,
 	work func(int) error,
@@ -804,13 +769,13 @@ func nextComplexSimpleDerivation[T TypeDerivationRuntime](
 	return step, nil
 }
 
-func complexAnyTypeDerivationMask[T TypeDerivationRuntime](
-	rt T,
+func complexAnyTypeDerivationMask(
+	rt *schemaBuild,
 	derived ComplexTypeID,
 	work func(int) error,
 ) (DerivationMask, bool, error) {
 	var mask DerivationMask
-	for range rt.ComplexTypeCount() {
+	for range len(rt.ComplexTypes) {
 		step, err := nextComplexAnyTypeDerivation(rt, derived, work)
 		if err != nil {
 			return 0, false, err
@@ -834,15 +799,15 @@ type complexAnyTypeDerivationStep struct {
 	valid bool
 }
 
-func nextComplexAnyTypeDerivation[T TypeDerivationRuntime](
-	rt T,
+func nextComplexAnyTypeDerivation(
+	rt *schemaBuild,
 	derived ComplexTypeID,
 	work func(int) error,
 ) (complexAnyTypeDerivationStep, error) {
 	if err := work(1); err != nil {
 		return complexAnyTypeDerivationStep{}, err
 	}
-	if derived == rt.AnyTypeID() {
+	if derived == rt.AnyType {
 		return complexAnyTypeDerivationStep{done: true, valid: true}, nil
 	}
 	typ, ok := rt.ComplexTypeDerivation(derived)
@@ -863,8 +828,8 @@ func nextComplexAnyTypeDerivation[T TypeDerivationRuntime](
 	return step, nil
 }
 
-func simpleTypeDerivationMaskOf[T TypeDerivationRuntime](
-	rt T,
+func simpleTypeDerivationMaskOf(
+	rt *schemaBuild,
 	derived, base SimpleTypeID,
 	work func(int) error,
 ) (DerivationMask, bool, error) {
@@ -882,14 +847,14 @@ func simpleTypeDerivationMaskOf[T TypeDerivationRuntime](
 	if !ok {
 		return 0, false, nil
 	}
-	if baseType.Variety != SimpleVarietyUnion {
+	if baseType.Variety != valuepkg.Union {
 		return simpleTypeBaseChainDerivationMask(rt, derived, base, st, work)
 	}
 	return simpleTypeUnionDerivationMask(rt, derived, base, work)
 }
 
-func simpleTypeBaseChainDerivationMask[T TypeDerivationRuntime](
-	rt T,
+func simpleTypeBaseChainDerivationMask(
+	rt *schemaBuild,
 	derived, base SimpleTypeID,
 	st SimpleTypeDerivation,
 	work func(int) error,
@@ -915,8 +880,8 @@ type simpleBaseDerivationStep struct {
 	valid bool
 }
 
-func nextSimpleBaseDerivation[T TypeDerivationRuntime](
-	rt T,
+func nextSimpleBaseDerivation(
+	rt *schemaBuild,
 	derived, base SimpleTypeID,
 	typ SimpleTypeDerivation,
 	work func(int) error,
@@ -968,16 +933,16 @@ type simpleTypeDerivationFrame struct {
 	entered bool
 }
 
-func simpleTypeUnionDerivationMask[T TypeDerivationRuntime](
-	rt T,
+func simpleTypeUnionDerivationMask(
+	rt *schemaBuild,
 	derived, base SimpleTypeID,
 	work func(int) error,
 ) (DerivationMask, bool, error) {
-	limit := simpleTypeDerivationPairLimit(rt.SimpleTypeCount())
+	limit := simpleTypeDerivationPairLimit(len(rt.SimpleTypes))
 	if err := work(min(limit, 1_024) + 2); err != nil {
 		return 0, false, err
 	}
-	search := simpleTypeUnionDerivationSearch[T]{
+	search := simpleTypeUnionDerivationSearch{
 		rt:    rt,
 		work:  work,
 		limit: limit,
@@ -997,15 +962,15 @@ func simpleTypeUnionDerivationMask[T TypeDerivationRuntime](
 	return 0, false, nil
 }
 
-type simpleTypeUnionDerivationSearch[T TypeDerivationRuntime] struct {
-	rt    T
+type simpleTypeUnionDerivationSearch struct {
+	rt    *schemaBuild
 	work  func(int) error
 	seen  map[[2]SimpleTypeID]bool
 	stack []simpleTypeDerivationFrame
 	limit int
 }
 
-func (s *simpleTypeUnionDerivationSearch[T]) advance() (bool, error) {
+func (s *simpleTypeUnionDerivationSearch) advance() (bool, error) {
 	if err := s.work(3); err != nil {
 		return false, err
 	}
@@ -1036,7 +1001,7 @@ func (s *simpleTypeUnionDerivationSearch[T]) advance() (bool, error) {
 	return false, nil
 }
 
-func (s *simpleTypeUnionDerivationSearch[T]) frameTypes(
+func (s *simpleTypeUnionDerivationSearch) frameTypes(
 	last int,
 	frame *simpleTypeDerivationFrame,
 ) (derived, base SimpleTypeDerivation, valid bool) {
@@ -1053,7 +1018,7 @@ func (s *simpleTypeUnionDerivationSearch[T]) frameTypes(
 	return derived, base, true
 }
 
-func (s *simpleTypeUnionDerivationSearch[T]) enter(
+func (s *simpleTypeUnionDerivationSearch) enter(
 	last int,
 	frame *simpleTypeDerivationFrame,
 ) (bool, error) {
@@ -1074,13 +1039,13 @@ func (s *simpleTypeUnionDerivationSearch[T]) enter(
 }
 
 func unionMemberCount(typ SimpleTypeDerivation) int {
-	if typ.Variety != SimpleVarietyUnion {
+	if typ.Variety != valuepkg.Union {
 		return 0
 	}
 	return len(typ.Union)
 }
 
-func (s *simpleTypeUnionDerivationSearch[T]) visitMember(
+func (s *simpleTypeUnionDerivationSearch) visitMember(
 	frame *simpleTypeDerivationFrame,
 	member SimpleTypeID,
 ) (bool, error) {
@@ -1098,7 +1063,7 @@ func (s *simpleTypeUnionDerivationSearch[T]) visitMember(
 	return false, nil
 }
 
-func (s *simpleTypeUnionDerivationSearch[T]) visitBase(
+func (s *simpleTypeUnionDerivationSearch) visitBase(
 	frame *simpleTypeDerivationFrame,
 	derived SimpleTypeDerivation,
 ) (found, handled bool) {
@@ -1115,11 +1080,11 @@ func (s *simpleTypeUnionDerivationSearch[T]) visitBase(
 	return false, true
 }
 
-func (s *simpleTypeUnionDerivationSearch[T]) push(derived, base SimpleTypeID) {
+func (s *simpleTypeUnionDerivationSearch) push(derived, base SimpleTypeID) {
 	s.stack = appendDFSFrame(s.stack, simpleTypeDerivationFrame{derived: derived, base: base}, s.limit)
 }
 
-func (s *simpleTypeUnionDerivationSearch[T]) pop(last int) {
+func (s *simpleTypeUnionDerivationSearch) pop(last int) {
 	s.stack = s.stack[:last]
 }
 
@@ -1134,13 +1099,13 @@ func simpleTypeDerivationPairLimit(count int) int {
 	return count * count
 }
 
-func complexTypeDerivationMask[T TypeDerivationRuntime](
-	rt T,
+func complexTypeDerivationMask(
+	rt *schemaBuild,
 	derived, base ComplexTypeID,
 	work func(int) error,
 ) (DerivationMask, bool, error) {
 	var mask DerivationMask
-	for range rt.ComplexTypeCount() {
+	for range len(rt.ComplexTypes) {
 		step, ok, err := complexParentDerivation(rt, derived, work)
 		if err != nil {
 			return 0, false, err
@@ -1162,8 +1127,8 @@ type complexParentDerivationStep struct {
 	mask   DerivationMask
 }
 
-func complexParentDerivation[T TypeDerivationRuntime](
-	rt T,
+func complexParentDerivation(
+	rt *schemaBuild,
 	derived ComplexTypeID,
 	work func(int) error,
 ) (complexParentDerivationStep, bool, error) {

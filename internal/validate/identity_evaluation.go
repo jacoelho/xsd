@@ -293,7 +293,7 @@ func (e *identityEvaluation) startIdentitySelectorHit(hit identitySelectorHit, d
 	if !ok {
 		return xsderrors.InternalInvariant("identity field count metadata is invalid")
 	}
-	return e.startIdentitySelection(hit.scope, depth, hit.constraint, program.FieldCount(), e.limits.Entries, ctx)
+	return e.startSelection(hit.scope, depth, hit.constraint, program.FieldCount(), e.limits.Entries, ctx)
 }
 
 func (e *identityEvaluation) appendIdentitySelectorHits(
@@ -329,10 +329,6 @@ func (e *identityEvaluation) appendSelectorBranchHits(
 		hits = append(hits, identitySelectorHit{scope: active.index, order: active.order, constraint: constraint})
 	}
 	return hits
-}
-
-func (e *identityEvaluation) startIdentitySelection(scope, depth int, constraint xsdSchema.IdentityConstraintID, fieldCount, maxEntries int, ctx StartContext) error {
-	return e.startSelection(scope, depth, constraint, fieldCount, maxEntries, ctx)
 }
 
 func appendIdentityMatchUnique(matches []identityFieldMatch, match identityFieldMatch) []identityFieldMatch {
@@ -430,10 +426,7 @@ func (e *identityEvaluation) dispatchAttributeFieldMatches(name xsdSchema.Runtim
 		}
 		var exact xsdSchema.IdentityCompiledFieldProgramReads
 		if name.Known {
-			exact, ok = e.dispatch.index.AttributeFields(sel.constraint, name.Name)
-			if !ok {
-				return nil, internalIdentityMetadataError("identity attribute dispatch metadata is invalid")
-			}
+			exact = program.AttributeFields(name.Name)
 		}
 		matches = e.appendAttributeProgramFieldMatches(matches, index, sel.depth, name, exact)
 		matches = e.appendAttributeProgramFieldMatches(matches, index, sel.depth, name, program.AttributeWildcardFields())

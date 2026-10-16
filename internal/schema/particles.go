@@ -1,26 +1,11 @@
 package schema
 
-// ContentModelRuntime supplies content models for model-shape algorithms.
-type ContentModelRuntime interface {
-	ContentModel(id ContentModelID) (ContentModel, bool)
-}
-
-// ParticleRuntime supplies read-only runtime tables needed for particle
-// matching semantics.
-type ParticleRuntime interface {
-	ContentModelRuntime
-	ElementName(id ElementID) (QName, bool)
-	Wildcard(id WildcardID) (Wildcard, bool)
-	ForEachSubstitutionMember(id ElementID, fn func(ElementID) bool)
-	SubstitutionMemberByName(id ElementID, name QName) (ElementID, bool)
-}
-
 // ModelHasNoParticles reports whether modelID is structurally empty.
-func ModelHasNoParticles(rt ContentModelRuntime, modelID ContentModelID) bool {
+func ModelHasNoParticles(rt *schemaBuild, modelID ContentModelID) bool {
 	if modelID == NoContentModel {
 		return true
 	}
-	model, ok := rt.ContentModel(modelID)
+	model, ok := ContentModelByID(rt.Models, modelID)
 	if !ok {
 		return false
 	}

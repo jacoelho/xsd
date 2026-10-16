@@ -1047,73 +1047,107 @@ func (r *countingReadCloser) Close() error {
 	return nil
 }
 
-func TestResolveReference(t *testing.T) {
+func TestReferenceResolutionBackendProjection(t *testing.T) {
 	t.Parallel()
-	tests := []struct {
-		name     string
-		base     string
-		location string
-		want     string
-	}{
-		{name: "URL base", base: "https://example.test/a/main.xsd", location: "../types.xsd", want: "https://example.test/types.xsd"},
-		{name: "URL rooted reference", base: "https://example.test/a/main.xsd", location: "/types.xsd", want: "https://example.test/types.xsd"},
-		{name: "URL authority reference", base: "https://example.test/a/main.xsd", location: "//cdn.example.test/types.xsd", want: "https://cdn.example.test/types.xsd"},
-		{name: "URL empty authority reference", base: "https://example.test/a/main.xsd?old", location: "//", want: "https://"},
-		{name: "URL empty authority query reference", base: "https://example.test/a/main.xsd?old", location: "//?q", want: "https://?q"},
-		{name: "URL empty authority path reference", base: "https://example.test/a/main.xsd?old", location: "///child", want: "https:///child"},
-		{name: "file base", base: "schemas/main.xsd", location: "types.xsd", want: filepath.Clean("schemas/types.xsd")},
-		{name: "explicit local resembling opaque URI", base: "root.xsd", location: "./urn:types", want: "." + string(filepath.Separator) + "urn:types"},
-		{name: "percent decoded file", base: "schemas/main.xsd", location: "child%20name.xsd", want: filepath.Clean("schemas/child name.xsd")},
-		{name: "directory base", base: "schemas/main.xsd", location: "sub/", want: filepath.Clean("schemas/sub") + string(filepath.Separator)},
-		{name: "empty reference", base: "schemas/main.xsd", location: "", want: "schemas/main.xsd"},
-		{name: "empty reference preserves directory base", base: "schemas/sub/", location: "", want: filepath.Clean("schemas/sub") + string(filepath.Separator)},
-		{name: "terminal dot is directory", base: "schemas/main.xsd", location: "sub/.", want: filepath.Clean("schemas/sub") + string(filepath.Separator)},
-		{name: "terminal parent is directory", base: "schemas/main.xsd", location: "sub/..", want: filepath.Clean("schemas") + string(filepath.Separator)},
-		{name: "explicit local base permits literal percent", base: "./schemas%zz/main.xsd", location: "child.xsd", want: filepath.Clean("schemas%zz/child.xsd")},
-		{name: "absolute local", base: "schemas/main.xsd", location: "/tmp/types.xsd", want: filepath.Clean("/tmp/types.xsd")},
-		{name: "URL unreserved escape", base: "https://example.test/a/main.xsd", location: "%74ypes.xsd", want: "https://example.test/a/types.xsd"},
-		{name: "absolute URL ignores opaque base", base: "urn:root", location: "HTTPS://EXAMPLE.test/%74ypes.xsd", want: "https://example.test/types.xsd"},
-		{name: "file URI query preserved", base: "schemas/main.xsd", location: "file:///tmp/types.xsd?v=1", want: "file:///tmp/types.xsd?v=1"},
-		{name: "file URI empty query preserved", base: "schemas/main.xsd", location: "file:///tmp/types.xsd?", want: "file:///tmp/types.xsd?"},
-		{name: "URL encoded separator preserved", base: "https://example.test/a/main.xsd", location: "a%2fb.xsd", want: "https://example.test/a/a%2Fb.xsd"},
-		{name: "URL empty segment preserved", base: "https://example.test/a/main.xsd", location: "x//y.xsd", want: "https://example.test/a/x//y.xsd"},
+	type resolutionCase struct {
+		name         string
+		base         string
+		location     string
+		wantFallback string
+		wantTarget   string
+	}
+	tests := []resolutionCase{
+		{name: "URL base", base: "https://example.test/a/main.xsd", location: "../types.xsd", wantFallback: "https://example.test/types.xsd", wantTarget: "https://example.test/types.xsd"},
+		{name: "URL rooted reference", base: "https://example.test/a/main.xsd", location: "/types.xsd", wantFallback: "https://example.test/types.xsd", wantTarget: "https://example.test/types.xsd"},
+		{name: "URL authority reference", base: "https://example.test/a/main.xsd", location: "//cdn.example.test/types.xsd", wantFallback: "https://cdn.example.test/types.xsd", wantTarget: "https://cdn.example.test/types.xsd"},
+		{name: "URL empty authority query reference", base: "https://example.test/a/main.xsd?old", location: "//?q", wantFallback: "https://?q", wantTarget: "https://?q"},
+		{name: "URL empty authority path reference", base: "https://example.test/a/main.xsd?old", location: "///child", wantFallback: "https:///child", wantTarget: "https:///child"},
+		{name: "file base", base: "schemas/main.xsd", location: "types.xsd", wantFallback: filepath.Clean("schemas/types.xsd"), wantTarget: filepath.Clean("schemas/types.xsd")},
+		{name: "explicit local resembling opaque URI", base: "root.xsd", location: "./urn:types", wantFallback: "." + string(filepath.Separator) + "urn:types", wantTarget: "." + string(filepath.Separator) + "urn:types"},
+		{name: "percent decoded file", base: "schemas/main.xsd", location: "child%20name.xsd", wantFallback: filepath.Clean("schemas/child name.xsd"), wantTarget: filepath.Clean("schemas/child name.xsd")},
+		{name: "directory base", base: "schemas/main.xsd", location: "sub/", wantFallback: filepath.Clean("schemas/sub") + string(filepath.Separator), wantTarget: filepath.Clean("schemas/sub")},
+		{name: "empty reference", base: filepath.Join("schemas", "main.xsd"), location: "", wantFallback: filepath.Join("schemas", "main.xsd"), wantTarget: filepath.Join("schemas", "main.xsd")},
+		{name: "empty reference preserves directory base", base: filepath.Join("schemas", "sub") + string(filepath.Separator), location: "", wantFallback: filepath.Clean("schemas/sub") + string(filepath.Separator), wantTarget: filepath.Clean("schemas/sub")},
+		{name: "terminal dot is directory", base: "schemas/main.xsd", location: "sub/.", wantFallback: filepath.Clean("schemas/sub") + string(filepath.Separator), wantTarget: filepath.Clean("schemas/sub")},
+		{name: "terminal parent is directory", base: "schemas/main.xsd", location: "sub/..", wantFallback: filepath.Clean("schemas") + string(filepath.Separator), wantTarget: filepath.Clean("schemas")},
+		{name: "explicit local base permits literal percent", base: "./schemas%zz/main.xsd", location: "child.xsd", wantFallback: filepath.Clean("schemas%zz/child.xsd"), wantTarget: filepath.Clean("schemas%zz/child.xsd")},
+		{name: "absolute local", base: "schemas/main.xsd", location: "/tmp/types.xsd", wantFallback: filepath.Clean("/tmp/types.xsd"), wantTarget: filepath.Clean("/tmp/types.xsd")},
+		{name: "URL unreserved escape", base: "https://example.test/a/main.xsd", location: "%74ypes.xsd", wantFallback: "https://example.test/a/types.xsd", wantTarget: "https://example.test/a/types.xsd"},
+		{name: "absolute URL ignores opaque base", base: "urn:root", location: "HTTPS://EXAMPLE.test/%74ypes.xsd", wantFallback: "https://example.test/types.xsd", wantTarget: "https://example.test/types.xsd"},
+		{name: "file URI query preserved", base: "schemas/main.xsd", location: "file:///tmp/types.xsd?v=1", wantFallback: "file:///tmp/types.xsd?v=1", wantTarget: "file:///tmp/types.xsd?v=1"},
+		{name: "file URI empty query preserved", base: "schemas/main.xsd", location: "file:///tmp/types.xsd?", wantFallback: "file:///tmp/types.xsd?", wantTarget: "file:///tmp/types.xsd?"},
+		{name: "URL encoded separator preserved", base: "https://example.test/a/main.xsd", location: "a%2fb.xsd", wantFallback: "https://example.test/a/a%2Fb.xsd", wantTarget: "https://example.test/a/a%2Fb.xsd"},
+		{name: "URL empty segment preserved", base: "https://example.test/a/main.xsd", location: "x//y.xsd", wantFallback: "https://example.test/a/x//y.xsd", wantTarget: "https://example.test/a/x//y.xsd"},
+	}
+	if runtime.GOOS == "windows" {
+		tests = append(tests, resolutionCase{name: "absolute Windows volume", base: "schemas/main.xsd", location: "C:/schemas/types.xsd", wantFallback: filepath.FromSlash("C:/schemas/types.xsd"), wantTarget: filepath.FromSlash("C:/schemas/types.xsd")})
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := ResolveReference(tt.base, tt.location)
-			if err != nil || got != tt.want {
-				t.Fatalf("ResolveReference() = %q, %v; want %q", got, err, tt.want)
+			location := mustURIReference(t, tt.location)
+			base := NewReferenceBase(tt.base)
+			projected, err := base.WithXMLBase(location)
+			if err != nil || projected.fallback != tt.wantFallback {
+				t.Fatalf("WithXMLBase() fallback = %q, %v; want %q", projected.fallback, err, tt.wantFallback)
+			}
+			resolved, err := Bytes(tt.base, nil).ResolveFrom(base, location)
+			if _, supplied := resolved.Source(); err != nil || supplied || resolved.Target() != tt.wantTarget {
+				t.Fatalf("ResolveFrom() = target %q, supplied %v, %v; want %q without a source", resolved.Target(), supplied, err, tt.wantTarget)
 			}
 		})
 	}
-	unavailable := []string{"child%2fname.xsd", "child%00name.xsd", "child.xsd?", "//"}
-	if os.IsPathSeparator('\\') {
-		unavailable = append(unavailable, "child%5cname.xsd")
+	type unavailableCase struct {
+		base     string
+		location string
 	}
-	for _, location := range unavailable {
-		if got, err := ResolveReference("schemas/main.xsd", location); !IsReferenceUnavailable(err) || got != "" {
-			t.Fatalf("ResolveReference(%q) = %q, %v; want unavailable", location, got, err)
+	unavailable := []unavailableCase{
+		{base: "schemas/main.xsd", location: "child%2fname.xsd"},
+		{base: "schemas/main.xsd", location: "child%00name.xsd"},
+		{base: "schemas/main.xsd", location: "child.xsd?"},
+		{base: "urn:root", location: "child.xsd"},
+		{base: "https://example.test/%zz/root.xsd", location: "child.xsd"},
+	}
+	if os.IsPathSeparator('\\') {
+		unavailable = append(unavailable, unavailableCase{base: "schemas/main.xsd", location: "child%5cname.xsd"})
+	}
+	for _, tt := range unavailable {
+		resolved, err := Bytes(tt.base, nil).ResolveFrom(NewReferenceBase(tt.base), mustURIReference(t, tt.location))
+		if _, supplied := resolved.Source(); err != nil || supplied || resolved.Target() != "" {
+			t.Fatalf("ResolveFrom(%q, %q) = target %q, supplied %v, %v; want unavailable", tt.base, tt.location, resolved.Target(), supplied, err)
 		}
 	}
 	if !os.IsPathSeparator('\\') {
 		want := filepath.Join("schemas", "child\\name.xsd")
-		if got, err := ResolveReference("schemas/main.xsd", "child%5cname.xsd"); err != nil || got != want {
-			t.Fatalf("ResolveReference(backslash) = %q, %v; want %q", got, err, want)
+		resolved, err := Bytes("schemas/main.xsd", nil).ResolveFrom(NewReferenceBase("schemas/main.xsd"), mustURIReference(t, "child%5cname.xsd"))
+		if _, supplied := resolved.Source(); err != nil || supplied || resolved.Target() != want {
+			t.Fatalf("ResolveFrom(backslash) = target %q, supplied %v, %v; want %q without a source", resolved.Target(), supplied, err, want)
 		}
 	}
-	if _, err := ResolveReference("https://example.test/%zz/root.xsd", "child.xsd"); err == nil {
-		t.Fatal("ResolveReference() accepted malformed scheme-bearing URI base")
-	}
-	if got, err := ResolveReference("urn:root", "child.xsd"); !IsReferenceUnavailable(err) || got != "" {
-		t.Fatalf("ResolveReference() = %q, %v; want unavailable", got, err)
+	for _, name := range []string{"urn:root", "https://example.test/%zz/root.xsd"} {
+		base, err := NewReferenceBase(name).WithXMLBase(mustURIReference(t, "child.xsd"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, available := base.ResolverValue(); available || base.fallback != "" {
+			t.Fatalf("unrepresentable base %q retained resolver/fallback: %+v", name, base)
+		}
+		resolved, err := Bytes(name, nil).ResolveFrom(base, mustURIReference(t, "https://example.test/types.xsd"))
+		if _, supplied := resolved.Source(); err != nil || supplied || resolved.Target() != "https://example.test/types.xsd" {
+			t.Fatalf("ResolveFrom(absolute recovery) = target %q, supplied %v, %v; want https://example.test/types.xsd without a source", resolved.Target(), supplied, err)
+		}
 	}
 	if runtime.GOOS != "windows" {
-		for _, base := range []string{"/tmp/a#b/main.xsd", "/tmp/a?b/main.xsd"} {
-			want := filepath.Join(filepath.Dir(base), "child.xsd")
-			got, err := ResolveReference(base, "child.xsd")
-			if err != nil || got != want {
-				t.Fatalf("ResolveReference(%q) = %q, %v; want %q", base, got, err, want)
+		for _, tt := range []struct {
+			base string
+			want string
+		}{
+			{base: "/tmp/a#b/main.xsd", want: filepath.Join("/tmp", "a#b", "child.xsd")},
+			{base: "/tmp/a?b/main.xsd", want: filepath.Join("/tmp", "a?b", "child.xsd")},
+		} {
+			resolved, err := Bytes(tt.base, nil).ResolveFrom(NewReferenceBase(tt.base), mustURIReference(t, "child.xsd"))
+			if _, supplied := resolved.Source(); err != nil || supplied || resolved.Target() != tt.want {
+				t.Fatalf("ResolveFrom(%q) = target %q, supplied %v, %v; want %q without a source", tt.base, resolved.Target(), supplied, err, tt.want)
 			}
 		}
 	}
@@ -1135,7 +1169,7 @@ func TestRemoveURLDotSegmentsPreservesEmptySegments(t *testing.T) {
 	}
 }
 
-func TestResolveReferencePreservesChainedLocalDirectoryBase(t *testing.T) {
+func TestReferenceBasePreservesChainedLocalDirectoryBase(t *testing.T) {
 	t.Parallel()
 	for _, tt := range []struct {
 		name      string
@@ -1146,7 +1180,7 @@ func TestResolveReferencePreservesChainedLocalDirectoryBase(t *testing.T) {
 	}{
 		{
 			name:      "empty reference",
-			base:      "schemas/sub/",
+			base:      filepath.Join("schemas", "sub") + string(filepath.Separator),
 			wantBase:  filepath.Clean("schemas/sub") + string(filepath.Separator),
 			wantChild: filepath.Clean("schemas/sub/child.xsd"),
 		},
@@ -1167,13 +1201,16 @@ func TestResolveReferencePreservesChainedLocalDirectoryBase(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			base, err := ResolveReference(tt.base, tt.reference)
-			if err != nil || base != tt.wantBase {
-				t.Fatalf("ResolveReference(base) = %q, %v; want %q", base, err, tt.wantBase)
+			base, err := NewReferenceBase(tt.base).WithXMLBase(mustURIReference(t, tt.reference))
+			if err != nil {
+				t.Fatal(err)
 			}
-			child, err := ResolveReference(base, "child.xsd")
-			if err != nil || child != tt.wantChild {
-				t.Fatalf("ResolveReference(child) = %q, %v; want %q", child, err, tt.wantChild)
+			if got, available := base.ResolverValue(); !available || got != tt.wantBase || base.fallback != tt.wantBase {
+				t.Fatalf("WithXMLBase() = resolver %q/%v, fallback %q; want %q", got, available, base.fallback, tt.wantBase)
+			}
+			child, err := Bytes(tt.base, nil).ResolveFrom(base, mustURIReference(t, "child.xsd"))
+			if _, supplied := child.Source(); err != nil || supplied || child.Target() != tt.wantChild {
+				t.Fatalf("ResolveFrom(child) = target %q, supplied %v, %v; want %q without a source", child.Target(), supplied, err, tt.wantChild)
 			}
 		})
 	}

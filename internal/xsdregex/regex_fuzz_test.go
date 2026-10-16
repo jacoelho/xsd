@@ -1,6 +1,7 @@
 package xsdregex
 
 import (
+	"errors"
 	"testing"
 	"unicode/utf8"
 )
@@ -30,7 +31,8 @@ func FuzzXSDRegexSyntax(f *testing.F) {
 		}
 		pattern, err := Compile(source, CompileOptions{})
 		if err != nil {
-			if !IsSyntax(err) && !IsLimit(err) {
+			diagnostic, ok := errors.AsType[*Error](err)
+			if !ok || (diagnostic.Kind != ErrorSyntax && diagnostic.Kind != ErrorLimit) {
 				t.Fatalf("Compile(%q) returned unclassified error %T: %v", source, err, err)
 			}
 			return
@@ -38,7 +40,7 @@ func FuzzXSDRegexSyntax(f *testing.F) {
 		if pattern == nil {
 			t.Fatal("Compile returned nil pattern without error")
 		}
-		if _, err := pattern.MatchString(""); err != nil && !IsLimit(err) {
+		if _, err := pattern.MatchStringWithScratch("", MatchOptions{}, nil); err != nil && !IsLimit(err) {
 			t.Fatalf("MatchString(%q) returned unclassified error %T: %v", source, err, err)
 		}
 	})

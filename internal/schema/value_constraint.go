@@ -67,15 +67,6 @@ func valueConstraintApplication(lexical, canonical string, value valuepkg.Value)
 	return canonical
 }
 
-// equalValueConstraintReads reports whether two value-constraint read
-// projections expose the same validation-facing value.
-func equalValueConstraintReads(a, b ValueConstraintRead) bool {
-	return a.application == b.application &&
-		a.canonical == b.canonical &&
-		a.value == b.value &&
-		equalValueConstraintQNameContexts(a.qnameContext, b.qnameContext)
-}
-
 // ApplicationText returns the lexical spelling for applying the constraint.
 // Context-free values use canonical text; resolved names retain source spelling.
 func (v ValueConstraintRead) ApplicationText() string {
@@ -134,35 +125,8 @@ func FixedAttributeValueEqual(actual valuepkg.Value, fixed ValueConstraintRead, 
 // ElementValueConstraints exposes prevalidated default/fixed values attached to
 // one element declaration.
 type ElementValueConstraints struct {
-	fixed        ValueConstraintRead
-	defaultValue ValueConstraintRead
-	owner        TypeID
-	hasFixed     bool
-	hasDefault   bool
-}
-
-// newElementValueConstraints returns the immutable validation read projection
-// for an element declaration's value constraints.
-func newElementValueConstraints(owner TypeID, fixed ValueConstraintRead, hasFixed bool, def ValueConstraintRead, hasDefault bool) ElementValueConstraints {
-	return ElementValueConstraints{
-		owner:        owner,
-		fixed:        fixed,
-		defaultValue: def,
-		hasFixed:     hasFixed,
-		hasDefault:   hasDefault,
-	}
-}
-
-// equalElementValueConstraints reports whether two element value-constraint
-// projections expose the same validation-facing constraints.
-func equalElementValueConstraints(a, b ElementValueConstraints) bool {
-	if a.owner != b.owner || a.hasFixed != b.hasFixed || a.hasDefault != b.hasDefault {
-		return false
-	}
-	if a.hasFixed && !equalValueConstraintReads(a.fixed, b.fixed) {
-		return false
-	}
-	return !a.hasDefault || equalValueConstraintReads(a.defaultValue, b.defaultValue)
+	constraint elementConstraintRead
+	owner      TypeID
 }
 
 // OwnerType returns the declaration type that validated the cached value.
@@ -172,17 +136,23 @@ func (c ElementValueConstraints) OwnerType() TypeID {
 
 // HasAny reports whether either default or fixed is present.
 func (c ElementValueConstraints) HasAny() bool {
-	return c.hasFixed || c.hasDefault
+	return c.constraint.kind.present()
 }
 
 // FixedValue returns the fixed value, if present.
 func (c ElementValueConstraints) FixedValue() (ValueConstraintRead, bool) {
-	return c.fixed, c.hasFixed
+	if c.constraint.kind != DeclarationValueConstraintFixed {
+		return ValueConstraintRead{}, false
+	}
+	return c.constraint.value, true
 }
 
 // DefaultValueConstraint returns the default value, if present.
 func (c ElementValueConstraints) DefaultValueConstraint() (ValueConstraintRead, bool) {
-	return c.defaultValue, c.hasDefault
+	if c.constraint.kind != DeclarationValueConstraintDefault {
+		return ValueConstraintRead{}, false
+	}
+	return c.constraint.value, true
 }
 
 // ResolvedValueName records one QName resolution proof entry captured while
@@ -361,22 +331,9 @@ func NewValueConstraintValidation(vc *ValueConstraint) ValueConstraintValidation
 type ValueConstraintSimpleType struct {
 	Union          []SimpleTypeID
 	ListItem       SimpleTypeID
-	Variety        SimpleVariety
-	Primitive      PrimitiveKind
+	Variety        valuepkg.Variety
+	Primitive      valuepkg.PrimitiveKind
 	HasEnumeration bool
-}
-
-// NewValueConstraintSimpleTypeForSimpleType projects a runtime simple type
-// into the shape needed for cached value-constraint owner matching.
-func NewValueConstraintSimpleTypeForSimpleType(st SimpleType) ValueConstraintSimpleType {
-	spec := st.ValueSpec
-	return CloneValueConstraintSimpleType(ValueConstraintSimpleType{
-		Union:          spec.Union,
-		ListItem:       spec.ListItem,
-		Variety:        spec.Variety,
-		Primitive:      spec.Primitive,
-		HasEnumeration: len(st.ValueSpec.Facets.Enumeration) != 0,
-	})
 }
 
 // ValueConstraintComplexType is the complex-type projection needed to
@@ -397,24 +354,11 @@ func NewValueConstraintComplexTypeForComplexType(ct ComplexType) ValueConstraint
 	}
 }
 
-// ValueConstraintRuntime supplies simple-type metadata needed for value
-// constraint shape validation.
-type ValueConstraintRuntime interface {
-	ValueConstraintSimpleType(id SimpleTypeID) (ValueConstraintSimpleType, bool)
-}
-
-// ElementValueConstraintRuntime supplies runtime metadata needed to determine
-// the owner type for an element value constraint.
-type ElementValueConstraintRuntime interface {
-	ContentModelRuntime
-	ValueConstraintComplexType(id ComplexTypeID) (ValueConstraintComplexType, bool)
-}
-
 // ElementValueConstraintType returns the simple type that must own an element's
 // value constraint. NoSimpleType means the constraint is allowed only as mixed
 // lexical text.
 func ElementValueConstraintType(
-	rt ElementValueConstraintRuntime,
+	rt *schemaBuild,
 	analysis *ContentModelAnalysis,
 	typ TypeID,
 ) (SimpleTypeID, error) {
@@ -455,7 +399,7 @@ func mixedElementValueConstraintType(analysis *ContentModelAnalysis, content Con
 
 // ValidateValueConstraintShape validates cached value-constraint metadata that
 // is independent of datatype replay.
-func ValidateValueConstraintShape(rt ValueConstraintRuntime, vc ValueConstraintValidation, expected SimpleTypeID) error {
+func ValidateValueConstraintShape(rt *schemaBuild, vc ValueConstraintValidation, expected SimpleTypeID) error {
 	if expected == NoSimpleType {
 		if vc.Value.CanonicalText() != vc.Canonical {
 			return errors.New("canonical value mismatch")
@@ -473,11 +417,11 @@ func ValidateValueConstraintShape(rt ValueConstraintRuntime, vc ValueConstraintV
 	if rt == nil {
 		return errors.New("value type does not match owner type")
 	}
-	_, ok := rt.ValueConstraintSimpleType(vc.Value.Type())
+	_, ok := rt.valueBuilder.InputRequirements(vc.Value.Type())
 	if !ok {
 		return errors.New("value type does not match owner type")
 	}
-	if !valueConstraintTypeMatches(rt, expected, vc.Value.Type(), make(map[SimpleTypeID]bool)) {
+	if vc.Value.Type() != expected {
 		return errors.New("value type does not match owner type")
 	}
 	if vc.Value.CanonicalText() != vc.Canonical {
@@ -524,11 +468,11 @@ func ValidateValueConstraintReplay(cached ValueConstraintValidation, expected Si
 
 // SimpleTypeUsesBareNotation reports whether a simple type graph contains
 // xs:NOTATION without an enumeration facet.
-func SimpleTypeUsesBareNotation(rt ValueConstraintRuntime, id SimpleTypeID) bool {
+func SimpleTypeUsesBareNotation(rt *schemaBuild, id SimpleTypeID) bool {
 	return hasBareNotationUse(rt, id, make(map[SimpleTypeID]bool))
 }
 
-func hasBareNotationUse(rt ValueConstraintRuntime, id SimpleTypeID, seen map[SimpleTypeID]bool) bool {
+func hasBareNotationUse(rt *schemaBuild, id SimpleTypeID, seen map[SimpleTypeID]bool) bool {
 	if rt == nil || id == NoSimpleType || seen[id] {
 		return false
 	}
@@ -537,50 +481,24 @@ func hasBareNotationUse(rt ValueConstraintRuntime, id SimpleTypeID, seen map[Sim
 	if !ok {
 		return false
 	}
-	if st.Primitive == PrimitiveNotation && !st.HasEnumeration {
+	if st.Primitive == valuepkg.PrimitiveNotation && !st.HasEnumeration {
 		return true
 	}
 	switch st.Variety {
-	case SimpleVarietyList:
+	case valuepkg.List:
 		return hasBareNotationUse(rt, st.ListItem, seen)
-	case SimpleVarietyUnion:
+	case valuepkg.Union:
 		return unionUsesBareNotation(rt, st.Union, seen)
-	case SimpleVarietyAtomic:
+	case valuepkg.Atomic:
 		return false
 	default:
 	}
 	return false
 }
 
-func unionUsesBareNotation(rt ValueConstraintRuntime, members []SimpleTypeID, seen map[SimpleTypeID]bool) bool {
+func unionUsesBareNotation(rt *schemaBuild, members []SimpleTypeID, seen map[SimpleTypeID]bool) bool {
 	for _, member := range members {
 		if hasBareNotationUse(rt, member, seen) {
-			return true
-		}
-	}
-	return false
-}
-
-func valueConstraintTypeMatches(rt ValueConstraintRuntime, expected, actual SimpleTypeID, seen map[SimpleTypeID]bool) bool {
-	// Union validation publishes the union owner as Value.Type while retaining
-	// the selected member separately. A cached constraint therefore matches its
-	// owner directly as well as the member type used by older projections.
-	if expected == actual {
-		return true
-	}
-	if seen[expected] {
-		return false
-	}
-	seen[expected] = true
-	st, ok := rt.ValueConstraintSimpleType(expected)
-	if !ok {
-		return false
-	}
-	if st.Variety != SimpleVarietyUnion {
-		return actual == expected
-	}
-	for _, member := range st.Union {
-		if valueConstraintTypeMatches(rt, member, actual, seen) {
 			return true
 		}
 	}

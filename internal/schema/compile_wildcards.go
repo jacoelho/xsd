@@ -2,7 +2,7 @@ package schema
 
 import "github.com/jacoelho/xsd/xsderrors"
 
-func (c *compiler) compileWildcardParticle(n *schemaNode, ctx *schemaContext) (Particle, error) {
+func (c *compiler) compileWildcardParticle(n *schemaNode, ctx *schemaSetDocument) (Particle, error) {
 	if err := checkAnyParticleChildren(n); err != nil {
 		return Particle{}, err
 	}
@@ -17,24 +17,24 @@ func (c *compiler) compileWildcardParticle(n *schemaNode, ctx *schemaContext) (P
 	return WildcardParticle(id, occurs), nil
 }
 
-func (c *compiler) compileAttributeWildcard(n *schemaNode, ctx *schemaContext) (WildcardID, error) {
+func (c *compiler) compileAttributeWildcard(n *schemaNode, ctx *schemaSetDocument) (WildcardID, error) {
 	if err := checkAnyAttributeChildren(n); err != nil {
 		return NoWildcard, err
 	}
 	return c.compileWildcard(n, ctx)
 }
 
-func (c *compiler) compileWildcard(n *schemaNode, ctx *schemaContext) (WildcardID, error) {
-	source := n.semantic.wildcard()
+func (c *compiler) compileWildcard(n *schemaNode, ctx *schemaSetDocument) (WildcardID, error) {
+	source := semanticSource[*schemaWildcardSource](&n.semantic)
 	if source == nil {
 		return NoWildcard, withSchemaCompileLocation(n, xsderrors.InternalInvariant("wildcard node has no typed wildcard source"))
 	}
 	ns, hasNS := source.Namespace.Value, source.Namespace.Present
 	process, hasProcess := source.ProcessContents.Value, source.ProcessContents.Present
-	w, err := ParseWildcard(&c.rt, WildcardAttrs{
+	w, err := ParseWildcard(NewNameInterner(&c.rt.Names), WildcardAttrs{
 		Namespace:          ns,
 		ProcessContents:    process,
-		TargetNamespace:    ctx.targetNS,
+		TargetNamespace:    ctx.effectiveTargetNS,
 		HasNamespace:       hasNS,
 		HasProcessContents: hasProcess,
 	})
@@ -47,7 +47,7 @@ func (c *compiler) compileWildcard(n *schemaNode, ctx *schemaContext) (WildcardI
 // Wildcard returns compiler-owned wildcard metadata for internal compile
 // helpers.
 func (c *compiler) Wildcard(id WildcardID) (Wildcard, bool) {
-	return c.rt.Wildcard(id)
+	return WildcardByID(c.rt.Wildcards, id)
 }
 
 // AddWildcard stores wildcard metadata produced by internal compile helpers.

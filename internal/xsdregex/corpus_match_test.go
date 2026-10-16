@@ -76,13 +76,13 @@ func TestManifestRegexFixtures(t *testing.T) {
 			t.Fatalf("Compile(%q from %s) error = %v", pattern, fixture.path, err)
 		}
 		for _, input := range fixture.positive {
-			matched, err := compiled.MatchString(input)
+			matched, err := compiled.MatchStringWithScratch(input, MatchOptions{}, nil)
 			if err != nil || !matched {
 				t.Errorf("%s: MatchString(%q) = %v, %v; want true", entry.ID, input, matched, err)
 			}
 		}
 		for _, input := range fixture.negative {
-			matched, err := compiled.MatchString(input)
+			matched, err := compiled.MatchStringWithScratch(input, MatchOptions{}, nil)
 			if err != nil || matched {
 				t.Errorf("%s: MatchString(%q) = %v, %v; want false", entry.ID, input, matched, err)
 			}

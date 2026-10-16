@@ -1,0 +1,9 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:f="urn:foreign">
+  <xs:complexType name="C">
+    <xs:simpleContent><xs:extension base="B"/></xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="B">
+    <xs:simpleContent><xs:extension base="xs:string"/></xs:simpleContent>
+  </xs:complexType>
+  <xs:element name="r" type="C"/>
+</xs:schema>

@@ -4,7 +4,8 @@ package value
 // or runtime allocation, so every program observes the same IDs and derived
 // chains without copying builtin records into its user table.
 const (
-	builtinAnySimpleType TypeID = iota
+	// AnySimpleTypeID is the fixed ID of the generic XSD simple-type base.
+	AnySimpleTypeID TypeID = iota
 	builtinString
 	builtinNormalizedString
 	builtinToken
@@ -71,16 +72,18 @@ type builtinMeta struct {
 	fraction   bool
 }
 
+// Canonical primitive records precede their derived records. BuiltinType
+// skips anySimpleType because its string value space is not xs:string.
 var builtinMetadata = [...]builtinMeta{
 	{name: "anySimpleType", base: NoType, primitive: PrimitiveString, whitespace: WhitespacePreserve},
-	{name: "string", base: builtinAnySimpleType, primitive: PrimitiveString, whitespace: WhitespacePreserve},
+	{name: "string", base: AnySimpleTypeID, primitive: PrimitiveString, whitespace: WhitespacePreserve},
 	{name: "normalizedString", base: builtinString, primitive: PrimitiveString, whitespace: WhitespaceReplace},
 	{name: "token", base: builtinNormalizedString, primitive: PrimitiveString, whitespace: WhitespaceCollapse},
 	{name: "language", base: builtinToken, primitive: PrimitiveString, whitespace: WhitespaceCollapse, builtin: BuiltinLanguage},
 	{name: "Name", base: builtinToken, primitive: PrimitiveString, whitespace: WhitespaceCollapse, builtin: BuiltinName},
 	{name: "NCName", base: builtinName, primitive: PrimitiveString, whitespace: WhitespaceCollapse, builtin: BuiltinNCName},
-	{name: "boolean", base: builtinAnySimpleType, primitive: PrimitiveBoolean, whitespace: WhitespaceCollapse},
-	{name: "decimal", base: builtinAnySimpleType, primitive: PrimitiveDecimal, whitespace: WhitespaceCollapse},
+	{name: "boolean", base: AnySimpleTypeID, primitive: PrimitiveBoolean, whitespace: WhitespaceCollapse},
+	{name: "decimal", base: AnySimpleTypeID, primitive: PrimitiveDecimal, whitespace: WhitespaceCollapse},
 	{name: "integer", base: builtinDecimal, primitive: PrimitiveDecimal, whitespace: WhitespaceCollapse, builtin: BuiltinInteger, fraction: true},
 	{name: "nonPositiveInteger", base: builtinInteger, primitive: PrimitiveDecimal, whitespace: WhitespaceCollapse, builtin: BuiltinInteger, max: "0", fraction: true},
 	{name: "negativeInteger", base: builtinNonPositiveInteger, primitive: PrimitiveDecimal, whitespace: WhitespaceCollapse, builtin: BuiltinInteger, max: "-1", fraction: true},
@@ -94,29 +97,29 @@ var builtinMetadata = [...]builtinMeta{
 	{name: "unsignedInt", base: builtinUnsignedLong, primitive: PrimitiveDecimal, whitespace: WhitespaceCollapse, min: "0", max: "4294967295", fraction: true, builtin: BuiltinInteger},
 	{name: "unsignedShort", base: builtinUnsignedInt, primitive: PrimitiveDecimal, whitespace: WhitespaceCollapse, min: "0", max: "65535", fraction: true, builtin: BuiltinInteger},
 	{name: "unsignedByte", base: builtinUnsignedShort, primitive: PrimitiveDecimal, whitespace: WhitespaceCollapse, min: "0", max: "255", fraction: true, builtin: BuiltinInteger},
-	{name: "float", base: builtinAnySimpleType, primitive: PrimitiveFloat, whitespace: WhitespaceCollapse},
-	{name: "double", base: builtinAnySimpleType, primitive: PrimitiveDouble, whitespace: WhitespaceCollapse},
-	{name: "duration", base: builtinAnySimpleType, primitive: PrimitiveDuration, whitespace: WhitespaceCollapse},
-	{name: dateTypeName, base: builtinAnySimpleType, primitive: PrimitiveDate, whitespace: WhitespaceCollapse},
-	{name: "dateTime", base: builtinAnySimpleType, primitive: PrimitiveDateTime, whitespace: WhitespaceCollapse},
-	{name: "time", base: builtinAnySimpleType, primitive: PrimitiveTime, whitespace: WhitespaceCollapse},
-	{name: "gYearMonth", base: builtinAnySimpleType, primitive: PrimitiveGYearMonth, whitespace: WhitespaceCollapse},
-	{name: "gYear", base: builtinAnySimpleType, primitive: PrimitiveGYear, whitespace: WhitespaceCollapse},
-	{name: "gMonthDay", base: builtinAnySimpleType, primitive: PrimitiveGMonthDay, whitespace: WhitespaceCollapse},
-	{name: "gDay", base: builtinAnySimpleType, primitive: PrimitiveGDay, whitespace: WhitespaceCollapse},
-	{name: "gMonth", base: builtinAnySimpleType, primitive: PrimitiveGMonth, whitespace: WhitespaceCollapse},
-	{name: "anyURI", base: builtinAnySimpleType, primitive: PrimitiveAnyURI, whitespace: WhitespaceCollapse},
-	{name: "hexBinary", base: builtinAnySimpleType, primitive: PrimitiveHexBinary, whitespace: WhitespaceCollapse},
-	{name: "base64Binary", base: builtinAnySimpleType, primitive: PrimitiveBase64Binary, whitespace: WhitespaceCollapse},
-	{name: "QName", base: builtinAnySimpleType, primitive: PrimitiveQName, whitespace: WhitespaceCollapse},
-	{name: "NOTATION", base: builtinAnySimpleType, primitive: PrimitiveNotation, whitespace: WhitespaceCollapse},
+	{name: "float", base: AnySimpleTypeID, primitive: PrimitiveFloat, whitespace: WhitespaceCollapse},
+	{name: "double", base: AnySimpleTypeID, primitive: PrimitiveDouble, whitespace: WhitespaceCollapse},
+	{name: "duration", base: AnySimpleTypeID, primitive: PrimitiveDuration, whitespace: WhitespaceCollapse},
+	{name: dateTypeName, base: AnySimpleTypeID, primitive: PrimitiveDate, whitespace: WhitespaceCollapse},
+	{name: "dateTime", base: AnySimpleTypeID, primitive: PrimitiveDateTime, whitespace: WhitespaceCollapse},
+	{name: "time", base: AnySimpleTypeID, primitive: PrimitiveTime, whitespace: WhitespaceCollapse},
+	{name: "gYearMonth", base: AnySimpleTypeID, primitive: PrimitiveGYearMonth, whitespace: WhitespaceCollapse},
+	{name: "gYear", base: AnySimpleTypeID, primitive: PrimitiveGYear, whitespace: WhitespaceCollapse},
+	{name: "gMonthDay", base: AnySimpleTypeID, primitive: PrimitiveGMonthDay, whitespace: WhitespaceCollapse},
+	{name: "gDay", base: AnySimpleTypeID, primitive: PrimitiveGDay, whitespace: WhitespaceCollapse},
+	{name: "gMonth", base: AnySimpleTypeID, primitive: PrimitiveGMonth, whitespace: WhitespaceCollapse},
+	{name: "anyURI", base: AnySimpleTypeID, primitive: PrimitiveAnyURI, whitespace: WhitespaceCollapse},
+	{name: "hexBinary", base: AnySimpleTypeID, primitive: PrimitiveHexBinary, whitespace: WhitespaceCollapse},
+	{name: "base64Binary", base: AnySimpleTypeID, primitive: PrimitiveBase64Binary, whitespace: WhitespaceCollapse},
+	{name: "QName", base: AnySimpleTypeID, primitive: PrimitiveQName, whitespace: WhitespaceCollapse},
+	{name: "NOTATION", base: AnySimpleTypeID, primitive: PrimitiveNotation, whitespace: WhitespaceCollapse},
 	{name: "ID", base: builtinNCName, primitive: PrimitiveString, whitespace: WhitespaceCollapse, builtin: BuiltinNCName, identity: IdentityID},
 	{name: "IDREF", base: builtinNCName, primitive: PrimitiveString, whitespace: WhitespaceCollapse, builtin: BuiltinNCName, identity: IdentityIDREF},
-	{name: "IDREFS", base: builtinAnySimpleType, listItem: builtinIDREF, variety: List, primitive: PrimitiveString, whitespace: WhitespaceCollapse, identity: IdentityIDREFList, minLength: 1},
+	{name: "IDREFS", base: AnySimpleTypeID, listItem: builtinIDREF, variety: List, primitive: PrimitiveString, whitespace: WhitespaceCollapse, identity: IdentityIDREFList, minLength: 1},
 	{name: "NMTOKEN", base: builtinToken, primitive: PrimitiveString, whitespace: WhitespaceCollapse, builtin: BuiltinNMTOKEN},
-	{name: "NMTOKENS", base: builtinAnySimpleType, listItem: builtinNMTOKEN, variety: List, primitive: PrimitiveString, whitespace: WhitespaceCollapse, minLength: 1},
+	{name: "NMTOKENS", base: AnySimpleTypeID, listItem: builtinNMTOKEN, variety: List, primitive: PrimitiveString, whitespace: WhitespaceCollapse, minLength: 1},
 	{name: "ENTITY", base: builtinNCName, primitive: PrimitiveString, whitespace: WhitespaceCollapse, builtin: BuiltinEntity},
-	{name: "ENTITIES", base: builtinAnySimpleType, listItem: builtinENTITY, variety: List, primitive: PrimitiveString, whitespace: WhitespaceCollapse, minLength: 1},
+	{name: "ENTITIES", base: AnySimpleTypeID, listItem: builtinENTITY, variety: List, primitive: PrimitiveString, whitespace: WhitespaceCollapse, minLength: 1},
 	{name: "xml:lang", base: builtinString, primitive: PrimitiveString, whitespace: WhitespaceCollapse, builtin: BuiltinXMLLang},
 	{name: "xml:space", base: builtinString, primitive: PrimitiveString, whitespace: WhitespaceCollapse, builtin: BuiltinXMLSpace},
 }
@@ -168,70 +171,26 @@ func builtinFacetProgram(m builtinMeta) facetProgram {
 	if m.min != "" {
 		if d, err := ParseDecimalCanonical(m.min); err == nil {
 			f.present |= FacetMinInclusive
-			f.lower = append(f.lower, boundValue{value: decimalLiteralValue(d)})
+			f.lower = append(f.lower, boundValue{value: atomicValue{kind: PrimitiveDecimal, decimal: d}})
 		}
 	}
 	if m.max != "" {
 		if d, err := ParseDecimalCanonical(m.max); err == nil {
 			f.present |= FacetMaxInclusive
-			f.upper = append(f.upper, boundValue{value: decimalLiteralValue(d)})
+			f.upper = append(f.upper, boundValue{value: atomicValue{kind: PrimitiveDecimal, decimal: d}})
 		}
 	}
 	return f
 }
 
-func decimalLiteralValue(d DecimalValue) parsedValue {
-	return parsedValue{
-		canonical: d.IntegerCanonicalText(),
-		identity:  identityKey(PrimitiveDecimal, d.CanonicalText()),
-		atom:      atomicValue{kind: PrimitiveDecimal, decimal: d},
-	}
-}
-
 // BuiltinType returns the canonical builtin ID for a primitive family.
 func BuiltinType(kind PrimitiveKind) TypeID {
-	switch kind {
-	case PrimitiveString:
-		return builtinString
-	case PrimitiveBoolean:
-		return builtinBoolean
-	case PrimitiveDecimal:
-		return builtinDecimal
-	case PrimitiveFloat:
-		return builtinFloat
-	case PrimitiveDouble:
-		return builtinDouble
-	case PrimitiveDuration:
-		return builtinDuration
-	case PrimitiveDateTime:
-		return builtinDateTime
-	case PrimitiveTime:
-		return builtinTime
-	case PrimitiveDate:
-		return builtinDate
-	case PrimitiveGYearMonth:
-		return builtinGYearMonth
-	case PrimitiveGYear:
-		return builtinGYear
-	case PrimitiveGMonthDay:
-		return builtinGMonthDay
-	case PrimitiveGDay:
-		return builtinGDay
-	case PrimitiveGMonth:
-		return builtinGMonth
-	case PrimitiveHexBinary:
-		return builtinHexBinary
-	case PrimitiveBase64Binary:
-		return builtinBase64Binary
-	case PrimitiveAnyURI:
-		return builtinAnyURI
-	case PrimitiveQName:
-		return builtinQName
-	case PrimitiveNotation:
-		return builtinNotation
-	default:
-		return NoType
+	for id := builtinString; id < BuiltinTypeCount; id++ {
+		if builtinMetadata[id].primitive == kind {
+			return id
+		}
 	}
+	return NoType
 }
 
 // BuiltinTypeID returns a fixed builtin ID by its XSD local name.

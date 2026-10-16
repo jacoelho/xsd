@@ -30,7 +30,11 @@ func BenchmarkProgramUnionWhitespace(b *testing.B) {
 				if test.replace {
 					whitespace = value.WhitespaceReplace
 				}
-				collapsed, err := builder.Add(value.TypeSpec{
+				collapsed, err := builder.Reserve()
+				if err != nil {
+					b.Fatalf("Reserve() error = %v", err)
+				}
+				err = builder.Complete(collapsed, value.TypeSpec{
 					Variety: value.Atomic, Primitive: value.PrimitiveString,
 					Base: value.BuiltinType(value.PrimitiveString), ListItem: value.NoType,
 					Whitespace: whitespace, WhitespacePresent: true,
@@ -48,7 +52,11 @@ func BenchmarkProgramUnionWhitespace(b *testing.B) {
 				}
 				facets.Patterns = [][]*value.Pattern{{pattern}}
 			}
-			id, err := builder.Add(value.TypeSpec{
+			id, err := builder.Reserve()
+			if err != nil {
+				b.Fatalf("Reserve() error = %v", err)
+			}
+			err = builder.Complete(id, value.TypeSpec{
 				Variety: value.Union, Primitive: value.PrimitiveString,
 				Union: members,
 				Base:  value.NoType, ListItem: value.NoType,

@@ -17,6 +17,13 @@ func TestProgramValueWorkLimitIsRequiredBeforeFastPaths(t *testing.T) {
 	if _, err := p.ValidateBytes(builtinString, nil, Resolver{}, 0, 0, nil); !errors.Is(err, ErrMetadata) {
 		t.Fatalf("ValidateBytes zero work limit = %v, want ErrMetadata", err)
 	}
+	if _, admissionErr := p.ValidateAdmitted(builtinString, "x", Resolver{}, NeedCanonical, 0, nil); !errors.Is(admissionErr, ErrMetadata) {
+		t.Fatalf("ValidateAdmitted zero work limit = %v, want ErrMetadata", admissionErr)
+	}
+	accepted, admissionErr := p.ValidateAdmitted(builtinString, "x", Resolver{}, NeedCanonical, 2, nil)
+	if admissionErr != nil || accepted.Type() != builtinString || accepted.SelectedType() != NoType || accepted.CanonicalText() != "x" {
+		t.Fatalf("ValidateAdmitted after rejection = type %d, selection %d, canonical %q, error %v; want string, NoType, x, nil", accepted.Type(), accepted.SelectedType(), accepted.CanonicalText(), admissionErr)
+	}
 }
 
 func TestProgramValueWorkLimitBoundsPlainStringAndResetsPerCall(t *testing.T) {
@@ -85,18 +92,22 @@ func TestBuilderFacetBatchSharesConstructionBudget(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			builder := NewBuilder(BuilderOptions{MaxConstructionWork: test.limit})
-			if _, err := builder.Add(makeSpec()); err != nil {
-				t.Fatal(err)
+			reservedID, reserveErr := builder.Reserve()
+			if reserveErr != nil {
+				t.Fatalf("Reserve() error = %v", reserveErr)
 			}
-			_, err := builder.Seal()
+			err := builder.Complete(reservedID, makeSpec())
 			if test.want != nil {
 				if !errors.Is(err, test.want) {
-					t.Fatalf("Seal() error = %v, want %v", err, test.want)
+					t.Fatalf("Complete() error = %v, want %v", err, test.want)
 				}
 				return
 			}
 			if err != nil {
-				t.Fatalf("Seal() error = %v", err)
+				t.Fatalf("Complete() error = %v", err)
+			}
+			if _, sealErr := builder.Seal(); sealErr != nil {
+				t.Fatalf("Seal() after successful completion = %v", sealErr)
 			}
 		})
 	}
@@ -144,5 +155,100 @@ func TestEvaluationBudgetRejectsUsageOverflow(t *testing.T) {
 	}
 	if err := budget.charge(0); !errors.Is(err, ErrLimit) {
 		t.Fatalf("charge after the final unit = %v, want ErrLimit", err)
+	}
+}
+
+func TestTemporalWorkLimitResetsPerCall(t *testing.T) {
+	p, err := NewBuilder(BuilderOptions{}).Seal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		id      TypeID
+		lexical string
+	}{
+		{builtinGYear, "1234567890123456789012345678901234567890Z"},
+		{builtinTime, "12:34:56.123456789012345678901234567890Z"},
+	} {
+		t.Run(tc.lexical, func(t *testing.T) {
+			raw := []byte(tc.lexical)
+			limit := uint64(len(tc.lexical))
+			for call := range 2 {
+				if _, err := p.Validate(tc.id, tc.lexical, Resolver{}, 0, limit, nil); !errors.Is(err, ErrLimit) {
+					t.Fatalf("string call %d error = %v, want ErrLimit", call, err)
+				}
+				if _, err := p.ValidateBytes(tc.id, raw, Resolver{}, 0, limit, nil); !errors.Is(err, ErrLimit) {
+					t.Fatalf("bytes call %d error = %v, want ErrLimit", call, err)
+				}
+				if _, err := p.Validate(tc.id, tc.lexical, Resolver{}, 0, limit+1, nil); err != nil {
+					t.Fatalf("string call %d at budget = %v", call, err)
+				}
+				if _, err := p.ValidateBytes(tc.id, raw, Resolver{}, 0, limit+1, nil); err != nil {
+					t.Fatalf("bytes call %d at budget = %v", call, err)
+				}
+			}
+		})
+	}
+}
+
+func TestBorrowedRawListBudgetRouting(t *testing.T) {
+	builder := NewBuilder(BuilderOptions{})
+	listID, found := BuiltinTypeID("NMTOKENS")
+	if !found {
+		t.Fatal("missing NMTOKENS")
+	}
+	unionID, reserveErr := builder.Reserve()
+	if reserveErr != nil {
+		t.Fatal(reserveErr)
+	}
+	if completeErr := builder.Complete(unionID, TypeSpec{
+		Variety: Union, Union: []TypeID{listID, BuiltinType(PrimitiveString)},
+		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
+		Base: NoType, ListItem: NoType,
+	}); completeErr != nil {
+		t.Fatal(completeErr)
+	}
+	program, sealErr := builder.Seal()
+	if sealErr != nil {
+		t.Fatal(sealErr)
+	}
+	projected, projectionErr := program.Validate(listID, "one", Resolver{}, NeedIdentity, 16<<20, nil)
+	if projectionErr != nil {
+		t.Fatal(projectionErr)
+	}
+	for _, tc := range []struct {
+		name     string
+		id       TypeID
+		selected TypeID
+		limit    uint64
+		wantErr  error
+	}{
+		{"direct below", listID, NoType, 7, ErrLimit},
+		{"direct at", listID, NoType, 8, nil},
+		{"direct above", listID, NoType, 9, nil},
+		{"union below", unionID, listID, 11, ErrLimit},
+		{"union at", unionID, listID, 12, nil},
+		{"union above", unionID, listID, 13, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			raw := []byte("one")
+			got, validationErr := program.ValidateBytes(tc.id, raw, Resolver{}, 0, tc.limit, nil)
+			clear(raw)
+			if !errors.Is(validationErr, tc.wantErr) {
+				t.Fatalf("budget %d error = %v, want %v", tc.limit, validationErr, tc.wantErr)
+			}
+			if tc.wantErr != nil {
+				return
+			}
+			if got.Type() != tc.id || got.SelectedType() != tc.selected {
+				t.Fatalf("result type/selection = %d/%d, want %d/%d", got.Type(), got.SelectedType(), tc.id, tc.selected)
+			}
+			if got.CanonicalText() != "" || got.IdentityKey() != "" || got.IDs() != "" || got.IDRefs() != "" || got.HasQualifiedNames() {
+				t.Fatalf("unprojected result = %#v", got)
+			}
+			if got.Equal(projected) {
+				t.Fatal("unprojected value compared equal to an identity-bearing value")
+			}
+		})
 	}
 }

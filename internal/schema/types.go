@@ -32,29 +32,6 @@ type SimpleTypeID = value.TypeID
 // ComplexTypeID indexes a complex type in a runtime schema.
 type ComplexTypeID uint32
 
-// BuiltinIDs stores runtime IDs for built-in schema components.
-type BuiltinIDs struct {
-	AnyType       ComplexTypeID
-	AnySimpleType SimpleTypeID
-	String        SimpleTypeID
-	Boolean       SimpleTypeID
-	Decimal       SimpleTypeID
-	Integer       SimpleTypeID
-	Int           SimpleTypeID
-	Date          SimpleTypeID
-	DateTime      SimpleTypeID
-	Time          SimpleTypeID
-	AnyURI        SimpleTypeID
-	QName         SimpleTypeID
-	ID            SimpleTypeID
-	IDREF         SimpleTypeID
-	IDREFS        SimpleTypeID
-	NMTOKEN       SimpleTypeID
-	NMTOKENS      SimpleTypeID
-	ENTITY        SimpleTypeID
-	ENTITIES      SimpleTypeID
-}
-
 // ElementID indexes an element declaration in a runtime schema.
 type ElementID uint32
 
@@ -309,22 +286,13 @@ func FormatExpandedName(ns, local string) string {
 	return "{" + ns + "}" + local
 }
 
-// IdentityConstraint is the runtime metadata for an XSD identity constraint.
+// IdentityConstraint is canonical construction metadata for an XSD identity constraint.
 type IdentityConstraint struct {
-	Selector                []IdentityPath
-	Fields                  []IdentityField
-	ElementFields           []CompiledIdentityField
-	AttributeFields         map[QName][]CompiledIdentityField
-	AttributeWildcardFields []CompiledIdentityField
-	Name                    QName
-	Refer                   IdentityConstraintID
-	Kind                    IdentityKind
-}
-
-// CompiledIdentityField groups paths for one field after lookup compilation.
-type CompiledIdentityField struct {
-	Paths []IdentityFieldPath
-	Field int
+	Selector []IdentityPath
+	Fields   []IdentityField
+	Name     QName
+	Refer    IdentityConstraintID
+	Kind     IdentityKind
 }
 
 // IdentityPath is one parsed selector XPath branch.
@@ -357,56 +325,4 @@ type IdentityFieldPath struct {
 	Attr             bool
 	AttrWildcard     bool
 	AttrNamespaceSet bool
-}
-
-// BuildIdentityFieldLookup partitions identity fields by element, exact
-// attribute, and wildcard attribute lookup.
-func BuildIdentityFieldLookup(fields []IdentityField) ([]CompiledIdentityField, map[QName][]CompiledIdentityField, []CompiledIdentityField) {
-	var lookup identityFieldLookup
-	for fieldIndex := range fields {
-		lookup.add(fieldIndex, fields[fieldIndex])
-	}
-	return lookup.elements, lookup.attributes, lookup.wildcardAttributes
-}
-
-type identityFieldLookup struct {
-	elements           []CompiledIdentityField
-	attributes         map[QName][]CompiledIdentityField
-	wildcardAttributes []CompiledIdentityField
-}
-
-func (l *identityFieldLookup) add(fieldIndex int, field IdentityField) {
-	elementPaths, wildcardPaths, exactPaths := partitionIdentityFieldPaths(field.Paths)
-	if len(elementPaths) != 0 {
-		l.elements = append(l.elements, CompiledIdentityField{Field: fieldIndex, Paths: elementPaths})
-	}
-	if len(wildcardPaths) != 0 {
-		l.wildcardAttributes = append(l.wildcardAttributes, CompiledIdentityField{Field: fieldIndex, Paths: wildcardPaths})
-	}
-	for name, paths := range exactPaths {
-		if l.attributes == nil {
-			l.attributes = make(map[QName][]CompiledIdentityField)
-		}
-		l.attributes[name] = append(l.attributes[name], CompiledIdentityField{Field: fieldIndex, Paths: paths})
-	}
-}
-
-func partitionIdentityFieldPaths(paths []IdentityFieldPath) (elements, wildcardAttributes []IdentityFieldPath, exactAttributes map[QName][]IdentityFieldPath) {
-	var wildcards []IdentityFieldPath
-	var exact map[QName][]IdentityFieldPath
-	for _, path := range paths {
-		path = cloneIdentityFieldPath(path)
-		switch {
-		case !path.Attr:
-			elements = append(elements, path)
-		case path.AttrWildcard:
-			wildcards = append(wildcards, path)
-		default:
-			if exact == nil {
-				exact = make(map[QName][]IdentityFieldPath)
-			}
-			exact[path.Attribute] = append(exact[path.Attribute], path)
-		}
-	}
-	return elements, wildcards, exact
 }

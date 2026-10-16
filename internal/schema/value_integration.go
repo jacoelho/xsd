@@ -84,16 +84,6 @@ func (c *compiler) ensureValueBuilder() *value.Builder {
 	return c.rt.valueBuilder
 }
 
-// valueTypeSpec returns the canonical value metadata for one schema type. The
-// schema fields are declaration facts; ValueSpec is the sole value-semantic
-// source and is populated at construction time.
-func valueTypeSpec(st SimpleType) value.TypeSpec {
-	// Builder.Complete copies each retained slice while normalizing and compiling
-	// the record. Returning the source view here avoids a redundant copy between
-	// schema indexing and that ownership boundary.
-	return st.ValueSpec
-}
-
 func valueBuilderError(err error) error {
 	if err == nil {
 		return nil
@@ -115,7 +105,7 @@ func (c *compiler) completeValueType(id SimpleTypeID, st SimpleType) error {
 		return nil
 	}
 	builder := c.ensureValueBuilder()
-	spec := valueTypeSpec(st)
+	spec := st.ValueSpec
 	if st.Missing {
 		// A missing schema component remains unavailable to callers, but its
 		// reserved ID still needs a complete value record so later IDs stay

@@ -15,7 +15,7 @@ func TestAllContentIndexBoundsSubstitutionWork(t *testing.T) {
 		names[id] = QName{Local: LocalNameID(i + 1)}
 		terms[i].Particle = compiledParticleRead{Kind: ParticleElement, Element: id}
 	}
-	source := dfaRowIndexRuntimeStub{
+	source := dfaRowIndexFixture{
 		elementNames: names,
 		substitutionByName: map[ElementID]map[QName]ElementID{
 			head: {{Local: 20}: 2, {Local: 21}: 3},
@@ -24,7 +24,7 @@ func TestAllContentIndexBoundsSubstitutionWork(t *testing.T) {
 	models := []compiledModelRead{{Kind: CompiledModelAll, All: terms}}
 	exhausted := errors.New("content work exhausted")
 	remaining := len(terms)
-	err := indexAllContentModels(models, source, func(steps int) error {
+	err := indexAllContentModels(models, source.build(), func(steps int) error {
 		remaining -= steps
 		if remaining < 0 {
 			return exhausted

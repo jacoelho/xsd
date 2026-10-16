@@ -9,18 +9,6 @@ import (
 // a non-hierarchical base URI.
 var ErrOpaqueBase = errors.New("relative URI reference cannot be resolved against an opaque base")
 
-type components struct {
-	scheme       string
-	authority    string
-	path         string
-	query        string
-	fragment     string
-	hasScheme    bool
-	hasAuthority bool
-	hasQuery     bool
-	hasFragment  bool
-}
-
 // Parts is the parsed component view of a validated Reference. Presence flags
 // preserve the distinction between absent and explicitly empty components.
 type Parts struct {
@@ -37,12 +25,7 @@ type Parts struct {
 
 // Parts returns a copy of the reference's parsed components.
 func (r Reference) Parts() Parts {
-	c := r.components
-	return Parts{
-		Scheme: c.scheme, Authority: c.authority, Path: c.path, Query: c.query,
-		Fragment: c.fragment, HasScheme: c.hasScheme, HasAuthority: c.hasAuthority,
-		HasQuery: c.hasQuery, HasFragment: c.hasFragment,
-	}
+	return r.parts
 }
 
 // Resolve resolves ref against base using the validating RFC 2396 section 5.2
@@ -50,124 +33,124 @@ func (r Reference) Parts() Parts {
 // Appendix C, and does not normalize dot segments in absolute-path or
 // scheme-bearing references.
 func Resolve(base, ref Reference) (Reference, error) {
-	b := base.components
-	r := ref.components
+	b := base.parts
+	r := ref.parts
 	if isSameDocumentReference(r) {
 		return resolveSameDocumentReference(base, r)
 	}
-	if r.hasScheme {
+	if r.HasScheme {
 		return ref, nil
 	}
-	if r.hasAuthority {
-		r.scheme, r.hasScheme = b.scheme, b.hasScheme
+	if r.HasAuthority {
+		r.Scheme, r.HasScheme = b.Scheme, b.HasScheme
 		return compose(r)
 	}
-	if r.path != "" && r.path[0] == '/' {
-		r.scheme, r.hasScheme = b.scheme, b.hasScheme
-		r.authority, r.hasAuthority = b.authority, b.hasAuthority
+	if r.Path != "" && r.Path[0] == '/' {
+		r.Scheme, r.HasScheme = b.Scheme, b.HasScheme
+		r.Authority, r.HasAuthority = b.Authority, b.HasAuthority
 		return compose(r)
 	}
 	switch {
 	case opaque(b):
-		if r.path != "" {
+		if r.Path != "" {
 			return Reference{}, ErrOpaqueBase
 		}
 		// RFC 2396 permits relative resolution only for hierarchical bases.
 		// Query-only references are retained as a narrow XML Base extension,
 		// preserving the opaque path while replacing its query.
-		r.path = b.path
-	case r.path == "":
-		r.path = b.path
+		r.Path = b.Path
+	case r.Path == "":
+		r.Path = b.Path
 	default:
-		r.path = removeRelativeDotSegments(mergePath(b, r.path))
+		r.Path = removeRelativeDotSegments(mergePath(b, r.Path))
 	}
-	r.scheme, r.hasScheme = b.scheme, b.hasScheme
-	r.authority, r.hasAuthority = b.authority, b.hasAuthority
+	r.Scheme, r.HasScheme = b.Scheme, b.HasScheme
+	r.Authority, r.HasAuthority = b.Authority, b.HasAuthority
 	return compose(r)
 }
 
-func isSameDocumentReference(c components) bool {
-	return c.path == "" && !c.hasScheme && !c.hasAuthority && !c.hasQuery
+func isSameDocumentReference(c Parts) bool {
+	return c.Path == "" && !c.HasScheme && !c.HasAuthority && !c.HasQuery
 }
 
-func resolveSameDocumentReference(base Reference, ref components) (Reference, error) {
+func resolveSameDocumentReference(base Reference, ref Parts) (Reference, error) {
 	without := base.WithoutFragment()
-	if !ref.hasFragment {
+	if !ref.HasFragment {
 		return without, nil
 	}
-	b := base.components
-	return compose(components{
-		scheme: b.scheme, authority: b.authority, path: b.path, query: b.query,
-		fragment: ref.fragment, hasScheme: b.hasScheme, hasAuthority: b.hasAuthority,
-		hasQuery: b.hasQuery, hasFragment: true,
+	b := base.parts
+	return compose(Parts{
+		Scheme: b.Scheme, Authority: b.Authority, Path: b.Path, Query: b.Query,
+		Fragment: ref.Fragment, HasScheme: b.HasScheme, HasAuthority: b.HasAuthority,
+		HasQuery: b.HasQuery, HasFragment: true,
 	})
 }
 
-func compose(c components) (Reference, error) {
+func compose(c Parts) (Reference, error) {
 	return Parse(spell(c))
 }
 
-func spell(c components) string {
-	size := len(c.path)
-	if c.hasScheme {
-		size += len(c.scheme) + 1
+func spell(c Parts) string {
+	size := len(c.Path)
+	if c.HasScheme {
+		size += len(c.Scheme) + 1
 	}
-	if c.hasAuthority {
-		size += len(c.authority) + 2
+	if c.HasAuthority {
+		size += len(c.Authority) + 2
 	}
-	if c.hasQuery {
-		size += len(c.query) + 1
+	if c.HasQuery {
+		size += len(c.Query) + 1
 	}
-	if c.hasFragment {
-		size += len(c.fragment) + 1
+	if c.HasFragment {
+		size += len(c.Fragment) + 1
 	}
 	var out strings.Builder
 	out.Grow(size)
-	if c.hasScheme {
-		out.WriteString(c.scheme)
+	if c.HasScheme {
+		out.WriteString(c.Scheme)
 		out.WriteByte(':')
 	}
-	if c.hasAuthority {
+	if c.HasAuthority {
 		out.WriteString("//")
-		out.WriteString(c.authority)
+		out.WriteString(c.Authority)
 	}
-	out.WriteString(c.path)
-	if c.hasQuery {
+	out.WriteString(c.Path)
+	if c.HasQuery {
 		out.WriteByte('?')
-		out.WriteString(c.query)
+		out.WriteString(c.Query)
 	}
-	if c.hasFragment {
+	if c.HasFragment {
 		out.WriteByte('#')
-		out.WriteString(c.fragment)
+		out.WriteString(c.Fragment)
 	}
 	return out.String()
 }
 
-func split(raw string) components {
-	var c components
+func split(raw string) Parts {
+	var c Parts
 	rest := raw
 	if i := strings.IndexByte(rest, '#'); i >= 0 {
-		c.fragment, c.hasFragment = rest[i+1:], true
+		c.Fragment, c.HasFragment = rest[i+1:], true
 		rest = rest[:i]
 	}
 	if i := strings.IndexByte(rest, '?'); i >= 0 {
-		c.query, c.hasQuery = rest[i+1:], true
+		c.Query, c.HasQuery = rest[i+1:], true
 		rest = rest[:i]
 	}
 	if i := schemeSeparator(rest); i >= 0 {
-		c.scheme, c.hasScheme = rest[:i], true
+		c.Scheme, c.HasScheme = rest[:i], true
 		rest = rest[i+1:]
 	}
 	if strings.HasPrefix(rest, "//") {
-		c.hasAuthority = true
+		c.HasAuthority = true
 		rest = rest[2:]
 		if i := strings.IndexByte(rest, '/'); i >= 0 {
-			c.authority, c.path = rest[:i], rest[i:]
+			c.Authority, c.Path = rest[:i], rest[i:]
 		} else {
-			c.authority = rest
+			c.Authority = rest
 		}
 	} else {
-		c.path = rest
+		c.Path = rest
 	}
 	return c
 }
@@ -184,15 +167,15 @@ func schemeSeparator(raw string) int {
 	return -1
 }
 
-func opaque(c components) bool {
-	return c.hasScheme && !c.hasAuthority && (c.path == "" || c.path[0] != '/')
+func opaque(c Parts) bool {
+	return c.HasScheme && !c.HasAuthority && (c.Path == "" || c.Path[0] != '/')
 }
 
-func mergePath(base components, ref string) string {
-	if i := strings.LastIndexByte(base.path, '/'); i >= 0 {
-		return base.path[:i+1] + ref
+func mergePath(base Parts, ref string) string {
+	if i := strings.LastIndexByte(base.Path, '/'); i >= 0 {
+		return base.Path[:i+1] + ref
 	}
-	if base.hasAuthority {
+	if base.HasAuthority {
 		return "/" + ref
 	}
 	return ref

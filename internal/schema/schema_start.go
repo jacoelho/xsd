@@ -58,7 +58,7 @@ func (rt *Schema) TypeInfo(id TypeID) (TypeInfo, bool) {
 		if !ok {
 			return TypeInfo{}, false
 		}
-		return newTypeInfo(typeInfoShape{Unavailable: availability == simpleTypeAvailabilityUnavailable}), true
+		return TypeInfo{Unavailable: availability == simpleTypeAvailabilityUnavailable}, true
 	}
 	complexID, ok := id.Complex()
 	if !ok || !ValidComplexTypeID(complexID, len(rt.program.ComplexTypes)) {
@@ -66,8 +66,8 @@ func (rt *Schema) TypeInfo(id TypeID) (TypeInfo, bool) {
 	}
 	read := rt.program.ComplexTypes[complexID]
 	info := read.typeInfo()
-	if simple := read.simpleContent(); simple.HasSimpleContent() {
-		availability, present, ok := rt.simpleTypeAvailability(simple.TypeID())
+	if textType, simple := read.simpleContent(); simple {
+		availability, present, ok := rt.simpleTypeAvailability(textType)
 		if !ok || !present {
 			return TypeInfo{}, false
 		}
@@ -83,7 +83,7 @@ func (rt *Schema) simpleTypeAvailability(id SimpleTypeID) (availability simpleTy
 	if unavailable := rt.program.SimpleTypeUnavailable[id]; unavailable {
 		return simpleTypeAvailabilityUnavailable, true, true
 	}
-	if _, ok := rt.program.Value.NeedsQNameResolver(id); !ok {
+	if _, ok := rt.program.Value.InputRequirements(id); !ok {
 		return simpleTypeAvailabilityInvalid, false, false
 	}
 	return simpleTypeAvailabilityAvailable, true, true
@@ -96,24 +96,10 @@ func (rt *Schema) SimpleTypeUnavailable(id SimpleTypeID) (unavailable, ok bool) 
 	return availability == simpleTypeAvailabilityUnavailable, ok
 }
 
-// TypeDerivation reports how derived derives from base.
-func (rt *Schema) TypeDerivation(derived, base TypeID) (DerivationMask, bool) {
-	return rt.program.TypeDerivations.derivation(derived, base, nil)
-}
-
 // TypeDerivationWithScratch reports how derived derives from base while reusing
 // document-local union traversal storage.
 func (rt *Schema) TypeDerivationWithScratch(derived, base TypeID, scratch *TypeDerivationScratch) (DerivationMask, bool) {
 	return rt.program.TypeDerivations.derivation(derived, base, scratch)
-}
-
-// ContentModelForType returns the content model used to validate children of a runtime type.
-func (rt *Schema) ContentModelForType(t TypeID) ContentModelID {
-	id, ok := t.Complex()
-	if !ok || !ValidComplexTypeID(id, len(rt.program.ComplexTypes)) {
-		return NoContentModel
-	}
-	return rt.program.ComplexTypes[id].contentModel
 }
 
 // GlobalAttribute returns the global attribute declaration for name.

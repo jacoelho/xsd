@@ -2,8 +2,10 @@ package schema
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
+	valuepkg "github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -11,12 +13,12 @@ func TestValidateFacetSource(t *testing.T) {
 	t.Parallel()
 
 	stringType := FacetSource{
-		Variety:   SimpleVarietyAtomic,
-		Primitive: PrimitiveString,
+		Variety:   valuepkg.Atomic,
+		Primitive: valuepkg.PrimitiveString,
 	}
 	booleanType := FacetSource{
-		Variety:   SimpleVarietyAtomic,
-		Primitive: PrimitiveBoolean,
+		Variety:   valuepkg.Atomic,
+		Primitive: valuepkg.PrimitiveBoolean,
 	}
 
 	tests := []struct {
@@ -107,16 +109,16 @@ func TestParseWhitespaceFacetValue(t *testing.T) {
 	tests := []struct {
 		name        string
 		value       string
-		base        WhitespaceMode
-		want        WhitespaceMode
+		base        valuepkg.WhitespaceMode
+		want        valuepkg.WhitespaceMode
 		wantMessage string
 	}{
-		{name: "preserve", value: "preserve", base: WhitespacePreserve, want: WhitespacePreserve},
-		{name: "replace", value: "replace", base: WhitespacePreserve, want: WhitespaceReplace},
-		{name: "collapse", value: "collapse", base: WhitespaceReplace, want: WhitespaceCollapse},
-		{name: "collapsed lexical", value: " \tcollapse\n", base: WhitespaceReplace, want: WhitespaceCollapse},
-		{name: "invalid lexical", value: "trim", base: WhitespacePreserve, wantMessage: "invalid whiteSpace facet trim"},
-		{name: "looser", value: "replace", base: WhitespaceCollapse, wantMessage: "whiteSpace cannot loosen base whiteSpace"},
+		{name: "preserve", value: "preserve", base: valuepkg.WhitespacePreserve, want: valuepkg.WhitespacePreserve},
+		{name: "replace", value: "replace", base: valuepkg.WhitespacePreserve, want: valuepkg.WhitespaceReplace},
+		{name: "collapse", value: "collapse", base: valuepkg.WhitespaceReplace, want: valuepkg.WhitespaceCollapse},
+		{name: "collapsed lexical", value: " \tcollapse\n", base: valuepkg.WhitespaceReplace, want: valuepkg.WhitespaceCollapse},
+		{name: "invalid lexical", value: "trim", base: valuepkg.WhitespacePreserve, wantMessage: "invalid whiteSpace facet trim"},
+		{name: "looser", value: "replace", base: valuepkg.WhitespaceCollapse, wantMessage: "whiteSpace cannot loosen base whiteSpace"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -145,5 +147,32 @@ func expectSchemaFacetMessage(t *testing.T, err error, message string) {
 	}
 	if diag.Category() != xsderrors.CategorySchemaCompile || diag.Code() != xsderrors.CodeSchemaFacet || diag.Message() != message {
 		t.Fatalf("diagnostic = (%s, %s, %q), want (%s, %s, %q)", diag.Category(), diag.Code(), diag.Message(), xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaFacet, message)
+	}
+}
+
+func BenchmarkSizeFacetAdmission(b *testing.B) {
+	cases := []struct {
+		name, text string
+		want       uint32
+	}{{"Short", "8", 8}, {"MinusZero", "-" + strings.Repeat("0", 4096), 0}}
+	for _, c := range cases {
+		b.Run(c.name, func(b *testing.B) {
+			pre, err := ParseSizeFacetValue("maxLength", c.text)
+			if err != nil || pre != c.want {
+				b.Fatalf("preflight %v %v", pre, err)
+			}
+			var last uint32
+			b.ReportAllocs()
+			for b.Loop() {
+				var err error
+				last, err = ParseSizeFacetValue("maxLength", c.text)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+			if last != c.want {
+				b.Fatalf("postflight %v", last)
+			}
+		})
 	}
 }

@@ -82,19 +82,6 @@ func (e *ChildOrderError) Error() string {
 	return e.Message
 }
 
-// TopLevelGroupChild describes one xs:group child enough for compile-owned
-// top-level group syntax validation.
-type TopLevelGroupChild struct {
-	Local        string
-	HasMinOccurs bool
-	HasMaxOccurs bool
-}
-
-// TopLevelGroupSyntax identifies the model group child in the input slice.
-type TopLevelGroupSyntax struct {
-	Model int
-}
-
 // ContentDerivationKind identifies the xs:extension/xs:restriction choice in a
 // simpleContent or complexContent container.
 type ContentDerivationKind uint8
@@ -119,28 +106,6 @@ func (k ContentDerivationKind) String() string {
 	default:
 	}
 	return ""
-}
-
-// ContentDerivationSyntax identifies the selected derivation child in the
-// validated XSD child slice.
-type ContentDerivationSyntax struct {
-	Index int
-	Kind  ContentDerivationKind
-}
-
-// TopLevelGroupSyntaxError identifies the offending child in top-level
-// xs:group syntax. Index is -1 for the group node itself.
-type TopLevelGroupSyntaxError struct {
-	Code    xsderrors.Code
-	Message string
-	Index   int
-}
-
-func (e *TopLevelGroupSyntaxError) Error() string {
-	if e == nil {
-		return nilErrorString
-	}
-	return e.Message
 }
 
 var simpleTypeChildOrder = ChildOrder{
@@ -262,18 +227,6 @@ var elementDeclarationChildOrder = ChildOrder{
 	InvalidMsg: func(local string) string { return "invalid element child " + local },
 }
 
-// ValidateComplexContentChildrenSyntax validates xs:complexContent child order
-// and returns the selected derivation child.
-func ValidateComplexContentChildrenSyntax(children []string) (ContentDerivationSyntax, error) {
-	return validateDerivationContainerChildren(complexContent, children, complexContentChildOrder)
-}
-
-// ValidateSimpleContentChildrenSyntax validates xs:simpleContent child order and
-// returns the selected derivation child.
-func ValidateSimpleContentChildrenSyntax(children []string) (ContentDerivationSyntax, error) {
-	return validateDerivationContainerChildren(simpleContent, children, simpleContentChildOrder)
-}
-
 // ContentDerivationBase owns the lexical and presence state of a required base
 // attribute together with the grammar context used in its diagnostic.
 type ContentDerivationBase struct {
@@ -333,86 +286,6 @@ func modelGroupChildOrder(parent string) ChildOrder {
 }
 
 func invalidModelGroupChild(local string) string { return "invalid model group child " + local }
-
-// ValidateTopLevelGroupChildren validates top-level xs:group child syntax and
-// returns the selected model group child index.
-func ValidateTopLevelGroupChildren(children []TopLevelGroupChild) (TopLevelGroupSyntax, error) {
-	state := topLevelGroupSyntaxState{syntax: TopLevelGroupSyntax{Model: -1}}
-	for i, child := range children {
-		if err := state.add(i, child.Local); err != nil {
-			return state.syntax, err
-		}
-	}
-	if state.syntax.Model < 0 {
-		return state.syntax, topLevelGroupSyntaxError(-1, xsderrors.CodeSchemaContentModel, "top-level group must contain exactly one model group")
-	}
-	model := children[state.syntax.Model]
-	if model.HasMinOccurs {
-		return state.syntax, topLevelGroupSyntaxError(state.syntax.Model, xsderrors.CodeSchemaOccurrence, "top-level model group cannot have minOccurs")
-	}
-	if model.HasMaxOccurs {
-		return state.syntax, topLevelGroupSyntaxError(state.syntax.Model, xsderrors.CodeSchemaOccurrence, "top-level model group cannot have maxOccurs")
-	}
-	return state.syntax, nil
-}
-
-type topLevelGroupSyntaxState struct {
-	syntax            TopLevelGroupSyntax
-	seenAnnotation    bool
-	seenNonAnnotation bool
-}
-
-func (s *topLevelGroupSyntaxState) add(index int, local string) error {
-	switch local {
-	case annotationChild:
-		return s.addAnnotation(index)
-	case sequenceChild, choiceChild, allChild:
-		return s.addModel(index)
-	case groupChild:
-		return topLevelGroupSyntaxError(index, xsderrors.CodeSchemaContentModel, "top-level group cannot contain group ref")
-	default:
-		return topLevelGroupSyntaxError(index, xsderrors.CodeSchemaContentModel, "invalid top-level group child "+local)
-	}
-}
-
-func (s *topLevelGroupSyntaxState) addAnnotation(index int) error {
-	if s.seenAnnotation {
-		return topLevelGroupSyntaxError(index, xsderrors.CodeSchemaContentModel, "top-level group can contain at most one annotation")
-	}
-	if s.seenNonAnnotation {
-		return topLevelGroupSyntaxError(index, xsderrors.CodeSchemaContentModel, "top-level group annotation must be first")
-	}
-	s.seenAnnotation = true
-	return nil
-}
-
-func (s *topLevelGroupSyntaxState) addModel(index int) error {
-	if s.syntax.Model >= 0 {
-		return topLevelGroupSyntaxError(index, xsderrors.CodeSchemaContentModel, "top-level group must contain exactly one model group")
-	}
-	s.syntax.Model = index
-	s.seenNonAnnotation = true
-	return nil
-}
-
-// ValidateAttributeDeclarationChildren validates xs:attribute declaration child
-// order over local element names and returns a ChildOrderError indexed into
-// children.
-func ValidateAttributeDeclarationChildren(children []string) error {
-	return CheckOrderedChildren(children, attributeDeclarationChildOrder)
-}
-
-// CheckOrderedChildren validates component child order over local element
-// names and returns a ChildOrderError whose index maps back to the input slice.
-func CheckOrderedChildren(children []string, order ChildOrder) error {
-	state := childOrderState{maxLevelSeen: -1}
-	for childIndex, child := range children {
-		if err := state.accept(childIndex, child, order); err != nil {
-			return err
-		}
-	}
-	return nil
-}
 
 type childOrderState struct {
 	seen              uint64
@@ -484,10 +357,6 @@ func childRuleSeenBit(idx int) (uint64, error) {
 
 func childOrderError(index int, msg string) error {
 	return &ChildOrderError{Index: index, Message: msg}
-}
-
-func topLevelGroupSyntaxError(index int, code xsderrors.Code, msg string) error {
-	return &TopLevelGroupSyntaxError{Index: index, Code: code, Message: msg}
 }
 
 func simpleDerivationOrder(kind simpleDerivationKind) ChildOrder {
@@ -629,22 +498,6 @@ func isFacetChild(local string) bool {
 	default:
 		return false
 	}
-}
-
-func validateDerivationContainerChildren(label string, children []string, order ChildOrder) (ContentDerivationSyntax, error) {
-	syntax := ContentDerivationSyntax{Index: -1}
-	if err := CheckOrderedChildren(children, order); err != nil {
-		return syntax, err
-	}
-	for i, child := range children {
-		switch child {
-		case extensionChild:
-			return ContentDerivationSyntax{Index: i, Kind: ContentDerivationExtension}, nil
-		case restrictionChild:
-			return ContentDerivationSyntax{Index: i, Kind: ContentDerivationRestriction}, nil
-		}
-	}
-	return syntax, childOrderError(-1, label+" missing extension or restriction")
 }
 
 func matchChildLocal(locals ...string) func(string) bool {

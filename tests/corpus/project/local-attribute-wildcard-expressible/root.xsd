@@ -1,0 +1,9 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:a="urn:a" targetNamespace="urn:b">
+  <xs:import namespace="urn:a"/>
+  <xs:element name="r">
+    <xs:complexType>
+      <xs:attributeGroup ref="a:G"/>
+      <xs:anyAttribute namespace="##any" processContents="lax"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

@@ -16,7 +16,7 @@ func BenchmarkCompileRepeatedCategoryTerms(b *testing.B) {
 				if err != nil {
 					b.Fatal(err)
 				}
-				matched, err := pattern.MatchString("A")
+				matched, err := pattern.MatchStringWithScratch("A", MatchOptions{}, nil)
 				if err != nil || !matched {
 					b.Fatalf("MatchString(A) = %v, %v", matched, err)
 				}

@@ -1851,10 +1851,15 @@ func TestCompileOptionsAggregateSchemaSetLimits(t *testing.T) {
 	// resolver did not return different content for the same document identity.
 	totalBytes := int64(len(rootData) + 2*len(childData))
 
+	referenceFree := []xsd.SchemaSource{
+		xsd.Bytes("a.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:a"/>`)),
+		xsd.Bytes("b.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:b"/>`)),
+	}
 	tests := []struct {
 		name    string
 		opts    xsd.CompileOptions
 		wantErr bool
+		sources []xsd.SchemaSource
 	}{
 		{name: "exact source count", opts: xsd.CompileOptions{MaxSchemaSources: 2}},
 		{name: "source count exceeded", opts: xsd.CompileOptions{MaxSchemaSources: 1}, wantErr: true},
@@ -1866,12 +1871,18 @@ func TestCompileOptionsAggregateSchemaSetLimits(t *testing.T) {
 		{name: "target contexts exceeded", opts: xsd.CompileOptions{MaxSchemaTargetContexts: 1}, wantErr: true},
 		{name: "exact instantiated nodes", opts: xsd.CompileOptions{MaxSchemaInstantiatedNodes: 4}},
 		{name: "instantiated nodes exceeded", opts: xsd.CompileOptions{MaxSchemaInstantiatedNodes: 3}, wantErr: true},
+		{name: "reference-free target contexts exact", opts: xsd.CompileOptions{MaxSchemaTargetContexts: 2}, sources: referenceFree},
+		{name: "reference-free target contexts exceeded", opts: xsd.CompileOptions{MaxSchemaTargetContexts: 1}, sources: referenceFree, wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, err := xsd.CompileWithOptions(tt.opts, root)
+			sources := tt.sources
+			if sources == nil {
+				sources = []xsd.SchemaSource{root}
+			}
+			_, err := xsd.CompileWithOptions(tt.opts, sources...)
 			if !tt.wantErr {
 				if err != nil {
 					t.Fatalf("CompileWithOptions() error = %v", err)

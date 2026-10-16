@@ -16,12 +16,6 @@ const (
 	wildcardNamespaceTargetNamespace = "##targetNamespace"
 )
 
-// NamespaceInterner interns namespace URIs while parsing wildcard namespace
-// declarations.
-type NamespaceInterner interface {
-	InternNamespace(uri string) (NamespaceID, error)
-}
-
 // WildcardAttrs is the raw wildcard attribute projection from xs:any or
 // xs:anyAttribute.
 type WildcardAttrs struct {
@@ -34,7 +28,7 @@ type WildcardAttrs struct {
 
 // ParseWildcard parses compile-time wildcard namespace and processContents
 // attributes.
-func ParseWildcard(names NamespaceInterner, attrs WildcardAttrs) (Wildcard, error) {
+func ParseWildcard(names NameInterner, attrs WildcardAttrs) (Wildcard, error) {
 	wildcard, err := parseWildcardNamespace(names, attrs)
 	if err != nil {
 		return Wildcard{}, err
@@ -47,7 +41,7 @@ func ParseWildcard(names NamespaceInterner, attrs WildcardAttrs) (Wildcard, erro
 	return wildcard, nil
 }
 
-func parseWildcardNamespace(names NamespaceInterner, attrs WildcardAttrs) (Wildcard, error) {
+func parseWildcardNamespace(names NameInterner, attrs WildcardAttrs) (Wildcard, error) {
 	nsSpec := wildcardNamespaceAny
 	if attrs.HasNamespace {
 		nsSpec = attrs.Namespace
@@ -78,7 +72,7 @@ func parseWildcardNamespace(names NamespaceInterner, attrs WildcardAttrs) (Wildc
 	}
 }
 
-func parseWildcardNamespaceList(names NamespaceInterner, targetNS, nsSpec string) ([]NamespaceID, error) {
+func parseWildcardNamespaceList(names NameInterner, targetNS, nsSpec string) ([]NamespaceID, error) {
 	var namespaces []NamespaceID
 	for part := range lex.XMLFieldsSeq(nsSpec) {
 		uri, err := wildcardNamespaceURI(part, targetNS)
@@ -130,8 +124,8 @@ func parseWildcardProcessContents(attrs WildcardAttrs) (ProcessContents, error) 
 	}
 }
 
-func internWildcardNamespace(names NamespaceInterner, uri string) (NamespaceID, error) {
-	if names == nil {
+func internWildcardNamespace(names NameInterner, uri string) (NamespaceID, error) {
+	if names.table == nil {
 		return 0, xsderrors.InternalInvariant("wildcard parser requires namespace interner")
 	}
 	return names.InternNamespace(uri)

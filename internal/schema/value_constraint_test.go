@@ -2,6 +2,7 @@ package schema
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -56,7 +57,11 @@ func testQNameValue(t *testing.T, namespace string) valuepkg.Value {
 func testIdentityValue(t *testing.T, kind valuepkg.IdentityKind, lexical string) valuepkg.Value {
 	t.Helper()
 	b := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
-	id, err := b.Add(valuepkg.TypeSpec{
+	id, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(id, valuepkg.TypeSpec{
 		Variety:           valuepkg.Atomic,
 		Primitive:         valuepkg.PrimitiveString,
 		Whitespace:        valuepkg.WhitespaceCollapse,
@@ -66,7 +71,7 @@ func testIdentityValue(t *testing.T, kind valuepkg.IdentityKind, lexical string)
 		Identity:          kind,
 	})
 	if err != nil {
-		t.Fatalf("Add(identity type) error = %v", err)
+		t.Fatalf("Complete(identity type) error = %v", err)
 	}
 	p, err := b.Seal()
 	if err != nil {
@@ -77,13 +82,6 @@ func testIdentityValue(t *testing.T, kind valuepkg.IdentityKind, lexical string)
 		t.Fatalf("Validate(identity type) error = %v", err)
 	}
 	return v
-}
-
-type valueConstraintRuntimeStub map[SimpleTypeID]ValueConstraintSimpleType
-
-func (s valueConstraintRuntimeStub) ValueConstraintSimpleType(id SimpleTypeID) (ValueConstraintSimpleType, bool) {
-	st, ok := s[id]
-	return st, ok
 }
 
 func fixedValueConstraintIdentity(lexical, canonical string, typ SimpleTypeID, identity string) ValueConstraintIdentity {
@@ -175,81 +173,6 @@ func TestValueConstraintRead(t *testing.T) {
 	}
 	if got := vc.Value(); !got.Equal(value) {
 		t.Fatalf("Value() = %+v, want %+v", got, value)
-	}
-}
-
-func TestElementValueConstraintsRead(t *testing.T) {
-	t.Parallel()
-
-	owner := SimpleRef(5)
-	fixed := newValueConstraintRead("01", "1", testBuiltinValue(t, valuepkg.PrimitiveString, "1", valuepkg.NeedCanonical|valuepkg.NeedIdentity))
-	constraints := newElementValueConstraints(owner, fixed, true, ValueConstraintRead{}, false)
-	if constraints.OwnerType() != owner {
-		t.Fatalf("OwnerType() = %v, want %v", constraints.OwnerType(), owner)
-	}
-	if !constraints.HasAny() {
-		t.Fatal("HasAny() = false, want true")
-	}
-	if got, ok := constraints.FixedValue(); !ok || got.CanonicalText() != "1" {
-		t.Fatalf("FixedValue() = %q, %v; want 1, true", got.CanonicalText(), ok)
-	}
-	if got, ok := constraints.DefaultValueConstraint(); ok || got != (ValueConstraintRead{}) {
-		t.Fatalf("DefaultValueConstraint() = %+v, %v; want zero, false", got, ok)
-	}
-}
-
-func TestEqualElementValueConstraints(t *testing.T) {
-	t.Parallel()
-
-	fixed := newValueConstraintRead("01", "1", testBuiltinValue(t, valuepkg.PrimitiveString, "1", valuepkg.NeedCanonical|valuepkg.NeedIdentity))
-	def := newValueConstraintRead("abc", "abc", testBuiltinValue(t, valuepkg.PrimitiveString, "abc", valuepkg.NeedCanonical|valuepkg.NeedIdentity))
-	base := newElementValueConstraints(SimpleRef(5), fixed, true, def, true)
-	tests := []struct {
-		name string
-		a    ElementValueConstraints
-		b    ElementValueConstraints
-		want bool
-	}{
-		{
-			name: "equal",
-			a:    base,
-			b:    newElementValueConstraints(SimpleRef(5), fixed, true, def, true),
-			want: true,
-		},
-		{
-			name: "owner mismatch",
-			a:    base,
-			b:    newElementValueConstraints(SimpleRef(6), fixed, true, def, true),
-		},
-		{
-			name: "fixed presence mismatch",
-			a:    base,
-			b:    newElementValueConstraints(SimpleRef(5), fixed, false, def, true),
-		},
-		{
-			name: "fixed value mismatch",
-			a:    base,
-			b:    newElementValueConstraints(SimpleRef(5), newValueConstraintRead("02", "2", testBuiltinValue(t, valuepkg.PrimitiveString, "2", valuepkg.NeedCanonical|valuepkg.NeedIdentity)), true, def, true),
-		},
-		{
-			name: "default presence mismatch",
-			a:    base,
-			b:    newElementValueConstraints(SimpleRef(5), fixed, true, def, false),
-		},
-		{
-			name: "default value mismatch",
-			a:    base,
-			b:    newElementValueConstraints(SimpleRef(5), fixed, true, newValueConstraintRead("def", "def", testBuiltinValue(t, valuepkg.PrimitiveString, "def", valuepkg.NeedCanonical|valuepkg.NeedIdentity)), true),
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			if got := equalElementValueConstraints(tt.a, tt.b); got != tt.want {
-				t.Fatalf("EqualElementValueConstraints() = %v, want %v", got, tt.want)
-			}
-		})
 	}
 }
 
@@ -438,69 +361,67 @@ func TestFixedAttributeValueEqualDistinguishesConstraintOwner(t *testing.T) {
 	}
 }
 
+func completeConstraintFixtureType(t *testing.T, b *valuepkg.Builder, spec valuepkg.TypeSpec) SimpleTypeID {
+	t.Helper()
+	id, err := b.Reserve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := b.Complete(id, spec); err != nil {
+		t.Fatalf("Complete constraint fixture: %v", err)
+	}
+	return id
+}
+
+type notationConstraintTypes struct {
+	build                         *schemaBuild
+	bare, enumerated, list, union SimpleTypeID
+}
+
+func notationConstraintFixture(t *testing.T) notationConstraintTypes {
+	t.Helper()
+	b := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+	bare := valuepkg.BuiltinType(valuepkg.PrimitiveNotation)
+	enumerated := completeConstraintFixtureType(t, b, valuepkg.TypeSpec{
+		Base: bare, ListItem: valuepkg.NoType, Primitive: valuepkg.PrimitiveNotation,
+		Facets: valuepkg.FacetSpec{Present: valuepkg.FacetEnumeration, Enumeration: []valuepkg.LiteralSpec{{
+			Type: valuepkg.NoType, Lexical: "p:item",
+			Resolver: valuepkg.Resolver{
+				QName: func(string) (valuepkg.ExpandedName, bool) {
+					return valuepkg.ExpandedName{Namespace: "urn:test", Local: "item"}, true
+				},
+				Notation: func(string, string) bool { return true },
+			},
+		}}},
+	})
+	list := completeConstraintFixtureType(t, b, valuepkg.TypeSpec{Base: valuepkg.NoType, Variety: valuepkg.List, ListItem: bare})
+	union := completeConstraintFixtureType(t, b, valuepkg.TypeSpec{Base: valuepkg.NoType, ListItem: valuepkg.NoType,
+		Variety: valuepkg.Union, Union: []valuepkg.TypeID{valuepkg.BuiltinType(valuepkg.PrimitiveString), bare}})
+	return notationConstraintTypes{build: &schemaBuild{valueBuilder: b, SimpleTypes: make([]SimpleType, int(union)+1)}, bare: bare, enumerated: enumerated, list: list, union: union}
+}
+
 func TestSimpleTypeUsesBareNotation(t *testing.T) {
 	t.Parallel()
-
+	fixture := notationConstraintFixture(t)
+	rt := fixture.build
+	cycle, cycleID := compileOwnerCallbackCycleFixture(t)
 	tests := []struct {
-		rt   valueConstraintRuntimeStub
 		name string
+		rt   *schemaBuild
 		id   SimpleTypeID
 		want bool
 	}{
-		{
-			name: "atomic bare notation",
-			rt: valueConstraintRuntimeStub{
-				1: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveNotation},
-			},
-			id:   1,
-			want: true,
-		},
-		{
-			name: "enumerated notation",
-			rt: valueConstraintRuntimeStub{
-				1: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveNotation, HasEnumeration: true},
-			},
-			id: 1,
-		},
-		{
-			name: "list item bare notation",
-			rt: valueConstraintRuntimeStub{
-				1: {Variety: SimpleVarietyList, ListItem: 2},
-				2: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveNotation},
-			},
-			id:   1,
-			want: true,
-		},
-		{
-			name: "union member bare notation",
-			rt: valueConstraintRuntimeStub{
-				1: {Variety: SimpleVarietyUnion, Union: []SimpleTypeID{2, 3}},
-				2: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveString},
-				3: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveNotation},
-			},
-			id:   1,
-			want: true,
-		},
-		{
-			name: "cycle terminates",
-			rt: valueConstraintRuntimeStub{
-				1: {Variety: SimpleVarietyUnion, Union: []SimpleTypeID{1}},
-			},
-			id: 1,
-		},
-		{
-			name: "missing type",
-			rt:   valueConstraintRuntimeStub{},
-			id:   1,
-		},
+		{"atomic bare notation", rt, fixture.bare, true},
+		{"enumerated notation", rt, fixture.enumerated, false},
+		{"list item bare notation", rt, fixture.list, true},
+		{"union member bare notation", rt, fixture.union, true},
+		{"cycle terminates", cycle, cycleID, false},
+		{"missing type", rt, 999, false},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-
-			got := SimpleTypeUsesBareNotation(tt.rt, tt.id)
-			if got != tt.want {
+			if got := SimpleTypeUsesBareNotation(tt.rt, tt.id); got != tt.want {
 				t.Fatalf("SimpleTypeUsesBareNotation() = %v, want %v", got, tt.want)
 			}
 		})
@@ -509,113 +430,42 @@ func TestSimpleTypeUsesBareNotation(t *testing.T) {
 
 func TestValidateValueConstraintShape(t *testing.T) {
 	t.Parallel()
-
-	rt := valueConstraintRuntimeStub{
-		1: {Variety: SimpleVarietyAtomic},
-		2: {Variety: SimpleVarietyUnion, Union: []SimpleTypeID{1}},
-		3: {Variety: SimpleVarietyUnion, Union: []SimpleTypeID{4}},
-		4: {Variety: SimpleVarietyUnion, Union: []SimpleTypeID{3}},
-	}
-	valid := ValueConstraintValidation{
-		Lexical:   "value",
-		Canonical: "value",
-		Value:     testBuiltinValue(t, valuepkg.PrimitiveString, "value", valuepkg.NeedCanonical|valuepkg.NeedIdentity),
+	b := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+	stringID := valuepkg.BuiltinType(valuepkg.PrimitiveString)
+	unionID := completeConstraintFixtureType(t, b, valuepkg.TypeSpec{Base: valuepkg.NoType, ListItem: valuepkg.NoType,
+		Variety: valuepkg.Union, Union: []valuepkg.TypeID{stringID}})
+	shared := completeConstraintFixtureType(t, b, valuepkg.TypeSpec{Base: valuepkg.NoType, ListItem: valuepkg.NoType, Variety: valuepkg.Union, Union: []valuepkg.TypeID{unionID, unionID}})
+	rt := &schemaBuild{valueBuilder: b}
+	cycle, cycleID := compileOwnerCallbackCycleFixture(t)
+	needs := valuepkg.NeedCanonical | valuepkg.NeedIdentity
+	valid := ValueConstraintValidation{Lexical: "value", Canonical: "value", Value: testBuiltinValue(t, valuepkg.PrimitiveString, "value", needs)}
+	unionValue, err := b.Validate(unionID, "value", valuepkg.Resolver{}, needs, nil)
+	if err != nil {
+		t.Fatal(err)
 	}
 	tests := []struct {
-		rt       ValueConstraintRuntime
 		name     string
-		wantErr  string
+		rt       *schemaBuild
 		vc       ValueConstraintValidation
 		expected SimpleTypeID
+		wantErr  string
 	}{
-		{
-			name:     "valid atomic owner",
-			rt:       rt,
-			vc:       valid,
-			expected: 1,
-		},
-		{
-			name:     "canonical mismatch",
-			rt:       rt,
-			vc:       ValueConstraintValidation{Lexical: "value", Canonical: "value", Value: testBuiltinValue(t, valuepkg.PrimitiveString, "other", valuepkg.NeedCanonical|valuepkg.NeedIdentity)},
-			expected: 1,
-			wantErr:  "canonical value mismatch",
-		},
-		{
-			name: "valid mixed lexical",
-			vc: ValueConstraintValidation{
-				Lexical:   "text",
-				Canonical: "text",
-				Value:     valuepkg.NewUntypedValue("text"),
-			},
-			expected: NoSimpleType,
-		},
-		{
-			name: "mixed rejects typed value",
-			vc: ValueConstraintValidation{
-				Lexical:   "text",
-				Canonical: "text",
-				Value:     testBuiltinValue(t, valuepkg.PrimitiveString, "text", valuepkg.NeedCanonical|valuepkg.NeedIdentity),
-			},
-			expected: NoSimpleType,
-			wantErr:  "mixed value constraint is not untyped lexical text",
-		},
-		{
-			name: "mixed rejects identity payload",
-			vc: ValueConstraintValidation{
-				Lexical:          "text",
-				Canonical:        "text",
-				Value:            testBuiltinValue(t, valuepkg.PrimitiveString, "text", valuepkg.NeedCanonical|valuepkg.NeedIdentity),
-				HasResolvedNames: true,
-			},
-			expected: NoSimpleType,
-			wantErr:  "mixed value constraint is not untyped lexical text",
-		},
-		{
-			name:     "invalid actual type",
-			rt:       rt,
-			vc:       ValueConstraintValidation{Lexical: "value", Canonical: "value", Value: testBuiltinValue(t, valuepkg.PrimitiveBoolean, "true", valuepkg.NeedCanonical|valuepkg.NeedIdentity)},
-			expected: 1,
-			wantErr:  "value type does not match owner type",
-		},
-		{
-			name:     "invalid expected type",
-			rt:       rt,
-			vc:       valid,
-			expected: 99,
-			wantErr:  "value type does not match owner type",
-		},
-		{
-			name:     "union owner accepts member actual type",
-			rt:       rt,
-			vc:       valid,
-			expected: 2,
-		},
-		{
-			name:     "union owner stores owner type",
-			rt:       rt,
-			vc:       ValueConstraintValidation{Lexical: "value", Canonical: "value", Value: testValue(t, valuepkg.TypeID(2), "value", valuepkg.Resolver{}, valuepkg.NeedCanonical|valuepkg.NeedIdentity)},
-			expected: 2,
-		},
-		{
-			name:     "cyclic union owner rejected",
-			rt:       rt,
-			vc:       valid,
-			expected: 3,
-			wantErr:  "value type does not match owner type",
-		},
-		{
-			name:     "nil runtime rejected",
-			rt:       nil,
-			vc:       valid,
-			expected: 1,
-			wantErr:  "value type does not match owner type",
-		},
+		{"valid atomic owner", rt, valid, stringID, ""},
+		{"canonical mismatch", rt, ValueConstraintValidation{Lexical: "value", Canonical: "value", Value: testBuiltinValue(t, valuepkg.PrimitiveString, "other", needs)}, stringID, "canonical value mismatch"},
+		{"valid mixed lexical", nil, ValueConstraintValidation{Lexical: "text", Canonical: "text", Value: valuepkg.NewUntypedValue("text")}, NoSimpleType, ""},
+		{"mixed rejects typed value", nil, ValueConstraintValidation{Lexical: "text", Canonical: "text", Value: testBuiltinValue(t, valuepkg.PrimitiveString, "text", needs)}, NoSimpleType, "mixed value constraint is not untyped lexical text"},
+		{"mixed rejects identity payload", nil, ValueConstraintValidation{Lexical: "text", Canonical: "text", Value: testBuiltinValue(t, valuepkg.PrimitiveString, "text", needs), HasResolvedNames: true}, NoSimpleType, "mixed value constraint is not untyped lexical text"},
+		{"invalid actual type", rt, ValueConstraintValidation{Lexical: "value", Canonical: "value", Value: testBuiltinValue(t, valuepkg.PrimitiveBoolean, "true", needs)}, stringID, "value type does not match owner type"},
+		{"invalid expected type", rt, valid, 999, "value type does not match owner type"},
+		{"union owner rejects member actual type", rt, valid, unionID, "value type does not match owner type"},
+		{"shared union rejects member actual type", rt, valid, shared, "value type does not match owner type"},
+		{"union owner stores owner type", rt, ValueConstraintValidation{Lexical: "value", Canonical: "value", Value: unionValue}, unionID, ""},
+		{"cyclic union owner rejected", cycle, valid, cycleID, "value type does not match owner type"},
+		{"nil runtime rejected", nil, valid, stringID, "value type does not match owner type"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-
 			err := ValidateValueConstraintShape(tt.rt, tt.vc, tt.expected)
 			if tt.wantErr == "" {
 				if err != nil {
@@ -783,17 +633,6 @@ func TestValidateValueConstraintReplayResult(t *testing.T) {
 	}
 }
 
-type elementValueConstraintRuntimeStub struct {
-	testParticleRuntime
-
-	complex map[ComplexTypeID]ValueConstraintComplexType
-}
-
-func (s elementValueConstraintRuntimeStub) ValueConstraintComplexType(id ComplexTypeID) (ValueConstraintComplexType, bool) {
-	ct, ok := s.complex[id]
-	return ct, ok
-}
-
 func TestElementValueConstraintType(t *testing.T) {
 	t.Parallel()
 
@@ -802,24 +641,20 @@ func TestElementValueConstraintType(t *testing.T) {
 		seqID   ContentModelID = 1
 	)
 	one := Occurrence{Min: 1, Max: 1}
-	rt := elementValueConstraintRuntimeStub{
-		models: []ContentModel{
+	rt := &schemaBuild{
+		Models: []ContentModel{
 			{Kind: ModelEmpty},
-			{
-				Kind:      ModelSequence,
-				Occurs:    one,
-				Particles: []Particle{ElementParticle(0, one)},
-			},
+			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(0, one)}},
 		},
-		complex: map[ComplexTypeID]ValueConstraintComplexType{
-			0: {Content: emptyID, TextType: 1, ContentKind: ContentSimple},
-			1: {Content: emptyID, TextType: NoSimpleType, ContentKind: ContentMixed},
-			2: {Content: seqID, TextType: NoSimpleType, ContentKind: ContentMixed},
-			3: {Content: emptyID, TextType: NoSimpleType, ContentKind: ContentElementOnly},
+		ComplexTypes: []ComplexType{
+			{Content: emptyID, TextType: 1, ContentKind: ContentSimple},
+			{Content: emptyID, TextType: NoSimpleType, ContentKind: ContentMixed},
+			{Content: seqID, TextType: NoSimpleType, ContentKind: ContentMixed},
+			{Content: emptyID, TextType: NoSimpleType, ContentKind: ContentElementOnly},
 		},
 	}
 	tests := []struct {
-		rt      ElementValueConstraintRuntime
+		rt      *schemaBuild
 		name    string
 		wantErr string
 		typ     TypeID
@@ -898,5 +733,84 @@ func TestElementValueConstraintType(t *testing.T) {
 				t.Fatalf("ElementValueConstraintType() error = %v, want %q", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func compileOwnerCallbackCycleFixture(t *testing.T) (*schemaBuild, SimpleTypeID) {
+	t.Helper()
+	b := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+	a, err := b.Reserve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := b.Reserve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var nestedErr error
+	parentErr := b.Complete(a, valuepkg.TypeSpec{
+		Base:      valuepkg.BuiltinType(valuepkg.PrimitiveQName),
+		ListItem:  valuepkg.NoType,
+		Primitive: valuepkg.PrimitiveQName,
+		Facets: valuepkg.FacetSpec{
+			Present: valuepkg.FacetEnumeration,
+			Enumeration: []valuepkg.LiteralSpec{{
+				Type:    valuepkg.NoType,
+				Lexical: "p:item",
+				Resolver: valuepkg.Resolver{QName: func(string) (valuepkg.ExpandedName, bool) {
+					nestedErr = b.Complete(c, valuepkg.TypeSpec{
+						Base: valuepkg.NoType, ListItem: valuepkg.NoType,
+						Variety: valuepkg.Union, Union: []valuepkg.TypeID{a},
+					})
+					return valuepkg.ExpandedName{}, false
+				}},
+			}},
+		},
+	})
+	if parentErr == nil || nestedErr != nil {
+		t.Fatalf("parent failure = %v, nested completion = %v", parentErr, nestedErr)
+	}
+	if _, available := b.TypeView(a); available {
+		t.Fatal("failed parent remains available")
+	}
+	if _, available := b.TypeView(c); !available {
+		t.Fatal("successful nested type was lost after parent failure")
+	}
+	if err := b.Complete(a, valuepkg.TypeSpec{
+		Base: valuepkg.NoType, ListItem: valuepkg.NoType,
+		Variety: valuepkg.Union, Union: []valuepkg.TypeID{c},
+	}); err != nil {
+		t.Fatalf("retry parent = %v", err)
+	}
+	for id, member := range map[valuepkg.TypeID]valuepkg.TypeID{a: c, c: a} {
+		view, available := b.TypeView(id)
+		if !available || view.Variety != valuepkg.Union || !slices.Equal(view.Union, []valuepkg.TypeID{member}) {
+			t.Fatalf("cyclic type %d = %+v, %v", id, view, available)
+		}
+	}
+	return &schemaBuild{valueBuilder: b}, a
+}
+
+func TestValueConstraintNestedSharedUnionKeepsExactOwner(t *testing.T) {
+	t.Parallel()
+	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+	stringID := valuepkg.BuiltinType(valuepkg.PrimitiveString)
+	makeUnion := func(members ...valuepkg.TypeID) valuepkg.TypeID {
+		return completeConstraintFixtureType(t, builder, valuepkg.TypeSpec{Base: valuepkg.NoType, ListItem: valuepkg.NoType, Variety: valuepkg.Union, Union: members})
+	}
+	shared := makeUnion(stringID)
+	left := makeUnion(shared)
+	right := makeUnion(shared)
+	outer := makeUnion(left, right)
+	cached, err := builder.Validate(outer, "owner-value", valuepkg.Resolver{}, valuepkg.NeedCanonical|valuepkg.NeedIdentity, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cached.Type() != outer || cached.CanonicalText() != "owner-value" {
+		t.Fatalf("cached owner/canonical = %d/%q; want %d/owner-value", cached.Type(), cached.CanonicalText(), outer)
+	}
+	rt := &schemaBuild{valueBuilder: builder}
+	if shapeErr := ValidateValueConstraintShape(rt, ValueConstraintValidation{Lexical: "owner-value", Canonical: "owner-value", Value: cached}, outer); shapeErr != nil {
+		t.Fatalf("exact outer-owner cache rejected: %v", shapeErr)
 	}
 }

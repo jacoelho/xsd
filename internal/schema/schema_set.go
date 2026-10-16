@@ -750,7 +750,12 @@ func (c schemaDocumentReferenceContext) parseLocalBase(child *schemaNode) (urire
 }
 
 func validateSchemaImportReference(child *schemaNode, target string, ref *schemaReference) error {
-	namespace, hasNamespace := child.attr(vocab.XSDAttrNamespace)
+	referenceSource, ok := child.semantic.kind.(*schemaReferenceSource)
+	if !ok || referenceSource == nil {
+		return withSchemaCompileLocation(child, xsderrors.InternalInvariant("import node has no typed reference source"))
+	}
+	attr := referenceSource.Namespace
+	namespace, hasNamespace := attr.Value, attr.Present
 	ref.namespace = namespace
 	switch {
 	case hasNamespace && namespace == "":
@@ -818,7 +823,12 @@ func withSchemaReferenceLocation(request schemaLoadRequest, err error) error {
 }
 
 func schemaLocationAttr(n *schemaNode) (string, bool) {
-	return n.attr(vocab.XSDAttrSchemaLocation)
+	referenceSource, ok := n.semantic.kind.(*schemaReferenceSource)
+	if !ok || referenceSource == nil {
+		return "", false
+	}
+	attr := referenceSource.SchemaLocation
+	return attr.Value, attr.Present
 }
 
 func (g *loadedSchemaGraph) validateReferenceTargets() error {
@@ -1065,14 +1075,14 @@ func (g *loadedSchemaGraph) selectDeclarationDocuments() {
 	}
 }
 
-func checkReferenceNamespace(n *schemaNode, ctx *schemaContext, namespace string) (string, error) {
+func checkReferenceNamespace(n *schemaNode, ctx *schemaSetDocument, namespace string) (string, error) {
 	if ctx == nil {
 		return namespace, nil
 	}
-	if namespace == "" && ctx.targetNS != "" && ctx.adoptedTarget {
-		namespace = ctx.targetNS
+	if namespace == "" && ctx.effectiveTargetNS != "" && ctx.adoptedTarget {
+		namespace = ctx.effectiveTargetNS
 	}
-	if namespace == vocab.XSDNamespaceURI || namespace == vocab.XMLNamespaceURI || namespace == ctx.targetNS || ctx.imports[namespace] {
+	if namespace == vocab.XSDNamespaceURI || namespace == vocab.XMLNamespaceURI || namespace == ctx.effectiveTargetNS || ctx.imports[namespace] {
 		return namespace, nil
 	}
 	return "", schemaCompileAt(n, xsderrors.CodeSchemaReference, "namespace is not imported: "+namespace)

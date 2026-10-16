@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -85,6 +86,16 @@ func TestParseOccurrence(t *testing.T) {
 			attrs: OccurrenceAttrs{MaxOccurs: "4294967295", HasMaxOccurs: true},
 			want:  Occurrence{Min: 1, Max: ^uint32(0)},
 		},
+		{name: "long zero prefixes", attrs: OccurrenceAttrs{MinOccurs: strings.Repeat("0", 1024) + "2", MaxOccurs: strings.Repeat("0", 1024) + "3", HasMinOccurs: true, HasMaxOccurs: true}, want: Occurrence{Min: 2, Max: 3}},
+		{name: "long all zero", attrs: OccurrenceAttrs{MinOccurs: strings.Repeat("0", 1024), MaxOccurs: strings.Repeat("0", 1024), HasMinOccurs: true, HasMaxOccurs: true}},
+		{name: "negative zero min", attrs: OccurrenceAttrs{MinOccurs: "-0", HasMinOccurs: true}, wantCode: xsderrors.CodeSchemaOccurrence, wantText: "invalid minOccurs -0"},
+		{name: "negative zero max", attrs: OccurrenceAttrs{MaxOccurs: "-0", HasMaxOccurs: true}, wantCode: xsderrors.CodeSchemaOccurrence, wantText: "invalid maxOccurs -0"},
+		{name: "huge magnitude", attrs: OccurrenceAttrs{MaxOccurs: strings.Repeat("9", 256), HasMaxOccurs: true}, wantCode: xsderrors.CodeSchemaLimit, wantText: "maxOccurs exceeds uint32 limit"},
+		{name: "overflow malformed tail", attrs: OccurrenceAttrs{MaxOccurs: strings.Repeat("9", 256) + "x", HasMaxOccurs: true}, limits: Limits{MaxFiniteOccurs: 10}, wantCode: xsderrors.CodeSchemaOccurrence, wantText: "invalid maxOccurs " + strings.Repeat("9", 256) + "x"},
+		{name: "minimum lexical error first", attrs: OccurrenceAttrs{MinOccurs: "x", MaxOccurs: "y", HasMinOccurs: true, HasMaxOccurs: true}, wantCode: xsderrors.CodeSchemaOccurrence, wantText: "invalid minOccurs x"},
+		{name: "minimum limit error first", attrs: OccurrenceAttrs{MinOccurs: "4294967296", MaxOccurs: "y", HasMinOccurs: true, HasMaxOccurs: true}, wantCode: xsderrors.CodeSchemaLimit, wantText: "minOccurs exceeds uint32 limit"},
+		{name: "configured cap before ordering", attrs: OccurrenceAttrs{MinOccurs: "12", MaxOccurs: "11", HasMinOccurs: true, HasMaxOccurs: true}, limits: Limits{MaxFiniteOccurs: 10}, wantCode: xsderrors.CodeSchemaLimit, wantText: "maxOccurs exceeds configured limit"},
+		{name: "uint32 cap with large configured cap", attrs: OccurrenceAttrs{MaxOccurs: "4294967296", HasMaxOccurs: true}, limits: Limits{MaxFiniteOccurs: ^uint64(0)}, wantCode: xsderrors.CodeSchemaLimit, wantText: "maxOccurs exceeds uint32 limit"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -119,7 +130,7 @@ func TestMaxOccurrenceKindInvariant(t *testing.T) {
 	}{
 		{
 			name:    "finite",
-			maximum: maxOccurrence{digits: "3", value: 3, kind: maxOccurrenceFinite},
+			maximum: maxOccurrence{value: 3, kind: maxOccurrenceFinite},
 			want:    Occurrence{Min: 2, Max: 3},
 		},
 		{
@@ -142,7 +153,7 @@ func TestMaxOccurrenceKindInvariant(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := tt.maximum.withMinimum(2, "2")
+			got, err := tt.maximum.withMinimum(2)
 			if tt.wantText != "" {
 				expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 				if !strings.Contains(err.Error(), tt.wantText) {
@@ -189,6 +200,60 @@ func TestValidateAllModelOccurrence(t *testing.T) {
 			}
 			if err != nil {
 				t.Fatalf("ValidateAllModelOccurrence() error = %v", err)
+			}
+		})
+	}
+}
+
+func assertOccurrenceBenchmarkDiagnostic(tb testing.TB, err error, code xsderrors.Code, message string) {
+	tb.Helper()
+	d, ok := errors.AsType[*xsderrors.Error](err)
+	if !ok || d.Category() != xsderrors.CategorySchemaCompile || d.Code() != code || d.Message() != message {
+		tb.Fatalf("unexpected diagnostic: %v", err)
+	}
+}
+
+func BenchmarkOccurrenceAdmission(b *testing.B) {
+	zeros := strings.Repeat("0", 4096)
+	cases := []struct {
+		name, min, max string
+		want           Occurrence
+		message        string
+	}{
+		{"Short", "+2", "+4", Occurrence{Min: 2, Max: 4}, ""},
+		{"LongZeros", "+" + zeros + "1", "+" + zeros + "4", Occurrence{Min: 1, Max: 4}, ""},
+		{"AllZero", zeros, zeros, Occurrence{}, ""},
+		{"OverflowMalformed", "1", "42949672960x", Occurrence{}, "invalid maxOccurs 42949672960x"},
+	}
+	for _, c := range cases {
+		b.Run(c.name, func(b *testing.B) {
+			attrs := OccurrenceAttrs{MinOccurs: c.min, MaxOccurs: c.max, HasMinOccurs: true, HasMaxOccurs: true}
+			var last Occurrence
+			pre, err := ParseOccurrence(attrs, Limits{})
+			if c.message == "" {
+				if err != nil || pre != c.want {
+					b.Fatalf("preflight %v %v", pre, err)
+				}
+			} else {
+				assertOccurrenceBenchmarkDiagnostic(b, err, xsderrors.CodeSchemaOccurrence, c.message)
+			}
+			b.ReportAllocs()
+			for b.Loop() {
+				var err error
+				last, err = ParseOccurrence(attrs, Limits{})
+				if c.message == "" {
+					if err != nil {
+						b.Fatal(err)
+					}
+				} else {
+					d, ok := errors.AsType[*xsderrors.Error](err)
+					if !ok || d.Category() != xsderrors.CategorySchemaCompile || d.Code() != xsderrors.CodeSchemaOccurrence || d.Message() != c.message {
+						b.Fatalf("unexpected failure: %v", err)
+					}
+				}
+			}
+			if last != c.want {
+				b.Fatalf("postflight %v", last)
 			}
 		})
 	}

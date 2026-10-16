@@ -440,15 +440,6 @@ func (r *Reader) MaterializeValue(attr *Attr) (string, bool) {
 	return attr.materializeValue(&r.values)
 }
 
-// AppendValue copies a borrowed attribute value into dst while the current
-// token remains live.
-func (r *Reader) AppendValue(dst []byte, attr *Attr) []byte {
-	if attr == nil {
-		return dst
-	}
-	return attr.appendValue(dst, &r.values)
-}
-
 // InternBytes returns a session-owned string for borrowed bytes. Short values
 // are interned in the reader's bounded value cache so repeated projections can
 // reuse their storage across Reset calls; larger values are copied once.

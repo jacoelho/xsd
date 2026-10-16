@@ -131,7 +131,7 @@ func ParseDateTimeValue(s string) (DateTimeValue, error) {
 		frac:   tm.frac,
 	}
 	point = addDays(point, dayOffset)
-	return DateTimeValue{instant: point, hasTZ: tm.hasTZ()}, nil
+	return DateTimeValue{instant: point, hasTZ: tm.tz.present}, nil
 }
 
 // Temporal returns the ordered facet value for v.
@@ -146,24 +146,6 @@ func (v DateTimeValue) CanonicalText() string {
 		out += "Z"
 	}
 	return out
-}
-
-// ParseTemporalValue parses s as either xs:date or xs:dateTime.
-func ParseTemporalValue(kind PrimitiveKind, s string) (TemporalValue, error) {
-	switch kind {
-	case PrimitiveDate:
-		v, err := ParseDateValue(s)
-		return v.Temporal(), err
-	case PrimitiveDateTime:
-		v, err := ParseDateTimeValue(s)
-		return v.Temporal(), err
-	case PrimitiveString, PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble, PrimitiveDuration,
-		PrimitiveTime, PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth,
-		PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
-		return TemporalValue{}, errors.New("not a temporal type")
-	default:
-	}
-	return TemporalValue{}, errors.New("not a temporal type")
 }
 
 // CompareTemporalValues compares xs:date/xs:dateTime values using the XML
@@ -207,7 +189,7 @@ func ParseTimeValue(s string) (TimeValue, error) {
 		return TimeValue{}, err
 	}
 	_, second := divModDay(tm.rawSecond())
-	return TimeValue{second: second, frac: tm.frac, hasTZ: tm.hasTZ()}, nil
+	return TimeValue{second: second, frac: tm.frac, hasTZ: tm.tz.present}, nil
 }
 
 // ParseTimeRawValue parses s as xs:time without canonical day wrapping. It is
@@ -217,7 +199,7 @@ func ParseTimeRawValue(s string) (TimeValue, error) {
 	if err != nil {
 		return TimeValue{}, err
 	}
-	return TimeValue{second: tm.rawSecond(), frac: tm.frac, hasTZ: tm.hasTZ()}, nil
+	return TimeValue{second: tm.rawSecond(), frac: tm.frac, hasTZ: tm.tz.present}, nil
 }
 
 // CanonicalText returns the XML Schema canonical lexical form for v.
@@ -268,11 +250,11 @@ func parseXSDDatePart(s string) (xsdDatePart, int, error) {
 	if next >= len(s) || s[next] != '-' {
 		return xsdDatePart{}, 0, errors.New("invalid date/time")
 	}
-	month, next, ok := parseTwoDigits(s, next+1)
+	month, next, ok := parseTwoDateDigits(s, next+1)
 	if !ok || next >= len(s) || s[next] != '-' {
 		return xsdDatePart{}, 0, errors.New("invalid date/time")
 	}
-	day, next, ok := parseTwoDigits(s, next+1)
+	day, next, ok := parseTwoDateDigits(s, next+1)
 	if !ok || month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month) {
 		return xsdDatePart{}, 0, errors.New("invalid date/time")
 	}
@@ -280,42 +262,11 @@ func parseXSDDatePart(s string) (xsdDatePart, int, error) {
 }
 
 func parseXSDYear(s string) (xsdYear, int, error) {
-	i := 0
-	if i >= len(s) {
-		return xsdYear{}, 0, errors.New("invalid date/time")
+	year, next, err := parseDateYear(s)
+	if err != nil {
+		return xsdYear{}, 0, err
 	}
-	neg := false
-	if s[i] == '+' {
-		return xsdYear{}, 0, errors.New("invalid date/time")
-	}
-	if s[i] == '-' {
-		neg = true
-		i++
-	}
-	start := i
-	for i < len(s) && isASCIIDigit(s[i]) {
-		i++
-	}
-	digits := s[start:i]
-	if len(digits) < 4 {
-		return xsdYear{}, 0, errors.New("invalid date/time")
-	}
-	if len(digits) > 4 && digits[0] == '0' {
-		return xsdYear{}, 0, errors.New("invalid date/time")
-	}
-	if allZeroes(digits) {
-		return xsdYear{}, 0, errors.New("invalid date/time")
-	}
-	return xsdYear{digits: canonicalYearDigits(digits), neg: neg}, i, nil
-}
-
-func allZeroes(s string) bool {
-	for i := range len(s) {
-		if s[i] != '0' {
-			return false
-		}
-	}
-	return true
+	return xsdYear{digits: canonicalYearDigits(s[year.digitsStart:year.digitsEnd]), neg: year.neg}, next, nil
 }
 
 func canonicalYearDigits(s string) string {
@@ -408,47 +359,13 @@ func subUnsignedDecimalOne(s string) string {
 	return out
 }
 
-func parseTwoDigits(s string, i int) (value, next int, valid bool) {
-	const n = 2
-	if i+n > len(s) {
-		return 0, 0, false
-	}
-	out := 0
-	for j := range n {
-		b := s[i+j]
-		if !isASCIIDigit(b) {
-			return 0, 0, false
-		}
-		out = out*10 + int(b-'0')
-	}
-	return out, i + n, true
-}
-
 func daysInMonth(year xsdYear, month int) int {
 	leap := month == 2 && isLeapYear(year)
 	return daysInMonthForLeap(month, leap)
 }
 
-func daysInMonthForLeap(month int, leap bool) int { //nolint:revive // Leap status is an intrinsic calendar fact, not an operation mode.
-	switch month {
-	case 2:
-		if leap {
-			return 29
-		}
-		return 28
-	case 4, 6, 9, 11:
-		return 30
-	default:
-		return 31
-	}
-}
-
 func isLeapYear(y xsdYear) bool {
 	return leapYearRule(yearMod(y, 400), yearMod(y, 100), yearMod(y, 4))
-}
-
-func leapYearRule(mod400, mod100, mod4 int) bool {
-	return mod400 == 0 || mod4 == 0 && mod100 != 0
 }
 
 func yearMod(y xsdYear, m int) int {
@@ -456,13 +373,7 @@ func yearMod(y xsdYear, m int) int {
 	for i := range len(y.digits) {
 		out = (out*10 + int(y.digits[i]-'0')) % m
 	}
-	if y.neg {
-		out = (1 - out) % m
-		if out < 0 {
-			out += m
-		}
-	}
-	return out
+	return astronomicalYearRemainder(out, m, y.neg)
 }
 
 type xsdTimezone struct {
@@ -483,9 +394,9 @@ func parseXSDTimezone(s string, i int) (xsdTimezone, int, error) {
 	if i+6 > len(s) || s[i+3] != ':' {
 		return xsdTimezone{}, i, errors.New("invalid timezone")
 	}
-	hour, _, ok1 := parseTwoDigits(s, i+1)
-	minute, _, ok2 := parseTwoDigits(s, i+4)
-	if !ok1 || !ok2 || hour > 14 || minute > 59 || hour == 14 && minute != 0 {
+	hour, _, ok1 := parseTwoDateDigits(s, i+1)
+	minute, _, ok2 := parseTwoDateDigits(s, i+4)
+	if !ok1 || !ok2 || !validTimezoneFields(hour, minute) {
 		return xsdTimezone{}, i, errors.New("invalid timezone")
 	}
 	offset := hour*60 + minute
@@ -649,10 +560,6 @@ func parseXSDTimeParts(s string) (xsdTimeParts, error) {
 	return xsdTimeParts{tz: tz, frac: frac, hour: clock.hour, minute: clock.minute, second: clock.second}, nil
 }
 
-func (t xsdTimeParts) hasTZ() bool {
-	return t.tz.present
-}
-
 func (t xsdTimeParts) rawSecond() int {
 	return ((t.hour*60+t.minute)*60 + t.second) - t.tz.minutes*60
 }
@@ -669,7 +576,12 @@ func parseFraction(s string, i int) (string, int, error) {
 	if i == start {
 		return "", 0, errors.New("invalid time")
 	}
-	return strings.TrimRight(s[start:i], "0"), i, nil
+	frac := strings.TrimRight(s[start:i], "0")
+	if frac == "" {
+		// A literal empty fraction does not retain the input buffer.
+		return "", i, nil
+	}
+	return frac, i, nil
 }
 
 func xsdTimeTemporalValue(t TimeValue) TemporalValue {
@@ -807,7 +719,7 @@ func validateGMonthDayLexical[T byteText](raw T) error {
 		return errors.New("invalid gMonthDay")
 	}
 	day, next, ok := parseTwoDateDigits(raw, next+1)
-	if !ok || month < 1 || month > 12 || day < 1 || day > maxGMonthDayOfMonth(month) {
+	if !ok || month < 1 || month > 12 || day < 1 || day > daysInMonthForLeap(month, true) {
 		return errors.New("invalid gMonthDay")
 	}
 	return validateTimezoneToEnd(raw, next, "gMonthDay")
@@ -845,15 +757,4 @@ func hasTemporalPrefix[T byteText](raw T, prefix string) bool {
 		}
 	}
 	return true
-}
-
-func maxGMonthDayOfMonth(month int) int {
-	switch month {
-	case 4, 6, 9, 11:
-		return 30
-	case 2:
-		return 29
-	default:
-		return 31
-	}
 }

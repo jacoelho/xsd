@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="integer"><xs:simpleType><xs:restriction base="xs:integer"><xs:minInclusive value="-12347"/><xs:maxInclusive value="-12345"/></xs:restriction></xs:simpleType></xs:element></xs:schema>

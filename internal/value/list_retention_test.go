@@ -9,7 +9,11 @@ import (
 
 func TestListEnumerationRetainsCompleteValueOrNoItems(t *testing.T) {
 	builder := NewBuilder(BuilderOptions{})
-	listID, err := builder.Add(TypeSpec{
+	listID, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(listID, TypeSpec{
 		Variety:           List,
 		Primitive:         PrimitiveString,
 		Whitespace:        WhitespaceCollapse,
@@ -68,7 +72,11 @@ func TestListEnumerationStillValidatesItemsPastRetentionBound(t *testing.T) {
 		t.Fatal(err)
 	}
 	builder := NewBuilder(BuilderOptions{})
-	itemID, err := builder.Add(TypeSpec{
+	itemID, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(itemID, TypeSpec{
 		Variety:           Atomic,
 		Primitive:         PrimitiveString,
 		Whitespace:        WhitespacePreserve,
@@ -80,7 +88,11 @@ func TestListEnumerationStillValidatesItemsPastRetentionBound(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	listID, err := builder.Add(TypeSpec{
+	listID, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(listID, TypeSpec{
 		Variety:           List,
 		Primitive:         PrimitiveString,
 		Whitespace:        WhitespaceCollapse,
@@ -104,7 +116,11 @@ func TestListEnumerationStillValidatesItemsPastRetentionBound(t *testing.T) {
 
 func TestUnionListMemberFirstSuccessCannotFallThroughAfterOuterEnumeration(t *testing.T) {
 	builder, listID := listWithPatternAndEnumeration(t, "0[0-9]", "01")
-	unionID, err := builder.Add(TypeSpec{
+	unionID, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(unionID, TypeSpec{
 		Variety:           Union,
 		Primitive:         PrimitiveString,
 		Whitespace:        WhitespaceCollapse,
@@ -128,7 +144,11 @@ func TestUnionListMemberFirstSuccessCannotFallThroughAfterOuterEnumeration(t *te
 
 func TestUnionOuterScalarEnumerationDoesNotFallThroughListFirstSuccess(t *testing.T) {
 	builder, listID := listWithPattern(t, "0[0-9]")
-	unionID, err := builder.Add(TypeSpec{
+	unionID, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(unionID, TypeSpec{
 		Variety:           Union,
 		Primitive:         PrimitiveString,
 		Whitespace:        WhitespaceCollapse,
@@ -152,7 +172,11 @@ func TestUnionOuterScalarEnumerationDoesNotFallThroughListFirstSuccess(t *testin
 
 func TestUnionFallsBackAfterListEnumerationFailure(t *testing.T) {
 	builder, listID := listWithPatternAndEnumeration(t, "0[0-9]", "01")
-	unionID, err := builder.Add(TypeSpec{
+	unionID, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(unionID, TypeSpec{
 		Variety:           Union,
 		Primitive:         PrimitiveString,
 		Whitespace:        WhitespaceCollapse,
@@ -179,7 +203,11 @@ func TestUnionFallsBackAfterListEnumerationFailure(t *testing.T) {
 
 func TestUnionScalarEnumerationAcceptsFallbackAfterListEnumerationFailure(t *testing.T) {
 	builder, listID := listWithPatternAndEnumeration(t, "0[0-9]", "01")
-	unionID, err := builder.Add(TypeSpec{
+	unionID, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(unionID, TypeSpec{
 		Variety:           Union,
 		Primitive:         PrimitiveString,
 		Whitespace:        WhitespaceCollapse,
@@ -223,7 +251,11 @@ func listWithPatternSpec(t *testing.T, patternSource string, literal *LiteralSpe
 		t.Fatal(err)
 	}
 	builder := NewBuilder(BuilderOptions{})
-	itemID, err := builder.Add(TypeSpec{
+	itemID, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(itemID, TypeSpec{
 		Variety:           Atomic,
 		Primitive:         PrimitiveString,
 		Whitespace:        WhitespacePreserve,
@@ -239,7 +271,11 @@ func listWithPatternSpec(t *testing.T, patternSource string, literal *LiteralSpe
 	if literal != nil {
 		facets.Enumeration = []LiteralSpec{*literal}
 	}
-	listID, err := builder.Add(TypeSpec{
+	listID, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(listID, TypeSpec{
 		Variety:           List,
 		Primitive:         PrimitiveString,
 		Whitespace:        WhitespaceCollapse,

@@ -1,6 +1,8 @@
 package xsd_test
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -1540,5 +1542,419 @@ func BenchmarkSessionValidateUndeclaredRootXSIType(b *testing.B) {
 		if err := session.Validate(strings.NewReader(doc)); err != nil {
 			b.Fatal(err)
 		}
+	}
+}
+
+const slotSchemaHeader = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:slots" targetNamespace="urn:slots" elementFormDefault="qualified" attributeFormDefault="unqualified">`
+const slotRootOpen = `<t:r xmlns:t="urn:slots"`
+
+type slotOpponent struct{ name, document string }
+type slotFixture struct {
+	name, schema, document string
+	accepted               []string
+	opponents              []slotOpponent
+}
+
+type slotUseMode uint8
+
+const (
+	slotOptional slotUseMode = iota
+	slotRequired
+)
+
+func slotAttributes(useMode slotUseMode) string {
+	var out strings.Builder
+	for i := range 128 {
+		mode := ""
+		if useMode == slotRequired {
+			mode = ` use="required"`
+		}
+		fmt.Fprintf(&out, `<xs:attribute name="a%d" type="xs:string"%s/>`, i, mode)
+	}
+	return out.String()
+}
+
+func slotDocumentAttributes(omit int) string {
+	var out strings.Builder
+	for i := range 128 {
+		if i != omit {
+			fmt.Fprintf(&out, ` a%d="v%d"`, i, i)
+		}
+	}
+	return out.String()
+}
+
+func attributeSlotFixtures() []slotFixture {
+	wrap := func(content string) string { return slotSchemaHeader + content + `</xs:schema>` }
+	element := func(attributes string) string {
+		return wrap(`<xs:element name="r"><xs:complexType>` + attributes + `</xs:complexType></xs:element>`)
+	}
+	all := slotDocumentAttributes(-1)
+	fixtures := []slotFixture{
+		{name: "None", schema: element(""), document: slotRootOpen + `/>`, opponents: []slotOpponent{{"unknown", slotRootOpen + ` extra="x"/>`}}},
+		{name: "OneRequired", schema: element(`<xs:attribute name="a0" type="xs:string" use="required"/>`), document: slotRootOpen + ` a0="v0"/>`, opponents: []slotOpponent{{"missing", slotRootOpen + `/>`}}},
+		{name: "ManyOptional128", schema: element(slotAttributes(slotOptional)), document: slotRootOpen + all + `/>`, accepted: []string{slotRootOpen + `/>`}, opponents: []slotOpponent{{"unknown128", slotRootOpen + all + ` a128="extra"/>`}}},
+		{name: "Required128", schema: element(slotAttributes(slotRequired)), document: slotRootOpen + all + `/>`, opponents: []slotOpponent{{"missing64", slotRootOpen + slotDocumentAttributes(64) + `/>`}, {"missing127", slotRootOpen + slotDocumentAttributes(127) + `/>`}}},
+	}
+	var constrained strings.Builder
+	for i := range 128 {
+		facet, literal := "default", fmt.Sprintf("d%d", i)
+		if i%2 != 0 {
+			facet, literal = "fixed", fmt.Sprintf("f%d", i)
+		}
+		if i == 0 {
+			literal = ""
+		}
+		fmt.Fprintf(&constrained, `<xs:attribute name="a%d" type="xs:string" %s="%s"/>`, i, facet, literal)
+	}
+	constraintSchema := wrap(`<xs:element name="r"><xs:complexType><xs:sequence><xs:element name="row" maxOccurs="2"><xs:complexType>` + constrained.String() + `</xs:complexType></xs:element></xs:sequence></xs:complexType><xs:key name="defaultsAreValues"><xs:selector xpath="t:row"/><xs:field xpath="@a0"/></xs:key></xs:element>`)
+	fixtures = append(fixtures, slotFixture{name: "Constraints128", schema: constraintSchema, document: slotRootOpen + `><t:row/></t:r>`, accepted: []string{slotRootOpen + `><t:row/><t:row a0="other"/></t:r>`}, opponents: []slotOpponent{{"duplicateDefault", slotRootOpen + `><t:row/><t:row/></t:r>`}, {"fixedMismatch", slotRootOpen + `><t:row a1="wrong"/></t:r>`}}})
+	nested := wrap(`<xs:attributeGroup name="G0"><xs:attribute name="a0" type="xs:string" use="required"/><xs:attribute name="a1" type="xs:string" default="d1"/></xs:attributeGroup><xs:attributeGroup name="G1"><xs:attributeGroup ref="t:G0"/><xs:attribute name="a2" type="xs:string" use="required"/></xs:attributeGroup><xs:attributeGroup name="G2"><xs:attributeGroup ref="t:G1"/><xs:attribute name="a3" type="xs:string"/></xs:attributeGroup><xs:complexType name="B"><xs:attributeGroup ref="t:G2"/><xs:attribute name="gone" type="xs:string"/></xs:complexType><xs:complexType name="R"><xs:complexContent><xs:restriction base="t:B"><xs:attributeGroup ref="t:G2"/><xs:attribute name="gone" use="prohibited"/></xs:restriction></xs:complexContent></xs:complexType><xs:element name="r" type="t:R"/>`)
+	fixtures = append(fixtures, slotFixture{name: "NestedRestriction", schema: nested, document: slotRootOpen + ` a0="v0" a2="v2"/>`, opponents: []slotOpponent{{"missing0", slotRootOpen + ` a2="v2"/>`}, {"missing2", slotRootOpen + ` a0="v0"/>`}, {"prohibited", slotRootOpen + ` a0="v0" a2="v2" gone="x"/>`}}})
+	var reuse strings.Builder
+	reuse.WriteString(`<xs:attributeGroup name="G">` + slotAttributes(slotRequired) + `</xs:attributeGroup>`)
+	for i := range 32 {
+		fmt.Fprintf(&reuse, `<xs:element name="e%d"><xs:complexType><xs:attributeGroup ref="t:G"/></xs:complexType></xs:element>`, i)
+	}
+	reuse.WriteString(`<xs:element name="r"><xs:complexType><xs:choice maxOccurs="unbounded">`)
+	for i := range 32 {
+		fmt.Fprintf(&reuse, `<xs:element ref="t:e%d"/>`, i)
+	}
+	reuse.WriteString(`</xs:choice></xs:complexType></xs:element>`)
+	fixtures = append(fixtures, slotFixture{name: "SoleGroupReuse128", schema: wrap(reuse.String()), document: slotRootOpen + `><t:e0` + all + `/><t:e31` + all + `/></t:r>`, opponents: []slotOpponent{{"missing127", slotRootOpen + `><t:e31` + slotDocumentAttributes(127) + `/></t:r>`}}})
+	return fixtures
+}
+
+func checkAttributeSlotFixture(tb testing.TB, fixture slotFixture) *xsd.Session {
+	tb.Helper()
+	if len(fixture.schema) > 96<<10 || len(fixture.document) > 32<<10 {
+		tb.Fatal("fixture byte bound")
+	}
+	engine, err := xsd.Compile(xsd.Bytes("attribute-slots.xsd", []byte(fixture.schema)))
+	if err != nil || engine == nil {
+		tb.Fatalf("%s compile engine=%v error=%v", fixture.name, engine, err)
+	}
+	session, sessionErr := engine.NewSession(xsd.ValidateOptions{})
+	if sessionErr != nil {
+		tb.Fatal(sessionErr)
+	}
+	valid := append([]string{fixture.document}, fixture.accepted...)
+	for _, document := range valid {
+		if len(document) > 32<<10 {
+			tb.Fatal("document byte bound")
+		}
+		if validationErr := session.Validate(strings.NewReader(document)); validationErr != nil {
+			tb.Fatalf("%s accepted document: %v", fixture.name, validationErr)
+		}
+	}
+	for _, opponent := range fixture.opponents {
+		if len(opponent.document) > 32<<10 {
+			tb.Fatal("opponent byte bound")
+		}
+		validationErr := session.Validate(strings.NewReader(opponent.document))
+		if validationErr == nil || !xsderrors.IsConclusiveValidation(validationErr) {
+			tb.Fatalf("%s/%s requires rejection: %v", fixture.name, opponent.name, validationErr)
+		}
+		failures := xsderrors.Flatten(validationErr)
+		if len(failures) == 0 {
+			tb.Fatal("missing structured diagnostics")
+		}
+		for _, failure := range failures {
+			diagnostic, ok := errors.AsType[*xsderrors.Error](failure)
+			if !ok || diagnostic.Category() != xsderrors.CategoryValidation || diagnostic.Code() == "" {
+				tb.Fatalf("%s/%s diagnostic=%v", fixture.name, opponent.name, failure)
+			}
+			wantCode := xsderrors.CodeValidationAttribute
+			if fixture.name == "Constraints128" && opponent.name == "duplicateDefault" {
+				wantCode = xsderrors.CodeValidationIdentity
+			}
+			if diagnostic.Code() != wantCode {
+				tb.Fatalf("%s/%s diagnostic code = %s, want %s", fixture.name, opponent.name, diagnostic.Code(), wantCode)
+			}
+		}
+		if recoveryErr := session.Validate(strings.NewReader(fixture.document)); recoveryErr != nil {
+			tb.Fatalf("same-session %s recovery: %v", fixture.name, recoveryErr)
+		}
+	}
+	return session
+}
+
+func BenchmarkCompileAttributeSlots(b *testing.B) {
+	for _, fixture := range attributeSlotFixtures() {
+		b.Run(fixture.name, func(b *testing.B) {
+			checkAttributeSlotFixture(b, fixture)
+			source := []byte(fixture.schema)
+			b.ReportAllocs()
+			for b.Loop() {
+				engine, err := xsd.Compile(xsd.Bytes("attribute-slots.xsd", source))
+				if err != nil || engine == nil {
+					b.Fatalf("compile engine=%v error=%v", engine, err)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkSessionAttributeSlots(b *testing.B) {
+	for _, fixture := range attributeSlotFixtures() {
+		b.Run(fixture.name, func(b *testing.B) {
+			session := checkAttributeSlotFixture(b, fixture)
+			reader := strings.NewReader(fixture.document)
+			b.ReportAllocs()
+			for b.Loop() {
+				reader.Reset(fixture.document)
+				if err := session.Validate(reader); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+const floatCompositionSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Enumeration"><xs:restriction base="FLOAT_KIND"><xs:enumeration value="1"/><xs:enumeration value="1.5"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="Bounded"><xs:restriction base="FLOAT_KIND"><xs:minInclusive value="0"/><xs:maxExclusive value="10"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="Earlier"><xs:restriction base="xs:decimal"><xs:minInclusive value="2"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="FloatList"><xs:list itemType="FLOAT_KIND"/></xs:simpleType>
+  <xs:simpleType name="FloatUnion"><xs:union memberTypes="Earlier FLOAT_KIND"/></xs:simpleType>
+  <xs:element name="root"><xs:complexType><xs:sequence>
+    <xs:element name="enum" type="Enumeration"/>
+    <xs:element name="bound" type="Bounded"/>
+    <xs:element name="fixed" type="FLOAT_KIND" fixed="1"/>
+    <xs:element name="list" type="FloatList"/>
+    <xs:element name="union" type="FloatUnion"/>
+    <xs:element name="row"><xs:complexType><xs:attribute name="value" type="FLOAT_KIND" use="required"/></xs:complexType></xs:element>
+    <xs:element name="ref"><xs:complexType><xs:attribute name="value" type="FLOAT_KIND" use="required"/></xs:complexType></xs:element>
+  </xs:sequence></xs:complexType>
+    <xs:key name="ids"><xs:selector xpath="row"/><xs:field xpath="@value"/></xs:key>
+    <xs:keyref name="refs" refer="ids"><xs:selector xpath="ref"/><xs:field xpath="@value"/></xs:keyref>
+  </xs:element>
+</xs:schema>`
+
+const floatCompositionDocument = `<root><enum>1.5</enum><bound>2</bound><fixed>1.0</fixed><list>1 1.5</list><union>1.5</union><row value="1.00"/><ref value="1E0"/></root>`
+
+type floatCompositionOpponent struct {
+	document string
+	code     xsderrors.Code
+}
+
+type floatCompositionFixture struct {
+	name, schema string
+	rejected     []floatCompositionOpponent
+}
+
+func floatCompositionFixtures(tb testing.TB) [2]floatCompositionFixture {
+	tb.Helper()
+	var fixtures [2]floatCompositionFixture
+	for i, entry := range []struct{ name, kind string }{{"Float32", "xs:float"}, {"Float64", "xs:double"}} {
+		fixture := floatCompositionFixture{name: entry.name, schema: strings.ReplaceAll(floatCompositionSchema, "FLOAT_KIND", entry.kind)}
+		if len(fixture.schema) > 8<<10 || len(floatCompositionDocument) > 1<<10 {
+			tb.Fatal("floating fixture exceeds source/document bounds")
+		}
+		for _, opponent := range []struct {
+			old, new string
+			code     xsderrors.Code
+		}{
+			{"<enum>1.5</enum>", "<enum>2</enum>", xsderrors.CodeValidationFacet},
+			{"<bound>2</bound>", "<bound>10</bound>", xsderrors.CodeValidationFacet},
+			{"<fixed>1.0</fixed>", "<fixed>2</fixed>", xsderrors.CodeValidationElement},
+			{"<list>1 1.5</list>", "<list>1 INX</list>", xsderrors.CodeValidationFacet},
+			{"<union>1.5</union>", "<union>INX</union>", xsderrors.CodeValidationFacet},
+			{`<ref value="1E0"/>`, `<ref value="2"/>`, xsderrors.CodeValidationIdentity},
+		} {
+			if strings.Count(floatCompositionDocument, opponent.old) != 1 {
+				tb.Fatal("opponent anchor is not unique")
+			}
+			fixture.rejected = append(fixture.rejected, floatCompositionOpponent{strings.Replace(floatCompositionDocument, opponent.old, opponent.new, 1), opponent.code})
+		}
+		fixtures[i] = fixture
+	}
+	return fixtures
+}
+
+func checkFloatCompositionRejection(tb testing.TB, err error, code xsderrors.Code) {
+	tb.Helper()
+	diagnostics := xsderrors.Flatten(err)
+	if len(diagnostics) == 0 {
+		tb.Fatal("invalid floating composition accepted")
+	}
+	for _, diagnostic := range diagnostics {
+		item, ok := errors.AsType[*xsderrors.Error](diagnostic)
+		if !ok || item.Category() != xsderrors.CategoryValidation || item.Code() != code {
+			tb.Fatalf("floating opponent error=%v; provisional expected validation/%s", diagnostic, code)
+		}
+	}
+}
+
+func checkFloatCompositionFixture(tb testing.TB, session *xsd.Session, fixture floatCompositionFixture) {
+	tb.Helper()
+	if err := session.Validate(strings.NewReader(floatCompositionDocument)); err != nil {
+		tb.Fatalf("valid %s composition: %v", fixture.name, err)
+	}
+	for _, opponent := range fixture.rejected {
+		err := session.Validate(strings.NewReader(opponent.document))
+		checkFloatCompositionRejection(tb, err, opponent.code)
+		if err := session.Validate(strings.NewReader(floatCompositionDocument)); err != nil {
+			tb.Fatalf("same-session recovery: %v", err)
+		}
+	}
+}
+
+func newFloatCompositionSession(tb testing.TB, engine *xsd.Engine) *xsd.Session {
+	tb.Helper()
+	session, err := engine.NewSession(xsd.ValidateOptions{})
+	if err != nil {
+		tb.Fatal(err)
+	}
+	return session
+}
+
+func BenchmarkFloatCanonicalComposition(b *testing.B) {
+	for _, fixture := range floatCompositionFixtures(b) {
+		b.Run("Compile"+fixture.name+"EnumBounds", func(b *testing.B) {
+			source := xsd.Bytes("float-composition.xsd", []byte(fixture.schema))
+			engine, err := xsd.Compile(source)
+			if err != nil || engine == nil {
+				b.Fatalf("Compile: engine=%v error=%v", engine, err)
+			}
+			checkFloatCompositionFixture(b, newFloatCompositionSession(b, engine), fixture)
+			b.ReportAllocs()
+			for b.Loop() {
+				engine, err = xsd.Compile(source)
+				if err != nil || engine == nil {
+					b.Fatalf("Compile: engine=%v error=%v", engine, err)
+				}
+			}
+			checkFloatCompositionFixture(b, newFloatCompositionSession(b, engine), fixture)
+		})
+		b.Run("Session"+fixture.name+"Composition", func(b *testing.B) {
+			engine, err := xsd.Compile(xsd.Bytes("float-composition.xsd", []byte(fixture.schema)))
+			if err != nil || engine == nil {
+				b.Fatalf("Compile: engine=%v error=%v", engine, err)
+			}
+			session := newFloatCompositionSession(b, engine)
+			checkFloatCompositionFixture(b, session, fixture)
+			reader := strings.NewReader(floatCompositionDocument)
+			b.ReportAllocs()
+			for b.Loop() {
+				reader.Reset(floatCompositionDocument)
+				if err := session.Validate(reader); err != nil {
+					b.Fatal(err)
+				}
+			}
+			checkFloatCompositionFixture(b, session, fixture)
+		})
+	}
+}
+
+const simpleContentProjectionSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:p">
+<xs:complexType name="Amount"><xs:simpleContent><xs:extension base="xs:decimal"><xs:attribute name="tag" type="xs:string" use="required"/></xs:extension></xs:simpleContent></xs:complexType>
+<xs:complexType name="LimitedAmount"><xs:simpleContent><xs:restriction base="Amount"><xs:minInclusive value="0"/><xs:maxInclusive value="10"/><xs:attribute name="tag" type="xs:string" use="required"/></xs:restriction></xs:simpleContent></xs:complexType>
+<xs:complexType name="QNameText"><xs:simpleContent><xs:extension base="xs:QName"><xs:attribute name="tag" type="xs:string"/></xs:extension></xs:simpleContent></xs:complexType>
+<xs:element name="r"><xs:complexType><xs:sequence maxOccurs="128"><xs:element name="amount" type="Amount"/><xs:element name="limited" type="LimitedAmount"/><xs:element name="q" type="QNameText" fixed="p:Thing"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>`
+
+type simpleContentProjectionMode uint8
+
+const (
+	simpleContentDeclared simpleContentProjectionMode = iota
+	simpleContentXSIType
+)
+
+func simpleContentProjectionDocument(mode simpleContentProjectionMode) []byte {
+	amount := `<amount tag="x">1.5</amount>`
+	if mode == simpleContentXSIType {
+		amount = `<amount xsi:type="LimitedAmount" tag="x">1.5</amount>`
+	}
+	group := amount + `<limited tag="x">2</limited><q>q:Thing</q>`
+	return []byte(`<r xmlns:q="urn:p" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">` + strings.Repeat(group, 128) + `</r>`)
+}
+
+func checkSimpleContentProjection(tb testing.TB, engine *xsd.Engine, mode simpleContentProjectionMode) {
+	tb.Helper()
+	session, sessionErr := engine.NewSession(xsd.ValidateOptions{})
+	if sessionErr != nil {
+		tb.Fatal(sessionErr)
+	}
+	valid := simpleContentProjectionDocument(mode)
+	reader := bytes.NewReader(valid)
+	if validationErr := session.Validate(reader); validationErr != nil {
+		tb.Fatalf("valid document: %v", validationErr)
+	}
+	for _, test := range []struct {
+		name, document string
+		reject         bool
+		code           xsderrors.Code
+	}{
+		{"amount11", strings.Replace(string(valid), `>1.5</amount>`, `>11</amount>`, 1), mode == simpleContentXSIType, xsderrors.CodeValidationFacet},
+		{"limited11", strings.Replace(string(valid), `>2</limited>`, `>11</limited>`, 1), true, xsderrors.CodeValidationFacet},
+		{"missingTag", strings.Replace(string(valid), ` tag="x"`, ``, 1), true, xsderrors.CodeValidationAttribute},
+		{"wrongQNameLocal", strings.Replace(string(valid), `q:Thing`, `q:Other`, 1), true, xsderrors.CodeValidationElement},
+		{"wrongQNameURI", strings.Replace(string(valid), `xmlns:q="urn:p"`, `xmlns:q="urn:wrong"`, 1), true, xsderrors.CodeValidationElement},
+	} {
+		reader.Reset([]byte(test.document))
+		validationErr := session.Validate(reader)
+		if !test.reject {
+			if validationErr != nil {
+				tb.Fatalf("%s accepted: %v", test.name, validationErr)
+			}
+		} else {
+			if validationErr == nil {
+				tb.Fatalf("%s unexpectedly accepted", test.name)
+			}
+			diagnostics := xsderrors.Flatten(validationErr)
+			if len(diagnostics) == 0 {
+				tb.Fatalf("%s missing diagnostics", test.name)
+			}
+			codes := make(map[xsderrors.Code]bool)
+			for _, item := range diagnostics {
+				diagnostic, ok := errors.AsType[*xsderrors.Error](item)
+				if !ok || diagnostic.Category() != xsderrors.CategoryValidation {
+					tb.Fatalf("%s non-validation diagnostic: %v", test.name, item)
+				}
+				if diagnostic.Code() != test.code {
+					tb.Fatalf("%s code = %s, want %s", test.name, diagnostic.Code(), test.code)
+				}
+				codes[diagnostic.Code()] = true
+			}
+			tb.Logf("characterization xsi=%v case=%s codes=%v", mode == simpleContentXSIType, test.name, codes)
+		}
+		reader.Reset(valid)
+		if recoveryErr := session.Validate(reader); recoveryErr != nil {
+			tb.Fatalf("same-session recovery after %s: %v", test.name, recoveryErr)
+		}
+	}
+}
+
+func BenchmarkSimpleContentProjection(b *testing.B) {
+	for _, test := range []struct {
+		name string
+		mode simpleContentProjectionMode
+	}{{"Declared", simpleContentDeclared}, {"XSIType", simpleContentXSIType}} {
+		b.Run(test.name, func(b *testing.B) {
+			engine, compileErr := xsd.Compile(xsd.Bytes("simple-content.xsd", []byte(simpleContentProjectionSchema)))
+			if compileErr != nil || engine == nil {
+				b.Fatalf("Compile: engine=%v err=%v", engine, compileErr)
+			}
+			checkSimpleContentProjection(b, engine, test.mode)
+			session, sessionErr := engine.NewSession(xsd.ValidateOptions{})
+			if sessionErr != nil {
+				b.Fatal(sessionErr)
+			}
+			document := simpleContentProjectionDocument(test.mode)
+			reader := bytes.NewReader(document)
+			if warmErr := session.Validate(reader); warmErr != nil {
+				b.Fatal(warmErr)
+			}
+			b.ReportAllocs()
+			b.SetBytes(int64(len(document)))
+			for b.Loop() {
+				reader.Reset(document)
+				if validationErr := session.Validate(reader); validationErr != nil {
+					b.Fatal(validationErr)
+				}
+			}
+			checkSimpleContentProjection(b, engine, test.mode)
+		})
 	}
 }

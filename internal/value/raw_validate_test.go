@@ -18,7 +18,11 @@ func TestValidateBytesScalarFastPathsRetainNoAllocation(t *testing.T) {
 		t.Fatal(err)
 	}
 	b := NewBuilder(BuilderOptions{})
-	patternID, err := b.Add(TypeSpec{
+	patternID, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(patternID, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveString,
 		Whitespace: WhitespacePreserve, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -27,7 +31,11 @@ func TestValidateBytesScalarFastPathsRetainNoAllocation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lengthID, err := b.Add(TypeSpec{
+	lengthID, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(lengthID, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveString,
 		Whitespace: WhitespacePreserve, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -96,7 +104,11 @@ func TestValidateAdmittedSkipsXMLAdmissionForOwnedString(t *testing.T) {
 
 func TestValidateBytesStringEnumerationRetainsBorrowedInput(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	id, err := b.Add(TypeSpec{
+	id, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(id, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveString,
 		Whitespace: WhitespacePreserve, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -201,7 +213,11 @@ func TestValidateNMTokensListItemDepth(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			b := NewBuilder(BuilderOptions{MaxDepth: tc.maxDepth})
-			custom, err := b.Add(TypeSpec{
+			custom, err := b.Reserve()
+			if err != nil {
+				t.Fatalf("Reserve() error = %v", err)
+			}
+			err = b.Complete(custom, TypeSpec{
 				Variety: List, ListItem: builtinNMTOKEN, Base: NoType,
 				Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 			})
@@ -250,7 +266,11 @@ func TestValidateNMTokensUnionItemDepth(t *testing.T) {
 			list := builtinNMTOKENS
 			if tc.customList {
 				var err error
-				list, err = b.Add(TypeSpec{
+				list, err = b.Reserve()
+				if err != nil {
+					t.Fatalf("Reserve() error = %v", err)
+				}
+				err = b.Complete(list, TypeSpec{
 					Variety: List, ListItem: builtinNMTOKEN, Base: NoType,
 					Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 				})
@@ -258,7 +278,11 @@ func TestValidateNMTokensUnionItemDepth(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			id, err := b.Add(TypeSpec{
+			id, err := b.Reserve()
+			if err != nil {
+				t.Fatalf("Reserve() error = %v", err)
+			}
+			err = b.Complete(id, TypeSpec{
 				Variety: Union, Union: []TypeID{list, builtinString},
 				Base: NoType, ListItem: NoType,
 				Whitespace: WhitespacePreserve, WhitespacePresent: true,
@@ -311,7 +335,11 @@ func assertListDepthValidation(t *testing.T, p *Program, id TypeID, input string
 
 func TestValidateBytesIntegerBoundsUseIntegerLexicalRule(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	boundedID, err := b.Add(TypeSpec{
+	boundedID, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(boundedID, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveDecimal, Builtin: BuiltinInteger,
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -376,7 +404,11 @@ func TestValidateBytesIntegerBoundsUseIntegerLexicalRule(t *testing.T) {
 
 func TestValidateBytesInheritedStringEnumerationUsesEveryGroup(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	base, err := b.Add(TypeSpec{
+	base, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(base, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveString,
 		Whitespace: WhitespacePreserve, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -387,7 +419,11 @@ func TestValidateBytesInheritedStringEnumerationUsesEveryGroup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	derived, err := b.Add(TypeSpec{
+	derived, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(derived, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveString,
 		Whitespace: WhitespacePreserve, WhitespacePresent: true,
 		Base: base, ListItem: NoType,
@@ -410,7 +446,11 @@ func TestValidateBytesInheritedStringEnumerationUsesEveryGroup(t *testing.T) {
 
 func TestValidateBytesDecimalFractionDigitsZeroUsesDecimalValueSpace(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	id, err := b.Add(TypeSpec{
+	id, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(id, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveDecimal,
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -448,11 +488,19 @@ func TestValidateBytesFallsBackForProjectionAndList(t *testing.T) {
 	}
 
 	b := NewBuilder(BuilderOptions{})
-	item, err := b.Add(TypeSpec{Variety: Atomic, Primitive: PrimitiveString, Whitespace: WhitespaceCollapse, WhitespacePresent: true, Base: NoType, ListItem: NoType})
+	item, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(item, TypeSpec{Variety: Atomic, Primitive: PrimitiveString, Whitespace: WhitespaceCollapse, WhitespacePresent: true, Base: NoType, ListItem: NoType})
 	if err != nil {
 		t.Fatal(err)
 	}
-	list, err := b.Add(TypeSpec{Variety: List, Whitespace: WhitespaceCollapse, WhitespacePresent: true, Base: NoType, ListItem: item})
+	list, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(list, TypeSpec{Variety: List, Whitespace: WhitespaceCollapse, WhitespacePresent: true, Base: NoType, ListItem: item})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -468,7 +516,11 @@ func TestValidateBytesFallsBackForProjectionAndList(t *testing.T) {
 
 func TestValidateBytesDecimalInclusiveBoundsAvoidStringMaterialization(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	id, err := b.Add(TypeSpec{
+	id, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(id, TypeSpec{
 		Variety:           Atomic,
 		Primitive:         PrimitiveDecimal,
 		Whitespace:        WhitespaceCollapse,
@@ -513,7 +565,11 @@ func TestValidateBytesDecimalInclusiveBoundsAvoidStringMaterialization(t *testin
 
 func TestValidateBytesUnionPreservesSelectionAndProjections(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	id, err := b.Add(TypeSpec{
+	id, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(id, TypeSpec{
 		Variety: Union, Union: []TypeID{builtinBoolean, builtinID, builtinString},
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -552,7 +608,11 @@ func TestValidateBytesUnionPreservesSelectionAndProjections(t *testing.T) {
 func TestValidateBytesUnionChargesFailedAttempts(t *testing.T) {
 	for _, budget := range []uint64{4, 6} {
 		b := NewBuilder(BuilderOptions{})
-		id, err := b.Add(TypeSpec{
+		id, err := b.Reserve()
+		if err != nil {
+			t.Fatalf("Reserve() error = %v", err)
+		}
+		err = b.Complete(id, TypeSpec{
 			Variety: Union, Union: []TypeID{builtinBoolean, builtinString},
 			Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 			Base: NoType, ListItem: NoType,
@@ -573,7 +633,11 @@ func TestValidateBytesUnionChargesFailedAttempts(t *testing.T) {
 
 func TestValidateBytesFallbackRetainsRawWork(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	id, err := b.Add(TypeSpec{
+	id, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(id, TypeSpec{
 		Variety: Union, Union: []TypeID{builtinBoolean, builtinQName},
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -597,7 +661,11 @@ func TestValidateBytesTextFacetsCountNormalizedCharacters(t *testing.T) {
 	}
 	for _, whitespace := range []WhitespaceMode{WhitespacePreserve, WhitespaceCollapse} {
 		b := NewBuilder(BuilderOptions{})
-		id, err := b.Add(TypeSpec{
+		id, err := b.Reserve()
+		if err != nil {
+			t.Fatalf("Reserve() error = %v", err)
+		}
+		err = b.Complete(id, TypeSpec{
 			Variety: Atomic, Primitive: PrimitiveString,
 			Whitespace: whitespace, WhitespacePresent: true,
 			Base: NoType, ListItem: NoType,
@@ -633,7 +701,11 @@ func TestValidateBytesTextFacetsCountNormalizedCharacters(t *testing.T) {
 
 func TestValidateBytesChecksCustomIntegerLexicalSpace(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	id, err := b.Add(TypeSpec{
+	id, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(id, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveDecimal, Builtin: BuiltinInteger,
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -657,7 +729,11 @@ func TestValidateBytesChecksCustomIntegerLexicalSpace(t *testing.T) {
 
 func TestValidateBytesUnionRetainsExplicitIdentity(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	id, err := b.Add(TypeSpec{
+	id, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(id, TypeSpec{
 		Variety: Union, Union: []TypeID{builtinID}, Identity: IdentityID,
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -677,7 +753,11 @@ func TestValidateBytesUnionRetainsExplicitIdentity(t *testing.T) {
 
 func TestValidateBytesUnionRetainsIDREFSelectionAndProjection(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	id, err := b.Add(TypeSpec{
+	id, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(id, TypeSpec{
 		Variety: Union, Union: []TypeID{builtinIDREF, builtinString},
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -695,5 +775,300 @@ func TestValidateBytesUnionRetainsIDREFSelectionAndProjection(t *testing.T) {
 	}
 	if v.Type() != id || v.SelectedType() != builtinIDREF || v.IDRefs() != "ref" {
 		t.Fatalf("union value = type %d, selected %d, IDRefs %q; want type %d, selected %d, IDRefs %q", v.Type(), v.SelectedType(), v.IDRefs(), id, builtinIDREF, "ref")
+	}
+}
+
+type numericByteCase struct {
+	input   string
+	message string
+}
+
+func TestAdmittedNumericBoundNormalization(t *testing.T) {
+	for _, test := range []struct {
+		name, lower, upper string
+		builtin            BuiltinKind
+		cases              []numericByteCase
+	}{
+		{name: "padded-negative-integer", lower: "-00012347", upper: "-00012345", builtin: BuiltinInteger,
+			cases: []numericByteCase{{input: "-12347"}, {input: "-00012346"}, {input: "-12345"},
+				{input: "-12348", message: "minInclusive facet failed"}, {input: "-12344", message: "maxInclusive facet failed"}, {input: "-12346"}}},
+		{name: "signed-zero-integer", lower: "-0000", upper: "+0001", builtin: BuiltinInteger,
+			cases: []numericByteCase{{input: "-0000"}, {input: "+0001"}, {input: "-1", message: "minInclusive facet failed"},
+				{input: "2", message: "maxInclusive facet failed"}, {input: "1.0", message: "invalid integer"}, {input: "0"}}},
+		{name: "padded-decimal", lower: "0", upper: "+" + strings.Repeat("0", 1024) + "1.5000",
+			cases: []numericByteCase{{input: "1.5"}, {input: "+0001.5000"}, {input: "1.5001", message: "maxInclusive facet failed"}, {input: "1.5"}}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			builder := NewBuilder(BuilderOptions{})
+			id, err := builder.Reserve()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if completeErr := builder.Complete(id, TypeSpec{
+				Variety: Atomic, Primitive: PrimitiveDecimal, Builtin: test.builtin,
+				Whitespace: WhitespaceCollapse, WhitespacePresent: true, Base: NoType, ListItem: NoType,
+				Facets: FacetSpec{
+					MinInclusive: BoundFacet{LiteralSpec: LiteralSpec{Lexical: test.lower, Type: NoType}, Present: true},
+					MaxInclusive: BoundFacet{LiteralSpec: LiteralSpec{Lexical: test.upper, Type: NoType}, Present: true},
+				},
+			}); completeErr != nil {
+				t.Fatal(completeErr)
+			}
+			program, err := builder.Seal()
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertNumericByteCases(t, program, id, test.cases)
+		})
+	}
+}
+
+func TestBorrowedNumericInheritedAndExclusiveBounds(t *testing.T) {
+	builder := NewBuilder(BuilderOptions{})
+	base, err := builder.Reserve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec := TypeSpec{
+		Variety: Atomic, Primitive: PrimitiveDecimal,
+		Whitespace: WhitespaceCollapse, WhitespacePresent: true, Base: NoType, ListItem: NoType,
+		Facets: FacetSpec{
+			MinInclusive: BoundFacet{LiteralSpec: LiteralSpec{Lexical: "1", Type: NoType}, Present: true},
+			MaxInclusive: BoundFacet{LiteralSpec: LiteralSpec{Lexical: "10", Type: NoType}, Present: true},
+		},
+	}
+	if completeErr := builder.Complete(base, spec); completeErr != nil {
+		t.Fatal(completeErr)
+	}
+	derived, err := builder.Reserve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec.Base = base
+	spec.Facets.MinInclusive.Lexical = "2"
+	spec.Facets.MaxInclusive.Lexical = "8"
+	if completeErr := builder.Complete(derived, spec); completeErr != nil {
+		t.Fatal(completeErr)
+	}
+	exclusive, err := builder.Reserve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec.Base = NoType
+	spec.Facets = FacetSpec{MinExclusive: BoundFacet{LiteralSpec: LiteralSpec{Lexical: "1", Type: NoType}, Present: true}}
+	if completeErr := builder.Complete(exclusive, spec); completeErr != nil {
+		t.Fatal(completeErr)
+	}
+	program, err := builder.Seal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertNumericByteCases(t, program, derived, []numericByteCase{
+		{input: "2"}, {input: "8"}, {input: "1.5", message: "lower bound facet failed"},
+		{input: "9", message: "upper bound facet failed"}, {input: "2"},
+	})
+	assertNumericByteCases(t, program, exclusive, []numericByteCase{
+		{input: "1", message: "lower bound facet failed"}, {input: "2"},
+	})
+}
+
+func assertNumericByteCases(t *testing.T, program *Program, id TypeID, cases []numericByteCase) {
+	t.Helper()
+	var scratch Scratch
+	for _, test := range cases {
+		got, err := program.ValidateBytes(id, []byte(test.input), Resolver{}, 0, 1<<20, &scratch)
+		if test.message != "" {
+			if err == nil || err.Error() != test.message {
+				t.Fatalf("ValidateBytes(%q) = %v, want %q", test.input, err, test.message)
+			}
+			continue
+		}
+		if err != nil || got.Type() != id || got.SelectedType() != NoType || got.CanonicalText() != "" || got.IdentityKey() != "" || got.IDs() != "" || got.IDRefs() != "" || got.HasQualifiedNames() {
+			t.Fatalf("ValidateBytes(%q) = %#v, %v", test.input, got, err)
+		}
+	}
+}
+
+func TestPresentZeroNumericBoundAndRecovery(t *testing.T) {
+	builder := NewBuilder(BuilderOptions{})
+	spec := TypeSpec{
+		Variety: Atomic, Primitive: PrimitiveDecimal,
+		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
+		Base: NoType, ListItem: NoType,
+	}
+	unbounded, err := builder.Reserve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = builder.Complete(unbounded, spec); err != nil {
+		t.Fatal(err)
+	}
+	bounded, err := builder.Reserve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec.Facets.MaxInclusive = BoundFacet{
+		Lexical: "-000.000", Type: NoType, Present: true,
+	}
+	if err = builder.Complete(bounded, spec); err != nil {
+		t.Fatal(err)
+	}
+	program, err := builder.Seal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertNumericByteCases(t, program, bounded, []numericByteCase{
+		{input: "-.5"}, {input: "-0"},
+		{input: ".0001", message: "maxInclusive facet failed"}, {input: "0"},
+	})
+	assertNumericByteCases(t, program, unbounded, []numericByteCase{{input: ".0001"}})
+}
+
+func TestRawDecimalAdmittedBoundFallbacks(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name, min, max string
+		fraction       bool
+		cases          []struct{ input, message string }
+	}{
+		{name: "negative", min: "-2", max: "-1", cases: []struct{ input, message string }{
+			{"-1.5", ""}, {"0", "upper bound facet failed"},
+		}},
+		{name: "digits", min: "0", max: "10", fraction: true, cases: []struct{ input, message string }{
+			{"1.20", ""}, {"1.25", "digit facet failed"},
+		}},
+		{name: "fractional", min: "+000.5000", max: "+000.5000", cases: []struct{ input, message string }{
+			{".5", ""}, {".4999", "minInclusive facet failed"}, {".5001", "maxInclusive facet failed"},
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			builder := NewBuilder(BuilderOptions{})
+			id, err := builder.Reserve()
+			if err != nil {
+				t.Fatal(err)
+			}
+			facets := FacetSpec{
+				MinInclusive: BoundFacet{LiteralSpec: LiteralSpec{Lexical: test.min, Type: NoType}, Present: true},
+				MaxInclusive: BoundFacet{LiteralSpec: LiteralSpec{Lexical: test.max, Type: NoType}, Present: true},
+			}
+			if test.fraction {
+				facets.FractionDigits = CardinalityFacet{Value: 1, Present: true}
+			}
+			if completeErr := builder.Complete(id, TypeSpec{
+				Variety: Atomic, Primitive: PrimitiveDecimal,
+				Whitespace: WhitespaceCollapse, WhitespacePresent: true,
+				Base: NoType, ListItem: NoType, Facets: facets,
+			}); completeErr != nil {
+				t.Fatal(completeErr)
+			}
+			union, err := builder.Reserve()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if completeErr := builder.Complete(union, TypeSpec{
+				Variety: Union, Union: []TypeID{id, BuiltinType(PrimitiveString)},
+				Whitespace: WhitespaceCollapse, WhitespacePresent: true,
+				Base: NoType, ListItem: NoType,
+			}); completeErr != nil {
+				t.Fatal(completeErr)
+			}
+			program, err := builder.Seal()
+			if err != nil {
+				t.Fatal(err)
+			}
+			var scratch Scratch
+			for _, tc := range test.cases {
+				got, err := program.ValidateBytes(id, []byte(tc.input), Resolver{}, 0, 16<<20, &scratch)
+				if tc.message == "" {
+					if err != nil || got.Type() != id || got.SelectedType() != NoType || got.CanonicalText() != "" || got.IdentityKey() != "" {
+						t.Fatalf("ValidateBytes(%q) = %#v, %v", tc.input, got, err)
+					}
+				} else {
+					if err == nil || err.Error() != tc.message {
+						t.Fatalf("ValidateBytes(%q) = %v, want %q", tc.input, err, tc.message)
+					}
+					if test.name != "fractional" && !errors.Is(err, ErrFacet) {
+						t.Fatalf("ValidateBytes(%q) error %v lacks facet classification", tc.input, err)
+					}
+				}
+				selected, unionErr := program.ValidateBytes(union, []byte(tc.input), Resolver{}, 0, 16<<20, &scratch)
+				want := id
+				if tc.message != "" {
+					want = BuiltinType(PrimitiveString)
+				}
+				if unionErr != nil || selected.Type() != union || selected.SelectedType() != want {
+					t.Fatalf("union ValidateBytes(%q) type/selection=%d/%d, error=%v; want %d/%d", tc.input, selected.Type(), selected.SelectedType(), unionErr, union, want)
+				}
+			}
+		})
+	}
+}
+
+func TestTemporalCanonicalProjectionOwnsBytes(t *testing.T) {
+	p, err := NewBuilder(BuilderOptions{}).Seal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		id            TypeID
+		lexical, want string
+	}{
+		{builtinDateTime, "2000-02-29T24:00:00.000Z", "2000-03-01T00:00:00Z"},
+		{builtinDateTime, "2000-02-29T00:30:00.1200", "2000-02-29T00:30:00.12"},
+		{builtinTime, "00:30:00+01:00", "23:30:00Z"},
+		{builtinTime, "12:34:56.1200Z", "12:34:56.12Z"},
+		{builtinTime, "12:34:56.000Z", "12:34:56Z"},
+		{builtinGMonth, "--02+00:00", "--02Z"},
+		{builtinGYearMonth, "-0001-02+14:00", "-0001-02+14:00"},
+		{builtinGYear, "0001", "0001"},
+		{builtinGMonthDay, "--01-01+14:00", "--01-01+14:00"},
+		{builtinGDay, "---01-14:00", "---01-14:00"},
+		{builtinGMonth, "--12", "--12"},
+	} {
+		t.Run(tc.lexical, func(t *testing.T) {
+			got, err := p.Validate(tc.id, tc.lexical, Resolver{}, NeedCanonical, 16<<20, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.CanonicalText() != tc.want {
+				t.Fatalf("canonical = %q, want %q", got.CanonicalText(), tc.want)
+			}
+			raw := []byte(tc.lexical)
+			got, err = p.ValidateBytes(tc.id, raw, Resolver{}, NeedCanonical, 16<<20, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			clear(raw)
+			if got.CanonicalText() != tc.want {
+				t.Fatalf("canonical after input mutation = %q, want %q", got.CanonicalText(), tc.want)
+			}
+		})
+	}
+}
+
+func TestRawPrimitiveTokenValidationReuse(t *testing.T) {
+	program, err := NewBuilder(BuilderOptions{}).Seal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var scratch Scratch
+	for _, tc := range []struct {
+		kind    PrimitiveKind
+		valid   []string
+		invalid string
+	}{{PrimitiveBoolean, []string{"true", "false", "1", "0"}, "trux"},
+		{PrimitiveFloat, []string{"INF", "-INF", "NaN"}, "INX"},
+		{PrimitiveDouble, []string{"INF", "-INF", "NaN"}, "INX"}} {
+		id := BuiltinType(tc.kind)
+		if _, err := program.ValidateBytes(id, []byte(tc.invalid), Resolver{}, 0, 16<<20, &scratch); err == nil {
+			t.Fatalf("accepted invalid primitive %d", tc.kind)
+		}
+		for _, text := range tc.valid {
+			got, err := program.ValidateBytes(id, []byte(text), Resolver{}, 0, 16<<20, &scratch)
+			if err != nil || got.Type() != id || got.SelectedType() != NoType || got.CanonicalText() != "" || got.IdentityKey() != "" || got.IDs() != "" || got.IDRefs() != "" || got.HasQualifiedNames() {
+				t.Fatalf("primitive %d %q: type/selected/canonical %d/%d/%q, %v", tc.kind, text, got.Type(), got.SelectedType(), got.CanonicalText(), err)
+			}
+		}
 	}
 }

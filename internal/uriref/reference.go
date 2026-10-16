@@ -16,7 +16,7 @@ var ErrInvalid = errors.New("invalid anyURI")
 // The zero value is the valid empty reference.
 type Reference struct {
 	raw        string
-	components components
+	parts      Parts
 	escapedLen int
 }
 
@@ -37,7 +37,7 @@ func Parse(text string) (Reference, error) {
 	if err != nil || !validReference(text) {
 		return Reference{}, ErrInvalid
 	}
-	return Reference{raw: text, escapedLen: escapedLen, components: split(text)}, nil
+	return Reference{raw: text, escapedLen: escapedLen, parts: split(text)}, nil
 }
 
 // Raw returns the normalized XML Schema spelling.
@@ -74,21 +74,21 @@ func (r Reference) Escaped() string {
 // HasFragment reports whether the fragment separator is present, including
 // when the fragment is empty.
 func (r Reference) HasFragment() bool {
-	return r.components.hasFragment
+	return r.parts.HasFragment
 }
 
 // WithoutFragment removes the fragment separator and fragment, if present.
 func (r Reference) WithoutFragment() Reference {
-	if !r.components.hasFragment {
+	if !r.parts.HasFragment {
 		return r
 	}
-	c := r.components
-	c.fragment = ""
-	c.hasFragment = false
+	c := r.parts
+	c.Fragment = ""
+	c.HasFragment = false
 	raw := spell(c)
 	_, escapedLen, err := scan(raw)
 	if err != nil {
 		panic("validated URI reference produced an unencodable fragmentless reference")
 	}
-	return Reference{raw: raw, components: c, escapedLen: escapedLen}
+	return Reference{raw: raw, parts: c, escapedLen: escapedLen}
 }

@@ -630,10 +630,6 @@ func scanCharDataChunk(data []byte, cdataEnd int) (chunkEnd, nextCDataEnd int) {
 const cdataEndTerm = "]]>"
 const maxEntityReferenceLength = 4 << 20
 
-// LazyAttrRawMinAttrs is the threshold where parser attributes keep borrowed
-// raw values instead of interning all values during tokenization.
-const LazyAttrRawMinAttrs = 1
-
 func advanceCDataEnd(matched int, b byte) int {
 	switch matched {
 	case 0:
@@ -996,12 +992,6 @@ func (p *parser) finishAllLazyAttrValues() {
 		p.attrs[i].raw = p.attrValueBuf[start:end]
 		start = end
 	}
-	if len(p.attrs) < LazyAttrRawMinAttrs {
-		for i := range p.attrs {
-			p.attrs[i].Value = p.values.Intern(p.attrs[i].raw)
-			p.attrs[i].raw = nil
-		}
-	}
 }
 
 func (p *parser) finishRetainedLazyAttrValues() {
@@ -1012,12 +1002,6 @@ func (p *parser) finishRetainedLazyAttrValues() {
 			p.attrs[i].raw = p.attrValueBuf[start:end]
 		}
 		start = end
-	}
-	if len(p.attrs) < LazyAttrRawMinAttrs {
-		for i := range p.attrs {
-			p.attrs[i].Value = p.values.Intern(p.attrs[i].raw)
-			p.attrs[i].raw = nil
-		}
 	}
 }
 
@@ -1132,11 +1116,11 @@ func nameChunkLen(chunk []byte) int {
 }
 
 func (p *parser) readAttributeValueBytes(quote byte, dst *[]byte) ([]byte, error) {
-	if dst == nil {
-		return nil, p.skipAttributeValueBytes(quote)
+	start := 0
+	if dst != nil {
+		start = len(*dst)
 	}
-	start := len(*dst)
-	for {
+	for done := false; !done; {
 		progressed, err := p.appendBufferedAttributeValue(quote, dst)
 		if err != nil {
 			return nil, err
@@ -1144,52 +1128,15 @@ func (p *parser) readAttributeValueBytes(quote byte, dst *[]byte) ([]byte, error
 		if progressed {
 			continue
 		}
-		done, err := p.readAttributeValueByte(quote, dst)
+		done, err = p.readAttributeValueByte(quote, dst)
 		if err != nil {
 			return nil, err
 		}
-		if done {
-			return (*dst)[start:], nil
-		}
 	}
-}
-
-func (p *parser) skipAttributeValueBytes(quote byte) error {
-	for {
-		progressed, err := p.skipBufferedAttributeValue(quote)
-		if err != nil {
-			return err
-		}
-		if progressed {
-			continue
-		}
-		done, err := p.readAttributeValueByte(quote, nil)
-		if err != nil {
-			return err
-		}
-		if done {
-			return nil
-		}
+	if dst == nil {
+		return nil, nil
 	}
-}
-
-func (p *parser) skipBufferedAttributeValue(quote byte) (bool, error) {
-	chunk, err := p.br.buffered()
-	if IsOnlyEOF(err) {
-		return false, streamSyntaxError("unexpected EOF in attribute value", err)
-	}
-	if err != nil {
-		return false, err
-	}
-	n := attributeValueChunkLen(chunk, quote)
-	if n == 0 {
-		return false, nil
-	}
-	if err := p.appendTokenBytes(nil, chunk[:n]); err != nil {
-		return false, err
-	}
-	p.br.consumeBuffered(n)
-	return true, nil
+	return (*dst)[start:], nil
 }
 
 func (p *parser) appendBufferedAttributeValue(quote byte, dst *[]byte) (bool, error) {
@@ -1417,14 +1364,29 @@ func (p *parser) readXMLDeclContent() error {
 	return ValidateXMLDeclContent(p.directive)
 }
 
+//nolint:gocognit // Delimiter state and XML character admission belong to one scan.
 func (p *parser) skipPIContent() error {
-	if err := p.skipUntil("?>"); err != nil {
-		if IsOnlyEOF(err) {
+	pendingQuestion := false
+	for {
+		b, err := p.br.readByte()
+		if err != nil {
 			return streamSyntaxError("unexpected EOF in processing instruction", err)
 		}
-		return err
+		if b >= utf8.RuneSelf {
+			pendingQuestion = false
+			if err := p.consumeXMLRune(b); err != nil {
+				return err
+			}
+			continue
+		}
+		if !lex.IsXMLChar(rune(b)) {
+			return fmt.Errorf("invalid XML character")
+		}
+		if pendingQuestion && b == '>' {
+			return nil
+		}
+		pendingQuestion = b == '?'
 	}
-	return nil
 }
 
 func (p *parser) validatePITarget(position processingInstructionPosition) (bool, error) {
@@ -1490,36 +1452,6 @@ func validatePIContentUTF8(data []byte) error {
 		return fmt.Errorf("invalid UTF-8")
 	}
 	return nil
-}
-
-func (p *parser) skipUntil(term string) error {
-	prefix := termPrefix(term)
-	matched := 0
-	for {
-		b, err := p.br.readByte()
-		if err != nil {
-			return err
-		}
-		done, err := p.skipUntilByte(term, prefix, b, &matched)
-		if err != nil {
-			return err
-		}
-		if done {
-			return nil
-		}
-	}
-}
-
-func (p *parser) skipUntilByte(term string, prefix []int, b byte, matched *int) (bool, error) {
-	if b >= utf8.RuneSelf {
-		*matched = 0
-		return false, p.consumeXMLRune(b)
-	}
-	if !lex.IsXMLChar(rune(b)) {
-		return false, fmt.Errorf("invalid XML character")
-	}
-	*matched = advanceTermMatch(term, prefix, *matched, b)
-	return *matched == len(term), nil
 }
 
 // ValidateXMLDeclContent validates the content inside an XML declaration.

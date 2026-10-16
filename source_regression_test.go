@@ -12,6 +12,16 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+func TestNilResolverFuncReturnsSchemaMiss(t *testing.T) {
+	t.Parallel()
+
+	var resolver xsd.ResolverFunc
+	_, err := resolver.ResolveSchema("root.xsd", "child.xsd")
+	if !errors.Is(err, xsderrors.ErrSchemaNotFound) {
+		t.Fatalf("ResolveSchema() error = %v, want schema miss", err)
+	}
+}
+
 func TestNilResolversDoNotSplitPublicSourceGraph(t *testing.T) {
 	t.Parallel()
 

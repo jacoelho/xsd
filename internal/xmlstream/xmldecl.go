@@ -12,14 +12,6 @@ func HasUTF8BOM(buf []byte) bool {
 	return len(buf) >= utf8BOMLen && buf[0] == 0xEF && buf[1] == 0xBB && buf[2] == 0xBF
 }
 
-// TrimUTF8BOM removes one leading UTF-8 byte order mark.
-func TrimUTF8BOM(buf []byte) []byte {
-	if HasUTF8BOM(buf) {
-		return buf[utf8BOMLen:]
-	}
-	return buf
-}
-
 // StartsXMLDeclaration reports whether buf starts with an XML declaration.
 func StartsXMLDeclaration(buf []byte) bool {
 	const declLen = len("<?xml")

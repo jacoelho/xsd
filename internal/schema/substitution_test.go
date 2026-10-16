@@ -12,7 +12,7 @@ func TestBuildSubstitutionTableBuildsSortedRawAndEffectiveEntries(t *testing.T) 
 	t.Parallel()
 
 	names, qnames := substitutionNameFixture(t)
-	rt := derivationRuntimeStub{
+	rt := derivationFixture{
 		anyType: 0,
 		complex: []ComplexTypeDerivation{
 			{Kind: DerivationKindNone},
@@ -25,7 +25,7 @@ func TestBuildSubstitutionTableBuildsSortedRawAndEffectiveEntries(t *testing.T) 
 		{Name: qnames["member"], Type: ComplexRef(1), SubstHead: 0, Abstract: true, Block: DerivationSubstitution},
 		{Name: qnames["child"], Type: ComplexRef(2), SubstHead: 1},
 	}
-	table, err := BuildSubstitutionTable(rt, &names, elements, substitutionGlobals(elements), 3, unboundedTypeDerivationWork)
+	table, err := BuildSubstitutionTable(rt.build(), &names, elements, substitutionGlobals(elements), 3, unboundedTypeDerivationWork)
 	if err != nil {
 		t.Fatalf("BuildSubstitutionTable() error = %v", err)
 	}
@@ -64,7 +64,7 @@ func TestBuildSubstitutionTableTreatsEqualTypeEdgesAsNeutral(t *testing.T) {
 	t.Parallel()
 
 	names, qnames := substitutionNameFixture(t)
-	rt := derivationRuntimeStub{
+	rt := derivationFixture{
 		anyType: 0,
 		complex: []ComplexTypeDerivation{
 			{Kind: DerivationKindNone, Block: DerivationExtension},
@@ -77,7 +77,7 @@ func TestBuildSubstitutionTableTreatsEqualTypeEdgesAsNeutral(t *testing.T) {
 		{Name: qnames["member"], Type: ComplexRef(1), SubstHead: 0},
 		{Name: qnames["child"], Type: ComplexRef(2), SubstHead: 1},
 	}
-	table, err := BuildSubstitutionTable(rt, &names, elements, substitutionGlobals(elements), 3, unboundedTypeDerivationWork)
+	table, err := BuildSubstitutionTable(rt.build(), &names, elements, substitutionGlobals(elements), 3, unboundedTypeDerivationWork)
 	if err != nil {
 		t.Fatalf("BuildSubstitutionTable() error = %v", err)
 	}
@@ -90,7 +90,7 @@ func TestBuildSubstitutionTableClosureLimitIsExactAndTyped(t *testing.T) {
 	t.Parallel()
 
 	names, qnames := substitutionNameFixture(t)
-	rt := derivationRuntimeStub{
+	rt := derivationFixture{
 		anyType: 0,
 		complex: []ComplexTypeDerivation{
 			{Kind: DerivationKindNone},
@@ -103,10 +103,10 @@ func TestBuildSubstitutionTableClosureLimitIsExactAndTyped(t *testing.T) {
 		{Name: qnames["member"], Type: ComplexRef(1), SubstHead: 0, Abstract: true},
 		{Name: qnames["child"], Type: ComplexRef(2), SubstHead: 1, Abstract: true},
 	}
-	if _, err := BuildSubstitutionTable(rt, &names, elements, substitutionGlobals(elements), 3, unboundedTypeDerivationWork); err != nil {
+	if _, err := BuildSubstitutionTable(rt.build(), &names, elements, substitutionGlobals(elements), 3, unboundedTypeDerivationWork); err != nil {
 		t.Fatalf("exact closure limit failed: %v", err)
 	}
-	_, err := BuildSubstitutionTable(rt, &names, elements, substitutionGlobals(elements), 2, unboundedTypeDerivationWork)
+	_, err := BuildSubstitutionTable(rt.build(), &names, elements, substitutionGlobals(elements), 2, unboundedTypeDerivationWork)
 	var limit SubstitutionClosureLimitError
 	if !errors.As(err, &limit) || limit.Limit != 2 {
 		t.Fatalf("BuildSubstitutionTable() error = %T %v, want limit 2", err, err)
@@ -115,36 +115,44 @@ func TestBuildSubstitutionTableClosureLimitIsExactAndTyped(t *testing.T) {
 
 func TestBuildSubstitutionTableBoundsDerivationWorkByDirectEdges(t *testing.T) {
 	const count = 200
-
 	names, elements, derivations := substitutionChainFixture(t, count)
-	calls := 0
-	rt := countingDerivationRuntime{complex: derivations, calls: &calls}
-	if _, err := BuildSubstitutionTable(rt, &names, elements, substitutionGlobals(elements), count*(count-1)/2, unboundedTypeDerivationWork); err != nil {
+	rt := (derivationFixture{complex: derivations}).build()
+	budget := 1600
+	table, err := BuildSubstitutionTable(rt, &names, elements, substitutionGlobals(elements), 19900, func(steps int) error {
+		budget -= steps
+		if budget < 0 {
+			return errors.New("derivation work exhausted")
+		}
+		return nil
+	})
+	if err != nil {
 		t.Fatalf("BuildSubstitutionTable() error = %v", err)
 	}
-	if calls > count*8 {
-		t.Fatalf("ComplexTypeDerivation() calls = %d, want O(direct edges)", calls)
+	if member, ok := table.MemberByName(0, elements[199].Name); !ok || member != 199 {
+		t.Fatalf("last member = %d,%v; want199,true", member, ok)
+	}
+	var rawCount int
+	table.ForEachMember(0, func(ElementID) bool { rawCount++; return true })
+	if rawCount != 199 {
+		t.Fatalf("first head has%d members,want199", rawCount)
 	}
 }
-
 func TestBuildSubstitutionTableChecksClosureLimitBeforeDerivationWork(t *testing.T) {
-	const count = 100
-
-	names, elements, derivations := substitutionChainFixture(t, count)
+	names, elements, derivations := substitutionChainFixture(t, 100)
+	rt := (derivationFixture{complex: derivations}).build()
 	calls := 0
-	_, err := BuildSubstitutionTable(
-		countingDerivationRuntime{complex: derivations, calls: &calls},
-		&names,
-		elements,
-		substitutionGlobals(elements),
-		1,
-		unboundedTypeDerivationWork,
-	)
-	if diagnostic, ok := errors.AsType[SubstitutionClosureLimitError](err); !ok || diagnostic.Error() == "" {
-		t.Fatalf("BuildSubstitutionTable() error = %T %v, want closure limit", err, err)
+	sentinel := errors.New("work callback failure")
+	work := func(int) error { calls++; return sentinel }
+	_, err := BuildSubstitutionTable(rt, &names, elements, substitutionGlobals(elements), 1, work)
+	if diagnostic, ok := errors.AsType[SubstitutionClosureLimitError](err); !ok || diagnostic.Limit != 1 {
+		t.Fatalf("error = %T %v,want closure limit1", err, err)
 	}
 	if calls != 0 {
-		t.Fatalf("ComplexTypeDerivation() calls = %d, want 0 before over-limit rejection", calls)
+		t.Fatalf("work callbacks = %d,want0 before limit rejection", calls)
+	}
+	_, err = BuildSubstitutionTable(rt, &names, elements, substitutionGlobals(elements), 4950, work)
+	if !errors.Is(err, sentinel) || calls != 1 {
+		t.Fatalf("sufficient closure error/calls = %v/%d,want sentinel/1", err, calls)
 	}
 }
 
@@ -152,7 +160,7 @@ func TestBuildSubstitutionTableRejectsInvalidDirectEdgeBeforeEffectiveFiltering(
 	t.Parallel()
 
 	names, qnames := substitutionNameFixture(t)
-	rt := derivationRuntimeStub{
+	rt := derivationFixture{
 		anyType: 0,
 		complex: []ComplexTypeDerivation{
 			{Kind: DerivationKindNone},
@@ -163,7 +171,7 @@ func TestBuildSubstitutionTableRejectsInvalidDirectEdgeBeforeEffectiveFiltering(
 		{Name: qnames["head"], Type: ComplexRef(0), SubstHead: NoElement, Block: DerivationSubstitution},
 		{Name: qnames["member"], Type: ComplexRef(1), SubstHead: 0, Abstract: true},
 	}
-	_, err := BuildSubstitutionTable(rt, &names, elements, substitutionGlobals(elements), 1, unboundedTypeDerivationWork)
+	_, err := BuildSubstitutionTable(rt.build(), &names, elements, substitutionGlobals(elements), 1, unboundedTypeDerivationWork)
 	if err == nil || !strings.Contains(err.Error(), "member is not allowed by head") {
 		t.Fatalf("BuildSubstitutionTable() error = %v, want invalid direct membership", err)
 	}
@@ -178,7 +186,7 @@ func TestBuildSubstitutionTableValidatesEveryDirectGlobalBindingWithPresence(t *
 	t.Parallel()
 
 	names, qnames := substitutionNameFixture(t)
-	rt := derivationRuntimeStub{anyType: 0, complex: []ComplexTypeDerivation{{Kind: DerivationKindNone}}}
+	rt := derivationFixture{anyType: 0, complex: []ComplexTypeDerivation{{Kind: DerivationKindNone}}}
 	elements := []ElementDecl{
 		{Name: qnames["head"], Type: ComplexRef(0), SubstHead: NoElement},
 		{Name: qnames["member"], Type: ComplexRef(0), SubstHead: 0},
@@ -195,7 +203,7 @@ func TestBuildSubstitutionTableValidatesEveryDirectGlobalBindingWithPresence(t *
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, err := BuildSubstitutionTable(rt, &names, elements, tt.globals, 1, unboundedTypeDerivationWork)
+			_, err := BuildSubstitutionTable(rt.build(), &names, elements, tt.globals, 1, unboundedTypeDerivationWork)
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("BuildSubstitutionTable() error = %v, want %q", err, tt.want)
 			}
@@ -207,12 +215,12 @@ func TestBuildSubstitutionTableDetectsCycleIteratively(t *testing.T) {
 	t.Parallel()
 
 	names, qnames := substitutionNameFixture(t)
-	rt := derivationRuntimeStub{anyType: 0, complex: []ComplexTypeDerivation{{Kind: DerivationKindNone}}}
+	rt := derivationFixture{anyType: 0, complex: []ComplexTypeDerivation{{Kind: DerivationKindNone}}}
 	elements := []ElementDecl{
 		{Name: qnames["head"], Type: ComplexRef(0), SubstHead: 1},
 		{Name: qnames["member"], Type: ComplexRef(0), SubstHead: 0},
 	}
-	_, err := BuildSubstitutionTable(rt, &names, elements, substitutionGlobals(elements), 2, unboundedTypeDerivationWork)
+	_, err := BuildSubstitutionTable(rt.build(), &names, elements, substitutionGlobals(elements), 2, unboundedTypeDerivationWork)
 	if diagnostic, ok := errors.AsType[SubstitutionCycleError](err); !ok || diagnostic.Error() == "" {
 		t.Fatalf("BuildSubstitutionTable() error = %T %v, want cycle", err, err)
 	}
@@ -244,7 +252,7 @@ func TestBuildSubstitutionTableDetectsDeepCycleWithoutRecursion(t *testing.T) {
 		globals[qname] = ElementID(i)
 	}
 	elements[0].SubstHead = ElementID(count - 1)
-	_, err = BuildSubstitutionTable(derivationRuntimeStub{}, &names, elements, globals, 0, unboundedTypeDerivationWork)
+	_, err = BuildSubstitutionTable((derivationFixture{}).build(), &names, elements, globals, 0, unboundedTypeDerivationWork)
 	if diagnostic, ok := errors.AsType[SubstitutionCycleError](err); !ok || diagnostic.Error() == "" {
 		t.Fatalf("BuildSubstitutionTable() error = %T %v, want cycle", err, err)
 	}
@@ -301,10 +309,10 @@ func TestSubstitutionTableSkipsValidatedEmptySpan(t *testing.T) {
 	}
 }
 
-func TestValidateSubstitutionMembership(t *testing.T) {
+func TestValidateSubstitutionEdgeMembership(t *testing.T) {
 	t.Parallel()
 
-	rt := derivationRuntimeStub{
+	rt := derivationFixture{
 		anyType: 0,
 		complex: []ComplexTypeDerivation{
 			{Kind: DerivationKindNone},
@@ -312,42 +320,29 @@ func TestValidateSubstitutionMembership(t *testing.T) {
 			{Kind: DerivationKindNone},
 		},
 	}
-	head := ElementDecl{Type: ComplexRef(0)}
-	if err := ValidateSubstitutionMembership(rt, head, ElementDecl{Type: ComplexRef(1)}, unboundedTypeDerivationWork); err != nil {
+	elements := []ElementDecl{{Type: ComplexRef(0)}, {Type: ComplexRef(1)}}
+	if _, err := validateSubstitutionEdge(rt.build(), elements, 1, 0, unboundedTypeDerivationWork); err != nil {
 		t.Fatalf("derived member rejected: %v", err)
 	}
-	head.Final = DerivationExtension
-	if err := ValidateSubstitutionMembership(rt, head, ElementDecl{Type: ComplexRef(1)}, unboundedTypeDerivationWork); !errors.Is(err, ErrSubstitutionMemberTypeExcludedDerivation) {
+	elements[0].Final = DerivationExtension
+	_, err := validateSubstitutionEdge(rt.build(), elements, 1, 0, unboundedTypeDerivationWork)
+	if !errors.Is(err, ErrSubstitutionMemberTypeExcludedDerivation) {
 		t.Fatalf("final error = %v", err)
 	}
-	if err := ValidateSubstitutionMembership(rt, ElementDecl{Type: ComplexRef(0)}, ElementDecl{Type: ComplexRef(2)}, unboundedTypeDerivationWork); !errors.Is(err, ErrSubstitutionMemberTypeNotDerived) {
+	membership, ok := errors.AsType[SubstitutionMembershipError](err)
+	if !ok || !errors.Is(membership.Cause, ErrSubstitutionMemberTypeExcludedDerivation) || membership.Member != 1 || membership.Head != 0 {
+		t.Fatalf("final error = %#v, want excluded derivation for member1/head0", err)
+	}
+	elements[0] = ElementDecl{Type: ComplexRef(0)}
+	elements[1] = ElementDecl{Type: ComplexRef(2)}
+	_, err = validateSubstitutionEdge(rt.build(), elements, 1, 0, unboundedTypeDerivationWork)
+	if !errors.Is(err, ErrSubstitutionMemberTypeNotDerived) {
 		t.Fatalf("unrelated error = %v", err)
 	}
-}
-
-type countingDerivationRuntime struct {
-	complex []ComplexTypeDerivation
-	calls   *int
-}
-
-//nolint:revive // The receiver is required to satisfy TypeDerivationRuntime.
-func (r countingDerivationRuntime) AnyTypeID() ComplexTypeID { return 0 }
-
-//nolint:revive // The receiver is required to satisfy TypeDerivationRuntime.
-func (r countingDerivationRuntime) SimpleTypeCount() int  { return 0 }
-func (r countingDerivationRuntime) ComplexTypeCount() int { return len(r.complex) }
-
-//nolint:revive // The receiver is required to satisfy TypeDerivationRuntime.
-func (r countingDerivationRuntime) SimpleTypeDerivation(SimpleTypeID) (SimpleTypeDerivation, bool) {
-	return SimpleTypeDerivation{}, false
-}
-
-func (r countingDerivationRuntime) ComplexTypeDerivation(id ComplexTypeID) (ComplexTypeDerivation, bool) {
-	*r.calls++
-	if !ValidUint32Index(uint32(id), len(r.complex)) {
-		return ComplexTypeDerivation{}, false
+	membership, ok = errors.AsType[SubstitutionMembershipError](err)
+	if !ok || !errors.Is(membership.Cause, ErrSubstitutionMemberTypeNotDerived) || membership.Member != 1 || membership.Head != 0 {
+		t.Fatalf("unrelated error = %#v, want not derived for member1/head0", err)
 	}
-	return r.complex[id], true
 }
 
 func substitutionChainFixture(t *testing.T, count int) (NameTable, []ElementDecl, []ComplexTypeDerivation) {
@@ -405,4 +400,37 @@ func substitutionNameFixture(t *testing.T) (NameTable, map[string]QName) {
 		qnames[local] = q
 	}
 	return names, qnames
+}
+
+func fixtureSubstitutions(names []ElementDecl, raw map[ElementID][]ElementID, effective map[ElementID]map[QName]ElementID) SubstitutionTable {
+	count := 0
+	for id := range raw {
+		count = max(count, int(id)+1)
+	}
+	for id := range effective {
+		count = max(count, int(id)+1)
+	}
+	table := SubstitutionTable{spans: make([]substitutionSpan, count)}
+	for head := range count {
+		entries := make(map[ElementID]substitutionEntry)
+		for _, id := range raw[ElementID(head)] {
+			var name QName
+			if int(id) < len(names) {
+				name = names[id].Name
+			}
+			entries[id] = substitutionEntry{name: name, member: id}
+		}
+		for name, id := range effective[ElementID(head)] {
+			entries[id] = substitutionEntry{name: name, member: id, effective: true}
+		}
+		span := substitutionSpan{start: len(table.entries), count: len(entries)}
+		ordered := make([]substitutionEntry, 0, len(entries))
+		for _, entry := range entries {
+			ordered = append(ordered, entry)
+		}
+		slices.SortFunc(ordered, func(a, b substitutionEntry) int { return compareQName(a.name, b.name) })
+		table.entries = append(table.entries, ordered...)
+		table.spans[head] = span
+	}
+	return table
 }

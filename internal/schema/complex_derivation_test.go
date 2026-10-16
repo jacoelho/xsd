@@ -104,11 +104,11 @@ func TestCheckSimpleContentRestrictionTextTypePresent(t *testing.T) {
 func TestCheckSimpleContentRestrictionTextType(t *testing.T) {
 	t.Parallel()
 
-	rt := emptyTypeDerivationRuntime{}
-	if err := CheckSimpleContentRestrictionTextType(rt, 1, NoSimpleType, unboundedTypeDerivationWork); err != nil {
+	rt := emptyTypeDerivationFixture{}
+	if err := CheckSimpleContentRestrictionTextType(rt.build(), 1, NoSimpleType, unboundedTypeDerivationWork); err != nil {
 		t.Fatalf("CheckSimpleContentRestrictionTextType(no base) error = %v", err)
 	}
-	err := CheckSimpleContentRestrictionTextType(rt, 2, 1, unboundedTypeDerivationWork)
+	err := CheckSimpleContentRestrictionTextType(rt.build(), 2, 1, unboundedTypeDerivationWork)
 	expectCompileDiagnostic(t, err, xsderrors.CodeSchemaContentModel, "simpleContent restriction type is not derived from base")
 }
 
@@ -122,18 +122,4 @@ func TestCheckComplexContentMixedDerivationBase(t *testing.T) {
 	expectCompileDiagnostic(t, err, xsderrors.CodeSchemaContentModel, "complexContent mixed derivation requires mixed base")
 }
 
-type emptyTypeDerivationRuntime struct{}
-
-func (emptyTypeDerivationRuntime) AnyTypeID() ComplexTypeID { return 0 }
-
-func (emptyTypeDerivationRuntime) ComplexTypeCount() int { return 0 }
-
-func (emptyTypeDerivationRuntime) SimpleTypeCount() int { return 0 }
-
-func (emptyTypeDerivationRuntime) SimpleTypeDerivation(SimpleTypeID) (SimpleTypeDerivation, bool) {
-	return SimpleTypeDerivation{}, false
-}
-
-func (emptyTypeDerivationRuntime) ComplexTypeDerivation(ComplexTypeID) (ComplexTypeDerivation, bool) {
-	return ComplexTypeDerivation{}, false
-}
+type emptyTypeDerivationFixture struct{}

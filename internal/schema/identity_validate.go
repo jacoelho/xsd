@@ -1,11 +1,8 @@
 package schema
 
-import (
-	"errors"
-	"slices"
-)
+import "errors"
 
-// ValidateIdentityConstraints validates frozen identity-constraint metadata.
+// ValidateIdentityConstraints validates canonical identity-constraint metadata.
 func ValidateIdentityConstraints(names *NameTable, identities []IdentityConstraint) error {
 	if names == nil {
 		return errors.New("identity constraints require name table")
@@ -62,10 +59,7 @@ func validateIdentityConstraint(names *NameTable, identities []IdentityConstrain
 	if err := validateIdentitySelectorPaths(names, ic.Selector); err != nil {
 		return err
 	}
-	if err := validateIdentityFieldPaths(names, ic.Fields); err != nil {
-		return err
-	}
-	return validateIdentityFieldLookup(ic)
+	return validateIdentityFieldPaths(names, ic.Fields)
 }
 
 func validateIdentityConstraintKind(identities []IdentityConstraint, ic IdentityConstraint) error {
@@ -124,48 +118,6 @@ func validateIdentityFieldPathSet(names *NameTable, paths []IdentityFieldPath) e
 		}
 	}
 	return nil
-}
-
-func validateIdentityFieldLookup(ic IdentityConstraint) error {
-	elementFields, attrFields, attrWildcardFields := BuildIdentityFieldLookup(ic.Fields)
-	if !equalCompiledIdentityFields(ic.ElementFields, elementFields) ||
-		!equalCompiledIdentityFieldMaps(ic.AttributeFields, attrFields) ||
-		!equalCompiledIdentityFields(ic.AttributeWildcardFields, attrWildcardFields) {
-		return errors.New("identity constraint field lookup does not match fields")
-	}
-	return nil
-}
-
-func equalCompiledIdentityFields(a, b []CompiledIdentityField) bool {
-	return slices.EqualFunc(a, b, func(x, y CompiledIdentityField) bool {
-		return x.Field == y.Field && equalIdentityFieldPaths(x.Paths, y.Paths)
-	})
-}
-
-func equalIdentityFieldPaths(a, b []IdentityFieldPath) bool {
-	return slices.EqualFunc(a, b, func(x, y IdentityFieldPath) bool {
-		return x.Attribute == y.Attribute &&
-			x.AttrNamespace == y.AttrNamespace &&
-			x.Descendant == y.Descendant &&
-			x.Self == y.Self &&
-			x.Attr == y.Attr &&
-			x.AttrWildcard == y.AttrWildcard &&
-			x.AttrNamespaceSet == y.AttrNamespaceSet &&
-			slices.Equal(x.Steps, y.Steps)
-	})
-}
-
-func equalCompiledIdentityFieldMaps(a, b map[QName][]CompiledIdentityField) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, av := range a {
-		bv, ok := b[k]
-		if !ok || !equalCompiledIdentityFields(av, bv) {
-			return false
-		}
-	}
-	return true
 }
 
 func validIdentityPath(names *NameTable, path IdentityPath) bool {

@@ -8,7 +8,11 @@ import (
 
 func BenchmarkPublishedRawUnionLateMember(b *testing.B) {
 	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
-	booleanID, err := builder.Add(valuepkg.TypeSpec{
+	booleanID, err := builder.Reserve()
+	if err != nil {
+		b.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(booleanID, valuepkg.TypeSpec{
 		Variety:           valuepkg.Atomic,
 		Primitive:         valuepkg.PrimitiveBoolean,
 		Whitespace:        valuepkg.WhitespaceCollapse,
@@ -19,7 +23,11 @@ func BenchmarkPublishedRawUnionLateMember(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	stringID, err := builder.Add(valuepkg.TypeSpec{
+	stringID, err := builder.Reserve()
+	if err != nil {
+		b.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(stringID, valuepkg.TypeSpec{
 		Variety:           valuepkg.Atomic,
 		Primitive:         valuepkg.PrimitiveString,
 		Whitespace:        valuepkg.WhitespaceCollapse,
@@ -30,7 +38,11 @@ func BenchmarkPublishedRawUnionLateMember(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	unionID, err := builder.Add(valuepkg.TypeSpec{
+	unionID, err := builder.Reserve()
+	if err != nil {
+		b.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(unionID, valuepkg.TypeSpec{
 		Variety:           valuepkg.Union,
 		Whitespace:        valuepkg.WhitespaceCollapse,
 		WhitespacePresent: true,

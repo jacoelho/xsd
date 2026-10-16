@@ -19,10 +19,6 @@ func TestCompileModeValidation(t *testing.T) {
 	}{
 		{name: "invalid complex type scope", call: func() error { return validateComplexTypeScope(complexTypeScopeInvalid) }, text: "invalid complex type compilation scope"},
 		{name: "unknown complex type scope", call: func() error { return validateComplexTypeScope(complexTypeScope(99)) }, text: "unknown complex type compilation scope"},
-		{name: "invalid facet child mode", call: func() error { return validateFacetChildMode(facetChildModeInvalid) }, text: "invalid facet child mode"},
-		{name: "unknown facet child mode", call: func() error { return validateFacetChildMode(facetChildMode(99)) }, text: "unknown facet child mode"},
-		{name: "invalid facet fixedness", call: func() error { return validateFacetFixedness(facetFixednessInvalid) }, text: "facet fixedness is invalid"},
-		{name: "unknown facet fixedness", call: func() error { return validateFacetFixedness(facetFixedness(99)) }, text: "facet fixedness is unknown"},
 		{
 			name: "unknown schema source requirement",
 			call: func() error {

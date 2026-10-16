@@ -18,22 +18,6 @@ type FloatValue struct {
 	Value     float64
 }
 
-// FloatFacetValue is a projected float/double bound facet literal.
-type FloatFacetValue struct {
-	Value   float64
-	Present bool
-}
-
-// FloatFacetValues is the runtime projection needed to validate xs:float and
-// xs:double ordered bounds.
-type FloatFacetValues struct {
-	MinInclusive FloatFacetValue
-	MaxInclusive FloatFacetValue
-	MinExclusive FloatFacetValue
-	MaxExclusive FloatFacetValue
-	Facets       FacetMask
-}
-
 // ParseFloatValue parses normalized as an XML Schema float/double primitive value.
 func ParseFloatValue(kind PrimitiveKind, normalized string, needs PrimitiveValueNeed) (FloatValue, error) {
 	bits, ok := floatBits(kind)
@@ -70,153 +54,6 @@ func FloatRelation(got, base float64) OrderedFacetRelation {
 	}
 }
 
-// FloatBoundsRelation compares lower and upper float/double bounds.
-func FloatBoundsRelation(lower, upper float64) OrderedFacetRelation {
-	switch {
-	case lower < upper:
-		return OrderedFacetLess
-	case lower > upper:
-		return OrderedFacetGreater
-	case lower == upper:
-		return OrderedFacetEqual
-	default:
-		return OrderedFacetIncomparable
-	}
-}
-
-// ValidateFloatFacets validates xs:float/xs:double value-space facets.
-func ValidateFloatFacets(f FloatFacetValues, value float64) error {
-	if err := validateFloatBoundFacet(f.Facets, FacetMinInclusive, f.MinInclusive, value); err != nil {
-		return err
-	}
-	if err := validateFloatBoundFacet(f.Facets, FacetMaxInclusive, f.MaxInclusive, value); err != nil {
-		return err
-	}
-	if err := validateFloatBoundFacet(f.Facets, FacetMinExclusive, f.MinExclusive, value); err != nil {
-		return err
-	}
-	return validateFloatBoundFacet(f.Facets, FacetMaxExclusive, f.MaxExclusive, value)
-}
-
-func validateFloatBoundFacet(facets, flag FacetMask, facet FloatFacetValue, value float64) error {
-	if facets&flag == 0 {
-		return nil
-	}
-	if !facet.Present {
-		return ErrMetadata
-	}
-	relation := FloatBoundsRelation(value, facet.Value)
-	if flag == FacetMinInclusive {
-		return validateLowerFacetRelation(OrderedFacetBoundInclusive, relation, rawDecimalErrMinInclusive)
-	}
-	if flag == FacetMaxInclusive {
-		return validateUpperFacetRelation(OrderedFacetBoundInclusive, relation, rawDecimalErrMaxInclusive)
-	}
-	if flag == FacetMinExclusive {
-		return validateLowerFacetRelation(OrderedFacetBoundExclusive, relation, "minExclusive facet failed")
-	}
-	if flag == FacetMaxExclusive {
-		return validateUpperFacetRelation(OrderedFacetBoundExclusive, relation, "maxExclusive facet failed")
-	}
-	return ErrMetadata
-}
-
-// ValidateFloatFacetBounds validates effective lower/upper float bound
-// consistency for xs:float/xs:double facets.
-func ValidateFloatFacetBounds(kind PrimitiveKind, f FloatFacetValues) error {
-	lower := floatLowerBound(f)
-	upper := floatUpperBound(f)
-	cmp := OrderedFacetIncomparable
-	if lower.present() && upper.present() {
-		cmp = FloatBoundsRelation(lower.value, upper.value)
-	}
-	return ValidateOrderedFacetBounds(OrderedFacetBoundsValidation{
-		Primitive: kind,
-		Lower:     lower.bound,
-		Upper:     upper.bound,
-		Relation:  cmp,
-	})
-}
-
-// FloatOrderedFacetsRestrict reports whether derived float/double ordered
-// facets restrict the base facets.
-func FloatOrderedFacetsRestrict(derived, base FloatFacetValues) bool {
-	lower := floatLowerBound(derived)
-	baseLower := floatLowerBound(base)
-	upper := floatUpperBound(derived)
-	baseUpper := floatUpperBound(base)
-	return floatLowerRestricts(lower, baseLower) && floatUpperRestricts(upper, baseUpper)
-}
-
-type floatFacetBound struct {
-	value float64
-	bound OrderedFacetBound
-}
-
-func (b floatFacetBound) present() bool {
-	return b.bound.present()
-}
-
-func floatLowerBound(f FloatFacetValues) floatFacetBound {
-	if !f.MinInclusive.Present {
-		if !f.MinExclusive.Present {
-			return floatFacetBound{}
-		}
-		return floatFacetBound{
-			value: f.MinExclusive.Value,
-			bound: OrderedFacetBound{Kind: OrderedFacetBoundExclusive},
-		}
-	}
-	if !f.MinExclusive.Present || !(f.MinExclusive.Value >= f.MinInclusive.Value) {
-		return floatFacetBound{
-			value: f.MinInclusive.Value,
-			bound: OrderedFacetBound{Kind: OrderedFacetBoundInclusive},
-		}
-	}
-	return floatFacetBound{
-		value: f.MinExclusive.Value,
-		bound: OrderedFacetBound{Kind: OrderedFacetBoundExclusive},
-	}
-}
-
-func floatUpperBound(f FloatFacetValues) floatFacetBound {
-	if !f.MaxInclusive.Present {
-		if !f.MaxExclusive.Present {
-			return floatFacetBound{}
-		}
-		return floatFacetBound{
-			value: f.MaxExclusive.Value,
-			bound: OrderedFacetBound{Kind: OrderedFacetBoundExclusive},
-		}
-	}
-	if !f.MaxExclusive.Present || !(f.MaxExclusive.Value <= f.MaxInclusive.Value) {
-		return floatFacetBound{
-			value: f.MaxInclusive.Value,
-			bound: OrderedFacetBound{Kind: OrderedFacetBoundInclusive},
-		}
-	}
-	return floatFacetBound{
-		value: f.MaxExclusive.Value,
-		bound: OrderedFacetBound{Kind: OrderedFacetBoundExclusive},
-	}
-}
-
-func floatLowerRestricts(derived, base floatFacetBound) bool {
-	relation := OrderedFacetIncomparable
-	if derived.present() && base.present() {
-		relation = FloatRelation(derived.value, base.value)
-	}
-	return OrderedFacetLowerRestricts(derived.bound, base.bound, relation)
-}
-
-func floatUpperRestricts(derived, base floatFacetBound) bool {
-	relation := OrderedFacetIncomparable
-	if derived.present() && base.present() {
-		relation = FloatRelation(derived.value, base.value)
-	}
-	return OrderedFacetUpperRestricts(derived.bound, base.bound, relation)
-}
-
 func formatFloatCanonical(v float64, bits int) string {
 	if math.IsInf(v, 1) {
 		return xsdFloatINF
@@ -233,6 +70,7 @@ func formatFloatCanonical(v float64, bits int) string {
 	return formatFiniteFloatCanonical(v, bits)
 }
 
+// Callers supply a value finite at bits after parser precision rounding.
 func formatFiniteFloatCanonical(v float64, bits int) string {
 	// The e format supplies the shortest round-trip mantissa for the requested
 	// IEEE precision; XSD then requires a normalized exponent and fraction.
@@ -241,9 +79,6 @@ func formatFiniteFloatCanonical(v float64, bits int) string {
 	var source [32]byte
 	representation := strconv.AppendFloat(source[:0], v, 'e', -1, bits)
 	exponent := floatCanonicalIndexByte(representation, 'e')
-	if exponent < 0 {
-		return canonicalFloatOverflow(representation)
-	}
 	var canonical [32]byte
 	output := canonical[:0]
 	output = append(output, representation[:exponent]...)
@@ -265,13 +100,6 @@ func formatFiniteFloatCanonical(v float64, bits int) string {
 	}
 	output = append(output, exponentText[first:]...)
 	return string(output)
-}
-
-func canonicalFloatOverflow(representation []byte) string {
-	if representation[0] == '-' {
-		return xsdFloatNegINF
-	}
-	return xsdFloatINF
 }
 
 func floatCanonicalIndexByte(raw []byte, target byte) int {
@@ -326,9 +154,9 @@ func floatBits(kind PrimitiveKind) (int, bool) {
 // value. bits must be 32 for xs:float or 64 for xs:double.
 func ValidateFloatLexical[T byteText](raw T, bits int) error {
 	switch {
-	case floatTextEqual(xsdFloatINF, raw),
-		floatTextEqual(xsdFloatNegINF, raw),
-		floatTextEqual(xsdFloatNaN, raw):
+	case string(raw) == xsdFloatINF,
+		string(raw) == xsdFloatNegINF,
+		string(raw) == xsdFloatNaN:
 		return nil
 	}
 	if !floatLexicalOK(raw) {
@@ -394,16 +222,4 @@ func scanFloatDigits[T byteText](raw T, i int) (end, digits int) {
 		i++
 	}
 	return i, i - start
-}
-
-func floatTextEqual[T byteText](s string, raw T) bool {
-	if len(s) != len(raw) {
-		return false
-	}
-	for i := range s {
-		if s[i] != raw[i] {
-			return false
-		}
-	}
-	return true
 }

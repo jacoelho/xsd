@@ -45,14 +45,6 @@ type Options struct {
 	MaxTokenBytes int64
 }
 
-type formatOptions struct {
-	maxDepth       int
-	maxNodes       int
-	maxInputBytes  int64
-	maxOutputBytes int64
-	maxTokenBytes  int64
-}
-
 // XML writes a consistently indented XML document from the caller-owned input.
 //
 // Formatting validates input into a flat source-span tape, then streams output
@@ -75,17 +67,15 @@ func XMLWithOptions(w io.Writer, input string, opts Options) error {
 	if err != nil {
 		return formatOptionErr(err)
 	}
-	tape, decisions, err := analyze(input, limits)
+	tape, err := analyze(input, limits)
 	if err != nil {
 		return err
 	}
-	writer := newMaxBytesWriter(w, limits.maxOutputBytes, errFormatOutputLimit)
+	writer := newMaxBytesWriter(w, limits.MaxOutputBytes, errFormatOutputLimit)
 	f := xmlFormatter{
-		w:         writer,
-		input:     input,
-		tape:      tape,
-		decisions: decisions,
-		maxNodes:  limits.maxNodes,
+		w:     writer,
+		input: input,
+		tape:  tape,
 	}
 	err = f.format()
 	var formatErr *xsderrors.Error
@@ -95,7 +85,7 @@ func XMLWithOptions(w io.Writer, input string, opts Options) error {
 	return err
 }
 
-func newReader(input string, limits formatOptions) (*xmlstream.Reader, error) {
+func newReader(input string, limits Options) (*xmlstream.Reader, error) {
 	reader := new(xmlstream.Reader)
 	if err := resetReader(reader, input, limits); err != nil {
 		reader.Detach()
@@ -104,12 +94,12 @@ func newReader(input string, limits formatOptions) (*xmlstream.Reader, error) {
 	return reader, nil
 }
 
-func resetReader(reader *xmlstream.Reader, input string, limits formatOptions) error {
+func resetReader(reader *xmlstream.Reader, input string, limits Options) error {
 	err := reader.Reset(strings.NewReader(input), xmlstream.Config{
 		Limits: xmlstream.Limits{
-			MaxInputBytes: limits.maxInputBytes,
-			MaxTokenBytes: limits.maxTokenBytes,
-			MaxDepth:      limits.maxDepth,
+			MaxInputBytes: limits.MaxInputBytes,
+			MaxTokenBytes: limits.MaxTokenBytes,
+			MaxDepth:      limits.MaxDepth,
 		},
 		CommentMode: xmlstream.CommentModeEmit,
 		EmitPI:      true,
@@ -151,49 +141,38 @@ func formatBoundaryErr(err error) error {
 	return formatXMLErr(0, 0, err)
 }
 
-func normalizeFormatOptions(opts Options) (formatOptions, error) {
+func normalizeFormatOptions(opts Options) (Options, error) {
 	if opts.MaxDepth < 0 {
-		return formatOptions{}, errors.New("MaxDepth cannot be negative")
+		return Options{}, errors.New("MaxDepth cannot be negative")
 	}
 	if opts.MaxNodes < 0 {
-		return formatOptions{}, errors.New("MaxNodes cannot be negative")
+		return Options{}, errors.New("MaxNodes cannot be negative")
 	}
 	if opts.MaxInputBytes < 0 {
-		return formatOptions{}, errors.New("MaxInputBytes cannot be negative")
+		return Options{}, errors.New("MaxInputBytes cannot be negative")
 	}
 	if opts.MaxOutputBytes < 0 {
-		return formatOptions{}, errors.New("MaxOutputBytes cannot be negative")
+		return Options{}, errors.New("MaxOutputBytes cannot be negative")
 	}
 	if opts.MaxTokenBytes < 0 {
-		return formatOptions{}, errors.New("MaxTokenBytes cannot be negative")
+		return Options{}, errors.New("MaxTokenBytes cannot be negative")
 	}
-	maxDepth := opts.MaxDepth
-	if maxDepth == 0 {
-		maxDepth = maxFormatDepth
+	if opts.MaxDepth == 0 {
+		opts.MaxDepth = maxFormatDepth
 	}
-	maxNodes := opts.MaxNodes
-	if maxNodes == 0 {
-		maxNodes = defaultMaxFormatNodes
+	if opts.MaxNodes == 0 {
+		opts.MaxNodes = defaultMaxFormatNodes
 	}
-	maxInputBytes := opts.MaxInputBytes
-	if maxInputBytes == 0 {
-		maxInputBytes = defaultMaxFormatInputBytes
+	if opts.MaxInputBytes == 0 {
+		opts.MaxInputBytes = defaultMaxFormatInputBytes
 	}
-	maxOutputBytes := opts.MaxOutputBytes
-	if maxOutputBytes == 0 {
-		maxOutputBytes = defaultMaxFormatOutputBytes
+	if opts.MaxOutputBytes == 0 {
+		opts.MaxOutputBytes = defaultMaxFormatOutputBytes
 	}
-	maxTokenBytes := opts.MaxTokenBytes
-	if maxTokenBytes == 0 {
-		maxTokenBytes = defaultMaxFormatTokenBytes
+	if opts.MaxTokenBytes == 0 {
+		opts.MaxTokenBytes = defaultMaxFormatTokenBytes
 	}
-	return formatOptions{
-		maxDepth:       maxDepth,
-		maxNodes:       maxNodes,
-		maxInputBytes:  maxInputBytes,
-		maxOutputBytes: maxOutputBytes,
-		maxTokenBytes:  maxTokenBytes,
-	}, nil
+	return opts, nil
 }
 
 type maxBytesWriter struct {
@@ -286,12 +265,11 @@ func (w *maxBytesWriter) record(want, n int, err error) (int, error) {
 }
 
 type formatAnalysis struct {
-	reader    *xmlstream.Reader
-	stack     []analysisFrame
-	tape      []formatEvent
-	decisions []bool
-	nodes     int
-	maxNodes  int
+	reader   *xmlstream.Reader
+	stack    []analysisFrame
+	tape     []formatEvent
+	nodes    int
+	maxNodes int
 }
 
 type formatEvent struct {
@@ -302,12 +280,13 @@ type formatEvent struct {
 	kind             xmlstream.TokenKind
 	textKind         xmlstream.CharacterDataKind
 	ignoreWhitespace bool
+	inline           bool
 }
 
 type analysisFrame struct {
 	handle              xmlstream.Handle
 	name                xml.Name
-	decision            int
+	startEvent          int
 	preserve            bool
 	hasElement          bool
 	hasNonElementLayout bool
@@ -318,36 +297,27 @@ type xmlFormatter struct {
 	w             io.Writer
 	input         string
 	tape          []formatEvent
-	decisions     []bool
 	stack         []formatFrame
-	decisionIndex int
-	nodes         int
-	maxNodes      int
 	topLevelItems int
 }
 
 type formatFrame struct {
-	nameStart  int
-	nameEnd    int
-	line       int
-	col        int
-	depth      int
 	inline     bool
 	wroteChild bool
 }
 
-func analyze(input string, limits formatOptions) ([]formatEvent, []bool, error) {
+func analyze(input string, limits Options) ([]formatEvent, error) {
 	reader, err := newReader(input, limits)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	a := formatAnalysis{reader: reader, maxNodes: limits.maxNodes}
+	a := formatAnalysis{reader: reader, maxNodes: limits.MaxNodes}
 	if err := a.format(); err != nil {
 		reader.Detach()
-		return nil, nil, err
+		return nil, err
 	}
 	reader.Detach()
-	return a.tape, a.decisions, nil
+	return a.tape, nil
 }
 
 func (a *formatAnalysis) format() error {
@@ -429,16 +399,15 @@ func (a *formatAnalysis) collectStart(tok *xmlstream.Token) error {
 	if err := a.appendNode(tok.Line, tok.Column); err != nil {
 		return a.abortStart(handle, err)
 	}
-	decision := len(a.decisions)
-	a.decisions = append(a.decisions, false)
+	startEvent := len(a.tape)
 	if len(a.stack) != 0 {
 		a.stack[len(a.stack)-1].hasElement = true
 	}
 	a.stack = append(a.stack, analysisFrame{
-		handle:   handle,
-		name:     tok.Start.Name,
-		decision: decision,
-		preserve: preserve,
+		handle:     handle,
+		name:       tok.Start.Name,
+		startEvent: startEvent,
+		preserve:   preserve,
 	})
 	return nil
 }
@@ -454,7 +423,7 @@ func (a *formatAnalysis) collectEnd(tok *xmlstream.Token) error {
 	if err := a.reader.CommitEnd(frame.handle); err != nil {
 		return readerBoundaryError(a.reader, err)
 	}
-	a.decisions[frame.decision] = frame.inline()
+	a.tape[frame.startEvent].inline = frame.inline()
 	a.stack = a.stack[:len(a.stack)-1]
 	return nil
 }
@@ -499,18 +468,6 @@ func (f *xmlFormatter) format() error {
 			return err
 		}
 	}
-	return f.finishEOF()
-}
-
-func (f *xmlFormatter) finishEOF() error {
-	if len(f.stack) > 0 {
-		frame := f.stack[len(f.stack)-1]
-		name := f.input[frame.nameStart:frame.nameEnd]
-		return xmlFormatErr(frame.line, frame.col, fmt.Errorf("unexpected EOF before end element </%s>", name))
-	}
-	if f.decisionIndex != len(f.decisions) {
-		return xmlFormatErr(0, 0, errors.New("formatting decision count mismatch"))
-	}
 	return nil
 }
 
@@ -530,9 +487,6 @@ func (f *xmlFormatter) renderEvent(event formatEvent) error {
 }
 
 func (f *xmlFormatter) renderMisc(event formatEvent) error {
-	if err := f.appendNode(event.line, event.column); err != nil {
-		return err
-	}
 	if err := f.prepareItem(); err != nil {
 		return err
 	}
@@ -549,14 +503,6 @@ func (f *xmlFormatter) renderMisc(event formatEvent) error {
 }
 
 func (f *xmlFormatter) renderStart(event formatEvent) error {
-	if err := f.appendNode(event.line, event.column); err != nil {
-		return err
-	}
-	if f.decisionIndex >= len(f.decisions) {
-		return errors.New("formatting decision count mismatch")
-	}
-	decision := f.decisions[f.decisionIndex]
-	f.decisionIndex++
 	parentInline := len(f.stack) != 0 && f.stack[len(f.stack)-1].inline
 	if err := f.prepareItem(); err != nil {
 		return err
@@ -566,23 +512,15 @@ func (f *xmlFormatter) renderStart(event formatEvent) error {
 		return xmlFormatErr(event.line, event.column, err)
 	}
 	f.stack = append(f.stack, formatFrame{
-		nameStart: nameStart,
-		nameEnd:   nameEnd,
-		line:      event.line,
-		col:       event.column,
-		depth:     len(f.stack),
-		inline:    parentInline || decision,
+		inline: parentInline || event.inline,
 	})
 	return nil
 }
 
 func (f *xmlFormatter) renderEnd(event formatEvent) error {
-	if len(f.stack) == 0 {
-		return xmlFormatErr(event.line, event.column, errors.New("unexpected end element"))
-	}
 	frame := &f.stack[len(f.stack)-1]
 	if !frame.inline && frame.wroteChild {
-		if err := writeXMLIndent(f.w, frame.depth); err != nil {
+		if err := writeXMLIndent(f.w, len(f.stack)-1); err != nil {
 			return err
 		}
 	}
@@ -597,9 +535,6 @@ func (f *xmlFormatter) renderChars(event formatEvent) error {
 	if len(f.stack) == 0 {
 		return nil
 	}
-	if err := f.appendNode(event.line, event.column); err != nil {
-		return err
-	}
 	if !f.stack[len(f.stack)-1].inline && event.ignoreWhitespace {
 		return nil
 	}
@@ -609,14 +544,6 @@ func (f *xmlFormatter) renderChars(event formatEvent) error {
 	if err := writeSourceText(f.w, f.input, event); err != nil {
 		return xmlFormatErr(event.line, event.column, err)
 	}
-	return nil
-}
-
-func (f *xmlFormatter) appendNode(line, col int) error {
-	if f.maxNodes > 0 && f.nodes+1 > f.maxNodes {
-		return formatLimitErr(line, col, errors.New("XML node limit exceeded"))
-	}
-	f.nodes++
 	return nil
 }
 
@@ -634,7 +561,7 @@ func (f *xmlFormatter) prepareItem() error {
 	if parent.inline {
 		return nil
 	}
-	if err := writeXMLIndent(f.w, parent.depth+1); err != nil {
+	if err := writeXMLIndent(f.w, len(f.stack)); err != nil {
 		return err
 	}
 	parent.wroteChild = true

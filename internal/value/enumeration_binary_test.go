@@ -14,7 +14,11 @@ func TestRawStringEnumerationMembershipAcrossShapes(t *testing.T) {
 			t.Run(fmt.Sprintf("%d/%s", size, shape), func(t *testing.T) {
 				values := testStringEnumerationValues(size, shape)
 				builder := NewBuilder(BuilderOptions{})
-				id, err := builder.Add(TypeSpec{
+				id, err := builder.Reserve()
+				if err != nil {
+					t.Fatalf("Reserve() error = %v", err)
+				}
+				err = builder.Complete(id, TypeSpec{
 					Variety: Atomic, Primitive: PrimitiveString,
 					Whitespace: WhitespacePreserve, WhitespacePresent: true,
 					Base: NoType, ListItem: NoType,
@@ -71,7 +75,11 @@ func TestLargeRawStringEnumerationRetainsDuplicateAndEmpty(t *testing.T) {
 	}
 	values = append(values, "v10")
 	builder := NewBuilder(BuilderOptions{})
-	id, err := builder.Add(TypeSpec{
+	id, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(id, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveString,
 		Whitespace: WhitespacePreserve, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -113,7 +121,11 @@ func TestLargeInheritedRawStringEnumerationKeepsGroupOwnership(t *testing.T) {
 	derivedValues = append(derivedValues, "v10")
 
 	builder := NewBuilder(BuilderOptions{})
-	base, err := builder.Add(TypeSpec{
+	base, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(base, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveString,
 		Whitespace: WhitespacePreserve, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -122,7 +134,11 @@ func TestLargeInheritedRawStringEnumerationKeepsGroupOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	derived, err := builder.Add(TypeSpec{
+	derived, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(derived, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveString,
 		Whitespace: WhitespacePreserve, WhitespacePresent: true,
 		Base: base, ListItem: NoType,
@@ -199,7 +215,11 @@ func TestBase64CanonicalReadiness(t *testing.T) {
 
 func TestBase64EnumerationCompactsDocumentValueOnce(t *testing.T) {
 	builder := NewBuilder(BuilderOptions{})
-	id, err := builder.Add(TypeSpec{
+	id, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(id, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveBase64Binary,
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -241,29 +261,29 @@ func TestBase64EnumerationCompactsDocumentValueOnce(t *testing.T) {
 
 func TestBase64EqualityDoesNotMutateEitherOperand(t *testing.T) {
 	left := parsedValue{atom: atomicValue{
-		kind:   PrimitiveBase64Binary,
-		binary: BinaryValue{Canonical: " YQ=="},
+		kind:    PrimitiveBase64Binary,
+		lexical: lexicalValue{Canonical: " YQ=="},
 	}}
 	right := parsedValue{atom: atomicValue{
-		kind:   PrimitiveBase64Binary,
-		binary: BinaryValue{Canonical: "YQ=="},
+		kind:    PrimitiveBase64Binary,
+		lexical: lexicalValue{Canonical: "YQ=="},
 	}}
 	if !equalParsed(&left, &right) {
 		t.Fatal("equivalent unready base64 values were not equal")
 	}
-	if left.atom.binary.canonicalReady || right.atom.binary.canonicalReady {
+	if left.atom.lexical.canonicalReady || right.atom.lexical.canonicalReady {
 		t.Fatal("equality mutated an operand; preparation belongs to enumeration evaluation")
 	}
 }
 
 func TestBase64EnumerationPreparationOwnsDocumentValue(t *testing.T) {
 	value := parsedValue{atom: atomicValue{
-		kind:   PrimitiveBase64Binary,
-		binary: BinaryValue{Canonical: " YQ=="},
+		kind:    PrimitiveBase64Binary,
+		lexical: lexicalValue{Canonical: " YQ=="},
 	}}
 	literal := parsedValue{atom: atomicValue{
-		kind:   PrimitiveBase64Binary,
-		binary: BinaryValue{Canonical: "YQ==", canonicalReady: true},
+		kind:    PrimitiveBase64Binary,
+		lexical: lexicalValue{Canonical: "YQ==", canonicalReady: true},
 	}}
 	facets := facetProgram{
 		enumGroups: [][]parsedValue{{literal}},
@@ -272,17 +292,21 @@ func TestBase64EnumerationPreparationOwnsDocumentValue(t *testing.T) {
 	if err := applyEnumerationFacets(&facets, &value); err != nil {
 		t.Fatal(err)
 	}
-	if !value.atom.binary.canonicalReady || value.atom.binary.Canonical != "YQ==" {
-		t.Fatalf("prepared document value = %#v, want compact ready value", value.atom.binary)
+	if !value.atom.lexical.canonicalReady || value.atom.lexical.Canonical != "YQ==" {
+		t.Fatalf("prepared document value = %#v, want compact ready value", value.atom.lexical)
 	}
-	if !literal.atom.binary.canonicalReady || literal.atom.binary.Canonical != "YQ==" {
+	if !literal.atom.lexical.canonicalReady || literal.atom.lexical.Canonical != "YQ==" {
 		t.Fatal("enumeration preparation mutated the schema literal")
 	}
 }
 
 func TestBase64ListEnumerationPreparesRetainedItems(t *testing.T) {
 	builder := NewBuilder(BuilderOptions{})
-	itemID, err := builder.Add(TypeSpec{
+	itemID, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(itemID, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveBase64Binary,
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -290,7 +314,11 @@ func TestBase64ListEnumerationPreparesRetainedItems(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	listID, err := builder.Add(TypeSpec{
+	listID, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(listID, TypeSpec{
 		Variety: List, Primitive: PrimitiveBase64Binary,
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: itemID,
@@ -319,15 +347,19 @@ func TestBase64ListEnumerationPreparesRetainedItems(t *testing.T) {
 		t.Fatalf("retained list items = %d, want 2", len(value.items))
 	}
 	for i := range value.items {
-		if !value.items[i].atom.binary.canonicalReady {
-			t.Fatalf("item %d was not prepared: %#v", i, value.items[i].atom.binary)
+		if !value.items[i].atom.lexical.canonicalReady {
+			t.Fatalf("item %d was not prepared: %#v", i, value.items[i].atom.lexical)
 		}
 	}
 }
 
 func TestBase64EnumerationPreparesSelectedNestedUnionListLeaves(t *testing.T) {
 	builder := NewBuilder(BuilderOptions{})
-	base64ID, err := builder.Add(TypeSpec{
+	base64ID, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(base64ID, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveBase64Binary,
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -335,7 +367,11 @@ func TestBase64EnumerationPreparesSelectedNestedUnionListLeaves(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	itemUnionID, err := builder.Add(TypeSpec{
+	itemUnionID, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(itemUnionID, TypeSpec{
 		Variety: Union, Primitive: PrimitiveBase64Binary,
 		Union:      []TypeID{base64ID, builtinString},
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
@@ -344,7 +380,11 @@ func TestBase64EnumerationPreparesSelectedNestedUnionListLeaves(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	listID, err := builder.Add(TypeSpec{
+	listID, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(listID, TypeSpec{
 		Variety: List, Primitive: PrimitiveBase64Binary,
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: itemUnionID,
@@ -352,7 +392,11 @@ func TestBase64EnumerationPreparesSelectedNestedUnionListLeaves(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	outerID, err := builder.Add(TypeSpec{
+	outerID, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(outerID, TypeSpec{
 		Variety: Union, Primitive: PrimitiveBase64Binary,
 		Union:      []TypeID{listID, builtinString},
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
@@ -375,13 +419,13 @@ func TestBase64EnumerationPreparesSelectedNestedUnionListLeaves(t *testing.T) {
 		t.Fatalf("literal shape = (list=%t, items=%d), want two-item list", literal.isList, len(literal.items))
 	}
 	for i := range literal.items {
-		if literal.items[i].atom.kind != PrimitiveBase64Binary || !literal.items[i].atom.binary.canonicalReady {
+		if literal.items[i].atom.kind != PrimitiveBase64Binary || !literal.items[i].atom.lexical.canonicalReady {
 			t.Fatalf("literal item %d = %#v, want ready base64", i, literal.items[i])
 		}
 	}
 	literalCanonical := make([]string, len(literal.items))
 	for i := range literal.items {
-		literalCanonical[i] = literal.items[i].atom.binary.Canonical
+		literalCanonical[i] = literal.items[i].atom.lexical.Canonical
 	}
 
 	budget, err := newEvaluationBudget(16 << 20)
@@ -401,7 +445,7 @@ func TestBase64EnumerationPreparesSelectedNestedUnionListLeaves(t *testing.T) {
 		t.Fatalf("selected value = (selected=%d, list=%t, items=%d), want list %d with two items", value.selected, value.isList, len(value.items), listID)
 	}
 	for i := range value.items {
-		if value.items[i].atom.kind != PrimitiveBase64Binary || !value.items[i].atom.binary.canonicalReady {
+		if value.items[i].atom.kind != PrimitiveBase64Binary || !value.items[i].atom.lexical.canonicalReady {
 			t.Fatalf("document item %d = %#v, want prepared base64", i, value.items[i])
 		}
 	}
@@ -416,7 +460,7 @@ func TestBase64EnumerationPreparesSelectedNestedUnionListLeaves(t *testing.T) {
 		t.Fatalf("mixed base64/string list error = %v, want ErrFacet", err)
 	}
 	for i := range literal.items {
-		if literal.items[i].atom.binary.Canonical != literalCanonical[i] || !literal.items[i].atom.binary.canonicalReady {
+		if literal.items[i].atom.lexical.Canonical != literalCanonical[i] || !literal.items[i].atom.lexical.canonicalReady {
 			t.Fatalf("schema literal item %d changed after validation: %#v", i, literal.items[i])
 		}
 	}
@@ -424,7 +468,11 @@ func TestBase64EnumerationPreparesSelectedNestedUnionListLeaves(t *testing.T) {
 
 func TestInheritedBase64EnumerationKeepsLiteralsImmutable(t *testing.T) {
 	builder := NewBuilder(BuilderOptions{})
-	baseID, err := builder.Add(TypeSpec{
+	baseID, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(baseID, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveBase64Binary,
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -433,7 +481,20 @@ func TestInheritedBase64EnumerationKeepsLiteralsImmutable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	derivedID, err := builder.Add(TypeSpec{
+	derivedID, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(derivedID, TypeSpec{
+		Variety: Atomic, Primitive: PrimitiveBase64Binary,
+		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
+		Base: baseID, ListItem: NoType,
+		Facets: FacetSpec{Enumeration: []LiteralSpec{{Lexical: "Yg==", Type: NoType}}},
+	})
+	if !errors.Is(err, ErrFacet) || err.Error() != "enumeration facet cannot loosen base restriction" {
+		t.Fatalf("Complete(derived) error = %v, want base enumeration narrowing rejection", err)
+	}
+	err = builder.Complete(derivedID, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveBase64Binary,
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: baseID, ListItem: NoType,
@@ -452,10 +513,10 @@ func TestInheritedBase64EnumerationKeepsLiteralsImmutable(t *testing.T) {
 	}
 	literals := make([]string, 0, 2)
 	for groupIndex, group := range typ.facets.enumGroups {
-		if len(group) != 1 || !group[0].atom.binary.canonicalReady {
+		if len(group) != 1 || !group[0].atom.lexical.canonicalReady {
 			t.Fatalf("group %d literal = %#v, want one ready base64 literal", groupIndex, group)
 		}
-		literals = append(literals, group[0].atom.binary.Canonical)
+		literals = append(literals, group[0].atom.lexical.Canonical)
 	}
 	for _, input := range []string{"YQ==", " Y\n Q == "} {
 		got, err := program.Validate(derivedID, input, Resolver{}, NeedCanonical, 16<<20, nil)
@@ -467,7 +528,7 @@ func TestInheritedBase64EnumerationKeepsLiteralsImmutable(t *testing.T) {
 		}
 	}
 	for groupIndex, group := range typ.facets.enumGroups {
-		if group[0].atom.binary.Canonical != literals[groupIndex] || !group[0].atom.binary.canonicalReady {
+		if group[0].atom.lexical.Canonical != literals[groupIndex] || !group[0].atom.lexical.canonicalReady {
 			t.Fatalf("schema literal group %d changed: %#v", groupIndex, group[0])
 		}
 	}
@@ -519,4 +580,149 @@ func testStringEnumerationMiss(shape string) string {
 		return fmt.Sprintf("%s9999", strings.Repeat("prefix-", 8))
 	}
 	return "missing"
+}
+
+func TestBase64EmptyEnumerationAndRecovery(t *testing.T) {
+	builder := NewBuilder(BuilderOptions{})
+	id, err := builder.Reserve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if completeErr := builder.Complete(id, TypeSpec{
+		Variety: Atomic, Primitive: PrimitiveBase64Binary,
+		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
+		Base: NoType, ListItem: NoType,
+		Facets: FacetSpec{Enumeration: []LiteralSpec{{Lexical: "", Type: NoType}}},
+	}); completeErr != nil {
+		t.Fatal(completeErr)
+	}
+	program, err := builder.Seal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, bytes := range []bool{false, true} {
+		var scratch Scratch
+		for _, input := range []string{"", " \t\r\n", "YQ==", ""} {
+			var got Value
+			if bytes {
+				got, err = program.ValidateBytes(id, []byte(input), Resolver{}, NeedCanonical, 16<<20, &scratch)
+			} else {
+				got, err = program.Validate(id, input, Resolver{}, NeedCanonical, 16<<20, &scratch)
+			}
+			if input == "YQ==" {
+				if !errors.Is(err, ErrFacet) || err.Error() != "enumeration facet failed" {
+					t.Fatalf("bytes=%t input=%q: error=%v, want enumeration rejection", bytes, input, err)
+				}
+			} else if err != nil || got.CanonicalText() != "" {
+				t.Fatalf("bytes=%t input=%q: canonical=%q error=%v, want empty", bytes, input, got.CanonicalText(), err)
+			}
+		}
+	}
+}
+
+func TestExplicitBase64EnumerationPreservesUnionSelection(t *testing.T) {
+	for _, base64First := range []bool{true, false} {
+		builder := NewBuilder(BuilderOptions{})
+		id, err := builder.Reserve()
+		if err != nil {
+			t.Fatal(err)
+		}
+		members := []TypeID{BuiltinType(PrimitiveBase64Binary), BuiltinType(PrimitiveString)}
+		if !base64First {
+			members[0], members[1] = members[1], members[0]
+		}
+		if completeErr := builder.Complete(id, TypeSpec{
+			Variety: Union, Primitive: PrimitiveString,
+			Whitespace: WhitespaceCollapse, WhitespacePresent: true,
+			Base: NoType, ListItem: NoType, Union: members,
+			Facets: FacetSpec{Enumeration: []LiteralSpec{{Lexical: "YQ==", Type: BuiltinType(PrimitiveBase64Binary)}}},
+		}); completeErr != nil {
+			t.Fatal(completeErr)
+		}
+		program, err := builder.Seal()
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, bytes := range []bool{false, true} {
+			for _, input := range []string{"YQ==", " Y Q == "} {
+				var got Value
+				if bytes {
+					got, err = program.ValidateBytes(id, []byte(input), Resolver{}, NeedCanonical, 16<<20, nil)
+				} else {
+					got, err = program.Validate(id, input, Resolver{}, NeedCanonical, 16<<20, nil)
+				}
+				if !base64First {
+					if !errors.Is(err, ErrFacet) || err.Error() != "enumeration facet failed" {
+						t.Fatalf("string-first bytes=%t input=%q: error=%v, want enumeration rejection", bytes, input, err)
+					}
+				} else if err != nil || got.SelectedType() != BuiltinType(PrimitiveBase64Binary) || got.CanonicalText() != "YQ==" {
+					t.Fatalf("base64-first bytes=%t input=%q: selected=%d canonical=%q error=%v", bytes, input, got.SelectedType(), got.CanonicalText(), err)
+				}
+			}
+		}
+	}
+}
+
+func TestBase64PaddingAdmissionContract(t *testing.T) {
+	program, err := NewBuilder(BuilderOptions{}).Seal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := BuiltinType(PrimitiveBase64Binary)
+	for _, tc := range []struct {
+		name, lexical, canonical, message string
+		length                            uint32
+	}{
+		{name: "one padding low bits", lexical: "YWF=", message: "invalid base64Binary"},
+		{name: "excess padding", lexical: "A===", message: "invalid base64Binary"},
+		{name: "whitespace between pads", lexical: "YQ= \t=", canonical: "YQ==", length: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed, parseErr := ParseBinaryValue(PrimitiveBase64Binary, tc.lexical, PrimitiveNeedCanonical)
+			if tc.message != "" {
+				if parseErr == nil || parseErr.Error() != tc.message {
+					t.Fatalf("ParseBinaryValue error = %v, want %q", parseErr, tc.message)
+				}
+			} else if parseErr != nil || parsed.Canonical != tc.canonical || parsed.Length != tc.length {
+				t.Fatalf("ParseBinaryValue = %#v, %v; want canonical %q, length %d", parsed, parseErr, tc.canonical, tc.length)
+			}
+			for _, needs := range []Needs{0, NeedCanonical | NeedIdentity} {
+				for _, bytesInput := range []bool{false, true} {
+					var got Value
+					var validationErr error
+					if bytesInput {
+						got, validationErr = program.ValidateBytes(id, []byte(tc.lexical), Resolver{}, needs, 16<<20, nil)
+					} else {
+						got, validationErr = program.Validate(id, tc.lexical, Resolver{}, needs, 16<<20, nil)
+					}
+					if tc.message != "" {
+						if validationErr == nil || validationErr.Error() != tc.message {
+							t.Fatalf("bytes=%t needs=%d: error = %v, want %q", bytesInput, needs, validationErr, tc.message)
+						}
+						continue
+					}
+					if validationErr != nil {
+						t.Fatal(validationErr)
+					}
+					if needs != 0 && (got.CanonicalText() != tc.canonical || got.IdentityKey() != "\x0f\x1eYQ==") {
+						t.Fatalf("projections = %q, %q; want %q and base64 identity", got.CanonicalText(), got.IdentityKey(), tc.canonical)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestBinaryParserRejectsMisplacedPaddingAndInvalidAlphabet(t *testing.T) {
+	for _, input := range []string{"Y=Q=", "A@=="} {
+		for _, needs := range []PrimitiveValueNeed{0, PrimitiveNeedCanonical} {
+			got, err := ParseBinaryValue(PrimitiveBase64Binary, input, needs)
+			if err == nil || err.Error() != "invalid base64Binary" {
+				t.Fatalf("input=%q needs=%d error = %v, want invalid base64Binary", input, needs, err)
+			}
+			if got != (BinaryValue{}) {
+				t.Fatalf("input=%q needs=%d value = %#v, want zero after failure", input, needs, got)
+			}
+		}
+	}
 }

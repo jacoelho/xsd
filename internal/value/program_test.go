@@ -9,7 +9,11 @@ import (
 
 func TestProgramReservesBuiltinsAndEvaluatesDecimalFacets(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	id, err := b.Add(TypeSpec{
+	id, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(id, TypeSpec{
 		Variety:           Atomic,
 		Primitive:         PrimitiveDecimal,
 		Whitespace:        WhitespaceCollapse,
@@ -49,7 +53,11 @@ func TestProgramListUnionAndPatternGroups(t *testing.T) {
 		t.Fatal(err)
 	}
 	b := NewBuilder(BuilderOptions{})
-	item, err := b.Add(TypeSpec{
+	item, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(item, TypeSpec{
 		Variety:           Atomic,
 		Primitive:         PrimitiveDecimal,
 		Whitespace:        WhitespaceCollapse,
@@ -60,7 +68,11 @@ func TestProgramListUnionAndPatternGroups(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	list, err := b.Add(TypeSpec{
+	list, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(list, TypeSpec{
 		Variety:           List,
 		ListItem:          item,
 		Whitespace:        WhitespaceCollapse,
@@ -71,7 +83,11 @@ func TestProgramListUnionAndPatternGroups(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	union, err := b.Add(TypeSpec{
+	union, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(union, TypeSpec{
 		Variety:           Union,
 		Union:             []TypeID{item, BuiltinType(PrimitiveString)},
 		Whitespace:        WhitespaceCollapse,
@@ -105,7 +121,11 @@ func TestProgramListUnionAndPatternGroups(t *testing.T) {
 
 func TestProgramListEnumerationRetainsOnlyFacetComparisonState(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	item, err := b.Add(TypeSpec{
+	item, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(item, TypeSpec{
 		Variety:           Atomic,
 		Primitive:         PrimitiveDecimal,
 		Whitespace:        WhitespaceCollapse,
@@ -116,7 +136,11 @@ func TestProgramListEnumerationRetainsOnlyFacetComparisonState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	list, err := b.Add(TypeSpec{
+	list, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(list, TypeSpec{
 		Variety:           List,
 		Whitespace:        WhitespaceCollapse,
 		WhitespacePresent: true,
@@ -144,7 +168,11 @@ func TestProgramListEnumerationRetainsOnlyFacetComparisonState(t *testing.T) {
 
 func TestProgramListDoesNotTreatUnicodeBytesAsWhitespace(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	item, err := b.Add(TypeSpec{
+	item, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(item, TypeSpec{
 		Variety:           Atomic,
 		Primitive:         PrimitiveString,
 		Whitespace:        WhitespaceCollapse,
@@ -155,7 +183,11 @@ func TestProgramListDoesNotTreatUnicodeBytesAsWhitespace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	list, err := b.Add(TypeSpec{
+	list, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(list, TypeSpec{
 		Variety:           List,
 		Whitespace:        WhitespaceCollapse,
 		WhitespacePresent: true,
@@ -177,7 +209,11 @@ func TestProgramListDoesNotTreatUnicodeBytesAsWhitespace(t *testing.T) {
 
 func TestProgramDoesNotMaterializeUnrequestedProjections(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	id, err := b.Add(TypeSpec{
+	id, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(id, TypeSpec{
 		Variety:           Atomic,
 		Primitive:         PrimitiveDecimal,
 		Whitespace:        WhitespaceCollapse,
@@ -203,7 +239,11 @@ func TestProgramDoesNotMaterializeUnrequestedProjections(t *testing.T) {
 
 func TestProgramRejectsInvalidUTF8AndXMLCharacters(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	id, err := b.Add(TypeSpec{
+	id, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(id, TypeSpec{
 		Variety:           Atomic,
 		Primitive:         PrimitiveString,
 		Whitespace:        WhitespacePreserve,
@@ -228,7 +268,11 @@ func TestProgramRejectsInvalidUTF8AndXMLCharacters(t *testing.T) {
 
 func TestProgramEqualRequiresExplicitIdentityProjection(t *testing.T) {
 	stringBuilder := NewBuilder(BuilderOptions{})
-	stringID, err := stringBuilder.Add(TypeSpec{
+	stringID, err := stringBuilder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = stringBuilder.Complete(stringID, TypeSpec{
 		Variety:           Atomic,
 		Primitive:         PrimitiveString,
 		Whitespace:        WhitespacePreserve,
@@ -239,7 +283,11 @@ func TestProgramEqualRequiresExplicitIdentityProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	decimalID, err := stringBuilder.Add(TypeSpec{
+	decimalID, err := stringBuilder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = stringBuilder.Complete(decimalID, TypeSpec{
 		Variety:           Atomic,
 		Primitive:         PrimitiveDecimal,
 		Whitespace:        WhitespaceCollapse,
@@ -280,7 +328,11 @@ func TestProgramEqualRequiresExplicitIdentityProjection(t *testing.T) {
 
 func TestProgramEqualityDistinguishesEmptyListFromEmptyString(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	item, err := b.Add(TypeSpec{
+	item, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(item, TypeSpec{
 		Variety:           Atomic,
 		Primitive:         PrimitiveString,
 		Whitespace:        WhitespaceCollapse,
@@ -291,7 +343,11 @@ func TestProgramEqualityDistinguishesEmptyListFromEmptyString(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	list, err := b.Add(TypeSpec{
+	list, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(list, TypeSpec{
 		Variety:           List,
 		Whitespace:        WhitespaceCollapse,
 		WhitespacePresent: true,
@@ -301,7 +357,11 @@ func TestProgramEqualityDistinguishesEmptyListFromEmptyString(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stringType, err := b.Add(TypeSpec{
+	stringType, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(stringType, TypeSpec{
 		Variety:           Atomic,
 		Primitive:         PrimitiveString,
 		Whitespace:        WhitespacePreserve,
@@ -334,31 +394,27 @@ func TestProgramEqualityDistinguishesEmptyListFromEmptyString(t *testing.T) {
 
 func TestProgramCompilesForwardBaseFacetsBeforeDerived(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	baseID := BuiltinTypeCount + 1
-	derivedID, err := b.Add(TypeSpec{
-		Variety:           Atomic,
-		Primitive:         PrimitiveDecimal,
-		Whitespace:        WhitespaceCollapse,
-		WhitespacePresent: true,
-		Base:              baseID,
-		ListItem:          NoType,
-	})
-	if err != nil {
+	derivedID, reserveErr := b.Reserve()
+	if reserveErr != nil {
+		t.Fatal(reserveErr)
+	}
+	baseID, reserveErr := b.Reserve()
+	if reserveErr != nil {
+		t.Fatal(reserveErr)
+	}
+	if derivedID != BuiltinTypeCount || baseID != BuiltinTypeCount+1 {
+		t.Fatalf("reserved IDs = %d, %d", derivedID, baseID)
+	}
+	if err := b.Complete(baseID, TypeSpec{
+		Variety: Atomic, Primitive: PrimitiveDecimal, Whitespace: WhitespaceCollapse, WhitespacePresent: true,
+		Base: NoType, ListItem: NoType,
+		Facets: FacetSpec{MinInclusive: BoundFacet{LiteralSpec: LiteralSpec{Lexical: "10", Type: NoType}, Present: true}},
+	}); err != nil {
 		t.Fatal(err)
 	}
-	if derivedID != BuiltinTypeCount {
-		t.Fatalf("derived ID = %d, want %d", derivedID, BuiltinTypeCount)
-	}
-	if _, err = b.Add(TypeSpec{
-		Variety:           Atomic,
-		Primitive:         PrimitiveDecimal,
-		Whitespace:        WhitespaceCollapse,
-		WhitespacePresent: true,
-		Base:              NoType,
-		ListItem:          NoType,
-		Facets: FacetSpec{
-			MinInclusive: BoundFacet{LiteralSpec: LiteralSpec{Lexical: "10", Type: NoType}, Present: true},
-		},
+	if err := b.Complete(derivedID, TypeSpec{
+		Variety: Atomic, Primitive: PrimitiveDecimal, Whitespace: WhitespaceCollapse, WhitespacePresent: true,
+		Base: baseID, ListItem: NoType,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -373,32 +429,26 @@ func TestProgramCompilesForwardBaseFacetsBeforeDerived(t *testing.T) {
 
 func TestProgramDepthLimitIsExplicit(t *testing.T) {
 	b := NewBuilder(BuilderOptions{MaxDepth: 1})
-	future := BuiltinTypeCount + 1
-	if _, err := b.Add(TypeSpec{
-		Variety:           Union,
-		Base:              NoType,
-		ListItem:          NoType,
-		Union:             []TypeID{future},
-		Whitespace:        WhitespacePreserve,
-		WhitespacePresent: true,
-	}); err != nil {
+	union, reserveErr := b.Reserve()
+	if reserveErr != nil {
+		t.Fatal(reserveErr)
+	}
+	future, reserveErr := b.Reserve()
+	if reserveErr != nil {
+		t.Fatal(reserveErr)
+	}
+	if err := b.Complete(future, TypeSpec{Variety: Atomic, Primitive: PrimitiveString, Whitespace: WhitespacePreserve, WhitespacePresent: true, Base: NoType, ListItem: NoType}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := b.Add(TypeSpec{
-		Variety:           Atomic,
-		Primitive:         PrimitiveString,
-		Whitespace:        WhitespacePreserve,
-		WhitespacePresent: true,
-		Base:              NoType,
-		ListItem:          NoType,
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := b.Seal(); !errors.Is(err, ErrLimit) {
-		t.Fatalf("Seal error = %v, want ErrLimit", err)
+	if err := b.Complete(union, TypeSpec{Variety: Union, Base: NoType, ListItem: NoType, Union: []TypeID{future}, Whitespace: WhitespacePreserve, WhitespacePresent: true}); !errors.Is(err, ErrLimit) {
+		t.Fatalf("Complete error = %v, want ErrLimit", err)
 	}
 	b = NewBuilder(BuilderOptions{MaxDepth: 1})
-	id, err := b.Add(TypeSpec{
+	id, reserveErr := b.Reserve()
+	if reserveErr != nil {
+		t.Fatalf("Reserve() error = %v", reserveErr)
+	}
+	err := b.Complete(id, TypeSpec{
 		Variety:           Union,
 		Whitespace:        WhitespacePreserve,
 		WhitespacePresent: true,
@@ -420,7 +470,11 @@ func TestProgramDepthLimitIsExplicit(t *testing.T) {
 
 func TestProgramEvaluationWorkLimitCountsUnionAttempts(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	id, err := b.Add(TypeSpec{
+	id, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(id, TypeSpec{
 		Variety:           Union,
 		Union:             []TypeID{BuiltinType(PrimitiveDecimal), BuiltinType(PrimitiveString)},
 		Whitespace:        WhitespaceCollapse,
@@ -446,7 +500,11 @@ func TestProgramBoundsFacetDependencyDepthAndStorage(t *testing.T) {
 	}
 
 	b := NewBuilder(BuilderOptions{MaxDepth: 1})
-	derived, err := b.Add(TypeSpec{
+	derived, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(derived, TypeSpec{
 		Variety:           Atomic,
 		Primitive:         PrimitiveDecimal,
 		Whitespace:        WhitespaceCollapse,
@@ -461,7 +519,11 @@ func TestProgramBoundsFacetDependencyDepthAndStorage(t *testing.T) {
 		t.Fatalf("derived id = %d, want %d", derived, BuiltinTypeCount)
 	}
 	base := BuiltinTypeCount + 1
-	if _, err := b.Add(TypeSpec{
+	fixtureType23, reserveErr23 := b.Reserve()
+	if reserveErr23 != nil {
+		t.Fatalf("Reserve() error = %v", reserveErr23)
+	}
+	if err := b.Complete(fixtureType23, TypeSpec{
 		Variety:           Atomic,
 		Primitive:         PrimitiveDecimal,
 		Whitespace:        WhitespaceCollapse,
@@ -471,7 +533,11 @@ func TestProgramBoundsFacetDependencyDepthAndStorage(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := b.Add(TypeSpec{
+	fixtureType24, reserveErr24 := b.Reserve()
+	if reserveErr24 != nil {
+		t.Fatalf("Reserve() error = %v", reserveErr24)
+	}
+	if err := b.Complete(fixtureType24, TypeSpec{
 		Variety:           Atomic,
 		Primitive:         PrimitiveDecimal,
 		Whitespace:        WhitespaceCollapse,
@@ -482,16 +548,17 @@ func TestProgramBoundsFacetDependencyDepthAndStorage(t *testing.T) {
 			Present:     true,
 			LiteralSpec: LiteralSpec{Lexical: "1", Type: base},
 		}},
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := b.Seal(); !errors.Is(err, ErrLimit) {
-		t.Fatalf("Seal facet dependency over depth budget = %v, want ErrLimit", err)
+	}); !errors.Is(err, ErrLimit) {
+		t.Fatalf("Complete facet dependency over depth budget = %v, want ErrLimit", err)
 	}
 
 	emptyLiterals := make([]LiteralSpec, 64)
 	b = NewBuilder(BuilderOptions{MaxStorageBytes: 512 + 32*uint64(len(emptyLiterals)) - 1})
-	if _, err := b.Add(TypeSpec{
+	fixtureType25, reserveErr25 := b.Reserve()
+	if reserveErr25 != nil {
+		t.Fatalf("Reserve() error = %v", reserveErr25)
+	}
+	if err := b.Complete(fixtureType25, TypeSpec{
 		Variety:           Atomic,
 		Primitive:         PrimitiveString,
 		Whitespace:        WhitespacePreserve,
@@ -500,30 +567,35 @@ func TestProgramBoundsFacetDependencyDepthAndStorage(t *testing.T) {
 		ListItem:          NoType,
 		Facets:            FacetSpec{Enumeration: emptyLiterals},
 	}); !errors.Is(err, ErrLimit) {
-		t.Fatalf("Add oversized empty enumeration = %v, want ErrLimit", err)
+		t.Fatalf("Complete oversized empty enumeration = %v, want ErrLimit", err)
 	}
 }
 
 func TestProgramRejectsMissingUnionMember(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	if _, err := b.Add(TypeSpec{
+	reservedID, reserveErr := b.Reserve()
+	if reserveErr != nil {
+		t.Fatalf("Reserve() error = %v", reserveErr)
+	}
+	if err := b.Complete(reservedID, TypeSpec{
 		Variety:           Union,
 		Union:             []TypeID{NoType},
 		Whitespace:        WhitespaceCollapse,
 		WhitespacePresent: true,
 		Base:              NoType,
 		ListItem:          NoType,
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := b.Seal(); !errors.Is(err, ErrMetadata) {
+	}); !errors.Is(err, ErrMetadata) {
 		t.Fatalf("Seal missing union member = %v, want ErrMetadata", err)
 	}
 }
 
 func TestProgramQNameLengthFacetIsAlwaysSatisfied(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	id, err := b.Add(TypeSpec{
+	id, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(id, TypeSpec{
 		Variety:           Atomic,
 		Primitive:         PrimitiveQName,
 		Whitespace:        WhitespaceCollapse,
@@ -547,7 +619,11 @@ func TestProgramQNameLengthFacetIsAlwaysSatisfied(t *testing.T) {
 	}
 
 	b = NewBuilder(BuilderOptions{})
-	if _, err := b.Add(TypeSpec{
+	reservedID, reserveErr := b.Reserve()
+	if reserveErr != nil {
+		t.Fatalf("Reserve() error = %v", reserveErr)
+	}
+	if err := b.Complete(reservedID, TypeSpec{
 		Variety:           Atomic,
 		Primitive:         PrimitiveDecimal,
 		Whitespace:        WhitespaceCollapse,
@@ -555,10 +631,7 @@ func TestProgramQNameLengthFacetIsAlwaysSatisfied(t *testing.T) {
 		Base:              NoType,
 		ListItem:          NoType,
 		Facets:            FacetSpec{Length: CardinalityFacet{Value: 1, Present: true}},
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := b.Seal(); err == nil {
+	}); err == nil {
 		t.Fatal("decimal length facet was accepted")
 	}
 }
@@ -569,7 +642,11 @@ func TestProgramAcceptsCompiledXSDRegexPattern(t *testing.T) {
 		t.Fatal(err)
 	}
 	b := NewBuilder(BuilderOptions{})
-	id, err := b.Add(TypeSpec{
+	id, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(id, TypeSpec{
 		Variety:           Atomic,
 		Primitive:         PrimitiveString,
 		Whitespace:        WhitespacePreserve,
@@ -606,11 +683,19 @@ func TestProgramQNameAndNotationResolver(t *testing.T) {
 		Notation: func(ns, local string) bool { return ns == "urn:test" && local == "item" },
 	}
 	b := NewBuilder(BuilderOptions{})
-	qname, err := b.Add(TypeSpec{Variety: Atomic, Primitive: PrimitiveQName, Whitespace: WhitespaceCollapse, WhitespacePresent: true, Base: NoType, ListItem: NoType})
+	qname, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(qname, TypeSpec{Variety: Atomic, Primitive: PrimitiveQName, Whitespace: WhitespaceCollapse, WhitespacePresent: true, Base: NoType, ListItem: NoType})
 	if err != nil {
 		t.Fatal(err)
 	}
-	notation, err := b.Add(TypeSpec{Variety: Atomic, Primitive: PrimitiveNotation, Whitespace: WhitespaceCollapse, WhitespacePresent: true, Base: NoType, ListItem: NoType})
+	notation, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(notation, TypeSpec{Variety: Atomic, Primitive: PrimitiveNotation, Whitespace: WhitespaceCollapse, WhitespacePresent: true, Base: NoType, ListItem: NoType})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -630,7 +715,11 @@ func TestProgramQNameAndNotationResolver(t *testing.T) {
 
 func TestProgramNotationOnlyResolverValidatesAndStoresExpandedName(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	notation, err := b.Add(TypeSpec{
+	notation, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(notation, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveNotation,
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -737,7 +826,11 @@ func TestUnionPreservesEarlierUnsupportedMemberError(t *testing.T) {
 	if !ok {
 		t.Fatal("missing ENTITY builtin")
 	}
-	id, err := b.Add(TypeSpec{
+	id, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(id, TypeSpec{
 		Variety: Union, Union: []TypeID{entity, BuiltinType(PrimitiveDecimal)},
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,

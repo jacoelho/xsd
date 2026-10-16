@@ -90,28 +90,17 @@ func (c *compiler) reserveIndexedComponentStorage() error {
 	return nil
 }
 
-type schemaContext struct {
-	viewKey          string
-	imports          map[string]bool
-	targetNS         string
-	adoptedTarget    bool
-	elementQualified bool
-	attrQualified    bool
-	blockDefault     DerivationMask
-	finalDefault     DerivationMask
-}
-
+// Compiler bindings borrow completed plan rows through deferred compilation.
 type schemaComponent struct {
-	doc *schemaDocument
-	ctx *schemaContext
+	ctx *schemaSetDocument
 	id  schemaNodeID
 }
 
 func (c schemaComponent) sourceNode() *schemaNode {
-	if c.doc == nil {
+	if c.ctx == nil {
 		return nil
 	}
-	return c.doc.node(c.id)
+	return c.ctx.doc.node(c.id)
 }
 
 type compilerIndexState struct {
@@ -124,14 +113,9 @@ type compilerIndexState struct {
 }
 
 type compilerBuildState struct {
-	simpleDone                map[QName]SimpleTypeID
-	complexDone               map[QName]ComplexTypeID
-	attributeDone             map[QName]AttributeID
 	attrGroupDone             map[QName]AttributeUseSetID
-	elementDone               map[QName]ElementID
 	localDone                 map[schemaNodeKey]ElementID
 	identityDeclared          map[schemaNodeKey]IdentityConstraintID
-	simpleListReach           simpleTypeListReachability
 	deferredAnonymousComplex  []deferredAnonymousComplex
 	pendingElementConstraints []pendingElementConstraint
 	unionMemberEntries        int
@@ -139,7 +123,7 @@ type compilerBuildState struct {
 
 type deferredAnonymousComplex struct {
 	node *schemaNode
-	ctx  *schemaContext
+	ctx  *schemaSetDocument
 	name QName
 	id   ComplexTypeID
 }
@@ -203,9 +187,6 @@ func newCompiler(limits Limits) (*compiler, error) {
 	if err != nil {
 		return nil, err
 	}
-	builtinSimpleTypeCount := BuiltinSimpleTypeCount()
-	builtinAttributeCount := BuiltinAttributeCount()
-	builtinComplexTypeCount := BuiltinComplexTypeCount()
 	rt := newSchemaBuild(names)
 	rt.valueBuilder = newSchemaValueBuilder(limits)
 	c := &compiler{
@@ -215,11 +196,7 @@ func newCompiler(limits Limits) (*compiler, error) {
 		attributeComponents:      make(map[QName]schemaComponent),
 		groupComponents:          make(map[QName]schemaComponent),
 		attributeGroupComponents: make(map[QName]schemaComponent),
-		simpleDone:               make(map[QName]SimpleTypeID, builtinSimpleTypeCount),
-		complexDone:              make(map[QName]ComplexTypeID, builtinComplexTypeCount),
-		attributeDone:            make(map[QName]AttributeID, builtinAttributeCount),
 		attrGroupDone:            make(map[QName]AttributeUseSetID),
-		elementDone:              make(map[QName]ElementID),
 		localDone:                make(map[schemaNodeKey]ElementID),
 		identityDeclared:         make(map[schemaNodeKey]IdentityConstraintID),
 		compilingSimple:          make(map[QName]bool),
@@ -348,13 +325,13 @@ func (c *compiler) validateCompiledComplexRestrictions() error {
 }
 
 func (c *compiler) validateComplexRestrictionModels() error {
-	for id := range c.rt.ComplexTypeCount() {
+	for id := range len(c.rt.ComplexTypes) {
 		ct := c.rt.complexType(ComplexTypeID(id))
-		if id == int(c.rt.builtinIDs().AnyType) || ct.Derivation != DerivationKindRestriction {
+		if id == int(c.rt.AnyType) || ct.Derivation != DerivationKindRestriction {
 			continue
 		}
 		baseID, ok := ct.Base.Complex()
-		if !ok || baseID == c.rt.builtinIDs().AnyType {
+		if !ok || baseID == c.rt.AnyType {
 			continue
 		}
 		base := c.rt.complexType(baseID)
@@ -399,23 +376,25 @@ func contentRestrictionCompileError(err error) error {
 }
 
 func complexBlockMaskWithDefault(n *schemaNode, def DerivationMask) (DerivationMask, error) {
-	return derivationMaskWithDefaultChecked(n, def, complexTypeBlockDerivation())
+	return derivationMaskWithDefaultChecked(n, semanticSource[*schemaComplexTypeSource](&n.semantic).Block, def, complexTypeBlockDerivation())
 }
 
 func simpleFinalMaskWithDefaultChecked(n *schemaNode, def DerivationMask) (DerivationMask, error) {
-	return derivationMaskWithDefaultChecked(n, def, simpleTypeFinalDerivation())
+	typedSource, ok := n.semantic.kind.(*schemaSimpleTypeSource)
+	if !ok || typedSource == nil {
+		return 0, withSchemaCompileLocation(n, xsderrors.InternalInvariant("simpleType node has no typed simpleType source"))
+	}
+	return derivationMaskWithDefaultChecked(n, typedSource.Final, def, simpleTypeFinalDerivation())
 }
 
-func derivationMaskWithDefaultChecked(n *schemaNode, def DerivationMask, rule DerivationAttrRule) (DerivationMask, error) {
-	mask, err := ParseDerivationAttrWithDefault(schemaLexicalAttribute(n, rule.Name), def, rule)
+func derivationMaskWithDefaultChecked(n *schemaNode, attr LexicalAttribute, def DerivationMask, rule DerivationAttrRule) (DerivationMask, error) {
+	mask, err := ParseDerivationAttrWithDefault(attr, def, rule)
 	return mask, withSchemaCompileLocation(n, err)
 }
 
-func (c *compiler) resolveQNameChecked(n *schemaNode, ctx *schemaContext, lexical string) (QName, error) {
-	name, err := n.resolveQName(lexical)
-	if err != nil {
-		return QName{}, err
-	}
+// referenceQName applies effective-context rules without changing the shared
+// admitted name when a chameleon source serves multiple target namespaces.
+func (c *compiler) referenceQName(n *schemaNode, ctx *schemaSetDocument, name xml.Name) (QName, error) {
 	namespace, err := checkReferenceNamespace(n, ctx, name.Space)
 	if err != nil {
 		return QName{}, err
@@ -518,7 +497,7 @@ func (c *compiler) compileSimpleByQName(q QName) (SimpleTypeID, error) {
 	if err := c.spendComponentDependency(sourceNode); err != nil {
 		return NoSimpleType, err
 	}
-	if id, ok := c.simpleDone[q]; ok {
+	if id, ok := c.rt.GlobalTypes[q].Simple(); ok {
 		return id, nil
 	}
 	if !exists {
@@ -536,13 +515,12 @@ func (c *compiler) compileSimpleByQName(q QName) (SimpleTypeID, error) {
 		ValueSpec: value.TypeSpec{
 			Variety: value.Atomic, Primitive: value.PrimitiveString,
 			Whitespace: value.WhitespacePreserve, WhitespacePresent: true,
-			Base: c.rt.builtinIDs().AnySimpleType, ListItem: value.NoType,
+			Base: value.AnySimpleTypeID, ListItem: value.NoType,
 		},
 	})
 	if err != nil {
 		return NoSimpleType, err
 	}
-	c.simpleDone[q] = id
 	st, err := c.compileSimpleType(raw.sourceNode(), raw.ctx, q)
 	if err != nil {
 		return NoSimpleType, err
@@ -566,7 +544,7 @@ func (c *compiler) rejectSimpleTypeCycle(q QName, label string) error {
 
 func (c *compiler) completeGlobalSimpleType(raw schemaComponent, q QName, id SimpleTypeID, st *SimpleType) error {
 	st.Name = q
-	final, err := simpleFinalMaskWithDefaultChecked(raw.sourceNode(), raw.ctx.finalDefault)
+	final, err := simpleFinalMaskWithDefaultChecked(raw.sourceNode(), raw.ctx.doc.defaults.FinalDefault)
 	if err != nil {
 		return err
 	}
@@ -577,7 +555,7 @@ func (c *compiler) completeGlobalSimpleType(raw schemaComponent, q QName, id Sim
 	return nil
 }
 
-func (c *compiler) compileAnonymousSimple(n *schemaNode, ctx *schemaContext) (SimpleTypeID, error) {
+func (c *compiler) compileAnonymousSimple(n *schemaNode, ctx *schemaSetDocument) (SimpleTypeID, error) {
 	if err := c.spendComponentDependency(n); err != nil {
 		return NoSimpleType, err
 	}
@@ -589,7 +567,7 @@ func (c *compiler) compileAnonymousSimple(n *schemaNode, ctx *schemaContext) (Si
 	if err = checkLocalSimpleTypeAttributes(n); err != nil {
 		return NoSimpleType, err
 	}
-	q, err := c.rt.internQName("", fmt.Sprintf("$simple%d", c.rt.SimpleTypeCount()))
+	q, err := c.rt.internQName("", fmt.Sprintf("$simple%d", len(c.rt.SimpleTypes)))
 	if err != nil {
 		return NoSimpleType, err
 	}
@@ -598,7 +576,7 @@ func (c *compiler) compileAnonymousSimple(n *schemaNode, ctx *schemaContext) (Si
 		ValueSpec: value.TypeSpec{
 			Variety: value.Atomic, Primitive: value.PrimitiveString,
 			Whitespace: value.WhitespacePreserve, WhitespacePresent: true,
-			Base: c.rt.builtinIDs().AnySimpleType, ListItem: value.NoType,
+			Base: value.AnySimpleTypeID, ListItem: value.NoType,
 		},
 	})
 	if err != nil {
@@ -609,7 +587,7 @@ func (c *compiler) compileAnonymousSimple(n *schemaNode, ctx *schemaContext) (Si
 		return NoSimpleType, err
 	}
 	st.Name = q
-	final, err := simpleFinalMaskWithDefaultChecked(n, ctx.finalDefault)
+	final, err := simpleFinalMaskWithDefaultChecked(n, ctx.doc.defaults.FinalDefault)
 	if err != nil {
 		return NoSimpleType, err
 	}
@@ -620,7 +598,7 @@ func (c *compiler) compileAnonymousSimple(n *schemaNode, ctx *schemaContext) (Si
 	return id, nil
 }
 
-func (c *compiler) compileSimpleType(n *schemaNode, ctx *schemaContext, name QName) (SimpleType, error) {
+func (c *compiler) compileSimpleType(n *schemaNode, ctx *schemaSetDocument, name QName) (SimpleType, error) {
 	if err := validateSimpleTypeChildren(n); err != nil {
 		return SimpleType{}, err
 	}
@@ -641,7 +619,7 @@ func (c *compiler) compileSimpleType(n *schemaNode, ctx *schemaContext, name QNa
 }
 
 func simpleTypeDerivationChild(n *schemaNode) *schemaNode {
-	for _, child := range typedXSDChildren(n) {
+	for child := range n.xsdChildren() {
 		if child.local == vocab.XSDElemAnnotation {
 			continue
 		}
@@ -651,7 +629,7 @@ func simpleTypeDerivationChild(n *schemaNode) *schemaNode {
 }
 
 func validateSimpleTypeChildren(n *schemaNode) error {
-	if err := checkChildOrderRules(n, simpleTypeChildOrder); err != nil {
+	if err := checkOrderedXSDChildren(n, simpleTypeChildOrder); err != nil {
 		return err
 	}
 	for child := range n.xsdChildren() {
@@ -663,25 +641,25 @@ func validateSimpleTypeChildren(n *schemaNode) error {
 	return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "simpleType must contain one restriction, list, or union")
 }
 
-func (c *compiler) compileRestriction(n *schemaNode, ctx *schemaContext, name QName) (SimpleType, error) {
-	if err := checkChildOrderRules(n, simpleRestrictionChildOrder); err != nil {
+func (c *compiler) compileRestriction(n *schemaNode, ctx *schemaSetDocument, name QName) (SimpleType, error) {
+	if err := checkOrderedXSDChildren(n, simpleRestrictionChildOrder); err != nil {
 		return SimpleType{}, err
 	}
 	baseID, err := c.compileRestrictionBase(n, ctx)
 	if err != nil {
 		return SimpleType{}, err
 	}
-	if err := CheckSimpleRestrictionBase(baseID, c.rt.builtinIDs().AnySimpleType); err != nil {
+	if err := CheckSimpleRestrictionBase(baseID, value.AnySimpleTypeID); err != nil {
 		return SimpleType{}, withSchemaCompileLocation(n, err)
 	}
 	if err := CheckSimpleTypeFinalAllows(c.rt.simpleTypeFinalMask(baseID), DerivationRestriction, SimpleTypeFinalBaseRestriction); err != nil {
 		return SimpleType{}, withSchemaCompileLocation(n, err)
 	}
 	st := c.rt.derivedSimpleType(baseID, name)
-	if err := c.compileRestrictionFacets(n, &st, baseID); err != nil {
+	if err := withSchemaCompileLocation(n, c.compileFacetChildren(n, &st, baseID)); err != nil {
 		return SimpleType{}, err
 	}
-	if st.ValueSpec.Variety == SimpleVarietyUnion {
+	if st.ValueSpec.Variety == value.Union {
 		if err := c.chargeSimpleUnionMemberEntries(n, len(st.ValueSpec.Union)); err != nil {
 			return SimpleType{}, err
 		}
@@ -689,7 +667,7 @@ func (c *compiler) compileRestriction(n *schemaNode, ctx *schemaContext, name QN
 	return st, nil
 }
 
-func (c *compiler) compileRestrictionBase(n *schemaNode, ctx *schemaContext) (SimpleTypeID, error) {
+func (c *compiler) compileRestrictionBase(n *schemaNode, ctx *schemaSetDocument) (SimpleTypeID, error) {
 	children := schemaSimpleTypeChildren(n)
 	if len(children) > 1 {
 		return NoSimpleType, xsderrors.InternalInvariant("restriction child validator admitted multiple simpleType children")
@@ -703,7 +681,7 @@ func (c *compiler) compileRestrictionBase(n *schemaNode, ctx *schemaContext) (Si
 		return NoSimpleType, withSchemaCompileLocation(n, err)
 	}
 	if base.Present {
-		q, err := c.resolveQNameChecked(n, ctx, base.Value)
+		q, err := c.referenceQName(n, ctx, baseSource.Name)
 		if err != nil {
 			return NoSimpleType, err
 		}
@@ -716,27 +694,20 @@ func (c *compiler) compileRestrictionBase(n *schemaNode, ctx *schemaContext) (Si
 	return NoSimpleType, nil
 }
 
-func (c *compiler) compileRestrictionFacets(n *schemaNode, st *SimpleType, base SimpleTypeID) error {
-	if c.rt.simpleTypeUnavailable[base] {
-		return withSchemaCompileLocation(n, c.validateUnavailableFacetChildren(typedXSDChildren(n), st, base, facetChildModeDerivation))
-	}
-	return withSchemaCompileLocation(n, c.compileFacets(n, st, base, base))
-}
-
-func (c *compiler) compileList(n *schemaNode, ctx *schemaContext, name QName) (SimpleType, error) {
-	if err := checkChildOrderRules(n, simpleListChildOrder); err != nil {
+func (c *compiler) compileList(n *schemaNode, ctx *schemaSetDocument, name QName) (SimpleType, error) {
+	if err := checkOrderedXSDChildren(n, simpleListChildOrder); err != nil {
 		return SimpleType{}, err
 	}
 	item := NoSimpleType
 	simpleTypeChildren := schemaSimpleTypeChildren(n)
-	itemTypeValue, itemTypePresent := schemaListItemType(n)
-	itemType := LexicalAttribute{Value: itemTypeValue, Present: itemTypePresent}
+	itemTypeSource := n.semantic.derivationItemType()
+	itemType := itemTypeSource.Lexical
 	if err := ValidateSimpleListItemTypeSource(SimpleListItemTypeSource{ItemType: itemType, HasSimpleTypeChild: len(simpleTypeChildren) != 0}); err != nil {
 		return SimpleType{}, withSchemaCompileLocation(n, err)
 	}
 	switch {
 	case itemType.Present:
-		id, err := c.compileListItemType(n, ctx, itemType.Value)
+		id, err := c.compileListItemType(n, ctx, itemTypeSource.Name)
 		if err != nil {
 			return SimpleType{}, err
 		}
@@ -764,13 +735,13 @@ func (c *compiler) compileList(n *schemaNode, ctx *schemaContext, name QName) (S
 		ValueSpec: value.TypeSpec{
 			Variety: value.List, Primitive: value.PrimitiveString,
 			Whitespace: value.WhitespaceCollapse, WhitespacePresent: true,
-			Base: c.rt.builtinIDs().AnySimpleType, ListItem: item,
+			Base: value.AnySimpleTypeID, ListItem: item,
 		},
 	}, nil
 }
 
-func (c *compiler) compileListItemType(n *schemaNode, ctx *schemaContext, itemType string) (SimpleTypeID, error) {
-	q, err := c.resolveQNameChecked(n, ctx, itemType)
+func (c *compiler) compileListItemType(n *schemaNode, ctx *schemaSetDocument, itemType xml.Name) (SimpleTypeID, error) {
+	q, err := c.referenceQName(n, ctx, itemType)
 	if err != nil {
 		return NoSimpleType, err
 	}
@@ -793,8 +764,8 @@ func (c *compiler) compileSimpleTypeReference(n *schemaNode, q QName) (SimpleTyp
 	return c.missingSimpleType()
 }
 
-func (c *compiler) compileUnion(n *schemaNode, ctx *schemaContext, name QName) (SimpleType, error) {
-	if err := checkChildOrderRules(n, simpleUnionChildOrder); err != nil {
+func (c *compiler) compileUnion(n *schemaNode, ctx *schemaSetDocument, name QName) (SimpleType, error) {
+	if err := checkOrderedXSDChildren(n, simpleUnionChildOrder); err != nil {
 		return SimpleType{}, err
 	}
 	compilation := simpleUnionCompilation{
@@ -805,7 +776,7 @@ func (c *compiler) compileUnion(n *schemaNode, ctx *schemaContext, name QName) (
 			ValueSpec: value.TypeSpec{
 				Variety: value.Union, Primitive: value.PrimitiveString,
 				Whitespace: value.WhitespaceCollapse, WhitespacePresent: true,
-				Base: c.rt.builtinIDs().AnySimpleType, ListItem: value.NoType,
+				Base: value.AnySimpleTypeID, ListItem: value.NoType,
 			},
 		},
 		seen: make(map[SimpleTypeID]struct{}),
@@ -845,17 +816,13 @@ func validateUnionMemberSource(n *schemaNode, memberCount, simpleTypeChildCount 
 
 type simpleUnionCompilation struct {
 	compiler *compiler
-	ctx      *schemaContext
+	ctx      *schemaSetDocument
 	seen     map[SimpleTypeID]struct{}
 	typeDef  SimpleType
 }
 
 func (c *simpleUnionCompilation) addNamedQName(node *schemaNode, name xml.Name) error {
-	namespace, err := checkReferenceNamespace(node, c.ctx, name.Space)
-	if err != nil {
-		return err
-	}
-	q, err := c.compiler.rt.internQName(namespace, name.Local)
+	q, err := c.compiler.referenceQName(node, c.ctx, name)
 	if err != nil {
 		return err
 	}
@@ -884,6 +851,7 @@ func (c *simpleUnionCompilation) add(node *schemaNode, id SimpleTypeID) error {
 	if !ok {
 		return withSchemaCompileLocation(node, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "simple union members exceed MaxSimpleUnionMemberEntries"))
 	}
+	c.typeDef.unionContainsList = c.typeDef.unionContainsList || c.compiler.simpleListItemReachesList(id)
 	return nil
 }
 

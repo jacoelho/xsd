@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" finalDefault="restriction"><xs:simpleType name="Base" final=""><xs:restriction base="xs:string"/></xs:simpleType><xs:simpleType name="Derived"><xs:restriction base="Base"/></xs:simpleType></xs:schema>

@@ -56,7 +56,11 @@ func BenchmarkAuditBase64EnumerationConstruction(b *testing.B) {
 				b.ReportAllocs()
 				b.SetBytes(int64(payloadSize * groupSize))
 				warmupBuilder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
-				warmupID, err := warmupBuilder.Add(valuepkg.TypeSpec{
+				warmupID, err := warmupBuilder.Reserve()
+				if err != nil {
+					b.Fatalf("Reserve() error = %v", err)
+				}
+				err = warmupBuilder.Complete(warmupID, valuepkg.TypeSpec{
 					Variety: valuepkg.Atomic, Primitive: valuepkg.PrimitiveBase64Binary,
 					Whitespace: valuepkg.WhitespaceCollapse, WhitespacePresent: true,
 					Base: valuepkg.NoType, ListItem: valuepkg.NoType,
@@ -75,7 +79,11 @@ func BenchmarkAuditBase64EnumerationConstruction(b *testing.B) {
 				b.ResetTimer()
 				for b.Loop() {
 					builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
-					id, err := builder.Add(valuepkg.TypeSpec{
+					id, err := builder.Reserve()
+					if err != nil {
+						b.Fatalf("Reserve() error = %v", err)
+					}
+					err = builder.Complete(id, valuepkg.TypeSpec{
 						Variety: valuepkg.Atomic, Primitive: valuepkg.PrimitiveBase64Binary,
 						Whitespace: valuepkg.WhitespaceCollapse, WhitespacePresent: true,
 						Base: valuepkg.NoType, ListItem: valuepkg.NoType,

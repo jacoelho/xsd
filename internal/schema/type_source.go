@@ -1,7 +1,6 @@
 package schema
 
 import (
-	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -57,25 +56,4 @@ func ValidateSimpleListItemTypeSource(source SimpleListItemTypeSource) error {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "list missing item type")
 	}
 	return nil
-}
-
-// UnionMemberTypeSource describes named and anonymous members of an xs:union.
-type UnionMemberTypeSource struct {
-	MemberTypes        LexicalAttribute
-	HasSimpleTypeChild bool
-}
-
-// ParseUnionMemberTypes parses the xs:union memberTypes attribute and validates
-// that the union has at least one member source.
-func ParseUnionMemberTypes(source UnionMemberTypeSource) ([]string, error) {
-	var members []string
-	if source.MemberTypes.Present {
-		for part := range lex.XMLFieldsSeq(source.MemberTypes.Value) {
-			members = append(members, part)
-		}
-	}
-	if len(members) == 0 && !source.HasSimpleTypeChild {
-		return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "union missing member types")
-	}
-	return members, nil
 }

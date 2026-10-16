@@ -323,7 +323,7 @@ func ValidateComplexTypeFinalAllows(final, derivation DerivationMask) error {
 
 // ValidateComplexTypeExtensionRuntime validates complex-type extension rules
 // that do not depend on attribute-use value-constraint equality.
-func ValidateComplexTypeExtensionRuntime(rt ContentModelRuntime, base, derived ComplexType, anyType ComplexTypeID) error {
+func ValidateComplexTypeExtensionRuntime(rt *schemaBuild, base, derived ComplexType, anyType ComplexTypeID) error {
 	if err := ValidateComplexTypeFinalAllows(base.Final, DerivationExtension); err != nil {
 		return err
 	}
@@ -345,16 +345,9 @@ func ValidateComplexTypeExtensionRuntime(rt ContentModelRuntime, base, derived C
 	return nil
 }
 
-// ComplexTypeSimpleBaseRuntime supplies runtime metadata needed to validate
-// complex-type extension from a simple-type base.
-type ComplexTypeSimpleBaseRuntime interface {
-	ContentModelRuntime
-	SimpleTypeFinalRuntime
-}
-
 // ValidateComplexTypeSimpleBaseExtensionRuntime validates complex-type
 // extension rules for complex types derived from a simple-type base.
-func ValidateComplexTypeSimpleBaseExtensionRuntime(rt ComplexTypeSimpleBaseRuntime, base SimpleTypeID, derived ComplexType) error {
+func ValidateComplexTypeSimpleBaseExtensionRuntime(rt *schemaBuild, base SimpleTypeID, derived ComplexType) error {
 	if derived.Derivation != DerivationKindExtension {
 		return errors.New("complex type with simple base is not an extension")
 	}
@@ -378,7 +371,7 @@ func ValidateComplexTypeSimpleBaseExtensionRuntime(rt ComplexTypeSimpleBaseRunti
 // rules that do not depend on content-particle restriction traversal or
 // attribute-use-set validation.
 func ValidateComplexTypeRestrictionRuntime(
-	rt TypeDerivationRuntime,
+	rt *schemaBuild,
 	analysis *ContentModelAnalysis,
 	base, derived ComplexType,
 	work func(int) error,
@@ -405,7 +398,7 @@ func ValidateComplexTypeRestrictionRuntime(
 // ValidateSimpleContentRestrictionTextType validates that a simple-content
 // restriction text type is derived from its simple-content base text type.
 func ValidateSimpleContentRestrictionTextType(
-	rt TypeDerivationRuntime,
+	rt *schemaBuild,
 	derived, base SimpleTypeID,
 	work func(int) error,
 ) error {
@@ -465,7 +458,7 @@ func ValidateComplexContentMixedDerivationBase(base ComplexType, derivation Deri
 	return nil
 }
 
-func contentModelKind(rt ContentModelRuntime, id ContentModelID, kind ModelKind) bool {
-	model, ok := rt.ContentModel(id)
+func contentModelKind(rt *schemaBuild, id ContentModelID, kind ModelKind) bool {
+	model, ok := ContentModelByID(rt.Models, id)
 	return ok && model.Kind == kind
 }

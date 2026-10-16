@@ -1,19 +1,24 @@
 package schema
 
-import "github.com/jacoelho/xsd/xsderrors"
+import (
+	"encoding/xml"
+
+	"github.com/jacoelho/xsd/internal/vocab"
+	"github.com/jacoelho/xsd/xsderrors"
+)
 
 func (c *compiler) contentModel(id ContentModelID, msg string) (ContentModel, error) {
-	model, ok := c.rt.ContentModel(id)
+	model, ok := ContentModelByID(c.rt.Models, id)
 	if !ok {
 		return ContentModel{}, xsderrors.InternalInvariant(msg)
 	}
 	return model, nil
 }
 
-func (c *compiler) compileModel(n *schemaNode, ctx *schemaContext) (ContentModelID, error) {
-	if n.kind == schemaKindGroup {
-		if ref, ok := schemaGroupRef(n); ok {
-			return c.compileModelGroupRef(n, ctx, ref)
+func (c *compiler) compileModel(n *schemaNode, ctx *schemaSetDocument) (ContentModelID, error) {
+	if n.local == vocab.XSDElemGroup {
+		if source := semanticSource[*schemaGroupSource](&n.semantic); source != nil && source.Ref.Lexical.Present {
+			return c.compileModelGroupRef(n, ctx, source.Ref.Name)
 		}
 	}
 	if id, done, err := c.existingModel(n, ctx); done || err != nil {
@@ -43,7 +48,7 @@ func (c *compiler) compileModel(n *schemaNode, ctx *schemaContext) (ContentModel
 	return id, nil
 }
 
-func (c *compiler) existingModel(n *schemaNode, ctx *schemaContext) (ContentModelID, bool, error) {
+func (c *compiler) existingModel(n *schemaNode, ctx *schemaSetDocument) (ContentModelID, bool, error) {
 	id, ok := c.modelDone[nodeKey(n, ctx)]
 	if !ok {
 		return NoContentModel, false, nil
@@ -55,7 +60,7 @@ func (c *compiler) existingModel(n *schemaNode, ctx *schemaContext) (ContentMode
 	return NoContentModel, true, withSchemaCompileLocation(n, err)
 }
 
-func (c *compiler) compileModelValue(n *schemaNode, ctx *schemaContext) (ContentModel, error) {
+func (c *compiler) compileModelValue(n *schemaNode, ctx *schemaSetDocument) (ContentModel, error) {
 	kind, err := modelKindForNode(n)
 	if err != nil {
 		return ContentModel{}, err
@@ -76,7 +81,7 @@ func (c *compiler) compileModelValue(n *schemaNode, ctx *schemaContext) (Content
 	return m, nil
 }
 
-func (c *compiler) compileModelGroupRef(n *schemaNode, ctx *schemaContext, ref string) (ContentModelID, error) {
+func (c *compiler) compileModelGroupRef(n *schemaNode, ctx *schemaSetDocument, ref xml.Name) (ContentModelID, error) {
 	source, err := c.resolveModelGroupRef(n, ctx, ref)
 	if err != nil {
 		return NoContentModel, err
@@ -101,12 +106,12 @@ type modelGroupRefSource struct {
 	q         QName
 }
 
-func (c *compiler) resolveModelGroupRef(n *schemaNode, ctx *schemaContext, ref string) (modelGroupRefSource, error) {
+func (c *compiler) resolveModelGroupRef(n *schemaNode, ctx *schemaSetDocument, ref xml.Name) (modelGroupRefSource, error) {
 	occurs, err := parseOccurs(n, c.limits)
 	if err != nil {
 		return modelGroupRefSource{}, err
 	}
-	q, err := c.resolveQNameChecked(n, ctx, ref)
+	q, err := c.referenceQName(n, ctx, ref)
 	if err != nil {
 		return modelGroupRefSource{}, err
 	}
@@ -148,7 +153,7 @@ func (c *compiler) applyModelGroupOccurrence(n *schemaNode, id ContentModelID, o
 	return c.addModelAt(model, n)
 }
 
-func (c *compiler) recursiveModelGroupRef(q QName, id ContentModelID, occurs Occurrence, modelNode *schemaNode, ctx *schemaContext) (ContentModelID, error) {
+func (c *compiler) recursiveModelGroupRef(q QName, id ContentModelID, occurs Occurrence, modelNode *schemaNode, ctx *schemaSetDocument) (ContentModelID, error) {
 	if c.elementDepth <= c.modelDepth[nodeKey(modelNode, ctx)] {
 		err := SchemaComponentRecursionError(SchemaComponentModelGroup, c.rt.formatName(q))
 		return NoContentModel, withSchemaCompileLocation(modelNode, err)
@@ -168,9 +173,9 @@ func modelKindForNode(n *schemaNode) (ModelKind, error) {
 	return 0, withSchemaCompileLocation(n, xsderrors.InternalInvariant("model node has no typed model kind"))
 }
 
-func (c *compiler) compileModelChildren(n *schemaNode, ctx *schemaContext, m *ContentModel) error {
-	for _, child := range schemaModelChildren(n) {
-		if child.kind == schemaKindAnnotation {
+func (c *compiler) compileModelChildren(n *schemaNode, ctx *schemaSetDocument, m *ContentModel) error {
+	for child := range n.xsdChildren() {
+		if child.local == vocab.XSDElemAnnotation {
 			continue
 		}
 		if err := c.appendModelChild(m, child, ctx); err != nil {
@@ -180,28 +185,27 @@ func (c *compiler) compileModelChildren(n *schemaNode, ctx *schemaContext, m *Co
 	return nil
 }
 
-func (c *compiler) appendModelChild(m *ContentModel, child *schemaNode, ctx *schemaContext) error {
-	switch child.kind {
-	case schemaKindElement:
+func (c *compiler) appendModelChild(m *ContentModel, child *schemaNode, ctx *schemaSetDocument) error {
+	switch child.local {
+	case vocab.XSDElemElement:
 		p, err := c.compileElementParticle(child, ctx)
 		if err != nil {
 			return err
 		}
 		return withSchemaCompileLocation(child, AppendParticle(m, p))
-	case schemaKindAny:
+	case vocab.XSDElemAny:
 		p, err := c.compileWildcardParticle(child, ctx)
 		if err != nil {
 			return err
 		}
 		return withSchemaCompileLocation(child, AppendParticle(m, p))
-	case schemaKindSequence, schemaKindChoice, schemaKindAll, schemaKindGroup:
+	case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll, vocab.XSDElemGroup:
 		return c.appendNestedModelChild(m, child, ctx)
-	case schemaKindForeign, schemaKindXSD, schemaKindSchema, schemaKindSimpleType, schemaKindComplexType, schemaKindAttribute, schemaKindAttributeGroup, schemaKindNotation, schemaKindAnnotation, schemaKindInclude, schemaKindImport, schemaKindAnyAttribute:
 	}
 	return withSchemaCompileLocation(child, xsderrors.InternalInvariant("model child has no supported typed schema kind"))
 }
 
-func (c *compiler) appendNestedModelChild(m *ContentModel, child *schemaNode, ctx *schemaContext) error {
+func (c *compiler) appendNestedModelChild(m *ContentModel, child *schemaNode, ctx *schemaSetDocument) error {
 	admission, err := modelChildAdmissionForNode(child)
 	if err != nil {
 		return err
@@ -238,26 +242,25 @@ func validateModelGroupChildAtNode(n *schemaNode, parent ModelKind, child ModelC
 }
 
 func modelChildAdmissionForNode(n *schemaNode) (ModelChildAdmission, error) {
-	switch n.kind {
-	case schemaKindElement:
+	switch n.local {
+	case vocab.XSDElemElement:
 		return ModelChildAdmission{Kind: ModelChildElement}, nil
-	case schemaKindAny:
+	case vocab.XSDElemAny:
 		return ModelChildAdmission{Kind: ModelChildWildcard}, nil
-	case schemaKindGroup:
+	case vocab.XSDElemGroup:
 		return ModelChildAdmission{Kind: ModelChildModel}, nil
-	case schemaKindSequence, schemaKindChoice, schemaKindAll:
+	case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll:
 		kind, ok := schemaModelKind(n)
 		if !ok {
 			return ModelChildAdmission{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("model group node has no typed model kind"))
 		}
 		return ModelChildAdmissionForModelKind(kind), nil
-	case schemaKindForeign, schemaKindXSD, schemaKindSchema, schemaKindSimpleType, schemaKindComplexType, schemaKindAttribute, schemaKindAttributeGroup, schemaKindNotation, schemaKindAnnotation, schemaKindInclude, schemaKindImport, schemaKindAnyAttribute:
 	}
 	return ModelChildAdmission{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("model child has no typed schema kind"))
 }
 
 func validateModelOccurrence(n *schemaNode, limits Limits) error {
-	if n.kind == schemaKindGroup {
+	if n.local == vocab.XSDElemGroup {
 		if err := checkGroupOccurrenceAttributes(n); err != nil {
 			return err
 		}
@@ -266,7 +269,7 @@ func validateModelOccurrence(n *schemaNode, limits Limits) error {
 	if err != nil {
 		return err
 	}
-	if n.kind == schemaKindAll {
+	if n.local == vocab.XSDElemAll {
 		if err := ValidateAllModelOccurrence(occurs); err != nil {
 			return withSchemaCompileLocation(n, err)
 		}
@@ -300,7 +303,7 @@ func (c *compiler) validateComplexExtensionModelAdmission(baseID ComplexTypeID, 
 	return ValidateComplexExtensionModelAdmission(&c.rt, ComplexExtensionModelAdmission{
 		Extension:     ext,
 		BaseContent:   base.Content,
-		BaseIsAnyType: baseID == c.rt.builtinIDs().AnyType,
+		BaseIsAnyType: baseID == c.rt.AnyType,
 		BaseMixed:     base.Mixed(),
 		Mixed:         contentKind.Mixed(),
 	})
