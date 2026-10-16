@@ -1429,3 +1429,21 @@ func TestValidateComplexContentMixedDerivationBase(t *testing.T) {
 		})
 	}
 }
+
+func (f complexTypeValidationFixture) build() *schemaBuild {
+	b := f.derivationFixture.build()
+	p := f.particleFixture.build()
+	b.Models = p.Models
+	b.Elements = p.Elements
+	b.Wildcards = p.Wildcards
+	b.Substitutions = p.Substitutions
+	if len(f.simpleFinal) > len(b.SimpleTypes) {
+		b.SimpleTypes = append(b.SimpleTypes, make([]SimpleType, len(f.simpleFinal)-len(b.SimpleTypes))...)
+	}
+	for i, final := range f.simpleFinal {
+		b.SimpleTypes[i].Final = final
+	}
+	return b
+}
+
+func (emptyTypeDerivationFixture) build() *schemaBuild { return &schemaBuild{} }

@@ -4,62 +4,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/source"
 	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
-
-func TestTypedLocalAttributesPreservePresentEmptyPriority(t *testing.T) {
-	t.Parallel()
-	present := LexicalAttribute{Present: true}
-	tests := []struct {
-		name   string
-		source schemaSemanticKind
-		check  func(*schemaNode) error
-		want   string
-	}{
-		{name: "element", source: &schemaElementSource{Abstract: present, Final: present, SubstitutionGroup: schemaQNameAttribute{Lexical: present}}, check: checkLocalElementAttributes, want: "local element cannot have abstract"},
-		{name: "simpleType", source: &schemaSimpleTypeSource{Global: schemaGlobalSource{Name: present}, Final: present}, check: checkLocalSimpleTypeAttributes, want: "local simpleType cannot have name"},
-		{name: "complexType", source: &schemaComplexTypeSource{Global: schemaGlobalSource{Name: present}, Abstract: present, Block: present, Final: present}, check: checkLocalComplexTypeAttributes, want: "local complexType cannot have name"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			node := &schemaNode{doc: &schemaDocument{name: "local.xsd"}, semantic: schemaSemanticSource{kind: tt.source}, line: 13, column: 5}
-			err := tt.check(node)
-			diagnostic, ok := errors.AsType[*xsderrors.Error](err)
-			if !ok || diagnostic.Category() != xsderrors.CategorySchemaCompile || diagnostic.Code() != xsderrors.CodeSchemaInvalidAttribute || diagnostic.Message() != tt.want || diagnostic.Path() != "local.xsd" || diagnostic.Line() != 13 || diagnostic.Column() != 5 {
-				t.Fatalf("local attribute error = %#v, want %q at local.xsd:13:5", err, tt.want)
-			}
-		})
-	}
-}
-
-func TestExplicitEmptyFinalOverridesSchemaDefault(t *testing.T) {
-	t.Parallel()
-	for _, tt := range []struct {
-		name      string
-		final     string
-		wantError bool
-	}{
-		{name: "omitted inherits restriction", wantError: true},
-		{name: "present empty clears restriction", final: ` final=""`},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			input := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" finalDefault="restriction"><xs:simpleType name="Base"` + tt.final + `><xs:restriction base="xs:string"/></xs:simpleType><xs:simpleType name="Derived"><xs:restriction base="Base"/></xs:simpleType></xs:schema>`
-			_, err := Compile(Options{}, []source.Source{source.Bytes("final.xsd", []byte(input))})
-			if tt.wantError {
-				diagnostic, ok := errors.AsType[*xsderrors.Error](err)
-				if !ok || diagnostic.Category() != xsderrors.CategorySchemaCompile || diagnostic.Code() != xsderrors.CodeSchemaReference {
-					t.Fatalf("compile error = %#v, want schema reference error", err)
-				}
-			} else if err != nil {
-				t.Fatalf("explicit empty final: %v", err)
-			}
-		})
-	}
-}
 
 func testRawNodeWithLocalAttrs(local string, attrs []string) *schemaSyntaxNode {
 	rawAttrs := make([]xmlstream.Attr, len(attrs))

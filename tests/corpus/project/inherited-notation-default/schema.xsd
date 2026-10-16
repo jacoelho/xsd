@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:notation name="gif" public="image-gif"/>
+  <xs:simpleType name="Base"><xs:restriction base="xs:NOTATION"><xs:enumeration value="gif"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="Derived"><xs:restriction base="Base"/></xs:simpleType>
+  <xs:element name="root" type="Derived" default="gif"/>
+</xs:schema>

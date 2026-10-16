@@ -1,0 +1,8 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:attribute name="a" type="xs:string" default="base"/>
+  <xs:element name="r">
+    <xs:complexType><xs:attribute ref="a" default=""/><xs:attribute name="probe" type="xs:string"/></xs:complexType>
+    <xs:key name="value"><xs:selector xpath="."/><xs:field xpath="@a"/></xs:key>
+    <xs:keyref name="reference" refer="value"><xs:selector xpath="."/><xs:field xpath="@probe"/></xs:keyref>
+  </xs:element>
+</xs:schema>

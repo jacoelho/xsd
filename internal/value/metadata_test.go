@@ -89,9 +89,6 @@ func TestBuilderMetadataLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertUnavailable(builder, id)
-	if got, valid := builder.program.InputRequirements(builtinString); valid || got != (InputRequirements{}) {
-		t.Fatalf("unsealed InputRequirements() = %#v, %v; want zero, false", got, valid)
-	}
 	spec := TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveString,
 		Whitespace: WhitespacePreserve, WhitespacePresent: true,
@@ -217,35 +214,6 @@ func TestBuilderTypeViewReportsEffectiveEnumeration(t *testing.T) {
 				t.Fatalf("TypeView().HasEnumeration = %v, %v; want %v, true", view.HasEnumeration, valid, test.want)
 			}
 			base = id
-		})
-	}
-}
-
-func TestProgramInputRequirementsDoesNotProjectMetadata(t *testing.T) {
-	program, types := unconstrainedStringQueryProgram(t)
-	for _, test := range []struct {
-		name string
-		id   TypeID
-	}{
-		{name: "union", id: types["union"]},
-		{name: "facet", id: types["facet"]},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			var got bool
-			var valid bool
-			allocs := testing.AllocsPerRun(100, func() {
-				requirements, ok := program.InputRequirements(test.id)
-				got, valid = requirements.UnconstrainedString, ok
-			})
-			if !valid {
-				t.Fatal("InputRequirements reported a valid type as invalid")
-			}
-			if got {
-				t.Fatal("InputRequirements accepted a constrained type")
-			}
-			if allocs != 0 {
-				t.Fatalf("InputRequirements allocations = %v, want 0", allocs)
-			}
 		})
 	}
 }

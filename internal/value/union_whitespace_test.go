@@ -334,3 +334,53 @@ func TestNestedUnionPatternUsesTerminalMemberWhitespace(t *testing.T) {
 		})
 	}
 }
+
+func TestListXMLWhitespaceAdmission(t *testing.T) {
+	program, err := NewBuilder(BuilderOptions{}).Seal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, ok := BuiltinTypeID("NMTOKENS")
+	if !ok {
+		t.Fatal("missing NMTOKENS")
+	}
+	for _, tc := range []struct {
+		name  string
+		input string
+		error string
+	}{
+		{name: "XML separators", input: " \tα\rβ\n "},
+		{name: "NBSP remains in field", input: "α\u00a0β", error: "invalid NMTOKEN"},
+		{name: "invalid second field", input: "α @", error: "invalid NMTOKEN"},
+	} {
+		for _, mode := range []string{"string", "borrowed bytes", "projected bytes"} {
+			t.Run(tc.name+"/"+mode, func(t *testing.T) {
+				var got Value
+				var validationErr error
+				switch mode {
+				case "string":
+					got, validationErr = program.Validate(id, tc.input, Resolver{}, NeedCanonical, 64, nil)
+				case "borrowed bytes":
+					got, validationErr = program.ValidateBytes(id, []byte(tc.input), Resolver{}, 0, 64, nil)
+				case "projected bytes":
+					got, validationErr = program.ValidateBytes(id, []byte(tc.input), Resolver{}, NeedCanonical, 64, nil)
+				}
+				if tc.error != "" {
+					if validationErr == nil || validationErr.Error() != tc.error {
+						t.Fatalf("validation error = %v, want %q", validationErr, tc.error)
+					}
+					return
+				}
+				if validationErr != nil {
+					t.Fatal(validationErr)
+				}
+				if got.Type() != id {
+					t.Fatalf("result type = %d, want %d", got.Type(), id)
+				}
+				if mode != "borrowed bytes" && got.CanonicalText() != "α β" {
+					t.Fatalf("canonical = %q, want %q", got.CanonicalText(), "α β")
+				}
+			})
+		}
+	}
+}

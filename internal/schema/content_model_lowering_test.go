@@ -541,3 +541,9 @@ func (s *contentModelLoweringFixture) addModel(model ContentModel) (ContentModel
 	s.models = append(s.models, CloneContentModel(model))
 	return id, nil
 }
+
+func (f complexExtensionModelFixture) build() *schemaBuild {
+	return &schemaBuild{Models: cloneContentModels(f.models)}
+}
+
+func (s *contentModelLoweringFixture) build() *schemaBuild { return &schemaBuild{Models: s.models} }

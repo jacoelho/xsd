@@ -1,0 +1,10 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:a="urn:a" xmlns:b="urn:b">
+  <xs:import namespace="urn:a"/>
+  <xs:import namespace="urn:b"/>
+  <xs:element name="r">
+    <xs:complexType>
+      <xs:attributeGroup ref="a:G"/>
+      <xs:attributeGroup ref="b:G"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

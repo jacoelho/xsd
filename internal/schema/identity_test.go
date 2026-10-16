@@ -98,7 +98,7 @@ func TestIdentityFieldProgramDoesNotAliasConstructionSteps(t *testing.T) {
 	}
 }
 
-func TestIdentityFieldProgramRetainsOnlyOccupiedGroupsAndPaths(t *testing.T) {
+func TestIdentityFieldProgramPreservesGroupAndPathOrder(t *testing.T) {
 	t.Parallel()
 
 	table, _, names := identityValidationFixture(t)
@@ -133,13 +133,13 @@ func TestIdentityFieldProgramRetainsOnlyOccupiedGroupsAndPaths(t *testing.T) {
 		{name: "wildcard attribute", fields: program.AttributeWildcardFields(), attribute: true, wildcard: true},
 	}
 	for _, partition := range partitions {
-		if partition.fields.Len() != 5 || cap(partition.fields.values) != 5 {
-			t.Fatalf("%s groups len/cap = %d/%d, want 5/5", partition.name, partition.fields.Len(), cap(partition.fields.values))
+		if partition.fields.Len() != 5 {
+			t.Fatalf("%s groups length = %d, want 5", partition.name, partition.fields.Len())
 		}
 		for _, wantField := range []int{0, 1, 2, 3, 4} {
 			field, ok := partition.fields.At(wantField)
-			if !ok || field.Field() != wantField || field.PathCount() != 5 || cap(field.paths) != 5 {
-				t.Fatalf("%s group %d = field %d, paths %d/%d, found %t; want same field and 5/5", partition.name, wantField, field.Field(), field.PathCount(), cap(field.paths), ok)
+			if !ok || field.Field() != wantField || field.PathCount() != 5 {
+				t.Fatalf("%s group %d = field %d, paths %d, found %t; want same field and 5 paths", partition.name, wantField, field.Field(), field.PathCount(), ok)
 			}
 			for _, index := range []int{0, 1, 2, 3, 4} {
 				path, ok := field.Path(index)

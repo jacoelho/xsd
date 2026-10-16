@@ -1,6 +1,7 @@
 package xsd_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/jacoelho/xsd"
@@ -33,4 +34,42 @@ func TestDerivationBudgetExhaustionKeepsSchemaLimitDiagnostic(t *testing.T) {
 		expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 	}
 	t.Fatal("small restriction schema did not compile within the dependency budget")
+}
+
+func TestModelGroupDependencyBudgetPreservesReferenceLocation(t *testing.T) {
+	t.Parallel()
+	const schemaText = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:group name="G"><xs:sequence><xs:element name="v" type="xs:string"/></xs:sequence></xs:group>
+  <xs:complexType name="C">
+    <xs:group ref="G" minOccurs="2" maxOccurs="3"/>
+  </xs:complexType>
+  <xs:element name="r" type="C"/>
+</xs:schema>`
+	const path = "model-group-work.xsd"
+	input := xsd.Bytes(path, []byte(schemaText))
+	var bounded *xsd.Engine
+	located := false
+	for budget := 1; budget <= 1024; budget++ {
+		engine, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaDependencySteps: budget}, input)
+		if err == nil {
+			if engine == nil {
+				t.Fatal("successful bounded compile returned no engine")
+			}
+			bounded = engine
+			break
+		}
+		if engine != nil {
+			t.Fatal("failed compile published an engine")
+		}
+		diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+		if !ok || diagnostic.Category() != xsderrors.CategorySchemaCompile || diagnostic.Code() != xsderrors.CodeSchemaLimit {
+			t.Fatalf("bounded compile returned %v, want schema-limit failure", err)
+		}
+		if diagnostic.Path() == path && diagnostic.Line() == 4 && diagnostic.Column() == 5 {
+			located = true
+		}
+	}
+	if bounded == nil || !located {
+		t.Fatalf("bounded compilation: engine=%v, reference-location failure=%v", bounded != nil, located)
+	}
 }

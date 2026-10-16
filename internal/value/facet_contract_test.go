@@ -678,3 +678,261 @@ func TestFacetContractRejectsEmptyEqualOrderedIntervals(t *testing.T) {
 		})
 	}
 }
+
+func TestCollectionFacetsCannotBeFixedAndCompletionCanRetry(t *testing.T) {
+	t.Parallel()
+	pattern, err := xsdregex.Compile("x", xsdregex.CompileOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name    string
+		facets  value.FacetSpec
+		message string
+	}{
+		{
+			name:    "pattern",
+			facets:  value.FacetSpec{Patterns: [][]*value.Pattern{{pattern}}, Fixed: value.FacetPattern},
+			message: "pattern facet failed",
+		},
+		{
+			name:    "enumeration",
+			facets:  value.FacetSpec{Enumeration: []value.LiteralSpec{{Lexical: "x", Type: value.NoType}}, Fixed: value.FacetEnumeration},
+			message: "enumeration facet failed",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			builder := value.NewBuilder(value.BuilderOptions{})
+			id, err := builder.Reserve()
+			if err != nil {
+				t.Fatal(err)
+			}
+			spec := atomicFacetType(value.PrimitiveString, test.facets)
+			err = builder.Complete(id, spec)
+			if !errors.Is(err, value.ErrFacet) || err.Error() != "pattern and enumeration facets cannot be fixed" {
+				t.Fatalf("Complete() = %v; want fixed collection facet rejection", err)
+			}
+			if _, available := builder.InputRequirements(id); available {
+				t.Fatal("failed completion exposed type metadata")
+			}
+			spec.Facets.Fixed = 0
+			if completionErr := builder.Complete(id, spec); completionErr != nil {
+				t.Fatalf("Complete() retry = %v", completionErr)
+			}
+			program, err := builder.Seal()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, validationErr := program.Validate(id, "x", value.Resolver{}, 0, 16<<20, nil); validationErr != nil {
+				t.Fatalf("Validate(x) = %v", validationErr)
+			}
+			_, err = program.Validate(id, "y", value.Resolver{}, 0, 16<<20, nil)
+			if !errors.Is(err, value.ErrFacet) || err.Error() != test.message {
+				t.Fatalf("Validate(y) = %v; want %q", err, test.message)
+			}
+		})
+	}
+}
+
+func TestFixedWhitespaceRejectsStrengtheningAndCompletionCanRetry(t *testing.T) {
+	t.Parallel()
+	builder := value.NewBuilder(value.BuilderOptions{})
+	baseID, err := builder.Reserve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := atomicFacetType(value.PrimitiveString, value.FacetSpec{Fixed: value.FacetWhiteSpace})
+	base.Whitespace = value.WhitespacePreserve
+	if completionErr := builder.Complete(baseID, base); completionErr != nil {
+		t.Fatal(completionErr)
+	}
+	derivedID, err := builder.Reserve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	derived := atomicFacetType(value.PrimitiveString, value.FacetSpec{})
+	derived.Base = baseID
+	err = builder.Complete(derivedID, derived)
+	if !errors.Is(err, value.ErrFacet) || err.Error() != "fixed whiteSpace facet cannot change" {
+		t.Fatalf("Complete() = %v; want fixed whiteSpace rejection", err)
+	}
+	if _, available := builder.InputRequirements(derivedID); available {
+		t.Fatal("failed completion exposed type metadata")
+	}
+	derived.Whitespace = value.WhitespacePreserve
+	if completionErr := builder.Complete(derivedID, derived); completionErr != nil {
+		t.Fatalf("Complete() retry = %v", completionErr)
+	}
+	program, err := builder.Seal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	const lexical = " \ta\n "
+	result, err := program.Validate(derivedID, lexical, value.Resolver{}, value.NeedCanonical, 16<<20, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.CanonicalText() != lexical || result.Type() != derivedID || result.SelectedType() != value.NoType {
+		t.Fatalf("Validate() = canonical %q, type %d, selection %d; want %q, %d, NoType", result.CanonicalText(), result.Type(), result.SelectedType(), lexical, derivedID)
+	}
+}
+
+func TestInheritedCardinalityConflictsAndRetry(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name      string
+		primitive value.PrimitiveKind
+		base      value.FacetSpec
+		own       value.FacetSpec
+		wantError string
+		retry     bool
+	}{
+		{
+			name:      "inherited length below local minimum",
+			primitive: value.PrimitiveString,
+			base:      value.FacetSpec{Length: value.CardinalityFacet{Value: 3, Present: true}},
+			own:       value.FacetSpec{MinLength: value.CardinalityFacet{Value: 4, Present: true}},
+			wantError: "length cannot be less than minLength",
+		},
+		{
+			name:      "local length above inherited maximum",
+			primitive: value.PrimitiveString,
+			base:      value.FacetSpec{MaxLength: value.CardinalityFacet{Value: 2, Present: true}},
+			own:       value.FacetSpec{Length: value.CardinalityFacet{Value: 3, Present: true}},
+			wantError: "length cannot exceed maxLength",
+		},
+		{
+			name:      "inherited minimum above local maximum",
+			primitive: value.PrimitiveString,
+			base:      value.FacetSpec{MinLength: value.CardinalityFacet{Value: 3, Present: true}},
+			own:       value.FacetSpec{MaxLength: value.CardinalityFacet{Value: 2, Present: true}},
+			wantError: "minLength cannot exceed maxLength",
+			retry:     true,
+		},
+		{
+			name:      "local fraction digits above inherited total",
+			primitive: value.PrimitiveDecimal,
+			base:      value.FacetSpec{TotalDigits: value.CardinalityFacet{Value: 3, Present: true}},
+			own:       value.FacetSpec{FractionDigits: value.CardinalityFacet{Value: 4, Present: true}},
+			wantError: "fractionDigits cannot exceed totalDigits",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			builder := value.NewBuilder(value.BuilderOptions{})
+			baseID, err := builder.Reserve()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if completionErr := builder.Complete(baseID, atomicFacetType(test.primitive, test.base)); completionErr != nil {
+				t.Fatal(completionErr)
+			}
+			id, err := builder.Reserve()
+			if err != nil {
+				t.Fatal(err)
+			}
+			spec := atomicFacetType(test.primitive, test.own)
+			spec.Base = baseID
+			err = builder.Complete(id, spec)
+			if !errors.Is(err, value.ErrFacet) || err.Error() != test.wantError {
+				t.Fatalf("Complete() = %v; want ErrFacet with %q", err, test.wantError)
+			}
+			if _, available := builder.InputRequirements(id); available {
+				t.Fatal("failed type is available")
+			}
+			if !test.retry {
+				return
+			}
+
+			spec.Facets = value.FacetSpec{
+				MinLength: value.CardinalityFacet{Value: 999, Present: false},
+				MaxLength: value.CardinalityFacet{Value: 5, Present: true},
+			}
+			if retryErr := builder.Complete(id, spec); retryErr != nil {
+				t.Fatalf("Complete() retry = %v", retryErr)
+			}
+			program, err := builder.Seal()
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, lexical := range []string{"abc", "abcde"} {
+				if _, err := program.Validate(id, lexical, value.Resolver{}, 0, 16<<20, nil); err != nil {
+					t.Fatalf("Validate(%q) = %v", lexical, err)
+				}
+			}
+			for _, lexical := range []string{"ab", "abcdef"} {
+				if _, err := program.Validate(id, lexical, value.Resolver{}, 0, 16<<20, nil); !errors.Is(err, value.ErrFacet) {
+					t.Fatalf("Validate(%q) = %v; want ErrFacet", lexical, err)
+				}
+			}
+		})
+	}
+}
+
+func TestProgramLexicalPayloadLengthFacets(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		primitive value.PrimitiveKind
+		length    uint32
+		accepted  string
+		canonical string
+		rejected  []string
+	}{
+		{"URI characters", value.PrimitiveAnyURI, 2, "éx", "éx", []string{"é", "éxy"}},
+		{"base64 octets", value.PrimitiveBase64Binary, 1, " Y Q == ", "YQ==", []string{"", "YWI="}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			builder := value.NewBuilder(value.BuilderOptions{})
+			id, reserveErr := builder.Reserve()
+			if reserveErr != nil {
+				t.Fatal(reserveErr)
+			}
+			if completeErr := builder.Complete(id, value.TypeSpec{
+				Variety:           value.Atomic,
+				Primitive:         tc.primitive,
+				Whitespace:        value.WhitespaceCollapse,
+				WhitespacePresent: true,
+				Base:              value.NoType,
+				ListItem:          value.NoType,
+				Facets: value.FacetSpec{
+					Length: value.CardinalityFacet{Value: tc.length, Present: true},
+				},
+			}); completeErr != nil {
+				t.Fatal(completeErr)
+			}
+			program, sealErr := builder.Seal()
+			if sealErr != nil {
+				t.Fatal(sealErr)
+			}
+			for _, form := range []string{"string", "bytes"} {
+				for _, needs := range []value.Needs{0, value.NeedCanonical} {
+					validate := func(input string) (value.Value, error) {
+						if form == "bytes" {
+							return program.ValidateBytes(id, []byte(input), value.Resolver{}, needs, 16<<20, nil)
+						}
+						return program.Validate(id, input, value.Resolver{}, needs, 16<<20, nil)
+					}
+					accepted, validationErr := validate(tc.accepted)
+					if validationErr != nil {
+						t.Fatalf("%s needs=%d accepted input: %v", form, needs, validationErr)
+					}
+					wantCanonical := ""
+					if needs == value.NeedCanonical {
+						wantCanonical = tc.canonical
+					}
+					if accepted.CanonicalText() != wantCanonical {
+						t.Fatalf("%s needs=%d canonical = %q, want %q", form, needs, accepted.CanonicalText(), wantCanonical)
+					}
+					for _, input := range tc.rejected {
+						if _, rejectedErr := validate(input); !errors.Is(rejectedErr, value.ErrFacet) || rejectedErr.Error() != "length facet failed" {
+							t.Fatalf("%s needs=%d input=%q error = %v, want length facet failed", form, needs, input, rejectedErr)
+						}
+					}
+				}
+			}
+		})
+	}
+}

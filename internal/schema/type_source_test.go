@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/source"
 	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
@@ -210,5 +211,45 @@ func expectXSDMessage(t *testing.T, err error, code xsderrors.Code, message stri
 	if diag.Category() != xsderrors.CategorySchemaCompile || diag.Code() != code || diag.Message() != message {
 		t.Fatalf("diagnostic = (%s, %s, %q), want (%s, %s, %q)",
 			diag.Category(), diag.Code(), diag.Message(), xsderrors.CategorySchemaCompile, code, message)
+	}
+}
+
+func TestCompiledListItemQueryRejectsInvalidRoots(t *testing.T) {
+	limits, err := NormalizeOptions(Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := newCompiler(limits)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = c.loadOwned([]source.Source{source.Bytes("query.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="inner"><xs:union memberTypes="xs:string xs:int"/></xs:simpleType>
+  <xs:simpleType name="outer"><xs:union memberTypes="inner inner xs:boolean"/></xs:simpleType>
+</xs:schema>`))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.index(); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.compileGlobals(); err != nil {
+		t.Fatal(err)
+	}
+	q, ok := c.rt.Names.LookupQName("", "outer")
+	if !ok {
+		t.Fatal("compiled outer type missing")
+	}
+	id, ok := c.rt.GlobalTypes[q].Simple()
+	if !ok {
+		t.Fatal("outer is not a simple type")
+	}
+	if c.simpleListItemReachesList(id) {
+		t.Fatal("compiled scalar union unexpectedly contains a list")
+	}
+	for _, invalid := range []SimpleTypeID{NoSimpleType, SimpleTypeID(1_000_000)} {
+		if c.simpleListItemReachesList(invalid) {
+			t.Fatalf("list-item query(%d) = true for invalid root", invalid)
+		}
 	}
 }

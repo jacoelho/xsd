@@ -1,6 +1,9 @@
 package schema
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 func TestContentModelAnalysisBoundsAndMemoizesFacts(t *testing.T) {
 	t.Parallel()
@@ -332,4 +335,28 @@ type particleFixture struct {
 	models             []ContentModel
 	elements           []QName
 	wildcards          []Wildcard
+}
+
+func fixtureElements(names []QName, restrictions []ParticleRestrictionElement) []ElementDecl {
+	out := make([]ElementDecl, max(len(names), len(restrictions)))
+	for i, name := range names {
+		out[i].Name = name
+	}
+	for i, r := range restrictions {
+		out[i].Type = r.Type
+		out[i].Scope = r.Scope
+		out[i].Nillable = r.Nillable
+		out[i].Block = r.Block
+		out[i].Identity = slices.Clone(r.Identities.values)
+		if r.Fixed.Present {
+			out[i].Fixed = &ValueConstraint{Lexical: r.Fixed.Lexical, Canonical: r.Fixed.Canonical, Value: r.Fixed.Value, ResolvedNames: slices.Clone(r.Fixed.ResolvedNames), qnameContext: r.Fixed.qnameContext}
+		}
+	}
+	return out
+}
+
+func (f particleFixture) build() *schemaBuild {
+	b := &schemaBuild{Models: cloneContentModels(f.models), Elements: fixtureElements(f.elements, nil), Wildcards: slices.Clone(f.wildcards)}
+	b.Substitutions = fixtureSubstitutions(b.Elements, f.substitutions, f.substitutionLookup)
+	return b
 }

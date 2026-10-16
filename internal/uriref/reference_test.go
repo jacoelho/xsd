@@ -5,41 +5,6 @@ import (
 	"testing"
 )
 
-func TestIPLiteralAuthorityPortAdmission(t *testing.T) {
-	t.Parallel()
-	t.Run("numeric port", func(t *testing.T) {
-		t.Parallel()
-		const raw = "http://[::1]:80/"
-		data := []byte(raw)
-		characters, err := Check(raw)
-		byteCharacters, byteErr := Check(data)
-		if err != nil || byteErr != nil {
-			t.Fatalf("Check(%q) error = %v; bytes error = %v", raw, err, byteErr)
-		}
-		if characters != 16 || byteCharacters != 16 {
-			t.Fatalf("Check(%q) characters = %d/%d, want 16", raw, characters, byteCharacters)
-		}
-		ref, parseErr := Parse(raw)
-		if parseErr != nil {
-			t.Fatalf("Parse(%q) error = %v", raw, parseErr)
-		}
-		if ref.Raw() != raw || ref.Escaped() != raw {
-			t.Fatalf("Parse(%q) = raw %q escaped %q", raw, ref.Raw(), ref.Escaped())
-		}
-	})
-	t.Run("nondigit port", func(t *testing.T) {
-		t.Parallel()
-		const raw = "http://[::1]:x/"
-		data := []byte(raw)
-		_, err := Check(raw)
-		_, byteErr := Check(data)
-		_, parseErr := Parse(raw)
-		if !errors.Is(err, ErrInvalid) || !errors.Is(byteErr, ErrInvalid) || !errors.Is(parseErr, ErrInvalid) {
-			t.Fatalf("Check(%q) error = %v; bytes error = %v; Parse error = %v; want ErrInvalid", raw, err, byteErr, parseErr)
-		}
-	})
-}
-
 func TestParseAndEscape(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -57,6 +22,8 @@ func TestParseAndEscape(t *testing.T) {
 		{name: "del", raw: "a\x7fb", escaped: "a%7Fb", valid: true, length: 3},
 		{name: "unicode", raw: "a/\u2603", escaped: "a/%E2%98%83", valid: true, length: 3},
 		{name: "relative colon after slash", raw: "./a:", escaped: "./a:", valid: true, length: 4},
+		{name: "numeric IPv6 port", raw: "http://[::1]:80/", escaped: "http://[::1]:80/", valid: true, length: 16},
+		{name: "nondigit IPv6 port", raw: "http://[::1]:x/"},
 		{name: "valid IPv6", raw: "http://[::1]/", escaped: "http://[::1]/", valid: true, length: 13},
 		{name: "compressed IPv6 cannot omit zero groups", raw: "http://[1:2:3:4:5:6:7:8::]/"},
 		{name: "empty authority with path", raw: "///", escaped: "///", valid: true, length: 3},
@@ -79,6 +46,10 @@ func TestParseAndEscape(t *testing.T) {
 				t.Fatalf("Check(%q) = %d, %v; bytes = %d, %v; valid %v", tt.raw, characters, err, byteCharacters, byteErr, tt.valid)
 			}
 			if !tt.valid {
+				_, parseErr := Parse(tt.raw)
+				if !errors.Is(err, ErrInvalid) || !errors.Is(byteErr, ErrInvalid) || !errors.Is(parseErr, ErrInvalid) {
+					t.Fatalf("invalid URI %q: Check=%v, bytes=%v, Parse=%v; want ErrInvalid", tt.raw, err, byteErr, parseErr)
+				}
 				return
 			}
 			if characters != tt.length || byteCharacters != tt.length {

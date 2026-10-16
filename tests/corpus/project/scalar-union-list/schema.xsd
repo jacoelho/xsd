@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="inner"><xs:union memberTypes="xs:int xs:boolean"/></xs:simpleType>
+  <xs:simpleType name="item"><xs:restriction base="inner"/></xs:simpleType>
+  <xs:simpleType name="values"><xs:list itemType="item"/></xs:simpleType>
+  <xs:element name="values" type="values"/>
+</xs:schema>

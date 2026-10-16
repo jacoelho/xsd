@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -199,6 +200,60 @@ func TestValidateAllModelOccurrence(t *testing.T) {
 			}
 			if err != nil {
 				t.Fatalf("ValidateAllModelOccurrence() error = %v", err)
+			}
+		})
+	}
+}
+
+func assertOccurrenceBenchmarkDiagnostic(tb testing.TB, err error, code xsderrors.Code, message string) {
+	tb.Helper()
+	d, ok := errors.AsType[*xsderrors.Error](err)
+	if !ok || d.Category() != xsderrors.CategorySchemaCompile || d.Code() != code || d.Message() != message {
+		tb.Fatalf("unexpected diagnostic: %v", err)
+	}
+}
+
+func BenchmarkOccurrenceAdmission(b *testing.B) {
+	zeros := strings.Repeat("0", 4096)
+	cases := []struct {
+		name, min, max string
+		want           Occurrence
+		message        string
+	}{
+		{"Short", "+2", "+4", Occurrence{Min: 2, Max: 4}, ""},
+		{"LongZeros", "+" + zeros + "1", "+" + zeros + "4", Occurrence{Min: 1, Max: 4}, ""},
+		{"AllZero", zeros, zeros, Occurrence{}, ""},
+		{"OverflowMalformed", "1", "42949672960x", Occurrence{}, "invalid maxOccurs 42949672960x"},
+	}
+	for _, c := range cases {
+		b.Run(c.name, func(b *testing.B) {
+			attrs := OccurrenceAttrs{MinOccurs: c.min, MaxOccurs: c.max, HasMinOccurs: true, HasMaxOccurs: true}
+			var last Occurrence
+			pre, err := ParseOccurrence(attrs, Limits{})
+			if c.message == "" {
+				if err != nil || pre != c.want {
+					b.Fatalf("preflight %v %v", pre, err)
+				}
+			} else {
+				assertOccurrenceBenchmarkDiagnostic(b, err, xsderrors.CodeSchemaOccurrence, c.message)
+			}
+			b.ReportAllocs()
+			for b.Loop() {
+				var err error
+				last, err = ParseOccurrence(attrs, Limits{})
+				if c.message == "" {
+					if err != nil {
+						b.Fatal(err)
+					}
+				} else {
+					d, ok := errors.AsType[*xsderrors.Error](err)
+					if !ok || d.Category() != xsderrors.CategorySchemaCompile || d.Code() != xsderrors.CodeSchemaOccurrence || d.Message() != c.message {
+						b.Fatalf("unexpected failure: %v", err)
+					}
+				}
+			}
+			if last != c.want {
+				b.Fatalf("postflight %v", last)
 			}
 		})
 	}

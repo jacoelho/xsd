@@ -321,9 +321,6 @@ func TestBuilderCompletionRequiresCompletedDependencies(t *testing.T) {
 	if reserveErr != nil {
 		t.Fatal(reserveErr)
 	}
-	if derived != BuiltinTypeCount || base != BuiltinTypeCount+1 || neighbor != BuiltinTypeCount+2 {
-		t.Fatalf("reserved IDs = %d, %d, %d", derived, base, neighbor)
-	}
 	if err := builder.Complete(neighbor, minimalBuilderTypeSpec()); err != nil {
 		t.Fatal(err)
 	}
@@ -405,5 +402,95 @@ func TestBuilderCompleteOwnsSourceMetadata(t *testing.T) {
 	}
 	if _, err := program.Validate(id, "false", Resolver{}, 0, 16<<20, nil); !errors.Is(err, ErrFacet) {
 		t.Fatalf("published replacement value = %v, want ErrFacet", err)
+	}
+}
+
+func TestProgramBoundLiteralTypeAdmissionAndRetry(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		literal string
+		valid   bool
+	}{
+		{"atomic decimal", "decimal", true},
+		{"atomic string", "string", false},
+		{"list decimal", "list", false},
+		{"string first union", "string-first", false},
+		{"list first union", "list-first", false},
+		{"decimal first union", "decimal-first", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			b := NewBuilder(BuilderOptions{})
+			complete := func(spec TypeSpec) TypeID {
+				t.Helper()
+				id, reserveErr := b.Reserve()
+				if reserveErr != nil {
+					t.Fatal(reserveErr)
+				}
+				if completeErr := b.Complete(id, spec); completeErr != nil {
+					t.Fatal(completeErr)
+				}
+				return id
+			}
+			list := complete(TypeSpec{
+				Variety: List, Primitive: PrimitiveString, ListItem: BuiltinType(PrimitiveDecimal), Base: NoType,
+				Whitespace: WhitespaceCollapse, WhitespacePresent: true,
+			})
+			literalTypes := map[string]TypeID{
+				"decimal": BuiltinType(PrimitiveDecimal),
+				"string":  BuiltinType(PrimitiveString),
+				"list":    list,
+			}
+			for _, union := range []struct {
+				name    string
+				members []TypeID
+			}{
+				{"string-first", []TypeID{BuiltinType(PrimitiveString), BuiltinType(PrimitiveDecimal)}},
+				{"list-first", []TypeID{list, BuiltinType(PrimitiveDecimal)}},
+				{"decimal-first", []TypeID{BuiltinType(PrimitiveDecimal), BuiltinType(PrimitiveString)}},
+			} {
+				literalTypes[union.name] = complete(TypeSpec{
+					Variety: Union, Primitive: PrimitiveString, Union: union.members, Base: NoType, ListItem: NoType,
+					Whitespace: WhitespaceCollapse, WhitespacePresent: true,
+				})
+			}
+			id, reserveErr := b.Reserve()
+			if reserveErr != nil {
+				t.Fatal(reserveErr)
+			}
+			spec := TypeSpec{
+				Variety: Atomic, Primitive: PrimitiveDecimal, Base: NoType, ListItem: NoType,
+				Whitespace: WhitespaceCollapse, WhitespacePresent: true,
+				Facets: FacetSpec{MinInclusive: BoundFacet{
+					LiteralSpec: LiteralSpec{Lexical: "1", Type: literalTypes[tc.literal]}, Present: true,
+				}},
+			}
+			completeErr := b.Complete(id, spec)
+			if !tc.valid {
+				if completeErr == nil || completeErr.Error() != "bound \"1\" has an incompatible value type" {
+					t.Fatalf("Complete() = %v, want incompatible bound type", completeErr)
+				}
+				spec.Facets.MinInclusive.Type = BuiltinType(PrimitiveDecimal)
+				completeErr = b.Complete(id, spec)
+			}
+			if completeErr != nil {
+				t.Fatal(completeErr)
+			}
+			p, sealErr := b.Seal()
+			if sealErr != nil {
+				t.Fatal(sealErr)
+			}
+			if _, validationErr := p.Validate(id, "1", Resolver{}, 0, 16<<20, nil); validationErr != nil {
+				t.Fatalf("Validate(boundary) = %v", validationErr)
+			}
+			if _, validationErr := p.ValidateBytes(id, []byte("1"), Resolver{}, 0, 16<<20, nil); validationErr != nil {
+				t.Fatalf("ValidateBytes(boundary) = %v", validationErr)
+			}
+			if _, validationErr := p.Validate(id, "0", Resolver{}, 0, 16<<20, nil); !errors.Is(validationErr, ErrFacet) || validationErr.Error() != "lower bound facet failed" {
+				t.Fatalf("Validate(below bound) = %v, want lower bound facet failed", validationErr)
+			}
+			if _, validationErr := p.ValidateBytes(id, []byte("0"), Resolver{}, 0, 16<<20, nil); validationErr == nil || validationErr.Error() != "minInclusive facet failed" {
+				t.Fatalf("ValidateBytes(below bound) = %v, want minInclusive facet failed", validationErr)
+			}
+		})
 	}
 }

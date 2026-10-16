@@ -561,3 +561,26 @@ func compiledModelRuntimeFixture(t *testing.T, kind ModelKind) (NameTable, compi
 	}
 	return names, rt
 }
+
+func (f compiledModelFixture) build() *schemaBuild {
+	b := &schemaBuild{Models: fixtureMapSlice(f.models), Wildcards: fixtureMapSlice(f.wildcards), AnyType: f.anyType}
+	names := fixtureMapSlice(f.elementNames)
+	rs := fixtureMapSlice(f.elementRestrictions)
+	b.Elements = fixtureElements(names, rs)
+	for id, typ := range f.elementTypes {
+		if int(id) >= len(b.Elements) {
+			b.Elements = append(b.Elements, make([]ElementDecl, int(id)+1-len(b.Elements))...)
+		}
+		b.Elements[id].Type = typ
+		b.Elements[id].Scope = DeclarationScopeNonGlobal
+	}
+	b.Substitutions = fixtureSubstitutions(b.Elements, nil, f.substitutions)
+	b.SimpleTypes = fixtureSimpleTypes(fixtureMapSlice(f.simpleDerivations))
+	for i := range b.SimpleTypes {
+		if _, ok := f.simpleDerivations[SimpleTypeID(i)]; !ok {
+			b.SimpleTypes[i].Missing = true
+		}
+	}
+	b.ComplexTypes = fixtureComplexTypes(fixtureMapSlice(f.complexDerivations))
+	return b
+}

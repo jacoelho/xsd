@@ -190,3 +190,65 @@ func TestTemporalWorkLimitResetsPerCall(t *testing.T) {
 		})
 	}
 }
+
+func TestBorrowedRawListBudgetRouting(t *testing.T) {
+	builder := NewBuilder(BuilderOptions{})
+	listID, found := BuiltinTypeID("NMTOKENS")
+	if !found {
+		t.Fatal("missing NMTOKENS")
+	}
+	unionID, reserveErr := builder.Reserve()
+	if reserveErr != nil {
+		t.Fatal(reserveErr)
+	}
+	if completeErr := builder.Complete(unionID, TypeSpec{
+		Variety: Union, Union: []TypeID{listID, BuiltinType(PrimitiveString)},
+		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
+		Base: NoType, ListItem: NoType,
+	}); completeErr != nil {
+		t.Fatal(completeErr)
+	}
+	program, sealErr := builder.Seal()
+	if sealErr != nil {
+		t.Fatal(sealErr)
+	}
+	projected, projectionErr := program.Validate(listID, "one", Resolver{}, NeedIdentity, 16<<20, nil)
+	if projectionErr != nil {
+		t.Fatal(projectionErr)
+	}
+	for _, tc := range []struct {
+		name     string
+		id       TypeID
+		selected TypeID
+		limit    uint64
+		wantErr  error
+	}{
+		{"direct below", listID, NoType, 7, ErrLimit},
+		{"direct at", listID, NoType, 8, nil},
+		{"direct above", listID, NoType, 9, nil},
+		{"union below", unionID, listID, 11, ErrLimit},
+		{"union at", unionID, listID, 12, nil},
+		{"union above", unionID, listID, 13, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			raw := []byte("one")
+			got, validationErr := program.ValidateBytes(tc.id, raw, Resolver{}, 0, tc.limit, nil)
+			clear(raw)
+			if !errors.Is(validationErr, tc.wantErr) {
+				t.Fatalf("budget %d error = %v, want %v", tc.limit, validationErr, tc.wantErr)
+			}
+			if tc.wantErr != nil {
+				return
+			}
+			if got.Type() != tc.id || got.SelectedType() != tc.selected {
+				t.Fatalf("result type/selection = %d/%d, want %d/%d", got.Type(), got.SelectedType(), tc.id, tc.selected)
+			}
+			if got.CanonicalText() != "" || got.IdentityKey() != "" || got.IDs() != "" || got.IDRefs() != "" || got.HasQualifiedNames() {
+				t.Fatalf("unprojected result = %#v", got)
+			}
+			if got.Equal(projected) {
+				t.Fatal("unprojected value compared equal to an identity-bearing value")
+			}
+		})
+	}
+}

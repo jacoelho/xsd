@@ -401,3 +401,36 @@ func substitutionNameFixture(t *testing.T) (NameTable, map[string]QName) {
 	}
 	return names, qnames
 }
+
+func fixtureSubstitutions(names []ElementDecl, raw map[ElementID][]ElementID, effective map[ElementID]map[QName]ElementID) SubstitutionTable {
+	count := 0
+	for id := range raw {
+		count = max(count, int(id)+1)
+	}
+	for id := range effective {
+		count = max(count, int(id)+1)
+	}
+	table := SubstitutionTable{spans: make([]substitutionSpan, count)}
+	for head := range count {
+		entries := make(map[ElementID]substitutionEntry)
+		for _, id := range raw[ElementID(head)] {
+			var name QName
+			if int(id) < len(names) {
+				name = names[id].Name
+			}
+			entries[id] = substitutionEntry{name: name, member: id}
+		}
+		for name, id := range effective[ElementID(head)] {
+			entries[id] = substitutionEntry{name: name, member: id, effective: true}
+		}
+		span := substitutionSpan{start: len(table.entries), count: len(entries)}
+		ordered := make([]substitutionEntry, 0, len(entries))
+		for _, entry := range entries {
+			ordered = append(ordered, entry)
+		}
+		slices.SortFunc(ordered, func(a, b substitutionEntry) int { return compareQName(a.name, b.name) })
+		table.entries = append(table.entries, ordered...)
+		table.spans[head] = span
+	}
+	return table
+}

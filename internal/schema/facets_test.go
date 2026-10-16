@@ -158,7 +158,9 @@ func TestElementValueConstraintTypeError(t *testing.T) {
 	t.Run("located schema diagnostic", func(t *testing.T) {
 		t.Parallel()
 		input := xsderrors.WithLocation("constraint.xsd", 7, 11, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content work exhausted"))
-		if got := ElementValueConstraintTypeError(input); got != input { //nolint:errorlint // The adapter must preserve the supplied diagnostic object.
+		got := ElementValueConstraintTypeError(input)
+		diagnostic, ok := errors.AsType[*xsderrors.Error](got)
+		if !ok || diagnostic.Category() != xsderrors.CategorySchemaCompile || diagnostic.Code() != xsderrors.CodeSchemaLimit || diagnostic.Path() != "constraint.xsd" || diagnostic.Line() != 7 || diagnostic.Column() != 11 {
 			t.Fatalf("structured diagnostic changed: %v", got)
 		}
 	})
@@ -168,7 +170,8 @@ func TestElementValueConstraintTypeError(t *testing.T) {
 		diagnostic := xsderrors.WithLocation("constraint.xsd", 13, 17, xsderrors.Unsupported(xsderrors.CodeUnsupportedRegex, "constraint regex", cause))
 		input := fmt.Errorf("mixed content constraint: %w", diagnostic)
 		got := ElementValueConstraintTypeError(input)
-		if got != input || !errors.Is(got, cause) || !xsderrors.IsUnsupported(got) { //nolint:errorlint // Preserve the outer wrapper as well as its diagnostic and cause.
+		result, ok := errors.AsType[*xsderrors.Error](got)
+		if !ok || !errors.Is(got, cause) || !xsderrors.IsUnsupported(got) || result.Code() != xsderrors.CodeUnsupportedRegex || result.Path() != "constraint.xsd" || result.Line() != 13 || result.Column() != 17 {
 			t.Fatalf("wrapped structured diagnostic changed: %v", got)
 		}
 	})

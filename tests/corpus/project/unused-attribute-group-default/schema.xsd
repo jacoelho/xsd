@@ -1,0 +1,7 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:attribute name="a" type="xs:int" default="1"/>
+  <xs:attributeGroup name="G">
+    <xs:attribute ref="a" default="3"/>
+  </xs:attributeGroup>
+  <xs:element name="r" type="xs:string"/>
+</xs:schema>

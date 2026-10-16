@@ -1117,9 +1117,6 @@ func TestReferenceResolutionBackendProjection(t *testing.T) {
 			t.Fatalf("ResolveFrom(%q, %q) = target %q, supplied %v, %v; want unavailable", tt.base, tt.location, resolved.Target(), supplied, err)
 		}
 	}
-	if _, err := uriref.Parse("//"); !errors.Is(err, uriref.ErrInvalid) {
-		t.Fatalf("Parse(empty authority) = %v; want invalid anyURI", err)
-	}
 	if !os.IsPathSeparator('\\') {
 		want := filepath.Join("schemas", "child\\name.xsd")
 		resolved, err := Bytes("schemas/main.xsd", nil).ResolveFrom(NewReferenceBase("schemas/main.xsd"), mustURIReference(t, "child%5cname.xsd"))

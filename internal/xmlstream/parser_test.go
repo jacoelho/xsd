@@ -265,3 +265,62 @@ func drainReader(reader *Reader) error {
 		}
 	}
 }
+
+func TestReaderSkippedProcessingInstructionBoundaries(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		input  string
+		chunks []scriptedRead
+		start  int
+		line   int
+		column int
+	}{
+		{name: "overlapping questions", input: "<r><?p ??><c/></r>", start: 10, line: 1, column: 11},
+		{name: "false prefix", input: "<r><?p ?x?><c/></r>", start: 11, line: 1, column: 12},
+		{name: "Unicode clears prefix", input: "<r><?p ?é>tail?><c/></r>", start: 17, line: 1, column: 18},
+		{name: "line endings", input: "<r><?p \r\r\n?><c/></r>", start: 12, line: 3, column: 3},
+		{name: "split rune and terminator", chunks: []scriptedRead{
+			{data: []byte("<r><?p ?\xc3")},
+			{data: []byte("\xa9>tail?")},
+			{data: []byte("><c/></r>"), err: io.EOF},
+		}, start: 17, line: 1, column: 18},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var input io.Reader = strings.NewReader(test.input)
+			if test.chunks != nil {
+				input = &scriptedReader{reads: test.chunks}
+			}
+			var reader Reader
+			if err := reader.Reset(input, Config{}); err != nil {
+				t.Fatal(err)
+			}
+			_ = mustNextToken(t, &reader)
+			root, _, err := reader.Start()
+			if err != nil {
+				t.Fatal(err)
+			}
+			child := mustNextToken(t, &reader)
+			if child.Kind != KindStart || child.Start.Name.Local != "c" || child.StartOffset != test.start || child.EndOffset != test.start+4 || child.Line != test.line || child.Column != test.column {
+				t.Fatalf("following token = %+v, want c at [%d,%d], %d:%d", child, test.start, test.start+4, test.line, test.column)
+			}
+			frame, _, err := reader.Start()
+			if err != nil {
+				t.Fatal(err)
+			}
+			_ = mustNextToken(t, &reader)
+			if err := reader.End(frame); err != nil {
+				t.Fatal(err)
+			}
+			_ = mustNextToken(t, &reader)
+			if err := reader.End(root); err != nil {
+				t.Fatal(err)
+			}
+			if token, err := reader.Next(); token != nil || err != io.EOF { //nolint:errorlint // Token-boundary EOF is the exact sentinel.
+				t.Fatalf("Next() = %v, %v, want EOF", token, err)
+			}
+			if err := reader.Complete(); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}

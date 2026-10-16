@@ -77,6 +77,9 @@ func TestDurationPartialOrder(t *testing.T) {
 		want OrderedFacetRelation
 	}{
 		{"P1Y", "P364D", OrderedFacetGreater},
+		{"-PT0.5S", "PT0.5S", OrderedFacetLess},
+		{"PT0.5S", "-PT0.5S", OrderedFacetGreater},
+		{"-P1MT0.10S", "-P28DT0.1001S", OrderedFacetIncomparable},
 		{"P1Y", "P365D", OrderedFacetIncomparable},
 		{"P1Y", "P366D", OrderedFacetIncomparable},
 		{"P1Y", "P367D", OrderedFacetLess},

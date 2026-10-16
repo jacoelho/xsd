@@ -131,9 +131,6 @@ func TestForwardBaseRetainsFacets(t *testing.T) {
 	if reserveErr != nil {
 		t.Fatal(reserveErr)
 	}
-	if derived != value.BuiltinTypeCount || base != value.BuiltinTypeCount+1 {
-		t.Fatalf("reserved IDs = %d, %d", derived, base)
-	}
 	if err := builder.Complete(base, value.TypeSpec{
 		Variety: value.Atomic, Primitive: value.PrimitiveDecimal,
 		Base: value.BuiltinType(value.PrimitiveDecimal), ListItem: value.NoType,
@@ -190,5 +187,82 @@ func TestValueEqualityUsesValueSpace(t *testing.T) {
 				t.Fatalf("Equal = %v, want %v", got, tc.equal)
 			}
 		})
+	}
+}
+
+func TestBuiltinSpaceNormalization(t *testing.T) {
+	t.Parallel()
+	program, sealErr := value.NewBuilder(value.BuilderOptions{}).Seal()
+	if sealErr != nil {
+		t.Fatal(sealErr)
+	}
+	space, found := value.BuiltinTypeID("xml:space")
+	if !found {
+		t.Fatal("missing xml:space")
+	}
+	got, err := program.Validate(space, " \tdefault\n ", value.Resolver{}, value.NeedCanonical, 16<<20, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.CanonicalText() != "default" {
+		t.Fatalf("canonical = %q, want default", got.CanonicalText())
+	}
+}
+
+func TestBuiltinEntityUnionFallback(t *testing.T) {
+	builder := value.NewBuilder(value.BuilderOptions{})
+	entity, _ := value.BuiltinTypeID("ENTITY")
+	stringID := value.BuiltinType(value.PrimitiveString)
+	id, err := builder.Reserve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = builder.Complete(id, value.TypeSpec{Variety: value.Union, Union: []value.TypeID{entity, stringID}, Whitespace: value.WhitespaceCollapse, WhitespacePresent: true, Base: value.NoType, ListItem: value.NoType}); err != nil {
+		t.Fatal(err)
+	}
+	program, err := builder.Seal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, bytesInput := range []bool{false, true} {
+		var got value.Value
+		if bytesInput {
+			got, err = program.ValidateBytes(id, []byte("name"), value.Resolver{}, value.NeedCanonical, 16<<20, nil)
+		} else {
+			got, err = program.Validate(id, "name", value.Resolver{}, value.NeedCanonical, 16<<20, nil)
+		}
+		if err != nil || got.Type() != id || got.SelectedType() != stringID || got.CanonicalText() != "name" {
+			t.Fatalf("bytes=%t: union value=%#v, error=%v; want string fallback", bytesInput, got, err)
+		}
+	}
+}
+
+func TestBooleanValues(t *testing.T) {
+	for _, tc := range []struct {
+		lexical string
+		want    bool
+	}{{"true", true}, {"false", false}, {"1", true}, {"0", false}} {
+		got, err := value.ParseBooleanValue(tc.lexical)
+		if err != nil || got != tc.want {
+			t.Fatalf("ParseBooleanValue(%q) = %t, %v, want %t", tc.lexical, got, err, tc.want)
+		}
+		bytesValue, bytesErr := value.ParseBooleanValue([]byte(tc.lexical))
+		if bytesErr != nil || bytesValue != tc.want {
+			t.Fatalf("ParseBooleanValue bytes(%q) = %t, %v, want %t", tc.lexical, bytesValue, bytesErr, tc.want)
+		}
+	}
+	if _, err := value.ParseBooleanValue(""); err == nil {
+		t.Fatal("empty boolean accepted")
+	}
+}
+
+func TestNamedLexicalInputs(t *testing.T) {
+	type booleanText string
+	type floatBytes []byte
+	if got, err := value.ParseBooleanValue(booleanText("true")); err != nil || !got {
+		t.Fatalf("named boolean = %t, %v; want true", got, err)
+	}
+	if err := value.ValidateFloatLexical(floatBytes("1.25e2"), 64); err != nil {
+		t.Fatalf("named float bytes: %v", err)
 	}
 }

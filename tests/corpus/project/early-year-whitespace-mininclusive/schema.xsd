@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:simpleType name="Early"><xs:restriction base="xs:dateTime"><xs:minInclusive value=" &#x9;&#xD;&#xA;0001-02-03T12:00:00 &#x9;&#xD;&#xA;"/></xs:restriction></xs:simpleType><xs:element name="root" type="Early"/></xs:schema>

@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Locked" final="restriction"><xs:restriction base="xs:string"/></xs:simpleType>
+  <xs:complexType name="Amount"><xs:simpleContent><xs:extension base="Locked"/></xs:simpleContent></xs:complexType>
+  <xs:complexType name="Derived"><xs:simpleContent><xs:restriction base="Amount"/></xs:simpleContent></xs:complexType>
+  <xs:element name="r" type="Derived"/>
+</xs:schema>

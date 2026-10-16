@@ -79,3 +79,7 @@ type substitutionMembershipFixture struct {
 	simple  map[SimpleTypeID]SimpleTypeDerivation
 	complex map[ComplexTypeID]ComplexTypeDerivation
 }
+
+func (f substitutionMembershipFixture) build() *schemaBuild {
+	return (&derivationFixture{simple: fixtureMapSlice(f.simple), complex: fixtureMapSlice(f.complex)}).build()
+}

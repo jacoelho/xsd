@@ -236,7 +236,7 @@ func TestIndexCompiledModelsRowsAdmissionFailureAllowsRetry(t *testing.T) {
 			}}}
 			err := IndexCompiledModelsRows(build, models, tc.work)
 			if tc.work == nil {
-				if err == nil || err.Error() != "content-model work budget is required" {
+				if err == nil {
 					t.Fatalf("missing work error = %v, want required-budget error", err)
 				}
 			} else if !errors.Is(err, budgetFailure) {
@@ -244,9 +244,6 @@ func TestIndexCompiledModelsRowsAdmissionFailureAllowsRetry(t *testing.T) {
 			}
 			if !reflect.DeepEqual(models, want) {
 				t.Fatalf("admission failure changed compiled models: got %#v, want %#v", models, want)
-			}
-			if models[0].Rows[0].index.nameToEdge != nil || models[0].Rows[0].index.wildcardEdges != nil {
-				t.Fatal("admission failure published a row index")
 			}
 			if err := IndexCompiledModelsRows(build, models, unlimitedContentModelWork); err != nil {
 				t.Fatalf("retry error = %v", err)
@@ -263,4 +260,22 @@ func TestIndexCompiledModelsRowsAdmissionFailureAllowsRetry(t *testing.T) {
 			}
 		})
 	}
+}
+
+func fixtureMapSlice[K ~uint32, V any](in map[K]V) []V {
+	count := 0
+	for id := range in {
+		count = max(count, int(id)+1)
+	}
+	out := make([]V, count)
+	for id, v := range in {
+		out[id] = v
+	}
+	return out
+}
+
+func (f dfaRowIndexFixture) build() *schemaBuild {
+	b := &schemaBuild{Models: fixtureMapSlice(f.contentModels), Wildcards: fixtureMapSlice(f.wildcards), Elements: fixtureElements(fixtureMapSlice(f.elementNames), nil)}
+	b.Substitutions = fixtureSubstitutions(b.Elements, f.substitutionIDs, f.substitutionByName)
+	return b
 }

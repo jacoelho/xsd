@@ -1054,3 +1054,10 @@ func TestOccurrenceIsExactlyOne(t *testing.T) {
 		}
 	}
 }
+
+func (f choiceLimitRestrictionFixture) build() *schemaBuild {
+	b := (&derivationFixture{simple: f.simpleDerivations, complex: f.complexDerivations, anyType: f.anyType}).build()
+	b.Models = cloneContentModels(f.models)
+	b.Elements = fixtureElements(f.elements, f.elementRestrictions)
+	return b
+}

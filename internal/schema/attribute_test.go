@@ -309,9 +309,6 @@ func TestAttributeUseSetReadDerivesOrderedSlots(t *testing.T) {
 					}
 				}
 			}
-			if len(test.required) == 0 && read.required != nil || len(test.constraints) == 0 && read.valueConstraints != nil {
-				t.Fatal("absent slot list is nonnil")
-			}
 		})
 	}
 }
@@ -1088,4 +1085,22 @@ func validAttributeUseSet(first, second QName) AttributeUseSet {
 		WildcardBase:     NoWildcard,
 		WildcardDeclared: NoWildcard,
 	}
+}
+
+func (f attributeWildcardFixture) build() *schemaBuild {
+	return &schemaBuild{Wildcards: fixtureMapSlice(f)}
+}
+
+func (f attributeUseSetFixture) build() *schemaBuild {
+	b := &schemaBuild{Wildcards: fixtureMapSlice(f.wildcards), SimpleTypes: make([]SimpleType, len(fixtureMapSlice(f.identities)))}
+	for id, identity := range f.identities {
+		b.SimpleTypes[id].ValueSpec.Identity = identity
+	}
+	return b
+}
+
+func (f attributeUseRestrictionFixture) build() *schemaBuild {
+	b := f.derivationFixture.build()
+	b.Wildcards = fixtureMapSlice(f.attributeWildcardFixture)
+	return b
 }

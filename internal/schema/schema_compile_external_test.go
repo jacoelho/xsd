@@ -51,10 +51,14 @@ func TestCompileInheritedEnumerationRestrictionChain(t *testing.T) {
 
 func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
 	tests := []struct {
-		name   string
-		schema string
-		needle string
-		code   xsderrors.Code
+		name            string
+		schema          string
+		needle          string
+		messageContains string
+		code            xsderrors.Code
+		category        xsderrors.Category
+		line, column    int
+		dependencies    []source.Source
 	}{
 		{
 			name: "pattern",
@@ -130,12 +134,387 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
 			needle: `<xs:annotation/>`,
 			code:   xsderrors.CodeSchemaContentModel,
 		},
+
+		{name: "available QName restriction evaluates first literal", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Restricted">
+    <xs:restriction base="xs:QName">
+      <xs:enumeration value="p:item"/>
+      <xs:enumeration/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 4, column: 7},
+		{name: "available QName simple content evaluates first literal", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="Base"><xs:simpleContent><xs:extension base="xs:QName"/></xs:simpleContent></xs:complexType>
+  <xs:complexType name="Restricted">
+    <xs:simpleContent>
+      <xs:restriction base="Base">
+        <xs:enumeration value="p:item"/>
+        <xs:enumeration/>
+      </xs:restriction>
+    </xs:simpleContent>
+  </xs:complexType>
+</xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 6, column: 9},
+		{name: "unavailable union restriction defers first literal", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Base"><xs:union memberTypes="absent xs:QName"/></xs:simpleType>
+  <xs:simpleType name="Restricted">
+    <xs:restriction base="Base">
+      <xs:enumeration value="p:item"/>
+      <xs:enumeration/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 6, column: 7},
+		{name: "unavailable union simple content defers first literal", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Union"><xs:union memberTypes="absent xs:QName"/></xs:simpleType>
+  <xs:complexType name="Base"><xs:simpleContent><xs:extension base="Union"/></xs:simpleContent></xs:complexType>
+  <xs:complexType name="Restricted">
+    <xs:simpleContent>
+      <xs:restriction base="Base">
+        <xs:enumeration value="p:item"/>
+        <xs:enumeration/>
+      </xs:restriction>
+    </xs:simpleContent>
+  </xs:complexType>
+</xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 8, column: 9},
+		{name: "unavailable list duplicate precedes malformed attributes", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="List"><xs:list itemType="absent"/></xs:simpleType>
+  <xs:complexType name="Base"><xs:simpleContent><xs:extension base="List"/></xs:simpleContent></xs:complexType>
+  <xs:complexType name="Restricted">
+    <xs:simpleContent>
+      <xs:restriction base="Base">
+        <xs:length value="1"/>
+        <xs:length value="bad" fixed="bad"/>
+      </xs:restriction>
+    </xs:simpleContent>
+  </xs:complexType>
+</xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 8, column: 9, messageContains: "duplicate length"},
+		{name: "unavailable list retains whitespace restriction", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="List"><xs:list itemType="absent"/></xs:simpleType>
+  <xs:simpleType name="Restricted">
+    <xs:restriction base="List">
+      <xs:whiteSpace value="preserve"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 5, column: 7},
+		{name: "simple restriction lower pair precedes upper pair", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Limited">
+    <xs:restriction base="xs:decimal">
+      <xs:pattern value="[0-9]+"/>
+      <xs:maxInclusive value="10"/>
+      <xs:maxExclusive value="9"/>
+      <xs:minInclusive value="0"/>
+      <xs:minExclusive value="1"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 3, column: 5, messageContains: "minInclusive"},
+		{name: "simple content upper pair uses first facet location", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="Base"><xs:simpleContent><xs:extension base="xs:decimal"/></xs:simpleContent></xs:complexType>
+  <xs:complexType name="Limited">
+    <xs:simpleContent>
+      <xs:restriction base="Base">
+        <xs:pattern value="[0-9]+"/>
+        <xs:maxInclusive value="10"/>
+        <xs:maxExclusive value="9"/>
+      </xs:restriction>
+    </xs:simpleContent>
+  </xs:complexType>
+</xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 6, column: 9},
+		{name: "simple restriction late facet keeps child location", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Limited">
+    <xs:restriction base="xs:decimal">
+      <xs:pattern value="[0-9]+"/>
+      <xs:enumeration value="2"/>
+      <xs:enumeration/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 6, column: 7},
+		{name: "simple content late facet keeps child location", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="Base"><xs:simpleContent><xs:extension base="xs:decimal"/></xs:simpleContent></xs:complexType>
+  <xs:complexType name="Limited">
+    <xs:simpleContent>
+      <xs:restriction base="Base">
+        <xs:pattern value="[0-9]+"/>
+        <xs:enumeration value="2"/>
+        <xs:enumeration/>
+      </xs:restriction>
+    </xs:simpleContent>
+  </xs:complexType>
+</xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 8, column: 9},
+		{name: "final restriction anchors first facet", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Locked" final="restriction"><xs:restriction base="xs:string"/></xs:simpleType>
+  <xs:complexType name="Amount"><xs:simpleContent><xs:extension base="Locked"/></xs:simpleContent></xs:complexType>
+  <xs:complexType name="Derived"><xs:simpleContent>
+      <xs:restriction base="Amount">
+        <xs:pattern value=".*"/>
+        <xs:length value="1"/>
+      </xs:restriction>
+  </xs:simpleContent></xs:complexType>
+</xs:schema>`, code: xsderrors.CodeSchemaReference, line: 6, column: 9},
+		{name: "anonymous failure precedes outer facet", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="Amount"><xs:simpleContent><xs:extension base="xs:string"/></xs:simpleContent></xs:complexType>
+  <xs:complexType name="Derived">
+    <xs:simpleContent>
+      <xs:restriction base="Amount">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+          <xs:length value="1"/>
+          <xs:length value="2"/>
+          </xs:restriction>
+        </xs:simpleType>
+        <xs:maxLength value="-1"/>
+      </xs:restriction>
+    </xs:simpleContent>
+  </xs:complexType>
+</xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 9, column: 11},
+		{name: "numeric true prevents narrowing", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Base">
+    <xs:restriction base="xs:string">
+      <xs:minLength value="2" fixed="1"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Derived">
+    <xs:restriction base="Base">
+      <xs:minLength value="3"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="r" type="Derived"/>
+</xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 7, column: 3},
+		{name: "unavailable simple content admits fixed before size", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="List"><xs:list itemType="absent"/></xs:simpleType>
+  <xs:complexType name="Base"><xs:simpleContent><xs:extension base="List"/></xs:simpleContent></xs:complexType>
+  <xs:complexType name="Restricted">
+    <xs:simpleContent>
+      <xs:restriction base="Base">
+        <xs:length value="bad" fixed="bad"/>
+      </xs:restriction>
+    </xs:simpleContent>
+  </xs:complexType>
+</xs:schema>`, code: xsderrors.CodeSchemaInvalidAttribute, line: 7, column: 9},
+		{name: "grammar", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="r">
+    <xs:key name="key">
+      <xs:selector xpath="["/>
+      <xs:field xpath=""/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`, code: xsderrors.CodeSchemaIdentity, line: 5, column: 7},
+		{name: "reference", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="r">
+    <xs:keyref name="reference" refer="unknown">
+      <xs:selector xpath="["/>
+      <xs:field xpath="@id"/>
+    </xs:keyref>
+  </xs:element>
+</xs:schema>`, code: xsderrors.CodeSchemaReference, line: 3, column: 5},
+		{name: "field", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="r">
+    <xs:key name="key">
+      <xs:selector xpath="item"/>
+      <xs:field xpath="@"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`, code: xsderrors.CodeSchemaIdentity, line: 5, column: 7},
+		{name: "conflict", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="r" type="xs:string" default="" fixed="">
+    <xs:key name="value"><xs:selector xpath="["/><xs:field xpath="@id"/></xs:key>
+  </xs:element>
+</xs:schema>`, code: xsderrors.CodeSchemaInvalidAttribute, line: 2, column: 3},
+		{name: "xpath", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="r" type="xs:string" fixed="">
+    <xs:key name="value"><xs:selector xpath="["/><xs:field xpath="@id"/></xs:key>
+  </xs:element>
+</xs:schema>`, code: xsderrors.CodeSchemaIdentity, line: 3, column: 26},
+		{name: "element reference", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:complexType name="container"><xs:sequence>
+  <xs:element type="t:T" substitutionGroup="s:H" ref="r:R"/>
+</xs:sequence></xs:complexType></xs:schema>`, code: xsderrors.CodeSchemaReference, line: 2, column: 3, messageContains: "prefix r"},
+		{name: "element substitution", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:complexType name="container"><xs:sequence>
+  <xs:element type="t:T" substitutionGroup="s:H" ref="xs:string"/>
+</xs:sequence></xs:complexType></xs:schema>`, code: xsderrors.CodeSchemaReference, line: 2, column: 3, messageContains: "prefix s"},
+		{name: "attribute reference", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:complexType name="container">
+  <xs:attribute type="t:T" ref="r:R"/>
+</xs:complexType></xs:schema>`, code: xsderrors.CodeSchemaReference, line: 2, column: 3, messageContains: "prefix r"},
+		{name: "empty type", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="value" type=""/></xs:schema>`, code: xsderrors.CodeSchemaReference, line: 2, column: 3},
+		{name: "unknown-model", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:f="urn:foreign">
+  <xs:complexType name="C">
+    <xs:sequence>
+      <xs:future/>
+      <xs:attribute/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>`, code: xsderrors.CodeSchemaContentModel, line: 4, column: 7},
+		{name: "foreign-restriction", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:f="urn:foreign">
+  <xs:simpleType name="T">
+    <f:restriction base="a:b:c"/>
+  </xs:simpleType>
+</xs:schema>`, code: xsderrors.CodeSchemaContentModel, line: 3, column: 5},
+		{name: "foreign-notation", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:f="urn:foreign">
+  <xs:notation name="N" public="n">
+    <f:annotation/>
+  </xs:notation>
+</xs:schema>`, code: xsderrors.CodeSchemaContentModel, line: 3, column: 5},
+		{name: "nonopaque-documentation", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:f="urn:foreign">
+  <xs:element name="r">
+    <xs:documentation>
+      <f:element/>
+    </xs:documentation>
+  </xs:element>
+</xs:schema>`, code: xsderrors.CodeSchemaContentModel, line: 4, column: 7},
+		{name: "simple-content-self", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:f="urn:foreign">
+  <xs:complexType name="C">
+    <xs:simpleContent><xs:extension base="C"/></xs:simpleContent>
+  </xs:complexType>
+  <xs:element name="r" type="C"/>
+</xs:schema>`, code: xsderrors.CodeSchemaReference, line: 3, column: 23},
+		{name: "simple-content-mutual", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:f="urn:foreign">
+  <xs:complexType name="C">
+    <xs:simpleContent><xs:extension base="B"/></xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="B">
+    <xs:simpleContent><xs:extension base="C"/></xs:simpleContent>
+  </xs:complexType>
+  <xs:element name="r" type="C"/>
+</xs:schema>`, code: xsderrors.CodeSchemaReference, line: 3, column: 23},
+		{name: "imported attribute-group wildcard intersection", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:a="urn:a" xmlns:b="urn:b">
+  <xs:import namespace="urn:a"/>
+  <xs:import namespace="urn:b"/>
+  <xs:element name="r">
+    <xs:complexType>
+      <xs:attributeGroup ref="a:G"/>
+      <xs:attributeGroup ref="b:G"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`, code: xsderrors.CodeSchemaContentModel, line: 7, column: 7, dependencies: []source.Source{source.Bytes("a.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:a">
+  <xs:attributeGroup name="G"><xs:anyAttribute namespace="##other" processContents="lax"/></xs:attributeGroup>
+</xs:schema>`)), source.Bytes("b.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:b">
+  <xs:attributeGroup name="G"><xs:anyAttribute namespace="##other" processContents="lax"/></xs:attributeGroup>
+</xs:schema>`))}},
+		{name: "unused attribute-group default", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:attribute name="a" type="xs:int" default="1"/>
+  <xs:attributeGroup name="G">
+    <xs:attribute ref="a" default="bad"/>
+  </xs:attributeGroup>
+  <xs:element name="r" type="xs:string"/>
+</xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 4, column: 5},
+		{name: "local wildcard intersection", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:a="urn:a" targetNamespace="urn:b">
+  <xs:import namespace="urn:a"/>
+  <xs:element name="r">
+    <xs:complexType>
+      <xs:attributeGroup ref="a:G"/>
+      <xs:anyAttribute namespace="##other" processContents="lax"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`, code: xsderrors.CodeSchemaContentModel, line: 6, column: 7, dependencies: []source.Source{source.Bytes("a.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:a">
+  <xs:attributeGroup name="G"><xs:anyAttribute namespace="##other" processContents="lax"/></xs:attributeGroup>
+</xs:schema>`))}},
+		{name: "deferred completion default", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="R" mixed="true">
+    <xs:sequence>
+      <xs:element name="child" minOccurs="0">
+        <xs:complexType mixed="true">
+          <xs:complexContent mixed="true">
+            <xs:extension base="R">
+              <xs:attribute name="a" type="xs:int" default="not-an-int"/>
+            </xs:extension>
+          </xs:complexContent>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:element name="root" type="R"/>
+</xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 8, column: 15},
+		{name: "direct builtin list", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="values"><xs:list itemType="xs:NMTOKENS"/></xs:simpleType>
+</xs:schema>`, code: xsderrors.CodeSchemaContentModel, line: 2, column: 32},
+		{name: "nested named union", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="leaf"><xs:list itemType="xs:string"/></xs:simpleType>
+  <xs:simpleType name="inner"><xs:union memberTypes="xs:int leaf"/></xs:simpleType>
+  <xs:simpleType name="outer"><xs:union memberTypes="inner xs:boolean"/></xs:simpleType>
+  <xs:simpleType name="values"><xs:list itemType="outer"/></xs:simpleType>
+</xs:schema>`, code: xsderrors.CodeSchemaContentModel, line: 5, column: 32},
+		{name: "anonymous nested union", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="values"><xs:list>
+    <xs:simpleType><xs:union memberTypes="xs:int">
+      <xs:simpleType><xs:union memberTypes="xs:boolean xs:NMTOKENS"/></xs:simpleType>
+    </xs:union></xs:simpleType>
+  </xs:list></xs:simpleType>
+</xs:schema>`, code: xsderrors.CodeSchemaContentModel, line: 2, column: 32},
+		{name: "restricted union", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="inner"><xs:union memberTypes="xs:int xs:NMTOKENS"/></xs:simpleType>
+  <xs:simpleType name="restricted"><xs:restriction base="inner"/></xs:simpleType>
+  <xs:simpleType name="values"><xs:list itemType="restricted"/></xs:simpleType>
+</xs:schema>`, code: xsderrors.CodeSchemaContentModel, line: 4, column: 32},
+		{name: "final list precedes list membership", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="leaf" final="list"><xs:list itemType="xs:string"/></xs:simpleType>
+  <xs:simpleType name="values"><xs:list itemType="leaf"/></xs:simpleType>
+</xs:schema>`, code: xsderrors.CodeSchemaReference, line: 3, column: 32},
+		{name: "later unknown member precedes outer list membership", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="item"><xs:union memberTypes="xs:NMTOKENS xs:absent"/></xs:simpleType>
+  <xs:simpleType name="values"><xs:list itemType="item"/></xs:simpleType>
+</xs:schema>`, code: xsderrors.CodeSchemaReference, line: 2, column: 30},
+		{name: "unavailable source list inside union", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:m="urn:missing">
+  <xs:import namespace="urn:missing"/>
+  <xs:simpleType name="leaf"><xs:list itemType="m:absent"/></xs:simpleType>
+  <xs:simpleType name="item"><xs:union memberTypes="leaf xs:int"/></xs:simpleType>
+  <xs:simpleType name="values"><xs:list itemType="item"/></xs:simpleType>
+</xs:schema>`, code: xsderrors.CodeSchemaContentModel, line: 5, column: 32},
+		{name: "self union cycle", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="T"><xs:union memberTypes="T"/></xs:simpleType>
+</xs:schema>`, code: xsderrors.CodeSchemaReference, line: 2, column: 3},
+		{name: "mutual union cycle", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="T0"><xs:union memberTypes="T1"/></xs:simpleType>
+  <xs:simpleType name="T1"><xs:union memberTypes="T0"/></xs:simpleType>
+</xs:schema>`, code: xsderrors.CodeSchemaReference, line: 2, column: 3},
+		{name: "first repeated value wins", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:annotation id="a"/>
+  <xs:annotation id="b"/>
+  <xs:annotation id="b"/>
+  <xs:annotation id="a"/>
+</xs:schema>`, code: xsderrors.CodeSchemaInvalidAttribute, line: 4, column: 3, category: xsderrors.CategorySchemaCompile},
+		{name: "normalized IDs collide", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:annotation id="  a&#x9; "/>
+  <xs:annotation id="a"/>
+</xs:schema>`, code: xsderrors.CodeSchemaInvalidAttribute, line: 3, column: 3, category: xsderrors.CategorySchemaCompile},
+		{name: "later malformed XML wins", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:annotation id="a"/>
+  <xs:annotation id="a"/>
+  <xs:annotation></xs:element>
+</xs:schema>`, code: xsderrors.CodeSchemaXML, line: 4, column: 18, category: xsderrors.CategorySchemaParse},
+		{name: "later unsupported feature wins", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:annotation id="a"/>
+  <xs:annotation id="a"/>
+  <xs:assert/>
+</xs:schema>`, code: xsderrors.CodeUnsupportedXSD11, line: 4, column: 3, category: xsderrors.CategoryUnsupported},
+		{name: "later empty ID wins", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:annotation id="a"/>
+  <xs:annotation id="a"/>
+  <xs:annotation id=""/>
+</xs:schema>`, code: xsderrors.CodeSchemaInvalidAttribute, line: 4, column: 3, category: xsderrors.CategorySchemaCompile},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(test.schema))})
-			expectCode(t, err, test.code)
-			expectSchemaCompileLine(t, err, lineOf(test.schema, test.needle))
+			sources := append([]source.Source{source.Bytes("schema.xsd", []byte(test.schema))}, test.dependencies...)
+			compiled, err := xsdSchema.Compile(xsdSchema.Options{}, sources)
+			if compiled != nil {
+				t.Fatal("invalid schema was published")
+			}
+			diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+			category := test.category
+			if category == "" {
+				category = xsderrors.CategorySchemaCompile
+			}
+			if !ok || diagnostic.Category() != category || diagnostic.Code() != test.code {
+				t.Fatalf("Compile() error = %v, want %s/%s", err, category, test.code)
+			}
+			if test.messageContains != "" && !strings.Contains(diagnostic.Message(), test.messageContains) {
+				t.Fatalf("Compile() diagnostic = %q, want %q", diagnostic.Message(), test.messageContains)
+			}
+			line := test.line
+			if line == 0 {
+				line = lineOf(test.schema, test.needle)
+			}
+			if diagnostic.Path() != "schema.xsd" || diagnostic.Line() != line || (test.column != 0 && diagnostic.Column() != test.column) {
+				t.Fatalf("diagnostic location = %s:%d:%d, want schema.xsd:%d:%d", diagnostic.Path(), diagnostic.Line(), diagnostic.Column(), line, test.column)
+			}
 		})
 	}
 }
@@ -3015,6 +3394,35 @@ func TestCompileOptionsSchemaXMLLimits(t *testing.T) {
 	_, err = xsdSchema.Compile(xsdSchema.Options{MaxSchemaTokenBytes: 128}, []source.Source{source.Bytes("schema.xsd", []byte(textSchema))})
 	expectCategoryCode(t, err, xsderrors.CategorySchemaParse, xsderrors.CodeSchemaLimit)
 
+	t.Run("opaque cumulative text", func(t *testing.T) {
+		for _, test := range []struct {
+			name        string
+			secondBytes int
+			wantLimit   bool
+		}{
+			{name: "at limit", secondBytes: 64},
+			{name: "above limit", secondBytes: 65, wantLimit: true},
+		} {
+			t.Run(test.name, func(t *testing.T) {
+				input := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:annotation><xs:documentation>` +
+					strings.Repeat("a", 64) + `<?p?>` + strings.Repeat("b", test.secondBytes) +
+					`</xs:documentation></xs:annotation><xs:element name="r" type="xs:string"/></xs:schema>`
+				compiled, compileErr := xsdSchema.Compile(xsdSchema.Options{MaxSchemaTokenBytes: 128}, []source.Source{source.Bytes("opaque-cumulative.xsd", []byte(input))})
+				if test.wantLimit {
+					diagnostic, ok := errors.AsType[*xsderrors.Error](compileErr)
+					if compiled != nil || !ok || diagnostic.Category() != xsderrors.CategorySchemaParse || diagnostic.Code() != xsderrors.CodeSchemaLimit || diagnostic.Path() != "opaque-cumulative.xsd" || diagnostic.Line() != 1 || diagnostic.Column() != 158 {
+						t.Fatalf("Compile() = %v, %v; want schema parse/limit at opaque-cumulative.xsd:1:158", compiled, compileErr)
+					}
+					return
+				}
+				if compileErr != nil || compiled == nil {
+					t.Fatalf("Compile() = %v, %v; want accepted cumulative boundary", compiled, compileErr)
+				}
+				mustValidate(t, compiled, `<r>text</r>`)
+			})
+		}
+	})
+
 	nodeSchema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:annotation><xs:appinfo><payload/></xs:appinfo></xs:annotation></xs:schema>`
 	_, err = xsdSchema.Compile(xsdSchema.Options{MaxSchemaInstantiatedNodes: 3}, []source.Source{source.Bytes("schema.xsd", []byte(nodeSchema))})
 	expectCategoryCode(t, err, xsderrors.CategorySchemaParse, xsderrors.CodeSchemaLimit)
@@ -3525,4 +3933,37 @@ func TestRuntimeElementAccessor(t *testing.T) {
 	if !ok || !rootInfo.Type.IsSimple() {
 		t.Fatal("root element is missing")
 	}
+}
+
+func TestGlobalAttributeTypeRequiresSimpleType(t *testing.T) {
+	t.Parallel()
+
+	const invalid = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="C"/>
+  <xs:complexType name="T">
+    <xs:attribute name="a" type="C"/>
+  </xs:complexType>
+  <xs:element name="r" type="T"/>
+</xs:schema>`
+	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("kind.xsd", []byte(invalid))})
+	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+	if !ok || diagnostic.Category() != xsderrors.CategorySchemaCompile || diagnostic.Code() != xsderrors.CodeSchemaReference || diagnostic.Message() != "unknown simple type C" {
+		t.Fatalf("Compile(complex attribute type) = %v; want schema reference error for unknown simple type C", err)
+	}
+	if diagnostic.Path() != "kind.xsd" || diagnostic.Line() != 4 || diagnostic.Column() != 5 {
+		t.Fatalf("diagnostic location = %s:%d:%d; want kind.xsd:4:5", diagnostic.Path(), diagnostic.Line(), diagnostic.Column())
+	}
+
+	const valid = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="C"><xs:restriction base="xs:string"/></xs:simpleType>
+  <xs:complexType name="T">
+    <xs:attribute name="a" type="C"/>
+  </xs:complexType>
+  <xs:element name="r" type="T"/>
+</xs:schema>`
+	compiled, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("kind.xsd", []byte(valid))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustValidate(t, compiled, `<r a="value"/>`)
 }

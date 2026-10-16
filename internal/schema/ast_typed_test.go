@@ -166,6 +166,20 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
 			wantLine: 3, wantCol: 5, wantCode: xsderrors.CodeSchemaInvalidAttribute,
 			wantMsg: "invalid xml:lang on xs:documentation",
 		},
+		{
+			name: "documentation outside annotation retains child diagnostics",
+			body: `  <xs:notation name="N" public="">
+    <xs:documentation xml:lang="en-US">
+      text
+      <xs:annotation/>
+      <xs:annotation>
+        <xs:annotation/>
+      </xs:annotation>
+    </xs:documentation>
+  </xs:notation>`,
+			wantLine: 7, wantCol: 9, wantCode: xsderrors.CodeSchemaContentModel,
+			wantMsg: "xs:annotation cannot contain xs:annotation",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -230,65 +244,6 @@ func TestDocumentationLanguageOutsideAnnotation(t *testing.T) {
 			}
 			if issue.Path() != "language.xsd" || issue.Line() != 3 || issue.Column() != 5 {
 				t.Fatalf("location = {%q %d %d}, want {%q 3 5}", issue.Path(), issue.Line(), issue.Column(), "language.xsd")
-			}
-		})
-	}
-}
-
-func TestNonopaqueDocumentationEndAdmission(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name     string
-		children string
-		wantMsg  string
-	}{
-		{
-			name: "text and repeated annotations exempt from component grammar",
-			children: `      <xs:annotation/>
-      <xs:annotation/>`,
-		},
-		{
-			name: "retained child still validates its own annotations",
-			children: `      <xs:annotation/>
-      <xs:annotation>
-        <xs:annotation/>
-      </xs:annotation>`,
-			wantMsg: "xs:annotation cannot contain xs:annotation",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			limits, err := NormalizeOptions(Options{})
-			if err != nil {
-				t.Fatal(err)
-			}
-			schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:notation name="N" public="">
-    <xs:documentation xml:lang="en-US">
-      text
-` + tt.children + `
-    </xs:documentation>
-  </xs:notation>
-</xs:schema>`
-			_, err = parseSchemaDocument("documentation.xsd", "documentation.xsd", strings.NewReader(schema), limits, new(xmlstream.Reader))
-			if tt.wantMsg == "" {
-				if err != nil {
-					t.Fatalf("parseSchemaDocument() error = %v", err)
-				}
-				return
-			}
-			issue, ok := errors.AsType[*xsderrors.Error](err)
-			if !ok {
-				t.Fatalf("parseSchemaDocument() error = %T %[1]v, want structured diagnostic", err)
-			}
-			if issue.Category() != xsderrors.CategorySchemaCompile || issue.Code() != xsderrors.CodeSchemaContentModel || issue.Message() != tt.wantMsg {
-				t.Fatalf("diagnostic = {%s %s %q}, want {%s %s %q}", issue.Category(), issue.Code(), issue.Message(), xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel, tt.wantMsg)
-			}
-			if issue.Path() != "documentation.xsd" || issue.Line() != 7 || issue.Column() != 9 {
-				t.Fatalf("location = {%q %d %d}, want {%q 7 9}", issue.Path(), issue.Line(), issue.Column(), "documentation.xsd")
 			}
 		})
 	}

@@ -731,20 +731,6 @@ func TestFormatXMLRejectsTruncatedTrailingMarkup(t *testing.T) {
 }
 
 func TestFormatXMLWithOptionsLimitsNodes(t *testing.T) {
-	var out strings.Builder
-	err := XMLWithOptions(&out, `<root><a/><b/></root>`, Options{MaxNodes: 2})
-	if err == nil {
-		t.Fatal("XMLWithOptions() succeeded")
-	}
-	if diagnostic, ok := errors.AsType[*xsderrors.Error](err); !ok || diagnostic == nil {
-		t.Fatalf("XMLWithOptions() error type = %T, want *xsderrors.Error", err)
-	}
-	if !strings.Contains(err.Error(), "XML node limit exceeded") {
-		t.Fatalf("XMLWithOptions() error = %v", err)
-	}
-}
-
-func TestFormatXMLNodeLimitAdmitsCompleteTapeBeforeOutput(t *testing.T) {
 	t.Parallel()
 	const input = `<?p?><r><!--c-->x<a/></r>`
 	t.Run("at limit", func(t *testing.T) {

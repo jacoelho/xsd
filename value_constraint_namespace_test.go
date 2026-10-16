@@ -226,22 +226,6 @@ func TestChangedTypeNotationConstraintPreservesDeclarationChecks(t *testing.T) {
 	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationFacet)
 }
 
-func TestInheritedNotationEnumerationAllowsDefault(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:notation name="gif" public="image-gif"/>
-  <xs:simpleType name="Base"><xs:restriction base="xs:NOTATION"><xs:enumeration value="gif"/></xs:restriction></xs:simpleType>
-  <xs:simpleType name="Derived"><xs:restriction base="Base"/></xs:simpleType>
-  <xs:element name="root" type="Derived" default="gif"/>
-</xs:schema>`
-	engine, err := xsd.Compile(xsd.Bytes("inherited-notation.xsd", []byte(schema)))
-	if err != nil {
-		t.Fatalf("Compile() error = %v", err)
-	}
-	if err := engine.Validate(strings.NewReader(`<root/>`)); err != nil {
-		t.Fatalf("Validate() error = %v, want inherited NOTATION default", err)
-	}
-}
-
 func TestQNameConstraintSessionReuseAndConcurrentEngineValidation(t *testing.T) {
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:p">
   <xs:simpleType name="Declared"><xs:union memberTypes="xs:string xs:QName"/></xs:simpleType>
