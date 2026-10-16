@@ -18,16 +18,3 @@ type TypeInfo struct {
 	Abstract    bool
 	Unavailable bool
 }
-
-// typeInfoShape is the schema-independent projection used to publish type
-// start metadata.
-type typeInfoShape struct {
-	Block       DerivationMask
-	Abstract    bool
-	Unavailable bool
-}
-
-// newTypeInfo returns the start projection for one runtime type.
-func newTypeInfo(shape typeInfoShape) TypeInfo {
-	return TypeInfo(shape)
-}

@@ -31,7 +31,11 @@ func TestOrderedFacetsRejectIncomparableValues(t *testing.T) {
 					facets.MaxExclusive = literal
 				}
 				builder := value.NewBuilder(value.BuilderOptions{})
-				id, err := builder.Add(atomicFacetType(test.primitive, facets))
+				id, err := builder.Reserve()
+				if err != nil {
+					t.Fatalf("Reserve() error = %v", err)
+				}
+				err = builder.Complete(id, atomicFacetType(test.primitive, facets))
 				if err != nil {
 					t.Fatal(err)
 				}

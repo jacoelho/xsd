@@ -28,7 +28,11 @@ func TestProgramUnionEnumerationEnforcesQNameMemberFacets(t *testing.T) {
 	pattern := enumerationPattern(t, "nope")
 	resolver := enumerationQNameResolver()
 	b := NewBuilder(BuilderOptions{})
-	qname, err := b.Add(TypeSpec{
+	qname, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(qname, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveQName,
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -38,7 +42,11 @@ func TestProgramUnionEnumerationEnforcesQNameMemberFacets(t *testing.T) {
 		t.Fatal(err)
 	}
 	members := []TypeID{qname, builtinString}
-	union, err := b.Add(TypeSpec{
+	union, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(union, TypeSpec{
 		Variety: Union, Primitive: PrimitiveString, Union: members,
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -46,7 +54,11 @@ func TestProgramUnionEnumerationEnforcesQNameMemberFacets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	restricted, err := b.Add(TypeSpec{
+	restricted, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(restricted, TypeSpec{
 		Variety: Union, Primitive: PrimitiveString, Union: members,
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: union, ListItem: NoType,
@@ -73,7 +85,11 @@ func TestProgramUnionEnumerationEnforcesQNameMemberFacets(t *testing.T) {
 func TestProgramUnionEnumerationEnforcesListItemFacets(t *testing.T) {
 	pattern := enumerationPattern(t, "nope")
 	b := NewBuilder(BuilderOptions{})
-	item, err := b.Add(TypeSpec{
+	item, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(item, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveString,
 		Whitespace: WhitespacePreserve, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -82,7 +98,11 @@ func TestProgramUnionEnumerationEnforcesListItemFacets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	list, err := b.Add(TypeSpec{
+	list, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(list, TypeSpec{
 		Variety: List, Primitive: PrimitiveString,
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: item,
@@ -91,7 +111,11 @@ func TestProgramUnionEnumerationEnforcesListItemFacets(t *testing.T) {
 		t.Fatal(err)
 	}
 	members := []TypeID{list, builtinString}
-	union, err := b.Add(TypeSpec{
+	union, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(union, TypeSpec{
 		Variety: Union, Primitive: PrimitiveString, Union: members,
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -99,7 +123,11 @@ func TestProgramUnionEnumerationEnforcesListItemFacets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	restricted, err := b.Add(TypeSpec{
+	restricted, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(restricted, TypeSpec{
 		Variety: Union, Primitive: PrimitiveString, Union: members,
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: union, ListItem: NoType,
@@ -125,7 +153,11 @@ func TestProgramNestedUnionEnumerationEnforcesNestedMemberFacets(t *testing.T) {
 	pattern := enumerationPattern(t, "nope")
 	resolver := enumerationQNameResolver()
 	b := NewBuilder(BuilderOptions{})
-	qname, err := b.Add(TypeSpec{
+	qname, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(qname, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveQName,
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -134,7 +166,11 @@ func TestProgramNestedUnionEnumerationEnforcesNestedMemberFacets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	inner, err := b.Add(TypeSpec{
+	inner, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(inner, TypeSpec{
 		Variety: Union, Primitive: PrimitiveString,
 		Union:      []TypeID{qname, builtinString},
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
@@ -143,7 +179,11 @@ func TestProgramNestedUnionEnumerationEnforcesNestedMemberFacets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	outer, err := b.Add(TypeSpec{
+	outer, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(outer, TypeSpec{
 		Variety: Union, Primitive: PrimitiveString,
 		Union:      []TypeID{inner},
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
@@ -152,7 +192,11 @@ func TestProgramNestedUnionEnumerationEnforcesNestedMemberFacets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	restricted, err := b.Add(TypeSpec{
+	restricted, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(restricted, TypeSpec{
 		Variety: Union, Primitive: PrimitiveString,
 		Union:      []TypeID{inner},
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
@@ -175,7 +219,11 @@ func TestProgramNestedUnionEnumerationEnforcesNestedMemberFacets(t *testing.T) {
 
 func TestProgramUnionEnumerationRetainsListMemberItems(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	item, err := b.Add(TypeSpec{
+	item, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(item, TypeSpec{
 		Variety:           Atomic,
 		Primitive:         PrimitiveDecimal,
 		Whitespace:        WhitespaceCollapse,
@@ -186,7 +234,11 @@ func TestProgramUnionEnumerationRetainsListMemberItems(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	list, err := b.Add(TypeSpec{
+	list, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(list, TypeSpec{
 		Variety:           List,
 		Whitespace:        WhitespaceCollapse,
 		WhitespacePresent: true,
@@ -196,7 +248,11 @@ func TestProgramUnionEnumerationRetainsListMemberItems(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	union, err := b.Add(TypeSpec{
+	union, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(union, TypeSpec{
 		Variety:           Union,
 		Union:             []TypeID{list, builtinInt},
 		Whitespace:        WhitespaceCollapse,
@@ -250,7 +306,11 @@ func TestProgramUnionEnumerationRetainsListMemberItems(t *testing.T) {
 
 func TestProgramInheritedUnionEnumerationRetainsNestedListItems(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	item, err := b.Add(TypeSpec{
+	item, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(item, TypeSpec{
 		Variety:           Atomic,
 		Primitive:         PrimitiveDecimal,
 		Whitespace:        WhitespaceCollapse,
@@ -261,7 +321,11 @@ func TestProgramInheritedUnionEnumerationRetainsNestedListItems(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	list, err := b.Add(TypeSpec{
+	list, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(list, TypeSpec{
 		Variety:           List,
 		Whitespace:        WhitespaceCollapse,
 		WhitespacePresent: true,
@@ -271,7 +335,11 @@ func TestProgramInheritedUnionEnumerationRetainsNestedListItems(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	nested, err := b.Add(TypeSpec{
+	nested, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(nested, TypeSpec{
 		Variety:           Union,
 		Union:             []TypeID{list, builtinInt},
 		Whitespace:        WhitespaceCollapse,
@@ -282,7 +350,11 @@ func TestProgramInheritedUnionEnumerationRetainsNestedListItems(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	baseUnion, err := b.Add(TypeSpec{
+	baseUnion, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(baseUnion, TypeSpec{
 		Variety:           Union,
 		Union:             []TypeID{nested, builtinString},
 		Whitespace:        WhitespaceCollapse,
@@ -293,7 +365,11 @@ func TestProgramInheritedUnionEnumerationRetainsNestedListItems(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	restricted, err := b.Add(TypeSpec{
+	restricted, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(restricted, TypeSpec{
 		Variety:           Union,
 		Union:             []TypeID{nested, builtinString},
 		Whitespace:        WhitespaceCollapse,
@@ -308,7 +384,11 @@ func TestProgramInheritedUnionEnumerationRetainsNestedListItems(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	derived, err := b.Add(TypeSpec{
+	derived, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(derived, TypeSpec{
 		Variety:           Union,
 		Union:             []TypeID{nested, builtinString},
 		Whitespace:        WhitespaceCollapse,

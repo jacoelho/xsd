@@ -8,24 +8,19 @@ func NewDeclaredIdentityConstraint(name QName) IdentityConstraint {
 	return IdentityConstraint{Name: name, Refer: NoIdentityConstraint}
 }
 
-// NewIdentityConstraint constructs identity metadata and owns the derived field
-// lookup tables used at validation time.
+// NewIdentityConstraint owns parsed selector and field metadata.
 func NewIdentityConstraint(kind IdentityKind, name QName, refer IdentityConstraintID, selector []IdentityPath, fields []IdentityField) IdentityConstraint {
 	if kind != IdentityKeyRef {
 		refer = NoIdentityConstraint
 	}
 	selector = CloneIdentityPaths(selector)
 	fields = CloneIdentityFields(fields)
-	elementFields, attrFields, attrWildcardFields := BuildIdentityFieldLookup(fields)
 	return IdentityConstraint{
-		Selector:                selector,
-		Fields:                  fields,
-		ElementFields:           elementFields,
-		AttributeFields:         attrFields,
-		AttributeWildcardFields: attrWildcardFields,
-		Name:                    name,
-		Refer:                   refer,
-		Kind:                    kind,
+		Selector: selector,
+		Fields:   fields,
+		Name:     name,
+		Refer:    refer,
+		Kind:     kind,
 	}
 }
 

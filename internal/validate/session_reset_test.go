@@ -13,6 +13,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/source"
 	"github.com/jacoelho/xsd/internal/vocab"
+	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -235,7 +236,12 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 	s.doc.allBits = make([]uint64, 1, maxRetainedSliceCap+1)
 	s.doc.identity.ids = map[string]retainedPath{"stale": explicitRetainedPath("/stale")}
 	s.doc.identity.entries = 1
-	if err := s.doc.schemaLocationHints.RecordAttribute(staleSchemaLocationHintName(), "urn:stale stale.xsd", testSchemaLocationHintLimits, s.startContext(1, 1)); err != nil {
+	if err := s.doc.schemaLocationHints.RecordAttributes(
+		[]xmlstream.Attr{{Name: staleSchemaLocationHintName(), Value: "urn:stale stale.xsd"}},
+		nil,
+		testSchemaLocationHintLimits,
+		s.startContext(1, 1),
+	); err != nil {
 		t.Fatalf("record schema-location hint: %v", err)
 	}
 

@@ -19,7 +19,7 @@ type CardinalityFacet = FacetCardinalityValue
 
 // LiteralSpec is a source lexical value used by a bound or enumeration facet.
 // Type selects the value space that owns the literal. NoType means the
-// containing type. Resolver is used once while sealing the program and is not
+// containing type. Resolver is used once while completing the type and is not
 // retained in the sealed program.
 type LiteralSpec struct {
 	Resolver Resolver
@@ -52,7 +52,7 @@ type FacetSpec struct {
 	Fixed          FacetMask
 }
 
-// TypeSpec is temporary source metadata consumed by Builder.Seal.
+// TypeSpec is temporary source metadata consumed by Builder.Complete.
 type TypeSpec struct {
 	Union             []TypeID
 	Facets            FacetSpec
@@ -85,19 +85,15 @@ const (
 	typeStorageBase = uint64(512)
 )
 
-// Builder accumulates source metadata. It is single-owner and is discarded
+// Builder completes dependency-ordered type definitions. It is single-owner and is discarded
 // after Seal; no source specs or resolver closures enter Program.
 type Builder struct {
 	program             *Program
-	pending             []TypeSpec
-	pendingSet          []bool
 	maxStorage          uint64
 	storageUsed         uint64
 	maxConstructionWork uint64
 	prepaidSlots        int
 	maxTypes            uint32
-	maxDepth            uint16
-	sealed              bool
 }
 
 // NewBuilder creates a value-program builder. All XSD simple builtins occupy
@@ -121,7 +117,6 @@ func NewBuilder(options BuilderOptions) *Builder {
 	}
 	return &Builder{
 		program:             &Program{maxDepth: depth},
-		maxDepth:            depth,
 		maxTypes:            types,
 		maxStorage:          storage,
 		maxConstructionWork: work,
@@ -131,7 +126,7 @@ func NewBuilder(options BuilderOptions) *Builder {
 // Reserve allocates one stable user-type ID. The slot remains incomplete until
 // Complete succeeds; builtins occupy the fixed prefix below this ID.
 func (b *Builder) Reserve() (TypeID, error) {
-	if b == nil || b.sealed || b.program == nil {
+	if b == nil || b.program == nil || b.program.sealed {
 		return NoType, ErrMetadata
 	}
 	if uint64(BuiltinTypeCount)+uint64(len(b.program.types))+1 > uint64(b.maxTypes) || len(b.program.types) > maxUserTypeIndex {
@@ -147,7 +142,7 @@ func (b *Builder) Reserve() (TypeID, error) {
 	}
 	id := userTypeID(len(b.program.types))
 	b.program.types = append(b.program.types, typeDef{})
-	b.program.complete = append(b.program.complete, false)
+	b.program.complete = append(b.program.complete, completionReserved)
 	return id, nil
 }
 
@@ -156,7 +151,7 @@ func (b *Builder) Reserve() (TypeID, error) {
 // for each slot, not an exact Go allocator byte measurement; slices.Grow may
 // retain implementation-defined capacity slack.
 func (b *Builder) ReserveCapacity(userTypes int) error {
-	if b == nil || b.sealed || b.program == nil || userTypes < 0 {
+	if b == nil || b.program == nil || b.program.sealed || userTypes < 0 {
 		return ErrMetadata
 	}
 	if b.maxTypes < uint32(BuiltinTypeCount) || uint64(userTypes) > uint64(b.maxTypes)-uint64(BuiltinTypeCount) {
@@ -182,29 +177,13 @@ func (b *Builder) ReserveCapacity(userTypes int) error {
 }
 
 // Complete validates and installs one reserved type. Referenced user types
-// must already be complete; this matches the compiler's dependency-first
-// component resolution and lets literals be validated during compilation.
+// must already be visible, allowing literals to be validated before sealing.
 func (b *Builder) Complete(id TypeID, spec TypeSpec) error {
-	return b.completeType(id, spec, storageSlotCharged)
-}
-
-type storageChargeMode uint8
-
-const (
-	// storageSlotCharged is used after Reserve. The fixed slot estimate is
-	// already admitted; completion admits the remaining metadata estimate.
-	storageSlotCharged storageChargeMode = iota
-	// storageFullyCharged is used for Add entries. Add admits the complete
-	// estimate before queueing, so completion must not charge it again.
-	storageFullyCharged
-)
-
-func (b *Builder) completeType(id TypeID, spec TypeSpec, storageMode storageChargeMode) error {
 	i, err := b.prepareType(id, spec)
 	if err != nil {
 		return err
 	}
-	charge, err := b.completeStorage(spec, storageMode)
+	charge, err := b.completeStorage(spec)
 	if err != nil {
 		return err
 	}
@@ -213,15 +192,21 @@ func (b *Builder) completeType(id TypeID, spec TypeSpec, storageMode storageChar
 	b.program.types[i] = d
 	// Make the current record visible while compiling self-typed facet
 	// literals. Facets are not installed until compileFacets returns.
-	b.program.complete[i] = true
+	b.program.complete[i] = completionInProgress
+	b.storageUsed += charge
+	defer func() {
+		if b.program.complete[i] != completionCommitted {
+			b.program.types[i] = typeDef{}
+			b.program.complete[i] = completionReserved
+			b.storageUsed -= charge
+		}
+	}()
 	if err := b.program.compileFacets(id, spec.Facets, b.maxConstructionWork); err != nil {
-		b.program.types[i] = typeDef{}
-		b.program.complete[i] = false
 		return err
 	}
 	b.program.types[i].needsQName = b.program.typeNeedsQName(id, nil, 0)
 	b.program.types[i].needsQNameKnown = true
-	b.storageUsed += charge
+	b.program.complete[i] = completionCommitted
 	return nil
 }
 
@@ -230,245 +215,116 @@ func (b *Builder) prepareType(id TypeID, spec TypeSpec) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if err := validateTypeSpecShape(spec); err != nil {
-		return 0, err
+	if shapeErr := validateTypeSpecShape(spec); shapeErr != nil {
+		return 0, shapeErr
 	}
-	if err := validateTypeSpecRefs(spec, userTypeID(len(b.program.types))); err != nil {
-		return 0, err
-	}
-	if spec.Base == id || spec.ListItem == id || slices.Contains(spec.Union, id) {
+	if !validVarietyRefs(spec) {
 		return 0, ErrMetadata
 	}
-	if !b.coreDependenciesComplete(spec) {
-		return 0, ErrMetadata
-	}
-	if err := b.checkDependencyDepth(id, spec); err != nil {
+	coreDepth, err := b.admitCoreDependencies(spec)
+	if err != nil {
 		return 0, err
 	}
+	var checkedDepth uint16
+	if err := b.recordFacetDependencyDepth(id, spec, &checkedDepth); err != nil {
+		return 0, err
+	}
+	b.program.types[i].dependencyDepth = coreDepth
 	return int(i), nil
 }
 
 func (b *Builder) reservedTypeIndex(id TypeID) (TypeID, error) {
-	if b == nil || b.sealed || b.program == nil || id < BuiltinTypeCount {
+	if b == nil || b.program == nil || b.program.sealed || id < BuiltinTypeCount {
 		return 0, ErrMetadata
 	}
 	i := id - BuiltinTypeCount
-	if uint64(i) >= uint64(len(b.program.types)) || b.program.complete[i] {
-		return 0, ErrMetadata
-	}
-	if uint64(i) < uint64(len(b.pendingSet)) && b.pendingSet[i] {
+	if uint64(i) >= uint64(len(b.program.types)) || b.program.complete[i] != completionReserved {
 		return 0, ErrMetadata
 	}
 	return i, nil
 }
 
-func (b *Builder) dependenciesComplete(spec TypeSpec) bool {
-	if !b.coreDependenciesComplete(spec) {
-		return false
+// Admit all core references before checking depth: a later malformed member
+// takes metadata-error priority over an earlier deep member.
+func (b *Builder) admitCoreDependencies(spec TypeSpec) (uint16, error) {
+	depth, err := b.coreReferenceDepth(spec.Base)
+	if err != nil {
+		return 0, err
 	}
-	ready := b.typeComplete
-	for _, bound := range []BoundFacet{spec.Facets.MinInclusive, spec.Facets.MaxInclusive, spec.Facets.MinExclusive, spec.Facets.MaxExclusive} {
-		if bound.Present && bound.Type != NoType && !ready(bound.Type) {
-			return false
+	itemDepth, err := b.coreReferenceDepth(spec.ListItem)
+	if err != nil {
+		return 0, err
+	}
+	depth = max(depth, itemDepth)
+	for _, member := range spec.Union {
+		if member == NoType {
+			return 0, ErrMetadata
 		}
-	}
-	for _, literal := range spec.Facets.Enumeration {
-		if literal.Type != NoType && !ready(literal.Type) {
-			return false
+		memberDepth, err := b.coreReferenceDepth(member)
+		if err != nil {
+			return 0, err
 		}
+		depth = max(depth, memberDepth)
 	}
-	return true
+	if depth >= b.program.maxDepth {
+		return 0, ErrLimit
+	}
+	return depth, nil
 }
 
-func (b *Builder) coreDependenciesComplete(spec TypeSpec) bool {
-	if !b.typeComplete(spec.Base) || !b.typeComplete(spec.ListItem) {
-		return false
+func (b *Builder) coreReferenceDepth(ref TypeID) (uint16, error) {
+	if ref == NoType || ref < BuiltinTypeCount {
+		return 0, nil
 	}
-	for _, id := range spec.Union {
-		if !b.typeComplete(id) {
-			return false
-		}
+	t, ok := b.program.typeDef(ref)
+	if !ok {
+		return 0, ErrMetadata
 	}
-	return true
+	// Visible depths are below maxDepth, so adding one fits uint16.
+	return t.dependencyDepth + 1, nil
 }
 
-func (b *Builder) typeComplete(id TypeID) bool {
-	if id == NoType || id < BuiltinTypeCount {
-		return true
-	}
-	i := id - BuiltinTypeCount
-	return uint64(i) < uint64(len(b.program.complete)) && b.program.complete[i]
-}
-
-func (b *Builder) completeStorage(spec TypeSpec, mode storageChargeMode) (uint64, error) {
+func (b *Builder) completeStorage(spec TypeSpec) (uint64, error) {
 	storage, ok := typeSpecStorage(spec)
 	if !ok || storage > b.maxStorage {
 		return 0, ErrLimit
 	}
-	switch mode {
-	case storageSlotCharged:
-		if storage < typeStorageBase {
-			return 0, ErrMetadata
-		}
-		storage -= typeStorageBase
-	case storageFullyCharged:
-		return 0, nil
-	default:
+	if storage < typeStorageBase {
 		return 0, ErrMetadata
 	}
+	storage -= typeStorageBase
 	if b.storageUsed > b.maxStorage-storage {
 		return 0, ErrLimit
 	}
 	return storage, nil
 }
 
-// Add queues one type for dependency-ordered completion during Seal.
-func (b *Builder) Add(spec TypeSpec) (TypeID, error) {
-	if b == nil || b.sealed || b.program == nil {
-		return NoType, ErrMetadata
-	}
-	if err := validateTypeSpecShape(spec); err != nil {
-		return NoType, err
-	}
-	if uint64(BuiltinTypeCount)+uint64(len(b.program.types))+1 > uint64(b.maxTypes) {
-		return NoType, ErrLimit
-	}
-	storage, ok := typeSpecStorage(spec)
-	if !ok {
-		return NoType, ErrLimit
-	}
-	// ReserveCapacity has already admitted the fixed slot portion for a
-	// future Reserve. Only the remaining source/facet estimate is new here.
-	admission := storage
-	if b.prepaidSlots > 0 {
-		admission -= typeStorageBase
-	}
-	if admission > b.maxStorage || b.storageUsed > b.maxStorage-admission {
-		return NoType, ErrLimit
-	}
-	id, err := b.Reserve()
-	if err != nil {
-		return NoType, err
-	}
-	i := id - BuiltinTypeCount
-	for len(b.pending) <= int(i) {
-		b.pending = append(b.pending, TypeSpec{})
-		b.pendingSet = append(b.pendingSet, false)
-	}
-	b.pending[i] = cloneTypeSpec(spec)
-	b.pendingSet[i] = true
-	b.storageUsed += storage - typeStorageBase
-	return id, nil
-}
-
 // Seal closes the incremental builder and returns its immutable value program.
 func (b *Builder) Seal() (*Program, error) {
-	if b == nil || b.sealed || b.program == nil {
+	if b == nil || b.program == nil || b.program.sealed {
 		return nil, ErrMetadata
 	}
 	if b.maxTypes < uint32(BuiltinTypeCount) {
 		return nil, ErrLimit
 	}
-	if err := b.completePendingTypes(); err != nil {
-		return nil, err
-	}
 	if err := b.verifyComplete(); err != nil {
 		return nil, err
 	}
-	b.sealed = true
 	b.program.complete = nil
 	b.program.sealed = true
 	return b.program, nil
 }
 
-func (b *Builder) completePendingTypes() error {
-	for {
-		progress, err := b.completeReadyPending()
-		if err != nil {
-			return err
-		}
-		if !progress {
-			return nil
-		}
-	}
-}
-
-func (b *Builder) completeReadyPending() (bool, error) {
-	progress := false
-	for i, pending := range b.pending {
-		if !b.pendingSet[i] || !b.dependenciesReady(pending) {
-			continue
-		}
-		id := userTypeID(i)
-		if err := b.completePending(id, pending); err != nil {
-			return false, fmt.Errorf("type %d: %w", id, err)
-		}
-		progress = true
-	}
-	return progress, nil
-}
-
 func (b *Builder) verifyComplete() error {
-	for i, complete := range b.program.complete {
-		if !complete {
+	inProgress := false
+	for i, state := range b.program.complete {
+		if state == completionReserved {
 			return fmt.Errorf("type %d: %w", userTypeID(i), ErrMetadata)
 		}
+		inProgress = inProgress || state == completionInProgress
 	}
-	return nil
-}
-
-func (b *Builder) completePending(id TypeID, spec TypeSpec) error {
-	i := id - BuiltinTypeCount
-	b.pendingSet[i] = false
-	if err := b.completeType(id, spec, storageFullyCharged); err != nil {
-		b.pendingSet[i] = true
-		return err
-	}
-	return nil
-}
-
-func (b *Builder) dependenciesReady(spec TypeSpec) bool {
-	return b.dependenciesComplete(spec)
-}
-
-func (b *Builder) checkDependencyDepth(id TypeID, spec TypeSpec) error {
-	depth, err := b.specDependencyDepth(id, spec)
-	if err != nil {
-		return err
-	}
-	b.program.types[id-BuiltinTypeCount].dependencyDepth = depth
-	return nil
-}
-
-// specDependencyDepth derives the core dependency depth from spec using the
-// depths recorded when its already-complete dependencies were admitted. Facet
-// literal references participate in the limit check but are not folded into
-// the stored core depth, matching the old traversal's edge ownership. A
-// completed builder is dependency ordered, so walking each ancestor here
-// repeats work without adding cycle coverage; cycles among pending types stay
-// rejected by Seal's no-progress check.
-func (b *Builder) specDependencyDepth(id TypeID, spec TypeSpec) (uint16, error) {
-	var coreDepth, checkedDepth uint16
-	if err := b.recordCoreDependencyDepth(id, spec, &coreDepth); err != nil {
-		return 0, err
-	}
-	if err := b.recordFacetDependencyDepth(id, spec, &checkedDepth); err != nil {
-		return 0, err
-	}
-	return coreDepth, nil
-}
-
-func (b *Builder) recordCoreDependencyDepth(id TypeID, spec TypeSpec, depth *uint16) error {
-	if err := b.recordDependencyDepth(id, spec.Base, depth); err != nil {
-		return err
-	}
-	if err := b.recordDependencyDepth(id, spec.ListItem, depth); err != nil {
-		return err
-	}
-	for _, member := range spec.Union {
-		if err := b.recordDependencyDepth(id, member, depth); err != nil {
-			return err
-		}
+	if inProgress {
+		return ErrMetadata
 	}
 	return nil
 }
@@ -497,7 +353,7 @@ func (b *Builder) recordDependencyDepth(id, ref TypeID, depth *uint16) error {
 	if !ok {
 		return ErrMetadata
 	}
-	if t.dependencyDepth >= b.maxDepth-1 {
+	if t.dependencyDepth >= b.program.maxDepth-1 {
 		return ErrLimit
 	}
 	candidate := t.dependencyDepth + 1
@@ -507,18 +363,19 @@ func (b *Builder) recordDependencyDepth(id, ref TypeID, depth *uint16) error {
 	return nil
 }
 
-func cloneTypeSpec(in TypeSpec) TypeSpec {
-	in.Union = append([]TypeID(nil), in.Union...)
-	in.Facets.Enumeration = append([]LiteralSpec(nil), in.Facets.Enumeration...)
-	in.Facets.Patterns = clonePatterns(in.Facets.Patterns)
-	return in
-}
+type completionState uint8
+
+const (
+	completionReserved completionState = iota
+	completionInProgress
+	completionCommitted
+)
 
 // Program is immutable after construction. It stores normalized user records;
 // builtin records are returned by pure builtinTypeDef lookups.
 type Program struct {
 	types    []typeDef
-	complete []bool
+	complete []completionState
 	maxDepth uint16
 	sealed   bool
 }
@@ -652,7 +509,7 @@ type facetProgram struct {
 }
 
 type boundValue struct {
-	value         parsedValue
+	value         atomicValue
 	exclusive     bool
 	timeDayOffset int8
 }
@@ -665,7 +522,7 @@ func (p *Program) typeDef(id TypeID) (*typeDef, bool) {
 	if uint64(i) >= uint64(len(p.types)) {
 		return nil, false
 	}
-	if len(p.complete) != 0 && !p.complete[i] {
+	if len(p.complete) != 0 && p.complete[i] == completionReserved {
 		return nil, false
 	}
 	return &p.types[i], true
@@ -716,29 +573,30 @@ func (p *Program) compileFacets(id TypeID, source FacetSpec, workLimit uint64) e
 		return err
 	}
 	t := &p.types[id-BuiltinTypeCount]
-	mask := facetMask(source)
+	mask, missing := facetMask(source)
 	own := newFacetProgram(source, mask)
-	if err := validateFacetPresence(source, mask); err != nil {
-		return err
+	if presenceErr := validateFacetPresence(source, mask, missing); presenceErr != nil {
+		return presenceErr
 	}
-	if err := validateFacetSource(*t, source, own); err != nil {
-		return err
+	if sourceErr := validateFacetSource(*t, source, own, missing); sourceErr != nil {
+		return sourceErr
 	}
-	if err := p.compileFacetBatch(id, t, source, &own, &budget); err != nil {
-		return err
+	if batchErr := p.compileFacetBatch(id, t, source, &own, &budget); batchErr != nil {
+		return batchErr
 	}
-	if err := p.validateFacetDerivation(id, own); err != nil {
-		return err
-	}
+	t = &p.types[id-BuiltinTypeCount]
+	facets := own
 	if t.base != NoType {
 		base, ok := p.typeDef(t.base)
 		if !ok {
 			return ErrMetadata
 		}
-		t.facets = mergeFacetPrograms(base.facets, own)
-	} else {
-		t.facets = own
+		facets, err = deriveFacetProgram(*t, *base, own)
+		if err != nil {
+			return err
+		}
 	}
+	t.facets = facets
 	if err := validateEffectiveFacetShape(t.primitive, t.facets); err != nil {
 		return facetFailure(err.Error())
 	}
@@ -784,11 +642,11 @@ func (p *Program) compileBounds(id TypeID, t *typeDef, source FacetSpec, own *fa
 		if !entry.src.Present {
 			continue
 		}
-		v, err := p.compileBound(id, t, entry.src, budget)
+		bound, err := p.compileBound(id, t, entry.src, budget)
 		if err != nil {
 			return err
 		}
-		bound := boundValue{exclusive: entry.exclusive, timeDayOffset: v.timeDayOffset, value: v.value}
+		bound.exclusive = entry.exclusive
 		if entry.lower {
 			own.lower = append(own.lower, bound)
 		} else {
@@ -798,12 +656,7 @@ func (p *Program) compileBounds(id TypeID, t *typeDef, source FacetSpec, own *fa
 	return nil
 }
 
-type compiledBound struct {
-	value         parsedValue
-	timeDayOffset int8
-}
-
-func (p *Program) compileBound(id TypeID, t *typeDef, source BoundFacet, budget *evaluationBudget) (compiledBound, error) {
+func (p *Program) compileBound(id TypeID, t *typeDef, source BoundFacet, budget *evaluationBudget) (boundValue, error) {
 	literalType := source.Type
 	if literalType == NoType {
 		literalType = id
@@ -811,24 +664,23 @@ func (p *Program) compileBound(id TypeID, t *typeDef, source BoundFacet, budget 
 	var v parsedValue
 	_, err := p.eval(literalType, source.Lexical, evalOptions{
 		resolver:      source.Resolver,
-		needs:         NeedCanonical | NeedIdentity,
 		enforceFacets: false,
 		work:          budget,
 	}, &v)
 	if err != nil {
-		return compiledBound{}, fmt.Errorf("bound %q: %w", source.Lexical, err)
+		return boundValue{}, fmt.Errorf("bound %q: %w", source.Lexical, err)
 	}
-	if t.variety != Atomic || v.atom.kind != t.primitive {
-		return compiledBound{}, fmt.Errorf("bound %q has an incompatible value type", source.Lexical)
+	if t.variety != Atomic || v.isList || v.atom.kind != t.primitive {
+		return boundValue{}, fmt.Errorf("bound %q has an incompatible value type", source.Lexical)
 	}
-	offset, err := p.timeBoundDayOffset(t, literalType, source.Lexical, v)
+	offset, err := p.timeBoundDayOffset(t, literalType, source.Lexical, v.atom)
 	if err != nil {
-		return compiledBound{}, err
+		return boundValue{}, err
 	}
-	return compiledBound{value: v, timeDayOffset: offset}, nil
+	return boundValue{value: v.atom, timeDayOffset: offset}, nil
 }
 
-func (p *Program) timeBoundDayOffset(spec *typeDef, literalType TypeID, lexical string, value parsedValue) (int8, error) {
+func (p *Program) timeBoundDayOffset(spec *typeDef, literalType TypeID, lexical string, value atomicValue) (int8, error) {
 	if spec.primitive != PrimitiveTime {
 		return 0, nil
 	}
@@ -837,7 +689,7 @@ func (p *Program) timeBoundDayOffset(spec *typeDef, literalType TypeID, lexical 
 	if err != nil {
 		return 0, err
 	}
-	delta := raw.second - value.atom.time.second
+	delta := raw.second - value.time.second
 	if delta%daySeconds != 0 {
 		return 0, ErrMetadata
 	}
@@ -890,10 +742,10 @@ func mergeFacetPrograms(base, own facetProgram) facetProgram {
 	}
 	out := base
 	out.length = overrideCardinality(base.length, own.length)
-	out.minLength = tighterMinimum(base.minLength, own.minLength)
-	out.maxLength = tighterMaximum(base.maxLength, own.maxLength)
-	out.totalDigits = tighterMaximum(base.totalDigits, own.totalDigits)
-	out.fractionDigits = tighterMaximum(base.fractionDigits, own.fractionDigits)
+	out.minLength = overrideCardinality(base.minLength, own.minLength)
+	out.maxLength = overrideCardinality(base.maxLength, own.maxLength)
+	out.totalDigits = overrideCardinality(base.totalDigits, own.totalDigits)
+	out.fractionDigits = overrideCardinality(base.fractionDigits, own.fractionDigits)
 	out.present |= own.present
 	out.fixed |= own.fixed
 	out.lower = append(append([]boundValue(nil), base.lower...), own.lower...)
@@ -912,25 +764,12 @@ func overrideCardinality(base, own CardinalityFacet) CardinalityFacet {
 	return base
 }
 
-func tighterMinimum(base, own CardinalityFacet) CardinalityFacet {
-	if !own.Present || base.Present && own.Value <= base.Value {
-		return base
-	}
-	return own
-}
-
-func tighterMaximum(base, own CardinalityFacet) CardinalityFacet {
-	if !own.Present || base.Present && own.Value >= base.Value {
-		return base
-	}
-	return own
-}
-
-func facetMask(f FacetSpec) FacetMask {
+func facetMask(f FacetSpec) (mask, missing FacetMask) {
 	// whiteSpace is stored on TypeSpec rather than as a numeric value. A fixed
 	// whiteSpace declaration therefore has no source value to infer presence
 	// from, but its fixed bit still identifies the facet family.
-	mask := f.Present | (f.Fixed & FacetWhiteSpace)
+	mask = f.Present | (f.Fixed & FacetWhiteSpace)
+	var supplied FacetMask
 	for _, entry := range []struct {
 		flag    FacetMask
 		present bool
@@ -948,24 +787,21 @@ func facetMask(f FacetSpec) FacetMask {
 		{FacetPattern, len(f.Patterns) != 0},
 	} {
 		if entry.present {
-			mask |= entry.flag
+			supplied |= entry.flag
 		}
 	}
-	return mask
+	mask |= supplied
+	return mask, mask &^ (supplied | FacetWhiteSpace)
 }
 
-func validateFacetPresence(f FacetSpec, mask FacetMask) error {
-	if f.Fixed&^mask != 0 || emptyFacetCollection(f, mask) {
+func validateFacetPresence(f FacetSpec, mask, missing FacetMask) error {
+	if f.Fixed&^mask != 0 || missing&(FacetEnumeration|FacetPattern) != 0 {
 		return ErrMetadata
 	}
-	if !validPatternGroups(f.Patterns) || !validBoundPresence(f, mask) {
+	if !validPatternGroups(f.Patterns) || missing&orderedFacetMask != 0 {
 		return ErrMetadata
 	}
 	return nil
-}
-
-func emptyFacetCollection(f FacetSpec, mask FacetMask) bool {
-	return mask&FacetEnumeration != 0 && len(f.Enumeration) == 0 || mask&FacetPattern != 0 && len(f.Patterns) == 0
 }
 
 func validPatternGroups(groups [][]*Pattern) bool {
@@ -982,29 +818,18 @@ func validPatternGroups(groups [][]*Pattern) bool {
 	return true
 }
 
-func validBoundPresence(f FacetSpec, mask FacetMask) bool {
-	for _, entry := range []struct {
-		flag    FacetMask
-		present bool
-	}{
-		{FacetMinInclusive, f.MinInclusive.Present},
-		{FacetMaxInclusive, f.MaxInclusive.Present},
-		{FacetMinExclusive, f.MinExclusive.Present},
-		{FacetMaxExclusive, f.MaxExclusive.Present},
-	} {
-		if mask&entry.flag != 0 && !entry.present {
-			return false
-		}
-	}
-	return true
-}
-
 func validateFacetShape(spec typeDef, f facetProgram) error {
 	if invalidBoundKinds(f) {
 		return errors.New("inclusive and exclusive bounds cannot both be present")
 	}
-	if !validFacetVariety(spec, f) || !validFacetCardinality(f) {
-		return facetShapeError(spec, f)
+	if message := facetVarietyError(spec, f); message != "" {
+		return errors.New(message)
+	}
+	if f.totalDigits.Present && f.totalDigits.Value == 0 {
+		return errors.New("totalDigits must be positive")
+	}
+	if facetCardinalityViolation(f) != nil {
+		return errors.New("facet cardinality relationship is invalid")
 	}
 	return nil
 }
@@ -1013,86 +838,24 @@ func invalidBoundKinds(f facetProgram) bool {
 	return f.present&(FacetMinInclusive|FacetMinExclusive) == FacetMinInclusive|FacetMinExclusive || f.present&(FacetMaxInclusive|FacetMaxExclusive) == FacetMaxInclusive|FacetMaxExclusive
 }
 
-func validFacetVariety(spec typeDef, f facetProgram) bool {
-	if f.present&orderedFacetMask != 0 && (spec.variety != Atomic || !primitiveHasOrderFacet(spec.primitive)) {
-		return false
-	}
-	if f.present&(FacetTotalDigits|FacetFractionDigits) != 0 && (spec.variety != Atomic || spec.primitive != PrimitiveDecimal) {
-		return false
-	}
-	if f.present&lengthFacetMask != 0 && spec.variety == Atomic && !primitiveHasLengthFacet(spec.primitive) {
-		return false
-	}
-	return f.present&(FacetLength|FacetMinLength|FacetMaxLength) == 0 || spec.variety != Union
-}
-
-func facetShapeError(spec typeDef, f facetProgram) error {
-	if message := facetVarietyError(spec, f); message != "" {
-		return errors.New(message)
-	}
-	if f.totalDigits.Present && f.totalDigits.Value == 0 {
-		return errors.New("totalDigits must be positive")
-	}
-	return errors.New("facet cardinality relationship is invalid")
-}
-
 func facetVarietyError(spec typeDef, f facetProgram) string {
-	if f.present&orderedFacetMask != 0 && (spec.variety != Atomic || !primitiveHasOrderFacet(spec.primitive)) {
+	unsupported := f.present &^ allowedFacetMask(spec.variety, spec.primitive)
+	if unsupported&orderedFacetMask != 0 {
 		return "ordered facets require an ordered atomic type"
 	}
-	if f.present&(FacetTotalDigits|FacetFractionDigits) != 0 && (spec.variety != Atomic || spec.primitive != PrimitiveDecimal) {
+	if unsupported&(FacetTotalDigits|FacetFractionDigits) != 0 {
 		return "digit facets require atomic decimal type"
 	}
-	if f.present&lengthFacetMask != 0 && spec.variety == Atomic && !primitiveHasLengthFacet(spec.primitive) {
+	if unsupported&lengthFacetMask != 0 && spec.variety == Atomic {
 		return "length facets require a length-capable type"
 	}
-	if f.present&(FacetLength|FacetMinLength|FacetMaxLength) != 0 && spec.variety == Union {
+	if unsupported&lengthFacetMask != 0 && spec.variety == Union {
 		return "length facets are not valid on union types"
 	}
 	return ""
 }
 
-func validFacetCardinality(f facetProgram) bool {
-	if f.totalDigits.Present && f.totalDigits.Value == 0 {
-		return false
-	}
-	return !invalidCardinalityRelationship(f)
-}
-
-func invalidCardinalityRelationship(f facetProgram) bool {
-	return f.length.Present && f.minLength.Present && f.length.Value < f.minLength.Value ||
-		f.length.Present && f.maxLength.Present && f.length.Value > f.maxLength.Value ||
-		f.minLength.Present && f.maxLength.Present && f.minLength.Value > f.maxLength.Value ||
-		f.fractionDigits.Present && f.totalDigits.Present && f.fractionDigits.Value > f.totalDigits.Value
-}
-
-func primitiveHasLengthFacet(kind PrimitiveKind) bool {
-	//nolint:exhaustive // Only these primitive families define a length value space.
-	switch kind {
-	case PrimitiveString, PrimitiveAnyURI, PrimitiveHexBinary, PrimitiveBase64Binary,
-		PrimitiveQName, PrimitiveNotation:
-		return true
-	default:
-		return false
-	}
-}
-
-func primitiveHasOrderFacet(kind PrimitiveKind) bool {
-	//nolint:exhaustive // Only these primitive families define an ordered value space.
-	switch kind {
-	case PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble, PrimitiveDuration,
-		PrimitiveDateTime, PrimitiveTime, PrimitiveDate, PrimitiveGYearMonth,
-		PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth:
-		return true
-	default:
-		return false
-	}
-}
-
 func validateEffectiveFacetShape(primitive PrimitiveKind, f facetProgram) error {
-	if invalidCardinalityRelationship(f) {
-		return errors.New("effective facet cardinality relationship is invalid")
-	}
 	for _, lower := range f.lower {
 		for _, upper := range f.upper {
 			if !validBoundPair(primitive, lower, upper) {
@@ -1104,7 +867,7 @@ func validateEffectiveFacetShape(primitive PrimitiveKind, f facetProgram) error 
 }
 
 func validBoundPair(primitive PrimitiveKind, lower, upper boundValue) bool {
-	relation, ok := compareValue(&lower.value, &upper.value)
+	relation, ok := compareAtomic(&lower.value, &upper.value)
 	if !ok || relation == OrderedFacetGreater || relation == OrderedFacetEqual && (lower.exclusive || upper.exclusive) {
 		return false
 	}
@@ -1119,29 +882,6 @@ func validateTypeSpecShape(spec TypeSpec) error {
 		return ErrMetadata
 	}
 	return nil
-}
-
-func validateTypeSpecRefs(spec TypeSpec, count TypeID) error {
-	if !validTypeRef(spec.Base, count) || !validTypeRef(spec.ListItem, count) || !validUnionRefs(spec.Union, count) {
-		return ErrMetadata
-	}
-	if !validVarietyRefs(spec) {
-		return ErrMetadata
-	}
-	return nil
-}
-
-func validTypeRef(id, count TypeID) bool {
-	return id == NoType || id < count
-}
-
-func validUnionRefs(union []TypeID, count TypeID) bool {
-	for _, id := range union {
-		if id == NoType || !validTypeRef(id, count) {
-			return false
-		}
-	}
-	return true
 }
 
 func validVarietyRefs(spec TypeSpec) bool {

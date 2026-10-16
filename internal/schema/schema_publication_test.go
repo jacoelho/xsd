@@ -293,13 +293,12 @@ func TestComplexTypeReadDerivesValidationViews(t *testing.T) {
 	if read.contentModel != ct.Content || read.attributeUseSet != ct.Attrs {
 		t.Fatalf("complex type IDs = content %d attrs %d", read.contentModel, read.attributeUseSet)
 	}
-	wantInfo := newTypeInfo(typeInfoShape{Block: ct.Block, Abstract: ct.Abstract})
+	wantInfo := TypeInfo{Block: DerivationExtension, Abstract: true}
 	if got := read.typeInfo(); got != wantInfo {
 		t.Fatalf("typeInfo() = %+v, want %+v", got, wantInfo)
 	}
-	wantSimple := newSimpleContentTypeRead(simpleContentTypeReadShape{Type: ct.TextType, Present: ct.SimpleContent()})
-	if got := read.simpleContent(); got != wantSimple {
-		t.Fatalf("simpleContent() = %+v, want %+v", got, wantSimple)
+	if typ, present := read.simpleContent(); typ != 5 || !present {
+		t.Fatalf("simpleContent() = %d, %v; want 5, true", typ, present)
 	}
 	for _, fixed := range []bool{false, true} {
 		wantText := ElementTextContent{kind: ct.ContentKind, fixed: fixed, constrained: fixed}

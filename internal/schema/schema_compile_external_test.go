@@ -2388,6 +2388,18 @@ func TestUnionCanonicalizesRepeatedFlattenedMembers(t *testing.T) {
 	if got := len(build.SimpleTypes[outer].ValueSpec.Union); got != 3 {
 		t.Fatalf("outer flattened members = %d, want 3 unique members", got)
 	}
+	var names []string
+	for _, member := range build.SimpleTypes[outer].ValueSpec.Union {
+		names = append(names, build.Names.Format(build.SimpleTypes[member].Name))
+	}
+	want := []string{
+		"{http://www.w3.org/2001/XMLSchema}int",
+		"{http://www.w3.org/2001/XMLSchema}string",
+		"{http://www.w3.org/2001/XMLSchema}boolean",
+	}
+	if !slices.Equal(names, want) {
+		t.Fatalf("outer flattened member order = %v, want %v", names, want)
+	}
 	engine := mustCompile(t, schema)
 	mustValidate(t, engine, `<value>1</value>`)
 	mustValidate(t, engine, `<value>true</value>`)
@@ -3217,7 +3229,7 @@ func TestPublishedSchemaOwnsValidationStorage(t *testing.T) {
     </xs:complexType>
     <xs:key name="itemKey">
       <xs:selector xpath="item"/>
-      <xs:field xpath="@id"/>
+      <xs:field xpath="@id | child | child/@id | child/@*"/>
     </xs:key>
   </xs:element>
 </xs:schema>`
@@ -3229,6 +3241,8 @@ func TestPublishedSchemaOwnsValidationStorage(t *testing.T) {
 	headName := mustQName(t, &aliases.Names, "head")
 	itemName := mustQName(t, &aliases.Names, "item")
 	codeName := mustQName(t, &aliases.Names, "code")
+	childName := mustQName(t, &aliases.Names, "child")
+	idName := mustQName(t, &aliases.Names, "id")
 	rootID := aliases.GlobalElements[rootName]
 	headID := aliases.GlobalElements[headName]
 	codeID := simpleBuildTypeIDByName(t, &aliases, "Code")
@@ -3247,13 +3261,60 @@ func TestPublishedSchemaOwnsValidationStorage(t *testing.T) {
 	aliases.Elements[rootID].Identity[0] = xsdSchema.NoIdentityConstraint
 	aliases.Identities[identityID].Selector[0].Steps[0].Name = headName
 	aliases.Identities[identityID].Fields[0].Paths[0].Attribute = itemName
+	aliases.Identities[identityID].Fields[0].Paths[1].Steps[0].Name = headName
+	aliases.Identities[identityID].Fields[0].Paths[2].Steps[0].Name = headName
+	aliases.Identities[identityID].Fields[0].Paths[3].Steps[0].Name = headName
+
+	program, ok := published.IdentityDispatch().Program(identityID)
+	if !ok {
+		t.Fatal("published identity program is missing")
+	}
+	elementField, ok := program.ElementFields().At(0)
+	if !ok {
+		t.Fatal("published element field is missing")
+	}
+	elementPath, ok := elementField.Path(0)
+	if !ok {
+		t.Fatal("published element field path is missing")
+	}
+	if step, stepOK := elementPath.Step(0); !stepOK || elementPath.StepCount() != 1 || step.Name != childName {
+		t.Fatalf("published element field path = %v/%d/%t, want child", step, elementPath.StepCount(), stepOK)
+	}
+	attributeField, ok := program.AttributeFields(idName).At(0)
+	if !ok {
+		t.Fatal("published exact attribute field is missing")
+	}
+	attributePath, ok := attributeField.Path(1)
+	if !ok {
+		t.Fatal("published nested exact attribute field path is missing")
+	}
+	if step, stepOK := attributePath.Step(0); !stepOK || attributePath.StepCount() != 1 || step.Name != childName {
+		t.Fatalf("published exact attribute field path = %v/%d/%t, want child", step, attributePath.StepCount(), stepOK)
+	}
+	if !attributePath.IsAttribute() || attributePath.Attribute() != idName || attributePath.AttributeWildcard() {
+		t.Fatal("published exact attribute field lost its id attribute test")
+	}
+	wildcardField, ok := program.AttributeWildcardFields().At(0)
+	if !ok {
+		t.Fatal("published wildcard attribute field is missing")
+	}
+	wildcardPath, ok := wildcardField.Path(0)
+	if !ok {
+		t.Fatal("published wildcard attribute field path is missing")
+	}
+	if step, stepOK := wildcardPath.Step(0); !stepOK || wildcardPath.StepCount() != 1 || step.Name != childName {
+		t.Fatalf("published wildcard attribute field path = %v/%d/%t, want child", step, wildcardPath.StepCount(), stepOK)
+	}
+	if !wildcardPath.IsAttribute() || !wildcardPath.AttributeWildcard() || wildcardPath.AttributeNamespaceSet() {
+		t.Fatal("published wildcard attribute field lost its unrestricted attribute test")
+	}
 
 	attrs := &aliases.AttributeUseSets[attrSetID]
 	codeSlot := attrs.Index[codeName]
 	attrs.Index[codeName] = 0
 	attrs.Uses[codeSlot].Fixed.Canonical = "CA"
-	attrs.Required[0] = codeSlot
-	attrs.ValueConstraints[0] = 0
+	attrs.Uses[attrs.Index[idName]].Required = false
+	attrs.Uses[codeSlot].Fixed = nil
 
 	interner := xsdSchema.NewNameInterner(&aliases.Names)
 	if _, err := interner.InternQName("urn:poison", "poison"); err != nil {
@@ -3268,6 +3329,7 @@ func TestPublishedSchemaOwnsValidationStorage(t *testing.T) {
 		t.Fatal("test schema did not compile a substitution lookup")
 	}
 	mustValidate(t, engine, `<root><item id="one" code="US"/><h/></root>`)
+	mustNotValidate(t, engine, `<root><item code="US"/></root>`, xsderrors.CodeValidationAttribute)
 	mustNotValidate(t, engine, `<root><item id="one" code="CA"/></root>`, xsderrors.CodeValidationAttribute)
 	mustNotValidate(t, engine, `<root><item id="same" code="US"/><item id="same" code="US"/></root>`, xsderrors.CodeValidationIdentity)
 }

@@ -29,7 +29,7 @@ type schemaBuild struct {
 	Identities            []IdentityConstraint
 	ComplexTypes          []ComplexType
 	Names                 NameTable
-	Builtin               BuiltinIDs
+	AnyType               ComplexTypeID
 }
 
 // schemaProgram is the immutable validation representation produced by one
@@ -95,17 +95,17 @@ func newComplexTypeRead(ct ComplexType) complexTypeRead {
 }
 
 func (r complexTypeRead) typeInfo() TypeInfo {
-	return newTypeInfo(typeInfoShape{
+	return TypeInfo{
 		Block:    r.block,
 		Abstract: r.flags&complexTypeReadAbstract != 0,
-	})
+	}
 }
 
-func (r complexTypeRead) simpleContent() simpleContentTypeRead {
-	return newSimpleContentTypeRead(simpleContentTypeReadShape{
-		Type:    r.textType,
-		Present: r.contentKind.Simple(),
-	})
+func (r complexTypeRead) simpleContent() (SimpleTypeID, bool) {
+	if !r.contentKind.Simple() {
+		return NoSimpleType, false
+	}
+	return r.textType, true
 }
 
 func (r complexTypeRead) textContent(fixed, constrained bool) ElementTextContent {
@@ -130,26 +130,11 @@ func (rt *schemaBuild) TypeName(t TypeID) QName {
 	return name
 }
 
-// AnyTypeID returns the compiler-owned xs:anyType ID.
-func (rt *schemaBuild) AnyTypeID() ComplexTypeID {
-	return rt.Builtin.AnyType
-}
-
 func (rt *schemaBuild) spendTypeDerivationWork(steps int) error {
 	if rt.typeWork == nil {
 		return nil
 	}
 	return rt.typeWork.spend(steps)
-}
-
-// ComplexTypeCount returns the number of compiler-owned complex types.
-func (rt *schemaBuild) ComplexTypeCount() int {
-	return len(rt.ComplexTypes)
-}
-
-// SimpleTypeCount returns the number of compiler-owned simple types.
-func (rt *schemaBuild) SimpleTypeCount() int {
-	return len(rt.SimpleTypes)
 }
 
 // SimpleTypeFinal returns compiler-owned simple-type final constraints.
@@ -179,11 +164,6 @@ func (rt *schemaBuild) ComplexTypeDerivation(id ComplexTypeID) (ComplexTypeDeriv
 	return newComplexTypeDerivationForComplexType(*ct), true
 }
 
-// ContentModel returns a compiler-owned content model by ID.
-func (rt *schemaBuild) ContentModel(id ContentModelID) (ContentModel, bool) {
-	return ContentModelByID(rt.Models, id)
-}
-
 // ElementName returns a compiler-owned element name by ID.
 func (rt *schemaBuild) ElementName(id ElementID) (QName, bool) {
 	decl, ok := ElementDeclByID(rt.Elements, id)
@@ -191,11 +171,6 @@ func (rt *schemaBuild) ElementName(id ElementID) (QName, bool) {
 		return QName{}, false
 	}
 	return decl.Name, true
-}
-
-// ElementType returns a compiler-owned element type by ID.
-func (rt *schemaBuild) ElementType(id ElementID) (TypeID, bool) {
-	return ElementTypeByID(rt.Elements, id)
 }
 
 // ElementRestriction returns compiler-owned particle-restriction metadata.
@@ -212,31 +187,6 @@ func (rt *schemaBuild) ElementRestriction(id ElementID) (ParticleRestrictionElem
 		Scope:      decl.Scope,
 		Nillable:   decl.Nillable,
 	}, true
-}
-
-// Wildcard returns a compiler-owned wildcard by ID.
-func (rt *schemaBuild) Wildcard(id WildcardID) (Wildcard, bool) {
-	return WildcardByID(rt.Wildcards, id)
-}
-
-// ForEachSubstitutionMember iterates compiler-owned substitution members.
-func (rt *schemaBuild) ForEachSubstitutionMember(id ElementID, fn func(ElementID) bool) {
-	rt.Substitutions.ForEachMember(id, fn)
-}
-
-// HasSubstitutionMembers reports whether a compiler-owned element has substitution members.
-func (rt *schemaBuild) HasSubstitutionMembers(id ElementID) bool {
-	return rt.Substitutions.HasMembers(id)
-}
-
-// SubstitutionMemberByName returns a compiler-owned substitution member by name.
-func (rt *schemaBuild) SubstitutionMemberByName(id ElementID, name QName) (ElementID, bool) {
-	return rt.Substitutions.MemberByName(id, name)
-}
-
-// ForEachSubstitutionEntry iterates effective substitution entries under id.
-func (rt *schemaBuild) ForEachSubstitutionEntry(id ElementID, fn func(QName, ElementID) bool) {
-	rt.Substitutions.ForEachEntry(id, fn)
 }
 
 // TypeLabel formats a compiler-owned type name for diagnostics.

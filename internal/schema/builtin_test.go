@@ -68,45 +68,10 @@ func TestBuiltinAttributeSeedsUseCanonicalValueIDs(t *testing.T) {
 		if !ok {
 			t.Fatalf("seed %d references unknown value type for %s:%s", i, seed.Namespace, seed.Local)
 		}
-		got, ok := seed.TypeID(BuiltinIDs{})
+		got, ok := seed.TypeID()
 		if !ok || got != want {
 			t.Fatalf("seed %d type = %d, %v; want %d", i, got, ok, want)
 		}
-	}
-}
-
-func TestCanonicalBuiltinIDs(t *testing.T) {
-	t.Parallel()
-
-	got := canonicalBuiltinIDs(17)
-	checks := map[string]SimpleTypeID{
-		"anySimpleType": got.AnySimpleType,
-		"string":        got.String,
-		"boolean":       got.Boolean,
-		"decimal":       got.Decimal,
-		"integer":       got.Integer,
-		"int":           got.Int,
-		"date":          got.Date,
-		"dateTime":      got.DateTime,
-		"time":          got.Time,
-		"anyURI":        got.AnyURI,
-		"QName":         got.QName,
-		"ID":            got.ID,
-		"IDREF":         got.IDREF,
-		"IDREFS":        got.IDREFS,
-		"NMTOKEN":       got.NMTOKEN,
-		"NMTOKENS":      got.NMTOKENS,
-		"ENTITY":        got.ENTITY,
-		"ENTITIES":      got.ENTITIES,
-	}
-	for name, id := range checks {
-		want, ok := value.BuiltinTypeID(name)
-		if !ok || id != want {
-			t.Errorf("canonicalBuiltinIDs().%s = %d, want %d", name, id, want)
-		}
-	}
-	if got.AnyType != 17 {
-		t.Fatalf("AnyType = %d, want 17", got.AnyType)
 	}
 }
 

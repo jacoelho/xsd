@@ -3,7 +3,6 @@ package lex
 
 import (
 	"iter"
-	"slices"
 	"strings"
 	"unicode/utf8"
 )
@@ -72,11 +71,6 @@ func IsXMLWhitespaceBytes(data []byte) bool {
 		}
 	}
 	return true
-}
-
-// HasXMLWhitespaceBytes reports whether data contains any XML whitespace.
-func HasXMLWhitespaceBytes(data []byte) bool {
-	return slices.ContainsFunc(data, IsXMLWhitespaceByte)
 }
 
 // ReplaceXMLWhitespace replaces non-space XML whitespace with spaces.

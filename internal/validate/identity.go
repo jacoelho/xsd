@@ -394,7 +394,7 @@ func (s *identityState) markNillableKeyFields(rt *xsdSchema.Schema, matches []id
 	}
 	for _, match := range matches {
 		sel := &s.selections[match.Selection]
-		constraint, ok := rt.IdentityConstraint(sel.constraint)
+		constraint, ok := rt.IdentityDispatch().Program(sel.constraint)
 		if !ok {
 			return xsderrors.InternalInvariant("identity constraint metadata is invalid")
 		}

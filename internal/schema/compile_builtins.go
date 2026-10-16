@@ -10,7 +10,7 @@ func (c *compiler) addBuiltins() error {
 	// The value package owns the fixed type IDs and definitions. Schema keeps
 	// only declaration records needed for QName lookup, derivation policy, and
 	// publication; it never allocates or completes a value builtin.
-	c.rt.Builtin = canonicalBuiltinIDs(NoComplexType)
+	c.rt.AnyType = NoComplexType
 	if err := c.addBuiltinSimpleTypes(); err != nil {
 		return err
 	}
@@ -71,7 +71,6 @@ func (c *compiler) addBuiltinSimpleType(builder *value.Builder, id SimpleTypeID)
 	if decl.scope == DeclarationScopeGlobal {
 		c.rt.SimpleTypes[id].Scope = DeclarationScopeGlobal
 		c.rt.GlobalTypes[q] = SimpleRef(id)
-		c.simpleDone[q] = id
 	}
 	return nil
 }
@@ -82,7 +81,7 @@ func (c *compiler) addBuiltinXMLAttributes() error {
 		if !ok {
 			return xsderrors.InternalInvariant("builtin attribute seed index is invalid")
 		}
-		typ, ok := attr.TypeID(c.rt.builtinIDs())
+		typ, ok := attr.TypeID()
 		if !ok {
 			return xsderrors.InternalInvariant("builtin attribute references missing type: " + attr.Local)
 		}
@@ -110,12 +109,8 @@ func (c *compiler) addBuiltinAnyType() error {
 	if err != nil {
 		return err
 	}
-	complexID, err := c.registerBuiltinAnyType(q, BuiltinAnyTypeComplexType(q, modelID, attrSet))
-	if err != nil {
-		return err
-	}
-	c.complexDone[q] = complexID
-	return nil
+	_, err = c.registerBuiltinAnyType(q, BuiltinAnyTypeComplexType(q, modelID, attrSet))
+	return err
 }
 
 func (c *compiler) addBuiltinAttribute(ns, local string, typ SimpleTypeID) error {
@@ -123,12 +118,8 @@ func (c *compiler) addBuiltinAttribute(ns, local string, typ SimpleTypeID) error
 	if err != nil {
 		return err
 	}
-	id, err := c.registerGlobalAttribute(q, AttributeDecl{Name: q, Type: typ})
-	if err != nil {
-		return err
-	}
-	c.attributeDone[q] = id
-	return nil
+	_, err = c.registerGlobalAttribute(q, AttributeDecl{Name: q, Type: typ})
+	return err
 }
 
 func (c *compiler) missingSimpleType() (SimpleTypeID, error) {
@@ -139,7 +130,7 @@ func (c *compiler) missingSimpleType() (SimpleTypeID, error) {
 	if err != nil {
 		return NoSimpleType, err
 	}
-	typ := MissingSimpleType(q, c.rt.builtinIDs().AnySimpleType)
+	typ := MissingSimpleType(q, value.AnySimpleTypeID)
 	id, err := c.addSimpleType(typ)
 	if err != nil {
 		return NoSimpleType, err

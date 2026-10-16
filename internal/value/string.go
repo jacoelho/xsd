@@ -30,7 +30,7 @@ func ParseTextValue(kind PrimitiveKind, normalized string, needs PrimitiveValueN
 	}
 	value := TextValue{Canonical: normalized}
 	if needs.Has(PrimitiveNeedLength) {
-		length, err := PrimitiveLength(kind, normalized)
+		length, err := checkedUint32(utf8.RuneCountInString(normalized), "string length exceeds uint32 limit")
 		if err != nil {
 			return TextValue{}, err
 		}
@@ -54,29 +54,4 @@ func parseAnyURITextValue(normalized string, needs PrimitiveValueNeed) (TextValu
 	}
 	value.Length = length
 	return value, nil
-}
-
-// PrimitiveLength returns the value length for runtime-owned length-capable
-// primitive values.
-func PrimitiveLength(kind PrimitiveKind, normalized string) (uint32, error) {
-	switch kind {
-	case PrimitiveString:
-		return stringLength(normalized, "string length exceeds uint32 limit")
-	case PrimitiveAnyURI:
-		return anyURILength(normalized)
-	case PrimitiveHexBinary, PrimitiveBase64Binary:
-		return BinaryLength(kind, normalized)
-	case PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble, PrimitiveDuration,
-		PrimitiveDateTime, PrimitiveTime, PrimitiveDate,
-		PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth,
-		PrimitiveQName, PrimitiveNotation:
-		return 0, ErrMetadata
-	default:
-		err := ErrMetadata
-		return 0, err
-	}
-}
-
-func stringLength(normalized, msg string) (uint32, error) {
-	return checkedUint32(utf8.RuneCountInString(normalized), msg)
 }

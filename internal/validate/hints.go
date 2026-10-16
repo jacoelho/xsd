@@ -36,17 +36,6 @@ func cloneSchemaLocationHints(h SchemaLocationHints) SchemaLocationHints {
 	}
 }
 
-// RecordAttribute records one xsi:schemaLocation or
-// xsi:noNamespaceSchemaLocation attribute value.
-func (h *SchemaLocationHints) RecordAttribute(name xml.Name, value string, limits schemaLocationHintLimits, ctx StartContext) error {
-	var delta schemaLocationHintDelta
-	if err := h.stageAttribute(name, value, limits, ctx, &delta); err != nil {
-		return err
-	}
-	h.commitNamespaceHints(delta.namespaces, delta.namespaceBytes)
-	return nil
-}
-
 func (h *SchemaLocationHints) stageAttribute(name xml.Name, value string, limits schemaLocationHintLimits, ctx StartContext, delta *schemaLocationHintDelta) error {
 	switch name.Local {
 	case vocab.XSIAttrSchemaLocation:

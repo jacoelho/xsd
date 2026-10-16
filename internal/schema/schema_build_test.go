@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/source"
+	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
 )
 
@@ -80,7 +81,7 @@ func TestElementCompilationFailureKeepsReservedPlaceholder(t *testing.T) {
 	if !ok {
 		t.Fatal("failed element did not retain its reserved global ID")
 	}
-	want := ElementDecl{Name: q, Type: ComplexRef(c.rt.Builtin.AnyType), Scope: DeclarationScopeGlobal}
+	want := ElementDecl{Name: q, Type: ComplexRef(c.rt.AnyType), Scope: DeclarationScopeGlobal}
 	if got := c.rt.Elements[id]; !reflect.DeepEqual(got, want) {
 		t.Fatalf("failed element = %#v, want reserved placeholder %#v", got, want)
 	}
@@ -105,7 +106,7 @@ func TestSchemaBuildInstallsCorrelatedSubstitutionTables(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	typ := ComplexRef(c.rt.Builtin.AnyType)
+	typ := ComplexRef(c.rt.AnyType)
 	head, err := c.registerGlobalElement(headName, ElementDecl{Name: headName, Type: typ, SubstHead: NoElement})
 	if err != nil {
 		t.Fatal(err)
@@ -119,11 +120,11 @@ func TestSchemaBuildInstallsCorrelatedSubstitutionTables(t *testing.T) {
 		t.Fatal(err)
 	}
 	c.installFinalizedElements(slices.Clone(c.rt.Elements), table)
-	if got, ok := c.rt.SubstitutionMemberByName(head, memberName); !ok || got != member {
+	if got, ok := c.rt.Substitutions.MemberByName(head, memberName); !ok || got != member {
 		t.Fatalf("substitution lookup = %d/%v, want %d/true", got, ok, member)
 	}
 	var entries int
-	c.rt.ForEachSubstitutionEntry(head, func(name QName, got ElementID) bool {
+	c.rt.Substitutions.ForEachEntry(head, func(name QName, got ElementID) bool {
 		entries++
 		if name != memberName || got != member {
 			t.Fatalf("substitution entry = %v/%d, want %v/%d", name, got, memberName, member)
@@ -168,46 +169,32 @@ func TestSchemaBuildBuiltinHandlesMatchRegisteredDeclarations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !ValidComplexTypeID(c.rt.Builtin.AnyType, len(c.rt.ComplexTypes)) {
-		t.Fatalf("xs:anyType ID = %d", c.rt.Builtin.AnyType)
+	if !ValidComplexTypeID(c.rt.AnyType, len(c.rt.ComplexTypes)) {
+		t.Fatalf("xs:anyType ID = %d", c.rt.AnyType)
 	}
-	anyType := c.rt.ComplexTypes[c.rt.Builtin.AnyType]
-	if got, ok := c.rt.GlobalTypes[anyType.Name]; !ok || got != ComplexRef(c.rt.Builtin.AnyType) {
+	anyType := c.rt.ComplexTypes[c.rt.AnyType]
+	if got, ok := c.rt.GlobalTypes[anyType.Name]; !ok || got != ComplexRef(c.rt.AnyType) {
 		t.Fatalf("xs:anyType global = %v, %v", got, ok)
 	}
-	simpleHandles := []struct {
-		local string
-		id    SimpleTypeID
-	}{
-		{local: "anySimpleType", id: c.rt.Builtin.AnySimpleType},
-		{local: "string", id: c.rt.Builtin.String},
-		{local: "boolean", id: c.rt.Builtin.Boolean},
-		{local: "decimal", id: c.rt.Builtin.Decimal},
-		{local: "integer", id: c.rt.Builtin.Integer},
-		{local: "int", id: c.rt.Builtin.Int},
-		{local: "date", id: c.rt.Builtin.Date},
-		{local: "dateTime", id: c.rt.Builtin.DateTime},
-		{local: "time", id: c.rt.Builtin.Time},
-		{local: "anyURI", id: c.rt.Builtin.AnyURI},
-		{local: "QName", id: c.rt.Builtin.QName},
-		{local: "ID", id: c.rt.Builtin.ID},
-		{local: "IDREF", id: c.rt.Builtin.IDREF},
-		{local: "IDREFS", id: c.rt.Builtin.IDREFS},
-		{local: "NMTOKEN", id: c.rt.Builtin.NMTOKEN},
-		{local: "NMTOKENS", id: c.rt.Builtin.NMTOKENS},
-		{local: "ENTITY", id: c.rt.Builtin.ENTITY},
-		{local: "ENTITIES", id: c.rt.Builtin.ENTITIES},
+	simpleNames := []string{
+		"anySimpleType", "string", "boolean", "decimal", "integer", "int",
+		"date", "dateTime", "time", "anyURI", "QName", "ID", "IDREF", "IDREFS",
+		"NMTOKEN", "NMTOKENS", "ENTITY", "ENTITIES",
 	}
-	for _, handle := range simpleHandles {
-		if !ValidSimpleTypeID(handle.id, len(c.rt.SimpleTypes)) {
-			t.Fatalf("xs:%s ID = %d", handle.local, handle.id)
+	for _, local := range simpleNames {
+		id, ok := value.BuiltinTypeID(local)
+		if !ok {
+			t.Fatalf("xs:%s has no value-program ID", local)
 		}
-		declaration := c.rt.SimpleTypes[handle.id]
-		if got := c.rt.Names.Format(declaration.Name); got != "{"+vocab.XSDNamespaceURI+"}"+handle.local {
-			t.Fatalf("builtin ID %d name = %s, want xs:%s", handle.id, got, handle.local)
+		if !ValidSimpleTypeID(id, len(c.rt.SimpleTypes)) {
+			t.Fatalf("xs:%s ID = %d", local, id)
 		}
-		if got, ok := c.rt.GlobalTypes[declaration.Name]; !ok || got != SimpleRef(handle.id) {
-			t.Fatalf("xs:%s global = %v, %v", handle.local, got, ok)
+		declaration := c.rt.SimpleTypes[id]
+		if got := c.rt.Names.Format(declaration.Name); got != "{"+vocab.XSDNamespaceURI+"}"+local {
+			t.Fatalf("builtin ID %d name = %s, want xs:%s", id, got, local)
+		}
+		if got, ok := c.rt.GlobalTypes[declaration.Name]; !ok || got != SimpleRef(id) {
+			t.Fatalf("xs:%s global = %v, %v", local, got, ok)
 		}
 	}
 }
@@ -222,11 +209,6 @@ func TestSchemaBuildConstructionReadsDoNotAliasMutableTopology(t *testing.T) {
 		Lexical:       "fixed",
 	}
 	build := schemaBuild{
-		Elements: []ElementDecl{{
-			Identity: []IdentityConstraintID{1},
-			Default:  constraint,
-			Fixed:    fixedConstraint,
-		}},
 		Attributes: []AttributeDecl{{Default: constraint, Fixed: fixedConstraint}},
 		AttributeUseSets: []AttributeUseSet{{Uses: []AttributeUse{{
 			Default: constraint,
@@ -235,29 +217,18 @@ func TestSchemaBuildConstructionReadsDoNotAliasMutableTopology(t *testing.T) {
 	}
 	rt := build
 
-	element := rt.elementCopy(0)
-	element.Identity[0] = 9
-	element.Default.ResolvedNames[0].Lexical = "changed"
-	element.Fixed.ResolvedNames[0].Lexical = "changed"
-
 	attribute := rt.attributeUse(0)
 	attribute.Default.ResolvedNames[0].Lexical = "changed"
 	attribute.Fixed.ResolvedNames[0].Lexical = "changed"
 
-	uses, _ := rt.attributeUsesAndWildcard(0)
-	uses[0].Default.ResolvedNames[0].Lexical = "changed"
-	uses[0].Fixed.ResolvedNames[0].Lexical = "changed"
-
-	if rt.Elements[0].Identity[0] != 1 ||
-		rt.Elements[0].Default.ResolvedNames[0].Lexical != "p:value" ||
-		rt.Elements[0].Fixed.ResolvedNames[0].Lexical != "p:fixed" {
-		t.Fatal("element construction copy aliases compiler-owned storage")
-	}
+	uses, _ := rt.attributeUsesAndWildcardForCompilation(0)
+	uses[0] = AttributeUse{Name: QName{Local: 9}}
 	if rt.Attributes[0].Default.ResolvedNames[0].Lexical != "p:value" ||
 		rt.Attributes[0].Fixed.ResolvedNames[0].Lexical != "p:fixed" {
 		t.Fatal("attribute-use projection aliases compiler-owned storage")
 	}
-	if rt.AttributeUseSets[0].Uses[0].Default.ResolvedNames[0].Lexical != "p:value" ||
+	if rt.AttributeUseSets[0].Uses[0].Name != (QName{}) ||
+		rt.AttributeUseSets[0].Uses[0].Default.ResolvedNames[0].Lexical != "p:value" ||
 		rt.AttributeUseSets[0].Uses[0].Fixed.ResolvedNames[0].Lexical != "p:fixed" {
 		t.Fatal("attribute-use-set projection aliases compiler-owned storage")
 	}

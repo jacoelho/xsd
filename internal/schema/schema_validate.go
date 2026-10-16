@@ -388,7 +388,7 @@ func missingSimpleTypeID(rt *schemaValidation) (SimpleTypeID, error) {
 		if !st.Missing {
 			continue
 		}
-		expected := MissingSimpleType(missingName, rt.build.Builtin.AnySimpleType)
+		expected := MissingSimpleType(missingName, value.AnySimpleTypeID)
 		expected.Scope = DeclarationScopeNonGlobal
 		if missingID != NoSimpleType || !hasMissingName || st.Name != missingName || !reflect.DeepEqual(st, expected) {
 			return NoSimpleType, xsderrors.InternalInvariant("missing simple type sentinel is invalid")
@@ -431,7 +431,7 @@ func validateRuntimeChoiceLimits(rt *schemaValidation) error {
 		rt.build,
 		rt.build.ComplexTypes,
 		rt.build.Models,
-		rt.build.Builtin.AnyType,
+		rt.build.AnyType,
 		rt.contentModelWork,
 		rt.contentAnalysis,
 	); err != nil {
@@ -443,9 +443,6 @@ func validateRuntimeChoiceLimits(rt *schemaValidation) error {
 func validateBuiltinIDs(rt *schemaValidation) error {
 	if err := validateBuiltinDeclarations(rt); err != nil {
 		return err
-	}
-	if rt.build.Builtin != canonicalBuiltinIDs(rt.build.Builtin.AnyType) {
-		return xsderrors.InternalInvariant("builtin simple type handles do not match value definitions")
 	}
 	for id := range value.BuiltinTypeCount {
 		if err := validateBuiltinSimpleBinding(rt, id); err != nil {
@@ -506,7 +503,7 @@ func validateBuiltinAttribute(rt *schemaValidation, seed BuiltinAttributeSeed) e
 	if !ok || !ValidAttributeID(id, len(rt.build.Attributes)) || rt.build.Attributes[id].Name != name {
 		return xsderrors.InternalInvariant("builtin attribute binding does not match declaration")
 	}
-	typ, ok := seed.TypeID(rt.build.Builtin)
+	typ, ok := seed.TypeID()
 	if !ok || rt.build.Attributes[id].Type != typ {
 		return xsderrors.InternalInvariant("builtin attribute type does not match canonical value type")
 	}
@@ -514,7 +511,7 @@ func validateBuiltinAttribute(rt *schemaValidation, seed BuiltinAttributeSeed) e
 }
 
 func validateBuiltinAnyType(rt *schemaValidation) error {
-	anyType := rt.build.Builtin.AnyType
+	anyType := rt.build.AnyType
 	if !ValidComplexTypeID(anyType, len(rt.build.ComplexTypes)) {
 		return xsderrors.InternalInvariant("builtin anyType references invalid declaration")
 	}
@@ -550,7 +547,7 @@ func validateBuiltinAnyType(rt *schemaValidation) error {
 }
 
 func validateElementDeclShape(rt *schemaValidation, decl ElementDecl) error {
-	if err := ValidateElementDeclRuntime(&rt.build.Names, NewElementDeclValidationForDecl(decl), DeclRefLimits{
+	if err := ValidateElementDeclRuntime(&rt.build.Names, decl, DeclRefLimits{
 		SimpleTypeCount:  len(rt.build.SimpleTypes),
 		ComplexTypeCount: len(rt.build.ComplexTypes),
 		ElementCount:     len(rt.build.Elements),
@@ -575,7 +572,7 @@ func validateElementDeclValueConstraints(rt *schemaValidation, decl ElementDecl)
 }
 
 func validateAttributeDecl(rt *schemaValidation, decl AttributeDecl) error {
-	if err := ValidateAttributeDeclRuntime(&rt.build.Names, NewAttributeDeclValidationForDecl(decl), DeclRefLimits{
+	if err := ValidateAttributeDeclRuntime(&rt.build.Names, decl, DeclRefLimits{
 		SimpleTypeCount: len(rt.build.SimpleTypes),
 	}); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
@@ -599,7 +596,7 @@ func validateSimpleType(rt *schemaValidation, id SimpleTypeID, st SimpleType) er
 	if rt.build.valueBuilder == nil {
 		return xsderrors.InternalInvariant("simple type has no value builder")
 	}
-	if _, ok := rt.build.valueBuilder.NeedsQNameResolver(id); !ok {
+	if _, ok := rt.build.valueBuilder.InputRequirements(id); !ok {
 		return xsderrors.InternalInvariant("simple type has no admitted value definition")
 	}
 	return nil
@@ -610,7 +607,7 @@ func validateComplexTypeRecord(build *schemaBuild, id ComplexTypeID, ct ComplexT
 		SimpleTypeCount:      len(build.SimpleTypes),
 		ComplexTypeCount:     len(build.ComplexTypes),
 		AttributeUseSetCount: len(build.AttributeUseSets),
-		AnyType:              build.Builtin.AnyType,
+		AnyType:              build.AnyType,
 	}); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
@@ -618,13 +615,13 @@ func validateComplexTypeRecord(build *schemaBuild, id ComplexTypeID, ct ComplexT
 }
 
 func validateComplexTypeDerivation(rt *schemaValidation, id ComplexTypeID, ct ComplexType) error {
-	if id == rt.build.Builtin.AnyType {
+	if id == rt.build.AnyType {
 		return nil
 	}
 	if baseID, ok := ct.Base.Simple(); ok {
 		return validateSimpleBaseComplexDerivation(rt, baseID, ct)
 	}
-	if err := ValidateComplexTypeDerivationRuntime(rt.build.Builtin.AnyType, id, ct); err != nil {
+	if err := ValidateComplexTypeDerivationRuntime(rt.build.AnyType, id, ct); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	switch ct.Derivation {
@@ -642,7 +639,7 @@ func validateSimpleBaseComplexDerivation(rt *schemaValidation, baseID SimpleType
 	if err := ValidateComplexTypeSimpleBaseExtensionRuntime(rt.build, baseID, ct); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
-	return checkDerivedAttributeWildcard(rt, NoAttributeWildcardState(), NewAttributeWildcardStateForUseSet(rt.build.AttributeUseSets[ct.Attrs]), AttributeWildcardExtension)
+	return checkDerivedAttributeWildcard(rt, AttributeUseSet{Wildcard: NoWildcard, WildcardBase: NoWildcard, WildcardDeclared: NoWildcard}, rt.build.AttributeUseSets[ct.Attrs], AttributeWildcardExtension)
 }
 
 func validateComplexExtensionRuntime(rt *schemaValidation, ct ComplexType) error {
@@ -650,7 +647,7 @@ func validateComplexExtensionRuntime(rt *schemaValidation, ct ComplexType) error
 	if err != nil {
 		return err
 	}
-	if err := ValidateComplexTypeExtensionRuntime(rt.build, base, ct, rt.build.Builtin.AnyType); err != nil {
+	if err := ValidateComplexTypeExtensionRuntime(rt.build, base, ct, rt.build.AnyType); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return validateAttributeUsesExtend(rt, base.Attrs, ct.Attrs)
@@ -698,10 +695,10 @@ func complexBaseRuntime(rt *schemaValidation, ct ComplexType) (ComplexType, erro
 func validateAttributeUsesExtend(rt *schemaValidation, baseID, derivedID AttributeUseSetID) error {
 	base := rt.build.AttributeUseSets[baseID]
 	derived := rt.build.AttributeUseSets[derivedID]
-	if err := ValidateAttributeUseSetExtension(NewAttributeUseExtensionValidationsForUses(base.Uses), NewAttributeUseExtensionValidationsForUses(derived.Uses)); err != nil {
+	if err := ValidateAttributeUseSetExtension(base, derived); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
-	return checkDerivedAttributeWildcard(rt, NewAttributeWildcardStateForUseSet(base), NewAttributeWildcardStateForUseSet(derived), AttributeWildcardExtension)
+	return checkDerivedAttributeWildcard(rt, base, derived, AttributeWildcardExtension)
 }
 
 func validateAttributeUsesRestrict(rt *schemaValidation, baseID, derivedID AttributeUseSetID, binding AttributeWildcardBinding) error {
@@ -709,8 +706,8 @@ func validateAttributeUsesRestrict(rt *schemaValidation, baseID, derivedID Attri
 	derived := rt.build.AttributeUseSets[derivedID]
 	if err := ValidateAttributeUseSetRestriction(
 		rt.build,
-		AttributeUseRestrictionSet{Uses: NewAttributeUseRestrictionValidationsForUses(base.Uses), Wildcard: NewAttributeWildcardStateForUseSet(base)},
-		AttributeUseRestrictionSet{Uses: NewAttributeUseRestrictionValidationsForUses(derived.Uses), Wildcard: NewAttributeWildcardStateForUseSet(derived)},
+		base,
+		derived,
 		binding,
 		rt.build.spendTypeDerivationWork,
 	); err != nil {
@@ -734,7 +731,7 @@ func validateAttributeUseSetRuntime(rt *schemaValidation, _ AttributeUseSetID, s
 	return nil
 }
 
-func checkDerivedAttributeWildcard(rt *schemaValidation, base, derived AttributeWildcardState, expected AttributeWildcardDerivation) error {
+func checkDerivedAttributeWildcard(rt *schemaValidation, base, derived AttributeUseSet, expected AttributeWildcardDerivation) error {
 	if err := ValidateAttributeWildcardDerivation(rt.build, base, derived, expected); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
@@ -782,7 +779,7 @@ func (rt *schemaBuild) ValueConstraintSimpleType(id SimpleTypeID) (ValueConstrai
 	return ValueConstraintSimpleType{
 		Union: view.Union, ListItem: view.ListItem,
 		Variety: view.Variety, Primitive: view.Primitive,
-		HasEnumeration: len(view.Facets.Enumeration) != 0,
+		HasEnumeration: view.HasEnumeration,
 	}, true
 }
 

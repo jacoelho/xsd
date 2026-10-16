@@ -3,6 +3,7 @@ package schema_test
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -328,10 +329,7 @@ func TestSchemaGraphXMLBaseAppliesAnyURIWhitespace(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			wantBase, err := source.ResolveReference(test.parent, "sub/")
-			if err != nil {
-				t.Fatal(err)
-			}
+			wantBase := filepath.Join("schemas", "sub") + string(filepath.Separator)
 			var gotBase string
 			resolver := source.Resolver(func(base, location string) (source.Source, error) {
 				gotBase = base

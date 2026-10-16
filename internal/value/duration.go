@@ -40,19 +40,17 @@ func ValidateDurationLexical[T byteText](raw T) error {
 	return err
 }
 
-type durationSign uint8
-
-const (
-	durationPositive durationSign = iota
-	durationNegative
-)
-
 //nolint:gocognit // One pass owns lexical state and malformed-input exits; helper splitting regressed the measured hot path.
 func parseDurationLexical[T byteText](raw T) (DurationValue, error) {
-	i, sign, err := durationPrefix(raw)
-	if err != nil {
-		return DurationValue{}, err
+	i := 0
+	negative := len(raw) != 0 && raw[0] == '-'
+	if negative {
+		i++
 	}
+	if i >= len(raw) || raw[i] != 'P' {
+		return DurationValue{}, errors.New("invalid duration")
+	}
+	i++
 	var state durationParser
 	// Keep the scanner and accumulator in this single path. Splitting the
 	// ordinary lexical path across generic helpers makes the compiler lose the
@@ -123,29 +121,16 @@ func parseDurationLexical[T byteText](raw T) (DurationValue, error) {
 		return DurationValue{}, errors.New("invalid duration")
 	}
 	months, seconds := state.months, state.seconds
-	if sign == durationNegative {
+	if negative {
 		months, seconds = months.neg(), seconds.neg()
 	}
-	value := DurationValue{frac: state.frac, negativeFrac: sign == durationNegative && state.frac != ""}
+	value := DurationValue{frac: state.frac, negativeFrac: negative && state.frac != ""}
 	if months.digits != "" || seconds.digits != "" {
 		value.large = &durationLarge{months: months, seconds: seconds}
 	} else {
 		value.months, value.seconds = months.small, seconds.small
 	}
 	return value, nil
-}
-
-func durationPrefix[T byteText](raw T) (int, durationSign, error) {
-	i := 0
-	sign := durationPositive
-	if len(raw) != 0 && raw[0] == '-' {
-		sign = durationNegative
-		i++
-	}
-	if i >= len(raw) || raw[i] != 'P' {
-		return 0, sign, errors.New("invalid duration")
-	}
-	return i + 1, sign, nil
 }
 
 type durationWhole struct {
@@ -242,17 +227,11 @@ func compareDurationSeconds(as, bs durationInteger, a, b DurationValue) int {
 		}
 		return 1
 	}
-	n := compareDurationFractions(a.frac, b.frac)
+	n := compareFraction(a.frac, b.frac)
 	if a.negativeFrac {
 		return -n
 	}
 	return n
-}
-
-func compareDurationFractions(a, b string) int {
-	// Fractions are normalized without trailing zeroes, so lexical order
-	// agrees with order after padding the shorter fraction with zeroes.
-	return strings.Compare(a, b)
 }
 
 func compareDurationReferences(a, b DurationValue) OrderedFacetRelation {
@@ -263,7 +242,7 @@ func compareDurationReferences(a, b DurationValue) OrderedFacetRelation {
 		bv, bf := durationAtReference(b, ref.year, ref.month)
 		n := compareDurationInteger(av, bv)
 		if n == 0 {
-			n = compareDurationFractions(af, bf)
+			n = compareFraction(af, bf)
 		}
 		if i > 0 && n != relation {
 			return OrderedFacetIncomparable

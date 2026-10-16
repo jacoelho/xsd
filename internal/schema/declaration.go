@@ -3,6 +3,7 @@ package schema
 import (
 	"errors"
 
+	valuepkg "github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
 )
 
@@ -75,55 +76,9 @@ type AttributeDecl struct {
 	Type    SimpleTypeID
 }
 
-// ElementDeclValidation is the runtime projection needed to validate element
-// declaration shape and references.
-type ElementDeclValidation struct {
-	Name       QName
-	Type       TypeID
-	SubstHead  ElementID
-	Block      DerivationMask
-	Final      DerivationMask
-	HasDefault bool
-	HasFixed   bool
-}
-
-// AttributeDeclValidation is the runtime projection needed to validate
-// attribute declaration shape and references.
-type AttributeDeclValidation struct {
-	Name       QName
-	Type       SimpleTypeID
-	HasDefault bool
-	HasFixed   bool
-}
-
-// NewElementDeclValidationForDecl projects a runtime element declaration into
-// the shape needed for declaration invariant validation.
-func NewElementDeclValidationForDecl(decl ElementDecl) ElementDeclValidation {
-	return ElementDeclValidation{
-		Name:       decl.Name,
-		Type:       decl.Type,
-		SubstHead:  decl.SubstHead,
-		Block:      decl.Block,
-		Final:      decl.Final,
-		HasDefault: decl.Default != nil,
-		HasFixed:   decl.Fixed != nil,
-	}
-}
-
-// NewAttributeDeclValidationForDecl projects a runtime attribute declaration
-// into the shape needed for declaration invariant validation.
-func NewAttributeDeclValidationForDecl(decl AttributeDecl) AttributeDeclValidation {
-	return AttributeDeclValidation{
-		Name:       decl.Name,
-		Type:       decl.Type,
-		HasDefault: decl.Default != nil,
-		HasFixed:   decl.Fixed != nil,
-	}
-}
-
 // ValidateElementDeclRuntime validates element declaration metadata that can be
 // expressed in runtime vocabulary.
-func ValidateElementDeclRuntime(names *NameTable, decl ElementDeclValidation, limits DeclRefLimits) error {
+func ValidateElementDeclRuntime(names *NameTable, decl ElementDecl, limits DeclRefLimits) error {
 	if names == nil || !names.ValidQName(decl.Name) || !validTypeID(decl.Type, limits.SimpleTypeCount, limits.ComplexTypeCount) {
 		return errors.New("element declaration references invalid name or type")
 	}
@@ -136,7 +91,7 @@ func ValidateElementDeclRuntime(names *NameTable, decl ElementDeclValidation, li
 	if decl.SubstHead != NoElement && !ValidElementID(decl.SubstHead, limits.ElementCount) {
 		return errors.New("element declaration references invalid substitution head")
 	}
-	if decl.HasDefault && decl.HasFixed {
+	if decl.Default != nil && decl.Fixed != nil {
 		return errors.New("element declaration stores both default and fixed value constraints")
 	}
 	return nil
@@ -144,14 +99,14 @@ func ValidateElementDeclRuntime(names *NameTable, decl ElementDeclValidation, li
 
 // ValidateAttributeDeclRuntime validates attribute declaration metadata that can
 // be expressed in runtime vocabulary.
-func ValidateAttributeDeclRuntime(names *NameTable, decl AttributeDeclValidation, limits DeclRefLimits) error {
+func ValidateAttributeDeclRuntime(names *NameTable, decl AttributeDecl, limits DeclRefLimits) error {
 	if names == nil || !names.ValidQName(decl.Name) || !ValidSimpleTypeID(decl.Type, limits.SimpleTypeCount) {
 		return errors.New("attribute declaration references invalid name or type")
 	}
 	if err := ValidateAttributeDeclName(names, decl.Name); err != nil {
 		return err
 	}
-	if decl.HasDefault && decl.HasFixed {
+	if decl.Default != nil && decl.Fixed != nil {
 		return errors.New("attribute declaration stores both default and fixed value constraints")
 	}
 	return nil
@@ -207,10 +162,7 @@ func DeclarationValueConstraintOf[T any](defaultValue, fixedValue *T) Declaratio
 
 // ValidateElementDeclValueConstraintRuntime validates element declaration
 // value-constraint rules that depend on the constraint's simple owner type.
-func ValidateElementDeclValueConstraintRuntime(rt interface {
-	SimpleTypeIdentityRuntime
-	ValueConstraintRuntime
-}, typ SimpleTypeID, constraint DeclarationValueConstraint) error {
+func ValidateElementDeclValueConstraintRuntime(rt *schemaBuild, typ SimpleTypeID, constraint DeclarationValueConstraint) error {
 	if err := validateDeclValueConstraintIdentity(rt, typ, constraint, "ID-typed element declaration stores value constraint"); err != nil {
 		return err
 	}
@@ -222,11 +174,11 @@ func ValidateElementDeclValueConstraintRuntime(rt interface {
 
 // ValidateAttributeDeclValueConstraintRuntime validates attribute declaration
 // value-constraint rules that depend on the declaration's simple type.
-func ValidateAttributeDeclValueConstraintRuntime(rt SimpleTypeIdentityRuntime, typ SimpleTypeID, constraint DeclarationValueConstraint) error {
+func ValidateAttributeDeclValueConstraintRuntime(rt *schemaBuild, typ SimpleTypeID, constraint DeclarationValueConstraint) error {
 	return validateDeclValueConstraintIdentity(rt, typ, constraint, "ID-typed attribute declaration stores value constraint")
 }
 
-func validateDeclValueConstraintIdentity(rt SimpleTypeIdentityRuntime, typ SimpleTypeID, constraint DeclarationValueConstraint, msg string) error {
+func validateDeclValueConstraintIdentity(rt *schemaBuild, typ SimpleTypeID, constraint DeclarationValueConstraint, msg string) error {
 	switch constraint {
 	case DeclarationValueConstraintNone:
 		return nil
@@ -246,7 +198,7 @@ func validateDeclValueConstraintIdentity(rt SimpleTypeIdentityRuntime, typ Simpl
 	if !ok {
 		return errors.New("declaration value constraint references invalid type")
 	}
-	if identity == SimpleIdentityID {
+	if identity == valuepkg.IdentityID {
 		return errors.New(msg)
 	}
 	return nil

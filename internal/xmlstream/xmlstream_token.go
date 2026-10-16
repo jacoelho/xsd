@@ -16,9 +16,8 @@ type EndElement struct {
 }
 
 // Attr may hold a parser-owned raw value. raw is valid only through the current
-// token. Callers that retain a value must use Reader.MaterializeValue or
-// Reader.AppendValue before
-// advancing the parser, then retain only the returned string or byte copy.
+// token. Callers that retain a value must use Reader.MaterializeValue before
+// advancing the parser, then retain only the returned owned string.
 type Attr struct {
 	// Name is lexical before Reader.Start and expanded after successful
 	// namespace admission. Namespace declarations use the XMLNS namespace URI
@@ -46,16 +45,6 @@ func (a *Attr) materializeValue(cache *cache) (string, bool) {
 	return a.stringValue(cache), true
 }
 
-// AppendValue appends the attribute value to dst. It must be called while the
-// token that produced a raw-backed attribute is still current.
-
-func (a *Attr) appendValue(dst []byte, cache *cache) []byte {
-	if a.Value != "" || len(a.raw) == 0 {
-		return append(dst, a.stringValue(cache)...)
-	}
-	return append(dst, a.raw...)
-}
-
 // HasBorrowedValue reports whether the value is parser-owned.
 func (a *Attr) HasBorrowedValue() bool {
 	return len(a.raw) != 0
@@ -69,14 +58,4 @@ func (a *Attr) RawValue() ([]byte, bool) {
 		return nil, false
 	}
 	return a.raw, true
-}
-
-// AppendData appends token character data or PI target bytes to dst.
-func (t Token) AppendData(dst []byte) []byte {
-	return append(dst, t.Data...)
-}
-
-// AppendDirective appends token directive/comment/PI content bytes to dst.
-func (t Token) AppendDirective(dst []byte) []byte {
-	return append(dst, t.Directive...)
 }

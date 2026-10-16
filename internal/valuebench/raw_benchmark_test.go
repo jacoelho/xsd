@@ -8,7 +8,11 @@ import (
 
 func BenchmarkPublishedRawStringEnumeration(b *testing.B) {
 	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
-	id, err := builder.Add(valuepkg.TypeSpec{
+	id, err := builder.Reserve()
+	if err != nil {
+		b.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(id, valuepkg.TypeSpec{
 		Variety: valuepkg.Atomic, Primitive: valuepkg.PrimitiveString,
 		Whitespace: valuepkg.WhitespacePreserve, WhitespacePresent: true,
 		Base: valuepkg.NoType, ListItem: valuepkg.NoType,

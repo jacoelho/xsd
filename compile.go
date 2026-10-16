@@ -56,30 +56,9 @@ func Compile(sources ...SchemaSource) (*Engine, error) {
 
 // CompileWithOptions compiles schema sources with explicit resource limits.
 func CompileWithOptions(opts CompileOptions, sources ...SchemaSource) (*Engine, error) {
-	rt, err := xsdSchema.CompileMappedSources(internalCompileOptions(opts), sources, internalSchemaSource)
+	rt, err := xsdSchema.CompileMappedSources(xsdSchema.Options(opts), sources, internalSchemaSource)
 	if err != nil {
 		return nil, err
 	}
 	return &Engine{pool: validate.NewSessionPool(rt)}, nil
-}
-
-func internalCompileOptions(opts CompileOptions) xsdSchema.Options {
-	return xsdSchema.Options{
-		MaxSchemaDepth:                opts.MaxSchemaDepth,
-		MaxSchemaAttributes:           opts.MaxSchemaAttributes,
-		MaxSchemaTokenBytes:           opts.MaxSchemaTokenBytes,
-		MaxSchemaSourceBytes:          opts.MaxSchemaSourceBytes,
-		MaxSchemaSources:              opts.MaxSchemaSources,
-		MaxSchemaTotalBytes:           opts.MaxSchemaTotalBytes,
-		MaxSchemaReferences:           opts.MaxSchemaReferences,
-		MaxSchemaDependencySteps:      opts.MaxSchemaDependencySteps,
-		MaxSchemaTargetContexts:       opts.MaxSchemaTargetContexts,
-		MaxSchemaInstantiatedNodes:    opts.MaxSchemaInstantiatedNodes,
-		MaxSchemaNames:                opts.MaxSchemaNames,
-		MaxFiniteOccurs:               opts.MaxFiniteOccurs,
-		MaxContentModelStates:         opts.MaxContentModelStates,
-		MaxContentModelAnalysisSteps:  opts.MaxContentModelAnalysisSteps,
-		MaxSubstitutionClosureEntries: opts.MaxSubstitutionClosureEntries,
-		MaxSimpleUnionMemberEntries:   opts.MaxSimpleUnionMemberEntries,
-	}
 }

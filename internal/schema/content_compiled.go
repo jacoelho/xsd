@@ -233,7 +233,7 @@ func newCompiledModelReads(models []CompiledModel, work ContentModelWork) ([]com
 
 // Large all-groups dispatch by expanded name. The index uses the same
 // substitution expansion as DFA rows; occurrence bits remain document-owned.
-func indexAllContentModels(models []compiledModelRead, rt DFARowIndexRuntime, work ContentModelWork) error {
+func indexAllContentModels(models []compiledModelRead, rt *schemaBuild, work ContentModelWork) error {
 	if err := requireContentModelWork(work); err != nil {
 		return err
 	}

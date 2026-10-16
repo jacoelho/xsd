@@ -3,6 +3,7 @@ package schema
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/jacoelho/xsd/xsderrors"
@@ -74,6 +75,8 @@ func TestParseSizeFacetValue(t *testing.T) {
 			code:  xsderrors.CodeSchemaLimit,
 			msg:   "maxLength facet exceeds uint32 limit",
 		},
+		{name: "long negative zero", facet: "length", value: "-" + strings.Repeat("0", 1024), want: 0},
+		{name: "overflow malformed tail", facet: "maxLength", value: strings.Repeat("9", 256) + "x", code: xsderrors.CodeSchemaFacet, msg: "invalid maxLength facet " + strings.Repeat("9", 256) + "x"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -151,6 +154,24 @@ func TestDeclarationValueConstraintError(t *testing.T) {
 
 func TestElementValueConstraintTypeError(t *testing.T) {
 	t.Parallel()
+
+	t.Run("located schema diagnostic", func(t *testing.T) {
+		t.Parallel()
+		input := xsderrors.WithLocation("constraint.xsd", 7, 11, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content work exhausted"))
+		if got := ElementValueConstraintTypeError(input); got != input { //nolint:errorlint // The adapter must preserve the supplied diagnostic object.
+			t.Fatalf("structured diagnostic changed: %v", got)
+		}
+	})
+	t.Run("wrapped unsupported diagnostic", func(t *testing.T) {
+		t.Parallel()
+		cause := errors.New("unsupported constraint")
+		diagnostic := xsderrors.WithLocation("constraint.xsd", 13, 17, xsderrors.Unsupported(xsderrors.CodeUnsupportedRegex, "constraint regex", cause))
+		input := fmt.Errorf("mixed content constraint: %w", diagnostic)
+		got := ElementValueConstraintTypeError(input)
+		if got != input || !errors.Is(got, cause) || !xsderrors.IsUnsupported(got) { //nolint:errorlint // Preserve the outer wrapper as well as its diagnostic and cause.
+			t.Fatalf("wrapped structured diagnostic changed: %v", got)
+		}
+	})
 
 	if err := ElementValueConstraintTypeError(nil); err != nil {
 		t.Fatalf("ElementValueConstraintTypeError(nil) error = %v", err)

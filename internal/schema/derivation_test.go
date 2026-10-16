@@ -4,9 +4,11 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	valuepkg "github.com/jacoelho/xsd/internal/value"
 )
 
-type derivationRuntimeStub struct {
+type derivationFixture struct {
 	simple  []SimpleTypeDerivation
 	complex []ComplexTypeDerivation
 	anyType ComplexTypeID
@@ -14,7 +16,7 @@ type derivationRuntimeStub struct {
 
 func unboundedTypeDerivationWork(_ int) error { return nil }
 
-func typeDerivationMaskForTest[T TypeDerivationRuntime](rt T, derived, base TypeID) (DerivationMask, bool) {
+func typeDerivationMaskForTest(rt *schemaBuild, derived, base TypeID) (DerivationMask, bool) {
 	mask, ok, err := deriveTypeMask(rt, derived, base, unboundedTypeDerivationWork)
 	if err != nil {
 		return 0, false
@@ -22,39 +24,13 @@ func typeDerivationMaskForTest[T TypeDerivationRuntime](rt T, derived, base Type
 	return mask, ok
 }
 
-func substitutionDerivationAllowedForTest(rt TypeDerivationRuntime, derived, base TypeID, block DerivationMask) bool {
+func substitutionDerivationAllowedForTest(rt *schemaBuild, derived, base TypeID, block DerivationMask) bool {
 	mask, ok := typeDerivationMaskForTest(rt, derived, base)
 	if !ok || mask&block != 0 {
 		return false
 	}
 	typeBlocks, err := substitutionTypeBlocks(rt, derived, base, unboundedTypeDerivationWork)
 	return err == nil && mask&typeBlocks == 0
-}
-
-func (s derivationRuntimeStub) AnyTypeID() ComplexTypeID {
-	return s.anyType
-}
-
-func (s derivationRuntimeStub) ComplexTypeCount() int {
-	return len(s.complex)
-}
-
-func (s derivationRuntimeStub) SimpleTypeCount() int {
-	return len(s.simple)
-}
-
-func (s derivationRuntimeStub) SimpleTypeDerivation(id SimpleTypeID) (SimpleTypeDerivation, bool) {
-	if !ValidUint32Index(uint32(id), len(s.simple)) {
-		return SimpleTypeDerivation{}, false
-	}
-	return s.simple[id], true
-}
-
-func (s derivationRuntimeStub) ComplexTypeDerivation(id ComplexTypeID) (ComplexTypeDerivation, bool) {
-	if !ValidUint32Index(uint32(id), len(s.complex)) {
-		return ComplexTypeDerivation{}, false
-	}
-	return s.complex[id], true
 }
 
 func newTypeDerivationReadForTest(
@@ -73,8 +49,8 @@ func newTypeDerivationReadForTest(
 	return read
 }
 
-func newDerivationRuntimeStub(simpleTypes []SimpleType, complexTypes []ComplexType) derivationRuntimeStub {
-	stub := derivationRuntimeStub{
+func newDerivationRuntimeStub(simpleTypes []SimpleType, complexTypes []ComplexType) derivationFixture {
+	stub := derivationFixture{
 		simple:  make([]SimpleTypeDerivation, len(simpleTypes)),
 		complex: make([]ComplexTypeDerivation, len(complexTypes)),
 	}
@@ -87,115 +63,53 @@ func newDerivationRuntimeStub(simpleTypes []SimpleType, complexTypes []ComplexTy
 	return stub
 }
 
-func TestEqualComplexTypeDerivations(t *testing.T) {
+func TestComplexTypeDerivationForComplexType(t *testing.T) {
 	t.Parallel()
 
-	base := ComplexTypeDerivation{
-		Base:  ComplexRef(1),
-		Kind:  DerivationKindExtension,
-		Block: DerivationRestriction,
-	}
 	tests := []struct {
 		name string
-		a    ComplexTypeDerivation
-		b    ComplexTypeDerivation
-		want bool
+		typ  ComplexType
+		want ComplexTypeDerivation
 	}{
 		{
 			name: "equal",
-			a:    base,
-			b: ComplexTypeDerivation{
-				Base:  ComplexRef(1),
-				Kind:  DerivationKindExtension,
-				Block: DerivationRestriction,
-			},
-			want: true,
+			typ:  ComplexType{Base: ComplexRef(1), Derivation: DerivationKindExtension, Block: DerivationRestriction},
+			want: ComplexTypeDerivation{Base: ComplexRef(1), Kind: DerivationKindExtension, Block: DerivationRestriction},
 		},
 		{
 			name: "base differs",
-			a:    base,
-			b: ComplexTypeDerivation{
-				Base:  ComplexRef(2),
-				Kind:  DerivationKindExtension,
-				Block: DerivationRestriction,
-			},
+			typ:  ComplexType{Base: ComplexRef(2), Derivation: DerivationKindExtension, Block: DerivationRestriction},
+			want: ComplexTypeDerivation{Base: ComplexRef(2), Kind: DerivationKindExtension, Block: DerivationRestriction},
 		},
 		{
 			name: "kind differs",
-			a:    base,
-			b: ComplexTypeDerivation{
-				Base:  ComplexRef(1),
-				Kind:  DerivationKindRestriction,
-				Block: DerivationRestriction,
-			},
+			typ:  ComplexType{Base: ComplexRef(1), Derivation: DerivationKindRestriction, Block: DerivationRestriction},
+			want: ComplexTypeDerivation{Base: ComplexRef(1), Kind: DerivationKindRestriction, Block: DerivationRestriction},
 		},
 		{
 			name: "block differs",
-			a:    base,
-			b: ComplexTypeDerivation{
-				Base: ComplexRef(1),
-				Kind: DerivationKindExtension,
-			},
+			typ:  ComplexType{Base: ComplexRef(1), Derivation: DerivationKindExtension},
+			want: ComplexTypeDerivation{Base: ComplexRef(1), Kind: DerivationKindExtension},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			if got := equalComplexTypeDerivations(tt.a, tt.b); got != tt.want {
-				t.Fatalf("EqualComplexTypeDerivations() = %v, want %v", got, tt.want)
+
+			if got := newComplexTypeDerivationForComplexType(tt.typ); got != tt.want {
+				t.Fatalf("newComplexTypeDerivationForComplexType() = %+v, want %+v", got, tt.want)
 			}
 		})
-	}
-}
-
-func TestComplexTypeDerivationForComplexType(t *testing.T) {
-	t.Parallel()
-
-	ct := ComplexType{
-		Base:       ComplexRef(1),
-		Derivation: DerivationKindExtension,
-		Block:      DerivationRestriction,
-	}
-	projection := newComplexTypeDerivationForComplexType(ct)
-	if projection != (ComplexTypeDerivation{
-		Base:  ComplexRef(1),
-		Kind:  DerivationKindExtension,
-		Block: DerivationRestriction,
-	}) {
-		t.Fatalf("NewComplexTypeDerivationForComplexType() = %+v, want projected complex type facts", projection)
-	}
-	if !equalComplexTypeDerivationForComplexType(projection, ct) {
-		t.Fatal("EqualComplexTypeDerivationForComplexType() = false, want true")
-	}
-	if equalComplexTypeDerivationForComplexType(projection, ComplexType{
-		Base:       ComplexRef(2),
-		Derivation: DerivationKindExtension,
-		Block:      DerivationRestriction,
-	}) {
-		t.Fatal("EqualComplexTypeDerivationForComplexType() accepted wrong base")
-	}
-	if equalComplexTypeDerivationForComplexType(projection, ComplexType{
-		Base:       ComplexRef(1),
-		Derivation: DerivationKindRestriction,
-		Block:      DerivationRestriction,
-	}) {
-		t.Fatal("EqualComplexTypeDerivationForComplexType() accepted wrong derivation kind")
-	}
-	if equalComplexTypeDerivationForComplexType(projection, ComplexType{
-		Base:       ComplexRef(1),
-		Derivation: DerivationKindExtension,
-	}) {
-		t.Fatal("EqualComplexTypeDerivationForComplexType() accepted wrong block")
 	}
 }
 
 func TestSimpleTypeDerivationForSimpleType(t *testing.T) {
 	t.Parallel()
 
-	st := testSimpleType(SimpleVarietyUnion, NoSimpleType, 1, 2)
+	st := testSimpleType(valuepkg.Union, NoSimpleType, 1, 2)
 	projection := newSimpleTypeDerivationForSimpleType(st)
 	if projection.Base != NoSimpleType ||
-		projection.Variety != SimpleVarietyUnion ||
+		projection.Variety != valuepkg.Union ||
 		!slices.Equal(projection.Union, []SimpleTypeID{1, 2}) {
 		t.Fatalf("NewSimpleTypeDerivationForSimpleType() = %+v, want projected simple type facts", projection)
 	}
@@ -203,18 +117,16 @@ func TestSimpleTypeDerivationForSimpleType(t *testing.T) {
 	if projection.Union[0] != 1 {
 		t.Fatalf("NewSimpleTypeDerivationForSimpleType() aliased union slice: %+v", projection)
 	}
-	if !equalSimpleTypeDerivationForSimpleType(projection, testSimpleType(SimpleVarietyUnion, NoSimpleType, 1, 2)) {
-		t.Fatal("EqualSimpleTypeDerivationForSimpleType() = false, want true")
-	}
-	if equalSimpleTypeDerivationForSimpleType(projection, testSimpleType(SimpleVarietyUnion, 3, 1, 2)) {
-		t.Fatal("EqualSimpleTypeDerivationForSimpleType() accepted wrong base")
+	other := newSimpleTypeDerivationForSimpleType(testSimpleType(valuepkg.Union, 3, 1, 2))
+	if other.Base != 3 || other.Variety != valuepkg.Union || !slices.Equal(other.Union, []SimpleTypeID{1, 2}) {
+		t.Fatalf("newSimpleTypeDerivationForSimpleType() = %+v, want base 3, union variety and members [1 2]", other)
 	}
 }
 
 func TestTypeDerivationRead(t *testing.T) {
 	t.Parallel()
 
-	simpleTypes := []SimpleType{testSimpleType(SimpleVarietyAtomic, NoSimpleType)}
+	simpleTypes := []SimpleType{testSimpleType(valuepkg.Atomic, NoSimpleType)}
 	complexTypes := []ComplexType{{
 		Derivation: DerivationKindNone,
 		Block:      DerivationRestriction,
@@ -234,27 +146,31 @@ func TestTypeDerivationRead(t *testing.T) {
 		validTypeID(TypeID{}, read.SimpleTypeCount(), read.ComplexTypeCount()) {
 		t.Fatal("type ID validation did not match published graph bounds")
 	}
-	if read.simpleTypeTable() == nil {
-		t.Fatal("type derivation read is not bound to the published simple-type table")
+	var scratch TypeDerivationScratch
+	if mask, valid := read.derivation(SimpleRef(0), SimpleRef(0), &scratch); !valid || mask != 0 {
+		t.Fatalf("published self derivation = %v, %v; want 0, true", mask, valid)
+	}
+	if mask, valid := read.derivation(SimpleRef(1), SimpleRef(0), &scratch); valid || mask != 0 {
+		t.Fatalf("missing published derivation = %v, %v; want 0, false", mask, valid)
 	}
 }
 
 func TestTypeDerivationMaskSimpleTypeRestrictionAndUnionBase(t *testing.T) {
 	t.Parallel()
 
-	rt := derivationRuntimeStub{
+	rt := derivationFixture{
 		simple: []SimpleTypeDerivation{
-			{Base: NoSimpleType, Variety: SimpleVarietyAtomic},
-			{Base: 0, Variety: SimpleVarietyAtomic},
-			{Base: NoSimpleType, Variety: SimpleVarietyUnion, Union: []SimpleTypeID{0}},
+			{Base: NoSimpleType, Variety: valuepkg.Atomic},
+			{Base: 0, Variety: valuepkg.Atomic},
+			{Base: NoSimpleType, Variety: valuepkg.Union, Union: []SimpleTypeID{0}},
 		},
 		complex: []ComplexTypeDerivation{{Kind: DerivationKindNone}},
 	}
-	mask, ok := typeDerivationMaskForTest(rt, SimpleRef(1), SimpleRef(0))
+	mask, ok := typeDerivationMaskForTest(rt.build(), SimpleRef(1), SimpleRef(0))
 	if !ok || mask != DerivationRestriction {
 		t.Fatalf("simple restriction mask = %08b, %v; want restriction, true", mask, ok)
 	}
-	mask, ok = typeDerivationMaskForTest(rt, SimpleRef(1), SimpleRef(2))
+	mask, ok = typeDerivationMaskForTest(rt.build(), SimpleRef(1), SimpleRef(2))
 	if !ok || mask != DerivationRestriction {
 		t.Fatalf("simple union-base mask = %08b, %v; want restriction, true", mask, ok)
 	}
@@ -263,7 +179,7 @@ func TestTypeDerivationMaskSimpleTypeRestrictionAndUnionBase(t *testing.T) {
 func TestTypeDerivationMaskComplexTypeChain(t *testing.T) {
 	t.Parallel()
 
-	rt := derivationRuntimeStub{
+	rt := derivationFixture{
 		anyType: 0,
 		complex: []ComplexTypeDerivation{
 			{Kind: DerivationKindNone},
@@ -271,12 +187,12 @@ func TestTypeDerivationMaskComplexTypeChain(t *testing.T) {
 			{Base: ComplexRef(1), Kind: DerivationKindRestriction},
 		},
 	}
-	mask, ok := typeDerivationMaskForTest(rt, ComplexRef(2), ComplexRef(0))
+	mask, ok := typeDerivationMaskForTest(rt.build(), ComplexRef(2), ComplexRef(0))
 	want := DerivationExtension | DerivationRestriction
 	if !ok || mask != want {
 		t.Fatalf("complex chain mask = %08b, %v; want %08b, true", mask, ok, want)
 	}
-	mask, ok = typeDerivationMaskForTest(rt, ComplexRef(2), ComplexRef(1))
+	mask, ok = typeDerivationMaskForTest(rt.build(), ComplexRef(2), ComplexRef(1))
 	if !ok || mask != DerivationRestriction {
 		t.Fatalf("complex parent mask = %08b, %v; want restriction, true", mask, ok)
 	}
@@ -285,21 +201,21 @@ func TestTypeDerivationMaskComplexTypeChain(t *testing.T) {
 func TestTypeDerivationMaskComplexSimpleBase(t *testing.T) {
 	t.Parallel()
 
-	rt := derivationRuntimeStub{
+	rt := derivationFixture{
 		anyType: 0,
 		simple: []SimpleTypeDerivation{
-			{Base: NoSimpleType, Variety: SimpleVarietyAtomic},
+			{Base: NoSimpleType, Variety: valuepkg.Atomic},
 		},
 		complex: []ComplexTypeDerivation{
 			{Kind: DerivationKindNone},
 			{Base: SimpleRef(0), Kind: DerivationKindExtension},
 		},
 	}
-	mask, ok := typeDerivationMaskForTest(rt, ComplexRef(1), SimpleRef(0))
+	mask, ok := typeDerivationMaskForTest(rt.build(), ComplexRef(1), SimpleRef(0))
 	if !ok || mask != DerivationExtension {
 		t.Fatalf("complex simple-base mask = %08b, %v; want extension, true", mask, ok)
 	}
-	mask, ok = typeDerivationMaskForTest(rt, ComplexRef(1), ComplexRef(0))
+	mask, ok = typeDerivationMaskForTest(rt.build(), ComplexRef(1), ComplexRef(0))
 	want := DerivationExtension | DerivationRestriction
 	if !ok || mask != want {
 		t.Fatalf("complex anyType mask = %08b, %v; want %08b, true", mask, ok, want)
@@ -309,20 +225,20 @@ func TestTypeDerivationMaskComplexSimpleBase(t *testing.T) {
 func TestTypeDerivationMaskRejectsInvalidOrCyclicGraph(t *testing.T) {
 	t.Parallel()
 
-	rt := derivationRuntimeStub{
+	rt := derivationFixture{
 		anyType: 0,
 		complex: []ComplexTypeDerivation{
 			{Kind: DerivationKindNone},
 			{Base: ComplexRef(1), Kind: DerivationKindExtension},
 		},
 	}
-	if mask, ok := typeDerivationMaskForTest(rt, ComplexRef(4), ComplexRef(0)); ok {
+	if mask, ok := typeDerivationMaskForTest(rt.build(), ComplexRef(4), ComplexRef(0)); ok {
 		t.Fatalf("invalid complex type derived with mask %08b", mask)
 	}
-	if mask, ok := typeDerivationMaskForTest(rt, ComplexRef(1), ComplexRef(0)); ok {
+	if mask, ok := typeDerivationMaskForTest(rt.build(), ComplexRef(1), ComplexRef(0)); ok {
 		t.Fatalf("cyclic complex type derived with mask %08b", mask)
 	}
-	if mask, ok := typeDerivationMaskForTest(rt, ComplexRef(1), SimpleRef(0)); ok || mask != 0 {
+	if mask, ok := typeDerivationMaskForTest(rt.build(), ComplexRef(1), SimpleRef(0)); ok || mask != 0 {
 		t.Fatalf("cyclic complex type derived from simple type with mask %08b, %v", mask, ok)
 	}
 }
@@ -339,8 +255,8 @@ func TestTypeDerivationMaskHandlesDeepComplexSimpleChain(t *testing.T) {
 		}
 	}
 	complexTypes[depth-1] = ComplexTypeDerivation{Base: SimpleRef(0), Kind: DerivationKindExtension}
-	rt := derivationRuntimeStub{complex: complexTypes}
-	mask, ok := typeDerivationMaskForTest(rt, ComplexRef(0), SimpleRef(0))
+	rt := derivationFixture{complex: complexTypes}
+	mask, ok := typeDerivationMaskForTest(rt.build(), ComplexRef(0), SimpleRef(0))
 	if !ok || mask != DerivationExtension {
 		t.Fatalf("deep complex simple-base mask = %08b, %v; want extension, true", mask, ok)
 	}
@@ -352,14 +268,14 @@ func TestTypeDerivationMaskHandlesDeepComplexSimpleBaseChain(t *testing.T) {
 	const depth = 10_000
 	simpleTypes := make([]SimpleTypeDerivation, depth)
 	for i := range depth - 1 {
-		simpleTypes[i] = SimpleTypeDerivation{Base: SimpleTypeID(i + 1), Variety: SimpleVarietyAtomic}
+		simpleTypes[i] = SimpleTypeDerivation{Base: SimpleTypeID(i + 1), Variety: valuepkg.Atomic}
 	}
-	simpleTypes[depth-1] = SimpleTypeDerivation{Base: NoSimpleType, Variety: SimpleVarietyAtomic}
-	rt := derivationRuntimeStub{
+	simpleTypes[depth-1] = SimpleTypeDerivation{Base: NoSimpleType, Variety: valuepkg.Atomic}
+	rt := derivationFixture{
 		simple:  simpleTypes,
 		complex: []ComplexTypeDerivation{{Base: SimpleRef(0), Kind: DerivationKindExtension}},
 	}
-	mask, ok := typeDerivationMaskForTest(rt, ComplexRef(0), SimpleRef(depth-1))
+	mask, ok := typeDerivationMaskForTest(rt.build(), ComplexRef(0), SimpleRef(depth-1))
 	want := DerivationExtension | DerivationRestriction
 	if !ok || mask != want {
 		t.Fatalf("deep complex simple-base chain mask = %08b, %v; want %08b, true", mask, ok, want)
@@ -379,10 +295,10 @@ func TestTypeDerivationMaskSimpleUnionBranchingAndCycles(t *testing.T) {
 		{
 			name: "later union member",
 			simple: []SimpleTypeDerivation{
-				{Base: NoSimpleType, Variety: SimpleVarietyAtomic},
-				{Base: 0, Variety: SimpleVarietyAtomic},
-				{Base: NoSimpleType, Variety: SimpleVarietyAtomic},
-				{Base: NoSimpleType, Variety: SimpleVarietyUnion, Union: []SimpleTypeID{2, 0}},
+				{Base: NoSimpleType, Variety: valuepkg.Atomic},
+				{Base: 0, Variety: valuepkg.Atomic},
+				{Base: NoSimpleType, Variety: valuepkg.Atomic},
+				{Base: NoSimpleType, Variety: valuepkg.Union, Union: []SimpleTypeID{2, 0}},
 			},
 			derived: 1,
 			base:    3,
@@ -391,9 +307,9 @@ func TestTypeDerivationMaskSimpleUnionBranchingAndCycles(t *testing.T) {
 		{
 			name: "base cycle",
 			simple: []SimpleTypeDerivation{
-				{Base: 1, Variety: SimpleVarietyAtomic},
-				{Base: 0, Variety: SimpleVarietyAtomic},
-				{Base: NoSimpleType, Variety: SimpleVarietyAtomic},
+				{Base: 1, Variety: valuepkg.Atomic},
+				{Base: 0, Variety: valuepkg.Atomic},
+				{Base: NoSimpleType, Variety: valuepkg.Atomic},
 			},
 			derived: 0,
 			base:    2,
@@ -401,8 +317,8 @@ func TestTypeDerivationMaskSimpleUnionBranchingAndCycles(t *testing.T) {
 		{
 			name: "union cycle",
 			simple: []SimpleTypeDerivation{
-				{Base: NoSimpleType, Variety: SimpleVarietyAtomic},
-				{Base: NoSimpleType, Variety: SimpleVarietyUnion, Union: []SimpleTypeID{1}},
+				{Base: NoSimpleType, Variety: valuepkg.Atomic},
+				{Base: NoSimpleType, Variety: valuepkg.Union, Union: []SimpleTypeID{1}},
 			},
 			derived: 0,
 			base:    1,
@@ -412,7 +328,7 @@ func TestTypeDerivationMaskSimpleUnionBranchingAndCycles(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			mask, ok := typeDerivationMaskForTest(derivationRuntimeStub{simple: tt.simple}, SimpleRef(tt.derived), SimpleRef(tt.base))
+			mask, ok := typeDerivationMaskForTest((derivationFixture{simple: tt.simple}).build(), SimpleRef(tt.derived), SimpleRef(tt.base))
 			if ok != tt.want || ok && mask != DerivationRestriction || !ok && mask != 0 {
 				t.Fatalf("typeDerivationMaskForTest() = %08b, %v; want restriction=%v", mask, ok, tt.want)
 			}
@@ -422,11 +338,11 @@ func TestTypeDerivationMaskSimpleUnionBranchingAndCycles(t *testing.T) {
 
 func TestIndexedTypeDerivationMatchesGraphQueries(t *testing.T) {
 	simple := []SimpleType{
-		testSimpleType(SimpleVarietyAtomic, NoSimpleType),
-		testSimpleType(SimpleVarietyAtomic, 0),
-		testSimpleType(SimpleVarietyUnion, 0, 0),
-		testSimpleType(SimpleVarietyAtomic, 2),
-		testSimpleType(SimpleVarietyUnion, 0, 1, 2),
+		testSimpleType(valuepkg.Atomic, NoSimpleType),
+		testSimpleType(valuepkg.Atomic, 0),
+		testSimpleType(valuepkg.Union, 0, 0),
+		testSimpleType(valuepkg.Atomic, 2),
+		testSimpleType(valuepkg.Union, 0, 1, 2),
 	}
 	complexTypes := []ComplexType{
 		{Derivation: DerivationKindNone},
@@ -447,7 +363,7 @@ func TestIndexedTypeDerivationMatchesGraphQueries(t *testing.T) {
 	}
 	for _, derived := range types {
 		for _, base := range types {
-			wantMask, wantOK := typeDerivationMaskForTest(stub, derived, base)
+			wantMask, wantOK := typeDerivationMaskForTest(stub.build(), derived, base)
 			gotMask, gotOK := read.derivation(derived, base, &scratch)
 			if gotMask != wantMask || gotOK != wantOK {
 				t.Fatalf("derivation(%v, %v) = %08b, %v; want %08b, %v", derived, base, gotMask, gotOK, wantMask, wantOK)
@@ -458,8 +374,8 @@ func TestIndexedTypeDerivationMatchesGraphQueries(t *testing.T) {
 
 func TestTypeDerivationIndexRejectsCyclesWithoutTraversal(t *testing.T) {
 	simple := []SimpleType{
-		testSimpleType(SimpleVarietyAtomic, 1),
-		testSimpleType(SimpleVarietyAtomic, 0),
+		testSimpleType(valuepkg.Atomic, 1),
+		testSimpleType(valuepkg.Atomic, 0),
 	}
 	_, err := newTypeDerivationReadForTypes(
 		0,
@@ -473,9 +389,9 @@ func TestTypeDerivationIndexRejectsCyclesWithoutTraversal(t *testing.T) {
 
 func TestIndexedTypeDerivationReusesBoundedScratch(t *testing.T) {
 	simple := []SimpleType{
-		testSimpleType(SimpleVarietyAtomic, NoSimpleType),
-		testSimpleType(SimpleVarietyAtomic, 0),
-		testSimpleType(SimpleVarietyUnion, NoSimpleType, 0),
+		testSimpleType(valuepkg.Atomic, NoSimpleType),
+		testSimpleType(valuepkg.Atomic, 0),
+		testSimpleType(valuepkg.Union, NoSimpleType, 0),
 	}
 	read := newTypeDerivationReadForTest(t, simple, nil)
 	var scratch TypeDerivationScratch
@@ -503,12 +419,12 @@ func TestTypeDerivationScratchIsBoundToPublishedGraph(t *testing.T) {
 	derived := SimpleRef(1)
 	base := SimpleRef(0)
 	withDerivation := newTypeDerivationReadForTest(t, []SimpleType{
-		testSimpleType(SimpleVarietyAtomic, NoSimpleType),
-		testSimpleType(SimpleVarietyAtomic, 0),
+		testSimpleType(valuepkg.Atomic, NoSimpleType),
+		testSimpleType(valuepkg.Atomic, 0),
 	}, nil)
 	withoutDerivation := newTypeDerivationReadForTest(t, []SimpleType{
-		testSimpleType(SimpleVarietyAtomic, NoSimpleType),
-		testSimpleType(SimpleVarietyAtomic, NoSimpleType),
+		testSimpleType(valuepkg.Atomic, NoSimpleType),
+		testSimpleType(valuepkg.Atomic, NoSimpleType),
 	}, nil)
 
 	var scratch TypeDerivationScratch
@@ -521,7 +437,7 @@ func TestTypeDerivationScratchIsBoundToPublishedGraph(t *testing.T) {
 }
 
 func TestTypeDerivationScratchIsBoundToCompleteIndex(t *testing.T) {
-	simpleTypes := []SimpleType{testSimpleType(SimpleVarietyAtomic, NoSimpleType)}
+	simpleTypes := []SimpleType{testSimpleType(valuepkg.Atomic, NoSimpleType)}
 	extension, err := newTypeDerivationReadForTypes(0, simpleTypes, []ComplexType{
 		{Derivation: DerivationKindNone},
 		{Base: ComplexRef(0), Derivation: DerivationKindExtension},
@@ -549,7 +465,7 @@ func TestTypeDerivationScratchIsBoundToCompleteIndex(t *testing.T) {
 func TestSubstitutionDerivationAllowedAppliesElementAndTypeBlocks(t *testing.T) {
 	t.Parallel()
 
-	rt := derivationRuntimeStub{
+	rt := derivationFixture{
 		anyType: 0,
 		complex: []ComplexTypeDerivation{
 			{Kind: DerivationKindNone},
@@ -557,14 +473,14 @@ func TestSubstitutionDerivationAllowedAppliesElementAndTypeBlocks(t *testing.T) 
 			{Base: ComplexRef(1), Kind: DerivationKindRestriction},
 		},
 	}
-	if substitutionDerivationAllowedForTest(rt, ComplexRef(1), ComplexRef(0), DerivationExtension) {
+	if substitutionDerivationAllowedForTest(rt.build(), ComplexRef(1), ComplexRef(0), DerivationExtension) {
 		t.Fatal("element block allowed extension substitution")
 	}
-	if substitutionDerivationAllowedForTest(rt, ComplexRef(2), ComplexRef(0), 0) {
+	if substitutionDerivationAllowedForTest(rt.build(), ComplexRef(2), ComplexRef(0), 0) {
 		t.Fatal("intermediate type block allowed restriction substitution")
 	}
 	rt.complex[1].Block = 0
-	if !substitutionDerivationAllowedForTest(rt, ComplexRef(2), ComplexRef(0), 0) {
+	if !substitutionDerivationAllowedForTest(rt.build(), ComplexRef(2), ComplexRef(0), 0) {
 		t.Fatal("unblocked derivation was rejected")
 	}
 }

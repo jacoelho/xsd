@@ -7,14 +7,18 @@ import (
 	"github.com/jacoelho/xsd/internal/value"
 )
 
-func TestBuilderSealChargesFacetLiteralEvaluationWork(t *testing.T) {
+func TestBuilderCompleteChargesFacetLiteralEvaluationWork(t *testing.T) {
 	t.Parallel()
 
 	builder := value.NewBuilder(value.BuilderOptions{
 		MaxConstructionWork: 1,
 		MaxStorageBytes:     1024,
 	})
-	if _, err := builder.Add(value.TypeSpec{
+	reservedID, reserveErr := builder.Reserve()
+	if reserveErr != nil {
+		t.Fatalf("Reserve() error = %v", reserveErr)
+	}
+	if err := builder.Complete(reservedID, value.TypeSpec{
 		Variety:           value.Atomic,
 		Primitive:         value.PrimitiveString,
 		Whitespace:        value.WhitespacePreserve,
@@ -24,11 +28,8 @@ func TestBuilderSealChargesFacetLiteralEvaluationWork(t *testing.T) {
 		Facets: value.FacetSpec{Enumeration: []value.LiteralSpec{
 			{Lexical: "x", Type: value.NoType},
 		}},
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := builder.Seal(); !errors.Is(err, value.ErrLimit) {
-		t.Fatalf("Seal() error = %v, want ErrLimit", err)
+	}); !errors.Is(err, value.ErrLimit) {
+		t.Fatalf("Complete() error = %v, want ErrLimit", err)
 	}
 }
 

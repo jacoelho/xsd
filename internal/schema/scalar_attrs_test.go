@@ -119,18 +119,23 @@ func TestParseFormDefaultAttr(t *testing.T) {
 func TestParseSchemaDefaults(t *testing.T) {
 	t.Parallel()
 
+	t.Run("zero defaults", func(t *testing.T) {
+		t.Parallel()
+		got, err := ParseSchemaDefaults(schemaDocumentSource{})
+		if err != nil || got != (SchemaDefaults{}) {
+			t.Fatalf("ParseSchemaDefaults() = %+v, %v, want zero defaults", got, err)
+		}
+	})
+
 	t.Run("valid defaults", func(t *testing.T) {
 		t.Parallel()
 
-		got, err := ParseSchemaDefaults(SchemaDefaultAttrs{
-			TargetNamespace:         "urn:test",
-			BlockDefault:            "#all",
-			FinalDefault:            "extension restriction",
-			ElementFormDefault:      "qualified",
-			AttributeFormDefault:    "unqualified",
-			HasTargetNamespace:      true,
-			HasElementFormDefault:   true,
-			HasAttributeFormDefault: true,
+		got, err := ParseSchemaDefaults(schemaDocumentSource{
+			TargetNamespace:      LexicalAttribute{Value: "urn:test", Present: true},
+			BlockDefault:         LexicalAttribute{Value: "#all"},
+			FinalDefault:         LexicalAttribute{Value: "extension restriction"},
+			ElementFormDefault:   LexicalAttribute{Value: "qualified", Present: true},
+			AttributeFormDefault: LexicalAttribute{Value: "unqualified", Present: true},
 		})
 		if err != nil {
 			t.Fatalf("ParseSchemaDefaults() error = %v", err)
@@ -146,33 +151,57 @@ func TestParseSchemaDefaults(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		attrs       SchemaDefaultAttrs
+		attrs       schemaDocumentSource
 		wantMessage string
 	}{
 		{
 			name:        "empty target namespace",
-			attrs:       SchemaDefaultAttrs{HasTargetNamespace: true},
+			attrs:       schemaDocumentSource{TargetNamespace: LexicalAttribute{Present: true}},
 			wantMessage: "schema targetNamespace cannot be empty",
 		},
 		{
 			name:        "invalid block default",
-			attrs:       SchemaDefaultAttrs{BlockDefault: "list"},
+			attrs:       schemaDocumentSource{BlockDefault: LexicalAttribute{Value: "list"}},
 			wantMessage: "schema blockDefault cannot contain list",
 		},
 		{
 			name:        "invalid final default",
-			attrs:       SchemaDefaultAttrs{FinalDefault: "#all extension"},
+			attrs:       schemaDocumentSource{FinalDefault: LexicalAttribute{Value: "#all extension"}},
 			wantMessage: "schema finalDefault cannot combine #all with other values",
 		},
 		{
 			name:        "invalid element form default",
-			attrs:       SchemaDefaultAttrs{ElementFormDefault: "local", HasElementFormDefault: true},
+			attrs:       schemaDocumentSource{ElementFormDefault: LexicalAttribute{Value: "local", Present: true}},
 			wantMessage: "invalid elementFormDefault value local",
 		},
 		{
 			name:        "invalid attribute form default",
-			attrs:       SchemaDefaultAttrs{AttributeFormDefault: "local", HasAttributeFormDefault: true},
+			attrs:       schemaDocumentSource{AttributeFormDefault: LexicalAttribute{Value: "local", Present: true}},
 			wantMessage: "invalid attributeFormDefault value local",
+		},
+		{
+			name: "target namespace before block",
+			attrs: schemaDocumentSource{
+				TargetNamespace: LexicalAttribute{Present: true},
+				BlockDefault:    LexicalAttribute{Value: "list"},
+			},
+			wantMessage: "schema targetNamespace cannot be empty",
+		},
+		{
+			name: "block before final",
+			attrs: schemaDocumentSource{
+				BlockDefault: LexicalAttribute{Value: "list"},
+				FinalDefault: LexicalAttribute{Value: "#all extension"},
+			},
+			wantMessage: "schema blockDefault cannot contain list",
+		},
+		{
+			name: "element form before attribute form",
+			attrs: schemaDocumentSource{
+				ElementFormDefault:   LexicalAttribute{Value: "local", Present: true},
+				AttributeFormDefault: LexicalAttribute{Value: "local", Present: true},
+			},
+			wantMessage: "invalid elementFormDefault value local",
 		},
 	}
 	for _, tt := range tests {
@@ -239,6 +268,44 @@ func TestParseLocalFormAttrs(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Fatalf("parse form attr = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDocumentDefaultsRequireTypedSource(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		root *schemaNode
+	}{
+		{name: "missing root"},
+		{name: "missing source", root: &schemaNode{}},
+		{name: "wrong source", root: &schemaNode{semantic: schemaSemanticSource{kind: &schemaElementSource{}}}},
+		{name: "nil document source", root: &schemaNode{semantic: schemaSemanticSource{kind: (*schemaDocumentSource)(nil)}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			wantMessage := "schema defaults require a parsed root"
+			var wantPath string
+			var wantLine, wantColumn int
+			if tt.root != nil {
+				wantMessage = "schema defaults require a typed document source"
+				wantPath, wantLine, wantColumn = "defaults.xsd", 3, 5
+				tt.root.doc = &schemaDocument{name: wantPath}
+				tt.root.line, tt.root.column = wantLine, wantColumn
+			}
+			got, err := parseDocumentDefaultsNode(tt.root)
+			issue, ok := errors.AsType[*xsderrors.Error](err)
+			if !ok || got != (SchemaDefaults{}) {
+				t.Fatalf("parseDocumentDefaultsNode() = %+v, %v, want zero defaults and invariant error", got, err)
+			}
+			if issue.Category() != xsderrors.CategoryInternal || issue.Code() != xsderrors.CodeInternalInvariant || issue.Message() != wantMessage {
+				t.Fatalf("diagnostic = {%s %s %q}, want internal invariant %q", issue.Category(), issue.Code(), issue.Message(), wantMessage)
+			}
+			if issue.Path() != wantPath || issue.Line() != wantLine || issue.Column() != wantColumn {
+				t.Fatalf("location = {%q %d %d}, want {%q %d %d}", issue.Path(), issue.Line(), issue.Column(), wantPath, wantLine, wantColumn)
 			}
 		})
 	}

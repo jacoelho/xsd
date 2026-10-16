@@ -73,3 +73,41 @@ func TestElementFrameUsesEffectiveTypeAndDeclarationConstraint(t *testing.T) {
 		t.Fatal("ElementFrame() accepted an invalid declaration ID")
 	}
 }
+
+func TestSchemaReadsRejectInvalidSimpleContent(t *testing.T) {
+	program, sealErr := value.NewBuilder(value.BuilderOptions{}).Seal()
+	if sealErr != nil {
+		t.Fatal(sealErr)
+	}
+	stringID := value.BuiltinType(value.PrimitiveString)
+	rt := &Schema{program: schemaProgram{
+		Value:                 program,
+		SimpleTypeUnavailable: make([]bool, value.BuiltinTypeCount),
+		ComplexTypes: []complexTypeRead{
+			{contentModel: NoContentModel, textType: NoSimpleType, contentKind: ContentSimple},
+			{contentModel: NoContentModel, textType: NoSimpleType, contentKind: ContentSimpleMixed},
+			{contentModel: NoContentModel, textType: stringID, contentKind: ContentSimple},
+			{contentModel: NoContentModel, textType: stringID, contentKind: ContentEmpty},
+		},
+	}}
+	for _, id := range []ComplexTypeID{0, 1} {
+		if info, valid := rt.TypeInfo(ComplexRef(id)); valid {
+			t.Fatalf("TypeInfo(%d) accepted present invalid simple content: %+v", id, info)
+		}
+		if frame, valid := rt.ElementFrame(ComplexRef(id), NoElement); valid {
+			t.Fatalf("ElementFrame(%d) accepted present invalid simple content: %+v", id, frame)
+		}
+	}
+	if info, valid := rt.TypeInfo(ComplexRef(2)); !valid || info.Unavailable {
+		t.Fatalf("TypeInfo(valid simple content) = %+v, %v", info, valid)
+	}
+	if frame, valid := rt.ElementFrame(ComplexRef(2), NoElement); !valid || frame.SimpleContent != stringID {
+		t.Fatalf("ElementFrame(valid simple content) = %+v, %v; want string type", frame, valid)
+	}
+	if _, valid := rt.TypeInfo(ComplexRef(3)); !valid {
+		t.Fatal("TypeInfo(absent simple content with stray text ID) failed")
+	}
+	if frame, valid := rt.ElementFrame(ComplexRef(3), NoElement); !valid || frame.SimpleContent != NoSimpleType {
+		t.Fatalf("ElementFrame(absent simple content) = %+v, %v; want NoSimpleType", frame, valid)
+	}
+}

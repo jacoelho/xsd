@@ -10,7 +10,7 @@ func BenchmarkSimplePatternVariableNoMatchString(b *testing.B) {
 	input := strings.Repeat("a", 4096)
 	b.ReportAllocs()
 	for b.Loop() {
-		matched, err := pattern.MatchString(input)
+		matched, err := pattern.MatchStringWithScratch(input, MatchOptions{}, nil)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -40,7 +40,7 @@ func BenchmarkSimplePatternVariableNoMatchBytes(b *testing.B) {
 	input := []byte(strings.Repeat("a", 4096))
 	b.ReportAllocs()
 	for b.Loop() {
-		matched, err := pattern.MatchBytes(input)
+		matched, err := pattern.MatchBytesWithScratch(input, MatchOptions{}, nil)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -69,7 +69,7 @@ func BenchmarkSimplePatternVariableSmallString(b *testing.B) {
 	input := strings.Repeat("a", 24) + "x"
 	b.ReportAllocs()
 	for b.Loop() {
-		matched, err := pattern.MatchString(input)
+		matched, err := pattern.MatchStringWithScratch(input, MatchOptions{}, nil)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -84,7 +84,7 @@ func BenchmarkSimplePatternVariableSmallBytes(b *testing.B) {
 	input := []byte(strings.Repeat("a", 24) + "x")
 	b.ReportAllocs()
 	for b.Loop() {
-		matched, err := pattern.MatchBytes(input)
+		matched, err := pattern.MatchBytesWithScratch(input, MatchOptions{}, nil)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -99,7 +99,7 @@ func BenchmarkSimplePatternVariableNoMatchMultibyteString(b *testing.B) {
 	input := strings.Repeat("é", 4096)
 	b.ReportAllocs()
 	for b.Loop() {
-		matched, err := pattern.MatchString(input)
+		matched, err := pattern.MatchStringWithScratch(input, MatchOptions{}, nil)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -114,7 +114,7 @@ func BenchmarkSimplePatternVariableNoMatchMultibyteBytes(b *testing.B) {
 	input := []byte(strings.Repeat("é", 4096))
 	b.ReportAllocs()
 	for b.Loop() {
-		matched, err := pattern.MatchBytes(input)
+		matched, err := pattern.MatchBytesWithScratch(input, MatchOptions{}, nil)
 		if err != nil {
 			b.Fatal(err)
 		}

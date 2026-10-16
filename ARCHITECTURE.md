@@ -167,26 +167,75 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   close failures, so wrapper-preserving presentation cannot lose that location.
 - `internal/uriref` owns XSD 1.0 URI-reference validity after XLink escaping,
   raw and escaped projections, fragment syntax, and raw-preserving RFC 2396
-  composition. Arbitrary source names and Unix paths do not enter this type.
+  composition. A validated `Reference` privately stores one canonical `Parts`
+  record; its accessor returns a value copy containing immutable strings and
+  presence flags. `internal/source` uses that composition for URI bases; its
+  built-in local and absolute fallback projects admitted, fragmentless references
+  into escaped canonical identities. Resolver spelling and fallback capability
+  remain distinct because valid resolver inputs may be unavailable to a local
+  backend. Arbitrary source names and Unix paths do not enter this type.
 - `internal/schema` owns schema syntax, source-aware diagnostics, opaque
   annotation consumption, graph loading and planning, chameleon contexts,
   component dependencies, names and declarations, complex derivation, identity
   declarations, content models, substitution groups, and immutable publication.
   Production schema input is read through `internal/xmlstream`; the parser
   retains compact `schemaNode` records with one closed typed semantic-source
-  variant when a node owns compiler capability, one node-owned ID and
-  `xml:base` projection, document-local IDs, and source positions. Syntax-only
+  variant when a node owns compiler capability, a node-owned `xml:base`
+  projection, document-local node IDs, and source positions. Lexical schema `id`
+  values stay in ordered parse-local records and are checked for uniqueness
+  after complete parsing; they do not enter retained semantic records. Syntax-only
   grammar nodes may carry only those common facts. Each variant owns its complete capability facts;
   particle data is embedded in the element, model, group, or wildcard variant
   that admits it. Simple-type declarations retain name and final constraints;
   their base, list-item, union-member, and complex-content facts belong to
   distinct child variants. Its syntax admission facts are transient and are never used
-  as a generic XML tree by compilation. Schema
+  as a generic XML tree by compilation. Start admission establishes that every
+  retained node belongs to the XSD namespace. Its local name owns vocabulary
+  dispatch, including unknown XSD names; semantic variants own capability facts.
+  After root/foreign-node and schema-namespace
+  attribute guards, start admission checks names, unsupported features, xml:base,
+  general attributes, then top-level child grammar directly on those transient
+  facts. Ordered forbidden-attribute presence precedes missing-name errors; no
+  top-level syntax projection is retained.
+  Reference and local-declaration attribute restrictions remain compiler-owned,
+  using canonical presence masks and typed source fields. Ordered children belong
+  to the immutable
+  source node; model variants do not retain a second child list. Indexing filters
+  declarations directly from ordered root children within each selected content
+  and effective-namespace context. Repeated context scans remain bounded by
+  admitted context-node limits; they trade the filtered declaration cache for
+  less construction state. Child-order
+  grammar feeds its existing rule state directly from canonical XSD children,
+  preserving source order and diagnostics without a local-name projection. Capability
+  compilers consume admitted expanded QName names and typed lexical presence
+  fields without generic attribute replay; reference namespace policy runs before
+  name interning. Schema uses `internal/value`'s canonical scalar vocabulary
+  for simple varieties, primitive kinds, whitespace modes, value identity kinds,
+  facet masks, and builtin kinds. Schema retains source facet-name mapping,
+  facet admission and ordering, whiteSpace restriction, and final constraints.
+  Schema occurrence admission retains checked counts and a finite/unbounded tag.
+  Occurrence and size-facet wrappers share bounded integer scanning while
+  preserving their distinct lexical and diagnostic policies.
+  Schema facet-source admission uses one ordered child dispatch. The build's
+  unavailable-type fact defers bound and enumeration literal evaluation while
+  preserving source checks and decidable facets. Available grouped facets apply
+  before local inclusive/exclusive validation; unavailable grouped facets apply
+  afterward. Effective typed facets, literal budgets and completion remain
+  value-owned.
+  End admission checks text, reference-directive children, then annotation
+  placement directly on those nodes. Documentation language admission reads the
+  transient start facts: at start for opaque annotation envelopes and at end for
+  retained documentation nodes, after semantic construction and namespace retention.
+  Schema
   QName references resolve while their namespace frame is live; literal values
   and XPath expressions that are intentionally deferred retain only the bounded
   namespace context needed by their owning compiler. Annotation payload is
   consumed without entering the retained semantic graph.
   The loader produces a closed graph before component compilation begins.
+  After planning completes, compiler bindings and deferred work borrow stable
+  plan-document records and immutable source defaults. Cache identity remains
+  source-node identity plus the contextual view key. These construction
+  references do not enter the published schema.
   Source loading, effective-context planning, and component resolution share a
   finite dependency-work budget; active expansion has a depth cap of 1024.
   Content analysis has a separate finite work budget shared by consistency,
@@ -198,10 +247,50 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   reuses normalized follows, while every lookup retains the same sequential
   work charges. Only successful state lookup populates the cache; start
   state normalization, discovery order, and state limits remain unchanged.
+  Repetition owns counter allocation from occurrence bounds; callers do not
+  supply counter slots. Exact-one repetition retains its initial work charge
+  and uses the admitted child directly.
   The compiler owns one private `schemaBuild`. Registration and completion
-  update correlated tables together. Simple-type unavailability has one mutable
+  update correlated tables together. Global registration bindings also own
+  compiler QName-to-ID lookup, including reserved placeholders; active expansion
+  and local/anonymous caches remain separate. Registration does not establish
+  completion. Simple-type unavailability has one mutable
   bitmap in that build; publication owns its immutable snapshot. There is no
   exported mutable builder or forwarding layer between compiler and build state.
+  Value owns fixed builtin simple-type IDs; schema references them directly
+  and retains only the allocated `anyType` handle in its private build.
+  Publication validates builtin declarations, bindings and `anyType`
+  structure before constructing immutable reads.
+  Compilation and publication metadata algorithms borrow the compiler-owned
+  build directly. Work charging remains explicit; attribute-wildcard construction
+  retains its narrow fallible storage boundary. Validation consumes immutable
+  published reads.
+  Union compilation resolves all members and canonicalizes ordered, deduplicated
+  atomic/list leaves. After each member passes final and member-entry admission,
+  it derives a private unionContainsList fact from that completed member.
+  Restrictions preserve the fact with their source record. List-item legality
+  reads direct List variety or this union fact in constant time, after final
+  checks; unavailable value placeholders do not erase source List variety.
+  This compiler-only fact is discarded with the build on successful publication
+  and remains available if publication fails. It is not part of the value program
+  or published graph. General value Builder unions retain their own semantics.
+  Declaration and attribute-use shape audits consume canonical construction
+  records directly; default/fixed presence comes from their constraint pointers.
+  Attribute-use derivation and wildcard audits also read canonical records.
+  An attribute-use compilation exclusively owns its ordered uses and name index,
+  committing admitted append and replacement operations directly. Finalization
+  is terminal; wildcard construction retains its separate fallible storage
+  boundary. Publication derives
+  immutable required and value-constraint slot lists from those uses, preserving
+  order and constraint-pointer presence. It clones those lists before releasing
+  construction storage.
+  Compilation and sealing exclusively borrow their use slices and attached
+  immutable constraints during each audit; derivation callbacks read metadata
+  and charge work without mutating those inputs.
+  Publication constructs packed attribute reads directly from canonical uses
+  and declarations, projecting each constraint once through its clone owner.
+  Compiled construction models retain execution metadata; source provenance
+  remains compiler-owned, and actual-type content kind supplies text policy.
   Publication validates semantic source invariants, constructs immutable
   execution tables once, and consumes the build only on success. Failure preserves
   build data, while completed work remains charged. Read tables are derived state;
@@ -209,6 +298,16 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   publication step.
   Names, typed references, element constraints, derivation indexes, wildcard
   policies, substitution membership, and content execution remain schema-owned.
+  Published element constraints use one default/fixed tag and one payload;
+  validation receives a value copy of that row with the declaration owner,
+  never a pointer into the packed table. Publication rejects conflicting
+  constraints before constructing these reads.
+  Cached typed default/fixed values retain their exact owning simple-type ID,
+  including outer union ownership; selected members remain separate value
+  metadata. Publication rejects a member-typed cache even when that member
+  accepts the same lexical value. Published caches are immutable. A changed
+  xsi:type revalidates application text under the actual type into a local
+  result using captured schema namespaces; it never retargets the cached owner.
   Published value constraints own application text and an immutable namespace
   projection for revalidation under a different actual type. Context-free
   constraints use canonical spelling; accepted QName/NOTATION values, including
@@ -226,13 +325,33 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   namespace independently of seed order; publication validates that invariant.
   Identity declarations compile into immutable selector/field path programs and
   exact-name, namespace, and wildcard dispatch indexes; validation owns only
-  active document scopes and matching scratch.
+  active document scopes and matching scratch. The dispatch programs are the
+  canonical identity read surface. Construction owns canonical selector and
+  field paths. Publication validates those paths, derives immutable field
+  partitions directly, and clones their steps. Published field-group and
+  path-program slices retain no append-growth capacity.
+  The attribute-use walk, recursive identity declaration walk, and simple-type
+  derivation-child selection read canonical ordered source children directly.
+  Facet dispatch filters those children without copied child-pointer arrays or
+  representation-origin modes; simple-content restriction retains first-facet
+  diagnostic anchoring.
+  Identity child grammar reads the ordered semantic-source children directly.
+  Its transient validated selection carries selector and field nodes; diagnostics
+  attach to the offending node without copied child projections or index replay.
+  Group and notation grammar likewise attach diagnostics to source nodes;
+  group child grammar completes before occurrence checks. Start admission rejects
+  foreign nodes; notation checks every retained child and rejects missing child
+  IDs. Schema defaults consume the typed document
+  source's lexical fields directly, preserving presence and validation order.
   Large `xs:all` models use a bounded QName-to-term index; small models scan
   directly. Both preserve occurrence bits, substitution matching, and atomic
   transition failure. The index is derived once during sealing.
   One `ElementFrame` read combines effective-type simple content, text policy,
   and initial child content state. The original element declaration remains the
   owner of default/fixed constraints after `xsi:type` changes the actual type.
+  Complex-type reads derive text-type presence from the canonical content kind
+  and return its text type directly; absence returns `NoSimpleType`, while
+  present IDs retain caller-owned availability checks.
   Complex content retains its semantic kind before particle normalization,
   ignoring annotations when identifying semantic model children:
   empty, element-only, mixed, or simple (including mixed simple-derivation
@@ -256,22 +375,73 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   identity commit readiness has been checked.
 - `internal/value` owns simple-type validation and its immutable program:
   lexical normalization, primitive values, lists, unions, facets, canonical
-  text, typed equality, and ID/IDREF projections. Compile-time literals and
+  text, typed equality, and ID/IDREF projections. Primitive parsers own their
+  lengths: strings count Unicode code points, admitted URI references count
+  characters, and strictly admitted binary values count octets. Text and binary
+  atoms retain one lexical payload selected by the primitive kind, storing that
+  parser-owned length once. Base64 readiness is meaningful only for base64;
+  string and URI assignment clears it. Primitive admission, equality, borrowed
+  string backing and fixed storage charges remain distinct and unchanged.
+  Text parser return records keep their two-field layout; binary parser returns
+  retain their distinct named type over the shared payload structure. Temporal semantics
+  have one value owner and two consumer-specific execution paths: borrowed string/byte
+  scanners admit raw lexical values without building typed fields or signed
+  timezone offsets; typed string parsers construct the admitted value directly.
+  Both share year and two-digit lexical scanners, calendar, clock, timezone-range,
+  and BCE remainder rules. Whole-primitive admission and typed construction keep
+  their distinct execution paths. Typed
+  year projection preserves canonicalYearDigits normalization: trimming leading
+  zeroes, padding magnitudes shorter than four digits, and otherwise retaining
+  existing string backing. Absent or all-zero
+  fractions use a literal empty string rather than retaining input storage.
+  Calendar arithmetic, partial orders, Gregorian lexical fields and normalized
+  identity, and recurring versus unwrapped time remain distinct value operations.
+  Typed decimal, temporal and duration fractional digit strings are normalized
+  without trailing zeroes; empty represents zero. Their fraction comparison is
+  shared within value, while primitive admission, signs, timezone handling and
+  partial orders retain their existing owners.
+  Compile-time literals and
   instance values use the same value semantics. Construction capacity is admitted
   against the same conservative storage budget as type records; reserved slots
-  consume that admission without a second fixed charge. Queued `Add` records
-  prepay their complete metadata estimate; sealing cannot charge it again.
-  Explicit `Reserve`/`Complete` admits the remaining metadata at completion.
-  One program-owned completion table serves construction and evaluation until
-  sealing removes it. Type construction validates dependencies and facets before
-  publication. Completion derives one raw evaluation plan from the effective
+  consume that admission without a second fixed charge. `Reserve` allocates stable
+  IDs; `Complete` requires visible dependencies and admits the remaining
+  metadata on success, reserving its charge before resolver callbacks. Failed
+  or panicking completion refunds only that charge and leaves its slot
+  unavailable and retryable; nested successful construction survives. Resolver
+  callbacks can inspect provisional metadata and complete other slots. Facet
+  publication reacquires the stable ID's current slot after callbacks that may
+  grow construction storage. Sealing rejects incomplete slots and active
+  completions without consuming the builder.
+  Program owns normalized evaluation depth and publication state; Builder
+  reads those facts and retains construction-only limits.
+  One byte per slot in the program-owned completion table records reserved,
+  in-progress or committed state. Reserved slots are unavailable; in-progress
+  and committed slots support construction queries and evaluation. Sealing
+  requires every slot committed, preserving reserved-slot diagnostic priority,
+  then removes the table. Type construction validates dependencies and facets before
+  publication. Source bound presence owns omission. Retained ordered-bound
+  entries are present and use their existing exclusive flag for acceptance,
+  restriction and fixed-kind lookup. Restriction derivation returns its validated effective facet
+  program for publication; the compiler does not reconstruct that merge.
+  Fixed builtin metadata lists each primitive's canonical record before its
+  derived records, and primitive lookup skips the generic anySimpleType record.
+  Completion derives one raw evaluation plan from the effective
   lexical rule and facets, including string enumeration, NMTOKEN lists, and
-  integer sign/magnitude bounds. Builder literals can use completed plans before
+  integer bound eligibility. Decimal admission owns normalized numeric sign and
+  trimmed magnitude spans. Raw numeric plans retain eligibility only; validation
+  borrows immutable admitted bounds and shares integer-magnitude comparison with
+  typed values. Builder literals can use completed plans before
   sealing. Integer eligibility follows the integer lexical rule; decimal types
   restricted to zero fractional digits still accept decimal spellings.
   Caller-owned scratch bounds
-  reusable validation storage. Completed type dependencies are acyclic; runtime
-  evaluation tracks only depth and cumulative lexical work; empty lists never
+  reusable validation storage. Core-reference admission uses the completion
+  table to admit every core reference and derive their maximum depth in one
+  pass. It rejects out-of-range, reserved and self references before checking
+  the core depth limit, then checks facet references separately without
+  folding their depth into the stored core depth. It does not separately scan
+  for cycles. Resolver reentry can observe
+  provisional dependencies, so construction does not promise an acyclic graph.
+  Runtime evaluation tracks depth and cumulative lexical work; empty lists never
   visit an item type. The schema compiler
   supplies the builder's construction limit; each completed type's bounds and
   enumeration share one fresh facet-batch budget. Builder validation starts a
@@ -280,7 +450,10 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   work units and does not depend on compilation options. Each evaluation visit
   charges its lexical byte length plus one. Raw-byte attempts, shortcuts,
   list items, union attempts, and typed fallback share one per-value counter;
-  a failed fast attempt does not replenish the budget. The published program
+  a failed fast attempt does not replenish the budget. Borrowed byte plans
+  dispatch through evalBytes, with only the existing unprojected builtin
+  string/anySimpleType shortcut outside it. Unprojected raw results carry no
+  equality identity; typed and projected list results retain their list flag. The published program
   retains neither caller limits nor work counters; session limits remain fixed
   for each validation and scratch retains no cumulative work. Limit failures keep their
   schema or instance diagnostic category at the owning boundary.
@@ -322,25 +495,48 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   retains all items under its construction limits. Literal construction can omit
   its containing type's facets while they are being installed; member and item
   types always enforce their own facets, preserving normal value selection.
+  Facet applicability derives one allowed-bit mask from variety and primitive.
+  Single-facet queries, source-mask admission and diagnostic classification share
+  that rule; effective-facet validation remains separate.
   Fixed ordered facets use the nearest declaration of the same bound kind;
   the complete inherited bound sequence remains available for partial orders.
+  Ordered bounds retain only admitted atomic payloads. Literal evaluation keeps
+  its declared type and ordered union selection; construction rejects list or
+  mismatched primitive results before retaining the atom. Bound construction
+  requests no unused canonical or identity projections. Raw time day offsets,
+  primitive-kind equality, fixed storage charges, and work accounting remain
+  owned by the value program.
+  Parsed results own requested float, double, date and dateTime canonical text;
+  atoms retain their numeric or temporal comparison payloads. Primitive parser
+  return records keep their public projection contracts. Atomic evaluation resets
+  the complete parsed result for each attempt, including failed union members.
+  Builder-admitted builtin/primitive combinations retain builtin projection
+  precedence; changing projection ownership does not tighten metadata admission.
   Schema declarations retain only component metadata and value-program
   references; they do not
   implement a second simple-value parser, facet evaluator, or equality model.
   Document identity is carried by each validated value: a union preserves the
   selected member's ID/IDREF projections, and a list collects its selected items'
-  IDREFs. Static type identity metadata cannot replace these dynamic projections.
+  IDREFs. List evaluation constructs its complete framed identity while scanning
+  items, independently of retained item storage; even an empty list has a
+  nonempty identity prefix. Unions preserve that identity and the list value kind. Static type identity metadata cannot replace these dynamic projections.
   Validation records them even when no key/unique/keyref field requested a value.
   The g* identity projection uses the normalized instant and timezone presence,
   matching typed equality independently of lexical calendar fields. QName
   resolution produces one expanded name before NOTATION declaration checking
   and typed assignment; absent namespace context cannot bypass that check.
   The value-owned `ExpandedName` is both the `QNameResolver` result and the
-  retained QName/NOTATION payload. Compilation, proof replay, and document
+  shared QName/NOTATION payload, selected by the primitive kind tag. That tag
+  preserves distinct value spaces and selects NOTATION declaration policy.
+  Compilation, proof replay, and document
   assessment share that resolver contract; value admission validates its result.
   Validation reads one scalar `InputRequirements` projection for QName context,
   document identity, and safe string interning. It does not clone diagnostic
   type views or interpret facet metadata.
+  Construction reads that same scalar projection for completed identity and
+  validity. Builder-only type views supply component metadata, caller-owned
+  union copies, and enumeration presence derived from effective facet groups;
+  they expose no copied facet evaluation program.
 - `internal/xsdregex` owns XSD 1.0 whole-input pattern semantics. One parsed
   expression selects literal, linear, or NFA execution based on its structure.
   Compilation and matching have explicit work/state limits. XML input admission
@@ -416,7 +612,9 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   reader-owned, read-only token pointer. Advancing, `Reset`, and `Detach`
   invalidate it; a rejected advance while admission is pending preserves it for
   retry. Start and end admission consume that current token without accepting
-  caller-supplied copies. Literal CR and CRLF each
+  caller-supplied copies. Attribute values share lexical admission and token
+  charging; a nil output destination discards decoded payload while preserving
+  validation and limits. Literal CR and CRLF each
   advance one logical line in every parser mode; emitted payloads contain LF.
   Character-data tokens retain one stream-owned lexical origin: literal text,
   text containing references, or CDATA. Coalescing never erases reference origin.
@@ -666,8 +864,11 @@ Formatting flow:
    The formatter accepts this immutable supplied input directly; it does not
    acquire or buffer a reader's complete contents.
 2. One `internal/xmlstream` reader validates the document and records bounded
-   source spans and per-element layout decisions. The flat span sequence contains
-   offsets, positions, token kinds, and layout flags; it owns no decoded text,
+   source spans and per-element layout decisions. Each start span owns its layout
+   flag, finalized only after its matching end commits. Analysis is the sole
+   processed-node and document-topology admission owner; rendering consumes only
+   its complete tape. The flat span sequence contains offsets, positions, token
+   kinds, and layout flags; it owns no decoded text,
    attribute values, or child tree. Input, token, node, and depth limits bound
    admission and retained metadata.
 3. Rendering walks those spans in order with a depth-bounded layout stack and
@@ -859,6 +1060,10 @@ graph preserves these ownership rules:
   unrelated constraints multiply lifecycle work. Closure callbacks and a second
   registration journal were rejected because the concrete evaluator can unwind its existing
   scope declarations directly.
+- Replacing published selector-path records with a scalar registration invariant
+  remains deferred: representative validation allocation-byte comparisons did not
+  establish nonexpansion. Smaller retained records and matching allocation counts
+  do not by themselves prove total allocated-byte equality.
 - An additional element-value slice projection was rejected because publication
   and validation already use the canonical packed element table. Tests observe
   published reads and independently corrupt packed projections instead of
@@ -876,6 +1081,11 @@ graph preserves these ownership rules:
 - Interleaving resolution, graph validation, and component compilation was
   rejected because partially known namespaces made ownership and failure state
   ambiguous. The loaded-graph-to-plan boundary is the only route into indexing.
+- Traversing canonical source references directly for each effective context was
+  rejected under the current CPU budget: matched small-schema and resolved-import
+  compilation medians exceeded the allowed 3% loss. The planner retains its
+  transient filtered edge projection, derived from canonical references and the
+  closed graph's target indices, to preserve the qualified execution path.
 - Context-bearing compilation and validation APIs were rejected because the
   library cannot interrupt arbitrary resolvers, openers, files, or readers.
   Callers own unblocking those operations; compatibility overloads would create
@@ -888,6 +1098,13 @@ graph preserves these ownership rules:
   lexical projections. Validation requests the value owner's identity
   projection despite its allocation cost; it does not add datatype-specific
   comparison rules or another parser.
+- Shared temporal parts and optional output destinations were rejected after
+  matching baseline measurements still showed raw and typed regressions.
+  Specialized admission scanners and typed construction remain under the value
+  owner, sharing semantic predicates without forcing identical indexing or
+  output transport. This measured constraint does not reject shared parsers in
+  general. Combining Gregorian primitives is also rejected because their field
+  grammars and failure precedence differ.
 - Re-resolving schema-supplied QNames in instance namespaces was rejected because
   missing or rebound prefixes change the constraint's value. Retaining the
   compiler's complete namespace history was rejected in favor of the bounded
@@ -896,6 +1113,12 @@ graph preserves these ownership rules:
 - Adding normalized spelling to every parsed value was rejected because it
   enlarges every retained list item. Returning it from evaluation keeps lexical
   output separate from value-space payloads and removes mutable result options.
+- Publishing the requested type ID only at the result entrypoint was rejected
+  after matched measurements regressed base64 enumeration construction. Removing
+  the transient ID and helper parameters left retained value sizes unchanged.
+  Transient values retain their requested ID through list and union evaluation;
+  immediate union selection remains a separate fact. This measured constraint
+  does not reject other ways to remove redundant type transport.
 - Lazy list growth or a cap on initial capacity alone was rejected because
   eventual storage still scales with input length. Rejecting a list immediately
   when it exceeds an enclosing enumeration's item bound was rejected because it
@@ -975,12 +1198,41 @@ graph preserves these ownership rules:
 - Compatibility fields, aliases, and parallel constructors for diagnostics were
   rejected because they would preserve two representations and two location
   paths for the same fact.
+- A retained source vocabulary tag and copied declaration index were rejected
+  because they duplicated admitted local names, semantic capability facts and
+  root-child ordering. Allowlisting child names would discard unknown XSD
+  grammar before its diagnostic owner; all admitted XSD locals remain traversable.
 - A semantic source struct with one nullable pointer per capability was rejected
   because it permitted contradictory records and forced every consumer through
   a nil chain. One closed variant owns at most one capability record; common ID
   and `xml:base` facts stay on the node source, and particle facts stay with the
   variant that admits them. Syntax-only grammar nodes intentionally retain no
   capability variant.
+
+- Extending the linear matcher's runtime-tagged string/byte carrier to all
+  regex loops was rejected after matched scalar and retained-scratch workloads
+  exceeded the allowed 3% median CPU loss. Representation-specific rune loops
+  preserve compiler specialization under the same regex owner.
+
+- Moving cause-only custom-`As` detection into the root type switch was
+  rejected because first use of a plain root type can allocate an additional
+  persistent runtime interface-table entry. Warm allocation counters do not
+  establish equality of first-use cache retention.
+
+- A shared root/cause aggregate assessment was rejected after its larger
+  recursive frame increased stack capacity retained after return on nested
+  aggregate causes. Heap allocation counters alone cannot establish equality
+  of goroutine stack capacity.
+
+- Returning a fully initialized regex Pattern from the NFA graph-building
+  helper was not adopted: its frame remains live during bitset allocation and
+  enlarges that allocation call chain. Removing intermediate records and
+  preserving final field layout do not prove non-increasing stack retention.
+
+- Embedding compiler return records in regex Pattern was not adopted: the
+  aggregate copies introduce bulk write barriers and enlarge frames active
+  during graph and bitset allocations. The published fields remain flat to
+  avoid that cost.
 
 ## Documentation Ownership
 

@@ -688,7 +688,7 @@ func TestFreezeRejectsMixedValueConstraintIdentityPayload(t *testing.T) {
 		t.Fatalf("ValidateSchema() before mutation error = %v", err)
 	}
 	rootID := rt.GlobalElements[mustQName(t, &rt.Names, "root")]
-	rt.Elements[rootID].Default.Value = buildValueConstraint(t, rt, rt.Builtin.String, "text").Value
+	rt.Elements[rootID].Default.Value = buildValueConstraint(t, rt, builtinSimpleValueIDForTest(t, "string"), "text").Value
 	err := validateSchemaBuild(rt)
 	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 }
@@ -801,65 +801,6 @@ func TestFreezeRejectsGlobalNameMismatch(t *testing.T) {
 	}
 }
 
-func TestFreezeRejectsIdentityFieldLookupDrift(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root">
-    <xs:complexType>
-      <xs:sequence>
-        <xs:element name="item" maxOccurs="unbounded">
-          <xs:complexType>
-            <xs:sequence>
-              <xs:element name="name" type="xs:string"/>
-            </xs:sequence>
-            <xs:attribute name="id" type="xs:string"/>
-          </xs:complexType>
-        </xs:element>
-      </xs:sequence>
-    </xs:complexType>
-    <xs:key name="k1">
-      <xs:selector xpath="item"/>
-      <xs:field xpath="@id"/>
-      <xs:field xpath="name"/>
-    </xs:key>
-  </xs:element>
-</xs:schema>`
-	mutations := []struct {
-		name   string
-		mutate func(ic *xsdSchema.IdentityConstraint)
-	}{
-		{
-			name: "dropped attribute lookup",
-			mutate: func(ic *xsdSchema.IdentityConstraint) {
-				ic.AttributeFields = nil
-			},
-		},
-		{
-			name: "element lookup field index drift",
-			mutate: func(ic *xsdSchema.IdentityConstraint) {
-				ic.ElementFields[0].Field = 7
-			},
-		},
-		{
-			name: "extra wildcard lookup entry",
-			mutate: func(ic *xsdSchema.IdentityConstraint) {
-				ic.AttributeWildcardFields = append(ic.AttributeWildcardFields, xsdSchema.CompiledIdentityField{Field: 0})
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			rt := mutableSchemaBuild(t, schema)
-			if err := validateSchemaBuild(rt); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			id := rt.GlobalIdentities[mustQName(t, &rt.Names, "k1")]
-			tc.mutate(&rt.Identities[id])
-			err := validateSchemaBuild(rt)
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
 func TestFreezeRejectsIdentityKindReferMismatch(t *testing.T) {
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">
@@ -917,7 +858,6 @@ func TestFreezeRejectsIdentityKindReferMismatch(t *testing.T) {
 				t.Helper()
 				kr := &rt.Identities[rt.GlobalIdentities[mustQName(t, &rt.Names, "kr1")]]
 				kr.Fields = append(kr.Fields, xsdSchema.IdentityField{})
-				kr.ElementFields, kr.AttributeFields, kr.AttributeWildcardFields = xsdSchema.BuildIdentityFieldLookup(kr.Fields)
 			},
 		},
 		{
@@ -933,7 +873,6 @@ func TestFreezeRejectsIdentityKindReferMismatch(t *testing.T) {
 				t.Helper()
 				ic := &rt.Identities[rt.GlobalIdentities[mustQName(t, &rt.Names, "k")]]
 				ic.Fields = nil
-				ic.ElementFields, ic.AttributeFields, ic.AttributeWildcardFields = xsdSchema.BuildIdentityFieldLookup(ic.Fields)
 			},
 		},
 		{
@@ -942,7 +881,6 @@ func TestFreezeRejectsIdentityKindReferMismatch(t *testing.T) {
 				t.Helper()
 				ic := &rt.Identities[rt.GlobalIdentities[mustQName(t, &rt.Names, "k")]]
 				ic.Fields[0].Paths = nil
-				ic.ElementFields, ic.AttributeFields, ic.AttributeWildcardFields = xsdSchema.BuildIdentityFieldLookup(ic.Fields)
 			},
 		},
 		{
@@ -978,7 +916,6 @@ func TestFreezeRejectsIdentityKindReferMismatch(t *testing.T) {
 					Attr:      true,
 					Attribute: mustQName(t, &rt.Names, "id"),
 				}
-				ic.ElementFields, ic.AttributeFields, ic.AttributeWildcardFields = xsdSchema.BuildIdentityFieldLookup(ic.Fields)
 			},
 		},
 		{
@@ -992,7 +929,6 @@ func TestFreezeRejectsIdentityKindReferMismatch(t *testing.T) {
 					}},
 					Attribute: xsdSchema.QName{},
 				}
-				ic.ElementFields, ic.AttributeFields, ic.AttributeWildcardFields = xsdSchema.BuildIdentityFieldLookup(ic.Fields)
 			},
 		},
 		{
@@ -1002,7 +938,6 @@ func TestFreezeRejectsIdentityKindReferMismatch(t *testing.T) {
 				ic := &rt.Identities[rt.GlobalIdentities[mustQName(t, &rt.Names, "k")]]
 				ic.Fields[0].Paths[0].AttrWildcard = true
 				ic.Fields[0].Paths[0].Attribute = mustQName(t, &rt.Names, "id")
-				ic.ElementFields, ic.AttributeFields, ic.AttributeWildcardFields = xsdSchema.BuildIdentityFieldLookup(ic.Fields)
 			},
 		},
 	}
@@ -1063,43 +998,76 @@ func TestFreezeRejectsAttributeUseSetIndexDrift(t *testing.T) {
 	})
 }
 
-func TestFreezeRejectsAttributeUseSetDerivedSlotDrift(t *testing.T) {
+func TestPublishedAttributeSlotsFollowCanonicalUses(t *testing.T) {
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:attribute name="inherited" type="xs:string" fixed="fixed"/>
   <xs:element name="root">
     <xs:complexType>
+      <xs:attribute name="plain" type="xs:string"/>
       <xs:attribute name="required" type="xs:string" use="required"/>
-      <xs:attribute name="defaulted" type="xs:string" default="x"/>
+      <xs:attribute name="defaulted" type="xs:string" default=""/>
+      <xs:attribute ref="inherited" use="required"/>
     </xs:complexType>
+    <xs:key name="defaultKey"><xs:selector xpath="."/><xs:field xpath="@defaulted"/></xs:key>
   </xs:element>
 </xs:schema>`
-	mutations := []struct {
-		name   string
-		mutate func(set *xsdSchema.AttributeUseSet)
-	}{
-		{
-			name: "missing required slot",
-			mutate: func(set *xsdSchema.AttributeUseSet) {
-				set.Required = nil
-			},
-		},
-		{
-			name: "missing value constraint slot",
-			mutate: func(set *xsdSchema.AttributeUseSet) {
-				set.ValueConstraints = nil
-			},
-		},
+	build := mutableSchemaBuild(t, schema)
+	uses := rootBuildAttributeUseSet(t, build).Uses
+	rootID := build.GlobalElements[mustQName(t, &build.Names, "root")]
+	typ := build.Elements[rootID].Type
+	published, err := publishSchema(build)
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			rt := mutableSchemaBuild(t, schema)
-			if err := validateSchemaBuild(rt); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
+	read, present, valid := published.AttributeUseSetForType(typ)
+	if !present || !valid {
+		t.Fatal("published attribute set missing")
+	}
+	checkSlots := func(t *testing.T) {
+		t.Helper()
+		for _, test := range []struct {
+			name string
+			got  xsdSchema.AttributeUseSlots
+			want []uint32
+		}{{"required", read.RequiredSlots(), []uint32{1, 3}}, {"constraints", read.ValueConstraintSlots(), []uint32{2, 3}}} {
+			if test.got.Len() != len(test.want) {
+				t.Fatalf("%s slots length = %d, want %d", test.name, test.got.Len(), len(test.want))
 			}
-			tc.mutate(rootBuildAttributeUseSet(t, rt))
-			err := validateSchemaBuild(rt)
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
+			for i, want := range test.want {
+				if got, ok := test.got.At(i); !ok || got != want {
+					t.Fatalf("%s slot %d = %d, %v; want %d", test.name, i, got, ok, want)
+				}
+			}
+		}
 	}
+	checkSlots(t)
+	uses[1].Required = false
+	uses[2].Default.Canonical = "poison"
+	uses[2].Default = nil
+	uses[3].Required = false
+	uses[3].Fixed.Canonical = "poison"
+	uses[3].Fixed = nil
+	checkSlots(t)
+	def, ok := read.UseAt(2)
+	if !ok {
+		t.Fatal("default use missing")
+	}
+	if constraint, present := def.AbsentValueConstraint(); !present || constraint.ApplicationText() != "" {
+		t.Fatalf("empty default = %+v, %v", constraint, present)
+	}
+	fixed, ok := read.UseAt(3)
+	if !ok || !fixed.FixedUsesValueSpace() {
+		t.Fatal("referenced fixed constraint lost declaration provenance")
+	}
+	if constraint, present := fixed.FixedValue(); !present || constraint.ApplicationText() != "fixed" {
+		t.Fatalf("fixed constraint = %+v, %v", constraint, present)
+	}
+	engine := validationRuntimeForTest(t, published)
+	mustValidate(t, engine, `<root required="r" inherited="fixed"/>`)
+	mustNotValidate(t, engine, `<root inherited="fixed"/>`, xsderrors.CodeValidationAttribute)
+	mustNotValidate(t, engine, `<root required="r"/>`, xsderrors.CodeValidationAttribute)
+	mustNotValidate(t, engine, `<root required="r" inherited="poison"/>`, xsderrors.CodeValidationAttribute)
+	mustValidate(t, engine, `<root required="r" inherited="fixed"/>`)
 }
 
 func TestFreezeRejectsPublishedProhibitedAttributeUse(t *testing.T) {
@@ -1163,8 +1131,8 @@ func TestFreezeRejectsIDAttributeSchemaInvariantDrift(t *testing.T) {
 			t.Fatalf("ValidateSchema() before mutation error = %v", err)
 		}
 		attr := rt.GlobalAttributes[mustQName(t, &rt.Names, "a")]
-		rt.Attributes[attr].Type = rt.Builtin.ID
-		rt.Attributes[attr].Default = buildValueConstraint(t, rt, rt.Builtin.ID, "abc")
+		rt.Attributes[attr].Type = builtinSimpleValueIDForTest(t, "ID")
+		rt.Attributes[attr].Default = buildValueConstraint(t, rt, builtinSimpleValueIDForTest(t, "ID"), "abc")
 		err := validateSchemaBuild(rt)
 		expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 	})
@@ -1176,8 +1144,8 @@ func TestFreezeRejectsIDAttributeSchemaInvariantDrift(t *testing.T) {
 			t.Fatalf("ValidateSchema() before mutation error = %v", err)
 		}
 		root := rt.GlobalElements[mustQName(t, &rt.Names, "root")]
-		rt.Elements[root].Type = xsdSchema.SimpleRef(rt.Builtin.ID)
-		rt.Elements[root].Default = buildValueConstraint(t, rt, rt.Builtin.ID, "abc")
+		rt.Elements[root].Type = xsdSchema.SimpleRef(builtinSimpleValueIDForTest(t, "ID"))
+		rt.Elements[root].Default = buildValueConstraint(t, rt, builtinSimpleValueIDForTest(t, "ID"), "abc")
 		err := validateSchemaBuild(rt)
 		expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 	})
@@ -1191,8 +1159,8 @@ func TestFreezeRejectsIDAttributeSchemaInvariantDrift(t *testing.T) {
 			t.Fatalf("ValidateSchema() before mutation error = %v", err)
 		}
 		set := rootBuildAttributeUseSet(t, rt)
-		set.Uses[0].Type = rt.Builtin.ID
-		set.Uses[0].Default = buildValueConstraint(t, rt, rt.Builtin.ID, "abc")
+		set.Uses[0].Type = builtinSimpleValueIDForTest(t, "ID")
+		set.Uses[0].Default = buildValueConstraint(t, rt, builtinSimpleValueIDForTest(t, "ID"), "abc")
 		err := validateSchemaBuild(rt)
 		expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 	})
@@ -1209,7 +1177,7 @@ func TestFreezeRejectsIDAttributeSchemaInvariantDrift(t *testing.T) {
 			t.Fatalf("ValidateSchema() before mutation error = %v", err)
 		}
 		set := rootBuildAttributeUseSet(t, rt)
-		set.Uses[1].Type = rt.Builtin.ID
+		set.Uses[1].Type = builtinSimpleValueIDForTest(t, "ID")
 		err := validateSchemaBuild(rt)
 		expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 	})
@@ -1302,10 +1270,10 @@ func TestFreezeRejectsBuiltinHandleDrift(t *testing.T) {
 		mutate func(t *testing.T, rt *xsdSchema.SchemaBuild)
 	}{
 		{
-			name: "simple handle points at wrong valid type",
+			name: "builtin simple declaration has wrong name",
 			mutate: func(t *testing.T, rt *xsdSchema.SchemaBuild) {
 				t.Helper()
-				rt.Builtin.String = rt.Builtin.Boolean
+				rt.SimpleTypes[builtinSimpleValueIDForTest(t, "string")].Name = rt.SimpleTypes[builtinSimpleValueIDForTest(t, "boolean")].Name
 			},
 		},
 		{
@@ -1316,7 +1284,7 @@ func TestFreezeRejectsBuiltinHandleDrift(t *testing.T) {
 				if !ok {
 					t.Fatal("xs:string name not found")
 				}
-				rt.GlobalTypes[q] = xsdSchema.SimpleRef(rt.Builtin.Boolean)
+				rt.GlobalTypes[q] = xsdSchema.SimpleRef(builtinSimpleValueIDForTest(t, "boolean"))
 			},
 		},
 		{
@@ -1338,21 +1306,21 @@ func TestFreezeRejectsBuiltinHandleDrift(t *testing.T) {
 				if !ok {
 					t.Fatal("xml:base attribute not found")
 				}
-				rt.Attributes[id].Type = rt.Builtin.String
+				rt.Attributes[id].Type = builtinSimpleValueIDForTest(t, "string")
 			},
 		},
 		{
 			name: "anyType shape drift",
 			mutate: func(t *testing.T, rt *xsdSchema.SchemaBuild) {
 				t.Helper()
-				rt.ComplexTypes[rt.Builtin.AnyType].ContentKind = xsdSchema.ContentElementOnly
+				rt.ComplexTypes[rt.AnyType].ContentKind = xsdSchema.ContentElementOnly
 			},
 		},
 		{
 			name: "anyType wildcard drift",
 			mutate: func(t *testing.T, rt *xsdSchema.SchemaBuild) {
 				t.Helper()
-				attrs := rt.ComplexTypes[rt.Builtin.AnyType].Attrs
+				attrs := rt.ComplexTypes[rt.AnyType].Attrs
 				rt.AttributeUseSets[attrs].Wildcard = xsdSchema.NoWildcard
 			},
 		},
@@ -1429,7 +1397,7 @@ func TestFreezeRejectsInvalidContentModelShape(t *testing.T) {
 			name: "any model inactive state",
 			mutate: func(t *testing.T, rt *xsdSchema.SchemaBuild) {
 				t.Helper()
-				model := &rt.Models[rt.ComplexTypes[rt.Builtin.AnyType].Content]
+				model := &rt.Models[rt.ComplexTypes[rt.AnyType].Content]
 				model.Occurs = xsdSchema.Occurrence{Min: 1, Max: 1}
 			},
 		},
@@ -1802,7 +1770,7 @@ func TestFreezeRejectsInconsistentComplexContent(t *testing.T) {
 			name: "text type without simple content",
 			mutate: func(t *testing.T, rt *xsdSchema.SchemaBuild) {
 				t.Helper()
-				rt.ComplexTypes[complexID(t, rt, "E")].TextType = rt.Builtin.String
+				rt.ComplexTypes[complexID(t, rt, "E")].TextType = builtinSimpleValueIDForTest(t, "string")
 			},
 		},
 		{
@@ -1835,7 +1803,7 @@ func TestFreezeRejectsInconsistentComplexContent(t *testing.T) {
 }
 
 func TestPublishedElementValueConstraints(t *testing.T) {
-	build := mutableSchemaBuild(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	build := mutableSchemaBuild(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:fixed" xmlns:q="urn:default">
   <xs:complexType name="SimpleContent"><xs:simpleContent><xs:extension base="xs:string"/></xs:simpleContent></xs:complexType>
   <xs:complexType name="Mixed" mixed="true"/>
   <xs:element name="plain0" type="xs:string"/>
@@ -1851,8 +1819,11 @@ func TestPublishedElementValueConstraints(t *testing.T) {
   <xs:element name="defaultShared" type="xs:string" default="shared"/>
   <xs:element name="emptyDefault" type="xs:string" default=""/>
   <xs:element name="mixed" type="Mixed" default="mixed"/>
+  <xs:element name="fixedQName" type="xs:QName" fixed="p:item"/>
+  <xs:element name="defaultQName" type="xs:QName" default="q:item"/>
 </xs:schema>`)
-	stringID, decimalID := build.Builtin.String, build.Builtin.Decimal
+	stringID, decimalID := builtinSimpleValueIDForTest(t, "string"), builtinSimpleValueIDForTest(t, "decimal")
+	qnameID := valuepkg.BuiltinType(valuepkg.PrimitiveQName)
 	simpleContent := xsdSchema.ComplexRef(complexBuildTypeIDByName(t, build, "SimpleContent"))
 	mixed := xsdSchema.ComplexRef(complexBuildTypeIDByName(t, build, "Mixed"))
 	tests := []struct {
@@ -1875,6 +1846,8 @@ func TestPublishedElementValueConstraints(t *testing.T) {
 		{name: "defaultShared", owner: xsdSchema.SimpleRef(stringID), valueType: stringID, lexical: "shared", canonical: "shared", def: true},
 		{name: "emptyDefault", owner: xsdSchema.SimpleRef(stringID), valueType: stringID, def: true},
 		{name: "mixed", owner: mixed, valueType: xsdSchema.NoSimpleType, lexical: "mixed", canonical: "mixed", def: true},
+		{name: "fixedQName", owner: xsdSchema.SimpleRef(qnameID), valueType: qnameID, lexical: "p:item", canonical: "{urn:fixed}item", fixed: true},
+		{name: "defaultQName", owner: xsdSchema.SimpleRef(qnameID), valueType: qnameID, lexical: "q:item", canonical: "{urn:default}item", def: true},
 	}
 	ids := make(map[string]xsdSchema.ElementID, len(tests))
 	names := make(map[string]xsdSchema.QName, len(tests))
@@ -1886,7 +1859,7 @@ func TestPublishedElementValueConstraints(t *testing.T) {
 		}
 		ids[test.name], names[test.name] = id, q
 	}
-	count := xsdSchema.ElementID(len(build.Elements)) //nolint:gosec // The fixed fixture contains thirteen element declarations.
+	count := xsdSchema.ElementID(len(build.Elements)) //nolint:gosec // The fixed fixture contains fifteen element declarations.
 	fixedAlias := build.Elements[ids["fixed"]].Fixed
 	defaultAlias := build.Elements[ids["default"]].Default
 	build.Elements[ids["fixedSharedA"]].Fixed = fixedAlias
@@ -1941,5 +1914,84 @@ func TestPublishedElementValueConstraints(t *testing.T) {
 		if constraints != (xsdSchema.ElementValueConstraints{}) || present || valid != (id == xsdSchema.NoElement) {
 			t.Fatalf("ElementValueConstraints(%d) = %+v, %v, %v; want zero, absent, validity %v", id, constraints, present, valid, id == xsdSchema.NoElement)
 		}
+		fixed, hasFixed := constraints.FixedValue()
+		def, hasDefault := constraints.DefaultValueConstraint()
+		if constraints.HasAny() || hasFixed || hasDefault || fixed != (xsdSchema.ValueConstraintRead{}) || def != (xsdSchema.ValueConstraintRead{}) {
+			t.Fatalf("absent element retained constraints: fixed %+v/%v, default %+v/%v", fixed, hasFixed, def, hasDefault)
+		}
+	}
+}
+
+func builtinSimpleValueIDForTest(t *testing.T, local string) valuepkg.TypeID {
+	t.Helper()
+	id, ok := valuepkg.BuiltinTypeID(local)
+	if !ok {
+		t.Fatalf("builtin simple type %q not found", local)
+	}
+	return id
+}
+
+const exactConstraintOwnerSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+ <xs:simpleType name="U"><xs:union memberTypes="xs:string xs:integer"/></xs:simpleType>
+ <xs:attribute name="ga" type="U" default="owner-value"/>
+ <xs:element name="value" type="U" default="owner-value"/>
+ <xs:element name="root"><xs:complexType><xs:attribute name="la" type="U" default="owner-value"/></xs:complexType></xs:element>
+</xs:schema>`
+
+func TestPublishExactUnionOwnerConstraints(t *testing.T) {
+	t.Parallel()
+	build := mutableSchemaBuild(t, exactConstraintOwnerSchema)
+	published, err := publishSchema(build)
+	if err != nil || published == nil {
+		t.Fatalf("valid union-owned constraint publication = %v,%v", published, err)
+	}
+}
+
+func TestPublishRejectsMemberTypedConstraintCacheAndRetries(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name       string
+		context    string
+		constraint func(*testing.T, *xsdSchema.SchemaBuild) *xsdSchema.ValueConstraint
+	}{
+		{name: "element", context: "element declaration default", constraint: func(t *testing.T, build *xsdSchema.SchemaBuild) *xsdSchema.ValueConstraint {
+			t.Helper()
+			id := build.GlobalElements[mustQName(t, &build.Names, "value")]
+			return build.Elements[id].Default
+		}},
+		{name: "attribute declaration", context: "attribute declaration default", constraint: func(t *testing.T, build *xsdSchema.SchemaBuild) *xsdSchema.ValueConstraint {
+			t.Helper()
+			id := build.GlobalAttributes[mustQName(t, &build.Names, "ga")]
+			return build.Attributes[id].Default
+		}},
+		{name: "attribute use", context: "attribute use default", constraint: func(t *testing.T, build *xsdSchema.SchemaBuild) *xsdSchema.ValueConstraint {
+			t.Helper()
+			return rootBuildAttributeUseSet(t, build).Uses[0].Default
+		}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			build := mutableSchemaBuild(t, exactConstraintOwnerSchema)
+			constraint := tc.constraint(t, build)
+			original := constraint.Value
+			// An independently valid member payload preserves application text.
+			// Only the cached Value changes; lexical/canonical fields stay intact.
+			member := buildValueConstraint(t, build, builtinSimpleValueIDForTest(t, "string"), "owner-value").Value
+			constraint.Value = member
+			published, err := publishSchema(build)
+			diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+			if published != nil || !ok || diagnostic.Category() != xsderrors.CategoryInternal || diagnostic.Code() != xsderrors.CodeInternalInvariant || diagnostic.Message() != tc.context+" value type does not match owner type" {
+				t.Fatalf("member-typed cache publication = %v,%v; want contextual owner invariant", published, err)
+			}
+			if constraint.Value.Type() != member.Type() || constraint.Lexical != "owner-value" || constraint.Canonical != "owner-value" {
+				t.Fatal("failed publication mutated constraint cache")
+			}
+			constraint.Value = original
+			published, err = publishSchema(build)
+			if err != nil || published == nil {
+				t.Fatalf("same-build repaired publication = %v,%v", published, err)
+			}
+		})
 	}
 }

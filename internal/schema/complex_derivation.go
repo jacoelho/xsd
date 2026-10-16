@@ -94,7 +94,7 @@ func CheckSimpleContentRestrictionTextTypePresent(textType SimpleTypeID) error {
 // CheckSimpleContentRestrictionTextType maps runtime text-type derivation
 // validation into a schema compile diagnostic.
 func CheckSimpleContentRestrictionTextType(
-	rt TypeDerivationRuntime,
+	rt *schemaBuild,
 	derived, base SimpleTypeID,
 	work func(int) error,
 ) error {

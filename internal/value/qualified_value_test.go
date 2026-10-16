@@ -4,7 +4,11 @@ import "testing"
 
 func TestValueQualifiedNamesFollowAcceptedMembers(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	union, err := b.Add(TypeSpec{
+	union, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(union, TypeSpec{
 		Variety: Union, Primitive: PrimitiveString,
 		Union: []TypeID{builtinBoolean, builtinQName}, Base: NoType, ListItem: NoType,
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
@@ -12,7 +16,11 @@ func TestValueQualifiedNamesFollowAcceptedMembers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	list, err := b.Add(TypeSpec{
+	list, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(list, TypeSpec{
 		Variety: List, Primitive: PrimitiveString, Base: NoType, ListItem: union,
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 	})

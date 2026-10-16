@@ -10,7 +10,7 @@ func TestCheckContentModelsUPAChargesSharedModelForEachRoot(t *testing.T) {
 	t.Parallel()
 
 	one := Occurrence{Min: 1, Max: 1}
-	rt := compiledModelRuntimeStub{models: map[ContentModelID]ContentModel{
+	rt := compiledModelFixture{models: map[ContentModelID]ContentModel{
 		0: {Kind: ModelChoice, Occurs: one, Particles: []Particle{ModelParticle(2, one)}},
 		1: {Kind: ModelChoice, Occurs: one, Particles: []Particle{ModelParticle(2, one)}},
 		2: {Kind: ModelChoice, Occurs: one, Particles: []Particle{ModelParticle(3, one)}},
@@ -30,8 +30,8 @@ func TestCheckContentModelsUPAChargesSharedModelForEachRoot(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			work := newWorkBudget(contentModelWorkBudget, tt.limit)
-			analysis := mustContentModelAnalysis(t, rt, work.spend)
-			err := CheckContentModelsUPA(nil, rt, 4, &work, analysis)
+			analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
+			err := CheckContentModelsUPA(nil, rt.build(), 4, &work, analysis)
 			if tt.err {
 				expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 				return

@@ -21,7 +21,6 @@ type typedSchemaParseFrame struct {
 	syntax    schemaSyntaxNode
 	textBytes int64
 	opaque    bool
-	payload   bool
 }
 
 type typedSchemaIDRecord struct {
@@ -69,7 +68,7 @@ func parseTypedSchemaSourceDocument(name, key string, input io.Reader, limits Li
 		return nil, xsderrors.WithLocation(name, 0, 0,
 			schemaParseAt(0, 0, xsderrors.CodeSchemaRoot, "empty schema document", nil))
 	}
-	if state.root.local != vocab.XSDElemSchema || state.root.kind == schemaKindForeign {
+	if state.root.local != vocab.XSDElemSchema {
 		return nil, xsderrors.WithLocation(name, state.root.line, state.root.column,
 			schemaParseAt(state.root.line, state.root.column, xsderrors.CodeSchemaRoot, "root element must be xs:schema", nil))
 	}
@@ -77,7 +76,6 @@ func parseTypedSchemaSourceDocument(name, key string, input io.Reader, limits Li
 		return nil, xsderrors.WithLocation(name, 0, 0, err)
 	}
 	doc.root = state.root
-	doc.rootChildren = state.root.children
 	doc.nodes = state.nodes
 	return doc, nil
 }
@@ -142,9 +140,8 @@ func (s *typedSchemaParseState) start(start xmlstream.StartElement, line, col in
 	}
 
 	s.nodes++
-	payload := typedStartPayload(parent, start.Name, opaque)
 	syntax := s.startSyntax(start, line, col)
-	frame := typedSchemaParseFrame{name: start.Name, namespace: namespaceFrame, syntax: syntax, opaque: opaque, payload: payload}
+	frame := typedSchemaParseFrame{name: start.Name, namespace: namespaceFrame, syntax: syntax, opaque: opaque}
 	if err := s.admitTypedFrame(frame, line, col); err != nil {
 		return s.abortStart(namespaceFrame, err)
 	}
@@ -183,8 +180,6 @@ func (s *typedSchemaParseState) admitTypedFrame(initial typedSchemaParseFrame, l
 	}
 	frame.node = node
 	if node != nil {
-		frame.syntax.id = node.id
-		frame.syntax.kind = node.kind
 		s.recordTypedID(node, &frame.syntax)
 	}
 	return nil
@@ -246,7 +241,7 @@ func (s *typedSchemaParseState) validateStartLimits(start xmlstream.StartElement
 }
 
 func shouldAdmitTypedStart(parent *typedSchemaParseFrame) bool {
-	return parent == nil || (!parent.opaque && !parent.payload)
+	return parent == nil || !parent.opaque
 }
 
 func typedParentName(parent *typedSchemaParseFrame) xml.Name {
@@ -260,23 +255,19 @@ func typedStartOpaque(parent *typedSchemaParseFrame, name xml.Name) bool {
 	if parent == nil {
 		return false
 	}
-	if parent.opaque || parent.payload {
+	if parent.opaque {
 		return true
 	}
 	return parent.name.Space == vocab.XSDNamespaceURI && parent.name.Local == annotationChild && typedAnnotationEnvelope(name)
 }
 
 func typedOpaqueDescendant(parent *typedSchemaParseFrame) bool {
-	return parent != nil && (parent.opaque || parent.payload)
+	return parent != nil && parent.opaque
 }
 
 func typedAnnotationEnvelope(name xml.Name) bool {
 	return name.Space == vocab.XSDNamespaceURI &&
 		(name.Local == vocab.XSDElemAppinfo || name.Local == vocab.XSDElemDocumentation)
-}
-
-func typedStartPayload(parent *typedSchemaParseFrame, name xml.Name, opaque bool) bool {
-	return !opaque && parent != nil && parent.name.Space == vocab.XSDNamespaceURI && parent.name.Local == annotationChild && typedAnnotationEnvelope(name)
 }
 
 func (s *typedSchemaParseState) admitTypedNode(name xml.Name, attrs []schemaAttribute, parent *typedSchemaParseFrame, line, col int) (*schemaNode, error) {
@@ -285,25 +276,19 @@ func (s *typedSchemaParseState) admitTypedNode(name xml.Name, attrs []schemaAttr
 		return nil, schemaParseAt(line, col, xsderrors.CodeSchemaLimit, err.Error(), err)
 	}
 	var attributeMask uint64
-	var annotationLang LexicalAttribute
 	for _, attr := range attrs {
 		if attr.Name.Space == "" {
 			attributeMask |= typedAttributeMaskFor(attr.Name.Local)
 		}
-		if attr.Name.Space == vocab.XMLNamespaceURI && attr.Name.Local == vocab.XMLAttrLang {
-			annotationLang = LexicalAttribute{Value: attr.Value, Present: true}
-		}
 	}
 	node := &schemaNode{
-		doc:            s.doc,
-		id:             id,
-		kind:           schemaNodeKindForName(name),
-		local:          name.Local,
-		attributeMask:  attributeMask,
-		annotationLang: annotationLang,
-		line:           line,
-		column:         col,
-		namespace:      s.parser.Context(),
+		doc:           s.doc,
+		id:            id,
+		local:         name.Local,
+		attributeMask: attributeMask,
+		line:          line,
+		column:        col,
+		namespace:     s.parser.Context(),
 	}
 	s.doc.arena = append(s.doc.arena, node)
 	s.attachTypedNode(node, parent)
@@ -438,56 +423,20 @@ func (s *typedSchemaParseState) end(line, col int) error {
 	if frame.node == nil {
 		return nil
 	}
-	return s.completeTypedNode(frame)
+	return completeTypedNode(frame)
 }
 
-func (s *typedSchemaParseState) completeTypedNode(frame *typedSchemaParseFrame) error {
+func completeTypedNode(frame *typedSchemaParseFrame) error {
 	if err := frame.syntax.buildSemanticSource(frame.node); err != nil {
 		return withSchemaCompileLocation(frame.node, err)
 	}
 	if !schemaNodeNeedsDeferredQNameContext(frame.node, frame.syntax.Attrs) {
 		frame.node.namespace = xmlstream.Context{}
 	}
-	frame.syntax.hasNonWhitespaceText = frame.node.hasNonWhitespaceText
-	if typedSyntaxNeedsChildren(frame.node) {
-		materializeTypedSyntaxChildren(s.doc, frame.node, &frame.syntax)
+	if err := checkAnnotationEnvelopeStart(&frame.syntax); err != nil {
+		return err
 	}
-	return admitEnd(&frame.syntax)
-}
-
-func materializeTypedSyntaxChildren(doc *schemaDocument, node *schemaNode, syntax *schemaSyntaxNode) {
-	syntax.Children = make([]*schemaSyntaxNode, 0, len(node.children))
-	for _, id := range node.children {
-		child := doc.node(id)
-		if child == nil {
-			continue
-		}
-		syntax.Children = append(syntax.Children, &schemaSyntaxNode{
-			doc:                  doc,
-			Name:                 xml.Name{Space: vocab.XSDNamespaceURI, Local: child.local},
-			Line:                 child.line,
-			Column:               child.column,
-			id:                   child.id,
-			kind:                 child.kind,
-			hasNonWhitespaceText: child.hasNonWhitespaceText,
-		})
-	}
-}
-
-func typedSyntaxNeedsChildren(n *schemaNode) bool {
-	if n == nil {
-		return false
-	}
-	if n.local == includeChild || n.local == importChild || n.local == annotationChild {
-		return true
-	}
-	for _, id := range n.children {
-		child := n.doc.node(id)
-		if child != nil && child.local == annotationChild {
-			return true
-		}
-	}
-	return false
+	return admitEnd(frame.node)
 }
 
 // schemaNodeNeedsDeferredQNameContext identifies source values whose QName
@@ -495,7 +444,7 @@ func typedSyntaxNeedsChildren(n *schemaNode) bool {
 // compiled. Schema QName attributes are resolved while the element is active,
 // so their namespace bindings do not need to survive admission.
 func schemaNodeNeedsDeferredQNameContext(n *schemaNode, attrs []schemaAttribute) bool {
-	if n == nil || n.kind == schemaKindForeign {
+	if n == nil {
 		return false
 	}
 	has := func(local string) bool {
@@ -518,32 +467,56 @@ func schemaNodeNeedsDeferredQNameContext(n *schemaNode, attrs []schemaAttribute)
 	}
 }
 
-func admitEnd(n *schemaSyntaxNode) error {
+func admitEnd(n *schemaNode) error {
 	if err := rejectInvalidSchemaTextTyped(n); err != nil {
 		return err
 	}
 	if err := rejectInvalidReferenceDirectivesTyped(n); err != nil {
 		return err
 	}
-	_, err := checkSchemaAnnotationNodeSyntax(n)
-	return err
+	return checkSchemaAnnotationNode(n)
 }
 
-func rejectInvalidSchemaTextTyped(n *schemaSyntaxNode) error {
-	if n == nil || n.Name.Space != vocab.XSDNamespaceURI || n.Name.Local == vocab.XSDElemAppinfo || n.Name.Local == vocab.XSDElemDocumentation {
+func rejectInvalidSchemaTextTyped(n *schemaNode) error {
+	if n == nil || n.local == vocab.XSDElemAppinfo || n.local == vocab.XSDElemDocumentation {
 		return nil
 	}
 	if n.hasNonWhitespaceText {
-		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "xs:"+n.Name.Local+" cannot contain text")
+		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "xs:"+n.local+" cannot contain text")
 	}
 	return nil
 }
 
-func rejectInvalidReferenceDirectivesTyped(n *schemaSyntaxNode) error {
-	if n == nil || n.Name.Space != vocab.XSDNamespaceURI || n.Name.Local != includeChild && n.Name.Local != importChild {
+func rejectInvalidReferenceDirectivesTyped(n *schemaNode) error {
+	if n == nil || n.local != includeChild && n.local != importChild {
 		return nil
 	}
-	return checkChildOrderRulesSyntax(n, annotationOnlyChildOrder(n.Name.Local))
+	return checkOrderedXSDChildren(n, annotationOnlyChildOrder(n.local))
+}
+
+//nolint:gocognit // Keep ordered annotation grammar and diagnostic precedence in one owner.
+func checkSchemaAnnotationNode(n *schemaNode) error {
+	if n.local == vocab.XSDElemSchema || n.local == vocab.XSDElemAppinfo || n.local == vocab.XSDElemDocumentation {
+		return nil
+	}
+	seenAnnotation, seenNonAnnotation := false, false
+	for child := range n.xsdChildren() {
+		if child.local != annotationChild {
+			seenNonAnnotation = true
+			continue
+		}
+		if n.local == annotationChild {
+			return schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "xs:annotation cannot contain xs:annotation")
+		}
+		if seenAnnotation {
+			return schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "schema component cannot contain multiple annotations")
+		}
+		if seenNonAnnotation {
+			return schemaCompileAt(child, xsderrors.CodeSchemaContentModel, n.local+" annotation must be first")
+		}
+		seenAnnotation = true
+	}
+	return nil
 }
 
 func (s *typedSchemaParseState) chars(t []byte, line, col int) error {
@@ -558,7 +531,7 @@ func (s *typedSchemaParseState) chars(t []byte, line, col int) error {
 	if err := checkSchemaTokenLimit(s.stack[last].textBytes, s.limits, line, col, "schema XML text exceeds configured limit"); err != nil {
 		return err
 	}
-	if s.stack[last].node == nil || s.stack[last].opaque || s.stack[last].payload {
+	if s.stack[last].node == nil || s.stack[last].opaque {
 		return nil
 	}
 	if !lex.IsXMLWhitespaceBytes(t) {
@@ -582,15 +555,12 @@ func (s *typedSchemaParseState) abortStart(frame xmlstream.Handle, cause error) 
 }
 
 func (s *typedSchemaParseState) validateIDs() error {
-	ids := make([]SchemaID, len(s.ids))
-	for i, id := range s.ids {
-		ids[i] = SchemaID{Value: id.value}
-	}
-	if err := ValidateSchemaIDs(ids); err != nil {
-		if issue, ok := errors.AsType[*SchemaIDError](err); ok && issue.Index >= 0 && issue.Index < len(s.ids) {
-			return schemaCompileAt(s.ids[issue.Index].node, issue.Code, issue.Message)
+	seen := make(map[string]bool, len(s.ids))
+	for _, id := range s.ids {
+		if seen[id.value] {
+			return schemaCompileAt(id.node, xsderrors.CodeSchemaInvalidAttribute, "duplicate schema id "+id.value)
 		}
-		return err
+		seen[id.value] = true
 	}
 	return nil
 }

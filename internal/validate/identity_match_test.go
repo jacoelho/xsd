@@ -56,20 +56,20 @@ func TestCompiledIdentityFieldPathsMatchElementAndAttributeBranches(t *testing.T
 	otherAttr := xsdSchema.QName{Namespace: 999, Local: fixture.attrName.Local}
 	namePath := []xsdSchema.RuntimeName{{Known: true, Name: fixture.elemName}}
 
-	constraint, ok := fixture.rt.IdentityConstraint(fixture.constraintID)
+	constraint, ok := fixture.rt.IdentityDispatch().Program(fixture.constraintID)
 	if !ok {
-		t.Fatal("IdentityConstraint() rejected runtime metadata")
+		t.Fatal("IdentityDispatch().Program() rejected runtime metadata")
 	}
 	elementFields := constraint.ElementFields()
 	elementField, ok := elementFields.At(0)
 	if !ok {
-		t.Fatal("IdentityConstraint().ElementFields() returned no field")
+		t.Fatal("IdentityDispatch().Program().ElementFields() returned no field")
 	}
 	elementPath, ok := elementField.Path(0)
 	if !ok {
-		t.Fatal("IdentityConstraint().ElementFields() returned no path")
+		t.Fatal("IdentityDispatch().Program().ElementFields() returned no path")
 	}
-	elementProgram := identityFieldPathProgram(elementPath)
+	elementProgram := elementPath
 	if !elementProgram.Matches(fixture.rt, namePath, 1, 1) {
 		t.Fatal("element field path did not match")
 	}
@@ -77,13 +77,13 @@ func TestCompiledIdentityFieldPathsMatchElementAndAttributeBranches(t *testing.T
 	attributeFields := constraint.AttributeFields(fixture.attrName)
 	exactAttributeField, ok := attributeFields.At(0)
 	if !ok {
-		t.Fatal("IdentityConstraint().AttributeFields() returned no exact field")
+		t.Fatal("IdentityDispatch().Program().AttributeFields() returned no exact field")
 	}
 	exactPath, ok := exactAttributeField.Path(0)
 	if !ok {
-		t.Fatal("IdentityConstraint().AttributeFields() returned no path")
+		t.Fatal("IdentityDispatch().Program().AttributeFields() returned no path")
 	}
-	exactProgram := identityFieldPathProgram(exactPath)
+	exactProgram := exactPath
 	if !exactProgram.Matches(fixture.rt, namePath, 1, 1) || !exactProgram.AttributeMatches(fixture.rt, xsdSchema.RuntimeName{Name: fixture.attrName, Known: true}) {
 		t.Fatal("exact attribute field path did not match")
 	}
@@ -97,13 +97,13 @@ func TestCompiledIdentityFieldPathsMatchElementAndAttributeBranches(t *testing.T
 	attributeFields = constraint.AttributeWildcardFields()
 	wildcardAttributeField, ok := attributeFields.At(0)
 	if !ok {
-		t.Fatal("IdentityConstraint().AttributeWildcardFields() returned no wildcard field")
+		t.Fatal("IdentityDispatch().Program().AttributeWildcardFields() returned no wildcard field")
 	}
 	wildcardPath, ok := wildcardAttributeField.Path(0)
 	if !ok {
-		t.Fatal("IdentityConstraint().AttributeWildcardFields() returned no path")
+		t.Fatal("IdentityDispatch().Program().AttributeWildcardFields() returned no path")
 	}
-	wildcardProgram := identityFieldPathProgram(wildcardPath)
+	wildcardProgram := wildcardPath
 	if !wildcardProgram.Matches(fixture.rt, namePath, 1, 1) || !wildcardProgram.AttributeMatches(fixture.rt, xsdSchema.RuntimeName{Name: fixture.attrName, Known: true}) {
 		t.Fatal("attribute namespace wildcard did not match")
 	}
@@ -168,20 +168,20 @@ func compiledIdentityRuntimeForTest(tb testing.TB) compiledIdentityFixture {
 
 func BenchmarkIdentityDirectFieldPath(b *testing.B) {
 	fixture := compiledIdentityRuntimeForTest(b)
-	constraint, ok := fixture.rt.IdentityConstraint(fixture.constraintID)
+	constraint, ok := fixture.rt.IdentityDispatch().Program(fixture.constraintID)
 	if !ok {
-		b.Fatal("IdentityConstraint() rejected runtime metadata")
+		b.Fatal("IdentityDispatch().Program() rejected runtime metadata")
 	}
 	fields := constraint.AttributeFields(fixture.attrName)
 	field, ok := fields.At(0)
 	if !ok {
-		b.Fatal("IdentityConstraint().AttributeFields() returned no exact field")
+		b.Fatal("IdentityDispatch().Program().AttributeFields() returned no exact field")
 	}
 	path, ok := field.Path(0)
 	if !ok {
-		b.Fatal("CompiledIdentityFieldRead.Path() returned no exact path")
+		b.Fatal("IdentityCompiledFieldProgramRead.Path() returned no exact path")
 	}
-	program := identityFieldPathProgram(path)
+	program := path
 	namePath := make([]xsdSchema.RuntimeName, 256)
 	for i := range namePath {
 		namePath[i] = xsdSchema.RuntimeName{Known: true, Name: fixture.elemName}

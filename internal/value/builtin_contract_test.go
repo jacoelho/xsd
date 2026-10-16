@@ -123,21 +123,25 @@ func TestBuiltinValueContracts(t *testing.T) {
 func TestForwardBaseRetainsFacets(t *testing.T) {
 	t.Parallel()
 	builder := value.NewBuilder(value.BuilderOptions{})
-	derived, err := builder.Add(value.TypeSpec{
-		Variety: value.Atomic, Primitive: value.PrimitiveDecimal,
-		Base: value.BuiltinTypeCount + 1, ListItem: value.NoType,
-	})
-	if err != nil {
-		t.Fatal(err)
+	derived, reserveErr := builder.Reserve()
+	if reserveErr != nil {
+		t.Fatal(reserveErr)
 	}
-	_, err = builder.Add(value.TypeSpec{
+	base, reserveErr := builder.Reserve()
+	if reserveErr != nil {
+		t.Fatal(reserveErr)
+	}
+	if derived != value.BuiltinTypeCount || base != value.BuiltinTypeCount+1 {
+		t.Fatalf("reserved IDs = %d, %d", derived, base)
+	}
+	if err := builder.Complete(base, value.TypeSpec{
 		Variety: value.Atomic, Primitive: value.PrimitiveDecimal,
 		Base: value.BuiltinType(value.PrimitiveDecimal), ListItem: value.NoType,
-		Facets: value.FacetSpec{MinInclusive: value.BoundFacet{
-			Present: true, LiteralSpec: value.LiteralSpec{Lexical: "10", Type: value.NoType},
-		}},
-	})
-	if err != nil {
+		Facets: value.FacetSpec{MinInclusive: value.BoundFacet{Present: true, LiteralSpec: value.LiteralSpec{Lexical: "10", Type: value.NoType}}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := builder.Complete(derived, value.TypeSpec{Variety: value.Atomic, Primitive: value.PrimitiveDecimal, Base: base, ListItem: value.NoType}); err != nil {
 		t.Fatal(err)
 	}
 	program, err := builder.Seal()
@@ -145,7 +149,7 @@ func TestForwardBaseRetainsFacets(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := program.Validate(derived, "9", value.Resolver{}, 0, 16<<20, nil); err == nil {
-		t.Fatal("derived type accepted a value below its forward-referenced base bound")
+		t.Fatal("derived type accepted value below inherited bound")
 	}
 	if _, err := program.Validate(derived, "10", value.Resolver{}, 0, 16<<20, nil); err != nil {
 		t.Fatal(err)

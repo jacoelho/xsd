@@ -82,15 +82,9 @@ type dfaStateID struct {
 	known bool
 }
 
-// ContentModelCompileRuntime supplies compiler-only substitution facts in addition to runtime model metadata.
-type ContentModelCompileRuntime interface {
-	CompiledModelRuntime
-	HasSubstitutionMembers(id ElementID) bool
-}
-
 type contentModelCompiler struct {
 	names                 *NameTable
-	rt                    ContentModelCompileRuntime
+	rt                    *schemaBuild
 	work                  *workBudget
 	analysis              *ContentModelAnalysis
 	maxContentModelStates int
@@ -98,7 +92,7 @@ type contentModelCompiler struct {
 
 func newContentModelCompiler(
 	names *NameTable,
-	rt ContentModelCompileRuntime,
+	rt *schemaBuild,
 	maxContentModelStates int,
 	work *workBudget,
 	analysis *ContentModelAnalysis,
@@ -110,14 +104,6 @@ func newContentModelCompiler(
 		analysis:              analysis,
 		maxContentModelStates: maxContentModelStates,
 	}
-}
-
-// ElementDeclarationRuntime supplies model and element metadata for compile-time
-// model declaration consistency checks.
-type ElementDeclarationRuntime interface {
-	ContentModel(id ContentModelID) (ContentModel, bool)
-	ElementName(id ElementID) (QName, bool)
-	ElementType(id ElementID) (TypeID, bool)
 }
 
 type dfaSourceRow struct {
@@ -142,7 +128,7 @@ type dfaAccept struct {
 // configuration, transition, and emitted index entry to one shared budget.
 func CompileContentModels(
 	names *NameTable,
-	rt ContentModelCompileRuntime,
+	rt *schemaBuild,
 	count int,
 	maxContentModelStates int,
 	work *workBudget,
@@ -158,7 +144,6 @@ func CompileContentModels(
 		if err != nil {
 			return nil, err
 		}
-		m.Source = ContentModelID(id)
 		compiled[id] = m
 	}
 	if err := IndexCompiledModelsRows(rt, compiled, work.spend); err != nil {
@@ -171,7 +156,7 @@ func CompileContentModels(
 // that can be proven before compiled DFA construction.
 func CheckContentModelsUPA(
 	names *NameTable,
-	rt ContentModelCompileRuntime,
+	rt *schemaBuild,
 	count int,
 	work *workBudget,
 	analysis *ContentModelAnalysis,
@@ -190,7 +175,7 @@ func (c *contentModelCompiler) checkContentModelUPA(id ContentModelID, seen []in
 	if err := c.work.spend(1); err != nil {
 		return err
 	}
-	model, ok := c.rt.ContentModel(id)
+	model, ok := ContentModelByID(c.rt.Models, id)
 	if !ok {
 		return xsderrors.InternalInvariant("UPA check references missing content model")
 	}
@@ -209,7 +194,7 @@ func (c *contentModelCompiler) checkContentModelUPA(id ContentModelID, seen []in
 }
 
 type elementDeclarationConsistencyChecker struct {
-	rt     ElementDeclarationRuntime
+	rt     *schemaBuild
 	work   *workBudget
 	states map[ContentModelID]contentModelVisitState
 	cache  map[ContentModelID]map[QName]TypeID
@@ -223,7 +208,7 @@ const (
 )
 
 func newElementDeclarationConsistencyChecker(
-	rt ElementDeclarationRuntime,
+	rt *schemaBuild,
 	work *workBudget,
 ) *elementDeclarationConsistencyChecker {
 	return &elementDeclarationConsistencyChecker{
@@ -255,7 +240,7 @@ func (c *elementDeclarationConsistencyChecker) collectModel(
 	case contentModelVisited:
 		return c.cache[id], nil
 	}
-	model, ok := c.rt.ContentModel(id)
+	model, ok := ContentModelByID(c.rt.Models, id)
 	if !ok {
 		return nil, xsderrors.InternalInvariant("element declaration consistency check references missing content model")
 	}
@@ -303,7 +288,7 @@ func (c *elementDeclarationConsistencyChecker) collectElementParticle(types map[
 	if !ok {
 		return xsderrors.InternalInvariant("element declaration consistency check references missing element name")
 	}
-	typ, ok := c.rt.ElementType(element)
+	typ, ok := ElementTypeByID(c.rt.Elements, element)
 	if !ok {
 		return xsderrors.InternalInvariant("element declaration consistency check references missing element type")
 	}
@@ -370,7 +355,7 @@ func (c *contentModelCompiler) particleNeedsRuntimeSplit(particle Particle, seen
 	if particle.Kind != ParticleModel {
 		return false, nil
 	}
-	model, ok := c.rt.ContentModel(particle.Model)
+	model, ok := ContentModelByID(c.rt.Models, particle.Model)
 	if !ok {
 		return false, nil
 	}
@@ -480,7 +465,7 @@ func (c *contentModelCompiler) leafContinuationParticles(particle Particle) ([]P
 }
 
 func (c *contentModelCompiler) nestedModelContinuationParticles(particle Particle) ([]Particle, error) {
-	model, ok := c.rt.ContentModel(particle.Model)
+	model, ok := ContentModelByID(c.rt.Models, particle.Model)
 	if !ok {
 		return nil, nil
 	}
@@ -605,11 +590,11 @@ func (c *contentModelCompiler) wildcardEquivalentOverlap(a, b Particle) bool {
 	if a.Kind != ParticleWildcard || b.Kind != ParticleWildcard {
 		return false
 	}
-	wa, ok := c.rt.Wildcard(a.Wildcard)
+	wa, ok := WildcardByID(c.rt.Wildcards, a.Wildcard)
 	if !ok {
 		return false
 	}
-	wb, ok := c.rt.Wildcard(b.Wildcard)
+	wb, ok := WildcardByID(c.rt.Wildcards, b.Wildcard)
 	if !ok {
 		return false
 	}
@@ -654,16 +639,16 @@ func (c *contentModelCompiler) sequenceStartParticles(particles []Particle) ([]P
 }
 
 func (c *contentModelCompiler) compileContentModel(id ContentModelID) (CompiledModel, error) {
-	model, ok := c.rt.ContentModel(id)
+	model, ok := ContentModelByID(c.rt.Models, id)
 	if !ok {
 		return CompiledModel{}, xsderrors.InternalInvariant("content model compiler references missing content model")
 	}
 	model = normalizeSingleParticleModel(model)
 	switch model.Kind {
 	case ModelEmpty:
-		return CompiledModel{Kind: CompiledModelEmpty, Mixed: model.Mixed, Empty: true}, nil
+		return CompiledModel{Kind: CompiledModelEmpty, Empty: true}, nil
 	case ModelAny:
-		return CompiledModel{Kind: CompiledModelAny, Mixed: model.Mixed, Empty: true}, nil
+		return CompiledModel{Kind: CompiledModelAny, Empty: true}, nil
 	case ModelAll:
 		return c.compileAllModel(model)
 	case ModelSequence, ModelChoice:
@@ -734,7 +719,6 @@ func (c *contentModelCompiler) compileDirectSequenceModel(model ContentModel, li
 		Kind:  CompiledModelDFA,
 		Rows:  compilation.rows,
 		Start: 0,
-		Mixed: model.Mixed,
 		Empty: compilation.rows[0].Accept,
 	}, true, nil
 }
@@ -833,7 +817,6 @@ func (c *contentModelCompiler) compileDirectChoiceModel(model ContentModel) (Com
 		Kind:  CompiledModelDFA,
 		Rows:  compilation.rows,
 		Start: 0,
-		Mixed: model.Mixed,
 		Empty: compilation.rows[0].Accept,
 	}, true, nil
 }
@@ -982,7 +965,7 @@ func (c *contentModelCompiler) particleSetNeedsUPACheck(
 }
 
 func (c *contentModelCompiler) particleUPAName(particle Particle) (QName, bool) {
-	if particle.Kind != ParticleElement || c.rt.HasSubstitutionMembers(particle.Element) {
+	if particle.Kind != ParticleElement || c.rt.Substitutions.HasMembers(particle.Element) {
 		return QName{}, true
 	}
 	name, ok := c.rt.ElementName(particle.Element)
@@ -1039,7 +1022,6 @@ func (c *contentModelCompiler) compileAllModel(model ContentModel) (CompiledMode
 		Kind:      CompiledModelAll,
 		All:       terms,
 		AllBitLen: allBitLen,
-		Mixed:     model.Mixed,
 		Empty:     model.Occurs.Min == 0 || !required,
 	}, nil
 }
@@ -1256,7 +1238,7 @@ func (b *dfaBuilder) modelNode(id ContentModelID, scope choiceLimitScope) (dfaNo
 	if err := b.c.work.spend(1); err != nil {
 		return dfaNode{}, err
 	}
-	model, ok := b.c.rt.ContentModel(id)
+	model, ok := ContentModelByID(b.c.rt.Models, id)
 	if !ok {
 		return dfaNode{}, xsderrors.InternalInvariant("content model DFA references missing content model")
 	}
@@ -1285,7 +1267,7 @@ func (b *dfaBuilder) modelNode(id ContentModelID, scope choiceLimitScope) (dfaNo
 		err := xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "unsupported content model")
 		return dfaNode{}, err
 	}
-	return b.repeat(node, model.Occurs, -1)
+	return b.repeat(node, model.Occurs)
 }
 
 func (b *dfaBuilder) sequenceNode(particles []Particle, scope choiceLimitScope) (dfaNode, error) {
@@ -1344,8 +1326,7 @@ func (b *dfaBuilder) particleNode(p Particle, index int, scope choiceLimitScope)
 	default:
 		return dfaNode{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "unsupported particle")
 	}
-	slot := -1
-	return b.repeat(node, p.Occurs, slot)
+	return b.repeat(node, p.Occurs)
 }
 
 func (b *dfaBuilder) leaf(p Particle) dfaNode {
@@ -1393,7 +1374,7 @@ func dfaChoice(a, c dfaNode) dfaNode {
 	}
 }
 
-func (b *dfaBuilder) repeat(child dfaNode, occurs Occurrence, slot int) (dfaNode, error) {
+func (b *dfaBuilder) repeat(child dfaNode, occurs Occurrence) (dfaNode, error) {
 	if err := b.c.work.spend(1); err != nil {
 		return dfaNode{}, err
 	}
@@ -1401,16 +1382,16 @@ func (b *dfaBuilder) repeat(child dfaNode, occurs Occurrence, slot int) (dfaNode
 		return dfaNode{Nullable: true}, nil
 	}
 	if occurs.IsExactlyOne() {
-		return b.repeatExactlyOnce(child, slot)
+		return child, nil
 	}
-	return b.repeatMultiple(child, occurs, slot)
+	return b.repeatMultiple(child, occurs)
 }
 
-func (b *dfaBuilder) repeatMultiple(child dfaNode, occurs Occurrence, slot int) (dfaNode, error) {
+func (b *dfaBuilder) repeatMultiple(child dfaNode, occurs Occurrence) (dfaNode, error) {
 	if err := b.c.work.spend(len(child.First) + len(child.Last) + len(child.Counters)); err != nil {
 		return dfaNode{}, err
 	}
-	counter, err := b.repeatCounter(occurs, slot)
+	counter, err := b.repeatCounter(occurs)
 	if err != nil {
 		return dfaNode{}, err
 	}
@@ -1429,17 +1410,6 @@ func (b *dfaBuilder) repeatMultiple(child dfaNode, occurs Occurrence, slot int) 
 		Counters: repeatCounterSet(child.Counters, counter),
 		Nullable: occurs.Min == 0 || child.Nullable,
 	}, nil
-}
-
-func (b *dfaBuilder) repeatExactlyOnce(child dfaNode, slot int) (dfaNode, error) {
-	if slot < 0 {
-		return child, nil
-	}
-	slotID, err := checkedSchemaUint32(slot, "content model counter limit exceeded")
-	if err != nil {
-		return dfaNode{}, err
-	}
-	return b.countNode(child, slotID)
 }
 
 type dfaRepeatCounterKind uint8
@@ -1465,8 +1435,9 @@ func (c dfaRepeatCounter) active() bool {
 	}
 }
 
-func (b *dfaBuilder) repeatCounter(occurs Occurrence, slot int) (dfaRepeatCounter, error) {
-	if slot < 0 && repeatNeedsCounter(occurs) {
+func (b *dfaBuilder) repeatCounter(occurs Occurrence) (dfaRepeatCounter, error) {
+	slot := -1
+	if repeatNeedsCounter(occurs) {
 		slot = int(b.newCounter())
 	}
 	if slot < 0 {
@@ -1552,35 +1523,6 @@ func repeatNeedsCounter(occurs Occurrence) bool {
 		return true
 	}
 	return !occurs.Unbounded && occurs.Max > 1
-}
-
-func (b *dfaBuilder) countNode(child dfaNode, slot uint32) (dfaNode, error) {
-	if err := b.c.work.spend(len(child.Counters)); err != nil {
-		return dfaNode{}, err
-	}
-	action := []compiledAction{{Slot: slot, Kind: compiledActionInc}}
-	last := make([]dfaEntry, 0, len(child.Last))
-	for _, tail := range child.Last {
-		if err := b.c.work.spend(len(tail.Guards) + len(tail.Actions) + len(action) + 1); err != nil {
-			return dfaNode{}, err
-		}
-		last = append(last, dfaEntry{
-			Pos:     tail.Pos,
-			Guards:  slices.Clone(tail.Guards),
-			Actions: appendActions(tail.Actions, action),
-		})
-	}
-	counters := slices.Clone(child.Counters)
-	if !slices.Contains(counters, slot) {
-		counters = append(counters, slot)
-		slices.Sort(counters)
-	}
-	return dfaNode{
-		First:    child.First,
-		Last:     normalizeDFAEntries(last),
-		Counters: counters,
-		Nullable: child.Nullable,
-	}, nil
 }
 
 func (b *dfaBuilder) newCounter() uint32 {

@@ -1,6 +1,10 @@
 package schema
 
-import "testing"
+import (
+	"testing"
+
+	valuepkg "github.com/jacoelho/xsd/internal/value"
+)
 
 func TestElementReadTableOwnsCanonicalFacts(t *testing.T) {
 	fixed := &ValueConstraint{Lexical: "01", Canonical: "1", Value: builtinValueForTest(t, "integer", "01")}
@@ -73,5 +77,50 @@ func TestElementReadTablePrecomputesEffectiveTypeBlock(t *testing.T) {
 	start, ok := table.start(0)
 	if !ok || start.Block != DerivationRestriction|DerivationExtension {
 		t.Fatalf("start(0).Block = %08b, %v", start.Block, ok)
+	}
+}
+
+func TestElementReadTableOwnsConstraintNamespaceContexts(t *testing.T) {
+	t.Parallel()
+	fixed := &ValueConstraint{
+		Lexical: "p:fixed", Canonical: "p:fixed", Value: builtinValueForTest(t, "string", "p:fixed"),
+		qnameContext: &valueConstraintQNameContext{bindings: []valueConstraintQNameBinding{{prefix: "p", namespace: "urn:fixed", bound: true}}},
+	}
+	def := &ValueConstraint{
+		Lexical: "p:default", Canonical: "p:default", Value: builtinValueForTest(t, "string", "p:default"),
+		qnameContext: &valueConstraintQNameContext{bindings: []valueConstraintQNameBinding{{prefix: "p", namespace: "urn:default", bound: true}}},
+	}
+	table := newElementReadTable([]ElementDecl{{Type: SimpleRef(3), Fixed: fixed}, {Type: SimpleRef(4), Default: def}}, nil)
+	fixed.qnameContext.bindings[0].namespace = "urn:changed"
+	def.qnameContext.bindings[0].bound = false
+	for range 2 {
+		fixedConstraints, declared, valid := table.valueConstraints(0)
+		if !declared || !valid {
+			t.Fatal("fixed declaration became unavailable after input mutation")
+		}
+		fixedRead, present := fixedConstraints.FixedValue()
+		if !present {
+			t.Fatal("fixed value became absent after input mutation")
+		}
+		if _, defaultPresent := fixedConstraints.DefaultValueConstraint(); defaultPresent {
+			t.Fatal("fixed declaration exposes a default")
+		}
+		if name, ok := fixedRead.ResolveQName("p:fixed"); !ok || name != (valuepkg.ExpandedName{Namespace: "urn:fixed", Local: "fixed"}) {
+			t.Fatalf("published fixed QName = %v, %v; want {urn:fixed}fixed, true", name, ok)
+		}
+		defaultConstraints, declared, valid := table.valueConstraints(1)
+		if !declared || !valid {
+			t.Fatal("default declaration became unavailable after input mutation")
+		}
+		defaultRead, present := defaultConstraints.DefaultValueConstraint()
+		if !present {
+			t.Fatal("default value became absent after input mutation")
+		}
+		if _, fixedPresent := defaultConstraints.FixedValue(); fixedPresent {
+			t.Fatal("default declaration exposes a fixed value")
+		}
+		if name, ok := defaultRead.ResolveQName("p:default"); !ok || name != (valuepkg.ExpandedName{Namespace: "urn:default", Local: "default"}) {
+			t.Fatalf("published default QName = %v, %v; want {urn:default}default, true", name, ok)
+		}
 	}
 }

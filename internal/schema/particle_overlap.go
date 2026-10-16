@@ -5,7 +5,7 @@ import "errors"
 // ContentModelAnalysis is the bounded owner of content-model emptiability,
 // count-range, substitution-name, and particle-overlap facts.
 type ContentModelAnalysis struct {
-	rt        ParticleRuntime
+	rt        *schemaBuild
 	work      ContentModelWork
 	names     map[ElementID]particleAcceptedNames
 	emptiable map[ContentModelID]bool
@@ -20,7 +20,7 @@ type particleAcceptedNames struct {
 }
 
 // NewContentModelAnalysis creates a reusable bounded analysis context.
-func NewContentModelAnalysis(rt ParticleRuntime, work ContentModelWork) (*ContentModelAnalysis, error) {
+func NewContentModelAnalysis(rt *schemaBuild, work ContentModelWork) (*ContentModelAnalysis, error) {
 	if rt == nil {
 		return nil, errors.New("content model analysis runtime is nil")
 	}
@@ -92,7 +92,7 @@ func (a *ContentModelAnalysis) cachedModelCountRange(id ContentModelID) (Occurre
 	if err := spendContentModelWork(a.work); err != nil {
 		return Occurrence{}, err
 	}
-	model, ok := a.rt.ContentModel(id)
+	model, ok := ContentModelByID(a.rt.Models, id)
 	if !ok {
 		return Occurrence{}, errors.New("content model count analysis references missing content model")
 	}
@@ -167,8 +167,8 @@ func (a *ContentModelAnalysis) Overlap(left, right Particle) (QName, bool, error
 }
 
 func (a *ContentModelAnalysis) wildcardOverlap(left, right WildcardID) (QName, bool, error) {
-	leftWildcard, leftOK := a.rt.Wildcard(left)
-	rightWildcard, rightOK := a.rt.Wildcard(right)
+	leftWildcard, leftOK := WildcardByID(a.rt.Wildcards, left)
+	rightWildcard, rightOK := WildcardByID(a.rt.Wildcards, right)
 	return QName{}, leftOK && rightOK && WildcardsOverlap(leftWildcard, rightWildcard), nil
 }
 
@@ -185,7 +185,7 @@ func (a *ContentModelAnalysis) elementParticleOverlap(left, right Particle) (QNa
 }
 
 func (a *ContentModelAnalysis) modelStartOverlap(id ContentModelID, particle Particle) (QName, bool, error) {
-	model, ok := a.rt.ContentModel(id)
+	model, ok := ContentModelByID(a.rt.Models, id)
 	if !ok {
 		return QName{}, false, errors.New("content model overlap analysis references missing content model")
 	}
@@ -262,7 +262,7 @@ func (a *ContentModelAnalysis) acceptedElementOverlap(accepted particleAcceptedN
 }
 
 func (a *ContentModelAnalysis) acceptedWildcardOverlap(accepted particleAcceptedNames, id WildcardID) (QName, bool, error) {
-	wildcard, ok := a.rt.Wildcard(id)
+	wildcard, ok := WildcardByID(a.rt.Wildcards, id)
 	if !ok {
 		return QName{}, false, nil
 	}
@@ -293,7 +293,7 @@ func (a *ContentModelAnalysis) acceptedNames(id ElementID) (particleAcceptedName
 		byName:  map[QName]ElementID{name: id},
 	}
 	collector := particleAcceptedNameCollector{analysis: a, head: id, accepted: &accepted}
-	a.rt.ForEachSubstitutionMember(id, collector.collect)
+	a.rt.Substitutions.ForEachMember(id, collector.collect)
 	if collector.err != nil {
 		return particleAcceptedNames{}, false, collector.err
 	}
@@ -317,7 +317,7 @@ func (c *particleAcceptedNameCollector) collect(member ElementID) bool {
 	if !ok {
 		return true
 	}
-	allowed, ok := c.analysis.rt.SubstitutionMemberByName(c.head, memberName)
+	allowed, ok := c.analysis.rt.Substitutions.MemberByName(c.head, memberName)
 	if !ok || allowed != member {
 		return true
 	}
@@ -348,7 +348,7 @@ func (a *ContentModelAnalysis) cachedModelEmptiable(id ContentModelID) (bool, er
 	if a.emptyPath[id] {
 		return false, errors.New("content model emptiability analysis contains a cycle")
 	}
-	model, ok := a.rt.ContentModel(id)
+	model, ok := ContentModelByID(a.rt.Models, id)
 	if !ok {
 		return false, errors.New("content model emptiability analysis references missing content model")
 	}

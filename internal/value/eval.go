@@ -3,6 +3,7 @@ package value
 import (
 	"bytes"
 	"errors"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -59,20 +60,23 @@ type parsedValue struct {
 }
 
 type atomicValue struct {
-	notation  ExpandedName
-	qname     ExpandedName
-	canonical string
-	binary    BinaryValue
-	text      TextValue
-	float     FloatValue
-	time      TimeValue
-	duration  DurationValue
-	temporal  TemporalValue
-	decimal   DecimalValue
-	g         GValue
-	length    uint32
-	kind      PrimitiveKind
-	boolean   bool
+	expandedName ExpandedName
+	lexical      lexicalValue
+	time         TimeValue
+	duration     DurationValue
+	temporal     TemporalValue
+	decimal      DecimalValue
+	g            GValue
+	float        float64
+	kind         PrimitiveKind
+	boolean      bool
+}
+
+type lexicalValue struct {
+	Canonical string
+	Length    uint32
+	// canonicalReady distinguishes compact base64 text from admitted lexical text.
+	canonicalReady bool
 }
 
 // Type returns the type program ID that accepted the value.
@@ -170,7 +174,7 @@ func (p *Program) ValidateAdmitted(id TypeID, lexical string, resolver Resolver,
 // builder. It is intended for compiler literals and constraints before Seal;
 // published callers use Program.Validate.
 func (b *Builder) Validate(id TypeID, lexical string, resolver Resolver, needs Needs, scratch *Scratch) (Value, error) {
-	if b == nil || b.sealed || b.program == nil {
+	if b == nil || b.program == nil || b.program.sealed {
 		return Value{}, ErrMetadata
 	}
 	budget, err := newEvaluationBudget(b.maxConstructionWork)
@@ -182,23 +186,10 @@ func (b *Builder) Validate(id TypeID, lexical string, resolver Resolver, needs N
 	})
 }
 
-// ValidateBytes validates stream-admitted UTF-8 XML 1.0 character data against
-// a completed incremental type. The bytes are not retained after return.
-func (b *Builder) ValidateBytes(id TypeID, lexical []byte, resolver Resolver, needs Needs, scratch *Scratch) (Value, error) {
-	if b == nil || b.sealed || b.program == nil {
-		return Value{}, ErrMetadata
-	}
-	budget, err := newEvaluationBudget(b.maxConstructionWork)
-	if err != nil {
-		return Value{}, err
-	}
-	return b.program.validateBorrowedBytes(id, lexical, resolver, needs, scratch, &budget)
-}
-
 // validateBorrowedBytes admits raw bytes and retains the accumulated work when
 // an unsupported raw shape falls through to normalized evaluation.
 func (p *Program) validateBorrowedBytes(id TypeID, lexical []byte, resolver Resolver, needs Needs, scratch *Scratch, budget *evaluationBudget) (Value, error) {
-	if value, handled, err := p.validateUnprojectedBytes(id, lexical, needs, budget); handled {
+	if value, handled, err := validateUnprojectedBytes(id, lexical, needs, budget); handled {
 		return value, err
 	}
 	if id == NoType || needs != 0 {
@@ -218,56 +209,14 @@ func (p *Program) validateBorrowedBytes(id TypeID, lexical []byte, resolver Reso
 	})
 }
 
-func (p *Program) validateUnprojectedBytes(id TypeID, lexical []byte, needs Needs, budget *evaluationBudget) (Value, bool, error) {
-	if needs != 0 || (id != builtinAnySimpleType && id != builtinString) {
-		return p.validateRawBytes(id, lexical, needs, budget)
+func validateUnprojectedBytes(id TypeID, lexical []byte, needs Needs, budget *evaluationBudget) (Value, bool, error) {
+	if needs != 0 || (id != AnySimpleTypeID && id != builtinString) {
+		return Value{}, false, nil
 	}
 	if err := budget.charge(lexicalLength(len(lexical))); err != nil {
 		return Value{}, true, err
 	}
 	return Value{typeID: id, selected: NoType}, true, nil
-}
-
-func (p *Program) validateRawBytes(id TypeID, lexical []byte, needs Needs, budget *evaluationBudget) (Value, bool, error) {
-	if needs != 0 {
-		return Value{}, false, nil
-	}
-	t, ok := p.typeDef(id)
-	if !ok {
-		return Value{}, false, nil
-	}
-	switch t.variety {
-	case Atomic:
-		return validateRawAtomicBytes(id, t, lexical, budget)
-	case List:
-		return p.validateRawListBytes(id, t, lexical, budget)
-	case Union:
-		// Raw union selection is handled by evalBytes after admission.
-	}
-	return Value{}, false, nil
-}
-
-func validateRawAtomicBytes(id TypeID, t *typeDef, lexical []byte, budget *evaluationBudget) (Value, bool, error) {
-	if t.facets.raw.kind != rawPlanStringEnumeration {
-		return Value{}, false, nil
-	}
-	if err := budget.charge(lexicalLength(len(lexical))); err != nil {
-		return Value{}, true, err
-	}
-	if err := validateStringEnumBytes(&t.facets, lexical); err != nil {
-		return Value{}, true, err
-	}
-	return Value{typeID: id, selected: NoType}, true, nil
-}
-
-func (p *Program) validateRawListBytes(id TypeID, t *typeDef, lexical []byte, budget *evaluationBudget) (Value, bool, error) {
-	if t.facets.raw.kind != rawPlanNMTokens {
-		return Value{}, false, nil
-	}
-	if err := budget.charge(lexicalLength(len(lexical))); err != nil {
-		return Value{}, true, err
-	}
-	return p.scanNMTokensListBytes(id, t, lexical, budget, 0)
 }
 
 func (p *Program) evalBytes(id TypeID, lexical []byte, scratch *Scratch, budget *evaluationBudget, depth int) (TypeID, bool, error) {
@@ -287,18 +236,17 @@ func (p *Program) evalBytes(id TypeID, lexical []byte, scratch *Scratch, budget 
 	case Union:
 		return p.evalUnionBytes(t, lexical, scratch, budget, depth)
 	case List:
-		return p.evalListBytes(id, t, lexical, budget, depth)
+		return p.evalListBytes(t, lexical, budget, depth)
 	default:
 		return NoType, true, ErrMetadata
 	}
 }
 
-func (p *Program) evalListBytes(id TypeID, t *typeDef, lexical []byte, budget *evaluationBudget, depth int) (TypeID, bool, error) {
+func (p *Program) evalListBytes(t *typeDef, lexical []byte, budget *evaluationBudget, depth int) (TypeID, bool, error) {
 	if t.facets.raw.kind != rawPlanNMTokens {
 		return NoType, false, nil
 	}
-	_, handled, err := p.scanNMTokensListBytes(id, t, lexical, budget, depth)
-	return NoType, handled, err
+	return NoType, true, p.scanNMTokensListBytes(t, lexical, budget, depth)
 }
 
 func (p *Program) evalUnionBytes(t *typeDef, lexical []byte, scratch *Scratch, budget *evaluationBudget, depth int) (TypeID, bool, error) {
@@ -414,7 +362,7 @@ func tryRawDecimalBytes(t *typeDef, lexical []byte) (bool, error) {
 	if t.facets.raw.kind != rawPlanDecimal {
 		return false, nil
 	}
-	handled, err := ValidateFastDecimalLexical(t.facets.raw.decimal, lexical)
+	handled, err := validateFastDecimalLexical(&t.facets, lexical)
 	if !handled && err == nil {
 		return false, nil
 	}
@@ -514,13 +462,7 @@ func validatePrimitiveBytesFast(t *typeDef, lexical []byte) (bool, error) {
 }
 
 func hasXMLWhitespaceBytes(raw []byte) bool {
-	for _, b := range raw {
-		switch b {
-		case ' ', '\t', '\n', '\r':
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(raw, lex.IsXMLWhitespaceByte)
 }
 
 func prepareRawValuePlans(p *Program, t *typeDef) {
@@ -637,7 +579,7 @@ func stringEnumerationLiteralSupported(literal *parsedValue) bool {
 	if literal.isList || literal.atom.kind != PrimitiveString {
 		return false
 	}
-	return literal.atom.text.Canonical != "" || literal.canonical == ""
+	return literal.atom.lexical.Canonical != "" || literal.canonical == ""
 }
 
 func validateStringEnumBytes(f *facetProgram, lexical []byte) error {
@@ -652,73 +594,47 @@ func validateStringEnumBytes(f *facetProgram, lexical []byte) error {
 func stringEnumGroupMatches(group []parsedValue, lexical []byte) bool {
 	for i := range group {
 		literal := &group[i]
-		canonical := literal.atom.text.Canonical
+		canonical := literal.atom.lexical.Canonical
 		if canonical == "" && literal.canonical != "" {
 			canonical = literal.canonical
 		}
-		if bytesEqualString(lexical, canonical) {
+		if string(lexical) == canonical {
 			return true
 		}
 	}
 	return false
 }
 
-func bytesEqualString(raw []byte, text string) bool {
-	if len(raw) != len(text) {
-		return false
-	}
-	for i := range raw {
-		if raw[i] != text[i] {
-			return false
-		}
-	}
-	return true
-}
-
 //nolint:gocognit // One scanner keeps item discovery, work and depth admission, and lexical validation in evaluation order.
-func (p *Program) scanNMTokensListBytes(id TypeID, t *typeDef, lexical []byte, budget *evaluationBudget, depth int) (Value, bool, error) {
+func (p *Program) scanNMTokensListBytes(t *typeDef, lexical []byte, budget *evaluationBudget, depth int) error {
 	var count uint32
 	start := 0
 	for start < len(lexical) {
-		field, next, ok := nextNMTokensField(lexical, start)
+		field, next, ok := nextListField(lexical, start)
 		if !ok {
 			break
 		}
 		if count == ^uint32(0) {
-			return Value{}, true, ErrLimit
+			return ErrLimit
 		}
 		count++
 		if err := budget.charge(lexicalLength(len(field))); err != nil {
-			return Value{}, true, err
+			return err
 		}
 		// Only an actual item enters the next evaluation depth; empty lists
 		// must still reach their facets and any enclosing union fallback.
 		if p.maxDepth != 0 && depth+1 >= int(p.maxDepth) {
-			return Value{}, true, ErrLimit
+			return ErrLimit
 		}
 		if !lex.IsNMTOKENBytes(field) {
-			return Value{}, true, errors.New("invalid NMTOKEN")
+			return errors.New("invalid NMTOKEN")
 		}
 		start = next
 	}
 	if !nmtokensLengthAllowed(t, count) {
-		return Value{}, true, facetFailure("length facet failed")
+		return facetFailure("length facet failed")
 	}
-	return Value{typeID: id, selected: NoType, flags: valueList}, true, nil
-}
-
-func nextNMTokensField(lexical []byte, start int) ([]byte, int, bool) {
-	for start < len(lexical) && isListWhitespace(lexical[start]) {
-		start++
-	}
-	if start == len(lexical) {
-		return nil, start, false
-	}
-	end := start
-	for end < len(lexical) && !isListWhitespace(lexical[end]) {
-		end++
-	}
-	return lexical[start:end], end, true
+	return nil
 }
 
 func nmtokensLengthAllowed(t *typeDef, count uint32) bool {
@@ -918,10 +834,10 @@ func finishEvaluation(t *typeDef, value *parsedValue, normalized string, options
 func evalAtomic(id TypeID, t *typeDef, normalized string, options evalOptions, value *parsedValue) error {
 	parseNeeds := primitiveNeeds(t, options.needs)
 	*value = parsedValue{typeID: id, selected: NoType}
-	if err := parseAtomic(&value.atom, t, normalized, options.resolver, parseNeeds); err != nil {
+	if err := parseAtomic(value, t, normalized, options.resolver, parseNeeds); err != nil {
 		return err
 	}
-	if parseNeeds.Has(PrimitiveNeedCanonical) {
+	if parseNeeds.Has(PrimitiveNeedCanonical) && (value.canonical == "" || t.builtin == BuiltinInteger) {
 		value.canonical = atomicCanonical(t.builtin, &value.atom, normalized)
 	}
 	return nil
@@ -1045,7 +961,7 @@ func (b *listValueBuilder) appendIDRefs(text string) {
 func (b *listValueBuilder) finish(identity IdentityKind) parsedValue {
 	b.value.canonical = b.canonical.String()
 	if b.needs.Has(NeedIdentity) {
-		b.value.identity = identityKey(PrimitiveString, b.identity.String())
+		b.value.identity = PrimitiveIdentityKey(PrimitiveString, b.identity.String())
 	}
 	if b.collectIDRefs {
 		// Union items carry the identity of the member that accepted each
@@ -1157,35 +1073,35 @@ func primitiveNeeds(t *typeDef, needs Needs) PrimitiveValueNeed {
 	return out
 }
 
-func parseAtomic(out *atomicValue, t *typeDef, normalized string, resolver Resolver, needs PrimitiveValueNeed) error {
+func parseAtomic(out *parsedValue, t *typeDef, normalized string, resolver Resolver, needs PrimitiveValueNeed) error {
 	if err := ValidateBuiltinDerived(BuiltinDerivedInput{Norm: normalized, Kind: t.builtin}); err != nil {
 		return err
 	}
-	out.kind = t.primitive
+	out.atom.kind = t.primitive
 	switch t.primitive {
 	case PrimitiveString, PrimitiveAnyURI, PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble, PrimitiveDuration:
 		return parseScalarAtomic(out, t.primitive, normalized, needs)
 	case PrimitiveDate, PrimitiveDateTime, PrimitiveTime, PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth:
 		return parseTemporalAtomic(out, t.primitive, normalized, needs)
 	case PrimitiveHexBinary, PrimitiveBase64Binary:
-		return parseBinaryAtomic(out, t.primitive, normalized, needs)
+		return parseBinaryAtomic(&out.atom, t.primitive, normalized, needs)
 	case PrimitiveQName, PrimitiveNotation:
-		return parseNameAtomic(out, t.primitive, normalized, resolver)
+		return parseNameAtomic(&out.atom, t.primitive, normalized, resolver)
 	default:
 		return ErrMetadata
 	}
 }
 
-func parseScalarAtomic(out *atomicValue, kind PrimitiveKind, normalized string, needs PrimitiveValueNeed) error {
+func parseScalarAtomic(out *parsedValue, kind PrimitiveKind, normalized string, needs PrimitiveValueNeed) error {
 	//nolint:exhaustive // parseAtomic routes only scalar primitive kinds here.
 	switch kind {
 	case PrimitiveString, PrimitiveAnyURI:
 		v, err := ParseTextValue(kind, normalized, needs)
-		out.text, out.length = v, v.Length
+		out.atom.lexical = lexicalValue{Canonical: v.Canonical, Length: v.Length}
 		return err
 	case PrimitiveBoolean:
 		v, err := ParseBooleanValue(normalized)
-		out.boolean = v
+		out.atom.boolean = v
 		return err
 	case PrimitiveDecimal:
 		v, err := ParseDecimalValue(normalized)
@@ -1193,22 +1109,23 @@ func parseScalarAtomic(out *atomicValue, kind PrimitiveKind, normalized string, 
 			v.Canonical = v.CanonicalText()
 			v.IntegerCanonical = v.IntegerCanonicalText()
 		}
-		out.decimal = v
+		out.atom.decimal = v
 		return err
 	case PrimitiveFloat, PrimitiveDouble:
 		v, err := ParseFloatValue(kind, normalized, needs)
-		out.float = v
+		out.atom.float = v.Value
+		out.canonical = v.Canonical
 		return err
 	case PrimitiveDuration:
 		v, err := ParseDurationValue(normalized)
-		out.duration = v
+		out.atom.duration = v
 		return err
 	default:
 		return ErrMetadata
 	}
 }
 
-func parseTemporalAtomic(out *atomicValue, kind PrimitiveKind, normalized string, needs PrimitiveValueNeed) error {
+func parseTemporalAtomic(out *parsedValue, kind PrimitiveKind, normalized string, needs PrimitiveValueNeed) error {
 	//nolint:exhaustive // parseAtomic routes only temporal primitive kinds here.
 	switch kind {
 	case PrimitiveDate:
@@ -1216,7 +1133,7 @@ func parseTemporalAtomic(out *atomicValue, kind PrimitiveKind, normalized string
 		if err != nil {
 			return err
 		}
-		out.temporal = v.Temporal()
+		out.atom.temporal = v.Temporal()
 		if needs.Has(PrimitiveNeedCanonical) {
 			out.canonical = v.CanonicalText()
 		}
@@ -1226,18 +1143,18 @@ func parseTemporalAtomic(out *atomicValue, kind PrimitiveKind, normalized string
 		if err != nil {
 			return err
 		}
-		out.temporal = v.Temporal()
+		out.atom.temporal = v.Temporal()
 		if needs.Has(PrimitiveNeedCanonical) {
 			out.canonical = v.CanonicalText()
 		}
 		return nil
 	case PrimitiveTime:
 		v, err := ParseTimeValue(normalized)
-		out.time = v
+		out.atom.time = v
 		return err
 	case PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth:
 		v, err := ParseGValue(kind, normalized)
-		out.g = v
+		out.atom.g = v
 		return err
 	default:
 		return ErrMetadata
@@ -1246,7 +1163,7 @@ func parseTemporalAtomic(out *atomicValue, kind PrimitiveKind, normalized string
 
 func parseBinaryAtomic(out *atomicValue, kind PrimitiveKind, normalized string, needs PrimitiveValueNeed) error {
 	v, err := ParseBinaryValue(kind, normalized, needs)
-	out.binary, out.length = v, v.Length
+	out.lexical = lexicalValue(v)
 	return err
 }
 
@@ -1268,23 +1185,18 @@ func parseNameAtomic(out *atomicValue, kind PrimitiveKind, normalized string, re
 		if resolver.Notation == nil || !resolver.Notation(name.Namespace, name.Local) {
 			return errors.New("undeclared notation")
 		}
-		out.notation = name
-		return nil
 	}
-	out.qname = name
+	out.expandedName = name
 	return nil
 }
 
 func atomicCanonical(builtin BuiltinKind, atom *atomicValue, source string) string {
-	if atom.canonical != "" {
-		return atom.canonical
-	}
 	if builtin == BuiltinInteger {
 		return atom.decimal.IntegerCanonicalText()
 	}
 	switch atom.kind {
-	case PrimitiveString, PrimitiveAnyURI:
-		return atom.text.Canonical
+	case PrimitiveString, PrimitiveAnyURI, PrimitiveHexBinary, PrimitiveBase64Binary:
+		return atom.lexical.Canonical
 	case PrimitiveBoolean:
 		if atom.boolean {
 			return "true"
@@ -1292,10 +1204,6 @@ func atomicCanonical(builtin BuiltinKind, atom *atomicValue, source string) stri
 		return "false"
 	case PrimitiveDecimal:
 		return atom.decimal.CanonicalText()
-	case PrimitiveDate, PrimitiveDateTime:
-		return atom.canonical
-	case PrimitiveFloat, PrimitiveDouble:
-		return atom.float.Canonical
 	case PrimitiveDuration:
 		// XSD 1.0 has no canonical duration lexical form. Keep the
 		// whitespace-normalized source as the lexical projection while the
@@ -1305,15 +1213,12 @@ func atomicCanonical(builtin BuiltinKind, atom *atomicValue, source string) stri
 		return atom.time.CanonicalText()
 	case PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth:
 		return atom.g.CanonicalText()
-	case PrimitiveHexBinary, PrimitiveBase64Binary:
-		return atom.binary.Canonical
-	case PrimitiveQName:
-		return formatExpandedName(atom.qname.Namespace, atom.qname.Local)
-	case PrimitiveNotation:
-		return formatExpandedName(atom.notation.Namespace, atom.notation.Local)
-	default:
-		return ""
+	case PrimitiveQName, PrimitiveNotation:
+		return formatExpandedName(atom.expandedName.Namespace, atom.expandedName.Local)
+	case PrimitiveDate, PrimitiveDateTime, PrimitiveFloat, PrimitiveDouble:
+		// Float and date parsers write requested text directly to parsedValue.
 	}
+	return ""
 }
 
 func normalize(s string, mode WhitespaceMode) string {
@@ -1326,20 +1231,11 @@ func normalize(s string, mode WhitespaceMode) string {
 	return s
 }
 
-func isListWhitespace(c byte) bool {
-	switch c {
-	case ' ', '\t', '\n', '\r':
-		return true
-	default:
-		return false
-	}
-}
-
 func listFieldCount(s string) uint64 {
 	var count uint64
 	inField := false
 	for i := range len(s) {
-		if isListWhitespace(s[i]) {
+		if lex.IsXMLWhitespaceByte(s[i]) {
 			inField = false
 			continue
 		}
@@ -1351,15 +1247,15 @@ func listFieldCount(s string) uint64 {
 	return count
 }
 
-func nextListField(s string, start int) (field string, next int, ok bool) {
-	for start < len(s) && isListWhitespace(s[start]) {
+func nextListField[T byteText](s T, start int) (field T, next int, ok bool) {
+	for start < len(s) && lex.IsXMLWhitespaceByte(s[start]) {
 		start++
 	}
 	if start == len(s) {
-		return "", start, false
+		return field, start, false
 	}
 	next = start
-	for next < len(s) && !isListWhitespace(s[next]) {
+	for next < len(s) && !lex.IsXMLWhitespaceByte(s[next]) {
 		next++
 	}
 	return s[start:next], next, true
@@ -1373,36 +1269,20 @@ func effectiveWhitespace(p *Program, id TypeID) WhitespaceMode {
 }
 
 func valueIdentity(v *parsedValue) string {
-	if v.isList {
-		var b strings.Builder
-		var length [20]byte
-		for _, item := range v.items {
-			text := item.identity
-			if text == "" {
-				text = item.canonical
-			}
-			appendListIdentityItem(&b, text, &length)
-		}
-		return b.String()
-	}
 	if v.atom.kind == PrimitiveDuration {
-		return identityKey(v.atom.kind, durationIdentityCanonical(v.atom.duration))
+		return PrimitiveIdentityKey(v.atom.kind, durationIdentityCanonical(v.atom.duration))
 	}
 	if v.atom.kind == PrimitiveDecimal {
 		// Integer-derived builtins share the decimal value space; their
 		// integer presentation must not change equality with xs:decimal.
-		return identityKey(v.atom.kind, v.atom.decimal.CanonicalText())
+		return PrimitiveIdentityKey(v.atom.kind, v.atom.decimal.CanonicalText())
 	}
 	//nolint:exhaustive // Only g* values need a separate value-space identity projection.
 	switch v.atom.kind {
 	case PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth:
-		return identityKey(v.atom.kind, v.atom.g.identityCanonical())
+		return PrimitiveIdentityKey(v.atom.kind, v.atom.g.identityCanonical())
 	}
-	return identityKey(v.atom.kind, v.canonical)
-}
-
-func identityKey(kind PrimitiveKind, canonical string) string {
-	return PrimitiveIdentityKey(kind, canonical)
+	return PrimitiveIdentityKey(v.atom.kind, v.canonical)
 }
 
 func appendListIdentityItem(b *strings.Builder, item string, digits *[20]byte) {
@@ -1424,13 +1304,13 @@ func equalAtomic(a, b *atomicValue) bool {
 	}
 	switch a.kind {
 	case PrimitiveString, PrimitiveAnyURI:
-		return a.text.Canonical == b.text.Canonical
+		return a.lexical.Canonical == b.lexical.Canonical
 	case PrimitiveBoolean:
 		return a.boolean == b.boolean
 	case PrimitiveDecimal:
 		return CompareDecimalValues(a.decimal, b.decimal) == 0
 	case PrimitiveFloat, PrimitiveDouble:
-		return EqualFloatValues(a.float.Value, b.float.Value)
+		return EqualFloatValues(a.float, b.float)
 	case PrimitiveDuration:
 		return EqualDurationValues(a.duration, b.duration)
 	case PrimitiveDate, PrimitiveDateTime:
@@ -1441,18 +1321,16 @@ func equalAtomic(a, b *atomicValue) bool {
 		return EqualGValues(a.g, b.g)
 	case PrimitiveHexBinary, PrimitiveBase64Binary:
 		if a.kind == PrimitiveHexBinary {
-			return strings.EqualFold(a.binary.Canonical, b.binary.Canonical)
+			return strings.EqualFold(a.lexical.Canonical, b.lexical.Canonical)
 		}
-		if a.binary.canonicalReady && b.binary.canonicalReady {
-			return a.binary.Canonical == b.binary.Canonical
+		if a.lexical.canonicalReady && b.lexical.canonicalReady {
+			return a.lexical.Canonical == b.lexical.Canonical
 		}
-		left, leftErr := decodeBase64Binary(a.binary.Canonical)
-		right, rightErr := decodeBase64Binary(b.binary.Canonical)
+		left, leftErr := decodeBase64Binary(a.lexical.Canonical)
+		right, rightErr := decodeBase64Binary(b.lexical.Canonical)
 		return leftErr == nil && rightErr == nil && bytes.Equal(left, right)
-	case PrimitiveQName:
-		return a.qname == b.qname
-	case PrimitiveNotation:
-		return a.notation == b.notation
+	case PrimitiveQName, PrimitiveNotation:
+		return a.expandedName == b.expandedName
 	default:
 		return false
 	}
@@ -1461,7 +1339,7 @@ func equalAtomic(a, b *atomicValue) bool {
 // prepareBase64Canonical compacts one document-local value when an
 // enumeration comparison needs its value-space spelling. Schema literals are
 // parsed with PrimitiveNeedCanonical and are ready before publication.
-func prepareBase64Canonical(binary *BinaryValue) {
+func prepareBase64Canonical(binary *lexicalValue) {
 	if binary.canonicalReady {
 		return
 	}
@@ -1509,7 +1387,7 @@ func applyLengthFacet(f *facetProgram, value *parsedValue) error {
 	}
 	length := value.count
 	if !value.isList {
-		length = value.atom.length
+		length = value.atom.lexical.Length
 	}
 	if lengthFacetViolation(f, length) {
 		return facetFailure("length facet failed")
@@ -1604,7 +1482,7 @@ func prepareBase64EnumerationValue(value *parsedValue) {
 		return
 	}
 	if value.atom.kind == PrimitiveBase64Binary {
-		prepareBase64Canonical(&value.atom.binary)
+		prepareBase64Canonical(&value.atom.lexical)
 	}
 }
 
@@ -1618,38 +1496,38 @@ func patternMatchOptions(scratch *Scratch) (options xsdregex.MatchOptions) {
 func applyBounds(lowers, uppers []boundValue, value *parsedValue) error {
 	for i := range lowers {
 		bound := &lowers[i]
-		relation, ok := compareValue(value, &bound.value)
-		if !ok || !OrderedFacetLowerBoundAccepts(boundKind(*bound), relation) {
+		relation, ok := compareAtomic(&value.atom, &bound.value)
+		if !ok || !OrderedFacetLowerBoundAccepts(bound.exclusive, relation) {
 			return facetFailure("lower bound facet failed")
 		}
 	}
 	for i := range uppers {
 		bound := &uppers[i]
-		relation, ok := compareValue(value, &bound.value)
-		if !ok || !OrderedFacetUpperBoundAccepts(boundKind(*bound), relation) {
+		relation, ok := compareAtomic(&value.atom, &bound.value)
+		if !ok || !OrderedFacetUpperBoundAccepts(bound.exclusive, relation) {
 			return facetFailure("upper bound facet failed")
 		}
 	}
 	return nil
 }
 
-func compareValue(a, b *parsedValue) (OrderedFacetRelation, bool) {
-	if a.atom.kind != b.atom.kind {
+func compareAtomic(a, b *atomicValue) (OrderedFacetRelation, bool) {
+	if a.kind != b.kind {
 		return OrderedFacetIncomparable, false
 	}
-	switch a.atom.kind {
+	switch a.kind {
 	case PrimitiveDecimal:
-		return orderedFacetRelationFromInt(CompareDecimalValues(a.atom.decimal, b.atom.decimal)), true
+		return orderedFacetRelationFromInt(CompareDecimalValues(a.decimal, b.decimal)), true
 	case PrimitiveFloat, PrimitiveDouble:
-		return FloatRelation(a.atom.float.Value, b.atom.float.Value), true
+		return FloatRelation(a.float, b.float), true
 	case PrimitiveDuration:
-		return CompareDurationValues(a.atom.duration, b.atom.duration), true
+		return CompareDurationValues(a.duration, b.duration), true
 	case PrimitiveDate, PrimitiveDateTime:
-		return CompareTemporalValues(a.atom.temporal, b.atom.temporal), true
+		return CompareTemporalValues(a.temporal, b.temporal), true
 	case PrimitiveTime:
-		return CompareTimePartial(a.atom.time, b.atom.time), true
+		return CompareTimePartial(a.time, b.time), true
 	case PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth:
-		return CompareGValues(a.atom.g, b.atom.g), true
+		return CompareGValues(a.g, b.g), true
 	case PrimitiveString, PrimitiveBoolean, PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
 		return OrderedFacetIncomparable, false
 	}

@@ -3,6 +3,8 @@ package value
 import (
 	"errors"
 	"testing"
+
+	"github.com/jacoelho/xsd/internal/xsdregex"
 )
 
 func minimalBuilderTypeSpec() TypeSpec {
@@ -142,22 +144,26 @@ func TestBuilderReserveCapacityKeepsCompletionStateAfterReserve(t *testing.T) {
 	}
 }
 
-func TestBuilderAddConsumesReservedSlotWithoutDoubleCharge(t *testing.T) {
+func TestBuilderReserveCompleteConsumesReservedSlotWithoutDoubleCharge(t *testing.T) {
 	t.Parallel()
 
 	builder := NewBuilder(BuilderOptions{MaxStorageBytes: typeStorageBase})
 	if err := builder.ReserveCapacity(1); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := builder.Add(minimalBuilderTypeSpec()); err != nil {
-		t.Fatalf("Add() error = %v", err)
+	reservedID, reserveErr := builder.Reserve()
+	if reserveErr != nil {
+		t.Fatalf("Reserve() error = %v", reserveErr)
+	}
+	if err := builder.Complete(reservedID, minimalBuilderTypeSpec()); err != nil {
+		t.Fatalf("Complete() error = %v", err)
 	}
 	if _, err := builder.Seal(); err != nil {
 		t.Fatalf("Seal() error = %v", err)
 	}
 }
 
-func TestBuilderAddAndReserveCompleteChargeMetadataOnce(t *testing.T) {
+func TestBuilderReserveCompleteChargesMetadataOnce(t *testing.T) {
 	t.Parallel()
 
 	spec := metadataBuilderTypeSpec()
@@ -187,26 +193,9 @@ func TestBuilderAddAndReserveCompleteChargeMetadataOnce(t *testing.T) {
 			t.Fatalf("Seal() = %v", err)
 		}
 	})
-
-	t.Run("queue and seal", func(t *testing.T) {
-		t.Parallel()
-
-		builder := NewBuilder(BuilderOptions{MaxStorageBytes: maxStorage})
-		for i := range 2 {
-			if _, err := builder.Add(spec); err != nil {
-				t.Fatalf("Add(%d) = %v", i, err)
-			}
-		}
-		if _, err := builder.Add(spec); !errors.Is(err, ErrLimit) {
-			t.Fatalf("Add() after exact admission = %v, want ErrLimit", err)
-		}
-		if _, err := builder.Seal(); err != nil {
-			t.Fatalf("Seal() = %v", err)
-		}
-	})
 }
 
-func TestBuilderQueuedTypesWithPreallocationChargeMetadataOnce(t *testing.T) {
+func TestBuilderCompletedTypesWithPreallocationChargeMetadataOnce(t *testing.T) {
 	t.Parallel()
 
 	spec := metadataBuilderTypeSpec()
@@ -219,8 +208,12 @@ func TestBuilderQueuedTypesWithPreallocationChargeMetadataOnce(t *testing.T) {
 		t.Fatalf("ReserveCapacity() = %v", err)
 	}
 	for i := range 2 {
-		if _, err := builder.Add(spec); err != nil {
-			t.Fatalf("Add(%d) = %v", i, err)
+		reservedID, reserveErr := builder.Reserve()
+		if reserveErr != nil {
+			t.Fatalf("Reserve() error = %v", reserveErr)
+		}
+		if err := builder.Complete(reservedID, spec); err != nil {
+			t.Fatalf("Complete(%d) = %v", i, err)
 		}
 	}
 	if _, err := builder.Seal(); err != nil {
@@ -310,5 +303,107 @@ func TestBuilderReserveCapacityGrowsToRequestedTargetAfterSlack(t *testing.T) {
 	}
 	if cap(builder.program.types) < secondTarget || cap(builder.program.complete) < secondTarget {
 		t.Fatalf("capacity after repeated growth=%d/%d, want at least %d", cap(builder.program.types), cap(builder.program.complete), secondTarget)
+	}
+}
+
+func TestBuilderCompletionRequiresCompletedDependencies(t *testing.T) {
+	t.Parallel()
+	builder := NewBuilder(BuilderOptions{})
+	derived, reserveErr := builder.Reserve()
+	if reserveErr != nil {
+		t.Fatal(reserveErr)
+	}
+	base, reserveErr := builder.Reserve()
+	if reserveErr != nil {
+		t.Fatal(reserveErr)
+	}
+	neighbor, reserveErr := builder.Reserve()
+	if reserveErr != nil {
+		t.Fatal(reserveErr)
+	}
+	if derived != BuiltinTypeCount || base != BuiltinTypeCount+1 || neighbor != BuiltinTypeCount+2 {
+		t.Fatalf("reserved IDs = %d, %d, %d", derived, base, neighbor)
+	}
+	if err := builder.Complete(neighbor, minimalBuilderTypeSpec()); err != nil {
+		t.Fatal(err)
+	}
+	derivedSpec := TypeSpec{Variety: Atomic, Primitive: PrimitiveDecimal, Whitespace: WhitespaceCollapse, WhitespacePresent: true, Base: base, ListItem: NoType}
+	if err := builder.Complete(derived, derivedSpec); !errors.Is(err, ErrMetadata) {
+		t.Fatalf("Complete before base = %v, want ErrMetadata", err)
+	}
+	if _, available := builder.TypeView(derived); available {
+		t.Fatal("failed completion made type metadata available")
+	}
+	if _, available := builder.InputRequirements(derived); available {
+		t.Fatal("failed completion made input requirements available")
+	}
+	if _, err := builder.Validate(derived, "10", Resolver{}, 0, nil); !errors.Is(err, ErrMetadata) {
+		t.Fatalf("Validate incomplete type = %v, want ErrMetadata", err)
+	}
+	if _, err := builder.Seal(); !errors.Is(err, ErrMetadata) {
+		t.Fatalf("Seal incomplete builder = %v, want ErrMetadata", err)
+	}
+	if got, err := builder.Validate(neighbor, "unchanged", Resolver{}, NeedCanonical, nil); err != nil || got.CanonicalText() != "unchanged" {
+		t.Fatalf("completed neighbor after failed Seal = %q, %v", got.CanonicalText(), err)
+	}
+	baseSpec := TypeSpec{Variety: Atomic, Primitive: PrimitiveDecimal, Whitespace: WhitespaceCollapse, WhitespacePresent: true, Base: NoType, ListItem: NoType, Facets: FacetSpec{MinInclusive: BoundFacet{Present: true, LiteralSpec: LiteralSpec{Lexical: "10", Type: NoType}}}}
+	if err := builder.Complete(base, baseSpec); err != nil {
+		t.Fatal(err)
+	}
+	if err := builder.Complete(derived, derivedSpec); err != nil {
+		t.Fatal(err)
+	}
+	program, err := builder.Seal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := program.Validate(derived, "9", Resolver{}, 0, 16<<20, nil); !errors.Is(err, ErrFacet) {
+		t.Fatalf("derived value below inherited bound = %v, want ErrFacet", err)
+	}
+	if _, err := program.Validate(derived, "10", Resolver{}, 0, 16<<20, nil); err != nil {
+		t.Fatalf("derived value at inherited bound = %v", err)
+	}
+	if got, err := program.Validate(neighbor, "unchanged", Resolver{}, NeedCanonical, 16<<20, nil); err != nil || got.CanonicalText() != "unchanged" {
+		t.Fatalf("published neighbor = %q, %v", got.CanonicalText(), err)
+	}
+}
+
+func TestBuilderCompleteOwnsSourceMetadata(t *testing.T) {
+	t.Parallel()
+	pattern, patternErr := xsdregex.Compile("true", xsdregex.CompileOptions{})
+	if patternErr != nil {
+		t.Fatal(patternErr)
+	}
+	replacement, replacementErr := xsdregex.Compile("false", xsdregex.CompileOptions{})
+	if replacementErr != nil {
+		t.Fatal(replacementErr)
+	}
+	spec := TypeSpec{Variety: Union, Whitespace: WhitespaceCollapse, WhitespacePresent: true, Base: NoType, ListItem: NoType, Union: []TypeID{builtinBoolean, builtinDecimal}, Facets: FacetSpec{Patterns: [][]*Pattern{{pattern}}, Enumeration: []LiteralSpec{{Lexical: "true", Type: NoType}}}}
+	builder := NewBuilder(BuilderOptions{})
+	id, reserveErr := builder.Reserve()
+	if reserveErr != nil {
+		t.Fatal(reserveErr)
+	}
+	if err := builder.Complete(id, spec); err != nil {
+		t.Fatal(err)
+	}
+	spec.Union[0] = builtinDecimal
+	spec.Facets.Patterns[0][0] = replacement
+	spec.Facets.Enumeration[0].Lexical = "false"
+	if got, err := builder.Validate(id, "true", Resolver{}, NeedCanonical, nil); err != nil || got.CanonicalText() != "true" || got.SelectedType() != builtinBoolean {
+		t.Fatalf("builder original value = canonical %q selected %d error %v, want true/boolean", got.CanonicalText(), got.SelectedType(), err)
+	}
+	if _, err := builder.Validate(id, "false", Resolver{}, 0, nil); !errors.Is(err, ErrFacet) {
+		t.Fatalf("builder replacement value = %v, want ErrFacet", err)
+	}
+	program, err := builder.Seal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := program.Validate(id, "true", Resolver{}, NeedCanonical, 16<<20, nil); err != nil || got.CanonicalText() != "true" || got.SelectedType() != builtinBoolean {
+		t.Fatalf("published original value = canonical %q selected %d error %v, want true/boolean", got.CanonicalText(), got.SelectedType(), err)
+	}
+	if _, err := program.Validate(id, "false", Resolver{}, 0, 16<<20, nil); !errors.Is(err, ErrFacet) {
+		t.Fatalf("published replacement value = %v, want ErrFacet", err)
 	}
 }

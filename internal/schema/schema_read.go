@@ -16,11 +16,6 @@ func (rt *Schema) HasIdentityConstraints() bool {
 	return rt.program.IdentityDispatch.ConstraintCount() != 0
 }
 
-// IdentityConstraint returns the aggregate validation read for an identity constraint.
-func (rt *Schema) IdentityConstraint(id IdentityConstraintID) (IdentityConstraintRead, bool) {
-	return rt.program.IdentityDispatch.identityConstraint(id)
-}
-
 // IdentityDispatch returns the immutable selector and field dispatch index
 // derived during schema publication.
 func (rt *Schema) IdentityDispatch() IdentityDispatchRead {
@@ -96,9 +91,7 @@ func (rt *Schema) complexElementFrame(frame ElementFrameRead, id ComplexTypeID) 
 		return ElementFrameRead{}, false
 	}
 	frame.Content = content
-	simple := read.simpleContent()
-	if simple.HasSimpleContent() {
-		textType := simple.TypeID()
+	if textType, present := read.simpleContent(); present {
 		_, _, valid := rt.simpleTypeAvailability(textType)
 		if !valid {
 			return ElementFrameRead{}, false

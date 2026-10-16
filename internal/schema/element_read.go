@@ -18,7 +18,7 @@ type elementReadMeta struct {
 
 type elementConstraintRead struct {
 	value ValueConstraintRead
-	fixed bool
+	kind  DeclarationValueConstraint
 }
 
 // elementReadTable is the sole published owner of element declaration facts.
@@ -84,12 +84,12 @@ func elementFlags(decl ElementDecl) elementReadFlags {
 func (t *elementReadTable) addValueConstraint(decl ElementDecl) int {
 	if decl.Fixed != nil {
 		value, _ := newValueConstraintReadFromConstraint(decl.Fixed)
-		t.constraints = append(t.constraints, elementConstraintRead{value: value, fixed: true})
+		t.constraints = append(t.constraints, elementConstraintRead{value: value, kind: DeclarationValueConstraintFixed})
 		return len(t.constraints) - 1
 	}
 	if decl.Default != nil {
 		value, _ := newValueConstraintReadFromConstraint(decl.Default)
-		t.constraints = append(t.constraints, elementConstraintRead{value: value})
+		t.constraints = append(t.constraints, elementConstraintRead{value: value, kind: DeclarationValueConstraintDefault})
 		return len(t.constraints) - 1
 	}
 	return -1
@@ -116,8 +116,8 @@ func (t *elementReadTable) start(id ElementID) (ElementStartInfo, bool) {
 		Block:    meta.block,
 		Abstract: meta.flags&elementReadAbstract != 0,
 		Nillable: meta.flags&elementReadNillable != 0,
-		Fixed:    constraint != nil && constraint.fixed,
-		Default:  constraint != nil && !constraint.fixed,
+		Fixed:    constraint != nil && constraint.kind == DeclarationValueConstraintFixed,
+		Default:  constraint != nil && constraint.kind == DeclarationValueConstraintDefault,
 	}, true
 }
 
@@ -146,12 +146,9 @@ func (t *elementReadTable) valueConstraints(id ElementID) (constraints ElementVa
 		return ElementValueConstraints{}, false, false
 	}
 	if constraint == nil {
-		return newElementValueConstraints(meta.typ, ValueConstraintRead{}, false, ValueConstraintRead{}, false), true, true
+		return ElementValueConstraints{owner: meta.typ}, true, true
 	}
-	if constraint.fixed {
-		return newElementValueConstraints(meta.typ, constraint.value, true, ValueConstraintRead{}, false), true, true
-	}
-	return newElementValueConstraints(meta.typ, ValueConstraintRead{}, false, constraint.value, true), true, true
+	return ElementValueConstraints{constraint: *constraint, owner: meta.typ}, true, true
 }
 
 func (t *elementReadTable) constraintAt(index int) (*elementConstraintRead, bool) {
@@ -175,7 +172,7 @@ func (t *elementReadTable) constraintFlags(id ElementID) (fixed, present, valid 
 	if constraint == nil {
 		return false, false, valid
 	}
-	return constraint.fixed, true, true
+	return constraint.kind == DeclarationValueConstraintFixed, true, true
 }
 
 func effectiveElementBlock(decl ElementDecl, complexTypes []ComplexType) DerivationMask {

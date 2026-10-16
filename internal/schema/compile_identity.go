@@ -17,12 +17,12 @@ func identityConstraintNodes(n *schemaNode) []*schemaNode {
 }
 
 func (c *compiler) declareAllIdentityConstraints() error {
-	for _, document := range c.plan.documents {
-		if !document.indexDeclarations {
+	for i := range c.plan.documents {
+		ctx := &c.plan.documents[i]
+		if !ctx.indexDeclarations {
 			continue
 		}
-		doc := document.doc
-		ctx := newSchemaContext(document)
+		doc := ctx.doc
 		if err := c.declareIdentityConstraintsInTree(doc.root, ctx); err != nil {
 			return err
 		}
@@ -30,13 +30,13 @@ func (c *compiler) declareAllIdentityConstraints() error {
 	return nil
 }
 
-func (c *compiler) declareIdentityConstraintsInTree(n *schemaNode, ctx *schemaContext) error {
-	if n.kind == schemaKindElement {
+func (c *compiler) declareIdentityConstraintsInTree(n *schemaNode, ctx *schemaSetDocument) error {
+	if n.local == vocab.XSDElemElement {
 		if _, err := c.declareIdentityConstraints(identityConstraintNodes(n), ctx); err != nil {
 			return err
 		}
 	}
-	for _, child := range typedXSDChildren(n) {
+	for child := range n.xsdChildren() {
 		if err := c.declareIdentityConstraintsInTree(child, ctx); err != nil {
 			return err
 		}
@@ -44,7 +44,7 @@ func (c *compiler) declareIdentityConstraintsInTree(n *schemaNode, ctx *schemaCo
 	return nil
 }
 
-func (c *compiler) declareIdentityConstraints(nodes []*schemaNode, ctx *schemaContext) ([]IdentityConstraintID, error) {
+func (c *compiler) declareIdentityConstraints(nodes []*schemaNode, ctx *schemaSetDocument) ([]IdentityConstraintID, error) {
 	if len(nodes) == 0 {
 		return nil, nil
 	}
@@ -63,8 +63,8 @@ func (c *compiler) declareIdentityConstraints(nodes []*schemaNode, ctx *schemaCo
 	return ids, nil
 }
 
-func (c *compiler) declareIdentityConstraint(node *schemaNode, ctx *schemaContext) (IdentityConstraintID, error) {
-	source := node.semantic.identity()
+func (c *compiler) declareIdentityConstraint(node *schemaNode, ctx *schemaSetDocument) (IdentityConstraintID, error) {
+	source := semanticSource[*schemaIdentitySource](&node.semantic)
 	if source == nil {
 		return NoIdentityConstraint, withSchemaCompileLocation(node, xsderrors.InternalInvariant("identity node has no typed identity source"))
 	}
@@ -72,7 +72,7 @@ func (c *compiler) declareIdentityConstraint(node *schemaNode, ctx *schemaContex
 	if err := ValidateIdentityConstraintNameSource(name); err != nil {
 		return NoIdentityConstraint, withSchemaCompileLocation(node, err)
 	}
-	q, err := c.rt.internQName(ctx.targetNS, name.Value)
+	q, err := c.rt.internQName(ctx.effectiveTargetNS, name.Value)
 	if err != nil {
 		return NoIdentityConstraint, err
 	}
@@ -87,7 +87,7 @@ func (c *compiler) declareIdentityConstraint(node *schemaNode, ctx *schemaContex
 	return id, nil
 }
 
-func (c *compiler) compileDeclaredIdentityConstraints(nodes []*schemaNode, ids []IdentityConstraintID, ctx *schemaContext) error {
+func (c *compiler) compileDeclaredIdentityConstraints(nodes []*schemaNode, ids []IdentityConstraintID, ctx *schemaSetDocument) error {
 	for i, node := range nodes {
 		id := ids[i]
 		ic, err := c.compileIdentityConstraint(node, ctx, c.rt.identityName(id))
@@ -103,7 +103,7 @@ func (c *compiler) validateIdentityReferences() error {
 	return c.validateIdentityReferencesBuild()
 }
 
-func (c *compiler) compileIdentityConstraint(n *schemaNode, ctx *schemaContext, name QName) (IdentityConstraint, error) {
+func (c *compiler) compileIdentityConstraint(n *schemaNode, ctx *schemaSetDocument, name QName) (IdentityConstraint, error) {
 	empty := IdentityConstraint{Refer: NoIdentityConstraint}
 	syntax, err := checkIdentityConstraintChildren(n)
 	if err != nil {
@@ -114,7 +114,7 @@ func (c *compiler) compileIdentityConstraint(n *schemaNode, ctx *schemaContext, 
 		return empty, err
 	}
 	selector := syntax.selector
-	selectorSource := selector.semantic.identityXPath()
+	selectorSource := semanticSource[*schemaIdentityXPathSource](&selector.semantic)
 	if selectorSource == nil {
 		return empty, withSchemaCompileLocation(selector, xsderrors.InternalInvariant("identity selector has no typed XPath source"))
 	}
@@ -134,11 +134,11 @@ func (c *compiler) compileIdentityConstraint(n *schemaNode, ctx *schemaContext, 
 	return NewIdentityConstraint(kind, name, refer, paths, fields), nil
 }
 
-func (c *compiler) compileIdentityRefer(n *schemaNode, ctx *schemaContext) (IdentityConstraintID, error) {
+func (c *compiler) compileIdentityRefer(n *schemaNode, ctx *schemaSetDocument) (IdentityConstraintID, error) {
 	if n.local != vocab.XSDElemKeyref {
 		return NoIdentityConstraint, nil
 	}
-	typed := n.semantic.identity()
+	typed := semanticSource[*schemaIdentitySource](&n.semantic)
 	if typed == nil {
 		return NoIdentityConstraint, withSchemaCompileLocation(n, xsderrors.InternalInvariant("identity node has no typed identity source"))
 	}
@@ -146,7 +146,7 @@ func (c *compiler) compileIdentityRefer(n *schemaNode, ctx *schemaContext) (Iden
 	if err := ValidateIdentityConstraintReferSource(source); err != nil {
 		return NoIdentityConstraint, withSchemaCompileLocation(n, err)
 	}
-	q, err := c.resolveQNameChecked(n, ctx, source.Refer.Value)
+	q, err := c.referenceQName(n, ctx, typed.Refer.Name)
 	if err != nil {
 		return NoIdentityConstraint, err
 	}
@@ -160,7 +160,7 @@ func (c *compiler) compileIdentityRefer(n *schemaNode, ctx *schemaContext) (Iden
 func (c *compiler) compileIdentityFields(nodes []*schemaNode) ([]IdentityField, error) {
 	fields := make([]IdentityField, 0, len(nodes))
 	for _, field := range nodes {
-		source := field.semantic.identityXPath()
+		source := semanticSource[*schemaIdentityXPathSource](&field.semantic)
 		if source == nil {
 			return nil, withSchemaCompileLocation(field, xsderrors.InternalInvariant("identity field has no typed XPath source"))
 		}
@@ -217,5 +217,5 @@ func (r identityXPathResolver) ResolveIdentityWildcardNamespace(prefix string) (
 	if !ok {
 		return 0, schemaCompileAt(r.node, xsderrors.CodeSchemaReference, "unbound QName prefix "+prefix)
 	}
-	return r.compiler.rt.InternNamespace(ns)
+	return NewNameInterner(&r.compiler.rt.Names).InternNamespace(ns)
 }

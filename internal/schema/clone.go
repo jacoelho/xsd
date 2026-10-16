@@ -22,13 +22,6 @@ func CloneSimpleTypeDerivation(in SimpleTypeDerivation) SimpleTypeDerivation {
 	return in
 }
 
-// CloneValueConstraintSimpleType deep-clones value-constraint simple-type
-// projection metadata.
-func CloneValueConstraintSimpleType(in ValueConstraintSimpleType) ValueConstraintSimpleType {
-	in.Union = slices.Clone(in.Union)
-	return in
-}
-
 // CloneValueConstraintIdentity deep-clones value-constraint identity
 // projection metadata.
 func CloneValueConstraintIdentity(in ValueConstraintIdentity) ValueConstraintIdentity {

@@ -85,6 +85,16 @@ func TestParseOccurrence(t *testing.T) {
 			attrs: OccurrenceAttrs{MaxOccurs: "4294967295", HasMaxOccurs: true},
 			want:  Occurrence{Min: 1, Max: ^uint32(0)},
 		},
+		{name: "long zero prefixes", attrs: OccurrenceAttrs{MinOccurs: strings.Repeat("0", 1024) + "2", MaxOccurs: strings.Repeat("0", 1024) + "3", HasMinOccurs: true, HasMaxOccurs: true}, want: Occurrence{Min: 2, Max: 3}},
+		{name: "long all zero", attrs: OccurrenceAttrs{MinOccurs: strings.Repeat("0", 1024), MaxOccurs: strings.Repeat("0", 1024), HasMinOccurs: true, HasMaxOccurs: true}},
+		{name: "negative zero min", attrs: OccurrenceAttrs{MinOccurs: "-0", HasMinOccurs: true}, wantCode: xsderrors.CodeSchemaOccurrence, wantText: "invalid minOccurs -0"},
+		{name: "negative zero max", attrs: OccurrenceAttrs{MaxOccurs: "-0", HasMaxOccurs: true}, wantCode: xsderrors.CodeSchemaOccurrence, wantText: "invalid maxOccurs -0"},
+		{name: "huge magnitude", attrs: OccurrenceAttrs{MaxOccurs: strings.Repeat("9", 256), HasMaxOccurs: true}, wantCode: xsderrors.CodeSchemaLimit, wantText: "maxOccurs exceeds uint32 limit"},
+		{name: "overflow malformed tail", attrs: OccurrenceAttrs{MaxOccurs: strings.Repeat("9", 256) + "x", HasMaxOccurs: true}, limits: Limits{MaxFiniteOccurs: 10}, wantCode: xsderrors.CodeSchemaOccurrence, wantText: "invalid maxOccurs " + strings.Repeat("9", 256) + "x"},
+		{name: "minimum lexical error first", attrs: OccurrenceAttrs{MinOccurs: "x", MaxOccurs: "y", HasMinOccurs: true, HasMaxOccurs: true}, wantCode: xsderrors.CodeSchemaOccurrence, wantText: "invalid minOccurs x"},
+		{name: "minimum limit error first", attrs: OccurrenceAttrs{MinOccurs: "4294967296", MaxOccurs: "y", HasMinOccurs: true, HasMaxOccurs: true}, wantCode: xsderrors.CodeSchemaLimit, wantText: "minOccurs exceeds uint32 limit"},
+		{name: "configured cap before ordering", attrs: OccurrenceAttrs{MinOccurs: "12", MaxOccurs: "11", HasMinOccurs: true, HasMaxOccurs: true}, limits: Limits{MaxFiniteOccurs: 10}, wantCode: xsderrors.CodeSchemaLimit, wantText: "maxOccurs exceeds configured limit"},
+		{name: "uint32 cap with large configured cap", attrs: OccurrenceAttrs{MaxOccurs: "4294967296", HasMaxOccurs: true}, limits: Limits{MaxFiniteOccurs: ^uint64(0)}, wantCode: xsderrors.CodeSchemaLimit, wantText: "maxOccurs exceeds uint32 limit"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -119,7 +129,7 @@ func TestMaxOccurrenceKindInvariant(t *testing.T) {
 	}{
 		{
 			name:    "finite",
-			maximum: maxOccurrence{digits: "3", value: 3, kind: maxOccurrenceFinite},
+			maximum: maxOccurrence{value: 3, kind: maxOccurrenceFinite},
 			want:    Occurrence{Min: 2, Max: 3},
 		},
 		{
@@ -142,7 +152,7 @@ func TestMaxOccurrenceKindInvariant(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := tt.maximum.withMinimum(2, "2")
+			got, err := tt.maximum.withMinimum(2)
 			if tt.wantText != "" {
 				expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 				if !strings.Contains(err.Error(), tt.wantText) {

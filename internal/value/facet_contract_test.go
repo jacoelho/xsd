@@ -1,6 +1,7 @@
 package value_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/value"
@@ -30,15 +31,20 @@ func boundFacet(lexical string) value.FacetSpec {
 func assertFacetDerivationRejected(t *testing.T, base, derived value.TypeSpec) {
 	t.Helper()
 	builder := value.NewBuilder(value.BuilderOptions{})
-	baseID, err := builder.Add(base)
+	baseID, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(baseID, base)
 	if err != nil {
 		t.Fatalf("add base type: %v", err)
 	}
 	derived.Base = baseID
-	if _, err := builder.Add(derived); err != nil {
-		return
+	reservedID, reserveErr := builder.Reserve()
+	if reserveErr != nil {
+		t.Fatalf("Reserve() error = %v", reserveErr)
 	}
-	if _, err := builder.Seal(); err == nil {
+	if err := builder.Complete(reservedID, derived); err == nil {
 		t.Fatal("facet derivation was accepted")
 	}
 }
@@ -215,7 +221,11 @@ func TestFacetContractSupportsListAndUnionFacets(t *testing.T) {
 		t.Fatal(err)
 	}
 	builder := value.NewBuilder(value.BuilderOptions{})
-	listID, err := builder.Add(value.TypeSpec{
+	listID, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(listID, value.TypeSpec{
 		Variety:           value.List,
 		Primitive:         value.PrimitiveString,
 		Whitespace:        value.WhitespaceCollapse,
@@ -230,7 +240,11 @@ func TestFacetContractSupportsListAndUnionFacets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	unionID, err := builder.Add(value.TypeSpec{
+	unionID, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(unionID, value.TypeSpec{
 		Variety:           value.Union,
 		Primitive:         value.PrimitiveString,
 		Whitespace:        value.WhitespaceCollapse,
@@ -277,27 +291,34 @@ func TestFacetContractRejectsForbiddenFacetFamilies(t *testing.T) {
 		t.Fatal(err)
 	}
 	tests := []struct {
-		name string
-		spec value.TypeSpec
+		name    string
+		wantErr string
+		spec    value.TypeSpec
 	}{
-		{name: "decimal length", spec: atomicFacetType(value.PrimitiveDecimal, value.FacetSpec{Length: value.CardinalityFacet{Value: 1, Present: true}})},
-		{name: "string bound", spec: atomicFacetType(value.PrimitiveString, value.FacetSpec{MinInclusive: value.BoundFacet{Lexical: "x", Type: value.NoType, Present: true}})},
-		{name: "string digits", spec: atomicFacetType(value.PrimitiveString, value.FacetSpec{TotalDigits: value.CardinalityFacet{Value: 1, Present: true}})},
-		{name: "list bound", spec: value.TypeSpec{Variety: value.List, Primitive: value.PrimitiveString, Whitespace: value.WhitespaceCollapse, WhitespacePresent: true, Base: value.NoType, ListItem: value.BuiltinType(value.PrimitiveString), Facets: value.FacetSpec{MinInclusive: value.BoundFacet{Lexical: "1", Type: value.NoType, Present: true}}}},
-		{name: "list digits", spec: value.TypeSpec{Variety: value.List, Primitive: value.PrimitiveString, Whitespace: value.WhitespaceCollapse, WhitespacePresent: true, Base: value.NoType, ListItem: value.BuiltinType(value.PrimitiveString), Facets: value.FacetSpec{TotalDigits: value.CardinalityFacet{Value: 1, Present: true}}}},
-		{name: "union length", spec: value.TypeSpec{Variety: value.Union, Primitive: value.PrimitiveString, Whitespace: value.WhitespaceCollapse, WhitespacePresent: true, Base: value.NoType, ListItem: value.NoType, Union: []value.TypeID{value.BuiltinType(value.PrimitiveString)}, Facets: value.FacetSpec{Length: value.CardinalityFacet{Value: 1, Present: true}}}},
-		{name: "union whitespace", spec: value.TypeSpec{Variety: value.Union, Primitive: value.PrimitiveString, Whitespace: value.WhitespaceCollapse, WhitespacePresent: true, Base: value.NoType, ListItem: value.NoType, Union: []value.TypeID{value.BuiltinType(value.PrimitiveString)}, Facets: value.FacetSpec{Present: value.FacetWhiteSpace}}},
-		{name: "union digits", spec: value.TypeSpec{Variety: value.Union, Primitive: value.PrimitiveString, Whitespace: value.WhitespaceCollapse, WhitespacePresent: true, Base: value.NoType, ListItem: value.NoType, Union: []value.TypeID{value.BuiltinType(value.PrimitiveString)}, Facets: value.FacetSpec{Patterns: [][]*value.Pattern{{pattern}}, TotalDigits: value.CardinalityFacet{Value: 1, Present: true}}}},
+		{name: "decimal length", wantErr: "length facets require a length-capable type", spec: atomicFacetType(value.PrimitiveDecimal, value.FacetSpec{Length: value.CardinalityFacet{Value: 1, Present: true}})},
+		{name: "string bound", wantErr: "ordered facets require an ordered atomic type", spec: atomicFacetType(value.PrimitiveString, value.FacetSpec{MinInclusive: value.BoundFacet{Lexical: "x", Type: value.NoType, Present: true}})},
+		{name: "string digits", wantErr: "digit facets require atomic decimal type", spec: atomicFacetType(value.PrimitiveString, value.FacetSpec{TotalDigits: value.CardinalityFacet{Value: 1, Present: true}})},
+		{name: "list bound", wantErr: "ordered facets require an ordered atomic type", spec: value.TypeSpec{Variety: value.List, Primitive: value.PrimitiveString, Whitespace: value.WhitespaceCollapse, WhitespacePresent: true, Base: value.NoType, ListItem: value.BuiltinType(value.PrimitiveString), Facets: value.FacetSpec{MinInclusive: value.BoundFacet{Lexical: "1", Type: value.NoType, Present: true}}}},
+		{name: "list digits", wantErr: "digit facets require atomic decimal type", spec: value.TypeSpec{Variety: value.List, Primitive: value.PrimitiveString, Whitespace: value.WhitespaceCollapse, WhitespacePresent: true, Base: value.NoType, ListItem: value.BuiltinType(value.PrimitiveString), Facets: value.FacetSpec{TotalDigits: value.CardinalityFacet{Value: 1, Present: true}}}},
+		{name: "union length", wantErr: "length facets are not valid on union types", spec: value.TypeSpec{Variety: value.Union, Primitive: value.PrimitiveString, Whitespace: value.WhitespaceCollapse, WhitespacePresent: true, Base: value.NoType, ListItem: value.NoType, Union: []value.TypeID{value.BuiltinType(value.PrimitiveString)}, Facets: value.FacetSpec{Length: value.CardinalityFacet{Value: 1, Present: true}}}},
+		{name: "union whitespace", wantErr: "facet is not allowed for simple type", spec: value.TypeSpec{Variety: value.Union, Primitive: value.PrimitiveString, Whitespace: value.WhitespaceCollapse, WhitespacePresent: true, Base: value.NoType, ListItem: value.NoType, Union: []value.TypeID{value.BuiltinType(value.PrimitiveString)}, Facets: value.FacetSpec{Present: value.FacetWhiteSpace}}},
+		{name: "union digits", wantErr: "digit facets require atomic decimal type", spec: value.TypeSpec{Variety: value.Union, Primitive: value.PrimitiveString, Whitespace: value.WhitespaceCollapse, WhitespacePresent: true, Base: value.NoType, ListItem: value.NoType, Union: []value.TypeID{value.BuiltinType(value.PrimitiveString)}, Facets: value.FacetSpec{Patterns: [][]*value.Pattern{{pattern}}, TotalDigits: value.CardinalityFacet{Value: 1, Present: true}}}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			builder := value.NewBuilder(value.BuilderOptions{})
-			if _, err := builder.Add(test.spec); err != nil {
+			reservedID, reserveErr := builder.Reserve()
+			if reserveErr != nil {
+				t.Fatalf("Reserve() error = %v", reserveErr)
+			}
+			completeErr := builder.Complete(reservedID, test.spec)
+			if completeErr == nil {
+				t.Error("forbidden facet family was accepted")
 				return
 			}
-			if _, err := builder.Seal(); err == nil {
-				t.Error("forbidden facet family was accepted")
+			if !errors.Is(completeErr, value.ErrFacet) || completeErr.Error() != test.wantErr {
+				t.Fatalf("Complete() = %v; want ErrFacet with %q", completeErr, test.wantErr)
 			}
 		})
 	}
@@ -353,13 +374,21 @@ func TestFacetContractUsesORWithinStepAndANDAcrossAncestors(t *testing.T) {
 		t.Fatal(err)
 	}
 	builder := value.NewBuilder(value.BuilderOptions{})
-	base, err := builder.Add(atomicFacetType(value.PrimitiveString, value.FacetSpec{
+	base, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(base, atomicFacetType(value.PrimitiveString, value.FacetSpec{
 		Patterns: [][]*value.Pattern{{basePattern}},
 	}))
 	if err != nil {
 		t.Fatal(err)
 	}
-	derived, err := builder.Add(value.TypeSpec{
+	derived, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(derived, value.TypeSpec{
 		Variety:           value.Atomic,
 		Primitive:         value.PrimitiveString,
 		Whitespace:        value.WhitespaceCollapse,
@@ -446,7 +475,11 @@ func TestFacetContractAllowsDirectAnySimpleTypeVarietyDerivation(t *testing.T) {
 		t.Fatal("anySimpleType builtin is missing")
 	}
 	builder := value.NewBuilder(value.BuilderOptions{})
-	list, err := builder.Add(value.TypeSpec{
+	list, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(list, value.TypeSpec{
 		Variety:           value.List,
 		Primitive:         value.PrimitiveString,
 		Whitespace:        value.WhitespaceCollapse,
@@ -460,7 +493,11 @@ func TestFacetContractAllowsDirectAnySimpleTypeVarietyDerivation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	union, err := builder.Add(value.TypeSpec{
+	union, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(union, value.TypeSpec{
 		Variety:           value.Union,
 		Primitive:         value.PrimitiveString,
 		Whitespace:        value.WhitespaceCollapse,
@@ -493,11 +530,19 @@ func TestFacetContractUsesValueSpaceForFixedAndPartialOrderedBounds(t *testing.T
 		return facets
 	}())
 	builder := value.NewBuilder(value.BuilderOptions{})
-	base, err := builder.Add(baseSpec)
+	base, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(base, baseSpec)
 	if err != nil {
 		t.Fatal(err)
 	}
-	derived, err := builder.Add(value.TypeSpec{
+	derived, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(derived, value.TypeSpec{
 		Variety:           value.Atomic,
 		Primitive:         value.PrimitiveDecimal,
 		Whitespace:        value.WhitespaceCollapse,
@@ -523,11 +568,19 @@ func TestFacetContractUsesValueSpaceForFixedAndPartialOrderedBounds(t *testing.T
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			b := value.NewBuilder(value.BuilderOptions{})
-			baseID, err := b.Add(atomicFacetType(value.PrimitiveDuration, boundFacet("P1D")))
+			baseID, err := b.Reserve()
+			if err != nil {
+				t.Fatalf("Reserve() error = %v", err)
+			}
+			err = b.Complete(baseID, atomicFacetType(value.PrimitiveDuration, boundFacet("P1D")))
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = b.Add(value.TypeSpec{
+			reservedID, reserveErr := b.Reserve()
+			if reserveErr != nil {
+				t.Fatalf("Reserve() error = %v", reserveErr)
+			}
+			err = b.Complete(reservedID, value.TypeSpec{
 				Variety:           value.Atomic,
 				Primitive:         value.PrimitiveDuration,
 				Whitespace:        value.WhitespaceCollapse,
@@ -536,11 +589,13 @@ func TestFacetContractUsesValueSpaceForFixedAndPartialOrderedBounds(t *testing.T
 				ListItem:          value.NoType,
 				Facets:            boundFacet(test.lexical),
 			})
-			if err != nil {
-				t.Fatal(err)
+			if (err != nil) != test.wantErr {
+				t.Fatalf("Complete() error = %v, wantErr=%v", err, test.wantErr)
 			}
-			if _, err := b.Seal(); (err != nil) != test.wantErr {
-				t.Fatalf("Seal() error = %v, wantErr=%v", err, test.wantErr)
+			if err == nil {
+				if _, sealErr := b.Seal(); sealErr != nil {
+					t.Fatalf("Seal() after successful completion = %v", sealErr)
+				}
 			}
 		})
 	}
@@ -566,7 +621,11 @@ func TestFacetContractAllowsIncomparablePartialOrderedBounds(t *testing.T) {
 				MinInclusive: value.BoundFacet{Lexical: test.lower, Type: value.NoType, Present: true},
 				MaxInclusive: value.BoundFacet{Lexical: test.upper, Type: value.NoType, Present: true},
 			})
-			if _, err := builder.Add(spec); err != nil {
+			reservedID, reserveErr := builder.Reserve()
+			if reserveErr != nil {
+				t.Fatalf("Reserve() error = %v", reserveErr)
+			}
+			if err := builder.Complete(reservedID, spec); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := builder.Seal(); err != nil {
@@ -609,10 +668,11 @@ func TestFacetContractRejectsEmptyEqualOrderedIntervals(t *testing.T) {
 				facets.MinExclusive = test.lowerBound
 			}
 			builder := value.NewBuilder(value.BuilderOptions{})
-			if _, err := builder.Add(atomicFacetType(value.PrimitiveDecimal, facets)); err != nil {
-				t.Fatal(err)
+			reservedID, reserveErr := builder.Reserve()
+			if reserveErr != nil {
+				t.Fatalf("Reserve() error = %v", reserveErr)
 			}
-			if _, err := builder.Seal(); err == nil {
+			if err := builder.Complete(reservedID, atomicFacetType(value.PrimitiveDecimal, facets)); err == nil {
 				t.Fatal("empty equal ordered interval was accepted")
 			}
 		})

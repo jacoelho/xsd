@@ -154,36 +154,49 @@ func TestModelKindForLocal(t *testing.T) {
 	}
 }
 
-func TestModelChildAdmissionForLocal(t *testing.T) {
+func TestModelChildAdmissionForNode(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		local       string
+		source      schemaSemanticKind
 		want        ModelChildAdmission
 		wantMessage string
 	}{
-		{local: elementChild, want: ModelChildAdmission{Kind: ModelChildElement}},
-		{local: anyChild, want: ModelChildAdmission{Kind: ModelChildWildcard}},
-		{local: groupChild, want: ModelChildAdmission{Kind: ModelChildModel}},
-		{local: sequenceChild, want: ModelChildAdmission{Kind: ModelChildModel, ModelKind: ModelSequence}},
-		{local: choiceChild, want: ModelChildAdmission{Kind: ModelChildModel, ModelKind: ModelChoice}},
-		{local: allChild, want: ModelChildAdmission{Kind: ModelChildModel, ModelKind: ModelAll}},
-		{local: attributeChild, wantMessage: "invalid model group child attribute"},
+		{local: "element", source: &schemaElementSource{}, want: ModelChildAdmission{Kind: ModelChildElement}},
+		{local: "any", source: &schemaWildcardSource{}, want: ModelChildAdmission{Kind: ModelChildWildcard}},
+		{local: "group", source: &schemaGroupSource{}, want: ModelChildAdmission{Kind: ModelChildModel}},
+		{local: "sequence", source: &schemaModelSource{Kind: ModelSequence}, want: ModelChildAdmission{Kind: ModelChildModel, ModelKind: ModelSequence}},
+		{local: "choice", source: &schemaModelSource{Kind: ModelChoice}, want: ModelChildAdmission{Kind: ModelChildModel, ModelKind: ModelChoice}},
+		{local: "all", source: &schemaModelSource{Kind: ModelAll}, want: ModelChildAdmission{Kind: ModelChildModel, ModelKind: ModelAll}},
+		{local: "attribute", source: &schemaAttributeSource{}, wantMessage: "invalid model group child attribute"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.local, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := ModelChildAdmissionForLocal(tt.local)
+			doc := &schemaDocument{name: "model-child.xsd"}
+			child := &schemaNode{doc: doc, id: 1, local: tt.local, semantic: schemaSemanticSource{kind: tt.source}, line: 4, column: 5}
 			if tt.wantMessage != "" {
+				parent := &schemaNode{doc: doc, local: "sequence", semantic: schemaSemanticSource{kind: &schemaModelSource{Kind: ModelSequence}}, children: []schemaNodeID{1}, line: 2, column: 3}
+				doc.arena = []*schemaNode{parent, child}
+				err := validateModelGroupSyntax(parent, Limits{})
 				expectSchemaContentModelMessage(t, err, tt.wantMessage)
+				diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+				if !ok {
+					t.Fatalf("model grammar error = %T %[1]v, want xsderrors.Error", err)
+				}
+				if diagnostic.Path() != "model-child.xsd" || diagnostic.Line() != 4 || diagnostic.Column() != 5 {
+					t.Fatalf("location = {%q %d %d}, want {model-child.xsd 4 5}", diagnostic.Path(), diagnostic.Line(), diagnostic.Column())
+				}
 				return
 			}
+			got, err := modelChildAdmissionForNode(child)
 			if err != nil {
-				t.Fatalf("ModelChildAdmissionForLocal() error = %v", err)
+				t.Fatalf("modelChildAdmissionForNode() error = %v", err)
 			}
 			if got != tt.want {
-				t.Fatalf("ModelChildAdmissionForLocal() = %#v, want %#v", got, tt.want)
+				t.Fatalf("modelChildAdmissionForNode() = %#v, want %#v", got, tt.want)
 			}
 		})
 	}
@@ -306,7 +319,7 @@ func TestModelParticleNormalizesRepeatedModel(t *testing.T) {
 			ElementParticle(1, Occurrence{Min: 1, Max: 1}),
 		},
 	}})
-	p, ok, err := CompileModelParticle(rt, rt.addModel, 0)
+	p, ok, err := CompileModelParticle(rt.build(), rt.addModel, 0)
 	if err != nil {
 		t.Fatalf("ModelParticle() error = %v", err)
 	}
@@ -319,13 +332,13 @@ func TestModelParticleNormalizesRepeatedModel(t *testing.T) {
 
 	zero := ContentModel{Kind: ModelSequence, Occurs: Occurrence{}}
 	rt = newContentModelLoweringRuntime([]ContentModel{zero})
-	p, ok, err = CompileModelParticle(rt, rt.addModel, 0)
+	p, ok, err = CompileModelParticle(rt.build(), rt.addModel, 0)
 	if err != nil || ok || p != (Particle{}) {
 		t.Fatalf("ModelParticle(zero) = %+v, %v, %v; want no particle", p, ok, err)
 	}
 
 	rt = newContentModelLoweringRuntime(nil)
-	err = AppendModelParticle(rt, rt.addModel, &ContentModel{}, 0)
+	err = AppendModelParticle(rt.build(), rt.addModel, &ContentModel{}, 0)
 	expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 }
 
@@ -340,7 +353,7 @@ func TestExtendSequenceModel(t *testing.T) {
 		{Kind: ModelSequence, Occurs: one, Particles: []Particle{baseParticle}, Mixed: true},
 		{Kind: ModelChoice, Occurs: one, Particles: []Particle{extParticle}},
 	})
-	id, err := ExtendSequenceModel(rt, rt.addModel, 0, 1)
+	id, err := ExtendSequenceModel(rt.build(), rt.addModel, 0, 1)
 	if err != nil {
 		t.Fatalf("ExtendSequenceModel() error = %v", err)
 	}
@@ -359,7 +372,7 @@ func TestExtendSequenceModel(t *testing.T) {
 		{Kind: ModelEmpty, Occurs: one, Mixed: true},
 		{Kind: ModelSequence, Occurs: one, Particles: []Particle{extParticle}},
 	})
-	id, err = ExtendSequenceModel(rt, rt.addModel, 0, 1)
+	id, err = ExtendSequenceModel(rt.build(), rt.addModel, 0, 1)
 	if err != nil {
 		t.Fatalf("ExtendSequenceModel(empty base) error = %v", err)
 	}
@@ -368,7 +381,7 @@ func TestExtendSequenceModel(t *testing.T) {
 	}
 
 	rt = newContentModelLoweringRuntime(nil)
-	_, err = ExtendSequenceModel(rt, rt.addModel, 0, 1)
+	_, err = ExtendSequenceModel(rt.build(), rt.addModel, 0, 1)
 	expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 }
 
@@ -387,7 +400,7 @@ func TestValidateComplexExtensionModelAdmission(t *testing.T) {
 		Occurs:    one,
 		Particles: []Particle{ElementParticle(1, one)},
 	}
-	rt := complexExtensionModelRuntimeStub{models: []ContentModel{empty, sequence, all}}
+	rt := complexExtensionModelFixture{models: []ContentModel{empty, sequence, all}}
 	tests := []struct {
 		name      string
 		admission ComplexExtensionModelAdmission
@@ -449,7 +462,7 @@ func TestValidateComplexExtensionModelAdmission(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateComplexExtensionModelAdmission(rt, tt.admission)
+			err := ValidateComplexExtensionModelAdmission(rt.build(), tt.admission)
 			if tt.wantCode != "" {
 				wantCat := tt.wantCat
 				if wantCat == "" {
@@ -500,42 +513,16 @@ func TestValidateComplexExtensionContentAdmission(t *testing.T) {
 	}
 }
 
-type complexExtensionModelRuntimeStub struct {
+type complexExtensionModelFixture struct {
 	models []ContentModel
 }
 
-func (s complexExtensionModelRuntimeStub) ContentModel(id ContentModelID) (ContentModel, bool) {
-	if !ValidUint32Index(uint32(id), len(s.models)) {
-		return ContentModel{}, false
-	}
-	return s.models[id], true
-}
-
-//nolint:revive // The receiver is required to satisfy ParticleRestrictionRuntime.
-func (s complexExtensionModelRuntimeStub) ElementName(ElementID) (QName, bool) {
-	return QName{}, false
-}
-
-//nolint:revive // The receiver is required to satisfy ParticleRestrictionRuntime.
-func (s complexExtensionModelRuntimeStub) Wildcard(WildcardID) (Wildcard, bool) {
-	return Wildcard{}, false
-}
-
-//nolint:revive // The receiver is required to satisfy ParticleRestrictionRuntime.
-func (s complexExtensionModelRuntimeStub) ForEachSubstitutionMember(ElementID, func(ElementID) bool) {
-}
-
-//nolint:revive // The receiver is required to satisfy ParticleRestrictionRuntime.
-func (s complexExtensionModelRuntimeStub) SubstitutionMemberByName(ElementID, QName) (ElementID, bool) {
-	return 0, false
-}
-
-type contentModelLoweringRuntime struct {
+type contentModelLoweringFixture struct {
 	models []ContentModel
 }
 
-func newContentModelLoweringRuntime(models []ContentModel) *contentModelLoweringRuntime {
-	return &contentModelLoweringRuntime{models: cloneContentModels(models)}
+func newContentModelLoweringRuntime(models []ContentModel) *contentModelLoweringFixture {
+	return &contentModelLoweringFixture{models: cloneContentModels(models)}
 }
 
 func cloneContentModels(models []ContentModel) []ContentModel {
@@ -546,37 +533,11 @@ func cloneContentModels(models []ContentModel) []ContentModel {
 	return out
 }
 
-func (s *contentModelLoweringRuntime) addModel(model ContentModel) (ContentModelID, error) {
+func (s *contentModelLoweringFixture) addModel(model ContentModel) (ContentModelID, error) {
 	id, err := NextContentModelID(len(s.models))
 	if err != nil {
 		return NoContentModel, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content model limit exceeded")
 	}
 	s.models = append(s.models, CloneContentModel(model))
 	return id, nil
-}
-
-func (s *contentModelLoweringRuntime) ContentModel(id ContentModelID) (ContentModel, bool) {
-	if !ValidContentModelID(id, len(s.models)) {
-		return ContentModel{}, false
-	}
-	return CloneContentModel(s.models[id]), true
-}
-
-//nolint:revive // The receiver is required to satisfy ParticleRestrictionRuntime.
-func (s *contentModelLoweringRuntime) ElementName(ElementID) (QName, bool) {
-	return QName{}, false
-}
-
-//nolint:revive // The receiver is required to satisfy ParticleRestrictionRuntime.
-func (s *contentModelLoweringRuntime) Wildcard(WildcardID) (Wildcard, bool) {
-	return Wildcard{}, false
-}
-
-//nolint:revive // The receiver is required to satisfy ParticleRestrictionRuntime.
-func (s *contentModelLoweringRuntime) ForEachSubstitutionMember(ElementID, func(ElementID) bool) {
-}
-
-//nolint:revive // The receiver is required to satisfy ParticleRestrictionRuntime.
-func (s *contentModelLoweringRuntime) SubstitutionMemberByName(ElementID, QName) (ElementID, bool) {
-	return NoElement, false
 }

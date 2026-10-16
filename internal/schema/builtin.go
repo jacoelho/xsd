@@ -39,9 +39,7 @@ func BuiltinAttributeSeedAt(i int) (BuiltinAttributeSeed, bool) {
 }
 
 // TypeID returns the canonical value-program type assigned to this attribute.
-// The argument is retained only for the schema compiler's component-seed
-// boundary; fixed IDs never depend on compiler allocation state.
-func (s BuiltinAttributeSeed) TypeID(_ BuiltinIDs) (SimpleTypeID, bool) {
+func (s BuiltinAttributeSeed) TypeID() (SimpleTypeID, bool) {
 	return s.typ, s.typ != NoSimpleType
 }
 
@@ -168,33 +166,6 @@ func builtinSimpleDeclaration(id SimpleTypeID) (builtinSimpleDeclarationInfo, bo
 		return builtinSimpleDeclarationInfo{namespace: vocab.XMLNamespaceURI, local: vocab.XMLAttrSpace, scope: DeclarationScopeNonGlobal}, true
 	default:
 		return builtinSimpleDeclarationInfo{namespace: vocab.XSDNamespaceURI, local: name, scope: DeclarationScopeGlobal}, true
-	}
-}
-
-// canonicalBuiltinIDs returns the fixed handles used by schema-owned
-// declarations. It is derived from value names so no second datatype table can
-// drift from the value program.
-func canonicalBuiltinIDs(anyType ComplexTypeID) BuiltinIDs {
-	return BuiltinIDs{
-		AnyType:       anyType,
-		AnySimpleType: builtinTypeID(vocab.XSDValueAnySimpleType),
-		String:        builtinTypeID(vocab.XSDValueString),
-		Boolean:       builtinTypeID(vocab.XSDValueBoolean),
-		Decimal:       builtinTypeID(vocab.XSDValueDecimal),
-		Integer:       builtinTypeID(vocab.XSDValueInteger),
-		Int:           builtinTypeID(vocab.XSDValueInt),
-		Date:          builtinTypeID(vocab.XSDValueDate),
-		DateTime:      builtinTypeID(vocab.XSDValueDateTime),
-		Time:          builtinTypeID(vocab.XSDValueTime),
-		AnyURI:        builtinTypeID(vocab.XSDValueAnyURI),
-		QName:         builtinTypeID(vocab.XSDValueQName),
-		ID:            builtinTypeID(vocab.XSDValueID),
-		IDREF:         builtinTypeID(vocab.XSDValueIDREF),
-		IDREFS:        builtinTypeID(vocab.XSDValueIDREFS),
-		NMTOKEN:       builtinTypeID(vocab.XSDValueNMTOKEN),
-		NMTOKENS:      builtinTypeID(vocab.XSDValueNMTOKENS),
-		ENTITY:        builtinTypeID(vocab.XSDValueENTITY),
-		ENTITIES:      builtinTypeID(vocab.XSDValueENTITIES),
 	}
 }
 

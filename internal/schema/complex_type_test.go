@@ -3,6 +3,8 @@ package schema
 import (
 	"strings"
 	"testing"
+
+	valuepkg "github.com/jacoelho/xsd/internal/value"
 )
 
 func TestDerivationKindValidity(t *testing.T) {
@@ -688,7 +690,7 @@ func TestValidateComplexTypeExtensionRuntime(t *testing.T) {
 		elemB           ElementID      = 1
 	)
 	one := Occurrence{Min: 1, Max: 1}
-	rt := testParticleRuntime{
+	rt := particleFixture{
 		models: []ContentModel{
 			{Kind: ModelEmpty},
 			{
@@ -848,7 +850,7 @@ func TestValidateComplexTypeExtensionRuntime(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateComplexTypeExtensionRuntime(rt, tt.base, tt.derived, anyType)
+			err := ValidateComplexTypeExtensionRuntime(rt.build(), tt.base, tt.derived, anyType)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateComplexTypeExtensionRuntime() error = %v", err)
@@ -862,18 +864,11 @@ func TestValidateComplexTypeExtensionRuntime(t *testing.T) {
 	}
 }
 
-type complexTypeValidationRuntime struct {
-	testParticleRuntime
-	derivationRuntimeStub
+type complexTypeValidationFixture struct {
+	particleFixture
+	derivationFixture
 
 	simpleFinal []DerivationMask
-}
-
-func (rt complexTypeValidationRuntime) SimpleTypeFinal(id SimpleTypeID) (DerivationMask, bool) {
-	if !ValidUint32Index(uint32(id), len(rt.simpleFinal)) {
-		return 0, false
-	}
-	return rt.simpleFinal[id], true
 }
 
 func TestValidateComplexTypeSimpleBaseExtensionRuntime(t *testing.T) {
@@ -886,7 +881,7 @@ func TestValidateComplexTypeSimpleBaseExtensionRuntime(t *testing.T) {
 		otherSimple SimpleTypeID   = 1
 	)
 	one := Occurrence{Min: 1, Max: 1}
-	rt := complexTypeValidationRuntime{
+	rt := complexTypeValidationFixture{
 		models: []ContentModel{
 			{Kind: ModelEmpty},
 			{
@@ -987,7 +982,7 @@ func TestValidateComplexTypeSimpleBaseExtensionRuntime(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateComplexTypeSimpleBaseExtensionRuntime(rt, tt.base, tt.derived)
+			err := ValidateComplexTypeSimpleBaseExtensionRuntime(rt.build(), tt.base, tt.derived)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateComplexTypeSimpleBaseExtensionRuntime() error = %v", err)
@@ -1010,7 +1005,7 @@ func TestValidateComplexTypeRestrictionRuntime(t *testing.T) {
 		derivedSeqID ContentModelID = 2
 	)
 	one := Occurrence{Min: 1, Max: 1}
-	rt := complexTypeValidationRuntime{
+	rt := complexTypeValidationFixture{
 		models: []ContentModel{
 			{Kind: ModelEmpty},
 			{
@@ -1025,8 +1020,8 @@ func TestValidateComplexTypeRestrictionRuntime(t *testing.T) {
 			},
 		},
 		simple: []SimpleTypeDerivation{
-			{Base: NoSimpleType, Variety: SimpleVarietyAtomic},
-			{Base: 0, Variety: SimpleVarietyAtomic},
+			{Base: NoSimpleType, Variety: valuepkg.Atomic},
+			{Base: 0, Variety: valuepkg.Atomic},
 		},
 	}
 	base := ComplexType{
@@ -1134,8 +1129,8 @@ func TestValidateComplexTypeRestrictionRuntime(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			analysis := unlimitedContentModelAnalysis(rt)
-			err := ValidateComplexTypeRestrictionRuntime(rt, analysis, tt.base, tt.derived, unboundedTypeDerivationWork)
+			analysis := unlimitedContentModelAnalysis(rt.build())
+			err := ValidateComplexTypeRestrictionRuntime(rt.build(), analysis, tt.base, tt.derived, unboundedTypeDerivationWork)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateComplexTypeRestrictionRuntime() error = %v", err)
@@ -1152,11 +1147,11 @@ func TestValidateComplexTypeRestrictionRuntime(t *testing.T) {
 func TestValidateSimpleContentRestrictionTextType(t *testing.T) {
 	t.Parallel()
 
-	rt := derivationRuntimeStub{
+	rt := derivationFixture{
 		simple: []SimpleTypeDerivation{
-			{Base: NoSimpleType, Variety: SimpleVarietyAtomic},
-			{Base: 0, Variety: SimpleVarietyAtomic},
-			{Base: NoSimpleType, Variety: SimpleVarietyAtomic},
+			{Base: NoSimpleType, Variety: valuepkg.Atomic},
+			{Base: 0, Variety: valuepkg.Atomic},
+			{Base: NoSimpleType, Variety: valuepkg.Atomic},
 		},
 	}
 	tests := []struct {
@@ -1174,7 +1169,7 @@ func TestValidateSimpleContentRestrictionTextType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateSimpleContentRestrictionTextType(rt, tt.derived, tt.base, unboundedTypeDerivationWork)
+			err := ValidateSimpleContentRestrictionTextType(rt.build(), tt.derived, tt.base, unboundedTypeDerivationWork)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateSimpleContentRestrictionTextType() error = %v", err)
@@ -1195,7 +1190,7 @@ func TestSimpleContentDerivationBaseAllowed(t *testing.T) {
 		emptyID ContentModelID = iota
 		seqID
 	)
-	rt := testParticleRuntime{
+	rt := particleFixture{
 		models: []ContentModel{
 			{Kind: ModelEmpty},
 			{
@@ -1258,7 +1253,7 @@ func TestSimpleContentDerivationBaseAllowed(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			analysis := unlimitedContentModelAnalysis(rt)
+			analysis := unlimitedContentModelAnalysis(rt.build())
 			got, err := SimpleContentDerivationBaseAllowed(analysis, tt.base, tt.derivation)
 			if err != nil {
 				t.Fatalf("SimpleContentDerivationBaseAllowed() error = %v", err)

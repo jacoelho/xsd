@@ -41,7 +41,7 @@ func IsContentRestrictionInvariant(err error) bool {
 }
 
 type contentRestrictionValidator struct {
-	rt          ParticleRestrictionRuntime
+	rt          *schemaBuild
 	analysis    *ContentModelAnalysis
 	modelStates map[ContentModelID]uint8
 	wildcards   map[ContentModelID]bool
@@ -60,7 +60,7 @@ type contentModelWorkState struct {
 // ValidateContentRestriction validates content-model restriction while
 // charging every graph traversal and particle comparison to work.
 func ValidateContentRestriction(
-	rt ParticleRestrictionRuntime,
+	rt *schemaBuild,
 	baseID, derivedID ContentModelID,
 	work ContentModelWork,
 	analysis *ContentModelAnalysis,
@@ -80,7 +80,7 @@ func ValidateContentRestriction(
 }
 
 func newContentRestrictionValidator(
-	rt ParticleRestrictionRuntime,
+	rt *schemaBuild,
 	work ContentModelWork,
 	analysis *ContentModelAnalysis,
 ) contentRestrictionValidator {
@@ -216,15 +216,7 @@ func (v contentRestrictionValidator) validateFallbackContentRestriction(base, de
 	if derivedContainsWildcard && !baseContainsWildcard {
 		return contentRestrictionMismatch("wildcard restriction is not subset of base")
 	}
-	if base.Kind != derived.Kind || len(base.Particles) != len(derived.Particles) {
-		return contentRestrictionMismatch("content restriction is not subset of base")
-	}
-	for i := range base.Particles {
-		if err := v.validateParticleRestriction(base.Particles[i], derived.Particles[i]); err != nil {
-			return err
-		}
-	}
-	return nil
+	return contentRestrictionMismatch("content restriction is not subset of base")
 }
 
 func (v contentRestrictionValidator) modelHasNoParticles(id ContentModelID) (bool, error) {
@@ -1056,7 +1048,7 @@ func (v contentRestrictionValidator) ContentModel(id ContentModelID) (ContentMod
 	if v.charge() != nil {
 		return ContentModel{}, false
 	}
-	return v.rt.ContentModel(id)
+	return ContentModelByID(v.rt.Models, id)
 }
 
 func (v contentRestrictionValidator) ElementName(id ElementID) (QName, bool) {
@@ -1070,20 +1062,14 @@ func (v contentRestrictionValidator) Wildcard(id WildcardID) (Wildcard, bool) {
 	if v.charge() != nil {
 		return Wildcard{}, false
 	}
-	return v.rt.Wildcard(id)
-}
-
-func (v contentRestrictionValidator) ForEachSubstitutionMember(id ElementID, fn func(ElementID) bool) {
-	v.rt.ForEachSubstitutionMember(id, func(member ElementID) bool {
-		return v.charge() == nil && fn(member)
-	})
+	return WildcardByID(v.rt.Wildcards, id)
 }
 
 func (v contentRestrictionValidator) SubstitutionMemberByName(id ElementID, name QName) (ElementID, bool) {
 	if v.charge() != nil {
 		return NoElement, false
 	}
-	return v.rt.SubstitutionMemberByName(id, name)
+	return v.rt.Substitutions.MemberByName(id, name)
 }
 
 func (v contentRestrictionValidator) requireElementName(id ElementID) (QName, error) {

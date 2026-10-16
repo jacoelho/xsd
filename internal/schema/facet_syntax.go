@@ -14,8 +14,8 @@ type FacetSource struct {
 	Local          string
 	InXSDNamespace bool
 	HasValue       bool
-	Variety        SimpleVariety
-	Primitive      PrimitiveKind
+	Variety        valuepkg.Variety
+	Primitive      valuepkg.PrimitiveKind
 }
 
 // IsFacetLocal reports whether local is one of the XSD facet element names.
@@ -45,16 +45,16 @@ func ValidateFacetSource(source FacetSource) (bool, error) {
 
 // ParseWhitespaceFacetValue parses and validates an xs:whiteSpace facet value
 // against the base simple type's whitespace mode.
-func ParseWhitespaceFacetValue(value string, base WhitespaceMode) (WhitespaceMode, error) {
+func ParseWhitespaceFacetValue(value string, base valuepkg.WhitespaceMode) (valuepkg.WhitespaceMode, error) {
 	value = lex.CollapseXMLWhitespace(value)
-	var mode WhitespaceMode
+	var mode valuepkg.WhitespaceMode
 	switch value {
 	case vocab.XSDWhitespacePreserve:
-		mode = WhitespacePreserve
+		mode = valuepkg.WhitespacePreserve
 	case vocab.XSDWhitespaceReplace:
-		mode = WhitespaceReplace
+		mode = valuepkg.WhitespaceReplace
 	case vocab.XSDWhitespaceCollapse:
-		mode = WhitespaceCollapse
+		mode = valuepkg.WhitespaceCollapse
 	default:
 		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "invalid whiteSpace facet "+value)
 	}
@@ -64,32 +64,32 @@ func ParseWhitespaceFacetValue(value string, base WhitespaceMode) (WhitespaceMod
 	return mode, nil
 }
 
-func facetMaskForLocal(local string) (FacetMask, bool) {
+func facetMaskForLocal(local string) (valuepkg.FacetMask, bool) {
 	switch local {
 	case vocab.XSDFacetLength:
-		return FacetLength, true
+		return valuepkg.FacetLength, true
 	case vocab.XSDFacetMinLength:
-		return FacetMinLength, true
+		return valuepkg.FacetMinLength, true
 	case vocab.XSDFacetMaxLength:
-		return FacetMaxLength, true
+		return valuepkg.FacetMaxLength, true
 	case vocab.XSDFacetTotalDigits:
-		return FacetTotalDigits, true
+		return valuepkg.FacetTotalDigits, true
 	case vocab.XSDFacetFractionDigits:
-		return FacetFractionDigits, true
+		return valuepkg.FacetFractionDigits, true
 	case vocab.XSDFacetMinInclusive:
-		return FacetMinInclusive, true
+		return valuepkg.FacetMinInclusive, true
 	case vocab.XSDFacetMaxInclusive:
-		return FacetMaxInclusive, true
+		return valuepkg.FacetMaxInclusive, true
 	case vocab.XSDFacetMinExclusive:
-		return FacetMinExclusive, true
+		return valuepkg.FacetMinExclusive, true
 	case vocab.XSDFacetMaxExclusive:
-		return FacetMaxExclusive, true
+		return valuepkg.FacetMaxExclusive, true
 	case vocab.XSDFacetEnumeration:
-		return FacetEnumeration, true
+		return valuepkg.FacetEnumeration, true
 	case vocab.XSDFacetPattern:
-		return FacetPattern, true
+		return valuepkg.FacetPattern, true
 	case vocab.XSDFacetWhiteSpace:
-		return FacetWhiteSpace, true
+		return valuepkg.FacetWhiteSpace, true
 	default:
 		return 0, false
 	}

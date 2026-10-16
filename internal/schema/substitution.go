@@ -54,7 +54,7 @@ type substitutionEntry struct {
 // bounded transitive table. maxClosureEntries counts every raw ancestor pair,
 // including entries later excluded from effective name matching.
 func BuildSubstitutionTable(
-	rt TypeDerivationRuntime,
+	rt *schemaBuild,
 	names *NameTable,
 	elements []ElementDecl,
 	globals map[QName]ElementID,
@@ -353,7 +353,7 @@ type substitutionEdge struct {
 }
 
 func validateSubstitutionEdges(
-	rt TypeDerivationRuntime,
+	rt *schemaBuild,
 	elements []ElementDecl,
 	parents []ElementID,
 	work func(int) error,
@@ -373,7 +373,7 @@ func validateSubstitutionEdges(
 }
 
 func validateSubstitutionEdge(
-	rt TypeDerivationRuntime,
+	rt *schemaBuild,
 	elements []ElementDecl,
 	member int,
 	head ElementID,
@@ -465,26 +465,6 @@ func (e SubstitutionMembershipError) Error() string {
 // Unwrap returns the precise direct-membership failure.
 func (e SubstitutionMembershipError) Unwrap() error {
 	return e.Cause
-}
-
-// ValidateSubstitutionMembership validates that member can substitute for head
-// by type derivation and the head's final constraints.
-func ValidateSubstitutionMembership(
-	rt TypeDerivationRuntime,
-	head, member ElementDecl,
-	work func(int) error,
-) error {
-	mask, ok, err := deriveTypeMask(rt, member.Type, head.Type, work)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return ErrSubstitutionMemberTypeNotDerived
-	}
-	if head.Final&mask != 0 {
-		return ErrSubstitutionMemberTypeExcludedDerivation
-	}
-	return nil
 }
 
 func substitutionEffective(head, member ElementDecl, mask, typeBlocks DerivationMask) bool {

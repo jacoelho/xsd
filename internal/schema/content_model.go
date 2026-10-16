@@ -91,14 +91,6 @@ type ParticleRestrictionElement struct {
 	Nillable   bool
 }
 
-// ParticleRestrictionRuntime supplies read-only runtime metadata needed to
-// evaluate particle restriction.
-type ParticleRestrictionRuntime interface {
-	ParticleRuntime
-	TypeDerivationRuntime
-	ElementRestriction(id ElementID) (ParticleRestrictionElement, bool)
-}
-
 // ElementParticle returns an element particle with inactive fields pinned.
 func ElementParticle(id ElementID, occurs Occurrence) Particle {
 	return Particle{Kind: ParticleElement, Occurs: occurs, Element: id, Model: NoContentModel, Wildcard: NoWildcard}
@@ -296,15 +288,15 @@ func nextNestedContentModel(particles []Particle, next *int) (ContentModelID, bo
 
 // ComplexContentExtendsBase reports whether derived preserves base as the
 // leading content of a complex-type extension.
-func ComplexContentExtendsBase(rt ContentModelRuntime, baseID, derivedID ContentModelID) bool {
+func ComplexContentExtendsBase(rt *schemaBuild, baseID, derivedID ContentModelID) bool {
 	if baseID == derivedID || ModelHasNoParticles(rt, baseID) {
 		return true
 	}
-	base, ok := rt.ContentModel(baseID)
+	base, ok := ContentModelByID(rt.Models, baseID)
 	if !ok {
 		return false
 	}
-	derived, ok := rt.ContentModel(derivedID)
+	derived, ok := ContentModelByID(rt.Models, derivedID)
 	if !ok {
 		return false
 	}
@@ -359,7 +351,7 @@ func validateChoiceLimit(model ContentModel, index int, slot, previous uint32) e
 func RestrictionRepeatedChoiceParticles(
 	models []ContentModel,
 	baseID, derivedID ContentModelID,
-	rt ParticleRestrictionRuntime,
+	rt *schemaBuild,
 	work ContentModelWork,
 	analysis *ContentModelAnalysis,
 ) ([]uint32, error) {
@@ -391,7 +383,7 @@ func RestrictionRepeatedChoiceParticles(
 func validateRepeatedChoiceInputs(
 	models []ContentModel,
 	baseID, derivedID ContentModelID,
-	rt ParticleRestrictionRuntime,
+	rt *schemaBuild,
 	work ContentModelWork,
 	analysis *ContentModelAnalysis,
 ) error {
@@ -481,7 +473,7 @@ type RestrictionChoiceLimitUpdate struct {
 // restricting complex types whose particles need repeated-choice limits,
 // charging all analysis to work.
 func RestrictionChoiceLimitUpdates(
-	rt ParticleRestrictionRuntime,
+	rt *schemaBuild,
 	complexTypes []ComplexType,
 	models []ContentModel,
 	anyType ComplexTypeID,
@@ -516,7 +508,7 @@ func RestrictionChoiceLimitUpdates(
 	return updates, nil
 }
 
-func validateChoiceLimitUpdateInputs(rt ParticleRestrictionRuntime, work ContentModelWork) error {
+func validateChoiceLimitUpdateInputs(rt *schemaBuild, work ContentModelWork) error {
 	if rt == nil {
 		return errors.New("choice-limit derivation requires runtime")
 	}
@@ -535,7 +527,7 @@ func spendChoiceLimitComplexType(work ContentModelWork, index int) (ComplexTypeI
 }
 
 type restrictionChoiceLimitBuilder struct {
-	rt           ParticleRestrictionRuntime
+	rt           *schemaBuild
 	work         ContentModelWork
 	analysis     *ContentModelAnalysis
 	complexTypes []ComplexType
@@ -603,7 +595,7 @@ func restrictionChoiceLimitContentIDs(
 // limited content models are not shared outside those owners. All analysis is
 // charged to work.
 func ValidateChoiceLimitDerivations(
-	rt ParticleRestrictionRuntime,
+	rt *schemaBuild,
 	complexTypes []ComplexType,
 	models []ContentModel,
 	anyType ComplexTypeID,
@@ -630,7 +622,7 @@ func ValidateChoiceLimitDerivations(
 }
 
 type choiceLimitDerivationAudit struct {
-	rt           ParticleRestrictionRuntime
+	rt           *schemaBuild
 	work         ContentModelWork
 	analysis     *ContentModelAnalysis
 	expected     map[ContentModelID][]uint32
@@ -776,7 +768,7 @@ func requireContentModelWork(work ContentModelWork) error {
 	return nil
 }
 
-func requireChoiceLimitAnalysis(rt ParticleRestrictionRuntime, work ContentModelWork, missingRuntime string) error {
+func requireChoiceLimitAnalysis(rt *schemaBuild, work ContentModelWork, missingRuntime string) error {
 	if rt == nil {
 		return errors.New(missingRuntime)
 	}

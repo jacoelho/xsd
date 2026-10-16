@@ -9,143 +9,46 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-type facetChildMode uint8
-
-const (
-	facetChildModeInvalid facetChildMode = iota
-	facetChildModeDerivation
-	facetChildModeExplicitList
-)
-
-func (c *compiler) compileFacets(parent *schemaNode, st *SimpleType, base, literalType SimpleTypeID) error {
-	return withSchemaCompileLocation(parent, c.compileFacetChildren(typedXSDChildren(parent), st, base, literalType, facetChildModeDerivation))
-}
-
-func (c *compiler) compileFacetList(children []*schemaNode, st *SimpleType, base, literalType SimpleTypeID) error {
-	return c.compileFacetChildren(children, st, base, literalType, facetChildModeExplicitList)
-}
-
 // compileFacetChildren admits source facet syntax and records one local facet
 // step in ValueSpec. Effective inheritance, typed literal evaluation, bound
 // ordering, and fixed-facet derivation are owned by value.Builder.Complete.
-func (c *compiler) compileFacetChildren(children []*schemaNode, st *SimpleType, base, literalType SimpleTypeID, mode facetChildMode) error {
-	if err := validateFacetChildMode(mode); err != nil {
-		return err
-	}
-	var state compiledFacetState
-	for _, child := range children {
-		if !isFacetCompilationChild(child, mode) {
+func (c *compiler) compileFacetChildren(parent *schemaNode, st *SimpleType, base SimpleTypeID) error {
+	state := compiledFacetState{unavailable: c.rt.simpleTypeUnavailable[base]}
+	for child := range parent.xsdChildren() {
+		if !IsFacetLocal(child.local) {
 			continue
 		}
-		if err := c.compileFacetChild(child, st, base, literalType, &state); err != nil {
+		if err := c.compileFacetChild(child, st, base, &state); err != nil {
 			return err
 		}
 	}
-	if !state.sawFacet {
-		return nil
+	if !state.unavailable {
+		state.apply(st)
 	}
-	state.apply(st)
-	if err := ValidateOrderedFacetStep(state.orderedStep); err != nil {
+	step := OrderedFacetStep{
+		MinInclusive: state.stepSingleFacets&valuepkg.FacetMinInclusive != 0,
+		MinExclusive: state.stepSingleFacets&valuepkg.FacetMinExclusive != 0,
+		MaxInclusive: state.stepSingleFacets&valuepkg.FacetMaxInclusive != 0,
+		MaxExclusive: state.stepSingleFacets&valuepkg.FacetMaxExclusive != 0,
+	}
+	if err := ValidateOrderedFacetStep(step); err != nil {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, err.Error())
 	}
-	return nil
-}
-
-// validateUnavailableFacetChildren performs source admission for a type whose
-// base is intentionally unavailable. Such a type is never validated, but its
-// local metadata still needs to remain structurally safe until publication.
-func (c *compiler) validateUnavailableFacetChildren(
-	children []*schemaNode,
-	st *SimpleType,
-	base SimpleTypeID,
-	mode facetChildMode,
-) error {
-	if err := validateFacetChildMode(mode); err != nil {
-		return err
-	}
-	var state compiledFacetState
-	for _, child := range children {
-		if !isFacetCompilationChild(child, mode) {
-			continue
-		}
-		if err := c.validateUnavailableFacetChild(child, st, base, &state); err != nil {
-			return err
-		}
-	}
-	if err := ValidateOrderedFacetStep(state.orderedStep); err != nil {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, err.Error())
-	}
-	state.apply(st)
-	return nil
-}
-
-func (c *compiler) validateUnavailableFacetChild(child *schemaNode, st *SimpleType, base SimpleTypeID, state *compiledFacetState) error {
-	compile, err := validateFacetChildSource(child, st, &state.stepSingleFacets)
-	if err != nil || !compile {
-		return err
-	}
-	facet, err := facetAttrs(child)
-	if err != nil {
-		return err
-	}
-	switch child.local {
-	case vocab.XSDFacetLength, vocab.XSDFacetMinLength, vocab.XSDFacetMaxLength,
-		vocab.XSDFacetTotalDigits, vocab.XSDFacetFractionDigits:
-		return compileSizeFacet(st, child, facet.value, facet.fixed)
-	case vocab.XSDFacetMinInclusive:
-		state.orderedStep.MinInclusive = true
-	case vocab.XSDFacetMaxInclusive:
-		state.orderedStep.MaxInclusive = true
-	case vocab.XSDFacetMinExclusive:
-		state.orderedStep.MinExclusive = true
-	case vocab.XSDFacetMaxExclusive:
-		state.orderedStep.MaxExclusive = true
-	case vocab.XSDFacetPattern:
-		pattern, err := xsdregex.Compile(facet.value, xsdregex.CompileOptions{})
-		if err != nil {
-			return withSchemaCompileLocation(child, schemaRegexError(err))
-		}
-		state.valuePatterns = append(state.valuePatterns, pattern)
-		state.sawFacet = true
-	case vocab.XSDFacetWhiteSpace:
-		return c.compileWhitespaceFacet(st, base, child, facet.value, facet.fixed)
+	if state.unavailable {
+		state.apply(st)
 	}
 	return nil
-}
-
-func validateFacetChildMode(mode facetChildMode) error {
-	switch mode {
-	case facetChildModeDerivation, facetChildModeExplicitList:
-		return nil
-	case facetChildModeInvalid:
-		return xsderrors.InternalInvariant("invalid facet child mode")
-	default:
-		return xsderrors.InternalInvariant("unknown facet child mode")
-	}
-}
-
-func isFacetCompilationChild(child *schemaNode, mode facetChildMode) bool {
-	if child.kind == schemaKindForeign || child.local == vocab.XSDElemAnnotation || child.local == vocab.XSDElemSimpleType {
-		return false
-	}
-	return mode == facetChildModeExplicitList || IsFacetLocal(child.local)
 }
 
 type compiledFacetState struct {
 	valueEnumeration []valuepkg.LiteralSpec
 	valuePatterns    []*valuepkg.Pattern
-	orderedStep      OrderedFacetStep
-	stepSingleFacets FacetMask
-	sawEnumeration   bool
-	sawFacet         bool
-}
-
-func (s *compiledFacetState) beginStep() {
-	s.sawFacet = true
+	stepSingleFacets valuepkg.FacetMask
+	unavailable      bool
 }
 
 func (s *compiledFacetState) apply(st *SimpleType) {
-	if s.sawEnumeration {
+	if len(s.valueEnumeration) != 0 {
 		st.ValueSpec.Facets.Enumeration = slices.Clone(s.valueEnumeration)
 		st.ValueSpec.Facets.Present |= valuepkg.FacetEnumeration
 	}
@@ -157,56 +60,58 @@ func (s *compiledFacetState) apply(st *SimpleType) {
 	}
 }
 
-func (c *compiler) compileFacetChild(child *schemaNode, st *SimpleType, base, literalType SimpleTypeID, state *compiledFacetState) error {
-	compile, err := validateFacetChildSource(child, st, &state.stepSingleFacets)
-	if err != nil || !compile {
+func (c *compiler) compileFacetChild(child *schemaNode, st *SimpleType, base SimpleTypeID, state *compiledFacetState) error {
+	flag, err := validateFacetChildSource(child, st, &state.stepSingleFacets)
+	if err != nil || flag == 0 {
 		return err
 	}
-	state.beginStep()
-	facet, err := facetAttrs(child)
+	facet, err := facetAttrs(child, flag)
 	if err != nil {
 		return err
 	}
-	return c.compileFacetValue(child, st, base, literalType, state, facet)
+	return c.compileFacetValue(child, st, base, state, facet)
 }
 
-func validateFacetChildSource(child *schemaNode, st *SimpleType, single *FacetMask) (bool, error) {
-	source := child.semantic.facet()
+func validateFacetChildSource(child *schemaNode, st *SimpleType, single *valuepkg.FacetMask) (valuepkg.FacetMask, error) {
+	source := semanticSource[*schemaFacetSource](&child.semantic)
 	if source == nil {
-		return false, withSchemaCompileLocation(child, xsderrors.InternalInvariant("facet node has no typed facet source"))
+		return 0, withSchemaCompileLocation(child, xsderrors.InternalInvariant("facet node has no typed facet source"))
 	}
 	compile, err := ValidateFacetSource(FacetSource{
-		Local: child.local, InXSDNamespace: child.kind != schemaKindForeign, HasValue: source.Value.Present,
+		Local: child.local, InXSDNamespace: true, HasValue: source.Value.Present,
 		Variety: st.ValueSpec.Variety, Primitive: st.ValueSpec.Primitive,
 	})
 	if err != nil {
-		return false, withSchemaCompileLocation(child, err)
+		return 0, withSchemaCompileLocation(child, err)
 	}
 	if !compile {
-		return false, nil
+		return 0, nil
 	}
 	mask, _ := facetMaskForLocal(child.local)
-	if mask != FacetPattern && mask != FacetEnumeration {
+	if mask != valuepkg.FacetPattern && mask != valuepkg.FacetEnumeration {
 		if *single&mask != 0 {
-			return false, withSchemaCompileLocation(child, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "duplicate "+child.local+" facet"))
+			return 0, withSchemaCompileLocation(child, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "duplicate "+child.local+" facet"))
 		}
 		*single |= mask
 	}
-	return true, nil
+	return mask, nil
 }
 
-func (c *compiler) compileFacetValue(child *schemaNode, st *SimpleType, base, literalType SimpleTypeID, state *compiledFacetState, facet facetInput) error {
-	switch child.local {
-	case vocab.XSDFacetLength, vocab.XSDFacetMinLength, vocab.XSDFacetMaxLength, vocab.XSDFacetTotalDigits, vocab.XSDFacetFractionDigits:
-		return compileSizeFacet(st, child, facet.value, facet.fixed)
-	case vocab.XSDFacetMinInclusive, vocab.XSDFacetMaxInclusive, vocab.XSDFacetMinExclusive, vocab.XSDFacetMaxExclusive:
-		return c.compileBoundFacet(st, base, child, facet.value, facet.fixed, &state.orderedStep)
-	case vocab.XSDFacetEnumeration:
-		return c.compileEnumerationFacet(child, literalType, facet.value, state)
-	case vocab.XSDFacetPattern:
+func (c *compiler) compileFacetValue(child *schemaNode, st *SimpleType, base SimpleTypeID, state *compiledFacetState, facet facetInput) error {
+	switch facet.flag {
+	case valuepkg.FacetLength, valuepkg.FacetMinLength, valuepkg.FacetMaxLength, valuepkg.FacetTotalDigits, valuepkg.FacetFractionDigits:
+		return compileSizeFacet(st, child, facet)
+	case valuepkg.FacetMinInclusive, valuepkg.FacetMaxInclusive, valuepkg.FacetMinExclusive, valuepkg.FacetMaxExclusive:
+		return c.compileBoundFacet(st, base, child, facet, state)
+	case valuepkg.FacetEnumeration:
+		if state.unavailable {
+			return nil
+		}
+		return c.compileEnumerationFacet(child, base, facet.value, state)
+	case valuepkg.FacetPattern:
 		return compilePatternFacet(child, facet.value, state)
-	case vocab.XSDFacetWhiteSpace:
-		return c.compileWhitespaceFacet(st, base, child, facet.value, facet.fixed)
+	case valuepkg.FacetWhiteSpace:
+		return c.compileWhitespaceFacet(st, base, child, facet)
 	}
 	return nil
 }
@@ -217,7 +122,6 @@ func (c *compiler) compileEnumerationFacet(child *schemaNode, literalType Simple
 		return withSchemaCompileLocation(child, err)
 	}
 	state.valueEnumeration = append(state.valueEnumeration, literal)
-	state.sawEnumeration = true
 	return nil
 }
 
@@ -232,30 +136,12 @@ func compilePatternFacet(child *schemaNode, patternText string, state *compiledF
 
 type facetInput struct {
 	value string
-	fixed facetFixedness
+	flag  valuepkg.FacetMask
+	fixed bool
 }
 
-type facetFixedness uint8
-
-const (
-	facetFixednessInvalid facetFixedness = iota
-	facetVariable
-	facetFixed
-)
-
-func validateFacetFixedness(fixedness facetFixedness) error {
-	switch fixedness {
-	case facetVariable, facetFixed:
-		return nil
-	case facetFixednessInvalid:
-		return xsderrors.InternalInvariant("facet fixedness is invalid")
-	default:
-		return xsderrors.InternalInvariant("facet fixedness is unknown")
-	}
-}
-
-func facetAttrs(n *schemaNode) (facetInput, error) {
-	source := n.semantic.facet()
+func facetAttrs(n *schemaNode, flag valuepkg.FacetMask) (facetInput, error) {
+	source := semanticSource[*schemaFacetSource](&n.semantic)
 	if source == nil {
 		return facetInput{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("facet node has no typed facet source"))
 	}
@@ -264,117 +150,87 @@ func facetAttrs(n *schemaNode) (facetInput, error) {
 	if err != nil {
 		return facetInput{}, err
 	}
-	fixedness := facetVariable
-	if fixed {
-		fixedness = facetFixed
-	}
-	return facetInput{value: value, fixed: fixedness}, nil
+	return facetInput{value: value, flag: flag, fixed: fixed}, nil
 }
 
-func compileSizeFacet(st *SimpleType, node *schemaNode, facetValue string, fixedness facetFixedness) error {
-	if err := validateFacetFixedness(fixedness); err != nil {
-		return err
-	}
+func compileSizeFacet(st *SimpleType, node *schemaNode, facet facetInput) error {
 	name := node.local
-	size, err := ParseSizeFacetValue(name, facetValue)
+	size, err := ParseSizeFacetValue(name, facet.value)
 	if err != nil {
 		return withSchemaCompileLocation(node, err)
 	}
-	var flag FacetMask
-	switch name {
-	case vocab.XSDFacetLength:
-		flag = FacetLength
-	case vocab.XSDFacetMinLength:
-		flag = FacetMinLength
-	case vocab.XSDFacetMaxLength:
-		flag = FacetMaxLength
-	case vocab.XSDFacetTotalDigits:
-		flag = FacetTotalDigits
-	case vocab.XSDFacetFractionDigits:
-		flag = FacetFractionDigits
-	}
-	setValueCardinalityFacet(&st.ValueSpec.Facets, flag, size)
-	if fixedness == facetFixed {
-		st.ValueSpec.Facets.Fixed |= flag
+	setValueCardinalityFacet(&st.ValueSpec.Facets, facet.flag, size)
+	if facet.fixed {
+		st.ValueSpec.Facets.Fixed |= facet.flag
 	}
 	return nil
 }
 
-func (c *compiler) compileBoundFacet(st *SimpleType, base SimpleTypeID, child *schemaNode, lexical string, fixedness facetFixedness, step *OrderedFacetStep) error {
-	if err := validateFacetFixedness(fixedness); err != nil {
-		return err
+func (c *compiler) compileBoundFacet(st *SimpleType, base SimpleTypeID, child *schemaNode, facet facetInput, state *compiledFacetState) error {
+	var literal valuepkg.LiteralSpec
+	if !state.unavailable {
+		var err error
+		literal, err = c.compileLiteral(base, facet.value, schemaQNameResolver(child))
+		if err != nil {
+			return err
+		}
 	}
-	literal, err := c.compileLiteral(base, lexical, schemaQNameResolver(child))
-	if err != nil {
-		return err
+	if state.unavailable {
+		return nil
 	}
-	var flag FacetMask
-	switch child.local {
-	case vocab.XSDFacetMinInclusive:
-		flag = FacetMinInclusive
-		step.MinInclusive = true
-	case vocab.XSDFacetMaxInclusive:
-		flag = FacetMaxInclusive
-		step.MaxInclusive = true
-	case vocab.XSDFacetMinExclusive:
-		flag = FacetMinExclusive
-		step.MinExclusive = true
-	case vocab.XSDFacetMaxExclusive:
-		flag = FacetMaxExclusive
-		step.MaxExclusive = true
-	}
-	setValueBoundFacet(&st.ValueSpec.Facets, flag, literal, fixedness)
+	setValueBoundFacet(&st.ValueSpec.Facets, facet, literal)
 	return nil
 }
 
-func (c *compiler) compileWhitespaceFacet(st *SimpleType, base SimpleTypeID, n *schemaNode, facetValue string, fixedness facetFixedness) error {
-	if err := validateFacetFixedness(fixedness); err != nil {
-		return err
-	}
-	mode, err := ParseWhitespaceFacetValue(facetValue, c.rt.simpleTypeWhitespace(base))
+func (c *compiler) compileWhitespaceFacet(st *SimpleType, base SimpleTypeID, n *schemaNode, facet facetInput) error {
+	mode, err := ParseWhitespaceFacetValue(facet.value, c.rt.simpleTypeWhitespace(base))
 	if err != nil {
 		return withSchemaCompileLocation(n, err)
 	}
 	st.ValueSpec.Whitespace = mode
 	st.ValueSpec.WhitespacePresent = true
-	if fixedness == facetFixed {
-		st.ValueSpec.Facets.Fixed |= FacetWhiteSpace
+	if facet.fixed {
+		st.ValueSpec.Facets.Fixed |= valuepkg.FacetWhiteSpace
 	}
 	return nil
 }
 
-func setValueCardinalityFacet(f *valuepkg.FacetSpec, flag FacetMask, size uint32) {
+func setValueCardinalityFacet(f *valuepkg.FacetSpec, flag valuepkg.FacetMask, size uint32) {
 	f.Present |= flag
 	cardinality := valuepkg.CardinalityFacet{Value: size, Present: true}
 	switch flag {
-	case FacetLength:
+	case valuepkg.FacetLength:
 		f.Length = cardinality
-	case FacetMinLength:
+	case valuepkg.FacetMinLength:
 		f.MinLength = cardinality
-	case FacetMaxLength:
+	case valuepkg.FacetMaxLength:
 		f.MaxLength = cardinality
-	case FacetTotalDigits:
+	case valuepkg.FacetTotalDigits:
 		f.TotalDigits = cardinality
-	case FacetFractionDigits:
+	case valuepkg.FacetFractionDigits:
 		f.FractionDigits = cardinality
+	case valuepkg.FacetMinInclusive, valuepkg.FacetMaxInclusive, valuepkg.FacetMinExclusive, valuepkg.FacetMaxExclusive,
+		valuepkg.FacetEnumeration, valuepkg.FacetPattern, valuepkg.FacetWhiteSpace:
 	}
 }
 
-func setValueBoundFacet(f *valuepkg.FacetSpec, flag FacetMask, literal valuepkg.LiteralSpec, fixedness facetFixedness) {
+func setValueBoundFacet(f *valuepkg.FacetSpec, facet facetInput, literal valuepkg.LiteralSpec) {
 	bound := valuepkg.BoundFacet{LiteralSpec: literal, Present: true}
-	switch flag {
-	case FacetMinInclusive:
+	switch facet.flag {
+	case valuepkg.FacetMinInclusive:
 		f.MinInclusive = bound
-	case FacetMaxInclusive:
+	case valuepkg.FacetMaxInclusive:
 		f.MaxInclusive = bound
-	case FacetMinExclusive:
+	case valuepkg.FacetMinExclusive:
 		f.MinExclusive = bound
-	case FacetMaxExclusive:
+	case valuepkg.FacetMaxExclusive:
 		f.MaxExclusive = bound
+	case valuepkg.FacetLength, valuepkg.FacetMinLength, valuepkg.FacetMaxLength, valuepkg.FacetTotalDigits, valuepkg.FacetFractionDigits,
+		valuepkg.FacetEnumeration, valuepkg.FacetPattern, valuepkg.FacetWhiteSpace:
 	}
-	f.Present |= flag
-	if fixedness == facetFixed {
-		f.Fixed |= flag
+	f.Present |= facet.flag
+	if facet.fixed {
+		f.Fixed |= facet.flag
 	}
 }
 

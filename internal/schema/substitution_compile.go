@@ -15,17 +15,6 @@ type SubstitutionMembershipLabels struct {
 	HeadType   string
 }
 
-// ValidateSchemaSubstitutionMembership validates one declared substitution
-// member and maps runtime rejection reasons to schema diagnostics.
-func ValidateSchemaSubstitutionMembership(
-	rt TypeDerivationRuntime,
-	head, member ElementDecl,
-	labels SubstitutionMembershipLabels,
-	work func(int) error,
-) error {
-	return substitutionMembershipDiagnostic(ValidateSubstitutionMembership(rt, head, member, work), labels)
-}
-
 func substitutionMembershipDiagnostic(err error, labels SubstitutionMembershipLabels) error {
 	switch {
 	case err == nil:

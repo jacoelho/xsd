@@ -5,6 +5,41 @@ import (
 	"testing"
 )
 
+func TestIPLiteralAuthorityPortAdmission(t *testing.T) {
+	t.Parallel()
+	t.Run("numeric port", func(t *testing.T) {
+		t.Parallel()
+		const raw = "http://[::1]:80/"
+		data := []byte(raw)
+		characters, err := Check(raw)
+		byteCharacters, byteErr := Check(data)
+		if err != nil || byteErr != nil {
+			t.Fatalf("Check(%q) error = %v; bytes error = %v", raw, err, byteErr)
+		}
+		if characters != 16 || byteCharacters != 16 {
+			t.Fatalf("Check(%q) characters = %d/%d, want 16", raw, characters, byteCharacters)
+		}
+		ref, parseErr := Parse(raw)
+		if parseErr != nil {
+			t.Fatalf("Parse(%q) error = %v", raw, parseErr)
+		}
+		if ref.Raw() != raw || ref.Escaped() != raw {
+			t.Fatalf("Parse(%q) = raw %q escaped %q", raw, ref.Raw(), ref.Escaped())
+		}
+	})
+	t.Run("nondigit port", func(t *testing.T) {
+		t.Parallel()
+		const raw = "http://[::1]:x/"
+		data := []byte(raw)
+		_, err := Check(raw)
+		_, byteErr := Check(data)
+		_, parseErr := Parse(raw)
+		if !errors.Is(err, ErrInvalid) || !errors.Is(byteErr, ErrInvalid) || !errors.Is(parseErr, ErrInvalid) {
+			t.Fatalf("Check(%q) error = %v; bytes error = %v; Parse error = %v; want ErrInvalid", raw, err, byteErr, parseErr)
+		}
+	})
+}
+
 func TestParseAndEscape(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

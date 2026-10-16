@@ -96,3 +96,45 @@ func TestGValueIdentityDistinguishesTimezonePresence(t *testing.T) {
 		})
 	}
 }
+
+func TestGValueIdentityCalendarDefaults(t *testing.T) {
+	program, err := value.NewBuilder(value.BuilderOptions{}).Seal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		typ               string
+		kind              value.PrimitiveKind
+		lexical, identity string
+	}{
+		{"gYearMonth", value.PrimitiveGYearMonth, "0001-02Z", "0001-02-01T00:00:00Z"},
+		{"gYear", value.PrimitiveGYear, "0001Z", "0001-01-01T00:00:00Z"},
+		{"gMonthDay", value.PrimitiveGMonthDay, "--02-29Z", "2000-02-29T00:00:00Z"},
+		{"gDay", value.PrimitiveGDay, "---31Z", "2000-01-31T00:00:00Z"},
+		{"gMonth", value.PrimitiveGMonth, "--12Z", "2000-12-01T00:00:00Z"},
+	} {
+		t.Run(tc.typ, func(t *testing.T) {
+			id, ok := value.BuiltinTypeID(tc.typ)
+			if !ok {
+				t.Fatalf("missing builtin %q", tc.typ)
+			}
+			want := string([]byte{byte(tc.kind), '\x1e'}) + tc.identity
+			got, err := program.Validate(id, tc.lexical, value.Resolver{}, value.NeedIdentity, 16<<20, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.IdentityKey() != want {
+				t.Fatalf("identity = %q, want %q", got.IdentityKey(), want)
+			}
+			raw := []byte(tc.lexical)
+			got, err = program.ValidateBytes(id, raw, value.Resolver{}, value.NeedIdentity, 16<<20, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			clear(raw)
+			if got.IdentityKey() != want {
+				t.Fatalf("identity after input mutation = %q, want %q", got.IdentityKey(), want)
+			}
+		})
+	}
+}

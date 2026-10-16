@@ -18,7 +18,11 @@ func TestValidateBytesScalarFastPathsRetainNoAllocation(t *testing.T) {
 		t.Fatal(err)
 	}
 	b := NewBuilder(BuilderOptions{})
-	patternID, err := b.Add(TypeSpec{
+	patternID, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(patternID, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveString,
 		Whitespace: WhitespacePreserve, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -27,7 +31,11 @@ func TestValidateBytesScalarFastPathsRetainNoAllocation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lengthID, err := b.Add(TypeSpec{
+	lengthID, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(lengthID, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveString,
 		Whitespace: WhitespacePreserve, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -52,6 +60,14 @@ func TestValidateBytesScalarFastPathsRetainNoAllocation(t *testing.T) {
 		{name: "integer", p: p, id: builtinInt, raw: []byte("2147483647")},
 		{name: "short string", p: p, id: builtinString, raw: []byte("value")},
 		{name: "long string", p: p, id: builtinString, raw: []byte("0123456789abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz")},
+		{name: "Date", p: p, id: builtinDate, raw: []byte("123456789012345678901234567890-02-28+14:00")},
+		{name: "DateTime", p: p, id: builtinDateTime, raw: []byte("-12026-05-18T23:59:59.123456789123+14:00")},
+		{name: "Time", p: p, id: builtinTime, raw: []byte("23:59:60.123456789123-14:00")},
+		{name: "GYearMonth", p: p, id: builtinGYearMonth, raw: []byte("2024-02Z")},
+		{name: "GYear", p: p, id: builtinGYear, raw: []byte("123456789012345678901234567890Z")},
+		{name: "GMonthDay", p: p, id: builtinGMonthDay, raw: []byte("--02-29Z")},
+		{name: "GDay", p: p, id: builtinGDay, raw: []byte("---31Z")},
+		{name: "GMonth", p: p, id: builtinGMonth, raw: []byte("--12Z")},
 		{name: "pattern", p: patternProgram, id: patternID, raw: []byte("aaaa"), s: &scratch},
 		{name: "unicode length", p: patternProgram, id: lengthID, raw: []byte(strings.Repeat("é", 64))},
 	}
@@ -96,11 +112,15 @@ func TestValidateAdmittedSkipsXMLAdmissionForOwnedString(t *testing.T) {
 
 func TestValidateBytesStringEnumerationRetainsBorrowedInput(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	id, err := b.Add(TypeSpec{
+	id, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(id, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveString,
 		Whitespace: WhitespacePreserve, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
-		Facets: FacetSpec{Enumeration: []LiteralSpec{{Lexical: "ready"}, {Lexical: ""}}},
+		Facets: FacetSpec{Enumeration: []LiteralSpec{{Lexical: "ready"}, {Lexical: ""}, {Lexical: "café"}}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -117,11 +137,19 @@ func TestValidateBytesStringEnumerationRetainsBorrowedInput(t *testing.T) {
 		{raw: []byte(""), valid: true},
 		{raw: []byte(" ready"), valid: false},
 		{raw: []byte("other"), valid: false},
+		{raw: []byte("read"), valid: false},
+		{raw: []byte("readyx"), valid: false},
+		{raw: []byte("café"), valid: true},
+		{raw: []byte("cafè"), valid: false},
+		{raw: []byte("cafe\u0301"), valid: false},
 	} {
 		raw := append([]byte(nil), tc.raw...)
 		got, err := p.ValidateBytes(id, raw, Resolver{}, 0, 16<<20, nil)
 		if (err == nil) != tc.valid {
 			t.Fatalf("ValidateBytes(%q) error = %v, valid = %v", raw, err, tc.valid)
+		}
+		if !tc.valid && (!errors.Is(err, ErrFacet) || err.Error() != "enumeration facet failed") {
+			t.Fatalf("ValidateBytes(%q) error = %v, want enumeration facet failure", raw, err)
 		}
 		clear(raw)
 		if tc.valid && (got.Type() != id || got.CanonicalText() != "") {
@@ -201,7 +229,11 @@ func TestValidateNMTokensListItemDepth(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			b := NewBuilder(BuilderOptions{MaxDepth: tc.maxDepth})
-			custom, err := b.Add(TypeSpec{
+			custom, err := b.Reserve()
+			if err != nil {
+				t.Fatalf("Reserve() error = %v", err)
+			}
+			err = b.Complete(custom, TypeSpec{
 				Variety: List, ListItem: builtinNMTOKEN, Base: NoType,
 				Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 			})
@@ -250,7 +282,11 @@ func TestValidateNMTokensUnionItemDepth(t *testing.T) {
 			list := builtinNMTOKENS
 			if tc.customList {
 				var err error
-				list, err = b.Add(TypeSpec{
+				list, err = b.Reserve()
+				if err != nil {
+					t.Fatalf("Reserve() error = %v", err)
+				}
+				err = b.Complete(list, TypeSpec{
 					Variety: List, ListItem: builtinNMTOKEN, Base: NoType,
 					Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 				})
@@ -258,7 +294,11 @@ func TestValidateNMTokensUnionItemDepth(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			id, err := b.Add(TypeSpec{
+			id, err := b.Reserve()
+			if err != nil {
+				t.Fatalf("Reserve() error = %v", err)
+			}
+			err = b.Complete(id, TypeSpec{
 				Variety: Union, Union: []TypeID{list, builtinString},
 				Base: NoType, ListItem: NoType,
 				Whitespace: WhitespacePreserve, WhitespacePresent: true,
@@ -311,7 +351,11 @@ func assertListDepthValidation(t *testing.T, p *Program, id TypeID, input string
 
 func TestValidateBytesIntegerBoundsUseIntegerLexicalRule(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	boundedID, err := b.Add(TypeSpec{
+	boundedID, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(boundedID, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveDecimal, Builtin: BuiltinInteger,
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -376,7 +420,11 @@ func TestValidateBytesIntegerBoundsUseIntegerLexicalRule(t *testing.T) {
 
 func TestValidateBytesInheritedStringEnumerationUsesEveryGroup(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	base, err := b.Add(TypeSpec{
+	base, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(base, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveString,
 		Whitespace: WhitespacePreserve, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -387,7 +435,11 @@ func TestValidateBytesInheritedStringEnumerationUsesEveryGroup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	derived, err := b.Add(TypeSpec{
+	derived, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(derived, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveString,
 		Whitespace: WhitespacePreserve, WhitespacePresent: true,
 		Base: base, ListItem: NoType,
@@ -410,7 +462,11 @@ func TestValidateBytesInheritedStringEnumerationUsesEveryGroup(t *testing.T) {
 
 func TestValidateBytesDecimalFractionDigitsZeroUsesDecimalValueSpace(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	id, err := b.Add(TypeSpec{
+	id, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(id, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveDecimal,
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -448,11 +504,19 @@ func TestValidateBytesFallsBackForProjectionAndList(t *testing.T) {
 	}
 
 	b := NewBuilder(BuilderOptions{})
-	item, err := b.Add(TypeSpec{Variety: Atomic, Primitive: PrimitiveString, Whitespace: WhitespaceCollapse, WhitespacePresent: true, Base: NoType, ListItem: NoType})
+	item, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(item, TypeSpec{Variety: Atomic, Primitive: PrimitiveString, Whitespace: WhitespaceCollapse, WhitespacePresent: true, Base: NoType, ListItem: NoType})
 	if err != nil {
 		t.Fatal(err)
 	}
-	list, err := b.Add(TypeSpec{Variety: List, Whitespace: WhitespaceCollapse, WhitespacePresent: true, Base: NoType, ListItem: item})
+	list, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(list, TypeSpec{Variety: List, Whitespace: WhitespaceCollapse, WhitespacePresent: true, Base: NoType, ListItem: item})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -468,7 +532,11 @@ func TestValidateBytesFallsBackForProjectionAndList(t *testing.T) {
 
 func TestValidateBytesDecimalInclusiveBoundsAvoidStringMaterialization(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	id, err := b.Add(TypeSpec{
+	id, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(id, TypeSpec{
 		Variety:           Atomic,
 		Primitive:         PrimitiveDecimal,
 		Whitespace:        WhitespaceCollapse,
@@ -513,7 +581,11 @@ func TestValidateBytesDecimalInclusiveBoundsAvoidStringMaterialization(t *testin
 
 func TestValidateBytesUnionPreservesSelectionAndProjections(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	id, err := b.Add(TypeSpec{
+	id, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(id, TypeSpec{
 		Variety: Union, Union: []TypeID{builtinBoolean, builtinID, builtinString},
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -552,7 +624,11 @@ func TestValidateBytesUnionPreservesSelectionAndProjections(t *testing.T) {
 func TestValidateBytesUnionChargesFailedAttempts(t *testing.T) {
 	for _, budget := range []uint64{4, 6} {
 		b := NewBuilder(BuilderOptions{})
-		id, err := b.Add(TypeSpec{
+		id, err := b.Reserve()
+		if err != nil {
+			t.Fatalf("Reserve() error = %v", err)
+		}
+		err = b.Complete(id, TypeSpec{
 			Variety: Union, Union: []TypeID{builtinBoolean, builtinString},
 			Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 			Base: NoType, ListItem: NoType,
@@ -573,7 +649,11 @@ func TestValidateBytesUnionChargesFailedAttempts(t *testing.T) {
 
 func TestValidateBytesFallbackRetainsRawWork(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	id, err := b.Add(TypeSpec{
+	id, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(id, TypeSpec{
 		Variety: Union, Union: []TypeID{builtinBoolean, builtinQName},
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -597,7 +677,11 @@ func TestValidateBytesTextFacetsCountNormalizedCharacters(t *testing.T) {
 	}
 	for _, whitespace := range []WhitespaceMode{WhitespacePreserve, WhitespaceCollapse} {
 		b := NewBuilder(BuilderOptions{})
-		id, err := b.Add(TypeSpec{
+		id, err := b.Reserve()
+		if err != nil {
+			t.Fatalf("Reserve() error = %v", err)
+		}
+		err = b.Complete(id, TypeSpec{
 			Variety: Atomic, Primitive: PrimitiveString,
 			Whitespace: whitespace, WhitespacePresent: true,
 			Base: NoType, ListItem: NoType,
@@ -633,7 +717,11 @@ func TestValidateBytesTextFacetsCountNormalizedCharacters(t *testing.T) {
 
 func TestValidateBytesChecksCustomIntegerLexicalSpace(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	id, err := b.Add(TypeSpec{
+	id, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(id, TypeSpec{
 		Variety: Atomic, Primitive: PrimitiveDecimal, Builtin: BuiltinInteger,
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -657,7 +745,11 @@ func TestValidateBytesChecksCustomIntegerLexicalSpace(t *testing.T) {
 
 func TestValidateBytesUnionRetainsExplicitIdentity(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	id, err := b.Add(TypeSpec{
+	id, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(id, TypeSpec{
 		Variety: Union, Union: []TypeID{builtinID}, Identity: IdentityID,
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
@@ -677,7 +769,11 @@ func TestValidateBytesUnionRetainsExplicitIdentity(t *testing.T) {
 
 func TestValidateBytesUnionRetainsIDREFSelectionAndProjection(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	id, err := b.Add(TypeSpec{
+	id, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(id, TypeSpec{
 		Variety: Union, Union: []TypeID{builtinIDREF, builtinString},
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,

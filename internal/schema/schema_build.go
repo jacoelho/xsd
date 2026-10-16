@@ -24,10 +24,6 @@ func newSchemaBuild(names NameTable) schemaBuild {
 	}
 }
 
-func (rt *schemaBuild) builtinIDs() BuiltinIDs {
-	return rt.Builtin
-}
-
 func (rt *schemaBuild) formatName(q QName) string {
 	return rt.Names.Format(q)
 }
@@ -52,10 +48,6 @@ func sortedBuildQNames[T any](rt *schemaBuild, values map[QName]T) []QName {
 	return SortedQNames(values, rt.Names)
 }
 
-func (rt *schemaBuild) InternNamespace(uri string) (NamespaceID, error) {
-	return NewNameInterner(&rt.Names).InternNamespace(uri)
-}
-
 func (rt *schemaBuild) internQName(ns, local string) (QName, error) {
 	return NewNameInterner(&rt.Names).InternQName(ns, local)
 }
@@ -64,7 +56,7 @@ func (rt *schemaBuild) simpleTypeFinalMask(id SimpleTypeID) DerivationMask {
 	return rt.SimpleTypes[id].Final
 }
 
-func (rt *schemaBuild) simpleTypeWhitespace(id SimpleTypeID) WhitespaceMode {
+func (rt *schemaBuild) simpleTypeWhitespace(id SimpleTypeID) value.WhitespaceMode {
 	return rt.SimpleTypes[id].ValueSpec.Whitespace
 }
 
@@ -76,7 +68,7 @@ func (rt *schemaBuild) appendFlattenedUnionMember(
 ) (int, bool) {
 	typ := rt.SimpleTypes[id]
 	members := []SimpleTypeID{id}
-	if typ.ValueSpec.Variety == SimpleVarietyUnion {
+	if typ.ValueSpec.Variety == value.Union {
 		members = typ.ValueSpec.Union
 	}
 	added := 0
@@ -119,14 +111,6 @@ func cloneValueConstraint(vc *ValueConstraint) *ValueConstraint {
 	return &cloned
 }
 
-func (rt *schemaBuild) elementCopy(id ElementID) ElementDecl {
-	decl := rt.Elements[id]
-	decl.Identity = slices.Clone(decl.Identity)
-	decl.Default = cloneValueConstraint(decl.Default)
-	decl.Fixed = cloneValueConstraint(decl.Fixed)
-	return decl
-}
-
 func (c *compiler) elementCopies() []ElementDecl {
 	return slices.Clone(c.rt.Elements)
 }
@@ -151,19 +135,6 @@ func (rt *schemaBuild) attributeUse(id AttributeID) AttributeUse {
 		Fixed:                cloneValueConstraint(decl.Fixed),
 		FixedFromDeclaration: decl.Fixed != nil,
 	}
-}
-
-func (rt *schemaBuild) attributeUsesAndWildcard(id AttributeUseSetID) ([]AttributeUse, WildcardID) {
-	if id == NoAttributeUseSet {
-		return nil, NoWildcard
-	}
-	set := rt.AttributeUseSets[id]
-	uses := slices.Clone(set.Uses)
-	for i := range uses {
-		uses[i].Default = cloneValueConstraint(uses[i].Default)
-		uses[i].Fixed = cloneValueConstraint(uses[i].Fixed)
-	}
-	return uses, set.Wildcard
 }
 
 // attributeUsesAndWildcardForCompilation copies only the use slice. Value
@@ -230,7 +201,7 @@ func (c *compiler) restrictionChoiceLimitUpdates() ([]RestrictionChoiceLimitUpda
 		&c.rt,
 		c.rt.ComplexTypes,
 		c.rt.Models,
-		c.rt.Builtin.AnyType,
+		c.rt.AnyType,
 		c.contentWork.spend,
 		c.contentAnalysis,
 	)
@@ -245,7 +216,11 @@ func (c *compiler) validateAttributeUseSetBuild(set AttributeUseSet) error {
 }
 
 func (c *compiler) simpleListItemReachesList(id SimpleTypeID) bool {
-	return c.simpleListReach.reachesList(c.rt.SimpleTypes, id)
+	if !ValidSimpleTypeID(id, len(c.rt.SimpleTypes)) {
+		return false
+	}
+	typ := c.rt.SimpleTypes[id]
+	return typ.ValueSpec.Variety == value.List || typ.unionContainsList
 }
 
 func (c *compiler) registerGlobalElement(q QName, decl ElementDecl) (ElementID, error) {
@@ -365,7 +340,7 @@ func (c *compiler) simpleTypeHasMissingDependency(typ SimpleType) bool {
 	if base != NoSimpleType && ValidSimpleTypeID(base, len(c.rt.simpleTypeUnavailable)) && c.rt.simpleTypeUnavailable[base] {
 		return true
 	}
-	if typ.ValueSpec.Variety == SimpleVarietyList && ValidSimpleTypeID(typ.ValueSpec.ListItem, len(c.rt.simpleTypeUnavailable)) && c.rt.simpleTypeUnavailable[typ.ValueSpec.ListItem] {
+	if typ.ValueSpec.Variety == value.List && ValidSimpleTypeID(typ.ValueSpec.ListItem, len(c.rt.simpleTypeUnavailable)) && c.rt.simpleTypeUnavailable[typ.ValueSpec.ListItem] {
 		return true
 	}
 	for _, member := range typ.ValueSpec.Union {
@@ -446,7 +421,7 @@ func (c *compiler) registerBuiltinAnyType(q QName, typ ComplexType) (ComplexType
 	if err != nil {
 		return NoComplexType, err
 	}
-	c.rt.Builtin.AnyType = id
+	c.rt.AnyType = id
 	return id, nil
 }
 

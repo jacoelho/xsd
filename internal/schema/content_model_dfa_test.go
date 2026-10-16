@@ -5,6 +5,7 @@ import (
 	"slices"
 	"testing"
 
+	valuepkg "github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
@@ -13,7 +14,7 @@ func unlimitedCompileContentModelWork(int) error { return nil }
 
 func mustContentModelAnalysis(
 	tb testing.TB,
-	rt ParticleRuntime,
+	rt *schemaBuild,
 	work ContentModelWork,
 ) *ContentModelAnalysis {
 	tb.Helper()
@@ -24,7 +25,7 @@ func mustContentModelAnalysis(
 	return analysis
 }
 
-func checkElementDeclarationsConsistent(rt ElementDeclarationRuntime, model ContentModel) error {
+func checkElementDeclarationsConsistent(rt *schemaBuild, model ContentModel) error {
 	work := newWorkBudget(contentModelWorkBudget, 10_000)
 	checker := newElementDeclarationConsistencyChecker(rt, &work)
 	_, err := checker.collectParticles(model.Particles)
@@ -36,8 +37,8 @@ func TestCompileContentModelsBuildsWideDFA(t *testing.T) {
 
 	names, rt := compiledModelRuntimeFixture(t, ModelChoice)
 	work := newWorkBudget(contentModelWorkBudget, 1_000_000)
-	analysis := mustContentModelAnalysis(t, rt, work.spend)
-	models, err := CompileContentModels(&names, rt, 1, 32, &work, analysis)
+	analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
+	models, err := CompileContentModels(&names, rt.build(), 1, 32, &work, analysis)
 	if err != nil {
 		t.Fatalf("CompileContentModels() error = %v", err)
 	}
@@ -45,8 +46,8 @@ func TestCompileContentModelsBuildsWideDFA(t *testing.T) {
 		t.Fatalf("compiled model count = %d, want 1", len(models))
 	}
 	model := models[0]
-	if model.Source != 0 || model.Kind != CompiledModelDFA {
-		t.Fatalf("compiled model = {Source:%d Kind:%d}, want source 0 DFA", model.Source, model.Kind)
+	if model.Kind != CompiledModelDFA {
+		t.Fatalf("compiled model kind = %d, want DFA", model.Kind)
 	}
 	if len(model.Rows) == 0 {
 		t.Fatal("wide DFA has no rows")
@@ -65,7 +66,7 @@ func TestCheckContentModelsUPARejectsChoiceOverlap(t *testing.T) {
 		t.Fatal("missing QName for a")
 	}
 	one := Occurrence{Min: 1, Max: 1}
-	rt := compiledModelRuntimeStub{
+	rt := compiledModelFixture{
 		models: map[ContentModelID]ContentModel{
 			0: {
 				Kind:   ModelChoice,
@@ -82,8 +83,8 @@ func TestCheckContentModelsUPARejectsChoiceOverlap(t *testing.T) {
 		},
 	}
 	work := newWorkBudget(contentModelWorkBudget, 1_000_000)
-	analysis := mustContentModelAnalysis(t, rt, work.spend)
-	err = CheckContentModelsUPA(&names, rt, 1, &work, analysis)
+	analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
+	err = CheckContentModelsUPA(&names, rt.build(), 1, &work, analysis)
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel)
 }
 
@@ -92,7 +93,7 @@ func TestCheckElementDeclarationsConsistentRejectsSameNameDifferentType(t *testi
 
 	name := QName{Namespace: EmptyNamespaceID, Local: 1}
 	one := Occurrence{Min: 1, Max: 1}
-	rt := compiledModelRuntimeStub{
+	rt := compiledModelFixture{
 		models: map[ContentModelID]ContentModel{
 			0: {
 				Kind: ModelSequence,
@@ -117,7 +118,7 @@ func TestCheckElementDeclarationsConsistentRejectsSameNameDifferentType(t *testi
 			2: SimpleRef(2),
 		},
 	}
-	err := checkElementDeclarationsConsistent(rt, rt.models[0])
+	err := checkElementDeclarationsConsistent(rt.build(), rt.models[0])
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel)
 }
 
@@ -126,7 +127,7 @@ func TestCheckElementDeclarationsConsistentAllowsSameNameSameType(t *testing.T) 
 
 	name := QName{Namespace: EmptyNamespaceID, Local: 1}
 	one := Occurrence{Min: 1, Max: 1}
-	rt := compiledModelRuntimeStub{
+	rt := compiledModelFixture{
 		models: map[ContentModelID]ContentModel{
 			0: {
 				Kind: ModelSequence,
@@ -146,7 +147,7 @@ func TestCheckElementDeclarationsConsistentAllowsSameNameSameType(t *testing.T) 
 			2: ComplexRef(1),
 		},
 	}
-	if err := checkElementDeclarationsConsistent(rt, rt.models[0]); err != nil {
+	if err := checkElementDeclarationsConsistent(rt.build(), rt.models[0]); err != nil {
 		t.Fatalf("CheckElementDeclarationsConsistent() error = %v", err)
 	}
 }
@@ -156,7 +157,7 @@ func TestValidateContentRestrictionRejectsElementNillableLoosening(t *testing.T)
 
 	name := QName{Namespace: EmptyNamespaceID, Local: 1}
 	one := Occurrence{Min: 1, Max: 1}
-	rt := compiledModelRuntimeStub{
+	rt := compiledModelFixture{
 		models: restrictionModels(
 			ElementParticle(1, one),
 			ElementParticle(2, one),
@@ -170,7 +171,7 @@ func TestValidateContentRestrictionRejectsElementNillableLoosening(t *testing.T)
 			2: {Type: SimpleRef(1), Scope: DeclarationScopeNonGlobal, Nillable: true},
 		},
 	}
-	err := ValidateContentRestriction(rt, 0, 1, unlimitedCompileContentModelWork, mustContentModelAnalysis(t, rt, unlimitedCompileContentModelWork))
+	err := ValidateContentRestriction(rt.build(), 0, 1, unlimitedCompileContentModelWork, mustContentModelAnalysis(t, rt.build(), unlimitedCompileContentModelWork))
 	if !IsContentRestrictionMismatch(err) {
 		t.Fatalf("ValidateContentRestriction() error = %v, want mismatch", err)
 	}
@@ -182,7 +183,7 @@ func TestValidateContentRestrictionAllowsSubstitutionMemberName(t *testing.T) {
 	headName := QName{Namespace: EmptyNamespaceID, Local: 1}
 	memberName := QName{Namespace: EmptyNamespaceID, Local: 2}
 	one := Occurrence{Min: 1, Max: 1}
-	rt := compiledModelRuntimeStub{
+	rt := compiledModelFixture{
 		models: restrictionModels(
 			ElementParticle(1, one),
 			ElementParticle(2, one),
@@ -199,7 +200,7 @@ func TestValidateContentRestrictionAllowsSubstitutionMemberName(t *testing.T) {
 			1: {memberName: 2},
 		},
 	}
-	if err := ValidateContentRestriction(rt, 0, 1, unlimitedCompileContentModelWork, mustContentModelAnalysis(t, rt, unlimitedCompileContentModelWork)); err != nil {
+	if err := ValidateContentRestriction(rt.build(), 0, 1, unlimitedCompileContentModelWork, mustContentModelAnalysis(t, rt.build(), unlimitedCompileContentModelWork)); err != nil {
 		t.Fatalf("runtime.ValidateContentRestriction() error = %v", err)
 	}
 }
@@ -209,7 +210,7 @@ func TestValidateContentRestrictionRejectsFixedValueMismatch(t *testing.T) {
 
 	name := QName{Namespace: EmptyNamespaceID, Local: 1}
 	one := Occurrence{Min: 1, Max: 1}
-	rt := compiledModelRuntimeStub{
+	rt := compiledModelFixture{
 		models: restrictionModels(
 			ElementParticle(1, one),
 			ElementParticle(2, one),
@@ -223,7 +224,7 @@ func TestValidateContentRestrictionRejectsFixedValueMismatch(t *testing.T) {
 			2: {Type: SimpleRef(1), Scope: DeclarationScopeNonGlobal, Fixed: valueConstraintIdentity(t, "string", "derived")},
 		},
 	}
-	err := ValidateContentRestriction(rt, 0, 1, unlimitedCompileContentModelWork, mustContentModelAnalysis(t, rt, unlimitedCompileContentModelWork))
+	err := ValidateContentRestriction(rt.build(), 0, 1, unlimitedCompileContentModelWork, mustContentModelAnalysis(t, rt.build(), unlimitedCompileContentModelWork))
 	if !IsContentRestrictionMismatch(err) {
 		t.Fatalf("ValidateContentRestriction() error = %v, want mismatch", err)
 	}
@@ -234,7 +235,7 @@ func TestValidateContentRestrictionAllowsFixedCanonicalMatch(t *testing.T) {
 
 	name := QName{Namespace: EmptyNamespaceID, Local: 1}
 	one := Occurrence{Min: 1, Max: 1}
-	rt := compiledModelRuntimeStub{
+	rt := compiledModelFixture{
 		models: restrictionModels(
 			ElementParticle(1, one),
 			ElementParticle(2, one),
@@ -248,7 +249,7 @@ func TestValidateContentRestrictionAllowsFixedCanonicalMatch(t *testing.T) {
 			2: {Type: SimpleRef(1), Scope: DeclarationScopeNonGlobal, Fixed: valueConstraintIdentity(t, "token", "1   2   3")},
 		},
 	}
-	if err := ValidateContentRestriction(rt, 0, 1, unlimitedCompileContentModelWork, mustContentModelAnalysis(t, rt, unlimitedCompileContentModelWork)); err != nil {
+	if err := ValidateContentRestriction(rt.build(), 0, 1, unlimitedCompileContentModelWork, mustContentModelAnalysis(t, rt.build(), unlimitedCompileContentModelWork)); err != nil {
 		t.Fatalf("runtime.ValidateContentRestriction() error = %v", err)
 	}
 }
@@ -258,7 +259,7 @@ func TestValidateContentRestrictionAllowsFixedValueIdentityMatch(t *testing.T) {
 
 	name := QName{Namespace: EmptyNamespaceID, Local: 1}
 	one := Occurrence{Min: 1, Max: 1}
-	rt := compiledModelRuntimeStub{
+	rt := compiledModelFixture{
 		models: restrictionModels(
 			ElementParticle(1, one),
 			ElementParticle(2, one),
@@ -272,11 +273,11 @@ func TestValidateContentRestrictionAllowsFixedValueIdentityMatch(t *testing.T) {
 			2: {Type: SimpleRef(2), Scope: DeclarationScopeNonGlobal, Fixed: valueConstraintIdentity(t, "integer", "5")},
 		},
 		simpleDerivations: map[SimpleTypeID]SimpleTypeDerivation{
-			1: {Base: NoSimpleType, Variety: SimpleVarietyAtomic},
-			2: {Base: 1, Variety: SimpleVarietyAtomic},
+			1: {Base: NoSimpleType, Variety: valuepkg.Atomic},
+			2: {Base: 1, Variety: valuepkg.Atomic},
 		},
 	}
-	if err := ValidateContentRestriction(rt, 0, 1, unlimitedCompileContentModelWork, mustContentModelAnalysis(t, rt, unlimitedCompileContentModelWork)); err != nil {
+	if err := ValidateContentRestriction(rt.build(), 0, 1, unlimitedCompileContentModelWork, mustContentModelAnalysis(t, rt.build(), unlimitedCompileContentModelWork)); err != nil {
 		t.Fatalf("runtime.ValidateContentRestriction() error = %v", err)
 	}
 }
@@ -286,7 +287,7 @@ func TestValidateContentRestrictionRejectsWildcardOutsideBase(t *testing.T) {
 
 	name := QName{Namespace: 1, Local: 1}
 	one := Occurrence{Min: 1, Max: 1}
-	rt := compiledModelRuntimeStub{
+	rt := compiledModelFixture{
 		models: map[ContentModelID]ContentModel{
 			0: {
 				Kind:      ModelSequence,
@@ -309,7 +310,7 @@ func TestValidateContentRestrictionRejectsWildcardOutsideBase(t *testing.T) {
 			1: {Mode: WildcardLocal},
 		},
 	}
-	err := ValidateContentRestriction(rt, 0, 1, unlimitedCompileContentModelWork, mustContentModelAnalysis(t, rt, unlimitedCompileContentModelWork))
+	err := ValidateContentRestriction(rt.build(), 0, 1, unlimitedCompileContentModelWork, mustContentModelAnalysis(t, rt.build(), unlimitedCompileContentModelWork))
 	if !IsContentRestrictionMismatch(err) {
 		t.Fatalf("ValidateContentRestriction() error = %v, want mismatch", err)
 	}
@@ -319,7 +320,7 @@ func TestValidateContentRestrictionMissingModelIsInternalInvariant(t *testing.T)
 	t.Parallel()
 
 	one := Occurrence{Min: 1, Max: 1}
-	rt := compiledModelRuntimeStub{
+	rt := compiledModelFixture{
 		models: map[ContentModelID]ContentModel{
 			0: {
 				Kind:      ModelSequence,
@@ -328,7 +329,7 @@ func TestValidateContentRestrictionMissingModelIsInternalInvariant(t *testing.T)
 			},
 		},
 	}
-	err := ValidateContentRestriction(rt, 0, 1, unlimitedCompileContentModelWork, mustContentModelAnalysis(t, rt, unlimitedCompileContentModelWork))
+	err := ValidateContentRestriction(rt.build(), 0, 1, unlimitedCompileContentModelWork, mustContentModelAnalysis(t, rt.build(), unlimitedCompileContentModelWork))
 	if !IsContentRestrictionInvariant(err) {
 		t.Fatalf("ValidateContentRestriction() error = %v, want invariant", err)
 	}
@@ -495,7 +496,7 @@ func expectDiagnostic(t *testing.T, err error, category xsderrors.Category, code
 	}
 }
 
-type compiledModelRuntimeStub struct {
+type compiledModelFixture struct {
 	models              map[ContentModelID]ContentModel
 	elementNames        map[ElementID]QName
 	elementTypes        map[ElementID]TypeID
@@ -523,7 +524,7 @@ func restrictionModels(base, derived Particle) map[ContentModelID]ContentModel {
 	}
 }
 
-func compiledModelRuntimeFixture(t *testing.T, kind ModelKind) (NameTable, compiledModelRuntimeStub) {
+func compiledModelRuntimeFixture(t *testing.T, kind ModelKind) (NameTable, compiledModelFixture) {
 	t.Helper()
 
 	var required []ExpandedName
@@ -548,7 +549,7 @@ func compiledModelRuntimeFixture(t *testing.T, kind ModelKind) (NameTable, compi
 		elementNames[id] = name
 		particles[i] = ElementParticle(id, one)
 	}
-	rt := compiledModelRuntimeStub{
+	rt := compiledModelFixture{
 		models: map[ContentModelID]ContentModel{
 			0: {Kind: kind, Occurs: one, Particles: particles},
 		},
@@ -559,100 +560,4 @@ func compiledModelRuntimeFixture(t *testing.T, kind ModelKind) (NameTable, compi
 		rt.elementTypes[id] = SimpleRef(SimpleTypeID(id))
 	}
 	return names, rt
-}
-
-func (s compiledModelRuntimeStub) ContentModel(id ContentModelID) (ContentModel, bool) {
-	model, ok := s.models[id]
-	return model, ok
-}
-
-func (s compiledModelRuntimeStub) ElementName(id ElementID) (QName, bool) {
-	name, ok := s.elementNames[id]
-	return name, ok
-}
-
-func (s compiledModelRuntimeStub) ElementType(id ElementID) (TypeID, bool) {
-	if decl, ok := s.elementRestrictions[id]; ok {
-		return decl.Type, true
-	}
-	typ, ok := s.elementTypes[id]
-	return typ, ok
-}
-
-func (s compiledModelRuntimeStub) ElementRestriction(id ElementID) (ParticleRestrictionElement, bool) {
-	if decl, ok := s.elementRestrictions[id]; ok {
-		return decl, true
-	}
-	typ, ok := s.elementTypes[id]
-	if !ok {
-		return ParticleRestrictionElement{}, false
-	}
-	return ParticleRestrictionElement{Type: typ, Scope: DeclarationScopeNonGlobal}, true
-}
-
-func (s compiledModelRuntimeStub) Wildcard(id WildcardID) (Wildcard, bool) {
-	wildcard, ok := s.wildcards[id]
-	return wildcard, ok
-}
-
-func (s compiledModelRuntimeStub) ForEachSubstitutionMember(id ElementID, fn func(ElementID) bool) {
-	members := s.substitutions[id]
-	if members == nil {
-		return
-	}
-	for _, member := range members {
-		if !fn(member) {
-			return
-		}
-	}
-}
-
-func (s compiledModelRuntimeStub) HasSubstitutionMembers(id ElementID) bool {
-	return len(s.substitutions[id]) != 0
-}
-
-func (s compiledModelRuntimeStub) SubstitutionMemberByName(id ElementID, name QName) (ElementID, bool) {
-	members := s.substitutions[id]
-	if members == nil {
-		return NoElement, false
-	}
-	member, ok := members[name]
-	return member, ok
-}
-
-func (s compiledModelRuntimeStub) ForEachSubstitutionEntry(id ElementID, fn func(QName, ElementID) bool) {
-	for name, member := range s.substitutions[id] {
-		if !fn(name, member) {
-			return
-		}
-	}
-}
-
-func (s compiledModelRuntimeStub) AnyTypeID() ComplexTypeID {
-	return s.anyType
-}
-
-func (s compiledModelRuntimeStub) ComplexTypeCount() int {
-	var count int
-	for id := range s.complexDerivations {
-		count = max(count, int(id)+1)
-	}
-	if s.anyType != 0 {
-		count = max(count, int(s.anyType)+1)
-	}
-	return count
-}
-
-func (s compiledModelRuntimeStub) SimpleTypeCount() int {
-	return len(s.simpleDerivations)
-}
-
-func (s compiledModelRuntimeStub) SimpleTypeDerivation(id SimpleTypeID) (SimpleTypeDerivation, bool) {
-	derivation, ok := s.simpleDerivations[id]
-	return derivation, ok
-}
-
-func (s compiledModelRuntimeStub) ComplexTypeDerivation(id ComplexTypeID) (ComplexTypeDerivation, bool) {
-	derivation, ok := s.complexDerivations[id]
-	return derivation, ok
 }

@@ -8,7 +8,11 @@ import (
 
 func TestUnionUsesSelectedMemberWhitespace(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	union, err := b.Add(TypeSpec{
+	union, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(union, TypeSpec{
 		Variety:           Union,
 		Primitive:         PrimitiveString,
 		Union:             []TypeID{builtinInt, builtinString},
@@ -57,7 +61,11 @@ func TestUnionPatternUsesSelectedMemberWhitespaceWithoutProjection(t *testing.T)
 		t.Fatal(err)
 	}
 	b := NewBuilder(BuilderOptions{})
-	union, err := b.Add(TypeSpec{
+	union, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(union, TypeSpec{
 		Variety:           Union,
 		Primitive:         PrimitiveString,
 		Union:             []TypeID{builtinToken, builtinString},
@@ -88,7 +96,11 @@ func TestUnionPatternUsesSelectedMemberWhitespaceWithoutProjection(t *testing.T)
 
 func TestUnionEnumerationUsesSelectedMemberValue(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	union, err := b.Add(TypeSpec{
+	union, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(union, TypeSpec{
 		Variety:           Union,
 		Primitive:         PrimitiveString,
 		Union:             []TypeID{builtinString, builtinInt},
@@ -192,7 +204,11 @@ func TestUnionPatternUsesSelectedMemberWhitespace(t *testing.T) {
 			}
 			b := NewBuilder(BuilderOptions{})
 			if test.list {
-				list, listErr := b.Add(TypeSpec{
+				list, listErr := b.Reserve()
+				if listErr != nil {
+					t.Fatalf("Reserve() error = %v", listErr)
+				}
+				listErr = b.Complete(list, TypeSpec{
 					Variety: List, Primitive: PrimitiveString, Base: NoType,
 					ListItem: builtinString, Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 				})
@@ -202,7 +218,11 @@ func TestUnionPatternUsesSelectedMemberWhitespace(t *testing.T) {
 				test.members = []TypeID{list}
 				test.selected = list
 			}
-			union, err := b.Add(TypeSpec{
+			union, err := b.Reserve()
+			if err != nil {
+				t.Fatalf("Reserve() error = %v", err)
+			}
+			err = b.Complete(union, TypeSpec{
 				Variety:           Union,
 				Primitive:         PrimitiveString,
 				Union:             test.members,
@@ -257,7 +277,11 @@ func TestNestedUnionPatternUsesTerminalMemberWhitespace(t *testing.T) {
 		t.Fatal(err)
 	}
 	b := NewBuilder(BuilderOptions{})
-	inner, err := b.Add(TypeSpec{
+	inner, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(inner, TypeSpec{
 		Variety:           Union,
 		Primitive:         PrimitiveString,
 		Union:             []TypeID{builtinToken, builtinString},
@@ -269,7 +293,11 @@ func TestNestedUnionPatternUsesTerminalMemberWhitespace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	outer, err := b.Add(TypeSpec{
+	outer, err := b.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = b.Complete(outer, TypeSpec{
 		Variety:           Union,
 		Primitive:         PrimitiveString,
 		Union:             []TypeID{inner, builtinString},

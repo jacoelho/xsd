@@ -98,10 +98,10 @@ func parseTwoDateDigits[T byteText](s T, i int) (value, next int, valid bool) {
 
 func daysInDateMonth[T byteText](s T, year dateYear, month int) int {
 	leap := month == 2 && isDateLeapYear(s, year)
-	return daysInDateMonthForLeap(month, leap)
+	return daysInMonthForLeap(month, leap)
 }
 
-func daysInDateMonthForLeap(month int, leap bool) int { //nolint:revive // Leap status is an intrinsic calendar fact, not an operation mode.
+func daysInMonthForLeap(month int, leap bool) int { //nolint:revive // Leap status is an intrinsic calendar fact, not an operation mode.
 	switch month {
 	case 2:
 		if leap {
@@ -116,10 +116,10 @@ func daysInDateMonthForLeap(month int, leap bool) int { //nolint:revive // Leap 
 }
 
 func isDateLeapYear[T byteText](s T, y dateYear) bool {
-	return dateLeapYearRule(dateYearMod(s, y, 400), dateYearMod(s, y, 100), dateYearMod(s, y, 4))
+	return leapYearRule(dateYearMod(s, y, 400), dateYearMod(s, y, 100), dateYearMod(s, y, 4))
 }
 
-func dateLeapYearRule(mod400, mod100, mod4 int) bool {
+func leapYearRule(mod400, mod100, mod4 int) bool {
 	return mod400 == 0 || mod4 == 0 && mod100 != 0
 }
 
@@ -128,13 +128,7 @@ func dateYearMod[T byteText](s T, y dateYear, m int) int {
 	for i := y.digitsStart; i < y.digitsEnd; i++ {
 		out = (out*10 + int(s[i]-'0')) % m
 	}
-	if y.neg {
-		out = (1 - out) % m
-		if out < 0 {
-			out += m
-		}
-	}
-	return out
+	return astronomicalYearRemainder(out, m, y.neg)
 }
 
 func validateTimezoneToEnd[T byteText](s T, i int, label string) error {
@@ -166,7 +160,7 @@ func parseTimezoneEnd[T byteText](s T, i int) (int, error) {
 	}
 	hour, _, ok1 := parseTwoDateDigits(s, i+1)
 	minute, _, ok2 := parseTwoDateDigits(s, i+4)
-	if !ok1 || !ok2 || hour > 14 || minute > 59 || hour == 14 && minute != 0 {
+	if !ok1 || !ok2 || !validTimezoneFields(hour, minute) {
 		return i, errors.New(dateErrInvalidTimezone)
 	}
 	return i + 6, nil
@@ -174,4 +168,19 @@ func parseTimezoneEnd[T byteText](s T, i int) (int, error) {
 
 func isASCIIDigit(c byte) bool {
 	return c >= '0' && c <= '9'
+}
+
+func validTimezoneFields(hour, minute int) bool {
+	return hour <= 14 && minute <= 59 && (hour < 14 || minute == 0)
+}
+
+// XSD BCE years count from -1; astronomical numbering includes year zero.
+func astronomicalYearRemainder(remainder, modulus int, negative bool) int { //nolint:revive // Sign is a calendar fact, not an operation mode.
+	if negative {
+		remainder = (1 - remainder) % modulus
+		if remainder < 0 {
+			remainder += modulus
+		}
+	}
+	return remainder
 }

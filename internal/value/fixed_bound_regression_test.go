@@ -25,19 +25,31 @@ func TestFacetContractUsesNewestInheritedBoundForFixedFacet(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			builder := value.NewBuilder(value.BuilderOptions{})
-			base, err := builder.Add(atomicFacetType(test.primitive, orderedFacet(test.flag, test.older, false)))
+			base, err := builder.Reserve()
+			if err != nil {
+				t.Fatalf("Reserve() error = %v", err)
+			}
+			err = builder.Complete(base, atomicFacetType(test.primitive, orderedFacet(test.flag, test.older, false)))
 			if err != nil {
 				t.Fatal(err)
 			}
 			middleSpec := atomicFacetType(test.primitive, orderedFacet(test.flag, test.fixedValue, true))
 			middleSpec.Base = base
-			middle, err := builder.Add(middleSpec)
+			middle, err := builder.Reserve()
+			if err != nil {
+				t.Fatalf("Reserve() error = %v", err)
+			}
+			err = builder.Complete(middle, middleSpec)
 			if err != nil {
 				t.Fatal(err)
 			}
 			leafSpec := atomicFacetType(test.primitive, orderedFacet(test.flag, test.fixedValue, false))
 			leafSpec.Base = middle
-			if _, err := builder.Add(leafSpec); err != nil {
+			reservedID, reserveErr := builder.Reserve()
+			if reserveErr != nil {
+				t.Fatalf("Reserve() error = %v", reserveErr)
+			}
+			if err := builder.Complete(reservedID, leafSpec); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := builder.Seal(); err != nil {
@@ -66,22 +78,31 @@ func TestFacetContractCarriesFixedBoundThroughUnchangedRestriction(t *testing.T)
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			builder := value.NewBuilder(value.BuilderOptions{})
-			base, err := builder.Add(atomicFacetType(test.primitive, orderedFacet(test.flag, test.fixed, true)))
+			base, err := builder.Reserve()
+			if err != nil {
+				t.Fatalf("Reserve() error = %v", err)
+			}
+			err = builder.Complete(base, atomicFacetType(test.primitive, orderedFacet(test.flag, test.fixed, true)))
 			if err != nil {
 				t.Fatal(err)
 			}
 			middleSpec := atomicFacetType(test.primitive, value.FacetSpec{})
 			middleSpec.Base = base
-			middle, err := builder.Add(middleSpec)
+			middle, err := builder.Reserve()
+			if err != nil {
+				t.Fatalf("Reserve() error = %v", err)
+			}
+			err = builder.Complete(middle, middleSpec)
 			if err != nil {
 				t.Fatal(err)
 			}
 			leafSpec := atomicFacetType(test.primitive, orderedFacet(test.flag, test.changed, false))
 			leafSpec.Base = middle
-			if _, err := builder.Add(leafSpec); err != nil {
-				t.Fatal(err)
+			reservedID, reserveErr := builder.Reserve()
+			if reserveErr != nil {
+				t.Fatalf("Reserve() error = %v", reserveErr)
 			}
-			if _, err := builder.Seal(); err == nil {
+			if err := builder.Complete(reservedID, leafSpec); err == nil {
 				t.Fatal("changed value passed through an inherited fixed declaration")
 			}
 		})

@@ -1,20 +1,17 @@
 package value
 
-// TypeView is the immutable value-program metadata needed by schema and
-// validation callers. Slices in a returned view are copies owned by the
-// caller; the program retains the authoritative records.
+// TypeView is completed construction metadata for schema callers. Slices in a
+// returned view are caller-owned copies; the program owns the type records.
 type TypeView struct {
-	Union              []TypeID
-	Facets             FacetView
-	ID                 TypeID
-	Base               TypeID
-	ListItem           TypeID
-	Variety            Variety
-	Primitive          PrimitiveKind
-	Whitespace         WhitespaceMode
-	Builtin            BuiltinKind
-	Identity           IdentityKind
-	NeedsQNameResolver bool
+	Union          []TypeID
+	Base           TypeID
+	ListItem       TypeID
+	Variety        Variety
+	Primitive      PrimitiveKind
+	Whitespace     WhitespaceMode
+	Builtin        BuiltinKind
+	Identity       IdentityKind
+	HasEnumeration bool
 }
 
 // InputRequirements is the immutable admission and evaluation metadata for a
@@ -39,18 +36,11 @@ func (p *Program) InputRequirements(id TypeID) (InputRequirements, bool) {
 	return inputRequirements(t), true
 }
 
-// InputRequirements returns the scalar requirements for a completed builder
-// type. It is available during construction so compiler literals can use the
-// same admission plan before sealing.
+// InputRequirements returns the scalar requirements for an available builder
+// type, including provisional metadata during resolver callbacks.
 func (b *Builder) InputRequirements(id TypeID) (InputRequirements, bool) {
-	if b == nil || b.sealed || b.program == nil {
+	if b == nil || b.program == nil || b.program.sealed {
 		return InputRequirements{}, false
-	}
-	if id >= BuiltinTypeCount {
-		i := id - BuiltinTypeCount
-		if uint64(i) >= uint64(len(b.program.complete)) || !b.program.complete[i] {
-			return InputRequirements{}, false
-		}
 	}
 	t, ok := b.program.typeDef(id)
 	if !ok {
@@ -71,175 +61,28 @@ func inputRequirements(t *typeDef) InputRequirements {
 	}
 }
 
-// FacetView is the effective facet program for one type.
-type FacetView struct {
-	Lower          []BoundView
-	Upper          []BoundView
-	Enumeration    [][]LiteralView
-	Patterns       [][]*Pattern
-	Length         CardinalityFacet
-	MinLength      CardinalityFacet
-	MaxLength      CardinalityFacet
-	TotalDigits    CardinalityFacet
-	FractionDigits CardinalityFacet
-	Present        FacetMask
-	Fixed          FacetMask
-}
-
-// BoundView is one effective ordered bound.
-type BoundView struct {
-	Literal   LiteralView
-	Exclusive bool
-}
-
-// LiteralView is the immutable value-space projection retained for a facet
-// literal. The value engine owns parsing and equality; consumers do not need
-// the primitive payload to reproduce the compiled facet.
-type LiteralView struct {
-	Canonical string
-	Identity  string
-	Type      TypeID
-	Selected  TypeID
-	IsList    bool
-}
-
-// TypeView returns effective metadata for a sealed program type.
-func (p *Program) TypeView(id TypeID) (TypeView, bool) {
-	if p == nil || !p.sealed {
-		return TypeView{}, false
-	}
-	return p.viewType(id)
-}
-
-// NeedsQNameResolver reports whether validating id can reach a QName or
-// NOTATION value. It is the scalar read used on the per-attribute hot path;
-// callers that need facet or union records should use TypeView instead.
-func (p *Program) NeedsQNameResolver(id TypeID) (needs, valid bool) {
-	if p == nil || !p.sealed {
-		return false, false
-	}
-	t, ok := p.typeDef(id)
-	if !ok {
-		return false, false
-	}
-	return t.needsQName, true
-}
-
-// IdentityKind reports the statically fixed document-identity kind of id.
-// Composite members may also produce per-value ID or IDREF projections;
-// callers must inspect the validated Value when recording document identity.
-func (p *Program) IdentityKind(id TypeID) (kind IdentityKind, valid bool) {
-	if p == nil || !p.sealed {
-		return IdentityNone, false
-	}
-	t, ok := p.typeDef(id)
-	if !ok {
-		return IdentityNone, false
-	}
-	return t.identity, true
-}
-
-// IsUnconstrainedString reports whether id has the exact shape that can retain
-// its borrowed lexical bytes through string validation: atomic xs:string
-// semantics, preserve whitespace, no identity projection, and no effective
-// facets. It returns false for an invalid program or type ID.
-func (p *Program) IsUnconstrainedString(id TypeID) (unconstrained, valid bool) {
-	requirements, valid := p.InputRequirements(id)
-	if !valid {
-		return false, false
-	}
-	return requirements.UnconstrainedString, true
-}
-
-// TypeView returns effective metadata for a completed incremental type.
+// TypeView returns metadata for an available incremental type, including
+// provisional metadata during resolver callbacks.
 func (b *Builder) TypeView(id TypeID) (TypeView, bool) {
-	if b == nil || b.sealed || b.program == nil {
+	if b == nil || b.program == nil || b.program.sealed {
 		return TypeView{}, false
-	}
-	if id >= BuiltinTypeCount {
-		i := id - BuiltinTypeCount
-		if uint64(i) >= uint64(len(b.program.complete)) || !b.program.complete[i] {
-			return TypeView{}, false
-		}
-	}
-	return b.program.viewType(id)
-}
-
-// NeedsQNameResolver reports whether a completed type can reach QName or
-// NOTATION validation without constructing a copied metadata view.
-func (b *Builder) NeedsQNameResolver(id TypeID) (needs, valid bool) {
-	if b == nil || b.sealed || b.program == nil {
-		return false, false
-	}
-	if id >= BuiltinTypeCount {
-		i := id - BuiltinTypeCount
-		if uint64(i) >= uint64(len(b.program.complete)) || !b.program.complete[i] {
-			return false, false
-		}
 	}
 	t, ok := b.program.typeDef(id)
-	if !ok {
-		return false, false
-	}
-	return t.needsQName, true
-}
-
-func (p *Program) viewType(id TypeID) (TypeView, bool) {
-	t, ok := p.typeDef(id)
 	if !ok {
 		return TypeView{}, false
 	}
 	view := TypeView{
-		ID:         id,
-		Variety:    t.variety,
-		Primitive:  t.primitive,
-		Whitespace: t.whitespace,
-		Builtin:    t.builtin,
-		Identity:   t.identity,
-		Base:       t.base,
-		ListItem:   t.listItem,
-		Union:      append([]TypeID(nil), t.union...),
-		Facets:     facetView(t.facets),
+		Variety:        t.variety,
+		Primitive:      t.primitive,
+		Whitespace:     t.whitespace,
+		Builtin:        t.builtin,
+		Identity:       t.identity,
+		Base:           t.base,
+		ListItem:       t.listItem,
+		Union:          append([]TypeID(nil), t.union...),
+		HasEnumeration: len(t.facets.enumGroups) != 0,
 	}
-	view.NeedsQNameResolver = t.needsQName
 	return view, true
-}
-
-func facetView(in facetProgram) FacetView {
-	out := FacetView{
-		Present:        in.present,
-		Fixed:          in.fixed,
-		Length:         in.length,
-		MinLength:      in.minLength,
-		MaxLength:      in.maxLength,
-		TotalDigits:    in.totalDigits,
-		FractionDigits: in.fractionDigits,
-		Patterns:       clonePatterns(in.patterns),
-	}
-	for _, bound := range in.lower {
-		out.Lower = append(out.Lower, BoundView{Exclusive: bound.exclusive, Literal: literalView(bound.value)})
-	}
-	for _, bound := range in.upper {
-		out.Upper = append(out.Upper, BoundView{Exclusive: bound.exclusive, Literal: literalView(bound.value)})
-	}
-	for _, group := range in.enumGroups {
-		literals := make([]LiteralView, 0, len(group))
-		for _, literal := range group {
-			literals = append(literals, literalView(literal))
-		}
-		out.Enumeration = append(out.Enumeration, literals)
-	}
-	return out
-}
-
-func literalView(v parsedValue) LiteralView {
-	return LiteralView{
-		Type:      v.typeID,
-		Selected:  v.selected,
-		Canonical: v.canonical,
-		Identity:  v.identity,
-		IsList:    v.isList,
-	}
 }
 
 func (p *Program) typeNeedsQName(id TypeID, active map[TypeID]struct{}, depth int) bool {

@@ -2,24 +2,6 @@ package schema
 
 import "testing"
 
-func TestSimpleContentTypeRead(t *testing.T) {
-	read := newSimpleContentTypeRead(simpleContentTypeReadShape{
-		Type:    7,
-		Present: true,
-	})
-	if !read.HasSimpleContent() || read.TypeID() != 7 {
-		t.Fatalf("SimpleContentTypeRead = type %d present %v, want 7 true", read.TypeID(), read.HasSimpleContent())
-	}
-
-	absent := newSimpleContentTypeRead(simpleContentTypeReadShape{
-		Type:    7,
-		Present: false,
-	})
-	if absent.HasSimpleContent() || absent.TypeID() != NoSimpleType {
-		t.Fatalf("absent SimpleContentTypeRead = type %d present %v, want no type false", absent.TypeID(), absent.HasSimpleContent())
-	}
-}
-
 func TestSimpleContentTypeReadForComplexType(t *testing.T) {
 	t.Parallel()
 
@@ -63,17 +45,27 @@ func TestSimpleContentTypeReadForComplexType(t *testing.T) {
 			},
 			want: NoSimpleType,
 		},
+		{
+			name: "empty",
+			ct:   ComplexType{TextType: 7, ContentKind: ContentEmpty},
+			want: NoSimpleType,
+		},
+		{
+			name:    "present invalid",
+			ct:      ComplexType{TextType: NoSimpleType, ContentKind: ContentSimple},
+			want:    NoSimpleType,
+			present: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			read := newSimpleContentTypeRead(simpleContentTypeReadShape{
-				Type: tt.ct.TextType, Present: tt.ct.SimpleContent(),
-			})
-			if read.TypeID() != tt.want || read.HasSimpleContent() != tt.present {
-				t.Fatalf("NewSimpleContentTypeRead() = type %d present %v, want %d %v",
-					read.TypeID(), read.HasSimpleContent(), tt.want, tt.present)
+			read := newComplexTypeRead(tt.ct)
+			typ, present := read.simpleContent()
+			if typ != tt.want || present != tt.present {
+				t.Fatalf("simpleContent() = type %d present %v, want %d %v",
+					typ, present, tt.want, tt.present)
 			}
 		})
 	}

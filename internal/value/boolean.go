@@ -42,25 +42,13 @@ func parseBooleanLexical[T byteText](v T) (value, valid bool) {
 			return false, true
 		}
 	case len(booleanCanonicalTrue):
-		if booleanTextEqual(booleanCanonicalTrue, v) {
+		if string(v) == booleanCanonicalTrue {
 			return true, true
 		}
 	case len(booleanCanonicalFalse):
-		if booleanTextEqual(booleanCanonicalFalse, v) {
+		if string(v) == booleanCanonicalFalse {
 			return false, true
 		}
 	}
 	return false, false
-}
-
-func booleanTextEqual[T byteText](s string, text T) bool {
-	if len(s) != len(text) {
-		return false
-	}
-	for i := range s {
-		if s[i] != text[i] {
-			return false
-		}
-	}
-	return true
 }

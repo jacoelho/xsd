@@ -32,10 +32,4 @@ func TestNewIdentityConstraintDoesNotAliasInputPaths(t *testing.T) {
 	if ic.Fields[0].Paths[0].Steps[0].Name != elementName || ic.Fields[0].Paths[1].Steps[0].Name != parentName {
 		t.Fatalf("identity fields aliased input path steps: %#v", ic.Fields)
 	}
-	if ic.ElementFields[0].Paths[0].Steps[0].Name != elementName {
-		t.Fatalf("compiled element fields aliased input path steps: %#v", ic.ElementFields)
-	}
-	if ic.AttributeFields[attrName][0].Paths[0].Steps[0].Name != parentName {
-		t.Fatalf("compiled attribute fields aliased input path steps: %#v", ic.AttributeFields)
-	}
 }

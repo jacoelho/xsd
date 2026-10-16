@@ -744,6 +744,40 @@ func TestFormatXMLWithOptionsLimitsNodes(t *testing.T) {
 	}
 }
 
+func TestFormatXMLNodeLimitAdmitsCompleteTapeBeforeOutput(t *testing.T) {
+	t.Parallel()
+	const input = `<?p?><r><!--c-->x<a/></r>`
+	t.Run("at limit", func(t *testing.T) {
+		t.Parallel()
+		var out strings.Builder
+		if err := XMLWithOptions(&out, input, Options{MaxNodes: 5}); err != nil {
+			t.Fatal(err)
+		}
+		if got, want := out.String(), "<?p?>\n<r><!--c-->x<a></a></r>"; got != want {
+			t.Fatalf("formatted XML = %q, want %q", got, want)
+		}
+	})
+	t.Run("one below", func(t *testing.T) {
+		t.Parallel()
+		var out strings.Builder
+		err := XMLWithOptions(&out, input, Options{MaxNodes: 4})
+		diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+		if !ok || diagnostic == nil {
+			t.Fatalf("error = %T %v, want format limit diagnostic", err, err)
+		}
+		if diagnostic.Category() != xsderrors.CategoryFormat || diagnostic.Code() != xsderrors.CodeFormatLimit || diagnostic.Line() != 1 || diagnostic.Column() != 18 {
+			t.Fatalf("diagnostic = %v, want format limit at 1:18", diagnostic)
+		}
+		cause := errors.Unwrap(diagnostic)
+		if cause == nil || cause.Error() != "XML node limit exceeded" {
+			t.Fatalf("cause = %v, want XML node limit exceeded", cause)
+		}
+		if out.Len() != 0 {
+			t.Fatalf("wrote %q before admitting the complete tape", out.String())
+		}
+	})
+}
+
 func TestFormatXMLWithOptionsAllowsTokenAtLimit(t *testing.T) {
 	var out strings.Builder
 	err := XMLWithOptions(&out, `<?pi abc?><r/>`, Options{MaxTokenBytes: 5})
@@ -880,12 +914,12 @@ func TestNormalizeFormatOptionsUsesFiniteDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := formatOptions{
-		maxDepth:       maxFormatDepth,
-		maxNodes:       defaultMaxFormatNodes,
-		maxInputBytes:  defaultMaxFormatInputBytes,
-		maxOutputBytes: defaultMaxFormatOutputBytes,
-		maxTokenBytes:  defaultMaxFormatTokenBytes,
+	want := Options{
+		MaxDepth:       maxFormatDepth,
+		MaxNodes:       defaultMaxFormatNodes,
+		MaxInputBytes:  defaultMaxFormatInputBytes,
+		MaxOutputBytes: defaultMaxFormatOutputBytes,
+		MaxTokenBytes:  defaultMaxFormatTokenBytes,
 	}
 	if got != want {
 		t.Fatalf("normalizeFormatOptions() = %+v, want %+v", got, want)

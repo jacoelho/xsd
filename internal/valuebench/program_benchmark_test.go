@@ -13,7 +13,11 @@ func BenchmarkProgramPrimitiveNoFacets(b *testing.B) {
 
 func BenchmarkProgramDecimalBound(b *testing.B) {
 	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
-	id, err := builder.Add(valuepkg.TypeSpec{
+	id, err := builder.Reserve()
+	if err != nil {
+		b.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(id, valuepkg.TypeSpec{
 		Variety:           valuepkg.Atomic,
 		Primitive:         valuepkg.PrimitiveDecimal,
 		Whitespace:        valuepkg.WhitespaceCollapse,
@@ -36,7 +40,11 @@ func BenchmarkProgramDecimalBound(b *testing.B) {
 
 func BenchmarkProgramList(b *testing.B) {
 	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
-	item, err := builder.Add(valuepkg.TypeSpec{
+	item, err := builder.Reserve()
+	if err != nil {
+		b.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(item, valuepkg.TypeSpec{
 		Variety:           valuepkg.Atomic,
 		Primitive:         valuepkg.PrimitiveString,
 		Whitespace:        valuepkg.WhitespaceCollapse,
@@ -47,7 +55,11 @@ func BenchmarkProgramList(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	id, err := builder.Add(valuepkg.TypeSpec{
+	id, err := builder.Reserve()
+	if err != nil {
+		b.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(id, valuepkg.TypeSpec{
 		Variety:           valuepkg.List,
 		Whitespace:        valuepkg.WhitespaceCollapse,
 		WhitespacePresent: true,
@@ -66,7 +78,11 @@ func BenchmarkProgramList(b *testing.B) {
 
 func BenchmarkProgramUnion(b *testing.B) {
 	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
-	stringID, err := builder.Add(valuepkg.TypeSpec{
+	stringID, err := builder.Reserve()
+	if err != nil {
+		b.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(stringID, valuepkg.TypeSpec{
 		Variety:           valuepkg.Atomic,
 		Primitive:         valuepkg.PrimitiveString,
 		Whitespace:        valuepkg.WhitespaceCollapse,
@@ -77,7 +93,11 @@ func BenchmarkProgramUnion(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	decimalID, err := builder.Add(valuepkg.TypeSpec{
+	decimalID, err := builder.Reserve()
+	if err != nil {
+		b.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(decimalID, valuepkg.TypeSpec{
 		Variety:           valuepkg.Atomic,
 		Primitive:         valuepkg.PrimitiveDecimal,
 		Whitespace:        valuepkg.WhitespaceCollapse,
@@ -88,7 +108,11 @@ func BenchmarkProgramUnion(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	unionID, err := builder.Add(valuepkg.TypeSpec{
+	unionID, err := builder.Reserve()
+	if err != nil {
+		b.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(unionID, valuepkg.TypeSpec{
 		Variety:           valuepkg.Union,
 		Whitespace:        valuepkg.WhitespaceCollapse,
 		WhitespacePresent: true,
@@ -109,7 +133,11 @@ func BenchmarkProgramUnion(b *testing.B) {
 func benchmarkProgramPrimitive(b *testing.B) (*valuepkg.Program, valuepkg.TypeID) {
 	b.Helper()
 	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
-	id, err := builder.Add(valuepkg.TypeSpec{
+	id, err := builder.Reserve()
+	if err != nil {
+		b.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(id, valuepkg.TypeSpec{
 		Variety:           valuepkg.Atomic,
 		Primitive:         valuepkg.PrimitiveString,
 		Whitespace:        valuepkg.WhitespacePreserve,

@@ -35,152 +35,6 @@ func (r IdentityConstraintIDs) IsSubsetOf(base IdentityConstraintIDs) bool {
 	return true
 }
 
-// IdentityPathRead is an immutable selector-path view.
-type IdentityPathRead struct {
-	steps      []IdentityStep
-	descendant bool
-	self       bool
-}
-
-// IdentityPathReads is an immutable ordered selector-path view.
-type IdentityPathReads struct {
-	values []IdentityPathProgramRead
-}
-
-func borrowedIdentityPathReads(paths []IdentityPathProgramRead) IdentityPathReads {
-	return IdentityPathReads{values: paths}
-}
-
-// Len returns the number of selector paths.
-func (r IdentityPathReads) Len() int {
-	return len(r.values)
-}
-
-// At returns selector path index.
-func (r IdentityPathReads) At(index int) (IdentityPathRead, bool) {
-	if index < 0 || index >= len(r.values) {
-		return IdentityPathRead{}, false
-	}
-	return identityPathReadFromProgram(r.values[index]), true
-}
-
-func borrowedIdentityPathRead(path IdentityPath) IdentityPathRead {
-	return IdentityPathRead{steps: path.Steps, descendant: path.Descendant, self: path.Self}
-}
-
-func identityPathReadFromProgram(path IdentityPathProgramRead) IdentityPathRead {
-	return IdentityPathRead{steps: path.steps, descendant: path.descendant, self: path.self}
-}
-
-// StepCount returns the number of selector steps.
-func (r IdentityPathRead) StepCount() int {
-	return len(r.steps)
-}
-
-// Step returns selector step index.
-func (r IdentityPathRead) Step(index int) (IdentityStep, bool) {
-	if index < 0 || index >= len(r.steps) {
-		return IdentityStep{}, false
-	}
-	return r.steps[index], true
-}
-
-// Descendant reports whether the path uses descendant matching.
-func (r IdentityPathRead) Descendant() bool {
-	return r.descendant
-}
-
-// Self reports whether the path selects the current node.
-func (r IdentityPathRead) Self() bool {
-	return r.self
-}
-
-// IdentityFieldPathRead is an immutable compiled field-path view.
-type IdentityFieldPathRead struct {
-	steps            []IdentityStep
-	attribute        QName
-	attrNamespace    NamespaceID
-	descendant       bool
-	self             bool
-	attr             bool
-	attrWildcard     bool
-	attrNamespaceSet bool
-}
-
-func borrowedIdentityFieldPathRead(path IdentityFieldPath) IdentityFieldPathRead {
-	return IdentityFieldPathRead{
-		steps:            path.Steps,
-		attribute:        path.Attribute,
-		attrNamespace:    path.AttrNamespace,
-		descendant:       path.Descendant,
-		self:             path.Self,
-		attr:             path.Attr,
-		attrWildcard:     path.AttrWildcard,
-		attrNamespaceSet: path.AttrNamespaceSet,
-	}
-}
-
-func identityFieldPathReadFromProgram(path IdentityPathProgramRead) IdentityFieldPathRead {
-	return IdentityFieldPathRead{
-		steps:            path.steps,
-		attribute:        path.attribute,
-		attrNamespace:    path.attributeNamespace,
-		descendant:       path.descendant,
-		self:             path.self,
-		attr:             path.attributePath,
-		attrWildcard:     path.attributeWildcard,
-		attrNamespaceSet: path.attributeNamespaceSet,
-	}
-}
-
-// StepCount returns the number of element steps.
-func (r IdentityFieldPathRead) StepCount() int {
-	return len(r.steps)
-}
-
-// Step returns element step index.
-func (r IdentityFieldPathRead) Step(index int) (IdentityStep, bool) {
-	if index < 0 || index >= len(r.steps) {
-		return IdentityStep{}, false
-	}
-	return r.steps[index], true
-}
-
-// Attribute returns the exact attribute name for the path.
-func (r IdentityFieldPathRead) Attribute() QName {
-	return r.attribute
-}
-
-// AttributeNamespace returns the namespace constraint for an attribute wildcard.
-func (r IdentityFieldPathRead) AttributeNamespace() NamespaceID {
-	return r.attrNamespace
-}
-
-// Descendant reports whether the path uses descendant matching.
-func (r IdentityFieldPathRead) Descendant() bool {
-	return r.descendant
-}
-
-// Self reports whether the path selects the current node.
-func (r IdentityFieldPathRead) Self() bool {
-	return r.self
-}
-
-// IsAttribute reports whether the path selects an attribute.
-func (r IdentityFieldPathRead) IsAttribute() bool {
-	return r.attr
-}
-
-// AttributeWildcard reports whether the path selects attributes by wildcard.
-func (r IdentityFieldPathRead) AttributeWildcard() bool {
-	return r.attrWildcard
-}
-
-// AttributeNamespaceSet reports whether an attribute wildcard constrains namespace.
-func (r IdentityFieldPathRead) AttributeNamespaceSet() bool {
-	return r.attrNamespaceSet
-}
-
 // IdentityNamespaceResolver resolves schema namespace IDs to their URI.
 // Runtime identity paths use URI comparison when an instance name is not
 // interned in the schema name table.
@@ -204,37 +58,25 @@ type IdentityPathProgramRead struct {
 	attributeWildcard     bool
 }
 
-func identitySelectorPathProgramRead(path IdentityPathRead) IdentityPathProgramRead {
+func identitySelectorPathProgramRead(path IdentityPath) IdentityPathProgramRead {
 	return IdentityPathProgramRead{
-		steps:      slices.Clone(path.steps),
-		descendant: path.descendant,
-		self:       path.self,
+		steps:      slices.Clone(path.Steps),
+		descendant: path.Descendant,
+		self:       path.Self,
 	}
 }
 
-// NewIdentitySelectorPathProgramRead constructs a selector-path program from
-// an immutable path view.
-func NewIdentitySelectorPathProgramRead(path IdentityPathRead) IdentityPathProgramRead {
-	return identitySelectorPathProgramRead(path)
-}
-
-func identityFieldPathProgramRead(path IdentityFieldPathRead) IdentityPathProgramRead {
+func identityFieldPathProgramRead(path IdentityFieldPath) IdentityPathProgramRead {
 	return IdentityPathProgramRead{
-		steps:                 slices.Clone(path.steps),
-		attribute:             path.attribute,
-		attributeNamespace:    path.attrNamespace,
-		attributeNamespaceSet: path.attrNamespaceSet,
-		descendant:            path.descendant,
-		self:                  path.self,
-		attributePath:         path.attr,
-		attributeWildcard:     path.attrWildcard,
+		steps:                 slices.Clone(path.Steps),
+		attribute:             path.Attribute,
+		attributeNamespace:    path.AttrNamespace,
+		attributeNamespaceSet: path.AttrNamespaceSet,
+		descendant:            path.Descendant,
+		self:                  path.Self,
+		attributePath:         path.Attr,
+		attributeWildcard:     path.AttrWildcard,
 	}
-}
-
-// NewIdentityFieldPathProgramRead constructs a field-path program from an
-// immutable path view.
-func NewIdentityFieldPathProgramRead(path IdentityFieldPathRead) IdentityPathProgramRead {
-	return identityFieldPathProgramRead(path)
 }
 
 // StepCount returns the number of element steps in the path.
@@ -270,11 +112,6 @@ func (p IdentityPathProgramRead) IsAttribute() bool { return p.attributePath }
 
 // Attribute returns the exact attribute name for the path.
 func (p IdentityPathProgramRead) Attribute() QName { return p.attribute }
-
-// AttributeNamespace returns the namespace constraint for an attribute wildcard.
-func (p IdentityPathProgramRead) AttributeNamespace() NamespaceID {
-	return p.attributeNamespace
-}
 
 // AttributeNamespaceSet reports whether an attribute wildcard constrains namespace.
 func (p IdentityPathProgramRead) AttributeNamespaceSet() bool {
@@ -554,23 +391,6 @@ func (d IdentityDispatchRead) Program(id IdentityConstraintID) (IdentityConstrai
 	return d.programs[id], true
 }
 
-// AttributeFields returns exact-name attribute field programs for a constraint.
-func (d IdentityDispatchRead) AttributeFields(id IdentityConstraintID, name QName) (IdentityCompiledFieldProgramReads, bool) {
-	program, ok := d.Program(id)
-	if !ok {
-		return IdentityCompiledFieldProgramReads{}, false
-	}
-	return program.AttributeFields(name), true
-}
-
-func (d IdentityDispatchRead) identityConstraint(id IdentityConstraintID) (IdentityConstraintRead, bool) {
-	program, ok := d.Program(id)
-	if !ok {
-		return IdentityConstraintRead{}, false
-	}
-	return IdentityConstraintRead{program: program}, true
-}
-
 // SelectorExact returns selector candidates keyed by an interned name.
 func (d IdentityDispatchRead) SelectorExact(name QName) IdentitySelectorDispatchReads {
 	return IdentitySelectorDispatchReads{values: d.selectors.exact[name]}
@@ -654,30 +474,6 @@ func addIdentityFieldDispatchBranches(d *IdentityDispatchRead, constraint Identi
 	}
 }
 
-func newIdentityCompiledFieldProgramReads(fields []CompiledIdentityField) []IdentityCompiledFieldProgramRead {
-	programs := make([]IdentityCompiledFieldProgramRead, 0, len(fields))
-	for _, field := range fields {
-		program := IdentityCompiledFieldProgramRead{field: field.Field}
-		program.paths = make([]IdentityPathProgramRead, 0, len(field.Paths))
-		for _, path := range field.Paths {
-			program.paths = append(program.paths, identityFieldPathProgramRead(borrowedIdentityFieldPathRead(path)))
-		}
-		programs = append(programs, program)
-	}
-	return programs
-}
-
-func newIdentityCompiledFieldProgramMapReads(fields map[QName][]CompiledIdentityField) map[QName][]IdentityCompiledFieldProgramRead {
-	if fields == nil {
-		return nil
-	}
-	programs := make(map[QName][]IdentityCompiledFieldProgramRead, len(fields))
-	for name, field := range fields {
-		programs[name] = newIdentityCompiledFieldProgramReads(field)
-	}
-	return programs
-}
-
 func addIdentitySelectorDispatch(index *identitySelectorDispatchIndex, step IdentityStep, branch IdentitySelectorDispatchRead, names nameReadView) {
 	if !step.Wildcard {
 		if index.exact == nil {
@@ -716,91 +512,70 @@ func addIdentityFieldDispatch(index *identityFieldDispatchIndex, step IdentitySt
 	index.namespace[key] = append(index.namespace[key], branch)
 }
 
-// CompiledIdentityFieldRead is an immutable compiled field lookup view.
-type CompiledIdentityFieldRead struct {
-	paths []IdentityPathProgramRead
-	field int
-}
-
-// CompiledIdentityFieldReads is an immutable ordered compiled-field view.
-type CompiledIdentityFieldReads struct {
-	values []IdentityCompiledFieldProgramRead
-}
-
-func borrowedCompiledIdentityFieldReads(fields []IdentityCompiledFieldProgramRead) CompiledIdentityFieldReads {
-	return CompiledIdentityFieldReads{values: fields}
-}
-
-// Len returns the number of compiled fields.
-func (r CompiledIdentityFieldReads) Len() int {
-	return len(r.values)
-}
-
-// At returns compiled field index.
-func (r CompiledIdentityFieldReads) At(index int) (CompiledIdentityFieldRead, bool) {
-	if index < 0 || index >= len(r.values) {
-		return CompiledIdentityFieldRead{}, false
-	}
-	return compiledIdentityFieldReadFromProgram(r.values[index]), true
-}
-
-func compiledIdentityFieldReadFromProgram(field IdentityCompiledFieldProgramRead) CompiledIdentityFieldRead {
-	return CompiledIdentityFieldRead(field)
-}
-
-// Field returns the declared field index.
-func (r CompiledIdentityFieldRead) Field() int {
-	return r.field
-}
-
-// PathCount returns the number of compiled path alternatives.
-func (r CompiledIdentityFieldRead) PathCount() int {
-	return len(r.paths)
-}
-
-// Path returns compiled path index.
-func (r CompiledIdentityFieldRead) Path(index int) (IdentityFieldPathRead, bool) {
-	if index < 0 || index >= len(r.paths) {
-		return IdentityFieldPathRead{}, false
-	}
-	return identityFieldPathReadFromProgram(r.paths[index]), true
-}
-
-// IdentityConstraintRead exposes validation-facing identity-constraint
-// behavior without exposing raw compiled identity metadata.
-type IdentityConstraintRead struct {
-	program IdentityConstraintProgramRead
-}
-
-func newIdentityConstraintReads(identities []IdentityConstraint) []IdentityConstraintRead {
-	out := make([]IdentityConstraintRead, len(identities))
-	for i := range identities {
-		out[i] = newIdentityConstraintRead(identities[i])
-	}
-	return out
-}
-
-func newIdentityConstraintRead(identity IdentityConstraint) IdentityConstraintRead {
-	return IdentityConstraintRead{program: newIdentityConstraintProgramRead(identity)}
-}
-
+//nolint:gocognit // Keep ordered field partition construction and bounded publication storage under one owner.
 func newIdentityConstraintProgramRead(identity IdentityConstraint) IdentityConstraintProgramRead {
 	program := IdentityConstraintProgramRead{
-		selectors:          newIdentitySelectorPathProgramReads(identity.Selector),
-		elementFields:      newIdentityCompiledFieldProgramReads(identity.ElementFields),
-		attributeFields:    newIdentityCompiledFieldProgramMapReads(identity.AttributeFields),
-		attributeWildcards: newIdentityCompiledFieldProgramReads(identity.AttributeWildcardFields),
-		refer:              identity.Refer,
-		kind:               identity.Kind,
-		fieldCount:         len(identity.Fields),
+		selectors:  newIdentitySelectorPathProgramReads(identity.Selector),
+		refer:      identity.Refer,
+		kind:       identity.Kind,
+		fieldCount: len(identity.Fields),
+	}
+	for fieldIndex, field := range identity.Fields {
+		var elements, wildcards []IdentityPathProgramRead
+		var exact map[QName][]IdentityPathProgramRead
+		for _, path := range field.Paths {
+			compiled := identityFieldPathProgramRead(path)
+			switch {
+			case !path.Attr:
+				elements = append(elements, compiled)
+			case path.AttrWildcard:
+				wildcards = append(wildcards, compiled)
+			default:
+				if exact == nil {
+					exact = make(map[QName][]IdentityPathProgramRead)
+				}
+				exact[path.Attribute] = append(exact[path.Attribute], compiled)
+			}
+		}
+		if len(elements) != 0 {
+			program.elementFields = append(program.elementFields, IdentityCompiledFieldProgramRead{field: fieldIndex, paths: tightIdentityProgramSlice(elements)})
+		}
+		if len(wildcards) != 0 {
+			program.attributeWildcards = append(program.attributeWildcards, IdentityCompiledFieldProgramRead{field: fieldIndex, paths: tightIdentityProgramSlice(wildcards)})
+		}
+		for name, paths := range exact {
+			if program.attributeFields == nil {
+				program.attributeFields = make(map[QName][]IdentityCompiledFieldProgramRead)
+			}
+			program.attributeFields[name] = append(program.attributeFields[name], IdentityCompiledFieldProgramRead{field: fieldIndex, paths: tightIdentityProgramSlice(paths)})
+		}
+	}
+	program.elementFields = tightIdentityProgramSlice(program.elementFields)
+	program.attributeWildcards = tightIdentityProgramSlice(program.attributeWildcards)
+	if program.attributeFields != nil {
+		attributes := make(map[QName][]IdentityCompiledFieldProgramRead, len(program.attributeFields))
+		for name, fields := range program.attributeFields {
+			attributes[name] = tightIdentityProgramSlice(fields)
+		}
+		program.attributeFields = attributes
 	}
 	return program
+}
+
+// Publication retains only occupied groups and paths, never append growth slack.
+func tightIdentityProgramSlice[T any](values []T) []T {
+	if len(values) == cap(values) {
+		return values
+	}
+	tight := make([]T, len(values))
+	copy(tight, values)
+	return tight
 }
 
 func newIdentitySelectorPathProgramReads(paths []IdentityPath) []IdentityPathProgramRead {
 	programs := make([]IdentityPathProgramRead, len(paths))
 	for index, path := range paths {
-		programs[index] = identitySelectorPathProgramRead(borrowedIdentityPathRead(path))
+		programs[index] = identitySelectorPathProgramRead(path)
 	}
 	return programs
 }
@@ -812,55 +587,4 @@ func ElementIdentityConstraintIDs(reads [][]IdentityConstraintID, id ElementID) 
 		return IdentityConstraintIDs{}, false
 	}
 	return borrowedIdentityConstraintIDs(reads[id]), true
-}
-
-func identityConstraintReadByIDPtr(reads []IdentityConstraintRead, id IdentityConstraintID) (*IdentityConstraintRead, bool) {
-	if !ValidIdentityConstraintID(id, len(reads)) {
-		return nil, false
-	}
-	return &reads[id], true
-}
-
-// identityConstraintReadByID returns the aggregate validation read for id.
-func identityConstraintReadByID(reads []IdentityConstraintRead, id IdentityConstraintID) (IdentityConstraintRead, bool) {
-	ic, ok := identityConstraintReadByIDPtr(reads, id)
-	if !ok {
-		return IdentityConstraintRead{}, false
-	}
-	return *ic, true
-}
-
-// FieldCount returns the declared identity field count.
-func (r IdentityConstraintRead) FieldCount() int {
-	return r.program.FieldCount()
-}
-
-// SelectorPaths returns the immutable selector paths.
-func (r IdentityConstraintRead) SelectorPaths() IdentityPathReads {
-	return borrowedIdentityPathReads(r.program.selectors)
-}
-
-// ElementFields returns the immutable element-field lookup.
-func (r IdentityConstraintRead) ElementFields() CompiledIdentityFieldReads {
-	return borrowedCompiledIdentityFieldReads(r.program.elementFields)
-}
-
-// AttributeFields returns the immutable exact-name attribute-field lookup.
-func (r IdentityConstraintRead) AttributeFields(name QName) CompiledIdentityFieldReads {
-	return borrowedCompiledIdentityFieldReads(r.program.attributeFields[name])
-}
-
-// AttributeWildcardFields returns the immutable wildcard attribute-field lookup.
-func (r IdentityConstraintRead) AttributeWildcardFields() CompiledIdentityFieldReads {
-	return borrowedCompiledIdentityFieldReads(r.program.attributeWildcards)
-}
-
-// Refer returns the referenced key for keyref constraints.
-func (r IdentityConstraintRead) Refer() IdentityConstraintID {
-	return r.program.Refer()
-}
-
-// Kind returns the identity constraint kind.
-func (r IdentityConstraintRead) Kind() IdentityKind {
-	return r.program.Kind()
 }

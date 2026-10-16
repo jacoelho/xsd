@@ -2,7 +2,7 @@ package schema
 
 func unlimitedContentModelWork(int) error { return nil }
 
-func unlimitedContentModelAnalysis(rt ParticleRuntime) *ContentModelAnalysis {
+func unlimitedContentModelAnalysis(rt *schemaBuild) *ContentModelAnalysis {
 	analysis, err := NewContentModelAnalysis(rt, unlimitedContentModelWork)
 	if err != nil {
 		panic(err)

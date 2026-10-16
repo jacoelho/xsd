@@ -48,7 +48,11 @@ func TestDecimalParseCountsLeadingFractionZeros(t *testing.T) {
 func decimalTotalDigitsProgram(t *testing.T, totalDigits uint32) (*Program, TypeID) {
 	t.Helper()
 	builder := NewBuilder(BuilderOptions{})
-	id, err := builder.Add(TypeSpec{
+	id, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(id, TypeSpec{
 		Variety:           Atomic,
 		Primitive:         PrimitiveDecimal,
 		Whitespace:        WhitespaceCollapse,

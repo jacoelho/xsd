@@ -13,7 +13,7 @@ import (
 func TestComponentDependencyWorkBoundsAcyclicChains(t *testing.T) {
 	t.Parallel()
 
-	for _, kind := range []string{"simple", "complex", "model-group", "attribute-group"} {
+	for _, kind := range []string{"simple", "union", "complex", "model-group", "attribute-group"} {
 		t.Run(kind, func(t *testing.T) {
 			t.Parallel()
 			schema := componentChainSchema(kind, 32)
@@ -30,7 +30,7 @@ func TestComponentDependencyWorkBoundsAcyclicChains(t *testing.T) {
 }
 
 func TestComponentDependencyDepthRejectsDeepAcyclicChains(t *testing.T) {
-	for _, kind := range []string{"simple", "complex", "model-group", "attribute-group"} {
+	for _, kind := range []string{"simple", "union", "complex", "model-group", "attribute-group"} {
 		t.Run(kind, func(t *testing.T) {
 			schema := componentChainSchema(kind, maxComponentDependencyDepth+1)
 			_, err := Compile(Options{}, []source.Source{source.Bytes(kind+".xsd", []byte(schema))})
@@ -101,6 +101,12 @@ func componentChainSchema(kind string, count int) string {
 				base = next
 			}
 			fmt.Fprintf(&schema, `<xs:simpleType name="%s"><xs:restriction base="%s"/></xs:simpleType>`, name, base)
+		case "union":
+			member := "xs:string"
+			if index+1 < count {
+				member = next
+			}
+			fmt.Fprintf(&schema, `<xs:simpleType name="%s"><xs:union memberTypes="%s"/></xs:simpleType>`, name, member)
 		case "complex":
 			if index+1 == count {
 				fmt.Fprintf(&schema, `<xs:complexType name="%s"/>`, name)
@@ -129,7 +135,7 @@ func componentChainSchema(kind string, count int) string {
 
 func componentPrefix(kind string) string {
 	switch kind {
-	case "simple":
+	case "simple", "union":
 		return "T"
 	case "complex":
 		return "C"

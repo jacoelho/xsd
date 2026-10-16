@@ -101,10 +101,13 @@ func TestParseWildcard(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			names := newWildcardNamespaceInterner()
-			var interner NamespaceInterner = names
+			names, nameErr := NewNameTable(64, []string{EmptyNamespaceURI}, nil)
+			if nameErr != nil {
+				t.Fatal(nameErr)
+			}
+			interner := NewNameInterner(&names)
 			if tt.wantNoName {
-				interner = nil
+				interner = NameInterner{}
 			}
 			got, err := ParseWildcard(interner, tt.attrs)
 			if tt.wantCode != "" {
@@ -117,13 +120,13 @@ func TestParseWildcard(t *testing.T) {
 			if got.Mode != tt.wantMode || got.Process != tt.wantProc {
 				t.Fatalf("ParseWildcard() = %#v, want mode %d process %d", got, tt.wantMode, tt.wantProc)
 			}
-			if tt.wantOther != "" && got.OtherThan != names.mustID(tt.wantOther) {
+			if tt.wantOther != "" && got.OtherThan != wildcardNamespaceIDForTest(t, &names, tt.wantOther) {
 				t.Fatalf("OtherThan = %d, want namespace %q", got.OtherThan, tt.wantOther)
 			}
 			if tt.wantNS != nil {
 				var want []NamespaceID
 				for _, uri := range tt.wantNS {
-					want = append(want, names.mustID(uri))
+					want = append(want, wildcardNamespaceIDForTest(t, &names, uri))
 				}
 				if !slices.Equal(got.Namespaces, want) {
 					t.Fatalf("Namespaces = %v, want %v", got.Namespaces, want)
@@ -136,37 +139,21 @@ func TestParseWildcard(t *testing.T) {
 func TestParseWildcardRequiresNamespaceInternerWhenInterning(t *testing.T) {
 	t.Parallel()
 
-	_, err := ParseWildcard(nil, WildcardAttrs{Namespace: "##other", HasNamespace: true})
+	_, err := ParseWildcard(NameInterner{}, WildcardAttrs{Namespace: "##other", HasNamespace: true})
 	expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 }
 
-type wildcardNamespaceInterner struct {
-	ids map[string]NamespaceID
-}
-
-func newWildcardNamespaceInterner() *wildcardNamespaceInterner {
-	return &wildcardNamespaceInterner{
-		ids: map[string]NamespaceID{"": EmptyNamespaceID},
-	}
-}
-
-func (n *wildcardNamespaceInterner) InternNamespace(uri string) (NamespaceID, error) {
-	if id, ok := n.ids[uri]; ok {
-		return id, nil
-	}
-	next, err := checkedSchemaUint32(len(n.ids), "namespace limit exceeded")
-	if err != nil {
-		return 0, err
-	}
-	id := NamespaceID(next)
-	n.ids[uri] = id
-	return id, nil
-}
-
-func (n *wildcardNamespaceInterner) mustID(uri string) NamespaceID {
-	id, ok := n.ids[uri]
+func wildcardNamespaceIDForTest(t *testing.T, names *NameTable, uri string) NamespaceID {
+	t.Helper()
+	id, ok := names.LookupNamespace(uri)
 	if !ok {
-		panic("namespace was not interned: " + uri)
+		t.Fatalf("namespace was not interned: %q", uri)
 	}
 	return id
+}
+func TestParseWildcardZeroInternerPreservesTokenErrors(t *testing.T) {
+	for _, namespace := range []string{"##bogus", "%zz"} {
+		_, err := ParseWildcard(NameInterner{}, WildcardAttrs{Namespace: namespace, HasNamespace: true})
+		expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaInvalidAttribute)
+	}
 }

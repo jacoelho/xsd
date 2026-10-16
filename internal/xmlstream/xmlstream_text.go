@@ -125,28 +125,6 @@ func (p *parser) appendEntityReference(dst *[]byte) error {
 	return p.appendOtherEntityReference(dst)
 }
 
-// AppendEntityReference decodes one XML entity body without retaining parser
-// state. The input excludes the leading ampersand and trailing semicolon.
-// Callers use this at an already validated lexical boundary.
-func AppendEntityReference(dst []byte, entity []byte) ([]byte, error) {
-	if value, ok := predefinedEntityBytes(entity); ok {
-		return append(dst, value), nil
-	}
-	if len(entity) == 0 || entity[0] != '#' {
-		if lex.IsXMLNameBytes(entity) {
-			return nil, errUnsupportedEntityReference
-		}
-		return nil, fmt.Errorf("invalid character entity")
-	}
-	r, ok := parseCharRef(entity[1:])
-	if !ok {
-		return nil, fmt.Errorf("invalid character entity")
-	}
-	var buf [utf8.UTFMax]byte
-	n := utf8.EncodeRune(buf[:], r)
-	return append(dst, buf[:n]...), nil
-}
-
 // DecodeEntityReferenceString validates and decodes one XML entity body.
 func DecodeEntityReferenceString(entity string) (rune, error) {
 	if value, ok := predefinedEntityString(entity); ok {
@@ -441,30 +419,6 @@ func (p *parser) checkRetainedPeak(transient int) error {
 		return errXMLTokenLimit
 	}
 	return p.checkTokenBytes(peak)
-}
-
-func termPrefix(term string) []int {
-	prefix := make([]int, len(term))
-	for i, j := 1, 0; i < len(term); i++ {
-		for j > 0 && term[i] != term[j] {
-			j = prefix[j-1]
-		}
-		if term[i] == term[j] {
-			j++
-			prefix[i] = j
-		}
-	}
-	return prefix
-}
-
-func advanceTermMatch(term string, prefix []int, matched int, b byte) int {
-	for matched > 0 && b != term[matched] {
-		matched = prefix[matched-1]
-	}
-	if b == term[matched] {
-		matched++
-	}
-	return matched
 }
 
 func (p *parser) expectString(s string) error {

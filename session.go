@@ -65,7 +65,7 @@ func (e *Engine) ValidateWithOptions(r io.Reader, opts ValidateOptions) error {
 	if e != nil {
 		pool = e.pool
 	}
-	return pool.Validate(r, internalValidateOptions(opts))
+	return pool.Validate(r, validate.Options(opts))
 }
 
 // NewSession creates a reusable validation session. Reused sessions retain
@@ -76,7 +76,7 @@ func (e *Engine) NewSession(opts ValidateOptions) (*Session, error) {
 	if e != nil {
 		pool = e.pool
 	}
-	inner, err := pool.NewSession(internalValidateOptions(opts))
+	inner, err := pool.NewSession(validate.Options(opts))
 	if err != nil {
 		return nil, err
 	}
@@ -91,21 +91,4 @@ func (s *Session) Validate(r io.Reader) error {
 		return (*validate.Session)(nil).Validate(r)
 	}
 	return s.session.Validate(r)
-}
-
-func internalValidateOptions(opts ValidateOptions) validate.Options {
-	return validate.Options{
-		MaxErrors:                       opts.MaxErrors,
-		MaxIdentityScopes:               opts.MaxIdentityScopes,
-		MaxIdentityEntries:              opts.MaxIdentityEntries,
-		MaxIdentityTupleBytes:           opts.MaxIdentityTupleBytes,
-		MaxSchemaLocationNamespaces:     opts.MaxSchemaLocationNamespaces,
-		MaxSchemaLocationNamespaceBytes: opts.MaxSchemaLocationNamespaceBytes,
-		MaxInstanceDepth:                opts.MaxInstanceDepth,
-		MaxInstanceAttributes:           opts.MaxInstanceAttributes,
-		MaxInstanceTextBytes:            opts.MaxInstanceTextBytes,
-		MaxInstanceTokenBytes:           opts.MaxInstanceTokenBytes,
-		MaxInstanceBytes:                opts.MaxInstanceBytes,
-		MaxInstanceValueWork:            opts.MaxInstanceValueWork,
-	}
 }

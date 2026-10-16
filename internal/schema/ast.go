@@ -4,7 +4,6 @@ import (
 	"encoding/xml"
 	"errors"
 	"io"
-	"iter"
 
 	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/vocab"
@@ -13,15 +12,13 @@ import (
 )
 
 type schemaDocument struct {
-	root         *schemaNode
-	arena        []*schemaNode
-	rootChildren []schemaNodeID
-	globals      []schemaGlobalDecl
-	name         string
-	key          string
-	defaults     SchemaDefaults
-	references   []schemaReference
-	nodes        int
+	root       *schemaNode
+	arena      []*schemaNode
+	name       string
+	key        string
+	defaults   SchemaDefaults
+	references []schemaReference
+	nodes      int
 }
 
 func (d *schemaDocument) node(id schemaNodeID) *schemaNode {
@@ -36,49 +33,13 @@ func (d *schemaDocument) node(id schemaNodeID) *schemaNode {
 // target-context views reuse the same IDs instead of copying the source tree.
 type schemaNodeID uint32
 
-type schemaNodeKind uint8
-
-const (
-	schemaKindForeign schemaNodeKind = iota
-	// schemaKindXSD is the admitted XSD vocabulary fallback for syntax nodes
-	// that do not own a specialised compiler capability. Keeping it distinct
-	// from foreign is required so typed child traversal does not silently drop
-	// restriction, facet, XPath, and other grammar nodes.
-	schemaKindXSD
-	schemaKindSchema
-	schemaKindSimpleType
-	schemaKindComplexType
-	schemaKindElement
-	schemaKindAttribute
-	schemaKindGroup
-	schemaKindAttributeGroup
-	schemaKindNotation
-	schemaKindAnnotation
-	schemaKindInclude
-	schemaKindImport
-	// Model terms are kept as distinct parser kinds so content-model
-	// compilation can dispatch on the admitted vocabulary instead of
-	// repeatedly interpreting local-name strings.
-	schemaKindSequence
-	schemaKindChoice
-	schemaKindAll
-	schemaKindAny
-	schemaKindAnyAttribute
-)
-
-type schemaGlobalDecl struct {
-	Name LexicalAttribute
-	ID   schemaNodeID
-	Kind schemaNodeKind
-}
-
 type schemaNodeKey struct {
 	doc  *schemaDocument
 	view string
 	id   schemaNodeID
 }
 
-func nodeKey(n *schemaNode, ctx *schemaContext) schemaNodeKey {
+func nodeKey(n *schemaNode, ctx *schemaSetDocument) schemaNodeKey {
 	if n == nil {
 		return schemaNodeKey{}
 	}
@@ -89,86 +50,25 @@ func nodeKey(n *schemaNode, ctx *schemaContext) schemaNodeKey {
 	return schemaNodeKey{doc: n.doc, id: n.id, view: view}
 }
 
-func schemaNodeKindForName(name xml.Name) schemaNodeKind {
-	if name.Space != vocab.XSDNamespaceURI {
-		return schemaKindForeign
-	}
-	switch name.Local {
-	case vocab.XSDElemSchema:
-		return schemaKindSchema
-	case vocab.XSDElemSimpleType:
-		return schemaKindSimpleType
-	case vocab.XSDElemComplexType:
-		return schemaKindComplexType
-	case vocab.XSDElemElement:
-		return schemaKindElement
-	case vocab.XSDElemAttribute:
-		return schemaKindAttribute
-	case vocab.XSDElemGroup:
-		return schemaKindGroup
-	case vocab.XSDElemAttributeGroup:
-		return schemaKindAttributeGroup
-	case vocab.XSDElemNotation:
-		return schemaKindNotation
-	case vocab.XSDElemAnnotation:
-		return schemaKindAnnotation
-	case vocab.XSDElemInclude:
-		return schemaKindInclude
-	case vocab.XSDElemImport:
-		return schemaKindImport
-	case vocab.XSDElemSequence:
-		return schemaKindSequence
-	case vocab.XSDElemChoice:
-		return schemaKindChoice
-	case vocab.XSDElemAll:
-		return schemaKindAll
-	case vocab.XSDElemAny:
-		return schemaKindAny
-	case vocab.XSDElemAnyAttribute:
-		return schemaKindAnyAttribute
+func schemaGlobalName(source *schemaSemanticSource) (LexicalAttribute, bool) {
+	switch source := source.kind.(type) {
+	case *schemaSimpleTypeSource:
+		return source.Global.Name, true
+	case *schemaComplexTypeSource:
+		return source.Global.Name, true
+	case *schemaElementSource:
+		return source.Global.Name, true
+	case *schemaAttributeSource:
+		return source.Global.Name, true
+	case *schemaGroupSource:
+		return source.Global.Name, true
+	case *schemaAttributeGroupSource:
+		return source.Global.Name, true
+	case *schemaNotationSource:
+		return source.Global.Name, true
 	default:
-		if name.Space == vocab.XSDNamespaceURI {
-			return schemaKindXSD
-		}
-		return schemaKindForeign
+		return LexicalAttribute{}, false
 	}
-}
-
-func (d *schemaDocument) buildGlobalDeclarations() {
-	if d == nil || d.root == nil {
-		return
-	}
-	d.globals = d.globals[:0]
-	for _, id := range d.rootChildren {
-		child := d.node(id)
-		if child == nil {
-			continue
-		}
-		kind := child.kind
-		if !isGlobalSchemaKind(kind) {
-			continue
-		}
-		name := schemaLexicalAttribute(child, vocab.XSDAttrName)
-		d.globals = append(d.globals, schemaGlobalDecl{
-			ID:   child.id,
-			Kind: kind,
-			Name: name,
-		})
-	}
-}
-
-func isGlobalSchemaKind(kind schemaNodeKind) bool {
-	switch kind {
-	case schemaKindSimpleType, schemaKindComplexType, schemaKindElement,
-		schemaKindAttribute, schemaKindGroup, schemaKindAttributeGroup,
-		schemaKindNotation:
-		return true
-	case schemaKindForeign, schemaKindXSD, schemaKindSchema, schemaKindAnnotation,
-		schemaKindInclude, schemaKindImport, schemaKindSequence, schemaKindChoice,
-		schemaKindAll, schemaKindAny, schemaKindAnyAttribute:
-		return false
-	}
-	panic("unknown schema node kind")
 }
 
 // schemaAttribute is the normalized expanded attribute representation retained
@@ -177,23 +77,6 @@ func isGlobalSchemaKind(kind schemaNodeKind) bool {
 type schemaAttribute struct {
 	Name  xml.Name
 	Value string
-}
-
-func schemaAttributes(element xml.Name, attrs []xml.Attr) []schemaAttribute {
-	if len(attrs) == 0 {
-		return nil
-	}
-	out := make([]schemaAttribute, 0, len(attrs))
-	for _, attr := range attrs {
-		// Namespace declarations are consumed by xmlstream.Reader.Start and
-		// belong to the namespace frame, not the schema component's attribute
-		// vocabulary. Retaining them would make every local xmlns declaration
-		// look like an invalid XSD attribute during admission.
-		if normalized, ok := normalizeSchemaAttribute(element, attr.Name, attr.Value); ok {
-			out = append(out, normalized)
-		}
-	}
-	return out
 }
 
 func schemaAttributesStream(element xml.Name, attrs []xmlstream.Attr) []schemaAttribute {
@@ -237,18 +120,12 @@ func schemaAttributeCollapses(element xml.Name, local string) bool {
 }
 
 type schemaSyntaxNode struct {
-	doc      *schemaDocument
-	Name     xml.Name
-	NS       xmlstream.Context
-	Attrs    []schemaAttribute
-	Children []*schemaSyntaxNode
-	Line     int
-	Column   int
-	id       schemaNodeID
-	kind     schemaNodeKind
-	// hasNonWhitespaceText is enough for schema grammar admission. Annotation
-	// payload is opaque and is consumed at the stream boundary.
-	hasNonWhitespaceText bool
+	doc    *schemaDocument
+	Name   xml.Name
+	NS     xmlstream.Context
+	Attrs  []schemaAttribute
+	Line   int
+	Column int
 }
 
 func (n *schemaSyntaxNode) schemaLocation() (path string, line int, column int) {
@@ -256,19 +133,6 @@ func (n *schemaSyntaxNode) schemaLocation() (path string, line int, column int) 
 		return "", 0, 0
 	}
 	return n.doc.name, n.Line, n.Column
-}
-
-// HasNonWhitespaceText reports whether schema grammar text was observed on the
-// node. Opaque annotation payload is never retained.
-func (n *schemaSyntaxNode) HasNonWhitespaceText() bool {
-	return n != nil && n.hasNonWhitespaceText
-}
-
-func (n *schemaSyntaxNode) ID() schemaNodeID {
-	if n == nil {
-		return 0
-	}
-	return n.id
 }
 
 // parseSchemaDocument parses one source with the caller-owned parser. The
@@ -283,7 +147,6 @@ func parseSchemaDocument(name, key string, input io.Reader, limits Limits, parse
 		return nil, xsderrors.WithLocation(name, 0, 0, err)
 	}
 	doc.defaults = defaults
-	doc.buildGlobalDeclarations()
 	return doc, nil
 }
 
@@ -291,19 +154,11 @@ func parseDocumentDefaultsNode(root *schemaNode) (SchemaDefaults, error) {
 	if root == nil {
 		return SchemaDefaults{}, xsderrors.InternalInvariant("schema defaults require a parsed root")
 	}
-	target, hasTarget := root.attr(vocab.XSDAttrTargetNamespace)
-	elementForm, hasElementForm := root.attr(vocab.XSDAttrElementFormDefault)
-	attributeForm, hasAttributeForm := root.attr(vocab.XSDAttrAttributeFormDefault)
-	defaults, err := ParseSchemaDefaults(SchemaDefaultAttrs{
-		TargetNamespace:         target,
-		BlockDefault:            root.attrValue(vocab.XSDAttrBlockDefault),
-		FinalDefault:            root.attrValue(vocab.XSDAttrFinalDefault),
-		ElementFormDefault:      elementForm,
-		AttributeFormDefault:    attributeForm,
-		HasTargetNamespace:      hasTarget,
-		HasElementFormDefault:   hasElementForm,
-		HasAttributeFormDefault: hasAttributeForm,
-	})
+	source, ok := root.semantic.kind.(*schemaDocumentSource)
+	if !ok || source == nil {
+		return SchemaDefaults{}, withSchemaCompileLocation(root, xsderrors.InternalInvariant("schema defaults require a typed document source"))
+	}
+	defaults, err := ParseSchemaDefaults(*source)
 	return defaults, withSchemaCompileLocation(root, err)
 }
 
@@ -381,20 +236,6 @@ func (n *schemaSyntaxNode) attrNS(namespace, local string) (string, bool) {
 		}
 	}
 	return "", false
-}
-
-// xsdChildrenSyntax yields the XSD-namespace element children of n in document order.
-func (n *schemaSyntaxNode) xsdChildrenSyntax() iter.Seq[*schemaSyntaxNode] {
-	return func(yield func(*schemaSyntaxNode) bool) {
-		for _, child := range n.Children {
-			if child.Name.Space != vocab.XSDNamespaceURI {
-				continue
-			}
-			if !yield(child) {
-				return
-			}
-		}
-	}
 }
 
 func (n *schemaSyntaxNode) resolveQName(lexical string) (xml.Name, error) {

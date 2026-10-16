@@ -11,7 +11,11 @@ func TestTimeFacetDerivationOrdersTimezoneAdjustedBounds(t *testing.T) {
 	t.Parallel()
 
 	builder := value.NewBuilder(value.BuilderOptions{})
-	base, err := builder.Add(atomicFacetType(value.PrimitiveTime, value.FacetSpec{
+	base, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(base, atomicFacetType(value.PrimitiveTime, value.FacetSpec{
 		MaxInclusive: value.BoundFacet{
 			LiteralSpec: value.LiteralSpec{Lexical: "12:00:00-10:00", Type: value.NoType},
 			Present:     true,
@@ -20,7 +24,11 @@ func TestTimeFacetDerivationOrdersTimezoneAdjustedBounds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = builder.Add(value.TypeSpec{
+	reservedID, reserveErr := builder.Reserve()
+	if reserveErr != nil {
+		t.Fatalf("Reserve() error = %v", reserveErr)
+	}
+	err = builder.Complete(reservedID, value.TypeSpec{
 		Variety:           value.Atomic,
 		Primitive:         value.PrimitiveTime,
 		Whitespace:        value.WhitespaceCollapse,
@@ -32,10 +40,7 @@ func TestTimeFacetDerivationOrdersTimezoneAdjustedBounds(t *testing.T) {
 			Present:     true,
 		}},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := builder.Seal(); !errors.Is(err, value.ErrFacet) {
+	if !errors.Is(err, value.ErrFacet) {
 		t.Fatalf("timezone-adjusted widening of maxInclusive was accepted: %v", err)
 	}
 }
@@ -44,7 +49,11 @@ func TestTimeFacetDerivationRejectsIncomparableTimezoneBounds(t *testing.T) {
 	t.Parallel()
 
 	builder := value.NewBuilder(value.BuilderOptions{})
-	base, err := builder.Add(atomicFacetType(value.PrimitiveTime, value.FacetSpec{
+	base, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(base, atomicFacetType(value.PrimitiveTime, value.FacetSpec{
 		MaxInclusive: value.BoundFacet{
 			LiteralSpec: value.LiteralSpec{Lexical: "12:00:00", Type: value.NoType},
 			Present:     true,
@@ -53,7 +62,11 @@ func TestTimeFacetDerivationRejectsIncomparableTimezoneBounds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = builder.Add(value.TypeSpec{
+	reservedID, reserveErr := builder.Reserve()
+	if reserveErr != nil {
+		t.Fatalf("Reserve() error = %v", reserveErr)
+	}
+	err = builder.Complete(reservedID, value.TypeSpec{
 		Variety:           value.Atomic,
 		Primitive:         value.PrimitiveTime,
 		Whitespace:        value.WhitespaceCollapse,
@@ -65,10 +78,7 @@ func TestTimeFacetDerivationRejectsIncomparableTimezoneBounds(t *testing.T) {
 			Present:     true,
 		}},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := builder.Seal(); !errors.Is(err, value.ErrFacet) {
+	if !errors.Is(err, value.ErrFacet) {
 		t.Fatalf("incomparable timezone bounds were accepted: %v", err)
 	}
 }
@@ -77,7 +87,11 @@ func TestTimeFacetDerivationAllowsContainedUnknownTimezoneBound(t *testing.T) {
 	t.Parallel()
 
 	builder := value.NewBuilder(value.BuilderOptions{})
-	base, err := builder.Add(atomicFacetType(value.PrimitiveTime, value.FacetSpec{
+	base, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(base, atomicFacetType(value.PrimitiveTime, value.FacetSpec{
 		MaxInclusive: value.BoundFacet{
 			LiteralSpec: value.LiteralSpec{Lexical: "22:00:00Z", Type: value.NoType},
 			Present:     true,
@@ -86,7 +100,11 @@ func TestTimeFacetDerivationAllowsContainedUnknownTimezoneBound(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = builder.Add(value.TypeSpec{
+	reservedID, reserveErr := builder.Reserve()
+	if reserveErr != nil {
+		t.Fatalf("Reserve() error = %v", reserveErr)
+	}
+	err = builder.Complete(reservedID, value.TypeSpec{
 		Variety:           value.Atomic,
 		Primitive:         value.PrimitiveTime,
 		Whitespace:        value.WhitespaceCollapse,
@@ -110,7 +128,11 @@ func TestTimeFacetRuntimeComparisonUsesRecurringTimeOfDay(t *testing.T) {
 	t.Parallel()
 
 	builder := value.NewBuilder(value.BuilderOptions{})
-	typeID, err := builder.Add(atomicFacetType(value.PrimitiveTime, value.FacetSpec{
+	typeID, err := builder.Reserve()
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(typeID, atomicFacetType(value.PrimitiveTime, value.FacetSpec{
 		MinInclusive: value.BoundFacet{
 			LiteralSpec: value.LiteralSpec{Lexical: "10:30:00Z", Type: value.NoType},
 			Present:     true,

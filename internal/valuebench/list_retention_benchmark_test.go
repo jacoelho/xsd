@@ -43,7 +43,11 @@ func benchmarkListProgram(b *testing.B, facets value.FacetSpec) (*value.Program,
 		ListItem:          value.BuiltinType(value.PrimitiveString),
 		Facets:            facets,
 	}
-	id, err := builder.Add(spec)
+	id, err := builder.Reserve()
+	if err != nil {
+		b.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(id, spec)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -57,7 +61,11 @@ func benchmarkListProgram(b *testing.B, facets value.FacetSpec) (*value.Program,
 func benchmarkNestedListEnumerationProgram(b *testing.B) (*value.Program, value.TypeID) {
 	b.Helper()
 	builder := value.NewBuilder(value.BuilderOptions{})
-	listID, err := builder.Add(value.TypeSpec{
+	listID, err := builder.Reserve()
+	if err != nil {
+		b.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(listID, value.TypeSpec{
 		Variety:           value.List,
 		Primitive:         value.PrimitiveString,
 		Whitespace:        value.WhitespaceCollapse,
@@ -68,7 +76,11 @@ func benchmarkNestedListEnumerationProgram(b *testing.B) (*value.Program, value.
 	if err != nil {
 		b.Fatal(err)
 	}
-	innerID, err := builder.Add(value.TypeSpec{
+	innerID, err := builder.Reserve()
+	if err != nil {
+		b.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(innerID, value.TypeSpec{
 		Variety:           value.Union,
 		Primitive:         value.PrimitiveString,
 		Whitespace:        value.WhitespaceCollapse,
@@ -80,7 +92,11 @@ func benchmarkNestedListEnumerationProgram(b *testing.B) (*value.Program, value.
 	if err != nil {
 		b.Fatal(err)
 	}
-	outerID, err := builder.Add(value.TypeSpec{
+	outerID, err := builder.Reserve()
+	if err != nil {
+		b.Fatalf("Reserve() error = %v", err)
+	}
+	err = builder.Complete(outerID, value.TypeSpec{
 		Variety:           value.Union,
 		Primitive:         value.PrimitiveString,
 		Whitespace:        value.WhitespaceCollapse,

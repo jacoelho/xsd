@@ -1,6 +1,10 @@
 package schema
 
-import "testing"
+import (
+	"testing"
+
+	valuepkg "github.com/jacoelho/xsd/internal/value"
+)
 
 func TestGlobalLookupHelpers(t *testing.T) {
 	t.Parallel()
@@ -10,7 +14,7 @@ func TestGlobalLookupHelpers(t *testing.T) {
 	types := map[QName]TypeID{qnames["simple"]: SimpleRef(0)}
 	derivations := newTypeDerivationReadForTest(
 		t,
-		[]SimpleType{testSimpleType(SimpleVarietyAtomic, NoSimpleType)},
+		[]SimpleType{testSimpleType(valuepkg.Atomic, NoSimpleType)},
 		[]ComplexType{{Derivation: DerivationKindNone}},
 	)
 	if typ, ok := globalTypeByName(types, derivations, qnames["simple"]); !ok || typ != SimpleRef(0) {
