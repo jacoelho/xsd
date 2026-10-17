@@ -1239,7 +1239,9 @@ graph preserves these ownership rules:
 - `AGENTS.md` is the low-context execution router. It points to this contract and
   defines discovery, implementation, evidence, and writeback discipline without
   copying the package graph.
-- README documents public usage and command workflows.
+- `README.md` documents public usage, command workflows, and benchmark results,
+  linking to `RESOURCE_LIMITS.md` for the full option reference and
+  `BENCHMARKS.md` for measurement methodology and reproduction commands.
 - `docs` contains XSD 1.0 reference documentation and the browser validator's
   deployable assets. Review reports, comparison reports, completed plans,
   benchmark evidence, and verification logs do not belong there.
