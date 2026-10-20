@@ -1,7 +1,7 @@
 # Documentation
 
-- [XSD 1.0 reference](spec/README.md): corrected reading, preserved W3C sources,
-  and specification-derived scenario catalogues.
+- [XSD 1.0 reference](spec/README.md): source authority, approved corrections
+  and qualified oracle decisions.
 - [Architecture](../ARCHITECTURE.md): module ownership, contracts, lifecycle,
   resource limits, and design decisions.
 - [Library usage](../README.md): public API, CLI, and configuration.

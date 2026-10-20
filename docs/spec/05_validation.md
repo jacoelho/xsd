@@ -48,7 +48,7 @@ Validation operates top-down:
 6. **Determine outcome** — Valid if all rules pass; invalid with specific error codes otherwise
 
 For ID/IDREF contribution eligibility and the validation-root check, retain
-[IBS-Q001](scenarios/source-questions.md#ibs-q001--root-id-eligibility-and-successful-declaration-validation).
+IBS-Q001 in [interpretation boundaries](INTERPRETATIONS.md#remaining-source-integration-boundaries).
 Content validity and successful declaration validation remain distinct premises;
 the outline does not settle that contribution dependency.
 

@@ -616,5 +616,7 @@
       "role": "interpretation-history-not-erratum"
     }
   ],
-  "failures": []
+  "failures": [],
+  "purpose": "Historical acquisition provenance only; not a corpus inventory or current bundled-file inventory.",
+  "path_semantics": "Source path entries are historical audit download locations. Bulk upstream/dependency snapshots are not bundled; preexisting xml/ source copies remain separately retained historical aids."
 }
