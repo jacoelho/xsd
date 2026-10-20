@@ -33,13 +33,6 @@ type AttributeUseValueConstraintAdmission struct {
 	ReferencedDeclHasFixed bool
 }
 
-// AttributeUseModeState is the derived runtime state from an attribute-use
-// mode.
-type AttributeUseModeState struct {
-	Required   bool
-	Prohibited bool
-}
-
 // AttributeUseFixedValueAdmission is the compile-time projection needed to
 // validate fixed-value preservation against a referenced declaration.
 type AttributeUseFixedValueAdmission struct {
@@ -58,21 +51,6 @@ func ParseAttributeUseMode(mode string) (AttributeUseMode, error) {
 		return AttributeUseProhibited, nil
 	default:
 		return AttributeUseOptional, errors.New("invalid attribute use " + mode)
-	}
-}
-
-// ApplyAttributeUseMode derives runtime required/prohibited state from the
-// parsed xs:attribute use mode.
-func ApplyAttributeUseMode(mode AttributeUseMode) (AttributeUseModeState, error) {
-	switch mode {
-	case AttributeUseOptional:
-		return AttributeUseModeState{}, nil
-	case AttributeUseRequired:
-		return AttributeUseModeState{Required: true}, nil
-	case AttributeUseProhibited:
-		return AttributeUseModeState{Prohibited: true}, nil
-	default:
-		return AttributeUseModeState{}, errors.New("attribute use mode is invalid")
 	}
 }
 

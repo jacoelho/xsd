@@ -427,13 +427,16 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   restriction uses its separate actual-ur-type-content-wildcard exception, not
   this immediate-base-type predicate. These exceptions add no retained policy
   state or graph traversal.
-  An attribute-use compilation exclusively owns its ordered uses and name index,
-  committing admitted append and replacement operations directly. Finalization
-  is terminal; wildcard construction retains its separate fallible storage
-  boundary. Each admitted, nonprohibited use receives a nonzero compiler-local
-  component identity. Group and inheritance copies preserve it; set union
-  coalesces only the same component, while distinct same-name uses still reach
-  duplicate or derivation checks. Declaration identity and equal use fields
+  An attribute-use compilation owns its explicit ordered uses and name index,
+  borrowing inherited uses as immutable input. Source admission supplies
+  prohibition names separately; they never enter `AttributeUse` records.
+  Referenced default/fixed overrides are validated before attachment to a use;
+  no lexical-only constraints enter a use record. Finalization is terminal;
+  wildcard construction retains its separate fallible storage boundary. Each
+  admitted use receives a nonzero compiler-local component identity. Group and
+  inheritance copies preserve it; set union coalesces only the same component,
+  while distinct same-name uses still reach duplicate or derivation checks.
+  Declaration identity and equal use fields
   cannot establish use identity. Group expansion borrows immutable members and
   charges each traversed member before merging, including shared members.
   The compiler checks identity exhaustion before allocation. Publication drops

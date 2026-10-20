@@ -46,7 +46,7 @@ func TestAttributeUseCompilationNormalMode(t *testing.T) {
 		}
 	})
 
-	t.Run("rejects duplicate non-prohibited use", func(t *testing.T) {
+	t.Run("rejects duplicate use", func(t *testing.T) {
 		t.Parallel()
 
 		compilation := newAttributeUseCompilation(&compiler{rt: *rt.build()}, nil, nil, NoWildcard, AttributeMergeDirect)
@@ -150,21 +150,24 @@ func TestAttributeUseCompilationProhibitionPreservesExplicitUses(t *testing.T) {
 	name := QName{Namespace: 1, Local: 1}
 	rt := attributeUseMergeRuntime()
 	actual := AttributeUse{Name: name, Type: 1}
-	prohibited := AttributeUse{Name: name, Type: 0, Prohibited: true}
 	for _, mode := range []AttributeMergeMode{AttributeMergeDirect, AttributeMergeExtension, AttributeMergeRestriction} {
-		for _, inputs := range [][]AttributeUse{{prohibited, actual}, {actual, prohibited}} {
+		for _, prohibitFirst := range []bool{true, false} {
 			var inherited []AttributeUse
 			if mode == AttributeMergeRestriction {
 				inherited = []AttributeUse{{Name: name, Type: 0}}
 			}
 			compilation := newAttributeUseCompilation(&compiler{rt: *rt.build()}, nil, inherited, NoWildcard, mode)
-			for _, use := range inputs {
-				if err := compilation.mergeUse(use); err != nil {
-					t.Fatal(err)
-				}
+			if prohibitFirst {
+				compilation.addProhibition(name)
+			}
+			if err := compilation.mergeUse(actual); err != nil {
+				t.Fatal(err)
+			}
+			if !prohibitFirst {
+				compilation.addProhibition(name)
 			}
 			if got := compilation.finalUses(); !slices.Equal(got, []AttributeUse{actual}) {
-				t.Fatalf("mode %d, inputs %#v: uses = %#v, want explicit use", mode, inputs, got)
+				t.Fatalf("mode %d, prohibition first %t: uses = %#v, want explicit use", mode, prohibitFirst, got)
 			}
 		}
 	}

@@ -40,56 +40,6 @@ func TestParseAttributeUseMode(t *testing.T) {
 	}
 }
 
-func TestApplyAttributeUseMode(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name string
-		in   AttributeUseMode
-		want AttributeUseModeState
-		err  string
-	}{
-		{
-			name: "optional",
-			in:   AttributeUseOptional,
-		},
-		{
-			name: "required",
-			in:   AttributeUseRequired,
-			want: AttributeUseModeState{Required: true},
-		},
-		{
-			name: "prohibited",
-			in:   AttributeUseProhibited,
-			want: AttributeUseModeState{Prohibited: true},
-		},
-		{
-			name: "invalid mode",
-			in:   AttributeUseMode(99),
-			err:  "attribute use mode is invalid",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			got, err := ApplyAttributeUseMode(tt.in)
-			if tt.err == "" {
-				if err != nil {
-					t.Fatalf("ApplyAttributeUseMode() error = %v", err)
-				}
-				if got != tt.want {
-					t.Fatalf("ApplyAttributeUseMode() = %+v, want %+v", got, tt.want)
-				}
-				return
-			}
-			if err == nil || !strings.Contains(err.Error(), tt.err) {
-				t.Fatalf("ApplyAttributeUseMode() error = %v, want %q", err, tt.err)
-			}
-		})
-	}
-}
-
 func TestValidateAttributeUseValueConstraintAdmission(t *testing.T) {
 	t.Parallel()
 

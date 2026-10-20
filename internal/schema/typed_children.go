@@ -91,10 +91,6 @@ func checkElementRefChildren(n *schemaNode) error {
 	return checkOrderedXSDChildren(n, elementRefChildOrder)
 }
 
-func checkAttributeRefChildren(n *schemaNode) error {
-	return checkOrderedXSDChildren(n, attributeRefChildOrder)
-}
-
 func checkAttributeGroupUseChildren(n *schemaNode) error {
 	return checkOrderedXSDChildren(n, attributeGroupUseChildOrder)
 }
@@ -103,8 +99,11 @@ func checkElementRefAttributes(n *schemaNode) error {
 	return checkAllowedTypedAttributes(n, "element ref", isElementRefAttribute)
 }
 
-func checkAttributeRefAttributes(n *schemaNode) error {
-	return checkAllowedTypedAttributes(n, "attribute ref", isAttributeRefAttribute)
+func checkAttributeRefSource(n *schemaNode) error {
+	if err := checkAllowedTypedAttributes(n, "attribute ref", isAttributeRefAttribute); err != nil {
+		return err
+	}
+	return checkOrderedXSDChildren(n, attributeRefChildOrder)
 }
 
 func checkGroupOccurrenceAttributes(n *schemaNode) error {

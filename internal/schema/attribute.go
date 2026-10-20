@@ -45,6 +45,7 @@ type AttributeUseSet struct {
 
 // AttributeUse is the construction record for one attribute use. Copies retain
 // componentID for set union; publication discards this compiler-local identity.
+// Prohibitions remain source-name directives and never enter this record.
 type AttributeUse struct {
 	Default     *ValueConstraint
 	Fixed       *ValueConstraint
@@ -52,7 +53,6 @@ type AttributeUse struct {
 	Type        SimpleTypeID
 	componentID uint32
 	Required    bool
-	Prohibited  bool
 }
 
 // AttributeUseSetRead exposes validation-facing attribute-use-set behavior
@@ -374,12 +374,7 @@ func ValidateAttributeUseRestriction(
 	rt *schemaBuild,
 	base, derived AttributeUse,
 ) error {
-	switch {
-	case derived.Prohibited && base.Required:
-		return errors.New("required attribute cannot be prohibited by restriction")
-	case derived.Prohibited:
-		return nil
-	case base.Required && !derived.Required:
+	if base.Required && !derived.Required {
 		return errors.New("required attribute cannot become optional by restriction")
 	}
 	typeDerived := derived.Type == base.Type
@@ -510,8 +505,7 @@ func attributeUseExtensionEqual(a, b AttributeUse) bool {
 		a.Type == b.Type &&
 		ValueConstraintIdentityEqual(NewValueConstraintIdentity(a.Default), NewValueConstraintIdentity(b.Default)) &&
 		ValueConstraintIdentityEqual(NewValueConstraintIdentity(a.Fixed), NewValueConstraintIdentity(b.Fixed)) &&
-		a.Required == b.Required &&
-		a.Prohibited == b.Prohibited
+		a.Required == b.Required
 }
 
 func validateAttributeUseRuntime(
@@ -531,9 +525,6 @@ func validateAttributeUseRuntime(
 	}
 	if indexed, ok := index[use.Name]; !ok || indexed != slot {
 		return valuepkg.IdentityNone, errors.New("attribute use index does not match use slice")
-	}
-	if use.Prohibited {
-		return valuepkg.IdentityNone, errors.New("attribute use set stores prohibited use")
 	}
 	if use.Default != nil && use.Fixed != nil {
 		return valuepkg.IdentityNone, errors.New("attribute use stores both default and fixed value constraints")

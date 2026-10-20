@@ -540,13 +540,6 @@ func TestValidateAttributeUseSetRecord(t *testing.T) {
 			wantErr: "attribute use index does not match use slice",
 		},
 		{
-			name: "prohibited use",
-			mutate: func(set *AttributeUseSet) {
-				set.Uses[0].Prohibited = true
-			},
-			wantErr: "attribute use set stores prohibited use",
-		},
-		{
 			name: "default and fixed",
 			mutate: func(set *AttributeUseSet) {
 				set.Uses[0].Default = &ValueConstraint{}
@@ -622,26 +615,6 @@ func TestValidateAttributeUseRestriction(t *testing.T) {
 			name:    "derived type restricts base type",
 			base:    base,
 			derived: derived,
-		},
-		{
-			name: "optional base can be prohibited",
-			base: base,
-			derived: AttributeUse{
-				Type:       1,
-				Prohibited: true,
-			},
-		},
-		{
-			name: "required base cannot be prohibited",
-			base: AttributeUse{
-				Type:     0,
-				Required: true,
-			},
-			derived: AttributeUse{
-				Type:       1,
-				Prohibited: true,
-			},
-			wantErr: "required attribute cannot be prohibited by restriction",
 		},
 		{
 			name: "required base cannot become optional",
@@ -920,14 +893,6 @@ func TestValidateAttributeUseSetExtension(t *testing.T) {
 			name: "required mismatch",
 			mutate: func(uses []AttributeUse) []AttributeUse {
 				uses[0].Required = false
-				return uses
-			},
-			wantErr: "complex extension does not preserve base attribute use",
-		},
-		{
-			name: "prohibited mismatch",
-			mutate: func(uses []AttributeUse) []AttributeUse {
-				uses[0].Prohibited = true
 				return uses
 			},
 			wantErr: "complex extension does not preserve base attribute use",

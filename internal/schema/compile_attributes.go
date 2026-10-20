@@ -285,7 +285,23 @@ func (b *attributeUseCompilation) add(child *schemaNode) error {
 }
 
 func (b *attributeUseCompilation) addAttribute(child *schemaNode) error {
-	use, err := b.compiler.compileAttributeUse(child, b.ctx)
+	overrides := readAttributeUseOverrides(child)
+	mode, err := parseAttributeUseModeChecked(child, overrides.mode)
+	if err != nil {
+		return err
+	}
+	if mode == AttributeUseProhibited {
+		name, admissionErr := b.compiler.admitAttributeProhibition(child, b.ctx)
+		if admissionErr != nil {
+			return admissionErr
+		}
+		if err = validateAttributeUseValueConstraintAtNode(child, mode, overrides.hasDefault, overrides.hasFixed, false); err != nil {
+			return err
+		}
+		b.addProhibition(name)
+		return nil
+	}
+	use, err := b.compiler.compileAttributeUse(child, b.ctx, mode, overrides)
 	if err != nil {
 		return err
 	}
@@ -388,10 +404,6 @@ func (b *attributeUseCompilation) mergeUse(use AttributeUse) error {
 	if b.mode > AttributeMergeRestriction {
 		return xsderrors.InternalInvariant("unknown attribute merge mode")
 	}
-	if use.Prohibited {
-		b.addProhibition(use.Name)
-		return nil
-	}
 	if index, ok := b.seen[use.Name]; ok {
 		if sameAttributeUseComponent(use, b.uses[index]) {
 			return nil
@@ -468,13 +480,10 @@ type attributeUseBase struct {
 	ref      bool
 }
 
-func (c *compiler) compileAttributeUse(n *schemaNode, ctx *schemaSetDocument) (AttributeUse, error) {
-	overrides := readAttributeUseOverrides(n)
-	mode, err := parseAttributeUseModeChecked(n, overrides.mode)
-	if err != nil {
-		return AttributeUse{}, err
-	}
-	base, err := c.compileAttributeUseBase(n, ctx, mode)
+// Source admission consumes prohibitions before this boundary; a returned use
+// owns validated constraints and a component identity.
+func (c *compiler) compileAttributeUse(n *schemaNode, ctx *schemaSetDocument, mode AttributeUseMode, overrides attributeUseOverrides) (AttributeUse, error) {
+	base, err := c.compileAttributeUseBase(n, ctx)
 	if err != nil {
 		return AttributeUse{}, err
 	}
@@ -482,17 +491,7 @@ func (c *compiler) compileAttributeUse(n *schemaNode, ctx *schemaSetDocument) (A
 	if err = validateAttributeUseValueConstraintAtNode(n, mode, overrides.hasDefault, overrides.hasFixed, base.refFixed != nil); err != nil {
 		return AttributeUse{}, err
 	}
-	if mode == AttributeUseProhibited {
-		return use, nil
-	}
-	applyAttributeUseFixedOverride(&use, base, overrides)
-	modeState, err := applyAttributeUseModeAtNode(n, mode)
-	if err != nil {
-		return AttributeUse{}, err
-	}
-	use.Required = modeState.Required
-	use.Prohibited = modeState.Prohibited
-	applyAttributeUseDefaultOverride(&use, base, overrides)
+	use.Required = mode == AttributeUseRequired
 	if err = c.validateAttributeUseOverrides(n, &use, base, overrides); err != nil {
 		return AttributeUse{}, err
 	}
@@ -533,18 +532,6 @@ func readAttributeUseOverrides(n *schemaNode) attributeUseOverrides {
 	}
 }
 
-func applyAttributeUseFixedOverride(use *AttributeUse, base attributeUseBase, overrides attributeUseOverrides) {
-	if base.ref && overrides.hasFixed {
-		use.Fixed = &ValueConstraint{Lexical: overrides.fixedValue}
-	}
-}
-
-func applyAttributeUseDefaultOverride(use *AttributeUse, base attributeUseBase, overrides attributeUseOverrides) {
-	if base.ref && overrides.hasDefault {
-		use.Default = &ValueConstraint{Lexical: overrides.defaultValue}
-	}
-}
-
 func (c *compiler) validateAttributeUseOverrides(n *schemaNode, use *AttributeUse, base attributeUseBase, overrides attributeUseOverrides) error {
 	if !base.ref || !overrides.hasDefault && !overrides.hasFixed {
 		return nil
@@ -559,44 +546,30 @@ func (c *compiler) validateAttributeUseOverrides(n *schemaNode, use *AttributeUs
 	if err := c.validateAttributeValueConstraints(&decl, n); err != nil {
 		return withSchemaCompileLocation(n, err)
 	}
-	applyValidatedAttributeUseOverrides(use, decl, overrides)
-	return nil
-}
-
-func applyValidatedAttributeUseOverrides(use *AttributeUse, decl AttributeDecl, overrides attributeUseOverrides) {
 	if overrides.hasDefault {
 		use.Default = decl.Default
 	}
 	if overrides.hasFixed {
 		use.Fixed = decl.Fixed
 	}
+	return nil
 }
 
-func (c *compiler) compileAttributeUseBase(n *schemaNode, ctx *schemaSetDocument, mode AttributeUseMode) (attributeUseBase, error) {
+func (c *compiler) compileAttributeUseBase(n *schemaNode, ctx *schemaSetDocument) (attributeUseBase, error) {
 	source := semanticSource[*schemaAttributeSource](&n.semantic)
 	if source == nil {
 		return attributeUseBase{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("attribute use has no typed attribute source"))
 	}
 	if source.Ref.Lexical.Present {
-		return c.compileAttributeRefUse(n, ctx, source.Ref.Name, mode)
+		return c.compileAttributeRefUse(n, ctx, source.Ref.Name)
 	}
-	use, err := c.compileLocalAttributeUse(n, ctx, mode)
+	use, err := c.compileLocalAttributeUse(n, ctx)
 	return attributeUseBase{use: use}, err
 }
 
-func (c *compiler) compileAttributeRefUse(n *schemaNode, ctx *schemaSetDocument, ref xml.Name, mode AttributeUseMode) (attributeUseBase, error) {
-	if err := checkAttributeRefAttributes(n); err != nil {
+func (c *compiler) compileAttributeRefUse(n *schemaNode, ctx *schemaSetDocument, ref xml.Name) (attributeUseBase, error) {
+	if err := checkAttributeRefSource(n); err != nil {
 		return attributeUseBase{}, err
-	}
-	if err := checkAttributeRefChildren(n); err != nil {
-		return attributeUseBase{}, err
-	}
-	if mode == AttributeUseProhibited {
-		if err := c.spendComponentDependency(n); err != nil {
-			return attributeUseBase{}, err
-		}
-		q, err := c.rt.internQName(effectiveReferenceNamespace(ctx, ref), ref.Local)
-		return attributeUseBase{use: AttributeUse{Name: q, Type: NoSimpleType, Prohibited: true}}, err
 	}
 	q, err := c.referenceQName(n, ctx, ref)
 	if err != nil {
@@ -614,7 +587,7 @@ func (c *compiler) compileAttributeRefUse(n *schemaNode, ctx *schemaSetDocument,
 	return base, nil
 }
 
-func (c *compiler) compileLocalAttributeUse(n *schemaNode, ctx *schemaSetDocument, mode AttributeUseMode) (AttributeUse, error) {
+func (c *compiler) compileLocalAttributeUse(n *schemaNode, ctx *schemaSetDocument) (AttributeUse, error) {
 	if err := c.spendComponentDependency(n); err != nil {
 		return AttributeUse{}, err
 	}
@@ -623,8 +596,20 @@ func (c *compiler) compileLocalAttributeUse(n *schemaNode, ctx *schemaSetDocumen
 		return AttributeUse{}, err
 	}
 	defer leave()
-	if err = checkAttributeUseSource(n); err != nil {
+	name, err := c.localAttributeUseName(n, ctx)
+	if err != nil {
 		return AttributeUse{}, err
+	}
+	decl, err := c.compileAttributeDecl(n, ctx, name)
+	if err != nil {
+		return AttributeUse{}, err
+	}
+	return attributeUseFromDecl(decl), nil
+}
+
+func (c *compiler) localAttributeUseName(n *schemaNode, ctx *schemaSetDocument) (QName, error) {
+	if err := checkAttributeUseSource(n); err != nil {
+		return QName{}, err
 	}
 	source := semanticSource[*schemaAttributeSource](&n.semantic)
 	name := source.Global.Name.Value
@@ -636,26 +621,43 @@ func (c *compiler) compileLocalAttributeUse(n *schemaNode, ctx *schemaSetDocumen
 		DefaultQualified: ctx.doc.defaults.AttributeQualified,
 	})
 	if err != nil {
-		return AttributeUse{}, withSchemaCompileLocation(n, err)
+		return QName{}, withSchemaCompileLocation(n, err)
 	}
 	if qualified {
 		ns = ctx.effectiveTargetNS
 	}
-	nameID, err := c.rt.internQName(ns, name)
-	if err != nil {
-		return AttributeUse{}, err
-	}
-	if mode == AttributeUseProhibited {
-		if err = c.admitProhibitedAttributeChildren(n, ctx); err != nil {
-			return AttributeUse{}, err
+	return c.rt.internQName(ns, name)
+}
+
+// A prohibition admits source syntax and independently mapped children, but
+// contributes only a name directive rather than an attribute-use component.
+func (c *compiler) admitAttributeProhibition(n *schemaNode, ctx *schemaSetDocument) (QName, error) {
+	source := semanticSource[*schemaAttributeSource](&n.semantic)
+	if source.Ref.Lexical.Present {
+		if err := checkAttributeRefSource(n); err != nil {
+			return QName{}, err
 		}
-		return AttributeUse{Name: nameID, Type: NoSimpleType, Prohibited: true}, nil
+		if err := c.spendComponentDependency(n); err != nil {
+			return QName{}, err
+		}
+		return c.rt.internQName(effectiveReferenceNamespace(ctx, source.Ref.Name), source.Ref.Name.Local)
 	}
-	decl, err := c.compileAttributeDecl(n, ctx, nameID)
+	if err := c.spendComponentDependency(n); err != nil {
+		return QName{}, err
+	}
+	leave, err := c.enterComponent(n)
 	if err != nil {
-		return AttributeUse{}, err
+		return QName{}, err
 	}
-	return attributeUseFromDecl(decl), nil
+	defer leave()
+	name, err := c.localAttributeUseName(n, ctx)
+	if err != nil {
+		return QName{}, err
+	}
+	if err := c.admitProhibitedAttributeChildren(n, ctx); err != nil {
+		return QName{}, err
+	}
+	return name, nil
 }
 
 func (c *compiler) admitProhibitedAttributeChildren(n *schemaNode, ctx *schemaSetDocument) error {

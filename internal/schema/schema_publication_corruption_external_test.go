@@ -1070,58 +1070,6 @@ func TestPublishedAttributeSlotsFollowCanonicalUses(t *testing.T) {
 	mustValidate(t, engine, `<root required="r" inherited="fixed"/>`)
 }
 
-func TestFreezeRejectsPublishedProhibitedAttributeUse(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root">
-    <xs:complexType>
-      <xs:attribute name="plain" type="xs:string"/>
-      <xs:attribute name="defaulted" type="xs:string" default="x"/>
-    </xs:complexType>
-  </xs:element>
-</xs:schema>`
-	useByName := func(t *testing.T, rt *xsdSchema.SchemaBuild, set *xsdSchema.AttributeUseSet, local string) *xsdSchema.AttributeUse {
-		t.Helper()
-		name := mustQName(t, &rt.Names, local)
-		for i := range set.Uses {
-			if set.Uses[i].Name == name {
-				return &set.Uses[i]
-			}
-		}
-		t.Fatalf("attribute use %q not found", local)
-		return nil
-	}
-	mutations := []struct {
-		name   string
-		mutate func(t *testing.T, rt *xsdSchema.SchemaBuild, set *xsdSchema.AttributeUseSet)
-	}{
-		{
-			name: "plain prohibited",
-			mutate: func(t *testing.T, rt *xsdSchema.SchemaBuild, set *xsdSchema.AttributeUseSet) {
-				t.Helper()
-				useByName(t, rt, set, "plain").Prohibited = true
-			},
-		},
-		{
-			name: "prohibited with default",
-			mutate: func(t *testing.T, rt *xsdSchema.SchemaBuild, set *xsdSchema.AttributeUseSet) {
-				t.Helper()
-				useByName(t, rt, set, "defaulted").Prohibited = true
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			rt := mutableSchemaBuild(t, schema)
-			if err := validateSchemaBuild(rt); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			tc.mutate(t, rt, rootBuildAttributeUseSet(t, rt))
-			err := validateSchemaBuild(rt)
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
 func TestFreezeRejectsIDAttributeSchemaInvariantDrift(t *testing.T) {
 	t.Run("attribute declaration value constraint", func(t *testing.T) {
 		rt := mutableSchemaBuild(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">

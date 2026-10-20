@@ -442,14 +442,6 @@ func validateAttributeUseValueConstraintAtNode(n *schemaNode, mode AttributeUseM
 	return nil
 }
 
-func applyAttributeUseModeAtNode(n *schemaNode, mode AttributeUseMode) (AttributeUseModeState, error) {
-	state, err := ApplyAttributeUseMode(mode)
-	if err != nil {
-		return AttributeUseModeState{}, withSchemaCompileLocation(n, invalidAttributeError(err))
-	}
-	return state, nil
-}
-
 func validateAttributeUseFixedValueAtNode(
 	n *schemaNode,
 	fixed, refFixed ValueConstraintIdentity,
