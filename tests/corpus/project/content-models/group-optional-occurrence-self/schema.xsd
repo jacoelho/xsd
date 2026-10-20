@@ -1,0 +1,11 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:group name="G">
+    <xs:sequence>
+      <xs:element name="marker" type="xs:string" />
+      <xs:group ref="G" minOccurs="0" maxOccurs="1" />
+    </xs:sequence>
+  </xs:group>
+  <xs:element name="root">
+    <xs:complexType><xs:group ref="G" /></xs:complexType>
+  </xs:element>
+</xs:schema>

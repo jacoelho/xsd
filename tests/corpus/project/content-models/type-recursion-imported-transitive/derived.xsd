@@ -1,0 +1,19 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:b="urn:recursive-base" xmlns:d="urn:recursive-derived" targetNamespace="urn:recursive-derived" elementFormDefault="qualified">
+  <xs:import namespace="urn:recursive-base" schemaLocation="schema.xsd" />
+  <xs:complexType name="BMiddle">
+    <xs:complexContent>
+      <xs:extension base="b:ABase">
+        <xs:sequence><xs:element name="middlePart" type="xs:string" /></xs:sequence>
+        <xs:attribute name="middleRequired" type="xs:int" use="required" />
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="CLeaf">
+    <xs:complexContent>
+      <xs:extension base="d:BMiddle">
+        <xs:sequence><xs:element name="leafPart" type="xs:string" /></xs:sequence>
+        <xs:attribute name="leafRequired" type="xs:int" use="required" />
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+</xs:schema>

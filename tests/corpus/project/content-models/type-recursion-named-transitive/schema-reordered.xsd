@@ -1,0 +1,30 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="ABase" />
+  <xs:complexType name="CLeaf">
+    <xs:complexContent>
+      <xs:extension base="BMiddle">
+        <xs:sequence>
+          <xs:element name="leafPart" type="xs:string" />
+        </xs:sequence>
+        <xs:attribute name="leafRequired" type="xs:int" use="required" />
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="BMiddle">
+    <xs:complexContent>
+      <xs:extension base="ABase">
+        <xs:sequence>
+          <xs:element name="middlePart" type="xs:string" />
+        </xs:sequence>
+        <xs:attribute name="middleRequired" type="xs:int" use="required" />
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="ABase">
+    <xs:sequence>
+      <xs:element name="basePart" type="xs:string" />
+      <xs:element name="child" type="CLeaf" minOccurs="0" />
+    </xs:sequence>
+    <xs:attribute name="baseRequired" type="xs:int" use="required" />
+  </xs:complexType>
+</xs:schema>

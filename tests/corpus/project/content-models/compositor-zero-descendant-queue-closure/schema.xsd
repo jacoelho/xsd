@@ -1,0 +1,15 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root"><xs:complexType>
+    <xs:sequence minOccurs="0" maxOccurs="0">
+      <xs:element name="outer"><xs:complexType>
+        <xs:sequence minOccurs="0" maxOccurs="0">
+          <xs:element name="inner"><xs:complexType>
+            <xs:choice minOccurs="0" maxOccurs="0">
+              <xs:element name="bad"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[" /></xs:restriction></xs:simpleType></xs:element>
+            </xs:choice>
+          </xs:complexType></xs:element>
+        </xs:sequence>
+      </xs:complexType></xs:element>
+    </xs:sequence>
+  </xs:complexType></xs:element>
+</xs:schema>

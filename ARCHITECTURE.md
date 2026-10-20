@@ -283,7 +283,58 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   update correlated tables together. Global registration bindings also own
   compiler QName-to-ID lookup, including reserved placeholders; active expansion
   and local/anonymous caches remain separate. Registration does not establish
-  completion. Simple-type unavailability has one mutable
+  completion. Complex-type construction owns one ID-indexed source and completion
+  record, with reserved -> completing -> complete transitions. Element type
+  references reserve named or anonymous identities without compiling their bodies.
+  Only derivation-base resolution requires recursive definition completion, so
+  re-entry into a completing definition identifies a derivation cycle rather than
+  legal recursive element content. A monotonic completion pass closes both complex
+  definitions and deferred compositor children, including work discovered by either
+  frontier, and finishes before substitution,
+  element-value constraints, restriction, consistency, and UPA processing.
+  Registration and completion consume dependency work; source declarations and
+  effective contexts bound retained records, and the existing component-depth
+  cap bounds active inheritance. Builtin anyType starts complete. Definition
+  failure aborts compilation; publication rejects incomplete records before
+  consuming the build. A group reference with admitted occurrence 0..0 contributes
+  no component under XSD 1.0
+  [group-reference mapping](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-namedModelGroup).
+  Source shape, QName syntax and occurrence validity remain mandatory; the absent
+  particle has no target lookup, expansion, cycle edge or target-dependent all-group
+  constraint. Nested content omits the absent-model sentinel; direct and restriction
+  content canonicalize it, while extension inherits the base content.
+  Global group definitions remain independently validated.
+  A zero-count sequence or choice likewise contributes no component under the
+  [compositor mapping](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel).
+  This exception applies to that item, not its descendants: their independent
+  declarations, types, references, defaults, facets and identities retain ordinary
+  source and component validation. The compiler defers immediate child roots until
+  active named-group expansion unwinds, then uses the same constructors as attached
+  particles. It creates no discarded parent model, so absent siblings acquire no
+  collective EDC or UPA constraint. Identity predeclaration still visits the whole
+  source tree, and descendant element construction completes those identities.
+  A source/effective-context key admits each omitted compositor once, charging
+  dependency work before retaining its source record. The model cache records
+  `NoContentModel` for admitted absence; that entry completes only the parent's
+  mapping, while the pending queue owns unfinished descendant validation.
+  Admitted source/context counts and the aggregate work budget bound the model
+  cache and append-only queue;
+  ordinary constructors retain their existing depth, work and component limits.
+  Completion clears the pending queue only after both work frontiers close.
+  Failure aborts compilation; publication rejects pending descendants without
+  consuming the build. Source records and the model cache remain private to
+  the compiler and do not enter the published runtime.
+  Model-group expansion rejects an active group directly;
+  legal recursion through element types crosses the definition-completion
+  boundary and needs no element-depth exception or synthetic recursive model.
+  These boundaries follow XSD 1.0
+  [type ancestry](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#ct-props-correct)
+  and [model-group containment](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#mg-props-correct).
+  Private unfinished definitions are distinct from
+  [missing schema components](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing).
+  The latter retain their existing assessment policy and do not leave
+  construction records pending.
+  Simple-type unavailability has one mutable
   bitmap in that build; publication owns its immutable snapshot. There is no
   exported mutable builder or forwarding layer between compiler and build state.
   Value owns fixed builtin simple-type IDs; schema references them directly
@@ -809,7 +860,9 @@ Compilation flow:
    Source loading, graph planning, and component resolution consume one aggregate
    dependency-work budget. Component references also enter a bounded active
    expansion stack; cache hits remain charged, while cycles retain their specific
-   schema diagnostics. Once every effective target namespace is known, the compiler indexes one
+   schema diagnostics. Element type references bind identities without entering
+   definition expansion; the component completion pass closes complex definitions
+   and deferred omitted-compositor descendants before finalization. Once every effective target namespace is known, the compiler indexes one
    declaration representative for each content fingerprint and effective
    namespace while retaining every source occurrence for resolver traversal and
    graph validation. It compiles schema components and populates a compiler-owned
@@ -1132,6 +1185,18 @@ separately after those groups, so benchmarks do not compete with other checks.
 
 ## Rejected Alternatives
 
+- Skipping all validation below a zero-count compositor was rejected because the
+  mapping removes only that compositor's component. Descendant declarations and
+  their type, identity and value constraints remain independently defined. Eagerly
+  constructing them inside the active containing group invents a recursion cycle;
+  a discarded parent model can also invent sibling EDC or UPA failures. Bounded
+  deferred child roots preserve ordinary construction without either extra edge.
+
+- Deferring complex types only when their immediate base is active was rejected
+  because intermediate bases still produce false cycles and type renaming changes
+  acceptance. Identity-only element references and explicit definition completion
+  separate the permitted content-reference graph from inheritance dependencies
+  without a general dependency scheduler or repeated readiness scans.
 - Deriving maximum-one execution overrides from a repeated base choice was
   rejected because RecurseAsIfGroup introduces only a comparison wrapper; the
   child retains its own occurrence bounds. Restriction validity belongs to

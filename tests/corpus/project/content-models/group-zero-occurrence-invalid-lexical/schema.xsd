@@ -1,0 +1,5 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType><xs:group ref="Missing" minOccurs="0" maxOccurs="invalid" /></xs:complexType>
+  </xs:element>
+</xs:schema>

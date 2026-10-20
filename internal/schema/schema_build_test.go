@@ -266,7 +266,7 @@ func TestCachedGlobalLookupConsumesDependencyBudget(t *testing.T) {
 			return uint32(id), err
 		}},
 		{name: "complex", local: "C", lookup: func(c *compiler, q QName) (uint32, error) {
-			id, err := c.compileComplexByQName(q)
+			id, err := c.compileComplexByQName(q, nil)
 			return uint32(id), err
 		}},
 		{name: "attribute", local: "a", lookup: func(c *compiler, q QName) (uint32, error) {

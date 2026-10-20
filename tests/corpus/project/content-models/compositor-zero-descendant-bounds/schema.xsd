@@ -1,0 +1,7 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root"><xs:complexType>
+    <xs:sequence minOccurs="0" maxOccurs="0">
+      <xs:element name="bounds"><xs:simpleType><xs:restriction base="xs:int"><xs:minInclusive value="5" /><xs:maxInclusive value="4" /></xs:restriction></xs:simpleType></xs:element>
+    </xs:sequence>
+  </xs:complexType></xs:element>
+</xs:schema>

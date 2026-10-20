@@ -1,0 +1,1 @@
+<root baseRequired="1"><basePart>base</basePart><child baseRequired="1" middleRequired="2"><basePart>base</basePart><child baseRequired="1" middleRequired="2" leafRequired="3"><basePart>base</basePart><middlePart>middle</middlePart><leafPart>leaf</leafPart></child><middlePart>middle</middlePart><leafPart>leaf</leafPart></child></root>

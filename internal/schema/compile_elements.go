@@ -141,8 +141,6 @@ type pendingElementConstraint struct {
 }
 
 func (c *compiler) compileElementDecl(n *schemaNode, ctx *schemaSetDocument, q QName) (ElementDecl, elementConstraintDraft, error) {
-	c.elementDepth++
-	defer func() { c.elementDepth-- }()
 	if err := checkElementDeclarationChildren(n); err != nil {
 		return ElementDecl{}, elementConstraintDraft{}, err
 	}
@@ -216,7 +214,7 @@ func (c *compiler) compileElementDeclType(n *schemaNode, ctx *schemaSetDocument)
 		return SimpleRef(id), err
 	}
 	if complexType := n.firstXS(vocab.XSDElemComplexType); complexType != nil {
-		id, err := c.compileAnonymousComplex(complexType, ctx)
+		id, err := c.reserveAnonymousComplexType(complexType, ctx)
 		return ComplexRef(id), err
 	}
 	return ComplexRef(c.rt.AnyType), nil

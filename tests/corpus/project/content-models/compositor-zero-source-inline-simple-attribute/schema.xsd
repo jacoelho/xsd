@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:group name="Leaf"><xs:sequence><xs:element name="marker" type="xs:string" /></xs:sequence></xs:group>
+  <xs:element name="root"><xs:complexType>
+    <xs:sequence minOccurs="0" maxOccurs="0"><xs:element name="child"><xs:simpleType name="Forbidden"><xs:restriction base="xs:string" /></xs:simpleType></xs:element></xs:sequence>
+  </xs:complexType></xs:element>
+</xs:schema>
