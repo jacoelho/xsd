@@ -180,6 +180,29 @@ other error, including one joined with a miss, stops compilation. A successful
 result is authoritative and must have a non-empty source name. The attached
 resolver handles all descendants; a returned source's own resolver is ignored.
 
+Supply XML and XLink attribute schemas through these same sources or resolver.
+The library has no implicit `xml.xsd` or `xlink.xsd`; their namespace URIs never
+trigger HTTP retrieval. For example, an import without `schemaLocation` can use
+an explicitly supplied second root, as in `compileSchemas` above. The referring
+schema must import the namespace. Supplied declarations control attribute types,
+facets and fixed/default constraints. The same applies to XML attributes such as
+`xml:lang` and `xml:space`; the predefined `xml` prefix does not replace a schema
+import.
+
+The four XSI attributes are intrinsic: `xsi:type` is QName-valued, `xsi:nil` is
+boolean-valued, `xsi:noNamespaceSchemaLocation` is anyURI-valued, and
+`xsi:schemaLocation` is a list of anyURI values. XSD and XSI references need no
+import; supplied schemas cannot replace builtin declarations. Custom components
+still require explicit schema sources. XSI defaults/fixed values do not supply
+missing attributes; required uses still demand physical presence.
+
+The supported language is XSD 1.0 with approved errata and explicitly
+[selected corrections](docs/spec/SOURCES.md#selected-corrections). These include
+typed fixed-attribute equality, preservation of restricted-union facets, and
+qualified nilled identity-field handling. The
+[correction audit](docs/spec/XSD11_CORRECTIONS.md) records the boundaries;
+this does not enable XSD 1.1 syntax or schema HTTP loading.
+
 ## Reuse an engine or session
 
 An engine is safe to share across goroutines. Each validation call has separate

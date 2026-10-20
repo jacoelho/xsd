@@ -136,7 +136,7 @@ func xsiSchemaLocationItemIdentity(rt *xsdSchema.Schema, anyURI xsdSchema.Simple
 		}
 		return "", validation(ctx, xsderrors.CodeValidationAttribute, "invalid xsi:schemaLocation URI "+field)
 	}
-	if item.IdentityKey() == "" {
+	if !item.HasIdentity() {
 		return "", xsderrors.InternalInvariant("xsi:schemaLocation anyURI identity is missing")
 	}
 	return item.IdentityKey(), nil

@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xl="http://www.w3.org/1999/xlink"><xs:import namespace="http://www.w3.org/1999/xlink" schemaLocation="xl-invalid-default-declaration.xsd"/><xs:element name="root"><xs:complexType><xs:attribute ref="xl:type"/></xs:complexType></xs:element></xs:schema>

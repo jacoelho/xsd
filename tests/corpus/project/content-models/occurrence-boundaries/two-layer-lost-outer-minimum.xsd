@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:group name="BasePairs"><xs:sequence><xs:sequence minOccurs="2" maxOccurs="3"><xs:element name="a" type="xs:string"/><xs:element name="b" type="xs:string"/></xs:sequence></xs:sequence></xs:group>
+  <xs:group name="RestrictedPairs"><xs:sequence><xs:sequence minOccurs="2" maxOccurs="3"><xs:element name="a" type="xs:string"/><xs:element name="b" type="xs:string"/></xs:sequence></xs:sequence></xs:group>
+  <xs:complexType name="Base"><xs:group ref="BasePairs" minOccurs="2" maxOccurs="3"/></xs:complexType>
+  <xs:complexType name="Derived"><xs:complexContent><xs:restriction base="Base"><xs:group ref="RestrictedPairs" minOccurs="1" maxOccurs="1"/></xs:restriction></xs:complexContent></xs:complexType>
+  <xs:element name="base" type="Base"/>
+  <xs:element name="derived" type="Derived"/>
+</xs:schema>

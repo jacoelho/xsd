@@ -36,7 +36,6 @@ func TestContentKind(t *testing.T) {
 		{name: "element only", kind: ContentElementOnly},
 		{name: "mixed", kind: ContentMixed, mixed: true},
 		{name: "simple", kind: ContentSimple, simple: true},
-		{name: "simple mixed", kind: ContentSimpleMixed, mixed: true, simple: true},
 		{name: "empty", kind: ContentEmpty},
 	}
 	for _, tt := range tests {
@@ -71,7 +70,6 @@ func TestComplexTypeContentHelpers(t *testing.T) {
 		{name: "element only", ct: ComplexType{ContentKind: ContentElementOnly}},
 		{name: "mixed", ct: ComplexType{ContentKind: ContentMixed}, mixed: true},
 		{name: "simple", ct: ComplexType{ContentKind: ContentSimple}, simpleContent: true},
-		{name: "simple mixed", ct: ComplexType{ContentKind: ContentSimpleMixed}, mixed: true, simpleContent: true},
 		{name: "empty", ct: ComplexType{ContentKind: ContentEmpty}},
 	}
 	for _, tt := range tests {
@@ -1288,14 +1286,14 @@ func TestComplexContentMixedDerivationBaseAllowed(t *testing.T) {
 			want:       true,
 		},
 		{
-			name: "simple mixed base",
+			name: "simple base restriction",
 			base: ComplexType{
 				Content:     emptyID,
 				TextType:    0,
-				ContentKind: ContentSimpleMixed,
+				ContentKind: ContentSimple,
 			},
 			derivation: DerivationKindRestriction,
-			want:       true,
+			want:       false,
 		},
 		{
 			name: "true empty extension",

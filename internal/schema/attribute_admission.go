@@ -33,13 +33,6 @@ type AttributeUseValueConstraintAdmission struct {
 	ReferencedDeclHasFixed bool
 }
 
-// AttributeUseModeApplication is the compile-time projection needed to apply
-// lexical use mode to an attribute use.
-type AttributeUseModeApplication struct {
-	Mode     AttributeUseMode
-	HasFixed bool
-}
-
 // AttributeUseModeState is the derived runtime state from an attribute-use
 // mode.
 type AttributeUseModeState struct {
@@ -70,14 +63,14 @@ func ParseAttributeUseMode(mode string) (AttributeUseMode, error) {
 
 // ApplyAttributeUseMode derives runtime required/prohibited state from the
 // parsed xs:attribute use mode.
-func ApplyAttributeUseMode(app AttributeUseModeApplication) (AttributeUseModeState, error) {
-	switch app.Mode {
+func ApplyAttributeUseMode(mode AttributeUseMode) (AttributeUseModeState, error) {
+	switch mode {
 	case AttributeUseOptional:
 		return AttributeUseModeState{}, nil
 	case AttributeUseRequired:
 		return AttributeUseModeState{Required: true}, nil
 	case AttributeUseProhibited:
-		return AttributeUseModeState{Prohibited: !app.HasFixed}, nil
+		return AttributeUseModeState{Prohibited: true}, nil
 	default:
 		return AttributeUseModeState{}, errors.New("attribute use mode is invalid")
 	}

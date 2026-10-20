@@ -85,6 +85,9 @@ func (s *session) validateAttributeSet(set xsdSchema.AttributeUseSetRead, attrs 
 func (s *session) validateAttribute(set xsdSchema.AttributeUseSetRead, seen *AttributeSeen, attr *xmlstream.Attr, line, col int, ctx StartContext) error {
 	handled, err := s.validateReservedAttribute(attr, line, col)
 	if err != nil || handled {
+		if handled && set.RequiredSlots().Len() != 0 {
+			s.markIntrinsicAttributePresent(set, seen, attr.Name)
+		}
 		return err
 	}
 	rn := s.runtimeName(attr.Name)
@@ -93,6 +96,21 @@ func (s *session) validateAttribute(set xsdSchema.AttributeUseSetRead, seen *Att
 		return err
 	}
 	return s.validateUndeclaredAttribute(set, rn, attr, ctx)
+}
+
+// Intrinsic XSI assessment bypasses declared value constraints, but physical
+// presence still satisfies required uses.
+func (s *session) markIntrinsicAttributePresent(set xsdSchema.AttributeUseSetRead, seen *AttributeSeen, name xml.Name) {
+	if !isXSIAttributeName(name) {
+		return
+	}
+	rn := s.runtimeName(name)
+	if !rn.Known {
+		return
+	}
+	if _, slot, ok := set.DeclaredUse(rn.Name); ok {
+		seen.mark(slot)
+	}
 }
 
 func (s *session) validateDeclaredAttribute(set xsdSchema.AttributeUseSetRead, seen *AttributeSeen, rn xsdSchema.RuntimeName, attr *xmlstream.Attr, ctx StartContext) (bool, error) {
@@ -190,7 +208,7 @@ type declaredAttributePlan struct {
 func newDeclaredAttributePlan(use xsdSchema.AttributeUseRead, target identityValueTarget, input xsdValue.InputRequirements) declaredAttributePlan {
 	fixed, hasFixed := use.FixedValue()
 	var needs xsdValue.Needs
-	if target.needsIdentity() || hasFixed && (use.FixedUsesValueSpace() || input.NeedsQName) {
+	if target.needsIdentity() || hasFixed {
 		needs |= xsdValue.NeedIdentity
 	}
 	return declaredAttributePlan{use: use, target: target, fixed: fixed, needs: needs, hasFixed: hasFixed, input: input}
@@ -202,12 +220,6 @@ func (p declaredAttributePlan) canValidateFixedString() bool {
 
 func (p declaredAttributePlan) canValidateRaw() bool {
 	return !p.target.needsIdentity() && !p.hasFixed
-}
-
-func (p declaredAttributePlan) fixedUsesValueSpace(actual xsdValue.Value) bool {
-	// QName/NOTATION projections are expanded-name keys, not canonical
-	// XML spellings. Only accepted members select this qualified policy.
-	return p.use.FixedUsesValueSpace() || actual.HasQualifiedNames() || p.fixed.Value().HasQualifiedNames()
 }
 
 func (s *session) validateDeclaredAttributeFast(plan declaredAttributePlan, attr *xmlstream.Attr, rn xsdSchema.RuntimeName, ctx StartContext) (bool, error) {
@@ -243,7 +255,7 @@ func validateFixedAttributeString(value string, fixed xsdSchema.ValueConstraintR
 
 func (s *session) validateDeclaredAttributeValue(plan declaredAttributePlan, lexical string, rn xsdSchema.RuntimeName, ctx StartContext) error {
 	typeID := plan.use.TypeID()
-	value, normalized, err := s.rt.ValueProgram().ValidateAdmittedNormalized(typeID, lexical, s.simpleValueQNameResolver(plan.input), plan.needs, s.limits.InstanceValueWork, &s.valueScratch)
+	value, err := s.validateAdmittedSimpleValue(typeID, lexical, plan.input, plan.needs)
 	if err != nil {
 		return s.declaredAttributeValueError(plan.target, rn, ctx, err)
 	}
@@ -254,12 +266,8 @@ func (s *session) validateDeclaredAttributeValue(plan declaredAttributePlan, lex
 		return err
 	}
 	if plan.hasFixed {
-		if plan.fixedUsesValueSpace(value) {
-			if err := s.validateFixedAttributeValue(value, plan.fixed, plan.target, ctx, rn.Label()); err != nil {
-				return err
-			}
-		} else if err := validateFixedAttributeString(normalized, plan.fixed, rn, ctx); err != nil {
-			return s.rejectAttributeIdentityValue(plan.target, ctx, err)
+		if err := s.validateFixedAttributeValue(value, plan.fixed, plan.target, ctx, rn.Label()); err != nil {
+			return err
 		}
 	}
 	return s.doc.identity.commitValue(plan.target)
@@ -292,7 +300,9 @@ func (s *session) validateWildcardAttribute(
 	switch match.disposition {
 	case attributeWildcardNoMatch, attributeWildcardStrictMissing:
 		return false, nil
-	case attributeWildcardSkip, attributeWildcardLaxMissing:
+	case attributeWildcardSkip:
+		return true, nil
+	case attributeWildcardLaxMissing:
 		return true, s.rejectUnassessedIdentityAttribute(rn, ctx, identityMissingSimpleValue)
 	case attributeWildcardDeclared:
 		decl, ok := s.attributeDecl(match.attribute)

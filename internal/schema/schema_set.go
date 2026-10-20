@@ -2,6 +2,7 @@ package schema
 
 import (
 	"cmp"
+	"encoding/xml"
 	"errors"
 	"maps"
 	"slices"
@@ -529,19 +530,14 @@ func hasNonSchemaLimitCause(err error) bool {
 }
 
 func (l *schemaSetLoader) enqueueReferences(src source.Source, refs []schemaReference, queue *[]schemaLoadRequest) error {
-	referenceCount := 0
-	for _, ref := range refs {
-		if ref.namespace != vocab.XMLNamespaceURI {
-			referenceCount++
-		}
-	}
+	referenceCount := len(refs)
 	if referenceCount > l.limits.MaxSchemaReferences-l.references {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema references exceed MaxSchemaReferences")
 	}
 	l.references += referenceCount
 	for i := range refs {
 		ref := &refs[i]
-		if !ref.hasLocation || ref.namespace == vocab.XMLNamespaceURI {
+		if !ref.hasLocation {
 			continue
 		}
 		base, baseNode, err := schemaReferenceBase(src.Name(), ref)
@@ -1075,14 +1071,22 @@ func (g *loadedSchemaGraph) selectDeclarationDocuments() {
 	}
 }
 
-func checkReferenceNamespace(n *schemaNode, ctx *schemaSetDocument, namespace string) (string, error) {
+func effectiveReferenceNamespace(ctx *schemaSetDocument, name xml.Name) string {
+	namespace := name.Space
+	if ctx != nil && namespace == "" && ctx.adoptedTarget {
+		namespace = ctx.effectiveTargetNS
+	}
+	return namespace
+}
+
+func checkReferenceNamespace(n *schemaNode, ctx *schemaSetDocument, name xml.Name) (string, error) {
+	namespace := effectiveReferenceNamespace(ctx, name)
 	if ctx == nil {
 		return namespace, nil
 	}
-	if namespace == "" && ctx.effectiveTargetNS != "" && ctx.adoptedTarget {
-		namespace = ctx.effectiveTargetNS
-	}
-	if namespace == vocab.XSDNamespaceURI || namespace == vocab.XMLNamespaceURI || namespace == ctx.effectiveTargetNS || ctx.imports[namespace] {
+	// Adopted WG correction 1890 exempts these namespaces from import licensing;
+	// ordinary component lookup still owns kind, existence and source authority.
+	if namespace == vocab.XSDNamespaceURI || namespace == vocab.XSINamespaceURI || namespace == ctx.effectiveTargetNS || ctx.imports[namespace] {
 		return namespace, nil
 	}
 	return "", schemaCompileAt(n, xsderrors.CodeSchemaReference, "namespace is not imported: "+namespace)

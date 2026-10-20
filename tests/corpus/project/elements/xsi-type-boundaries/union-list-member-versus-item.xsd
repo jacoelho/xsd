@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" >
+<xs:simpleType name="L"><xs:list itemType="xs:int"/></xs:simpleType>
+<xs:simpleType name="Pair"><xs:restriction base="L"><xs:length value="2"/></xs:restriction></xs:simpleType>
+<xs:simpleType name="U"><xs:union memberTypes="L xs:boolean"/></xs:simpleType>
+<xs:element name="u" type="U"/><xs:element name="blocked" type="U" block="restriction"/><xs:element name="list" type="L"/>
+</xs:schema>

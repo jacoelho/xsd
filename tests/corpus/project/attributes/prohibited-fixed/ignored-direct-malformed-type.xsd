@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><xs:element name="root"><xs:complexType><xs:attribute name="a" type="xs:int" use="prohibited" fixed="37"><xs:simpleType><xs:restriction base="xs:int"/></xs:simpleType></xs:attribute></xs:complexType></xs:element></xs:schema>

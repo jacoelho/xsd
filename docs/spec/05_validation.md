@@ -32,7 +32,7 @@ Spec refs: docs/spec/xml/structures.xml#cvc-elt, docs/spec/xml/structures.xml#cv
 
 Validation operates top-down:
 
-1. **Locate schema components** — Find declarations for the document's elements and attributes using namespace and name matching, `xsi:schemaLocation` hints, or application configuration
+1. **Locate schema components** — Find declarations for the document's elements and attributes using namespace and name matching within the supplied component set. The XSD specification permits location hints; this library never loads schemas from instance hints or over HTTP.
 
 2. **Validate root element** — Match to a global element declaration and validate against its type
 
@@ -65,7 +65,7 @@ An element is valid against its declaration if:
 | Name match | Element's QName matches declaration's `{name}` and `{target namespace}` |
 | Type valid | Content is valid per `{type definition}` |
 | Not abstract | Declaration is not `abstract="true"` |
-| Nillable | If `xsi:nil="true"`, declaration has `nillable="true"` |
+| Nillable | If `xsi:nil` is present, declaration has `nillable="true"`, even when the attribute's value is false |
 | Nil content | If nilled, element has no content (no child elements, no text) |
 | Value constraint | If empty (no element or character children) with default/fixed, value is applied; if fixed and not empty, content must match |
 | Identity constraints | All key/unique/keyref on the declaration are satisfied |
@@ -82,7 +82,9 @@ Given an element with type T (after `xsi:type` resolution):
 
 - Element must have no child elements
 - Text content must be valid for type T
-- No attributes other than `xsi:*` are allowed when the type is a simple type definition
+- Only the four intrinsic XSI attributes (`type`, `nil`, `schemaLocation` and
+  `noNamespaceSchemaLocation`) are allowed; the exception does not cover other
+  names in the XSI namespace
 
 **If T is a complex type:**
 
@@ -106,7 +108,8 @@ An element with complex type CT is valid if:
 **Attributes:**
 
 - All required attributes are present
-- All present attributes are declared or allowed by wildcard
+- Present attributes other than the four intrinsic XSI names are declared or
+  allowed by wildcard
 - All attribute values are valid for their types
 - Fixed values match if specified
 
@@ -119,35 +122,63 @@ Spec refs: docs/spec/xml/structures.xml#cvc-elt, docs/spec/xml/structures.xml#cv
 
 ## Attribute Validation
 
-For each attribute on an element:
+The four [intrinsic XSI attributes](07_namespaces.md#intrinsic-components-and-schema-references)
+have dedicated lexical and element-start rules. `c-aam` excludes exactly these
+names from ordinary attribute-use and wildcard assessment, including a use's
+fixed constraint. The separate required-use rule still demands their physical
+presence when a schema references them with `use="required"`. An invalid present
+value still counts as present. XSI constraints never supply absent attributes.
+
+For each ordinary attribute on an element:
 
 1. **Find declaration** — Match by name/namespace in the element's complex type `{attribute uses}` or `{attribute wildcard}`
 
 2. **Check presence rules:**
    - If `use="required"` and missing → error
-   - If `use="prohibited"` and present → error
    - If `use="prohibited"` with `default` → schema error (defaults are not allowed)
-   - Note: `use="prohibited"` with `fixed` is accepted (W3C XSD 1.0 tests);
-     if the attribute appears, it must match the fixed value. XSD 1.1 rejects
-     this schema form.
+   - `use="prohibited"` maps to no attribute use, including when `fixed` is
+     present. An actual attribute then needs another applicable use or wildcard;
+     the discarded source item supplies neither a fixed check nor a default.
+     In restriction its name prevents inheritance of a matching base use, but
+     never removes an explicit local or group use; extension retains base uses
 
 3. **Validate value:**
    - Parse according to declared simple type
    - Check all type facets (pattern, enumeration, bounds, etc.)
 
 4. **Apply constraints:**
-   - A fixed constraint owned by an attribute declaration uses datatype value
-     equality
-   - A fixed constraint owned by an attribute use matches the normalized value
-     to the constraint's canonical lexical representation, as required by XSD 1.0
-   - If `default` and absent, default is supplied in PSVI
+   - Declaration-owned and ordinary use-owned fixed constraints compare typed
+     values after datatype/facet validation; equal lexical aliases are accepted
+     under the [selected correction](INTERPRETATIONS.md#i-009--fixed-attribute-use-values)
+   - An absent optional use with a default or fixed constraint supplies an
+     attribute in the PSVI
 
 5. **Wildcard processing** (if matched by `xs:anyAttribute`):
    - `strict` — must find declaration, must validate
    - `lax` — validate if declaration found, otherwise accept
    - `skip` — accept without validation
 
-Spec refs: docs/spec/xml/structures.xml#cvc-attribute, docs/spec/xml/structures.xml#cvc-au, docs/spec/xml/structures.xml#cvc-wildcard.
+The library adopts WG correction 4363: XSI default/fixed constraints supply no
+absent attribute or identity value. Their datatype and source constraints remain
+checked during construction. Physical XSI attributes retain typed identity
+values; see [I-007](INTERPRETATIONS.md#i-007--xsi-attribute-uses-and-psvi-contributions).
+
+The upstream W3C `attP031` valid result conflicts with the published
+`use="prohibited"` mapping. The corpus retains that result as
+`instance.oracle.w3c` provenance and expects invalid for its actual attribute
+without an applicable use or wildcard; see
+[I-008](INTERPRETATIONS.md#i-008--prohibited-attribute-use-with-fixed).
+
+Spec refs: docs/spec/xml/structures.xml#declare-attribute,
+docs/spec/xml/structures.xml#cvc-attribute, docs/spec/xml/structures.xml#cvc-au,
+docs/spec/xml/structures.xml#c-aam,
+docs/spec/xml/structures.xml#sic-attrDefault,
+docs/spec/xml/structures.xml#cvc-wildcard.
+
+QName declaration constraints applied under `xsi:type` preserve their schema
+namespace context under the selected [QName constraint interpretation](INTERPRETATIONS.md#i-013--qname-element-constraints-under-xsitype).
+The canonical/context integration gap is qualified separately from ordinary
+explicit instance text, which uses instance bindings.
 
 ## Type Override with xsi:type
 
@@ -161,62 +192,56 @@ An instance element can specify a different type via `xsi:type`:
 
 **Validation Rules:**
 
-1. Resolve `xsi:type` value to a type definition T
-2. Verify T is derived from the element's declared type D
-3. Check derivation is not blocked:
-   - Element's `block` attribute doesn't include the derivation method
-   - Type D's `{prohibited substitutions}` doesn't block it
-4. Validate element content against type T
+For a declared element, `xsi:type` must be a valid QName resolving to a known
+simple or complex type. XML whitespace is collapsed, and unprefixed values use
+the instance's default namespace. Namespace declarations on that start tag
+apply before resolution. An unknown name, unbound prefix or malformed QName is
+invalid; instance hints do not load additional types.
 
-**Derivation Checking:**
+The selected type must be validly derived from the declared type. The blocking
+constraint combines the element's `block` and the declared complex type's
+`{prohibited substitutions}`. It applies to every method used on the path to
+that declared type, including both methods in a mixed extension/restriction
+chain. Intermediate type blocks are not added to this constraint; substitution
+groups have a separate intermediate-type rule.
 
-- T must be the same as D, or
-- T derives from D by extension (if not blocked), or
-- T derives from D by restriction (if not blocked)
+The actual type must be nonabstract, and its content and attributes must
+validate. `xsi:nil="true"` does not bypass QName, type, derivation or abstractness
+checks. An abstract element declaration remains unusable even with a concrete
+`xsi:type`.
+
+On undeclared elements assessed through wildcards, physical `xsi:type` has the
+same QName and type-existence checks. The latter adopts
+[WG correction 4299](INTERPRETATIONS.md#i-014--xsitype-under-element-wildcards)
+for the printed lax-fallback gap. Skipped subtrees remain unassessed. See
+[element wildcard processing](03_complex_types.md#element-wildcards-xsany).
 
 ### Type Derivation OK
 
-The "Type Derivation OK" constraint determines if type T can substitute for type D:
+Identity uses no derivation method. Naming the identical declared type remains
+valid under `block="#all"` and type `final="#all"`; actual content still
+validates. `final` controls construction of new derived types, rather than
+rejecting use of an already admitted type as itself.
 
-**For Simple Types:**
+| Selected type T relative to declared type D | Derivation condition |
+| --- | --- |
+| T is D | Identity, with no methods |
+| T restricts simple D | Restriction, subject to the blocking constraint |
+| T is list/union and D is `anySimpleType` | Simple-type derivation, subject to restriction blocking |
+| T derives through a member of an unconstrained union D | Allowed under the simple derivation relation |
+| T only derives through a member of a facet-restricted union D | Rejected under the selected restricted-union correction |
+| T extends/restricts complex D | Every method on the T-to-D path must be permitted |
+| D is `anyType` | The path still carries its methods; implicit restriction is not exempt from blocking |
 
-| Condition | Valid |
-|-----------|-------|
-| T = D | Yes |
-| T restricts D (directly or transitively) | Yes, unless D has `final="restriction"` |
-| T is a list and D is `anySimpleType` | Yes |
-| T is a union and D is `anySimpleType` | Yes |
+A complex type with simple content can reach a simple declared type through its
+actual base chain. This does not let an arbitrary simple type substitute for a
+complex type with similar text content. Traversal stops at the requested type;
+methods and blocks on unrelated ancestors do not participate.
 
-**For Complex Types:**
-
-| Condition | Valid |
-|-----------|-------|
-| T = D | Yes |
-| T extends D (directly or transitively) | Yes, unless blocked |
-| T restricts D (directly or transitively) | Yes, unless blocked |
-| D is `anyType` | Always yes (anyType is the ur-type) |
-
-**Blocking Mechanisms:**
-
-| Mechanism | Location | Effect |
-|-----------|----------|--------|
-| `block="extension"` | Element declaration | Blocks xsi:type to extension-derived types |
-| `block="restriction"` | Element declaration | Blocks xsi:type to restriction-derived types |
-| `final="extension"` | Type definition | Prevents extension derivation |
-| `final="restriction"` | Type definition | Prevents restriction derivation |
-| `{prohibited substitutions}` | Complex type | Inherited blocking from type definition |
-
-**Derivation Chain Check:**
-
-To verify T derives from D, the validator walks up T's derivation chain:
-
-```
-T → T.base → T.base.base → ... → D → ... → anyType
-```
-
-At each step, the derivation method (extension/restriction) must not be blocked.
-
-Spec refs: docs/spec/xml/structures.xml#xsi_type, docs/spec/xml/structures.xml#cos-ct-derived-ok, docs/spec/xml/structures.xml#cos-st-derived-ok.
+Spec refs: [Element Locally Valid, clause 4](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt),
+[Type Derivation OK (Complex)](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-derived-ok),
+[Type Derivation OK (Simple)](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-st-derived-ok),
+and [restricted-union interpretation](INTERPRETATIONS.md#i-010--restricted-unions-retain-their-constraints).
 
 ## Nil Elements
 
@@ -232,6 +257,9 @@ Elements can be explicitly nil using `xsi:nil="true"`:
 - Element must have no content (no child elements, no text)
 - Attributes are still allowed and validated according to the type definition
 - A fixed value constraint is not allowed when the element is nilled
+
+The presence of `xsi:nil="false"` or `xsi:nil="0"` also requires a nillable
+declaration. It does not nil the element, so ordinary content rules apply.
 
 **PSVI:**
 
@@ -371,7 +399,7 @@ XML Schema defines `cvc-*` error codes for specific validation failures:
 |------|-------------|
 | `cvc-assess-elt.1.1.1` | No matching global element declaration |
 | `cvc-assess-elt.1.1.2` | Element cannot be assessed (no schema) |
-| `cvc-assess-elt.1.1.3` | Lax wildcard - element skipped |
+| `cvc-assess-elt.1.1.3` | No global declaration available through name resolution |
 | `cvc-assess-attr.1.1` | No matching attribute declaration |
 
 ### Particle and Model Group Errors

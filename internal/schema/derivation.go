@@ -9,9 +9,10 @@ import (
 
 // SimpleTypeDerivation is the graph metadata needed to test simple-type derivation.
 type SimpleTypeDerivation struct {
-	Union   []SimpleTypeID
-	Base    SimpleTypeID
-	Variety valuepkg.Variety
+	Union          []SimpleTypeID
+	Base           SimpleTypeID
+	Variety        valuepkg.Variety
+	UnionHasFacets bool
 }
 
 // newSimpleTypeDerivationForSimpleType returns the runtime derivation
@@ -19,9 +20,10 @@ type SimpleTypeDerivation struct {
 func newSimpleTypeDerivationForSimpleType(st SimpleType) SimpleTypeDerivation {
 	spec := st.ValueSpec
 	return CloneSimpleTypeDerivation(SimpleTypeDerivation{
-		Union:   spec.Union,
-		Base:    spec.Base,
-		Variety: spec.Variety,
+		Union:          spec.Union,
+		Base:           spec.Base,
+		Variety:        spec.Variety,
+		UnionHasFacets: st.unionHasFacets,
 	})
 }
 
@@ -530,8 +532,7 @@ func (r typeDerivationRead) simpleDerivation(derived, base SimpleTypeID, scratch
 	if !ValidSimpleTypeID(base, len(index.simpleTypes)) {
 		return 0, false
 	}
-	members := index.simpleTypes[base].Union
-	if len(members) == 0 {
+	if unionMemberCount(index.simpleTypes[base]) == 0 {
 		return 0, false
 	}
 	if scratch == nil {
@@ -602,6 +603,9 @@ func (r typeDerivationRead) simpleUnionCandidate(
 	}
 	if !ValidSimpleTypeID(candidate, len(index.simpleTypes)) {
 		return nil, false, false
+	}
+	if index.simpleTypes[candidate].UnionHasFacets {
+		return nil, false, true
 	}
 	return index.simpleTypes[candidate].Union, false, true
 }
@@ -1039,7 +1043,7 @@ func (s *simpleTypeUnionDerivationSearch) enter(
 }
 
 func unionMemberCount(typ SimpleTypeDerivation) int {
-	if typ.Variety != valuepkg.Union {
+	if typ.Variety != valuepkg.Union || typ.UnionHasFacets {
 		return 0
 	}
 	return len(typ.Union)

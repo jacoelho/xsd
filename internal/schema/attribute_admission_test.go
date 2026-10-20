@@ -45,31 +45,27 @@ func TestApplyAttributeUseMode(t *testing.T) {
 
 	tests := []struct {
 		name string
-		in   AttributeUseModeApplication
+		in   AttributeUseMode
 		want AttributeUseModeState
 		err  string
 	}{
 		{
 			name: "optional",
-			in:   AttributeUseModeApplication{Mode: AttributeUseOptional},
+			in:   AttributeUseOptional,
 		},
 		{
 			name: "required",
-			in:   AttributeUseModeApplication{Mode: AttributeUseRequired},
+			in:   AttributeUseRequired,
 			want: AttributeUseModeState{Required: true},
 		},
 		{
-			name: "prohibited without explicit fixed",
-			in:   AttributeUseModeApplication{Mode: AttributeUseProhibited},
+			name: "prohibited",
+			in:   AttributeUseProhibited,
 			want: AttributeUseModeState{Prohibited: true},
 		},
 		{
-			name: "prohibited with explicit fixed",
-			in:   AttributeUseModeApplication{Mode: AttributeUseProhibited, HasFixed: true},
-		},
-		{
 			name: "invalid mode",
-			in:   AttributeUseModeApplication{Mode: AttributeUseMode(99)},
+			in:   AttributeUseMode(99),
 			err:  "attribute use mode is invalid",
 		},
 	}

@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:types" targetNamespace="urn:types" elementFormDefault="qualified">
+<xs:simpleType name="D"><xs:restriction base="xs:int"><xs:maxInclusive value="10"/></xs:restriction></xs:simpleType>
+<xs:element name="root"><xs:complexType><xs:sequence><xs:element name="item" type="xs:int" minOccurs="2" maxOccurs="2"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>

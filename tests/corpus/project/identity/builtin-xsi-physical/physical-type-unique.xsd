@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><xs:element name="root"><xs:complexType><xs:sequence><xs:element name="item" type="xs:anyType" maxOccurs="unbounded"/></xs:sequence></xs:complexType><xs:unique name="types"><xs:selector xpath="item"/><xs:field xpath="@xsi:type"/></xs:unique></xs:element></xs:schema>

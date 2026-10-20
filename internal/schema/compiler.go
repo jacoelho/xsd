@@ -84,7 +84,9 @@ func (c *compiler) compileMappedSources(owned []source.Source) (*Schema, error) 
 func (c *compiler) reserveIndexedComponentStorage() error {
 	c.rt.SimpleTypes = slices.Grow(c.rt.SimpleTypes, len(c.simpleComponents))
 	c.rt.simpleTypeUnavailable = slices.Grow(c.rt.simpleTypeUnavailable, len(c.simpleComponents))
-	if err := c.ensureValueBuilder().ReserveCapacity(len(c.simpleComponents)); err != nil {
+	// Value capacity counts total nonbuiltin slots, including existing intrinsics.
+	valueTypes := len(c.rt.SimpleTypes) - int(value.BuiltinTypeCount) + len(c.simpleComponents)
+	if err := c.ensureValueBuilder().ReserveCapacity(valueTypes); err != nil {
 		return valueBuilderError(err)
 	}
 	return nil
@@ -382,7 +384,7 @@ func derivationMaskWithDefaultChecked(n *schemaNode, attr LexicalAttribute, def 
 // referenceQName applies effective-context rules without changing the shared
 // admitted name when a chameleon source serves multiple target namespaces.
 func (c *compiler) referenceQName(n *schemaNode, ctx *schemaSetDocument, name xml.Name) (QName, error) {
-	namespace, err := checkReferenceNamespace(n, ctx, name.Space)
+	namespace, err := checkReferenceNamespace(n, ctx, name)
 	if err != nil {
 		return QName{}, err
 	}
@@ -440,11 +442,8 @@ func validateAttributeUseValueConstraintAtNode(n *schemaNode, mode AttributeUseM
 	return nil
 }
 
-func applyAttributeUseModeAtNode(n *schemaNode, mode AttributeUseMode, hasFixed bool) (AttributeUseModeState, error) {
-	state, err := ApplyAttributeUseMode(AttributeUseModeApplication{
-		Mode:     mode,
-		HasFixed: hasFixed,
-	})
+func applyAttributeUseModeAtNode(n *schemaNode, mode AttributeUseMode) (AttributeUseModeState, error) {
+	state, err := ApplyAttributeUseMode(mode)
 	if err != nil {
 		return AttributeUseModeState{}, withSchemaCompileLocation(n, invalidAttributeError(err))
 	}

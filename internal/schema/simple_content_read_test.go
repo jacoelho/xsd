@@ -21,15 +21,6 @@ func TestSimpleContentTypeReadForComplexType(t *testing.T) {
 			present: true,
 		},
 		{
-			name: "simple mixed",
-			ct: ComplexType{
-				TextType:    4,
-				ContentKind: ContentSimpleMixed,
-			},
-			want:    4,
-			present: true,
-		},
-		{
 			name: "element only",
 			ct: ComplexType{
 				TextType:    5,

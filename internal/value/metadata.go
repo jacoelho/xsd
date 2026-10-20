@@ -96,6 +96,16 @@ func (b *Builder) NotationWithoutEnumeration(id TypeID) (bare, ok bool) {
 	return t.variety == Atomic && t.primitive == PrimitiveNotation && len(t.facets.enumGroups) == 0, true
 }
 
+// UnionHasFacets reports whether a completed union has effective constraints.
+// Inherited facets count: member derivation cannot bypass a restriction.
+func (b *Builder) UnionHasFacets(id TypeID) (constrained, ok bool) {
+	t, ok := b.completedTypeDef(id)
+	if !ok {
+		return false, false
+	}
+	return t.variety == Union && t.facets.present != 0, true
+}
+
 // ConstructorUses is an immutable view of immediate list-item or union-member
 // type uses. Atomic restriction bases are excluded. Its zero value is empty.
 // A returned view remains valid across further construction and sealing.

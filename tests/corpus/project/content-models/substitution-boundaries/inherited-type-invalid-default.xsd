@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:t" targetNamespace="urn:t"><xs:element name="head" type="xs:int"/><xs:element name="mid" substitutionGroup="t:head"/><xs:element name="leaf" substitutionGroup="t:mid" default="not-an-int"/></xs:schema>

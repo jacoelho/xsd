@@ -875,7 +875,7 @@ func validBoundPair(primitive PrimitiveKind, lower, upper boundValue) bool {
 }
 
 func validateTypeSpecShape(spec TypeSpec) error {
-	if !spec.Whitespace.valid() || spec.Variety > Union || spec.Identity > IdentityIDREFList || spec.Builtin > BuiltinXMLSpace {
+	if !spec.Whitespace.valid() || spec.Variety > Union || spec.Identity > IdentityIDREFList || spec.Builtin > BuiltinEntity {
 		return ErrMetadata
 	}
 	if spec.Variety == Atomic && !ValidPrimitiveKind(spec.Primitive) {

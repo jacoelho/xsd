@@ -438,23 +438,64 @@ func validateBuiltinIDs(rt *schemaValidation) error {
 			return err
 		}
 	}
+	if err := validateBuiltinXSIAttributes(rt); err != nil {
+		return err
+	}
 	return validateBuiltinAnyType(rt)
 }
 
+func validateBuiltinXSIAttributes(rt *schemaValidation) error {
+	for _, attribute := range builtinXSIAttributes {
+		q, ok := rt.build.Names.LookupQName(vocab.XSINamespaceURI, attribute.local)
+		if !ok {
+			return xsderrors.InternalInvariant("intrinsic XSI attribute name is missing")
+		}
+		id, ok := rt.build.GlobalAttributes[q]
+		if !ok || !ValidAttributeID(id, len(rt.build.Attributes)) {
+			return xsderrors.InternalInvariant("intrinsic XSI attribute binding is missing")
+		}
+		decl := rt.build.Attributes[id]
+		if decl.Name != q || decl.Type != attribute.typ || decl.Default != nil || decl.Fixed != nil {
+			return xsderrors.InternalInvariant("intrinsic XSI attribute declaration differs from its definition")
+		}
+	}
+	return validateBuiltinSchemaLocationType(rt)
+}
+
+func validateBuiltinSchemaLocationType(rt *schemaValidation) error {
+	if !ValidSimpleTypeID(builtinSchemaLocationTypeID, len(rt.build.SimpleTypes)) {
+		return xsderrors.InternalInvariant("intrinsic schemaLocation type is missing")
+	}
+	list := rt.build.SimpleTypes[builtinSchemaLocationTypeID]
+	name, ok := rt.build.Names.LookupQName(vocab.XSINamespaceURI, "$schemaLocation")
+	if !ok || list.Name != name || list.Scope != DeclarationScopeNonGlobal || list.Final != 0 || list.Missing ||
+		!reflect.DeepEqual(list.ValueSpec, builtinSchemaLocationTypeSpec()) {
+		return xsderrors.InternalInvariant("intrinsic schemaLocation type differs from its definition")
+	}
+	view, ok := rt.build.valueBuilder.TypeView(builtinSchemaLocationTypeID)
+	if !ok || view.Variety != value.List || view.Primitive != value.PrimitiveString ||
+		view.Base != value.AnySimpleTypeID || view.ListItem != value.BuiltinType(value.PrimitiveAnyURI) ||
+		view.Whitespace != value.WhitespaceCollapse || view.Builtin != value.BuiltinNone ||
+		view.Identity != value.IdentityNone || len(view.Union) != 0 || view.HasEnumeration {
+		return xsderrors.InternalInvariant("intrinsic schemaLocation value metadata differs from its definition")
+	}
+	return nil
+}
+
 func validateBuiltinSimpleBinding(rt *schemaValidation, id SimpleTypeID) error {
-	info, ok := builtinSimpleDeclaration(id)
+	name, ok := value.BuiltinTypeName(id)
 	if !ok || !ValidSimpleTypeID(id, len(rt.build.SimpleTypes)) {
 		return xsderrors.InternalInvariant("builtin simple type declaration is missing")
 	}
-	name, ok := rt.build.Names.LookupQName(info.namespace, info.local)
+	q, ok := rt.build.Names.LookupQName(vocab.XSDNamespaceURI, name)
 	if !ok {
 		return xsderrors.InternalInvariant("builtin simple type name is missing")
 	}
 	simple := rt.build.SimpleTypes[id]
-	if simple.Name != name || simple.Scope != info.scope {
+	if simple.Name != q || simple.Scope != DeclarationScopeGlobal {
 		return xsderrors.InternalInvariant("builtin simple type declaration does not match its value definition")
 	}
-	if info.scope == DeclarationScopeGlobal && rt.build.GlobalTypes[name] != SimpleRef(id) {
+	if rt.build.GlobalTypes[q] != SimpleRef(id) {
 		return xsderrors.InternalInvariant("builtin simple type global binding does not match its value definition")
 	}
 	return nil
@@ -470,31 +511,6 @@ func validateBuiltinDeclarations(rt *schemaValidation) error {
 		Models:           len(rt.build.Models),
 	}); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
-	}
-	return validateBuiltinAttributes(rt)
-}
-
-func validateBuiltinAttributes(rt *schemaValidation) error {
-	for _, seed := range builtinAttributeSeedTable {
-		if err := validateBuiltinAttribute(rt, seed); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func validateBuiltinAttribute(rt *schemaValidation, seed BuiltinAttributeSeed) error {
-	name, ok := builtinAttributeQName(&rt.build.Names, seed)
-	if !ok {
-		return xsderrors.InternalInvariant("builtin attribute name is missing")
-	}
-	id, ok := rt.build.GlobalAttributes[name]
-	if !ok || !ValidAttributeID(id, len(rt.build.Attributes)) || rt.build.Attributes[id].Name != name {
-		return xsderrors.InternalInvariant("builtin attribute binding does not match declaration")
-	}
-	typ, ok := seed.TypeID()
-	if !ok || rt.build.Attributes[id].Type != typ {
-		return xsderrors.InternalInvariant("builtin attribute type does not match canonical value type")
 	}
 	return nil
 }
@@ -594,6 +610,10 @@ func validateSimpleType(rt *schemaValidation, id SimpleTypeID, st SimpleType) er
 	if _, ok := rt.build.valueBuilder.InputRequirements(id); !ok {
 		return xsderrors.InternalInvariant("simple type has no admitted value definition")
 	}
+	constrained, ok := rt.build.valueBuilder.UnionHasFacets(id)
+	if !ok || constrained != st.unionHasFacets {
+		return xsderrors.InternalInvariant("simple type union facets differ from value definition")
+	}
 	return validateNotationConstructorUses(rt.build, id)
 }
 
@@ -647,6 +667,9 @@ func validateComplexExtensionRuntime(rt *schemaValidation, ct ComplexType) error
 	}
 	if err := ValidateComplexTypeExtensionRuntime(rt.build, base, ct, rt.build.AnyType); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
+	}
+	if err := validateComplexExtensionAttributeAncestry(rt.build, ct); err != nil {
+		return schemaBuildValidationError(err)
 	}
 	return validateAttributeUsesExtend(rt, base.Attrs, ct.Attrs)
 }
@@ -710,7 +733,6 @@ func validateAttributeUsesRestrict(rt *schemaValidation, baseID, derivedID Attri
 		base,
 		derived,
 		binding,
-		rt.build.spendTypeDerivationWork,
 	); err != nil {
 		return schemaBuildValidationError(err)
 	}

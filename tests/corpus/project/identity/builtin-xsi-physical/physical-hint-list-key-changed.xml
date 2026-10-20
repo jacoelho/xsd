@@ -1,0 +1,1 @@
+<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:a="http://www.w3.org/2001/XMLSchema" xmlns:b="http://www.w3.org/2001/XMLSchema"><record value="urn:a other.xsd urn:b b.xsd"/><item xsi:schemaLocation="urn:a a.xsd urn:b b.xsd"/></root>

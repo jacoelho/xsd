@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:simpleType name="T"><xs:union memberTypes="xs:anySimpleType"/></xs:simpleType><xs:element name="root" type="T"/></xs:schema>

@@ -1,8 +1,8 @@
 # XSD 1.0 source authority
 
 The baseline is the English **28 October 2004 Second Edition**, read with
-approved Second Edition errata. Historical acquisitions on 17–19 October 2026
-are recorded in [source-manifest.json](source-manifest.json). Its URLs, hashes,
+approved Second Edition errata and the selected corrections below. Historical
+acquisitions on 17–19 October 2026 are recorded in [source-manifest.json](source-manifest.json). Its URLs, hashes,
 byte lengths and retrieval metadata describe those downloads; path entries are
 historical audit locations, not a current inventory. Bulk snapshots are not
 bundled. The preexisting `xml/` source copies remain historical aids.
@@ -21,8 +21,40 @@ external/generated placeholders; its extraction cannot prove complete reading
 coverage. Visible-change HTML compares 2001 with 2004 and does not incorporate
 E1-56. [Bug 6836](https://www.w3.org/Bugs/Public/show_bug.cgi?id=6836)
 records E1-56 approval with modifications on 9 July 2010 and publication on
-19 August. Earlier proposals, issue closure and XSD 1.1 changes are not further
-approved XSD 1.0 amendments.
+19 August. Earlier proposals, issue closure and XSD 1.1 changes are not automatically
+approved XSD 1.0 amendments. Deliberate library adoptions are listed below.
+
+## Selected corrections
+
+A later specification can clarify an XSD 1.0 defect without requiring XSD 1.1
+support. Adopt such a correction individually when primary evidence establishes
+its relevance to 1.0, its behavior fits the library's contracts, and opposing
+corpus witnesses can distinguish the change. Record its scope here and in the
+owning interpretation; do not import surrounding 1.1 features or infer authority
+from validator agreement alone.
+
+| Correction | Deliberately adopted behavior | Owner |
+| --- | --- | --- |
+| W3C [1890](https://www.w3.org/Bugs/Public/show_bug.cgi?id=1890), with [4363](https://www.w3.org/Bugs/Public/show_bug.cgi?id=4363), both classified 1.0/1.1 | XSD/XSI namespace references need no import; component kind, existence and source authority still apply. | [I-006](INTERPRETATIONS.md#i-006--xsdxsi-schema-references) |
+| W3C [4363](https://www.w3.org/Bugs/Public/show_bug.cgi?id=4363), June 2007 resolution | XSI defaults/fixed values supply no absent attributes. Construction checks, physical intrinsic assessment and required presence remain independent. | [I-007](INTERPRETATIONS.md#i-007--xsi-attribute-uses-and-psvi-contributions) |
+| W3C [4299](https://www.w3.org/Bugs/Public/show_bug.cgi?id=4299#c2), classified 1.0/1.1, March 2007 resolution | Physical `xsi:type` must resolve to a type even on an undeclared laxly assessed element. Skip remains unassessed; lookup uses compiled components only. | [I-014](INTERPRETATIONS.md#i-014--xsitype-under-element-wildcards) |
+| W3C [1937](https://www.w3.org/Bugs/Public/show_bug.cgi?id=1937), 1.1-only resolution | Exclude skipped selector and field nodes from identity assessment; retain assessed-key completeness and lax/recovery distinctions. | [I-002](INTERPRETATIONS.md#i-002--fields-inside-a-skipped-subtree) |
+| W3C [10236](https://www.w3.org/Bugs/Public/show_bug.cgi?id=10236) | Complex types with simple content supply typed identity fields. | [I-001](INTERPRETATIONS.md#i-001--complex-types-with-simple-content-as-identity-fields) |
+| W3C [2219](https://www.w3.org/Bugs/Public/show_bug.cgi?id=2219) | Nilled simple/simple-content fields are selected nodes without tuple values; retain nillable-declaration key exclusion. | [I-003](INTERPRETATIONS.md#i-003--nilled-field-values) |
+| W3C [R-240](https://www.w3.org/2001/05/xmlschema-rec-comments.html#pfiNSRecurseCheckCardinality) | Zero the wildcard minimum only for immediate-member comparisons; keep original aggregate constraints. | [I-004](INTERPRETATIONS.md#i-004--published-member-minimum-rule) |
+| W3C [R-122](https://www.w3.org/2001/05/xmlschema-rec-comments.html#pfiSubGrpRestrict) | Waive generated substitution-choice order on either operand; keep explicit sibling boundaries. | [I-005](INTERPRETATIONS.md#i-005--implicit-substitution-choice-order) |
+| Later [attribute-use validity](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cvc-au) | Compare ordinary fixed attributes by typed value after lexical/facet validation. | [I-009](INTERPRETATIONS.md#i-009--fixed-attribute-use-values) |
+| Later [simple derivation](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-st-derived-ok), identified as a 1.0 error in §G.1.8 | Preserve effective restricted-union facets in nested construction and forbid member-type substitution that bypasses them. | [I-010](INTERPRETATIONS.md#i-010--restricted-unions-retain-their-constraints) |
+| [F&O regex correction note](https://www.w3.org/TR/2017/REC-xpath-functions-31-20170321/#regex-syntax) | Treat braces/bar consistently as metacharacters, retaining XSD literal `^`/`$`. | [I-011](INTERPRETATIONS.md#i-011--regex-metacharacter-grammar) |
+| Later Structures §G.1.10 and `src-resolve` | Use effective global attribute constraints when local use has no override; resolve keyrefs to key/unique components. Already implemented. | [Correction audit](XSD11_CORRECTIONS.md) |
+| Later [double value space](https://www.w3.org/TR/2012/REC-xmlschema11-2-20120405/#double) | Use IEEE-compatible integer-exponent limits −1074…971. Already implemented; no blanket overflow-policy adoption. | [Floating-point scope](#floating-point-source-versions) |
+
+These are explicit library corrections to the pinned baseline, separately
+from published Second Edition errata. Several use final 2012 text; R-122/R-240
+select bounded historical repairs rather than the surrounding 1.1 algorithms.
+The [audit](XSD11_CORRECTIONS.md) distinguishes fixes, existing behavior and
+excluded language changes. They do not enable HTTP loading, implicit XML/XLink declarations or
+other XSD 1.1 features.
 
 ## Appendix scope
 
@@ -46,6 +78,29 @@ identifies revision 1.4 (29 May 2004), while the acquired undated
 extraction is a transformation. The acquired [xml.xsd](https://www.w3.org/2001/xml.xsd)
 was changed in 2009; it does not establish the declaration selected by a 2004
 import. Undated URLs cannot silently replace dated authority.
+
+### Attribute declarations in other vocabularies
+
+Structures [§3.2.7](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xsi)
+defines the four XSI built-in attribute declarations. XML's predefined prefix
+does not define an XSD component set or select a version of `xml.xsd`. XLink
+attribute declarations likewise come from the supplied schema, rather than the
+namespace URI or XSD's reference to XLink 1.0 URI escaping.
+
+For imported XML/XLink attributes, use the supplied declaration and the ordinary
+Structures attribute, import and QName-resolution rules. A custom declaration
+can expose precedence defects without importing an entire vocabulary schema.
+Such a project fixture is not a copy of W3C `xml.xsd` or `xlink.xsd` and must
+identify its own purpose and source clauses. XML language/space semantics and
+schema-document syntax remain separate from XSD declaration selection. In
+particular, accepting an arbitrary `xml:lang` string is not an independent
+XML-conformance oracle.
+
+The acquired 2009 `xml.xsd` permits empty `xml:lang`; this does not determine
+which XML declaration a 2004 schema used. Tests must supply the declaration whose
+behavior they require. Missing imports do not authorize HTTP retrieval under
+this library's explicit-source contract. See the
+[namespace guide](07_namespaces.md#xml-and-xlink-schema-declarations).
 
 ## Referenced-standard boundaries
 
@@ -77,8 +132,9 @@ proceedings artifact: its final notes add a positive-error premise to Corollary
 arithmetic. Section 8 leaves bounded overflow/underflow policy to the number system.
 
 Datatypes §3.2.5 prints double integer-exponent limits **−1075…970**; IEEE's
-precision 53 and Emin −1022/Emax 1023 yield **−1074…971**. Extremal double
-oracles remain source-qualified. IEEE nearest rounding with default
+precision 53 and Emin −1022/Emax 1023 yield **−1074…971**. The library explicitly adopts those corrected extrema;
+corpus cases retain that source qualification. This does not settle every
+overflow threshold. IEEE nearest rounding with default
 non-trapping overflow has a conditional float threshold `2^128−2^103`; that
 condition does not establish an unqualified XSD infinity-mapping oracle.
 Ordinary source-supported midpoint rounding remains distinct. Decimal requires

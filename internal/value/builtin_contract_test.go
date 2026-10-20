@@ -99,10 +99,6 @@ func TestBuiltinValueContracts(t *testing.T) {
 		{"NMTOKENS", "", false},
 		{"ENTITY", "entity", false},
 		{"ENTITIES", "one two", false},
-		{"xml:lang", "", true},
-		{"xml:lang", "en-GB", true},
-		{"xml:space", "preserve", true},
-		{"xml:space", "invalid", false},
 	} {
 		t.Run(tc.typ+"/"+tc.lexical, func(t *testing.T) {
 			t.Parallel()
@@ -187,25 +183,6 @@ func TestValueEqualityUsesValueSpace(t *testing.T) {
 				t.Fatalf("Equal = %v, want %v", got, tc.equal)
 			}
 		})
-	}
-}
-
-func TestBuiltinSpaceNormalization(t *testing.T) {
-	t.Parallel()
-	program, sealErr := value.NewBuilder(value.BuilderOptions{}).Seal()
-	if sealErr != nil {
-		t.Fatal(sealErr)
-	}
-	space, found := value.BuiltinTypeID("xml:space")
-	if !found {
-		t.Fatal("missing xml:space")
-	}
-	got, err := program.Validate(space, " \tdefault\n ", value.Resolver{}, value.NeedCanonical, 16<<20, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.CanonicalText() != "default" {
-		t.Fatalf("canonical = %q, want default", got.CanonicalText())
 	}
 }
 

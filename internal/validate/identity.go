@@ -15,8 +15,6 @@ type identityLimits struct {
 	TupleBytes int64
 }
 
-const nilledElementIdentityKey = "\xff\x1e\x00nil"
-
 // endIdentityCaptureAction identifies the identity field capture needed after
 // element content validation.
 type endIdentityCaptureAction uint8
@@ -24,9 +22,9 @@ type endIdentityCaptureAction uint8
 const (
 	// endIdentityCaptureNone means end-of-element handling has no identity value.
 	endIdentityCaptureNone endIdentityCaptureAction = iota
-	// endIdentityCaptureNilledElement means selected fields use the nilled sentinel.
+	// endIdentityCaptureNilledElement records a selected node without a value.
 	endIdentityCaptureNilledElement
-	// endIdentityCaptureComplexElement means selected fields use element text.
+	// endIdentityCaptureComplexElement rejects fields without simple content.
 	endIdentityCaptureComplexElement
 )
 
@@ -187,6 +185,7 @@ type identityFieldState uint8
 const (
 	identityFieldAbsent identityFieldState = iota
 	identityFieldPresent
+	identityFieldNilled
 	identityFieldInvalid
 )
 
@@ -351,8 +350,9 @@ func (s *identityState) selectionStartAtDepth(depth int) (int, bool) {
 	return start, start < len(s.selections) && s.selections[start].depth == depth
 }
 
-// captureFields records one identity value in all matched fields.
-func (s *identityState) captureFields(matches []identityFieldMatch, value string, ctx StartContext) error {
+// captureFields records one selected node in all matched fields. Nilled nodes
+// still count toward field cardinality even though they supply no tuple value.
+func (s *identityState) captureFields(matches []identityFieldMatch, captured identityFieldValue, ctx StartContext) error {
 	if err := s.validateFieldMatches(matches); err != nil {
 		return err
 	}
@@ -364,9 +364,9 @@ func (s *identityState) captureFields(matches []identityFieldMatch, value string
 		switch field.state {
 		case identityFieldAbsent:
 			s.rememberField(fieldIndex)
-			field.value = value
-			field.state = identityFieldPresent
-		case identityFieldPresent:
+			field.value = captured.value
+			field.state = captured.state
+		case identityFieldPresent, identityFieldNilled:
 			s.rememberField(fieldIndex)
 			field.value = ""
 			field.state = identityFieldInvalid
@@ -530,7 +530,7 @@ func classifyIdentityFields(fields []identityFieldValue) (identityFieldsDisposit
 	disposition := identityFieldsComplete
 	for _, field := range fields {
 		switch field.state {
-		case identityFieldAbsent:
+		case identityFieldAbsent, identityFieldNilled:
 			if disposition == identityFieldsComplete {
 				disposition = identityFieldsAbsent
 			}

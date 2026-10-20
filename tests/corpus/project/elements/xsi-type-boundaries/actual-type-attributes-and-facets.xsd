@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" >
+<xs:complexType name="B"><xs:simpleContent><xs:extension base="xs:int"><xs:attribute name="old"/><xs:attribute name="r"/></xs:extension></xs:simpleContent></xs:complexType>
+<xs:complexType name="R"><xs:simpleContent><xs:restriction base="B"><xs:maxInclusive value="10"/><xs:attribute name="old" use="prohibited"/><xs:attribute name="r" use="required"/></xs:restriction></xs:simpleContent></xs:complexType>
+<xs:complexType name="E"><xs:simpleContent><xs:extension base="R"><xs:attribute name="extra" use="required"/></xs:extension></xs:simpleContent></xs:complexType>
+<xs:element name="root" type="B"/>
+</xs:schema>

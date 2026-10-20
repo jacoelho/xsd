@@ -1056,8 +1056,8 @@ func TestPublishedAttributeSlotsFollowCanonicalUses(t *testing.T) {
 		t.Fatalf("empty default = %+v, %v", constraint, present)
 	}
 	fixed, ok := read.UseAt(3)
-	if !ok || !fixed.FixedUsesValueSpace() {
-		t.Fatal("referenced fixed constraint lost declaration provenance")
+	if !ok {
+		t.Fatal("fixed use missing")
 	}
 	if constraint, present := fixed.FixedValue(); !present || constraint.ApplicationText() != "fixed" {
 		t.Fatalf("fixed constraint = %+v, %v", constraint, present)
@@ -1294,21 +1294,6 @@ func TestFreezeRejectsBuiltinHandleDrift(t *testing.T) {
 			mutate: func(t *testing.T, rt *xsdSchema.SchemaBuild) {
 				t.Helper()
 				rt.Wildcards = nil
-			},
-		},
-		{
-			name: "builtin attribute handle drift",
-			mutate: func(t *testing.T, rt *xsdSchema.SchemaBuild) {
-				t.Helper()
-				q, ok := rt.Names.LookupQName(vocab.XMLNamespaceURI, vocab.XMLAttrBase)
-				if !ok {
-					t.Fatal("xml:base name not found")
-				}
-				id, ok := rt.GlobalAttributes[q]
-				if !ok {
-					t.Fatal("xml:base attribute not found")
-				}
-				rt.Attributes[id].Type = builtinSimpleValueIDForTest(t, "string")
 			},
 		},
 		{
@@ -2043,5 +2028,30 @@ func TestAllocatedAnyTypeBindingRejectsConsistentRenameAndRetries(t *testing.T) 
 	}
 	if !reflect.DeepEqual(*build, xsdSchema.SchemaBuild{}) {
 		t.Fatal("successful retry did not consume the build")
+	}
+}
+
+func TestPublishSchemaRejectsExtensionAncestorAttributeWithoutConsumingBuild(t *testing.T) {
+	const input = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="A"><xs:attribute name="a" type="xs:int"/></xs:complexType>
+  <xs:complexType name="R"><xs:complexContent><xs:restriction base="A"><xs:attribute name="a" use="prohibited"/></xs:restriction></xs:complexContent></xs:complexType>
+  <xs:complexType name="E"><xs:complexContent><xs:extension base="R"><xs:attribute name="a" type="xs:int"/></xs:extension></xs:complexContent></xs:complexType>
+  <xs:element name="root" type="E"/>
+</xs:schema>`
+	build := mutableSchemaBuild(t, input)
+	set := rootBuildAttributeUseSet(t, build)
+	original := set.Uses[0].Type
+	set.Uses[0].Type = builtinSimpleValueIDForTest(t, "string")
+	published, err := publishSchema(build)
+	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+	if published != nil {
+		t.Fatal("published incompatible restored ancestor attribute")
+	}
+	if set.Uses[0].Type != builtinSimpleValueIDForTest(t, "string") {
+		t.Fatal("failed publication changed the restored attribute")
+	}
+	set.Uses[0].Type = original
+	if published, err = publishSchema(build); err != nil || published == nil {
+		t.Fatalf("publication after repair = %v, %v", published, err)
 	}
 }

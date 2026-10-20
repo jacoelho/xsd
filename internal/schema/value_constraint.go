@@ -92,7 +92,7 @@ func (v ValueConstraintRead) ResolveQName(lexical string) (valuepkg.ExpandedName
 // FixedAttributeValueEqual compares a fixed constraint in datatype value space.
 // The validation owner selects this policy. valid is false without identity.
 func FixedAttributeValueEqual(actual valuepkg.Value, fixed ValueConstraintRead) (equal, valid bool) {
-	if actual.IdentityKey() == "" || fixed.value.IdentityKey() == "" {
+	if !actual.HasIdentity() || !fixed.value.HasIdentity() {
 		return false, false
 	}
 	return actual.Equal(fixed.value), true
@@ -282,7 +282,7 @@ func fixedValueEqual(base, derived ValueConstraintIdentity) bool {
 	if baseType != derivedType {
 		return false
 	}
-	if base.Value.IdentityKey() != "" && derived.Value.IdentityKey() != "" {
+	if base.Value.HasIdentity() && derived.Value.HasIdentity() {
 		return base.Canonical == derived.Canonical || base.Value.CanonicalText() == derived.Value.CanonicalText()
 	}
 	return base.Value.CanonicalText() == derived.Value.CanonicalText()
@@ -384,7 +384,7 @@ func ValidateValueConstraintShape(rt *schemaBuild, vc ValueConstraintValidation,
 			vc.Canonical != vc.Lexical ||
 			vc.Value.IDs() != "" ||
 			vc.Value.IDRefs() != "" ||
-			vc.Value.IdentityKey() != "" ||
+			vc.Value.HasIdentity() ||
 			vc.HasResolvedNames {
 			return errors.New("mixed value constraint is not untyped lexical text")
 		}

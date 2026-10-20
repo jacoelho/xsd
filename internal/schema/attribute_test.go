@@ -49,7 +49,7 @@ func TestAttributeUseRead(t *testing.T) {
 	}
 	// Both pointers exercise read precedence; schema admission rejects that shape.
 	use := newAttributeUseReadForSimpleTypes(&names, AttributeUse{
-		Name: name, Type: 7, Fixed: fixed, Default: def, Required: true, FixedFromDeclaration: true,
+		Name: name, Type: 7, Fixed: fixed, Default: def, Required: true,
 	}, testAttributeSimpleTypes())
 	defaulted := newAttributeUseReadForSimpleTypes(&names, AttributeUse{Name: name, Type: 7, Default: def}, testAttributeSimpleTypes())
 	fixed.qnameContext.bindings[0].namespace = "urn:changed"
@@ -65,9 +65,6 @@ func TestAttributeUseRead(t *testing.T) {
 	}
 	if !use.Required() {
 		t.Fatal("Required() = false, want true")
-	}
-	if !use.FixedUsesValueSpace() {
-		t.Fatal("FixedUsesValueSpace() = false, want true")
 	}
 	if use.CanValidateFixedStringFast() {
 		t.Fatal("CanValidateFixedStringFast() = true for QName, want false")
@@ -556,15 +553,7 @@ func TestValidateAttributeUseSetRecord(t *testing.T) {
 				set.Uses[0].Fixed = &ValueConstraint{}
 			},
 			wantErr: "attribute use stores both default and fixed value constraints",
-		},
-		{
-			name: "declaration provenance without fixed value",
-			mutate: func(set *AttributeUseSet) {
-				set.Uses[0].FixedFromDeclaration = true
-			},
-			wantErr: "attribute use marks absent fixed value as declaration-owned",
-		},
-		{
+		}, {
 			name: "ID value constraint",
 			mutate: func(set *AttributeUseSet) {
 				set.Uses[0].Type = 1
@@ -708,7 +697,7 @@ func TestValidateAttributeUseRestriction(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateAttributeUseRestriction(rt.build(), tt.base, tt.derived, unboundedTypeDerivationWork)
+			err := ValidateAttributeUseRestriction(rt.build(), tt.base, tt.derived)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateAttributeUseRestriction() error = %v", err)
@@ -853,7 +842,7 @@ func TestValidateAttributeUseSetRestriction(t *testing.T) {
 			baseSet.Uses = base
 			derivedSet := tt.derivedState
 			derivedSet.Uses = tt.derived
-			err := ValidateAttributeUseSetRestriction(rt.build(), baseSet, derivedSet, tt.binding, unboundedTypeDerivationWork)
+			err := ValidateAttributeUseSetRestriction(rt.build(), baseSet, derivedSet, tt.binding)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateAttributeUseSetRestriction() error = %v", err)
@@ -982,16 +971,7 @@ func TestValidateAttributeUseSetExtension(t *testing.T) {
 				return uses
 			},
 			wantErr: "complex extension does not preserve base attribute use",
-		},
-		{
-			name: "fixed provenance mismatch",
-			mutate: func(uses []AttributeUse) []AttributeUse {
-				uses[1].FixedFromDeclaration = true
-				return uses
-			},
-			wantErr: "complex extension does not preserve base attribute use",
-		},
-	}
+		}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()

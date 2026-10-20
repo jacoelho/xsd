@@ -14,10 +14,38 @@ func (c *compiler) addBuiltins() error {
 	if err := c.addBuiltinSimpleTypes(); err != nil {
 		return err
 	}
-	if err := c.addBuiltinXMLAttributes(); err != nil {
+	if err := c.addBuiltinXSIAttributes(); err != nil {
 		return err
 	}
 	return c.addBuiltinAnyType()
+}
+
+func (c *compiler) addBuiltinXSIAttributes() error {
+	name, err := c.rt.internQName(vocab.XSINamespaceURI, "$schemaLocation")
+	if err != nil {
+		return err
+	}
+	list := SimpleType{Name: name, ValueSpec: builtinSchemaLocationTypeSpec()}
+	id, err := c.addSimpleType(list)
+	if err != nil {
+		return err
+	}
+	if id != builtinSchemaLocationTypeID {
+		return xsderrors.InternalInvariant("intrinsic schemaLocation type ID diverged")
+	}
+	if err := c.completeSimpleType(id, list); err != nil {
+		return err
+	}
+	for _, attribute := range builtinXSIAttributes {
+		q, err := c.rt.internQName(vocab.XSINamespaceURI, attribute.local)
+		if err != nil {
+			return err
+		}
+		if _, err := c.registerGlobalAttribute(q, AttributeDecl{Name: q, Type: attribute.typ}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *compiler) addBuiltinSimpleTypes() error {
@@ -31,17 +59,17 @@ func (c *compiler) addBuiltinSimpleTypes() error {
 }
 
 func (c *compiler) addBuiltinSimpleType(builder *value.Builder, id SimpleTypeID) error {
-	decl, ok := builtinSimpleDeclaration(id)
+	name, ok := value.BuiltinTypeName(id)
 	if !ok {
 		return xsderrors.InternalInvariant("canonical builtin type has no schema declaration")
 	}
-	q, err := c.rt.internQName(decl.namespace, decl.local)
+	q, err := c.rt.internQName(vocab.XSDNamespaceURI, name)
 	if err != nil {
 		return err
 	}
 	view, ok := builder.TypeView(id)
 	if !ok {
-		return xsderrors.InternalInvariant("canonical builtin type has no value metadata: " + decl.local)
+		return xsderrors.InternalInvariant("canonical builtin type has no value metadata: " + name)
 	}
 	st := SimpleType{
 		ValueSpec: value.TypeSpec{
@@ -56,7 +84,7 @@ func (c *compiler) addBuiltinSimpleType(builder *value.Builder, id SimpleTypeID)
 			Union:             append([]value.TypeID(nil), view.Union...),
 		},
 		Name:  q,
-		Scope: decl.scope,
+		Scope: DeclarationScopeGlobal,
 	}
 	got, err := c.addSimpleType(st)
 	if err != nil {
@@ -65,30 +93,10 @@ func (c *compiler) addBuiltinSimpleType(builder *value.Builder, id SimpleTypeID)
 	if got != id {
 		return xsderrors.InternalInvariant("schema and canonical builtin type IDs diverged")
 	}
-	// addSimpleType starts every declaration as non-global so anonymous
-	// declarations cannot accidentally enter the global index. Fixed XSD
-	// builtins are the exception; xml:lang/xml:space stay internal.
-	if decl.scope == DeclarationScopeGlobal {
-		c.rt.SimpleTypes[id].Scope = DeclarationScopeGlobal
-		c.rt.GlobalTypes[q] = SimpleRef(id)
-	}
-	return nil
-}
-
-func (c *compiler) addBuiltinXMLAttributes() error {
-	for i := range BuiltinAttributeCount() {
-		attr, ok := BuiltinAttributeSeedAt(i)
-		if !ok {
-			return xsderrors.InternalInvariant("builtin attribute seed index is invalid")
-		}
-		typ, ok := attr.TypeID()
-		if !ok {
-			return xsderrors.InternalInvariant("builtin attribute references missing type: " + attr.Local)
-		}
-		if err := c.addBuiltinAttribute(attr.Namespace, attr.Local, typ); err != nil {
-			return err
-		}
-	}
+	// addSimpleType starts declarations as non-global; builtins have global
+	// names fixed by the value program.
+	c.rt.SimpleTypes[id].Scope = DeclarationScopeGlobal
+	c.rt.GlobalTypes[q] = SimpleRef(id)
 	return nil
 }
 
@@ -110,15 +118,6 @@ func (c *compiler) addBuiltinAnyType() error {
 		return err
 	}
 	_, err = c.registerBuiltinAnyType(q, BuiltinAnyTypeComplexType(q, modelID, attrSet))
-	return err
-}
-
-func (c *compiler) addBuiltinAttribute(ns, local string, typ SimpleTypeID) error {
-	q, err := c.rt.internQName(ns, local)
-	if err != nil {
-		return err
-	}
-	_, err = c.registerGlobalAttribute(q, AttributeDecl{Name: q, Type: typ})
 	return err
 }
 

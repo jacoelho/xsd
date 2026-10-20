@@ -52,43 +52,6 @@ func TestSchemaTypeNameConflictError(t *testing.T) {
 	}
 }
 
-func TestAddGlobalAttributeComponentDefersToBuiltin(t *testing.T) {
-	t.Parallel()
-
-	name := QName{Namespace: 2, Local: 4}
-	components := map[QName]string{}
-	globals := map[QName]AttributeID{name: 7}
-	if err := AddGlobalAttributeComponent(components, globals, name, "schema", "xml:lang"); err != nil {
-		t.Fatalf("AddGlobalAttributeComponent(builtin) error = %v", err)
-	}
-	if _, exists := components[name]; exists {
-		t.Fatal("builtin attribute redeclaration was stored as a schema component")
-	}
-}
-
-func TestAddGlobalAttributeComponentRejectsSchemaDuplicate(t *testing.T) {
-	t.Parallel()
-
-	name := QName{Namespace: 2, Local: 4}
-	components := map[QName]string{name: "first"}
-	globals := map[QName]AttributeID{}
-
-	err := AddGlobalAttributeComponent(components, globals, name, "second", "p:attr")
-	xerr, ok := errors.AsType[*xsderrors.Error](err)
-	if !ok {
-		t.Fatalf("AddGlobalAttributeComponent(duplicate) error = %T %v, want *xsderrors.Error", err, err)
-	}
-	if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != xsderrors.CodeSchemaDuplicate {
-		t.Fatalf("diagnostic = %s/%s, want schema compile duplicate", xerr.Category(), xerr.Code())
-	}
-	if !strings.Contains(xerr.Message(), "duplicate schema component p:attr") {
-		t.Fatalf("message = %q, want duplicate component label", xerr.Message())
-	}
-	if got := components[name]; got != "first" {
-		t.Fatalf("duplicate replaced component with %q", got)
-	}
-}
-
 func TestSchemaComponentCycleError(t *testing.T) {
 	t.Parallel()
 

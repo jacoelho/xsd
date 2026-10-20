@@ -26,7 +26,6 @@ func (v contentRestrictionValidator) compareNormalizedRestriction(base, derived 
 		analysis.models = &restrictionModelView{original: n.models.original, added: n.models.added}
 		comparison.analysis = analysis
 		comparison.wildcards = make(map[ContentModelID]bool)
-		comparison.choiceBelow = make(map[ContentModelID]bool)
 	}
 	return comparison.compareParticleRestriction(base, derived)
 }
@@ -77,7 +76,7 @@ func (n *restrictionNormalizer) element(p Particle) (Particle, error) {
 	}
 	// These are literal members of the actual group, not new head references.
 	// Expanding them again could regenerate their enclosing choice forever.
-	return n.group(ModelChoice, p.Occurs, members)
+	return n.group(ModelChoice, p.Occurs, members, restrictionChoiceOrder{unordered: true})
 }
 
 func (n *restrictionNormalizer) appendActualMember(members *[]Particle, head, id ElementID) error {
@@ -96,9 +95,9 @@ func (n *restrictionNormalizer) appendActualMember(members *[]Particle, head, id
 	return n.appendLiteralMember(members, id)
 }
 
-// Generated groups use the table's schema-local QName order, including the
-// concrete head. This enumeration convention does not resolve XSD 1.0's
-// unspecified implicit-choice ordering or reorder explicit source choices.
+// Generated groups retain deterministic QName storage order, including the
+// concrete head. Comparison spans waive only generated order; explicit source
+// choice boundaries remain ordered.
 func (n *restrictionNormalizer) insertConcreteHead(members []Particle, head ElementID) ([]Particle, error) {
 	if n.validator.rt.Elements[head].Abstract {
 		return members, nil
@@ -160,28 +159,30 @@ func (n *restrictionNormalizer) model(p Particle, depth int) (Particle, error) {
 		if err := n.validator.charge(); err != nil {
 			return Particle{}, err
 		}
-		return n.group(ModelSequence, p.Occurs, []Particle{inner})
+		return n.group(ModelSequence, p.Occurs, []Particle{inner}, restrictionChoiceOrder{})
 	}
 	if pointlessSingleton(m, occurs) {
 		return n.particle(m.Particles[0], depth+1)
 	}
-	return n.modelBody(p.Model, m, occurs, depth)
+	return n.modelBody(p, m, occurs, depth)
 }
 
 func pointlessSingleton(m ContentModel, occurs Occurrence) bool {
 	return len(m.Particles) == 1 && occurs.IsExactlyOne() && (m.Kind == ModelSequence || m.Kind == ModelChoice || m.Kind == ModelAll)
 }
 
-func (n *restrictionNormalizer) modelBody(id ContentModelID, m ContentModel, occurs Occurrence, depth int) (Particle, error) {
-	particles, changed, err := n.children(m, depth)
+func (n *restrictionNormalizer) modelBody(original Particle, m ContentModel, occurs Occurrence, depth int) (Particle, error) {
+	children, err := n.children(m, depth)
 	if err != nil {
 		return Particle{}, err
 	}
 
-	if !changed && m.Occurs.IsExactlyOne() && len(particles) != 0 && (m.Kind != ModelAll || len(particles) != 1) {
-		return ModelParticle(id, occurs), nil
+	if !children.changed && len(children.particles) != 0 && (m.Kind != ModelAll || len(children.particles) != 1) {
+		// Borrow both original occurrence layers; moving model bounds onto the
+		// particle as well would count them twice during comparison.
+		return original, nil
 	}
-	return n.group(m.Kind, occurs, particles)
+	return n.group(m.Kind, occurs, children.particles, children.order)
 }
 
 type normalizedRestrictionChild struct {
@@ -196,37 +197,65 @@ func (c normalizedRestrictionChild) unchanged(original Particle) bool {
 
 type normalizedRestrictionChildren struct {
 	particles []Particle
+	order     restrictionChoiceOrder
 	changed   bool
 }
 
-func (n *restrictionNormalizer) children(m ContentModel, depth int) ([]Particle, bool, error) {
+func (n *restrictionNormalizer) children(m ContentModel, depth int) (normalizedRestrictionChildren, error) {
 	result := normalizedRestrictionChildren{particles: m.Particles}
 	for i, original := range m.Particles {
 		child, err := n.child(original, m.Kind, depth)
 		if err != nil {
-			return nil, false, err
+			return normalizedRestrictionChildren{}, err
 		}
 		if !result.changed && child.unchanged(original) {
 			continue
 		}
-		if err := n.replaceChild(&result, m.Particles, i, child); err != nil {
-			return nil, false, err
+		if err := n.replaceChild(&result, m, i, child); err != nil {
+			return normalizedRestrictionChildren{}, err
 		}
 	}
-	return result.particles, result.changed, nil
+	return result, nil
 }
 
-func (n *restrictionNormalizer) replaceChild(result *normalizedRestrictionChildren, original []Particle, index int, child normalizedRestrictionChild) error {
+func (n *restrictionNormalizer) replaceChild(result *normalizedRestrictionChildren, parent ContentModel, index int, child normalizedRestrictionChild) error {
 	var err error
 	if !result.changed {
-		result.particles, err = n.copyPrefix(original, index)
+		result.particles, err = n.copyPrefix(parent.Particles, index)
 		if err != nil {
 			return err
 		}
 		result.changed = true
 	}
+	if parent.Kind == ModelChoice && child.flattened != nil {
+		if err = n.appendChildChoiceSpans(result, child); err != nil {
+			return err
+		}
+	}
 	result.particles, err = n.appendChild(result.particles, child)
 	return err
+}
+
+func (n *restrictionNormalizer) appendChildChoiceSpans(result *normalizedRestrictionChildren, child normalizedRestrictionChild) error {
+	order := n.models.choiceOrder(child.particle.Model)
+	if order.unordered {
+		return n.appendChildChoiceSpan(result, restrictionChoiceSpan{end: len(child.flattened)})
+	}
+	for _, span := range order.spans {
+		if err := n.appendChildChoiceSpan(result, span); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (n *restrictionNormalizer) appendChildChoiceSpan(result *normalizedRestrictionChildren, span restrictionChoiceSpan) error {
+	if err := n.validator.charge(); err != nil {
+		return err
+	}
+	offset := len(result.particles)
+	result.order.spans = append(result.order.spans, restrictionChoiceSpan{start: offset + span.start, end: offset + span.end})
+	return nil
 }
 
 func (n *restrictionNormalizer) copyPrefix(original []Particle, end int) ([]Particle, error) {
@@ -252,7 +281,7 @@ func (n *restrictionNormalizer) child(original Particle, parent ModelKind, depth
 		child.omitted = true
 		return child, nil
 	}
-	if p.Occurs.IsExactlyOne() && body.Kind == parent && (parent == ModelSequence || parent == ModelChoice) {
+	if p.Occurs.IsExactlyOne() && body.Occurs.IsExactlyOne() && body.Kind == parent && (parent == ModelSequence || parent == ModelChoice) {
 		child.flattened = body.Particles
 	}
 	return child, nil
@@ -274,7 +303,7 @@ func (n *restrictionNormalizer) appendChild(particles []Particle, child normaliz
 	return append(particles, child.particle), nil
 }
 
-func (n *restrictionNormalizer) group(kind ModelKind, occurs Occurrence, particles []Particle) (Particle, error) {
+func (n *restrictionNormalizer) group(kind ModelKind, occurs Occurrence, particles []Particle, order restrictionChoiceOrder) (Particle, error) {
 	if len(particles) == 1 {
 		if occurs.IsExactlyOne() {
 			return particles[0], nil
@@ -297,6 +326,6 @@ func (n *restrictionNormalizer) group(kind ModelKind, occurs Occurrence, particl
 	if err != nil {
 		return Particle{}, err
 	}
-	n.models.added = append(n.models.added, body)
+	n.models.added = append(n.models.added, restrictionModel{model: body, order: order})
 	return ModelParticle(id, occurs), nil
 }

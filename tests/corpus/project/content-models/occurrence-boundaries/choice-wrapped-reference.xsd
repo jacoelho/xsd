@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:group name="Alternatives"><xs:choice><xs:element name="a" type="xs:string"/><xs:element name="b" type="xs:string"/></xs:choice></xs:group>
+  <xs:complexType name="RootBase"><xs:choice minOccurs="2" maxOccurs="3"><xs:element name="a" type="xs:string"/><xs:element name="b" type="xs:string"/></xs:choice></xs:complexType>
+  <xs:complexType name="RootReference"><xs:complexContent><xs:restriction base="RootBase"><xs:sequence minOccurs="1" maxOccurs="1"><xs:group ref="Alternatives" minOccurs="2" maxOccurs="2"/></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>
+  <xs:element name="referenced" type="RootReference"/>
+</xs:schema>

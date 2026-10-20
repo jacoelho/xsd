@@ -300,7 +300,7 @@ func TestIdentityEvaluationStartTransactionRestoresPreexistingMutations(t *testi
 	}
 	err := evaluation.captureFields(
 		[]identityFieldMatch{{Selection: 0, Field: 0}},
-		"duplicate",
+		identityFieldValue{value: "duplicate", state: identityFieldPresent},
 		identityTestContext("/root/child", 2, 3),
 	)
 	expectXSDCode(t, err, xsderrors.CodeValidationIdentity)
@@ -504,5 +504,63 @@ func captureIdentityRetryAttribute(tb testing.TB, evaluation *identityEvaluation
 	}
 	if err := evaluation.commitValue(target); err != nil {
 		tb.Fatalf("commitValue(%q) error = %v", local, err)
+	}
+}
+
+func TestIdentityNilledFieldsHaveNoTupleValue(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name       string
+		kind       string
+		body       string
+		message    string
+		complexNil bool
+	}{
+		{name: "unique ignores nilled rows", kind: "unique", body: `<row><v xsi:nil="true"/></row><row><v xsi:nil="true"/></row>`},
+		{name: "nil differs from empty string", kind: "unique", body: `<row><v xsi:nil="true"/></row><row><v/></row>`},
+		{name: "empty strings duplicate", kind: "unique", body: `<row><v/></row><row><v/></row>`, message: "duplicate identity value first seen at /root/row"},
+		{name: "nil then value selects two nodes", kind: "unique", body: `<row><v xsi:nil="true"/><v>x</v></row>`, message: "identity field selects multiple values"},
+		{name: "value then nil selects two nodes", kind: "unique", body: `<row><v>x</v><v xsi:nil="true"/></row>`, message: "identity field selects multiple values"},
+		{name: "two nils select two nodes", kind: "unique", body: `<row><v xsi:nil="true"/><v xsi:nil="true"/></row>`, message: "identity field selects multiple values"},
+		{name: "key nil has no value", kind: "key", body: `<row><v xsi:nil="true"/></row>`, message: "key field is missing"},
+		{name: "key still rejects nillable declaration", kind: "key", body: `<row><v>x</v></row>`, message: "key field selects nillable element declaration"},
+		{name: "keyref ignores nil", kind: "keyref", body: `<row><v xsi:nil="true"/></row>`},
+		{name: "keyref physical value resolves", kind: "keyref", body: `<target id="x"/><row><v>x</v></row>`},
+		{name: "keyref physical value is unresolved", kind: "keyref", body: `<row><v xsi:nil="true"/></row><row><v>x</v></row>`, message: "keyref does not resolve"},
+		{name: "nil does not waive field type", kind: "unique", complexNil: true, body: `<row><v xsi:nil="true"/></row>`, message: "identity field has no simple value"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			field := `<xs:element name="v" type="xs:string" nillable="true" minOccurs="0" maxOccurs="2"/>`
+			if test.complexNil {
+				field = `<xs:element name="v" nillable="true" minOccurs="0" maxOccurs="2"><xs:complexType/></xs:element>`
+			}
+			refer := ""
+			if test.kind == "keyref" {
+				refer = ` refer="targets"`
+			}
+			text := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType><xs:sequence>
+<xs:element name="target" minOccurs="0" maxOccurs="unbounded"><xs:complexType><xs:attribute name="id" type="xs:string" use="required"/></xs:complexType></xs:element>
+<xs:element name="row" minOccurs="0" maxOccurs="unbounded"><xs:complexType><xs:sequence>` + field + `</xs:sequence></xs:complexType></xs:element>
+</xs:sequence></xs:complexType>
+<xs:key name="targets"><xs:selector xpath="target"/><xs:field xpath="@id"/></xs:key>
+<xs:` + test.kind + ` name="values"` + refer + `><xs:selector xpath="row"/><xs:field xpath="v"/></xs:` + test.kind + `>
+</xs:element></xs:schema>`
+			rt := compileRuntimeForTest(t, text)
+			session, err := newSessionForTest(rt, Options{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = session.Validate(strings.NewReader(`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">` + test.body + `</root>`))
+			if test.message == "" {
+				if err != nil {
+					t.Fatalf("Validate() error = %v", err)
+				}
+				return
+			}
+			expectXSDCode(t, err, xsderrors.CodeValidationIdentity)
+			expectXSDMessage(t, err, test.message)
+		})
 	}
 }

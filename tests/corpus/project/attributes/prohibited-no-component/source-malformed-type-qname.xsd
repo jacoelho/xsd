@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:f="urn:foreign"><xs:attribute name="a" type="xs:string"/><xs:element name="root"><xs:complexType><xs:attribute name="a" use="prohibited" type="xs:a:b"/></xs:complexType></xs:element></xs:schema>
