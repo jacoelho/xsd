@@ -1425,14 +1425,6 @@ func TestInvalidOccurrenceIsSchemaCompileError(t *testing.T) {
 </xs:schema>`))})
 
 	expectCode(t, err, xsderrors.CodeSchemaOccurrence)
-
-	_, err = xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:group name="g"><xs:all><xs:element name="a"/></xs:all></xs:group>
-  <xs:element name="r"><xs:complexType><xs:group ref="g" minOccurs="0" maxOccurs="0"/></xs:complexType></xs:element>
-</xs:schema>`))})
-
-	expectCode(t, err, xsderrors.CodeSchemaOccurrence)
 }
 
 func TestCompileOptionsNameAndOccurrenceLimits(t *testing.T) {

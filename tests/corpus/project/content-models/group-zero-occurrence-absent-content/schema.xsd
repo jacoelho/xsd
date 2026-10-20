@@ -1,0 +1,49 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:group name="AllMarkers">
+    <xs:all><xs:element name="allMarker" type="xs:string" /></xs:all>
+  </xs:group>
+  <xs:element name="directMissing">
+    <xs:complexType><xs:group ref="Missing" minOccurs="0" maxOccurs="0" /></xs:complexType>
+  </xs:element>
+  <xs:element name="nestedMissing">
+    <xs:complexType><xs:sequence><xs:group ref="Missing" minOccurs="0" maxOccurs="0" /></xs:sequence></xs:complexType>
+  </xs:element>
+  <xs:element name="directAll">
+    <xs:complexType><xs:group ref="AllMarkers" minOccurs="0" maxOccurs="0" /></xs:complexType>
+  </xs:element>
+  <xs:element name="nestedAll">
+    <xs:complexType><xs:sequence><xs:group ref="AllMarkers" minOccurs="0" maxOccurs="0" /></xs:sequence></xs:complexType>
+  </xs:element>
+  <xs:complexType name="RequiredBase">
+    <xs:sequence><xs:element name="marker" type="xs:string" /></xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="OptionalBase">
+    <xs:sequence><xs:element name="marker" type="xs:string" minOccurs="0" /></xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="MixedRequiredBase" mixed="true">
+    <xs:sequence><xs:element name="marker" type="xs:string" /></xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="MixedOptionalBase" mixed="true">
+    <xs:sequence><xs:element name="marker" type="xs:string" minOccurs="0" /></xs:sequence>
+  </xs:complexType>
+  <xs:element name="extension">
+    <xs:complexType><xs:complexContent><xs:extension base="RequiredBase">
+      <xs:group ref="Missing" minOccurs="0" maxOccurs="0" />
+    </xs:extension></xs:complexContent></xs:complexType>
+  </xs:element>
+  <xs:element name="restriction">
+    <xs:complexType><xs:complexContent><xs:restriction base="OptionalBase">
+      <xs:group ref="Missing" minOccurs="0" maxOccurs="0" />
+    </xs:restriction></xs:complexContent></xs:complexType>
+  </xs:element>
+  <xs:element name="mixedExtension">
+    <xs:complexType><xs:complexContent mixed="true"><xs:extension base="MixedRequiredBase">
+      <xs:group ref="Missing" minOccurs="0" maxOccurs="0" />
+    </xs:extension></xs:complexContent></xs:complexType>
+  </xs:element>
+  <xs:element name="mixedRestriction">
+    <xs:complexType><xs:complexContent mixed="true"><xs:restriction base="MixedOptionalBase">
+      <xs:group ref="Missing" minOccurs="0" maxOccurs="0" />
+    </xs:restriction></xs:complexContent></xs:complexType>
+  </xs:element>
+</xs:schema>

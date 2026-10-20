@@ -284,6 +284,7 @@ func (c *compiler) addComplexType(typ ComplexType) (ComplexTypeID, error) {
 	}
 	typ.Scope = DeclarationScopeNonGlobal
 	c.rt.ComplexTypes = append(c.rt.ComplexTypes, typ)
+	c.complexDefinitions = append(c.complexDefinitions, complexTypeDefinition{})
 	return id, nil
 }
 
@@ -411,10 +412,19 @@ func (c *compiler) registerBuiltinAnyType(q QName, typ ComplexType) (ComplexType
 		return NoComplexType, err
 	}
 	c.rt.AnyType = id
+	c.complexDefinitions[id].state = complexTypeComplete
 	return id, nil
 }
 
 func (c *compiler) publishSchema() (*Schema, error) {
+	if len(c.deferredModelChildren) != 0 {
+		return nil, xsderrors.InternalInvariant("omitted compositor descendants were not completed")
+	}
+	for _, definition := range c.complexDefinitions {
+		if definition.state != complexTypeComplete {
+			return nil, xsderrors.InternalInvariant("complex type definitions were not completed")
+		}
+	}
 	if len(c.pendingElementConstraints) != 0 {
 		return nil, xsderrors.InternalInvariant("element value constraints were not finalized")
 	}

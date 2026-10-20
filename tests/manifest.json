@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16155,
-    "schemaCases": 16105,
-    "instanceRuns": 33910,
+    "cases": 16213,
+    "schemaCases": 16163,
+    "instanceRuns": 34055,
     "w3cCases": 14414,
-    "internalRuns": 1728,
+    "internalRuns": 1786,
     "xercesJCases": 13
   },
   "cases": [
@@ -836260,6 +836260,3234 @@
         },
         {
           "file": "corpus/project/content-models/restriction-repeated-choice-occurrence-controls/choice-repeated-b.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/type-recursion-named-direct",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-recursion-named-direct",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#ct-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-extends",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+        ],
+        "description": "An optional local child has a named type derived directly from its containing Base. The base-type chain is acyclic; element recursion terminates. Shared root-only and nested instances prove required inherited and own attributes/content."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-recursion-named-direct/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "valid-root-only",
+          "file": "corpus/project/content-models/type-recursion-named-direct/valid-root-only.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "valid-nested",
+          "file": "corpus/project/content-models/type-recursion-named-direct/valid-nested.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-missing-base-attribute",
+          "file": "corpus/project/content-models/type-recursion-named-direct/invalid-missing-base-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-base-content",
+          "file": "corpus/project/content-models/type-recursion-named-direct/invalid-missing-base-content.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-missing-leaf-attribute",
+          "file": "corpus/project/content-models/type-recursion-named-direct/invalid-missing-leaf-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-leaf-content",
+          "file": "corpus/project/content-models/type-recursion-named-direct/invalid-missing-leaf-content.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-recursion-named-direct/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-direct/valid-root-only.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-direct/valid-nested.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-direct/invalid-missing-base-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-direct/invalid-missing-base-content.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-direct/invalid-missing-leaf-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-direct/invalid-missing-leaf-content.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/type-recursion-named-direct-renamed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-recursion-named-direct",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#ct-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-extends",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+        ],
+        "description": "An optional local child has a named type derived directly from its containing Base. The base-type chain is acyclic; element recursion terminates. Shared root-only and nested instances prove required inherited and own attributes/content. Only type names/references change to reverse QName traversal order; instance bytes and expectations stay identical."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-recursion-named-direct/schema-renamed.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "valid-root-only",
+          "file": "corpus/project/content-models/type-recursion-named-direct/valid-root-only.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "valid-nested",
+          "file": "corpus/project/content-models/type-recursion-named-direct/valid-nested.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-missing-base-attribute",
+          "file": "corpus/project/content-models/type-recursion-named-direct/invalid-missing-base-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-base-content",
+          "file": "corpus/project/content-models/type-recursion-named-direct/invalid-missing-base-content.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-missing-leaf-attribute",
+          "file": "corpus/project/content-models/type-recursion-named-direct/invalid-missing-leaf-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-leaf-content",
+          "file": "corpus/project/content-models/type-recursion-named-direct/invalid-missing-leaf-content.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-recursion-named-direct/schema-renamed.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-direct/valid-root-only.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-direct/valid-nested.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-direct/invalid-missing-base-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-direct/invalid-missing-base-content.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-direct/invalid-missing-leaf-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-direct/invalid-missing-leaf-content.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/type-recursion-named-transitive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-recursion-named-transitive",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#ct-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-extends",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+        ],
+        "description": "An optional local child has a named type derived through Middle from its containing Base. The base-type chain is acyclic; element recursion terminates. Shared root-only and nested instances prove required inherited and own attributes/content."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-recursion-named-transitive/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "valid-root-only",
+          "file": "corpus/project/content-models/type-recursion-named-transitive/valid-root-only.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "valid-nested",
+          "file": "corpus/project/content-models/type-recursion-named-transitive/valid-nested.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-missing-base-attribute",
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-base-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-base-content",
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-base-content.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-missing-middle-attribute",
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-middle-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-middle-content",
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-middle-content.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-missing-leaf-attribute",
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-leaf-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-leaf-content",
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-leaf-content.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/valid-root-only.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/valid-nested.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-base-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-base-content.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-middle-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-middle-content.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-leaf-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-leaf-content.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/type-recursion-named-transitive-renamed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-recursion-named-transitive",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#ct-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-extends",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+        ],
+        "description": "An optional local child has a named type derived through Middle from its containing Base. The base-type chain is acyclic; element recursion terminates. Shared root-only and nested instances prove required inherited and own attributes/content. Only type names/references change to reverse QName traversal order; instance bytes and expectations stay identical."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-recursion-named-transitive/schema-renamed.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "valid-root-only",
+          "file": "corpus/project/content-models/type-recursion-named-transitive/valid-root-only.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "valid-nested",
+          "file": "corpus/project/content-models/type-recursion-named-transitive/valid-nested.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-missing-base-attribute",
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-base-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-base-content",
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-base-content.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-missing-middle-attribute",
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-middle-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-middle-content",
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-middle-content.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-missing-leaf-attribute",
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-leaf-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-leaf-content",
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-leaf-content.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/schema-renamed.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/valid-root-only.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/valid-nested.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-base-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-base-content.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-middle-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-middle-content.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-leaf-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-leaf-content.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/type-recursion-named-transitive-reordered",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-recursion-named-transitive",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#ct-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-extends",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+        ],
+        "description": "An optional local child has a named type derived through Middle from its containing Base. The base-type chain is acyclic; element recursion terminates. Shared root-only and nested instances prove required inherited and own attributes/content. Only top-level declarations reverse order; type names, instance bytes and expectations stay identical."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-recursion-named-transitive/schema-reordered.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "valid-root-only",
+          "file": "corpus/project/content-models/type-recursion-named-transitive/valid-root-only.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "valid-nested",
+          "file": "corpus/project/content-models/type-recursion-named-transitive/valid-nested.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-missing-base-attribute",
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-base-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-base-content",
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-base-content.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-missing-middle-attribute",
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-middle-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-middle-content",
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-middle-content.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-missing-leaf-attribute",
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-leaf-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-leaf-content",
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-leaf-content.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/schema-reordered.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/valid-root-only.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/valid-nested.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-base-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-base-content.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-middle-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-middle-content.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-leaf-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-named-transitive/invalid-missing-leaf-content.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/type-recursion-anonymous-transitive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-recursion-anonymous-transitive",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#ct-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-extends",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+        ],
+        "description": "An optional local child has an anonymous type derived through Middle from its containing Base. The base-type chain is acyclic; element recursion terminates. Shared root-only and nested instances prove required inherited and own attributes/content."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-recursion-anonymous-transitive/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "valid-root-only",
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/valid-root-only.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "valid-nested",
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/valid-nested.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-missing-base-attribute",
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/invalid-missing-base-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-base-content",
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/invalid-missing-base-content.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-missing-middle-attribute",
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/invalid-missing-middle-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-middle-content",
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/invalid-missing-middle-content.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-missing-leaf-attribute",
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/invalid-missing-leaf-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-leaf-content",
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/invalid-missing-leaf-content.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/valid-root-only.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/valid-nested.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/invalid-missing-base-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/invalid-missing-base-content.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/invalid-missing-middle-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/invalid-missing-middle-content.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/invalid-missing-leaf-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/invalid-missing-leaf-content.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/type-recursion-anonymous-transitive-renamed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-recursion-anonymous-transitive",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#ct-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-extends",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+        ],
+        "description": "An optional local child has an anonymous type derived through Middle from its containing Base. The base-type chain is acyclic; element recursion terminates. Shared root-only and nested instances prove required inherited and own attributes/content. Only type names/references change to reverse QName traversal order; instance bytes and expectations stay identical."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-recursion-anonymous-transitive/schema-renamed.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "valid-root-only",
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/valid-root-only.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "valid-nested",
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/valid-nested.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-missing-base-attribute",
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/invalid-missing-base-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-base-content",
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/invalid-missing-base-content.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-missing-middle-attribute",
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/invalid-missing-middle-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-middle-content",
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/invalid-missing-middle-content.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-missing-leaf-attribute",
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/invalid-missing-leaf-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-leaf-content",
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/invalid-missing-leaf-content.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/schema-renamed.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/valid-root-only.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/valid-nested.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/invalid-missing-base-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/invalid-missing-base-content.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/invalid-missing-middle-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/invalid-missing-middle-content.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/invalid-missing-leaf-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive/invalid-missing-leaf-content.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/type-recursion-global-ref-transitive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-recursion-global-ref-transitive",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#ct-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-extends",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+        ],
+        "description": "The named-transitive local-child case uses a global child element reference instead. Its Leaf derives through Middle from containing Base. Identical instance shapes enforce completed inherited and own requirements through global element lookup."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-recursion-global-ref-transitive/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "valid-root-only",
+          "file": "corpus/project/content-models/type-recursion-global-ref-transitive/valid-root-only.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "valid-nested",
+          "file": "corpus/project/content-models/type-recursion-global-ref-transitive/valid-nested.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-missing-base-attribute",
+          "file": "corpus/project/content-models/type-recursion-global-ref-transitive/invalid-missing-base-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-base-content",
+          "file": "corpus/project/content-models/type-recursion-global-ref-transitive/invalid-missing-base-content.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-missing-middle-attribute",
+          "file": "corpus/project/content-models/type-recursion-global-ref-transitive/invalid-missing-middle-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-middle-content",
+          "file": "corpus/project/content-models/type-recursion-global-ref-transitive/invalid-missing-middle-content.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-missing-leaf-attribute",
+          "file": "corpus/project/content-models/type-recursion-global-ref-transitive/invalid-missing-leaf-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-leaf-content",
+          "file": "corpus/project/content-models/type-recursion-global-ref-transitive/invalid-missing-leaf-content.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-recursion-global-ref-transitive/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-global-ref-transitive/valid-root-only.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-global-ref-transitive/valid-nested.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-global-ref-transitive/invalid-missing-base-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-global-ref-transitive/invalid-missing-base-content.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-global-ref-transitive/invalid-missing-middle-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-global-ref-transitive/invalid-missing-middle-content.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-global-ref-transitive/invalid-missing-leaf-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-global-ref-transitive/invalid-missing-leaf-content.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/type-recursion-mutual-base-cycle",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-recursion-mutual-base-cycle",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#ct-props-correct"
+        ],
+        "description": "Two named complex types extend each other; the base-type chain cannot reach anyType."
+      },
+      "schema": {
+        "expected": "invalid",
+        "errorCode": "schema.reference",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-recursion-mutual-base-cycle/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-recursion-mutual-base-cycle/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/type-recursion-element-reached-base-cycle",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-recursion-element-reached-base-cycle",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#ct-props-correct"
+        ],
+        "description": "AContainer refers to BLoop through an optional element, while BLoop, CLoop and DLoop form an actual base-type cycle. Reserving an element type must not suppress later derivation-cycle rejection."
+      },
+      "schema": {
+        "expected": "invalid",
+        "errorCode": "schema.reference",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-recursion-element-reached-base-cycle/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-recursion-element-reached-base-cycle/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/type-recursion-named-final-extension",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-recursion-named-final-extension",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#ct-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-extends"
+        ],
+        "description": "Legal element recursion does not waive the containing base type final=extension constraint for a named child type."
+      },
+      "schema": {
+        "expected": "invalid",
+        "errorCode": "schema.reference",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-recursion-named-final-extension/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-recursion-named-final-extension/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/type-recursion-anonymous-final-restriction",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-recursion-anonymous-final-restriction",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#ct-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction"
+        ],
+        "description": "An inline child restriction otherwise validly omits the optional recursive child and retains required base content/attribute; final=restriction alone forbids derivation."
+      },
+      "schema": {
+        "expected": "invalid",
+        "errorCode": "schema.reference",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-recursion-anonymous-final-restriction/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-final-restriction/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/type-recursion-group-occurrence",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-recursion-group-occurrence",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#mg-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+        ],
+        "description": "A group reaches itself only through an inline element type, so its particle containment is acyclic. The inner reference requires exactly two group occurrences; one and three markers isolate the lower and upper occurrence bounds."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-recursion-group-occurrence/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "valid-root-only",
+          "file": "corpus/project/content-models/type-recursion-group-occurrence/valid-root-only.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "valid-nested",
+          "file": "corpus/project/content-models/type-recursion-group-occurrence/valid-nested.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-one-marker",
+          "file": "corpus/project/content-models/type-recursion-group-occurrence/invalid-one-marker.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-three-markers",
+          "file": "corpus/project/content-models/type-recursion-group-occurrence/invalid-three-markers.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-recursion-group-occurrence/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-group-occurrence/valid-root-only.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-group-occurrence/valid-nested.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-group-occurrence/invalid-one-marker.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-group-occurrence/invalid-three-markers.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/type-recursion-anonymous-transitive-restriction",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-recursion-anonymous-transitive-restriction",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#ct-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-extends",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+        ],
+        "description": "The containing Base permits an anonymous child restriction of Middle, which extends Base. The restriction omits only the optional recursive child, retaining required Base and Middle content and attributes. Opponents remove each inherited requirement independently or reintroduce the excluded child."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-recursion-anonymous-transitive-restriction/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "valid-root-only",
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive-restriction/valid-root-only.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "valid-nested",
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive-restriction/valid-nested.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-missing-base-attribute",
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive-restriction/invalid-missing-base-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-base-content",
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive-restriction/invalid-missing-base-content.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-missing-middle-attribute",
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive-restriction/invalid-missing-middle-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-middle-content",
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive-restriction/invalid-missing-middle-content.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-reintroduced-child",
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive-restriction/invalid-reintroduced-child.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive-restriction/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive-restriction/valid-root-only.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive-restriction/valid-nested.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive-restriction/invalid-missing-base-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive-restriction/invalid-missing-base-content.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive-restriction/invalid-missing-middle-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive-restriction/invalid-missing-middle-content.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-anonymous-transitive-restriction/invalid-reintroduced-child.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/type-recursion-chameleon-transitive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-recursion-chameleon-transitive",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#ct-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-extends",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+        ],
+        "description": "A no-target-namespace schema supplies the recursive Base/Middle/Leaf types and root through chameleon inclusion. Adopted QName bindings must complete the same acyclic base chain and enforce each inherited content and attribute requirement on nested instances."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-recursion-chameleon-transitive/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "invalid-missing-base-attribute",
+          "file": "corpus/project/content-models/type-recursion-chameleon-transitive/invalid-missing-base-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-base-content",
+          "file": "corpus/project/content-models/type-recursion-chameleon-transitive/invalid-missing-base-content.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-missing-leaf-attribute",
+          "file": "corpus/project/content-models/type-recursion-chameleon-transitive/invalid-missing-leaf-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-leaf-content",
+          "file": "corpus/project/content-models/type-recursion-chameleon-transitive/invalid-missing-leaf-content.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-missing-middle-attribute",
+          "file": "corpus/project/content-models/type-recursion-chameleon-transitive/invalid-missing-middle-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-middle-content",
+          "file": "corpus/project/content-models/type-recursion-chameleon-transitive/invalid-missing-middle-content.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "valid-nested",
+          "file": "corpus/project/content-models/type-recursion-chameleon-transitive/valid-nested.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "valid-root-only",
+          "file": "corpus/project/content-models/type-recursion-chameleon-transitive/valid-root-only.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-recursion-chameleon-transitive/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-chameleon-transitive/types.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-chameleon-transitive/invalid-missing-base-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-chameleon-transitive/invalid-missing-base-content.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-chameleon-transitive/invalid-missing-leaf-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-chameleon-transitive/invalid-missing-leaf-content.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-chameleon-transitive/invalid-missing-middle-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-chameleon-transitive/invalid-missing-middle-content.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-chameleon-transitive/valid-nested.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-chameleon-transitive/valid-root-only.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/type-recursion-imported-transitive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-recursion-imported-transitive",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#ct-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-extends",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+        ],
+        "description": "Base and the transitive Middle/Leaf extensions occupy mutually importing namespace schemas. The source import cycle is legal while the base-type chain is acyclic. Nested instances independently enforce required content and attributes from both namespaces."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-recursion-imported-transitive/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "invalid-missing-base-attribute",
+          "file": "corpus/project/content-models/type-recursion-imported-transitive/invalid-missing-base-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-base-content",
+          "file": "corpus/project/content-models/type-recursion-imported-transitive/invalid-missing-base-content.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-missing-leaf-attribute",
+          "file": "corpus/project/content-models/type-recursion-imported-transitive/invalid-missing-leaf-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-leaf-content",
+          "file": "corpus/project/content-models/type-recursion-imported-transitive/invalid-missing-leaf-content.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-missing-middle-attribute",
+          "file": "corpus/project/content-models/type-recursion-imported-transitive/invalid-missing-middle-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-middle-content",
+          "file": "corpus/project/content-models/type-recursion-imported-transitive/invalid-missing-middle-content.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "valid-nested",
+          "file": "corpus/project/content-models/type-recursion-imported-transitive/valid-nested.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "valid-root-only",
+          "file": "corpus/project/content-models/type-recursion-imported-transitive/valid-root-only.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-recursion-imported-transitive/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-imported-transitive/derived.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-imported-transitive/invalid-missing-base-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-imported-transitive/invalid-missing-base-content.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-imported-transitive/invalid-missing-leaf-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-imported-transitive/invalid-missing-leaf-content.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-imported-transitive/invalid-missing-middle-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-imported-transitive/invalid-missing-middle-content.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-imported-transitive/valid-nested.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-imported-transitive/valid-root-only.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/type-recursion-simple-content-transitive-restriction",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-recursion-simple-content-transitive-restriction",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#ct-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-extends",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+        ],
+        "description": "An optional child of an emptiable mixed Base has an anonymous simpleContent restriction of Middle, which extends Base with a required attribute. The inline string type permits text while the restriction preserves both required attributes and excludes the same child element permitted by the mixed base chain."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-recursion-simple-content-transitive-restriction/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "valid-text",
+          "file": "corpus/project/content-models/type-recursion-simple-content-transitive-restriction/valid-text.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-missing-base-attribute",
+          "file": "corpus/project/content-models/type-recursion-simple-content-transitive-restriction/invalid-missing-base-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-missing-middle-attribute",
+          "file": "corpus/project/content-models/type-recursion-simple-content-transitive-restriction/invalid-missing-middle-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "invalid-nested-child",
+          "file": "corpus/project/content-models/type-recursion-simple-content-transitive-restriction/invalid-nested-child.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-recursion-simple-content-transitive-restriction/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-simple-content-transitive-restriction/valid-text.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-simple-content-transitive-restriction/invalid-missing-base-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-simple-content-transitive-restriction/invalid-missing-middle-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-recursion-simple-content-transitive-restriction/invalid-nested-child.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/group-zero-occurrence-self",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/group-zero-occurrence-self",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-namedModelGroup",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#mg-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "description": "A self-reference with minOccurs=maxOccurs=0 creates no particle, so the named group retains only its required marker. A separate element uses the same zero-occurrence reference directly as its content and must be empty."
+      },
+      "schema": {
+        "expected": "valid",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Apache Xerces-J 2.12.2 and OpenJDK 26.0.1 bundled Xerces, explicitly using XSD 1.0 with full checking, report a circular group before eliminating its zero-occurrence reference; that reference maps to no component under XSD 1.0.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-namedModelGroup"
+          }
+        },
+        "documents": [
+          {
+            "file": "corpus/project/content-models/group-zero-occurrence-self/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "valid-marker",
+          "file": "corpus/project/content-models/group-zero-occurrence-self/valid-marker.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-missing-marker",
+          "file": "corpus/project/content-models/group-zero-occurrence-self/invalid-missing-marker.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "valid-direct-empty",
+          "file": "corpus/project/content-models/group-zero-occurrence-self/valid-direct-empty.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-direct-marker",
+          "file": "corpus/project/content-models/group-zero-occurrence-self/invalid-direct-marker.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-self/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-self/valid-marker.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-self/invalid-missing-marker.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-self/valid-direct-empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-self/invalid-direct-marker.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/group-zero-occurrence-mutual",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/group-zero-occurrence-mutual",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-namedModelGroup",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#mg-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "description": "G includes H, whose zero-occurrence reference back to G creates no particle. The surviving content requires exactly the first and second markers; omitting either marker or traversing the erased edge changes the accepted language."
+      },
+      "schema": {
+        "expected": "valid",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Apache Xerces-J 2.12.2 and OpenJDK 26.0.1 bundled Xerces, explicitly using XSD 1.0 with full checking, report a circular group before eliminating its zero-occurrence reference; that reference maps to no component under XSD 1.0.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-namedModelGroup"
+          }
+        },
+        "documents": [
+          {
+            "file": "corpus/project/content-models/group-zero-occurrence-mutual/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "valid-sequence",
+          "file": "corpus/project/content-models/group-zero-occurrence-mutual/valid-sequence.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-missing-first",
+          "file": "corpus/project/content-models/group-zero-occurrence-mutual/invalid-missing-first.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-missing-second",
+          "file": "corpus/project/content-models/group-zero-occurrence-mutual/invalid-missing-second.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-extra-traversal",
+          "file": "corpus/project/content-models/group-zero-occurrence-mutual/invalid-extra-traversal.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-mutual/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-mutual/valid-sequence.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-mutual/invalid-missing-first.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-mutual/invalid-missing-second.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-mutual/invalid-extra-traversal.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/group-zero-occurrence-choice",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/group-zero-occurrence-choice",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-namedModelGroup",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#mg-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "description": "The zero-occurrence self-reference contributes no alternative to a required choice. Its remaining marker is required; replacing the erased reference with an empty particle would incorrectly admit the empty instance."
+      },
+      "schema": {
+        "expected": "valid",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Apache Xerces-J 2.12.2 and OpenJDK 26.0.1 bundled Xerces, explicitly using XSD 1.0 with full checking, report a circular group before eliminating its zero-occurrence reference; that reference maps to no component under XSD 1.0.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-namedModelGroup"
+          }
+        },
+        "documents": [
+          {
+            "file": "corpus/project/content-models/group-zero-occurrence-choice/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "valid-marker",
+          "file": "corpus/project/content-models/group-zero-occurrence-choice/valid-marker.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-empty",
+          "file": "corpus/project/content-models/group-zero-occurrence-choice/invalid-empty.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-choice/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-choice/valid-marker.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-choice/invalid-empty.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/group-optional-occurrence-self",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/group-optional-occurrence-self",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-namedModelGroup",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#mg-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "description": "An optional self-reference with maximum one still creates a particle and therefore violates the prohibition on circular model-group containment. Only zero maximum removes the particle."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/group-optional-occurrence-self/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.reference"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/group-optional-occurrence-self/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/group-zero-occurrence-absent-content",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/group-zero-occurrence-absent-content",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-namedModelGroup",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+        ],
+        "description": "Zero-occurrence group references create no particle or term. Direct and nested references require neither a missing target nor all-group term checks. In complex derivation, an absent extension particle retains the base content; an absent restriction particle removes optional base elements while preserving the selected mixed-content policy."
+      },
+      "schema": {
+        "expected": "valid",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Apache Xerces-J 2.12.2 and OpenJDK 26.0.1 bundled Xerces, explicitly using XSD 1.0 with full checking, resolve the missing group before eliminating its zero-occurrence reference; that reference maps to no component under XSD 1.0.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-namedModelGroup"
+          }
+        },
+        "documents": [
+          {
+            "file": "corpus/project/content-models/group-zero-occurrence-absent-content/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "valid-direct-missing-empty",
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/valid-direct-missing-empty.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-direct-missing-element",
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/invalid-direct-missing-element.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "valid-nested-missing-empty",
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/valid-nested-missing-empty.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-nested-missing-element",
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/invalid-nested-missing-element.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "valid-direct-all-empty",
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/valid-direct-all-empty.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-direct-all-element",
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/invalid-direct-all-element.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "valid-nested-all-empty",
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/valid-nested-all-empty.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-nested-all-element",
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/invalid-nested-all-element.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "valid-extension-marker",
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/valid-extension-marker.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-extension-empty",
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/invalid-extension-empty.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-extension-text",
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/invalid-extension-text.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "valid-restriction-empty",
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/valid-restriction-empty.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-restriction-marker",
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/invalid-restriction-marker.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-restriction-text",
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/invalid-restriction-text.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "valid-mixed-extension",
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/valid-mixed-extension.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-mixed-extension-missing-marker",
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/invalid-mixed-extension-missing-marker.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "valid-mixed-restriction",
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/valid-mixed-restriction.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-mixed-restriction-marker",
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/invalid-mixed-restriction-marker.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/valid-direct-missing-empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/invalid-direct-missing-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/valid-nested-missing-empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/invalid-nested-missing-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/valid-direct-all-empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/invalid-direct-all-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/valid-nested-all-empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/invalid-nested-all-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/valid-extension-marker.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/invalid-extension-empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/invalid-extension-text.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/valid-restriction-empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/invalid-restriction-marker.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/invalid-restriction-text.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/valid-mixed-extension.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/invalid-mixed-extension-missing-marker.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/valid-mixed-restriction.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-absent-content/invalid-mixed-restriction-marker.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/group-zero-occurrence-invalid-lexical",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/group-zero-occurrence-invalid-lexical",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-namedModelGroup",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+        ],
+        "description": "An invalid occurrence lexical value must be rejected before determining whether a group reference creates a particle."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/group-zero-occurrence-invalid-lexical/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-invalid-lexical/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/group-zero-occurrence-invalid-qname",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/group-zero-occurrence-invalid-qname",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-namedModelGroup",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+        ],
+        "description": "A zero-occurrence group reference still requires a lexically valid QName even though no target component is resolved."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/group-zero-occurrence-invalid-qname/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.reference"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-invalid-qname/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/group-zero-occurrence-unbound-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/group-zero-occurrence-unbound-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-namedModelGroup",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+        ],
+        "description": "A zero-occurrence group reference still requires its QName prefix to be bound in the schema source even though no target component is resolved."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/group-zero-occurrence-unbound-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.reference"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-unbound-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/group-zero-occurrence-forbidden-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/group-zero-occurrence-forbidden-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-namedModelGroup",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+        ],
+        "description": "The source representation of a local group reference forbids a name attribute, including when its occurrence range removes the particle."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/group-zero-occurrence-forbidden-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/group-zero-occurrence-forbidden-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-sequence-absent",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-sequence-absent",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-schemaValidity",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#mg-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "description": "A zero-occurrence sequence creates no particle, cutting a syntactic self-reference while retaining its enclosing required marker. Direct content becomes empty. Mixed extension retains the base marker and text, while mixed restriction removes the optional marker and permits text."
+      },
+      "schema": {
+        "expected": "valid",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Apache Xerces-J 2.12.2 and OpenJDK 26.0.1 bundled Xerces, explicitly using XSD 1.0 with full checking, report a circular group before eliminating the zero-occurrence compositor; XSD 1.0 circularity applies to the resulting particle graph.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel"
+          }
+        },
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-sequence-absent/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "valid-marker",
+          "file": "corpus/project/content-models/compositor-zero-sequence-absent/valid-marker.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-empty",
+          "file": "corpus/project/content-models/compositor-zero-sequence-absent/invalid-empty.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-extra-marker",
+          "file": "corpus/project/content-models/compositor-zero-sequence-absent/invalid-extra-marker.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "valid-direct-empty",
+          "file": "corpus/project/content-models/compositor-zero-sequence-absent/valid-direct-empty.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-direct-element",
+          "file": "corpus/project/content-models/compositor-zero-sequence-absent/invalid-direct-element.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "valid-mixed-extension",
+          "file": "corpus/project/content-models/compositor-zero-sequence-absent/valid-mixed-extension.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-mixed-extension-missing-marker",
+          "file": "corpus/project/content-models/compositor-zero-sequence-absent/invalid-mixed-extension-missing-marker.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-mixed-extension-excluded",
+          "file": "corpus/project/content-models/compositor-zero-sequence-absent/invalid-mixed-extension-excluded.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "valid-mixed-restriction",
+          "file": "corpus/project/content-models/compositor-zero-sequence-absent/valid-mixed-restriction.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-mixed-restriction-marker",
+          "file": "corpus/project/content-models/compositor-zero-sequence-absent/invalid-mixed-restriction-marker.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-sequence-absent/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/compositor-zero-sequence-absent/valid-marker.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/compositor-zero-sequence-absent/invalid-empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/compositor-zero-sequence-absent/invalid-extra-marker.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/compositor-zero-sequence-absent/valid-direct-empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/compositor-zero-sequence-absent/invalid-direct-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/compositor-zero-sequence-absent/valid-mixed-extension.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/compositor-zero-sequence-absent/invalid-mixed-extension-missing-marker.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/compositor-zero-sequence-absent/invalid-mixed-extension-excluded.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/compositor-zero-sequence-absent/valid-mixed-restriction.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/compositor-zero-sequence-absent/invalid-mixed-restriction-marker.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-choice-absent",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-choice-absent",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-schemaValidity",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#mg-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "description": "A zero-occurrence choice creates no particle and cuts a mutual group-reference path. Inside a required choice, omitted sequence and choice alternatives contribute no empty branch; each remaining marker is required."
+      },
+      "schema": {
+        "expected": "valid",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Apache Xerces-J 2.12.2 and OpenJDK 26.0.1 bundled Xerces, explicitly using XSD 1.0 with full checking, report a circular group before eliminating the zero-occurrence compositor; XSD 1.0 circularity applies to the resulting particle graph.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel"
+          }
+        },
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-choice-absent/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "valid-sequence",
+          "file": "corpus/project/content-models/compositor-zero-choice-absent/valid-sequence.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-missing-first",
+          "file": "corpus/project/content-models/compositor-zero-choice-absent/invalid-missing-first.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-missing-second",
+          "file": "corpus/project/content-models/compositor-zero-choice-absent/invalid-missing-second.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-extra-traversal",
+          "file": "corpus/project/content-models/compositor-zero-choice-absent/invalid-extra-traversal.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "valid-sequence-alternative",
+          "file": "corpus/project/content-models/compositor-zero-choice-absent/valid-sequence-alternative.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-sequence-alternative-empty",
+          "file": "corpus/project/content-models/compositor-zero-choice-absent/invalid-sequence-alternative-empty.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-sequence-alternative-excluded",
+          "file": "corpus/project/content-models/compositor-zero-choice-absent/invalid-sequence-alternative-excluded.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "valid-choice-alternative",
+          "file": "corpus/project/content-models/compositor-zero-choice-absent/valid-choice-alternative.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-choice-alternative-empty",
+          "file": "corpus/project/content-models/compositor-zero-choice-absent/invalid-choice-alternative-empty.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "invalid-choice-alternative-excluded",
+          "file": "corpus/project/content-models/compositor-zero-choice-absent/invalid-choice-alternative-excluded.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-choice-absent/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/compositor-zero-choice-absent/valid-sequence.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/compositor-zero-choice-absent/invalid-missing-first.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/compositor-zero-choice-absent/invalid-missing-second.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/compositor-zero-choice-absent/invalid-extra-traversal.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/compositor-zero-choice-absent/valid-sequence-alternative.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/compositor-zero-choice-absent/invalid-sequence-alternative-empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/compositor-zero-choice-absent/invalid-sequence-alternative-excluded.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/compositor-zero-choice-absent/valid-choice-alternative.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/compositor-zero-choice-absent/invalid-choice-alternative-empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/compositor-zero-choice-absent/invalid-choice-alternative-excluded.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-optional-sequence-cycle",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-optional-sequence-cycle",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-schemaValidity",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#mg-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "description": "An optional sequence with maximum one still creates a particle. Its descendant self-reference therefore remains circular model-group containment."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-optional-sequence-cycle/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.reference"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-optional-sequence-cycle/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-source-occurrence-lexical",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-source-occurrence-lexical",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-schemaValidity"
+        ],
+        "description": "A descendant element occurrence must have a valid lexical value even when its ancestor sequence creates no component."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-source-occurrence-lexical/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-source-occurrence-lexical/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-source-local-element-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-source-local-element-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-schemaValidity"
+        ],
+        "description": "A local element cannot use the global-only abstract attribute, including inside a zero-occurrence sequence."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-source-local-element-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-source-local-element-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-source-local-group-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-source-local-group-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-schemaValidity"
+        ],
+        "description": "A local group reference forbids a name attribute even when its ancestor creates no component."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-source-local-group-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-source-local-group-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-source-child-grammar",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-source-child-grammar",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-schemaValidity"
+        ],
+        "description": "A zero-occurrence sequence still rejects an attribute declaration as a child; omission of its particle does not relax source grammar."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-source-child-grammar/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-source-child-grammar/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-source-qname-lexical",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-source-qname-lexical",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-schemaValidity"
+        ],
+        "description": "A descendant type reference must have a lexically valid QName even below a zero-occurrence ancestor."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-source-qname-lexical/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-source-qname-lexical/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-source-unbound-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-source-unbound-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-schemaValidity"
+        ],
+        "description": "A descendant QName prefix must be bound in the schema source even below a zero-occurrence ancestor."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-source-unbound-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-source-unbound-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-source-wildcard-process",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-source-wildcard-process",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-schemaValidity"
+        ],
+        "description": "A wildcard processContents value must belong to its source enumeration even below a zero-occurrence ancestor."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-source-wildcard-process/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-source-wildcard-process/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-source-wildcard-namespace",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-source-wildcard-namespace",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-schemaValidity"
+        ],
+        "description": "A wildcard namespace value cannot combine the exclusive any token with a namespace list, including below a zero-occurrence ancestor."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-source-wildcard-namespace/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-source-wildcard-namespace/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-source-inline-complex-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-source-inline-complex-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-schemaValidity"
+        ],
+        "description": "An inline anonymous complex type forbids the name attribute even below a zero-occurrence ancestor."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-source-inline-complex-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-source-inline-complex-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-source-inline-simple-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-source-inline-simple-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-schemaValidity"
+        ],
+        "description": "An inline anonymous simple type forbids the name attribute even below a zero-occurrence ancestor."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-source-inline-simple-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-source-inline-simple-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-source-identity-child-grammar",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-source-identity-child-grammar",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-schemaValidity"
+        ],
+        "description": "An identity constraint requires its selector before its field, including when its element occurs below a zero-occurrence ancestor."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-source-identity-child-grammar/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-source-identity-child-grammar/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-descendant-missing-element",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-descendant-missing-element",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+        ],
+        "description": "An element reference below a zero-occurrence sequence must still resolve its declaration; only the ancestor particle is absent."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-descendant-missing-element/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.reference"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-descendant-missing-element/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-descendant-missing-group",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-descendant-missing-group",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+        ],
+        "description": "A positive-occurrence group reference below a zero-occurrence sequence must still resolve its declaration."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-descendant-missing-group/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.reference"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-descendant-missing-group/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-descendant-missing-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-descendant-missing-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+        ],
+        "description": "An attribute reference in an anonymous complex type below a zero-occurrence sequence must still resolve its declaration."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-descendant-missing-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.reference"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-descendant-missing-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-descendant-missing-type",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-descendant-missing-type",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+        ],
+        "description": "A descendant element type in the XML Schema namespace must resolve; a zero-occurrence ancestor does not suppress strict built-in type lookup."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-descendant-missing-type/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.reference"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-descendant-missing-type/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-omitted-identity",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-omitted-identity",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-identity-constraint",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#Identity-constraint_Definition_details"
+        ],
+        "description": "An identity declaration below a zero-occurrence ancestor still enters the identity-constraint symbol space and conflicts with a live declaration of the same name."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-omitted-identity/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.duplicate"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-omitted-identity/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-descendant-regex",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-descendant-regex",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-pattern"
+        ],
+        "description": "A descendant anonymous simple type still rejects an invalid pattern expression beneath a zero-occurrence sequence."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-descendant-regex/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-descendant-regex/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-descendant-default",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-descendant-default",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct"
+        ],
+        "description": "A descendant element still rejects a default value outside xs:int beneath a zero-occurrence sequence."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-descendant-default/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-descendant-default/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-descendant-bounds",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-descendant-bounds",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+        ],
+        "description": "A descendant anonymous simple type still rejects minInclusive five greater than maxInclusive four beneath a zero-occurrence sequence."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-descendant-bounds/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-descendant-bounds/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-keyref-omitted-target",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-keyref-omitted-target",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-identity-constraint",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint"
+        ],
+        "description": "A key declared below a zero-occurrence ancestor remains a resolvable component. An empty keyref selection is valid, while an item reference fails because the absent descendant contributes no matching key value."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-keyref-omitted-target/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "valid-empty",
+          "file": "corpus/project/content-models/compositor-zero-keyref-omitted-target/valid-empty.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-unmatched-reference",
+          "file": "corpus/project/content-models/compositor-zero-keyref-omitted-target/invalid-unmatched-reference.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-keyref-omitted-target/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/compositor-zero-keyref-omitted-target/valid-empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/compositor-zero-keyref-omitted-target/invalid-unmatched-reference.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-source-identity-xpath",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-source-identity-xpath",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-schemaValidity"
+        ],
+        "description": "An identity selector must satisfy the restricted XPath source grammar even beneath a zero-occurrence ancestor."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-source-identity-xpath/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.identity"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-source-identity-xpath/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-source-missing-facet-value",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-source-missing-facet-value",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-schemaValidity",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-pattern",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+        ],
+        "description": "A facet requires its value attribute as a schema source obligation even beneath a zero-occurrence ancestor."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-source-missing-facet-value/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-source-missing-facet-value/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-source-duplicate-facet",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-source-duplicate-facet",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-schemaValidity",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-pattern",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+        ],
+        "description": "The single-facet-value schema representation constraint forbids duplicate length facets even beneath a zero-occurrence ancestor; equality of the values does not waive the source constraint."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-source-duplicate-facet/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-source-duplicate-facet/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-live-component-regex",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-live-component-regex",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-pattern"
+        ],
+        "description": "The live counterpart of the descendant anonymous type rejects its invalid pattern expression."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-live-component-regex/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-live-component-regex/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-live-component-default",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-live-component-default",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct"
+        ],
+        "description": "The live counterpart of the descendant element rejects default bad for xs:int."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-live-component-default/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-live-component-default/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-live-component-bounds",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-live-component-bounds",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+        ],
+        "description": "The live counterpart of the descendant anonymous type rejects minInclusive five greater than maxInclusive four."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-live-component-bounds/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-live-component-bounds/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-descendant-queue-closure",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-descendant-queue-closure",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-ct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-pattern"
+        ],
+        "description": "Descendant checking closes over alternating absent compositors and anonymous complex types; an invalid pattern in the innermost anonymous type must still reject the schema."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-descendant-queue-closure/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-descendant-queue-closure/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-absent-parent-constraints",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-absent-parent-constraints",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#mg-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#concepts-nameSymbolSpaces",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#d0e1531",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-schemaValidity"
+        ],
+        "description": "Project interpretation: accept different anonymous child types beneath a zero-occurrence sequence. The omitted parent has no model-group component for EDC, but the published local-symbol-space/identity prose leaves overall validity unresolved. Preserve the valid expectation as a qualified regression, not a universal conformance verdict. The deterministic sequence isolates EDC from UPA.",
+        "conditions": [
+          "Qualified project interpretation; not proven universal XSD 1.0 conformance evidence.",
+          "Published XSD 1.0 local-symbol-space and component-identity prose leaves overall validity ambiguous; W3C Bug 5584 has no adopted repair.",
+          "Archived XSD 1.0 issue: https://www.w3.org/Bugs/Public/show_bug.cgi?id=5584 (NEW/needsDrafting; no adopted repair)."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-absent-parent-constraints/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "valid-sequence-empty",
+          "file": "corpus/project/content-models/compositor-zero-absent-parent-constraints/valid-sequence-empty.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-sequence-child",
+          "file": "corpus/project/content-models/compositor-zero-absent-parent-constraints/invalid-sequence-child.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-absent-parent-constraints/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/compositor-zero-absent-parent-constraints/valid-sequence-empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/compositor-zero-absent-parent-constraints/invalid-sequence-child.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/compositor-zero-absent-parent-upa",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/compositor-zero-absent-parent-upa",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#mg-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig"
+        ],
+        "description": "A zero-occurrence choice maps to no particle or model-group component, so UPA has no parent group on which to operate. Both competing child declarations use the same named xs:string type, isolating attribution from the incompatible anonymous types and qualified EDC interpretation in project/compositor-zero-absent-parent-constraints."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/compositor-zero-absent-parent-upa/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "valid-choice-empty",
+          "file": "corpus/project/content-models/compositor-zero-absent-parent-upa/valid-choice-empty.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "invalid-choice-child",
+          "file": "corpus/project/content-models/compositor-zero-absent-parent-upa/invalid-choice-child.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/compositor-zero-absent-parent-upa/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/compositor-zero-absent-parent-upa/valid-choice-empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/compositor-zero-absent-parent-upa/invalid-choice-child.xml",
           "role": "instance"
         }
       ]

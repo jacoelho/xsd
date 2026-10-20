@@ -116,31 +116,22 @@ type compilerBuildState struct {
 	attrGroupDone             map[QName]AttributeUseSetID
 	localDone                 map[schemaNodeKey]ElementID
 	identityDeclared          map[schemaNodeKey]IdentityConstraintID
-	deferredAnonymousComplex  []deferredAnonymousComplex
+	complexDefinitions        []complexTypeDefinition
 	pendingElementConstraints []pendingElementConstraint
 	unionMemberEntries        int
 	attributeUseCount         uint32
 }
 
-type deferredAnonymousComplex struct {
-	node *schemaNode
-	ctx  *schemaSetDocument
-	name QName
-	id   ComplexTypeID
-}
-
 type compilerCycleState struct {
 	compilingSimple  map[QName]bool
-	compilingComplex map[QName]bool
 	compilingAttrGrp map[QName]bool
 	compilingModel   map[schemaNodeKey]bool
 }
 
 type compilerModelState struct {
-	modelDone    map[schemaNodeKey]ContentModelID
-	modelDepth   map[schemaNodeKey]int
-	modelSources []*schemaNode
-	elementDepth int
+	modelDone             map[schemaNodeKey]ContentModelID
+	modelSources          []*schemaNode
+	deferredModelChildren []schemaComponent
 }
 
 type compiler struct {
@@ -201,11 +192,9 @@ func newCompiler(limits Limits) (*compiler, error) {
 		localDone:                make(map[schemaNodeKey]ElementID),
 		identityDeclared:         make(map[schemaNodeKey]IdentityConstraintID),
 		compilingSimple:          make(map[QName]bool),
-		compilingComplex:         make(map[QName]bool),
 		compilingAttrGrp:         make(map[QName]bool),
 		compilingModel:           make(map[schemaNodeKey]bool),
 		modelDone:                make(map[schemaNodeKey]ContentModelID),
-		modelDepth:               make(map[schemaNodeKey]int),
 		rt:                       rt,
 		missingSimple:            NoSimpleType,
 		limits:                   limits,
@@ -243,7 +232,7 @@ func (c *compiler) compileGlobalTypes() error {
 		}
 	}
 	for _, q := range sortedBuildQNames(&c.rt, c.complexComponents) {
-		if _, err := c.compileComplexByQName(q); err != nil {
+		if _, err := c.compileComplexByQName(q, nil); err != nil {
 			return err
 		}
 	}
@@ -278,8 +267,29 @@ func (c *compiler) compileGlobalElements() error {
 	return nil
 }
 
+// Both append-only work lists can discover definitions owned by the other.
+// Each admitted source/context is completed once before semantic finalization.
+func (c *compiler) completeComponentDefinitions() error {
+	var complexNext, modelNext int
+	for complexNext < len(c.complexDefinitions) || modelNext < len(c.deferredModelChildren) {
+		if complexNext < len(c.complexDefinitions) {
+			if err := c.completeComplexDefinition(ComplexTypeID(complexNext)); err != nil {
+				return err
+			}
+			complexNext++
+			continue
+		}
+		if err := c.compileDeferredModelChildren(c.deferredModelChildren[modelNext]); err != nil {
+			return err
+		}
+		modelNext++
+	}
+	c.deferredModelChildren = nil
+	return nil
+}
+
 func (c *compiler) finalizeCompiledGlobals() error {
-	if err := c.drainDeferredAnonymousComplex(); err != nil {
+	if err := c.completeComponentDefinitions(); err != nil {
 		return err
 	}
 	if err := c.compileSubstitutions(); err != nil {

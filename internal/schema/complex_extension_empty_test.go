@@ -97,11 +97,11 @@ func TestComplexContentExtensionEmptyModelValidatesSyntaxAndReferences(t *testin
 			code: xsderrors.CodeSchemaReference,
 		},
 		{
-			name: "missing group reference",
+			name: "missing live group reference",
 			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="Base"/>
   <xs:complexType name="Derived"><xs:complexContent><xs:extension base="Base">
-    <xs:group ref="missing" minOccurs="0" maxOccurs="0"/>
+    <xs:group ref="missing" minOccurs="0" maxOccurs="1"/>
   </xs:extension></xs:complexContent></xs:complexType>
 </xs:schema>`,
 			code: xsderrors.CodeSchemaReference,

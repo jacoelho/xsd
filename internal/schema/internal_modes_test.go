@@ -17,8 +17,6 @@ func TestCompileModeValidation(t *testing.T) {
 		call func() error
 		text string
 	}{
-		{name: "invalid complex type scope", call: func() error { return validateComplexTypeScope(complexTypeScopeInvalid) }, text: "invalid complex type compilation scope"},
-		{name: "unknown complex type scope", call: func() error { return validateComplexTypeScope(complexTypeScope(99)) }, text: "unknown complex type compilation scope"},
 		{
 			name: "unknown schema source requirement",
 			call: func() error {

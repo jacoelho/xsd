@@ -1,0 +1,1 @@
+<root baseRequired="1"><basePart>outer</basePart><child baseRequired="2" middleRequired="3"><basePart>inner</basePart><child baseRequired="4" middleRequired="5"><basePart>deep</basePart><middlePart>middle</middlePart></child><middlePart>middle</middlePart></child></root>

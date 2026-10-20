@@ -1,0 +1,11 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:b="urn:recursive-base" xmlns:d="urn:recursive-derived" targetNamespace="urn:recursive-base" elementFormDefault="qualified">
+  <xs:import namespace="urn:recursive-derived" schemaLocation="derived.xsd" />
+  <xs:complexType name="ABase">
+    <xs:sequence>
+      <xs:element name="basePart" type="xs:string" />
+      <xs:element name="child" type="d:CLeaf" minOccurs="0" />
+    </xs:sequence>
+    <xs:attribute name="baseRequired" type="xs:int" use="required" />
+  </xs:complexType>
+  <xs:element name="root" type="b:ABase" />
+</xs:schema>

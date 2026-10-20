@@ -1,0 +1,31 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="ZBase">
+    <xs:sequence>
+      <xs:element name="basePart" type="xs:string" />
+      <xs:element name="child" minOccurs="0">
+        <xs:complexType>
+          <xs:complexContent>
+            <xs:extension base="AMiddle">
+              <xs:sequence>
+                <xs:element name="leafPart" type="xs:string" />
+              </xs:sequence>
+              <xs:attribute name="leafRequired" type="xs:int" use="required" />
+            </xs:extension>
+          </xs:complexContent>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="baseRequired" type="xs:int" use="required" />
+  </xs:complexType>
+  <xs:complexType name="AMiddle">
+    <xs:complexContent>
+      <xs:extension base="ZBase">
+        <xs:sequence>
+          <xs:element name="middlePart" type="xs:string" />
+        </xs:sequence>
+        <xs:attribute name="middleRequired" type="xs:int" use="required" />
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="root" type="ZBase" />
+</xs:schema>

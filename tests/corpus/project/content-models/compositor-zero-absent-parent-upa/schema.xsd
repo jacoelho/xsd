@@ -1,0 +1,8 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="choiceRoot"><xs:complexType>
+    <xs:choice minOccurs="0" maxOccurs="0">
+      <xs:element name="child" type="xs:string" />
+      <xs:element name="child" type="xs:string" />
+    </xs:choice>
+  </xs:complexType></xs:element>
+</xs:schema>
