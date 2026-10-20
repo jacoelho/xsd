@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	xsdSchema "github.com/jacoelho/xsd/internal/schema"
-	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -62,9 +61,6 @@ func (s *session) acceptMatchedChild(transition xsdSchema.ContentTransition, rn 
 }
 
 func (s *session) acceptStrictMissingChild(transition xsdSchema.ContentTransition, rn xsdSchema.RuntimeName, line, col int) (acceptedChild, error) {
-	if hasSchemaLocation := s.schemaLocationHintLookup(); hasSchemaLocation != nil && hasSchemaLocation(rn.NS) {
-		return acceptedChild{}, unsupportedSchemaLocation(s.startContext(line, col), vocab.XSDElemElement, rn)
-	}
 	accepted, err := s.recoverableChildIssue(line, col, strictMissingChildIssue(rn))
 	accepted.transition = transition
 	return accepted, err

@@ -251,8 +251,8 @@ func CompileModelParticle(rt *schemaBuild, add AddContentModelFunc, id ContentMo
 	return ModelParticle(modelID, occurs), true, nil
 }
 
-// AppendFlattenedModelChild appends child particles directly into model when
-// the nested model can be lowered without changing occurrence semantics.
+// AppendFlattenedModelChild removes pointless groups only. Language-equivalent
+// occurrence multiplication can erase a structural restriction boundary.
 func AppendFlattenedModelChild(model *ContentModel, child ContentModel) bool {
 	if model.Kind == ModelChoice && child.Kind == ModelChoice && child.Occurs.IsExactlyOne() {
 		model.Particles = append(model.Particles, child.Particles...)
@@ -261,37 +261,13 @@ func AppendFlattenedModelChild(model *ContentModel, child ContentModel) bool {
 	if model.Kind != ModelSequence {
 		return false
 	}
-	if (child.Kind == ModelSequence || child.Kind == ModelChoice) && len(child.Particles) == 1 {
-		p := child.Particles[0]
-		if canFlattenSingleParticleModel(child.Occurs, p.Occurs) {
-			p.Occurs = MultiplyOccurrence(p.Occurs, child.Occurs)
-			model.Particles = append(model.Particles, p)
-			return true
-		}
+	if (child.Kind == ModelSequence || child.Kind == ModelChoice) && len(child.Particles) == 1 && child.Occurs.IsExactlyOne() {
+		model.Particles = append(model.Particles, child.Particles[0])
+		return true
 	}
 	if child.Kind == ModelSequence && len(child.Particles) > 1 && child.Occurs.IsExactlyOne() {
 		model.Particles = append(model.Particles, child.Particles...)
 		return true
 	}
 	return false
-}
-
-func canFlattenSingleParticleModel(modelOccurs, particleOccurs Occurrence) bool {
-	return occurrenceProductRepresentable(modelOccurs, particleOccurs) &&
-		(modelOccurs.IsExactlyOne() ||
-			particleOccurs.Min == 0 ||
-			particleOccurs.IsExactlyOne() ||
-			(particleOccurs.Unbounded && (modelOccurs.Min > 0 || particleOccurs.Min == 1)) ||
-			(!modelOccurs.Unbounded && modelOccurs.Min == modelOccurs.Max))
-}
-
-func occurrenceProductRepresentable(a, b Occurrence) bool {
-	const maxUint32 = ^uint32(0)
-	if a.Min != 0 && b.Min > maxUint32/a.Min {
-		return false
-	}
-	if a.Unbounded || b.Unbounded {
-		return true
-	}
-	return a.Max == 0 || b.Max <= maxUint32/a.Max
 }

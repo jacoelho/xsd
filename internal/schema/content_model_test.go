@@ -15,27 +15,24 @@ func TestContentModelByID(t *testing.T) {
 	models := []ContentModel{
 		{Kind: ModelEmpty},
 		{
-			Kind:         ModelSequence,
-			Occurs:       Occurrence{Min: 1, Max: 1},
-			Particles:    []Particle{ElementParticle(1, Occurrence{Min: 1, Max: 1})},
-			ChoiceLimits: []uint32{0},
+			Kind:      ModelSequence,
+			Occurs:    Occurrence{Min: 1, Max: 1},
+			Particles: []Particle{ElementParticle(1, Occurrence{Min: 1, Max: 1})},
 		},
 	}
 	got, ok := ContentModelByID(models, 1)
 	if !ok ||
 		got.Kind != ModelSequence ||
-		!slices.Equal(got.Particles, models[1].Particles) ||
-		!slices.Equal(got.ChoiceLimits, models[1].ChoiceLimits) {
+		!slices.Equal(got.Particles, models[1].Particles) {
 		t.Fatalf("ContentModelByID(valid) = %+v, %v; want cloned model 1, true", got, ok)
 	}
 	got.Particles[0].Element = 9
-	got.ChoiceLimits[0] = 9
-	if models[1].Particles[0].Element != 1 || models[1].ChoiceLimits[0] != 0 {
-		t.Fatalf("ContentModelByID aliased slice fields: %+v", models[1])
+	if models[1].Particles[0].Element != 1 {
+		t.Fatalf("ContentModelByID aliased particle slice: %+v", models[1])
 	}
 	for _, id := range []ContentModelID{NoContentModel, 2} {
 		got, ok := ContentModelByID(models, id)
-		if ok || got.Kind != 0 || len(got.Particles) != 0 || len(got.ChoiceLimits) != 0 {
+		if ok || got.Kind != 0 || len(got.Particles) != 0 {
 			t.Fatalf("ContentModelByID(%d) = %+v, %v; want zero, false", id, got, ok)
 		}
 	}
@@ -44,7 +41,6 @@ func TestContentModelByID(t *testing.T) {
 func TestValidateContentModelShape(t *testing.T) {
 	t.Parallel()
 
-	repeatingElement := ElementParticle(1, Occurrence{Min: 0, Max: 2})
 	tests := []struct {
 		name    string
 		wantErr string
@@ -64,15 +60,6 @@ func TestValidateContentModelShape(t *testing.T) {
 				Kind:      ModelSequence,
 				Occurs:    Occurrence{Min: 1, Max: 1},
 				Particles: []Particle{ElementParticle(1, Occurrence{Min: 1, Max: 1})},
-			},
-		},
-		{
-			name: "sequence choice limits",
-			in: ContentModel{
-				Kind:         ModelSequence,
-				Occurs:       Occurrence{Min: 1, Max: 1},
-				Particles:    []Particle{repeatingElement},
-				ChoiceLimits: []uint32{0},
 			},
 		},
 		{
@@ -110,16 +97,6 @@ func TestValidateContentModelShape(t *testing.T) {
 			wantErr: "content model occurrence is invalid",
 		},
 		{
-			name: "choice stores choice limits",
-			in: ContentModel{
-				Kind:         ModelChoice,
-				Occurs:       Occurrence{Min: 1, Max: 1},
-				Particles:    []Particle{repeatingElement},
-				ChoiceLimits: []uint32{0},
-			},
-			wantErr: "non-sequence content model stores choice limits",
-		},
-		{
 			name:    "all cannot be unbounded",
 			in:      ContentModel{Kind: ModelAll, Occurs: Occurrence{Min: 0, Unbounded: true}},
 			wantErr: "all content model occurrence is invalid",
@@ -128,66 +105,6 @@ func TestValidateContentModelShape(t *testing.T) {
 			name:    "invalid kind",
 			in:      ContentModel{Kind: ModelKind(99)},
 			wantErr: "content model has invalid kind",
-		},
-		{
-			name: "choice limit out of range",
-			in: ContentModel{
-				Kind:         ModelSequence,
-				Occurs:       Occurrence{Min: 1, Max: 1},
-				Particles:    []Particle{repeatingElement},
-				ChoiceLimits: []uint32{1},
-			},
-			wantErr: "choice limit references invalid particle",
-		},
-		{
-			name: "choice limits unsorted",
-			in: ContentModel{
-				Kind:         ModelSequence,
-				Occurs:       Occurrence{Min: 1, Max: 1},
-				Particles:    []Particle{repeatingElement, ElementParticle(2, Occurrence{Min: 0, Max: 2})},
-				ChoiceLimits: []uint32{1, 0},
-			},
-			wantErr: "choice limits are not sorted",
-		},
-		{
-			name: "choice limits duplicate",
-			in: ContentModel{
-				Kind:         ModelSequence,
-				Occurs:       Occurrence{Min: 1, Max: 1},
-				Particles:    []Particle{repeatingElement},
-				ChoiceLimits: []uint32{0, 0},
-			},
-			wantErr: "choice limits are not sorted",
-		},
-		{
-			name: "choice limit requires repeating element",
-			in: ContentModel{
-				Kind:         ModelSequence,
-				Occurs:       Occurrence{Min: 1, Max: 1},
-				Particles:    []Particle{ElementParticle(1, Occurrence{Min: 1, Max: 1})},
-				ChoiceLimits: []uint32{0},
-			},
-			wantErr: "choice limit references invalid particle shape",
-		},
-		{
-			name: "choice limit rejects model particle",
-			in: ContentModel{
-				Kind:         ModelSequence,
-				Occurs:       Occurrence{Min: 1, Max: 1},
-				Particles:    []Particle{ModelParticle(1, Occurrence{Min: 0, Max: 2})},
-				ChoiceLimits: []uint32{0},
-			},
-			wantErr: "choice limit references invalid particle shape",
-		},
-		{
-			name: "choice limit rejects wildcard particle",
-			in: ContentModel{
-				Kind:         ModelSequence,
-				Occurs:       Occurrence{Min: 1, Max: 1},
-				Particles:    []Particle{WildcardParticle(1, Occurrence{Min: 0, Max: 2})},
-				ChoiceLimits: []uint32{0},
-			},
-			wantErr: "choice limit references invalid particle shape",
 		},
 		{
 			name: "particle shape",
@@ -441,9 +358,8 @@ func TestComplexContentExtendsBase(t *testing.T) {
 	}
 }
 
-func TestRestrictionRepeatedChoiceParticles(t *testing.T) {
+func TestContentRestrictionRejectsRepeatedElementAgainstUnitChoiceBranch(t *testing.T) {
 	t.Parallel()
-
 	const (
 		choiceID  ContentModelID = 0
 		baseID    ContentModelID = 1
@@ -452,172 +368,13 @@ func TestRestrictionRepeatedChoiceParticles(t *testing.T) {
 	one := Occurrence{Min: 1, Max: 1}
 	repeat := Occurrence{Min: 0, Unbounded: true}
 	models := []ContentModel{
-		{
-			Kind:      ModelChoice,
-			Occurs:    one,
-			Particles: []Particle{ElementParticle(1, one), ElementParticle(2, one)},
-		},
-		{
-			Kind:      ModelSequence,
-			Occurs:    one,
-			Particles: []Particle{ModelParticle(choiceID, repeat)},
-		},
-		{
-			Kind:      ModelSequence,
-			Occurs:    one,
-			Particles: []Particle{ElementParticle(1, repeat)},
-		},
+		{Kind: ModelChoice, Occurs: one, Particles: []Particle{ElementParticle(1, one), ElementParticle(2, one)}},
+		{Kind: ModelSequence, Occurs: one, Particles: []Particle{ModelParticle(choiceID, repeat)}},
+		{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(1, repeat)}},
 	}
-	rt := choiceLimitRuntimeWith(models)
-	got, err := RestrictionRepeatedChoiceParticles(models, baseID, derivedID, rt.build(), unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build()))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !slices.Equal(got, []uint32{0}) {
-		t.Fatalf("RestrictionRepeatedChoiceParticles() = %v, want [0]", got)
-	}
-	models[baseID].Particles[0].Occurs = one
-	rt = choiceLimitRuntimeWith(models)
-	if got, err := RestrictionRepeatedChoiceParticles(models, baseID, derivedID, rt.build(), unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build())); err != nil || len(got) != 0 {
-		t.Fatalf("RestrictionRepeatedChoiceParticles() with exact-one base = %v, %v; want nil, nil", got, err)
-	}
-	models[baseID].Particles[0].Occurs = repeat
-	models[derivedID].Particles[0].Occurs = one
-	rt = choiceLimitRuntimeWith(models)
-	if got, err := RestrictionRepeatedChoiceParticles(models, baseID, derivedID, rt.build(), unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build())); err != nil || len(got) != 0 {
-		t.Fatalf("RestrictionRepeatedChoiceParticles() with non-repeating derived = %v, %v; want nil, nil", got, err)
-	}
-}
-
-func TestRestrictionChoiceLimitUpdates(t *testing.T) {
-	t.Parallel()
-
-	const (
-		anyType     ComplexTypeID  = 0
-		baseType    ComplexTypeID  = 1
-		derivedType ComplexTypeID  = 2
-		choiceID    ContentModelID = 0
-		baseID      ContentModelID = 1
-		derivedID   ContentModelID = 2
-		baseElem    ElementID      = 0
-		derivedElem ElementID      = 1
-	)
-	one := Occurrence{Min: 1, Max: 1}
-	repeat := Occurrence{Min: 0, Unbounded: true}
-	name := QName{Namespace: EmptyNamespaceID, Local: 1}
-	models := []ContentModel{
-		{
-			Kind:      ModelChoice,
-			Occurs:    one,
-			Particles: []Particle{ElementParticle(baseElem, one)},
-		},
-		{
-			Kind:      ModelSequence,
-			Occurs:    one,
-			Particles: []Particle{ModelParticle(choiceID, repeat)},
-		},
-		{
-			Kind:      ModelSequence,
-			Occurs:    one,
-			Particles: []Particle{ElementParticle(derivedElem, repeat)},
-		},
-	}
-	complexTypes := []ComplexType{
-		{Content: NoContentModel},
-		{Content: baseID},
-		{Base: ComplexRef(baseType), Content: derivedID, Derivation: DerivationKindRestriction},
-	}
-	rt := choiceLimitRestrictionFixture{
-		models:   models,
-		elements: []QName{name, name},
-		elementRestrictions: []ParticleRestrictionElement{
-			{Type: ComplexRef(anyType), Scope: DeclarationScopeNonGlobal},
-			{Type: ComplexRef(anyType), Scope: DeclarationScopeNonGlobal},
-		},
-		anyType: anyType,
-	}
-
-	updates, err := RestrictionChoiceLimitUpdates(rt.build(), complexTypes, models, anyType, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build()))
-	if err != nil {
-		t.Fatalf("RestrictionChoiceLimitUpdates() error = %v", err)
-	}
-	if len(updates) != 1 {
-		t.Fatalf("RestrictionChoiceLimitUpdates() returned %d updates, want 1", len(updates))
-	}
-	if updates[0].ComplexType != derivedType {
-		t.Fatalf("update complex type = %d, want %d", updates[0].ComplexType, derivedType)
-	}
-	if !slices.Equal(updates[0].Model.ChoiceLimits, []uint32{0}) {
-		t.Fatalf("update choice limits = %v, want [0]", updates[0].Model.ChoiceLimits)
-	}
-	if len(models[derivedID].ChoiceLimits) != 0 {
-		t.Fatalf("source model choice limits = %v, want nil", models[derivedID].ChoiceLimits)
-	}
-	updates[0].Model.ChoiceLimits[0] = 9
-	if len(models[derivedID].ChoiceLimits) != 0 {
-		t.Fatalf("mutating update changed source choice limits to %v", models[derivedID].ChoiceLimits)
-	}
-	updates[0].Model.Particles[0].Element = 9
-	if models[derivedID].Particles[0].Element != derivedElem {
-		t.Fatalf("mutating update changed source particles to %v", models[derivedID].Particles)
-	}
-}
-
-func TestValidateChoiceLimitDerivationsUsesRuntimeParticleRestriction(t *testing.T) {
-	t.Parallel()
-
-	const (
-		anyType     ComplexTypeID  = 0
-		baseType    ComplexTypeID  = 1
-		derivedType ComplexTypeID  = 2
-		choiceID    ContentModelID = 0
-		baseID      ContentModelID = 1
-		derivedID   ContentModelID = 2
-		baseElem    ElementID      = 0
-		derivedElem ElementID      = 1
-	)
-	one := Occurrence{Min: 1, Max: 1}
-	repeat := Occurrence{Min: 0, Unbounded: true}
-	name := QName{Namespace: EmptyNamespaceID, Local: 1}
-	complexTypes := []ComplexType{
-		{Content: NoContentModel},
-		{Content: baseID},
-		{Base: ComplexRef(baseType), Content: derivedID, Derivation: DerivationKindRestriction},
-	}
-	rt := choiceLimitRestrictionFixture{
-		models: []ContentModel{
-			{
-				Kind:      ModelChoice,
-				Occurs:    one,
-				Particles: []Particle{ElementParticle(baseElem, one)},
-			},
-			{
-				Kind:      ModelSequence,
-				Occurs:    one,
-				Particles: []Particle{ModelParticle(choiceID, repeat)},
-			},
-			{
-				Kind:         ModelSequence,
-				Occurs:       one,
-				Particles:    []Particle{ElementParticle(derivedElem, repeat)},
-				ChoiceLimits: []uint32{0},
-			},
-		},
-		elements: []QName{name, name},
-		elementRestrictions: []ParticleRestrictionElement{
-			{Type: ComplexRef(anyType), Scope: DeclarationScopeNonGlobal},
-			{Type: ComplexRef(anyType), Scope: DeclarationScopeNonGlobal},
-		},
-		anyType: anyType,
-	}
-	if err := ValidateChoiceLimitDerivations(rt.build(), complexTypes, rt.models, anyType, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build())); err != nil {
-		t.Fatalf("ValidateChoiceLimitDerivations() error = %v", err)
-	}
-
-	rt.elements[derivedElem] = QName{Namespace: EmptyNamespaceID, Local: 2}
-	if err := ValidateChoiceLimitDerivations(rt.build(), complexTypes, rt.models, anyType, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build())); err == nil ||
-		!strings.Contains(err.Error(), "content model choice limits do not match complex restrictions") {
-		t.Fatalf("ValidateChoiceLimitDerivations() error = %v, want choice-limit mismatch", err)
+	rt := contentRestrictionRuntimeWith(models)
+	if err := ValidateContentRestriction(rt.build(), baseID, derivedID, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build())); !IsContentRestrictionMismatch(err) {
+		t.Fatalf("ValidateContentRestriction() error = %v, want repeated element/unit branch mismatch", err)
 	}
 }
 
@@ -630,7 +387,11 @@ func TestContentRestrictionUsesFixedValueIdentity(t *testing.T) {
 	)
 	one := Occurrence{Min: 1, Max: 1}
 	name := QName{Namespace: EmptyNamespaceID, Local: 1}
-	rt := choiceLimitRestrictionFixture{
+	rt := contentRestrictionFixture{
+		models: []ContentModel{
+			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(0, one)}},
+			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(1, one)}},
+		},
 		elements: []QName{name, name},
 		elementRestrictions: []ParticleRestrictionElement{
 			{Type: SimpleRef(baseType), Fixed: valueConstraintIdentity(t, "decimal", "5.0"), Scope: DeclarationScopeNonGlobal},
@@ -642,15 +403,13 @@ func TestContentRestrictionUsesFixedValueIdentity(t *testing.T) {
 			{Base: baseType, Variety: valuepkg.Atomic},
 		},
 	}
-	validator := newContentRestrictionValidator(rt.build(), unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build()))
-	if err := validator.validateParticleRestriction(ElementParticle(0, one), ElementParticle(1, one)); err != nil {
-		t.Fatalf("validateParticleRestriction() error = %v", err)
+	if err := ValidateContentRestriction(rt.build(), 0, 1, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build())); err != nil {
+		t.Fatalf("ValidateContentRestriction() error = %v", err)
 	}
 
 	rt.elementRestrictions[1].Fixed.Value = builtinValueForTest(t, "string", "5")
-	validator.rt = rt.build()
-	if err := validator.validateParticleRestriction(ElementParticle(0, one), ElementParticle(1, one)); err == nil {
-		t.Fatal("validateParticleRestriction() accepted different fixed value identities")
+	if err := ValidateContentRestriction(rt.build(), 0, 1, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build())); err == nil {
+		t.Fatal("ValidateContentRestriction() accepted different fixed value identities")
 	}
 }
 
@@ -659,7 +418,7 @@ func TestContentRestrictionRequiresLocalIdentitySubset(t *testing.T) {
 
 	one := Occurrence{Min: 1, Max: 1}
 	name := QName{Namespace: EmptyNamespaceID, Local: 1}
-	rt := choiceLimitRestrictionFixture{
+	rt := contentRestrictionFixture{
 		models: []ContentModel{
 			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(0, one)}},
 			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(1, one)}},
@@ -685,7 +444,7 @@ func TestContentRestrictionHonorsWorkBudget(t *testing.T) {
 
 	one := Occurrence{Min: 1, Max: 1}
 	name := QName{Namespace: EmptyNamespaceID, Local: 1}
-	rt := choiceLimitRestrictionFixture{
+	rt := contentRestrictionFixture{
 		models: []ContentModel{
 			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(0, one)}},
 			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(1, one)}},
@@ -726,7 +485,7 @@ func TestContentRestrictionChargesTypeDerivation(t *testing.T) {
 		derivations[id] = SimpleTypeDerivation{Base: SimpleTypeID(id - 1), Variety: valuepkg.Atomic}
 	}
 	name := QName{Namespace: EmptyNamespaceID, Local: 1}
-	rt := choiceLimitRestrictionFixture{
+	rt := contentRestrictionFixture{
 		elements: []QName{name, name},
 		elementRestrictions: []ParticleRestrictionElement{
 			{Type: SimpleRef(0), Scope: DeclarationScopeNonGlobal},
@@ -760,7 +519,7 @@ func TestContentRestrictionRejectsInvalidElementScope(t *testing.T) {
 
 	one := Occurrence{Min: 1, Max: 1}
 	name := QName{Namespace: EmptyNamespaceID, Local: 1}
-	rt := choiceLimitRestrictionFixture{
+	rt := contentRestrictionFixture{
 		models: []ContentModel{
 			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(0, one)}},
 			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(1, one)}},
@@ -786,174 +545,39 @@ func TestContentRestrictionPropagatesMissingNestedModel(t *testing.T) {
 		{Kind: ModelSequence, Occurs: one, Particles: []Particle{ModelParticle(99, one)}},
 		{Kind: ModelSequence, Occurs: one},
 	}
-	rt := choiceLimitRuntimeWith(models)
+	rt := contentRestrictionRuntimeWith(models)
 	err := ValidateContentRestriction(rt.build(), 0, 1, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build()))
 	if !IsContentRestrictionInvariant(err) || !strings.Contains(err.Error(), "missing content model") {
 		t.Fatalf("ValidateContentRestriction() error = %v, want missing-model invariant", err)
 	}
-
-	_, err = RestrictionRepeatedChoiceParticles(models, 0, 1, rt.build(), unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build()))
-	if !IsContentRestrictionInvariant(err) || !strings.Contains(err.Error(), "missing content model") {
-		t.Fatalf("RestrictionRepeatedChoiceParticles() error = %v, want missing-model invariant", err)
-	}
 }
 
-func TestRestrictionChoiceLimitDerivationPropagatesInvalidElementScope(t *testing.T) {
+func TestContentRestrictionRejectsRepeatedUnitChoiceBranchWithTail(t *testing.T) {
 	t.Parallel()
-
-	one := Occurrence{Min: 1, Max: 1}
-	repeat := Occurrence{Min: 0, Unbounded: true}
-	name := QName{Namespace: EmptyNamespaceID, Local: 1}
-	models := []ContentModel{
-		{Kind: ModelChoice, Occurs: one, Particles: []Particle{ElementParticle(0, one)}},
-		{Kind: ModelSequence, Occurs: one, Particles: []Particle{ModelParticle(0, repeat)}},
-		{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(1, repeat)}},
-	}
-	rt := choiceLimitRestrictionFixture{
-		models:   models,
-		elements: []QName{name, name},
-		elementRestrictions: []ParticleRestrictionElement{
-			{Type: SimpleRef(0), Scope: DeclarationScopeNonGlobal},
-			{Type: SimpleRef(0), Scope: DeclarationScopeInvalid},
-		},
-		simpleDerivations: []SimpleTypeDerivation{{Base: NoSimpleType, Variety: valuepkg.Atomic}},
-	}
-	_, err := RestrictionRepeatedChoiceParticles(models, 1, 2, rt.build(), unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build()))
-	if !IsContentRestrictionInvariant(err) || !strings.Contains(err.Error(), "invalid scope") {
-		t.Fatalf("RestrictionRepeatedChoiceParticles() error = %v, want invalid-scope invariant", err)
-	}
-}
-
-func TestValidateChoiceLimitDerivations(t *testing.T) {
-	t.Parallel()
-
 	const (
-		anyType     ComplexTypeID  = 0
-		baseType    ComplexTypeID  = 1
-		derivedType ComplexTypeID  = 2
-		base2Type   ComplexTypeID  = 3
-		choiceID    ContentModelID = 0
-		baseID      ContentModelID = 1
-		derivedID   ContentModelID = 2
-		base2ID     ContentModelID = 3
-		elemA       ElementID      = 1
-		elemB       ElementID      = 2
+		choiceID  ContentModelID = 0
+		baseID    ContentModelID = 1
+		derivedID ContentModelID = 2
+		elemA     ElementID      = 1
+		elemB     ElementID      = 2
 	)
 	one := Occurrence{Min: 1, Max: 1}
 	repeat := Occurrence{Min: 0, Unbounded: true}
 	models := []ContentModel{
-		{
-			Kind:      ModelChoice,
-			Occurs:    one,
-			Particles: []Particle{ElementParticle(elemA, one), ElementParticle(elemB, one)},
-		},
-		{
-			Kind: ModelSequence,
-			Particles: []Particle{
-				ModelParticle(choiceID, repeat),
-				ElementParticle(elemB, one),
-			},
-			Occurs: one,
-		},
-		{
-			Kind: ModelSequence,
-			Particles: []Particle{
-				ElementParticle(elemA, repeat),
-				ElementParticle(elemB, repeat),
-			},
-			ChoiceLimits: []uint32{0},
-			Occurs:       one,
-		},
-		{
-			Kind: ModelSequence,
-			Particles: []Particle{
-				ElementParticle(elemA, repeat),
-				ModelParticle(choiceID, repeat),
-			},
-			Occurs: one,
-		},
+		{Kind: ModelChoice, Occurs: one, Particles: []Particle{ElementParticle(elemA, one), ElementParticle(elemB, one)}},
+		{Kind: ModelSequence, Occurs: one, Particles: []Particle{ModelParticle(choiceID, repeat), ElementParticle(elemB, one)}},
+		{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(elemA, repeat), ElementParticle(elemB, repeat)}},
 	}
-	complexTypes := []ComplexType{
-		{Content: NoContentModel},
-		{Content: baseID},
-		{Base: ComplexRef(baseType), Content: derivedID, Derivation: DerivationKindRestriction},
-	}
-	tests := []struct {
-		name         string
-		wantErr      string
-		complexTypes []ComplexType
-		models       []ContentModel
-	}{
-		{
-			name:         "valid restriction limits",
-			complexTypes: complexTypes,
-			models:       models,
-		},
-		{
-			name:         "missing derived limits",
-			complexTypes: complexTypes,
-			models:       choiceLimitModelsWith(models, derivedID, nil),
-			wantErr:      "content model choice limits do not match complex restrictions",
-		},
-		{
-			name: "limited model used by non-restriction",
-			complexTypes: append(slices.Clone(complexTypes), ComplexType{
-				Base:       ComplexRef(baseType),
-				Content:    derivedID,
-				Derivation: DerivationKindExtension,
-			}),
-			models:  models,
-			wantErr: "limited content model is used outside restricting complex type",
-		},
-		{
-			name: "limited model has invalid restriction owner",
-			complexTypes: append(slices.Clone(complexTypes), ComplexType{
-				Base:       ComplexRef(anyType),
-				Content:    derivedID,
-				Derivation: DerivationKindRestriction,
-			}),
-			models:  models,
-			wantErr: "limited content model has invalid restriction owner",
-		},
-		{
-			name: "conflicting derivations",
-			complexTypes: append(slices.Clone(complexTypes),
-				ComplexType{Content: base2ID},
-				ComplexType{Base: ComplexRef(base2Type), Content: derivedID, Derivation: DerivationKindRestriction},
-			),
-			models:  models,
-			wantErr: "content model choice limits have conflicting derivations",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			rt := choiceLimitRuntimeWith(tt.models)
-			err := ValidateChoiceLimitDerivations(rt.build(), tt.complexTypes, tt.models, anyType, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build()))
-			if tt.wantErr == "" {
-				if err != nil {
-					t.Fatalf("ValidateChoiceLimitDerivations() error = %v", err)
-				}
-				return
-			}
-			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
-				t.Fatalf("ValidateChoiceLimitDerivations() error = %v, want %q", err, tt.wantErr)
-			}
-		})
+	rt := contentRestrictionRuntimeWith(models)
+	if err := ValidateContentRestriction(rt.build(), baseID, derivedID, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build())); !IsContentRestrictionMismatch(err) {
+		t.Fatalf("ValidateContentRestriction() error = %v, want repeated element/unit branch mismatch", err)
 	}
 }
 
-func choiceLimitModelsWith(models []ContentModel, id ContentModelID, limits []uint32) []ContentModel {
-	out := slices.Clone(models)
-	out[id].ChoiceLimits = limits
-	return out
-}
-
-func choiceLimitRuntimeWith(models []ContentModel) choiceLimitRestrictionFixture {
+func contentRestrictionRuntimeWith(models []ContentModel) contentRestrictionFixture {
 	nameA := QName{Namespace: EmptyNamespaceID, Local: 1}
 	nameB := QName{Namespace: EmptyNamespaceID, Local: 2}
-	return choiceLimitRestrictionFixture{
+	return contentRestrictionFixture{
 		models:   models,
 		elements: []QName{{}, nameA, nameB},
 		elementRestrictions: []ParticleRestrictionElement{
@@ -965,7 +589,7 @@ func choiceLimitRuntimeWith(models []ContentModel) choiceLimitRestrictionFixture
 	}
 }
 
-type choiceLimitRestrictionFixture struct {
+type contentRestrictionFixture struct {
 	models              []ContentModel
 	elements            []QName
 	elementRestrictions []ParticleRestrictionElement
@@ -1055,7 +679,7 @@ func TestOccurrenceIsExactlyOne(t *testing.T) {
 	}
 }
 
-func (f choiceLimitRestrictionFixture) build() *schemaBuild {
+func (f contentRestrictionFixture) build() *schemaBuild {
 	b := (&derivationFixture{simple: f.simpleDerivations, complex: f.complexDerivations, anyType: f.anyType}).build()
 	b.Models = cloneContentModels(f.models)
 	b.Elements = fixtureElements(f.elements, f.elementRestrictions)

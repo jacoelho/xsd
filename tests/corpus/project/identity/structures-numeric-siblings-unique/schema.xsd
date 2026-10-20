@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" >
+<xs:simpleType name="A"><xs:restriction base="xs:decimal"><xs:maxInclusive value="10"/></xs:restriction></xs:simpleType><xs:simpleType name="B"><xs:restriction base="xs:decimal"><xs:maxInclusive value="20"/></xs:restriction></xs:simpleType><xs:element name="root"><xs:complexType><xs:sequence><xs:element name="a"><xs:complexType><xs:attribute name="v" type="A" use="required"/></xs:complexType></xs:element><xs:element name="b"><xs:complexType><xs:attribute name="v" type="B" use="required"/></xs:complexType></xs:element></xs:sequence></xs:complexType><xs:unique name="U"><xs:selector xpath="a|b"/><xs:field xpath="@v"/></xs:unique></xs:element>
+</xs:schema>

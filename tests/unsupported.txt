@@ -1,19 +1,3 @@
-instance	w3c	w3c/msMeta/AttributeGroup_w3c.xml/attgD034	attgD034.v	unsupported.xsi_schema_location
-instance	w3c	w3c/msMeta/ComplexType_w3c.xml/ctL021	ctL021.v	unsupported.xsi_schema_location
-instance	w3c	w3c/msMeta/Notations_w3c.xml/notatH002v	notatH002v.i	unsupported.xsi_schema_location
-instance	w3c	w3c/msMeta/Notations_w3c.xml/notatH003	notatH003.i	unsupported.xsi_schema_location
-instance	w3c	w3c/msMeta/Particles_w3c.xml/particlesB013	particlesB013.v	unsupported.xsi_schema_location
-instance	w3c	w3c/msMeta/Schema_w3c.xml/schA1	schA1.v	unsupported.xsi_schema_location
-instance	w3c	w3c/msMeta/Wildcards_w3c.xml/wildG005	wildG005.i	unsupported.xsi_schema_location
-instance	w3c	w3c/msMeta/Wildcards_w3c.xml/wildH001	wildH001.i	unsupported.xsi_schema_location
-instance	w3c	w3c/msMeta/Wildcards_w3c.xml/wildP002	wildP002.i	unsupported.xsi_schema_location
-instance	w3c	w3c/sunMeta/ElemDecl.testSet/name00601m	name00601m1_n	unsupported.xsi_schema_location
-instance	w3c	w3c/sunMeta/ElemDecl.testSet/targetns00101m	targetNS00101m1_p	unsupported.xsi_schema_location
-instance	w3c	w3c/sunMeta/SType.testSet/st_name00101m	ST_name00101m1_n	unsupported.xsi_schema_location
-instance	w3c	w3c/sunMeta/SType.testSet/st_targetns00101m	ST_targetNS00101m2_n	unsupported.xsi_schema_location
-instance	w3c	w3c/sunMeta/SType.testSet/st_targetns00101m	ST_targetNS00101m2_p	unsupported.xsi_schema_location
-instance	w3c	w3c/sunMeta/Wildcard.testSet/pscontents00101m2	Negative	unsupported.xsi_schema_location
-instance	w3c	w3c/sunMeta/Wildcard.testSet/pscontents00102m2	Negative	unsupported.xsi_schema_location
 schema	w3c	w3c/boeingMeta/BoeingXSDTestSet.testSet/ipo4	unsupported.xs_redefine
 schema	w3c	w3c/ibmMeta/anyAttribute.testSet/s3_10_6ii01	unsupported.xsd_1_1
 schema	w3c	w3c/ibmMeta/anyAttribute.testSet/s3_10_6ii02	unsupported.xsd_1_1

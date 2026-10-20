@@ -170,6 +170,22 @@ func (p *Program) ValidateAdmitted(id TypeID, lexical string, resolver Resolver,
 	})
 }
 
+// ValidateAdmittedNormalized also returns the successful type's whitespace-
+// normalized spelling before canonicalization, including the selected union
+// member's normalization. No normalized result is returned on failure.
+func (p *Program) ValidateAdmittedNormalized(id TypeID, lexical string, resolver Resolver, needs Needs, workLimit uint64, scratch *Scratch) (Value, string, error) {
+	if p == nil || !p.sealed {
+		return Value{}, "", ErrMetadata
+	}
+	budget, err := newEvaluationBudget(workLimit)
+	if err != nil {
+		return Value{}, "", err
+	}
+	return p.validateNormalizedValueWithBudget(id, lexical, &evaluationRequest{
+		resolver: resolver, needs: needs, scratch: scratch, budget: &budget, admitted: true,
+	})
+}
+
 // Validate parses one value against the completed portion of an incremental
 // builder. It is intended for compiler literals and constraints before Seal;
 // published callers use Program.Validate.
@@ -651,15 +667,23 @@ type evaluationRequest struct {
 }
 
 func (p *Program) validateValueWithBudget(id TypeID, lexical string, request *evaluationRequest) (Value, error) {
+	out, _, err := p.validateNormalizedValueWithBudget(id, lexical, request)
+	return out, err
+}
+
+func (p *Program) validateNormalizedValueWithBudget(id TypeID, lexical string, request *evaluationRequest) (Value, string, error) {
 	if p == nil || id == NoType || id >= BuiltinTypeCount && uint64(id-BuiltinTypeCount) >= uint64(len(p.types)) {
-		return Value{}, ErrMetadata
+		return Value{}, "", ErrMetadata
 	}
 	t, ok := p.typeDef(id)
 	if !ok {
-		return Value{}, ErrMetadata
+		return Value{}, "", ErrMetadata
 	}
 	if out, handled, err := validatePlainString(id, t, lexical, request); handled {
-		return out, err
+		if err != nil {
+			return Value{}, "", err
+		}
+		return out, lexical, nil
 	}
 	evalNeeds := request.needs
 	// ID/IDREF projections are required by the type contract even when the
@@ -668,7 +692,7 @@ func (p *Program) validateValueWithBudget(id TypeID, lexical string, request *ev
 		evalNeeds |= NeedCanonical
 	}
 	var v parsedValue
-	_, err := p.eval(id, lexical, evalOptions{
+	normalized, err := p.eval(id, lexical, evalOptions{
 		resolver:      request.resolver,
 		needs:         evalNeeds,
 		enforceFacets: true,
@@ -677,11 +701,11 @@ func (p *Program) validateValueWithBudget(id TypeID, lexical string, request *ev
 		admitted:      request.admitted,
 	}, &v)
 	if err != nil {
-		return Value{}, err
+		return Value{}, "", err
 	}
 	out := projectValue(&v, request.needs)
 	projectDocumentIdentity(&out, &v, t.identity)
-	return out, nil
+	return out, normalized, nil
 }
 
 func projectDocumentIdentity(out *Value, value *parsedValue, identity IdentityKind) {

@@ -1,0 +1,10 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:element name="a" type="xs:string"/><xs:group name="G"><xs:sequence><xs:element name="g" type="xs:string"/><xs:element name="h" type="xs:string"/></xs:sequence></xs:group>
+
+<xs:complexType name="T_local_zero" final="" block=""><xs:sequence><xs:element name="a" type="xs:string" minOccurs="0" maxOccurs="0"/></xs:sequence></xs:complexType><xs:element name="local-zero" type="T_local_zero"/>
+<xs:complexType name="T_ref_zero" final="" block=""><xs:sequence><xs:element ref="a" minOccurs="0" maxOccurs="0"/></xs:sequence></xs:complexType><xs:element name="ref-zero" type="T_ref_zero"/>
+<xs:complexType name="T_group_zero" final="" block=""><xs:sequence><xs:group ref="G" minOccurs="0" maxOccurs="0"/></xs:sequence></xs:complexType><xs:element name="group-zero" type="T_group_zero"/>
+<xs:complexType name="T_sequence_zero" final="" block=""><xs:sequence minOccurs="0" maxOccurs="0"><xs:element name="a" type="xs:string"/><xs:element name="b" type="xs:string"/></xs:sequence></xs:complexType><xs:element name="sequence-zero" type="T_sequence_zero"/>
+<xs:complexType name="T_choice_zero" final="" block=""><xs:choice minOccurs="0" maxOccurs="0"><xs:element name="a" type="xs:string"/><xs:element name="b" type="xs:string"/></xs:choice></xs:complexType><xs:element name="choice-zero" type="T_choice_zero"/>
+<xs:complexType name="T_any_zero" final="" block=""><xs:sequence><xs:any namespace="##local" processContents="skip" minOccurs="0" maxOccurs="0"/></xs:sequence></xs:complexType><xs:element name="any-zero" type="T_any_zero"/>
+</xs:schema>

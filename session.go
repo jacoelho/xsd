@@ -21,11 +21,11 @@ type ValidateOptions struct {
 	MaxIdentityEntries int
 	// MaxIdentityTupleBytes limits the byte length of one stored identity key. Zero uses the default.
 	MaxIdentityTupleBytes int64
-	// MaxSchemaLocationNamespaces limits distinct schema-location namespace
-	// hints retained for one document. Zero uses the default of 256.
+	// MaxSchemaLocationNamespaces limits distinct namespace names admitted from
+	// schema-location hints in one document. Zero uses the default of 256.
 	MaxSchemaLocationNamespaces int
-	// MaxSchemaLocationNamespaceBytes limits aggregate retained namespace-name
-	// bytes. Zero uses the default of 64 KiB. MaxInstanceTokenBytes separately
+	// MaxSchemaLocationNamespaceBytes limits aggregate bytes in those retained
+	// namespace names. Zero uses the default of 64 KiB. MaxInstanceTokenBytes separately
 	// bounds each complete hint attribute when configured.
 	MaxSchemaLocationNamespaceBytes int64
 	// MaxInstanceDepth limits nested XML elements. Zero uses the default.

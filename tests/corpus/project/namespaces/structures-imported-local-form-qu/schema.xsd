@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:coverage:importer" xmlns:i="urn:coverage:importer" xmlns:b="urn:coverage:base" elementFormDefault="unqualified">
+<xs:import namespace="urn:coverage:base" schemaLocation="base.xsd"/>
+<xs:complexType name="Derived"><xs:complexContent><xs:extension base="b:Base"><xs:sequence><xs:element name="added" type="xs:string" /></xs:sequence></xs:extension></xs:complexContent></xs:complexType><xs:element name="root" type="i:Derived"/>
+</xs:schema>

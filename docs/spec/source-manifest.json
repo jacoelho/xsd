@@ -1,0 +1,622 @@
+{
+  "format": 1,
+  "retrieved": "2026-10-17T12:25:00.738128+00:00",
+  "sources": [
+    {
+      "path": "upstream/primer.html",
+      "url": "https://www.w3.org/TR/2004/REC-xmlschema-0-20041028/primer.html",
+      "resolved_url": "https://www.w3.org/TR/2004/REC-xmlschema-0-20041028/primer.html",
+      "sha256": "19971eb8bce0a31173a6cc0513346bc91e51d35ef1b6edf0caee6b0b40703538",
+      "bytes": 288730,
+      "content_type": "text/html; charset=utf-8",
+      "last_modified": "Tue, 09 Oct 2018 13:30:16 GMT",
+      "role": "published-baseline"
+    },
+    {
+      "path": "xml/primer.xml",
+      "url": "https://www.w3.org/TR/2004/REC-xmlschema-0-20041028/primer.xml",
+      "resolved_url": "https://www.w3.org/TR/2004/REC-xmlschema-0-20041028/primer.xml",
+      "sha256": "5ef4adce1e4f8147e22df25ff71bc167b143a2fd535761c250fcd1b2230c6b22",
+      "bytes": 287279,
+      "content_type": "application/xml; qs=0.9",
+      "last_modified": "Thu, 28 Oct 2004 21:27:48 GMT",
+      "role": "nonnormative-xml-source"
+    },
+    {
+      "path": "upstream/primer-with-errata.html",
+      "url": "https://www.w3.org/TR/2004/REC-xmlschema-0-20041028/primer-with-errata.html",
+      "resolved_url": "https://www.w3.org/TR/2004/REC-xmlschema-0-20041028/primer-with-errata.html",
+      "sha256": "30500039f69dc4c1fb8247f9acce5b19f16edfa7b233430eb0c09a3e9d8a5d2e",
+      "bytes": 322011,
+      "content_type": "text/html; charset=utf-8",
+      "last_modified": "Thu, 28 Oct 2004 21:27:48 GMT",
+      "role": "historical-diff"
+    },
+    {
+      "path": "upstream/structures.html",
+      "url": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html",
+      "resolved_url": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html",
+      "sha256": "92bfd116316332b1153941436430afbdb2040e036d5fb2d21d4c8fba36a7765a",
+      "bytes": 903817,
+      "content_type": "text/html; charset=utf-8",
+      "last_modified": "Tue, 09 Oct 2018 13:30:38 GMT",
+      "role": "published-baseline"
+    },
+    {
+      "path": "xml/structures.xml",
+      "url": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.xml",
+      "resolved_url": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.xml",
+      "sha256": "e496af408b14853e6169ac7c1fca09d55a81bd73771758ad6be020960e1317ba",
+      "bytes": 540407,
+      "content_type": "application/xml; qs=0.9",
+      "last_modified": "Thu, 28 Oct 2004 21:38:05 GMT",
+      "role": "nonnormative-xml-source"
+    },
+    {
+      "path": "upstream/structures-with-errata.html",
+      "url": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures-with-errata.html",
+      "resolved_url": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures-with-errata.html",
+      "sha256": "f7bc47a7a1e28031ccef9499bccd7ecbe0f353b262f1bade3923079c226b7408",
+      "bytes": 951515,
+      "content_type": "text/html; charset=utf-8",
+      "last_modified": "Thu, 28 Oct 2004 21:38:05 GMT",
+      "role": "historical-diff"
+    },
+    {
+      "path": "upstream/structures.xsd.txt",
+      "url": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.xsd.txt",
+      "resolved_url": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.xsd.txt",
+      "sha256": "193eda8bd903b5ab90fd674e1b90778a28c36341e89e34b408f825535a0e53a1",
+      "bytes": 46906,
+      "content_type": "text/plain",
+      "last_modified": "Thu, 28 Oct 2004 21:38:05 GMT",
+      "role": "dated-appendix-fragment"
+    },
+    {
+      "path": "upstream/structures.dtd.txt",
+      "url": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.dtd.txt",
+      "resolved_url": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.dtd.txt",
+      "sha256": "27e00ab6d32b1737f593f6dc1fb151aa24a934702a3a14f5feffff7520241db6",
+      "bytes": 16314,
+      "content_type": "text/plain",
+      "last_modified": "Thu, 28 Oct 2004 21:38:05 GMT",
+      "role": "dated-appendix-fragment"
+    },
+    {
+      "path": "xml/schemaSpecs.dtd",
+      "url": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/schemaSpecs.dtd",
+      "resolved_url": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/schemaSpecs.dtd",
+      "sha256": "cacfa7b04e62cc1802041efb41a901fdeed579d64217f6eb4c875f1bdb082eb7",
+      "bytes": 467,
+      "content_type": "application/xml-dtd",
+      "last_modified": "Thu, 28 Oct 2004 21:38:05 GMT",
+      "role": "source-dtd"
+    },
+    {
+      "path": "xml/xmlspec.dtd",
+      "url": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/xmlspec.dtd",
+      "resolved_url": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/xmlspec.dtd",
+      "sha256": "271d6c142d66b0ba3f8125e215f3d222a0110481f6e1372e68806779047323fc",
+      "bytes": 80482,
+      "content_type": "application/xml-dtd",
+      "last_modified": "Thu, 28 Oct 2004 21:38:05 GMT",
+      "role": "source-dtd"
+    },
+    {
+      "path": "upstream/datatypes.html",
+      "url": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html",
+      "resolved_url": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html",
+      "sha256": "980de872aa2c50013d5202176eb85eef3f183a7df635fdcb6b4aa34c1c12eb72",
+      "bytes": 644011,
+      "content_type": "text/html; charset=utf-8",
+      "last_modified": "Tue, 09 Oct 2018 13:30:06 GMT",
+      "role": "published-baseline"
+    },
+    {
+      "path": "xml/datatypes.xml",
+      "url": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.xml",
+      "resolved_url": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.xml",
+      "sha256": "430f010df8ed077a4ed11d9d5812ea5e5d62ba67e715f1bbeeaa8ee1765d84c7",
+      "bytes": 413619,
+      "content_type": "application/xml; qs=0.9",
+      "last_modified": "Thu, 28 Oct 2004 21:44:54 GMT",
+      "role": "nonnormative-xml-source"
+    },
+    {
+      "path": "upstream/datatypes-with-errata.html",
+      "url": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes-with-errata.html",
+      "resolved_url": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes-with-errata.html",
+      "sha256": "fba3b9716f040d4798e02b6ef5f1e8316df4e24d10e6aa7039d6f0216e6f0b85",
+      "bytes": 682006,
+      "content_type": "text/html; charset=utf-8",
+      "last_modified": "Thu, 28 Oct 2004 21:44:54 GMT",
+      "role": "historical-diff"
+    },
+    {
+      "path": "upstream/datatypes.xsd.txt",
+      "url": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.xsd.txt",
+      "resolved_url": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.xsd.txt",
+      "sha256": "9b7fa77be9372687f654f5013177e3f87db0ce598e43f534d6d7c1628d513b37",
+      "bytes": 44301,
+      "content_type": "text/plain",
+      "last_modified": "Thu, 28 Oct 2004 21:44:54 GMT",
+      "role": "dated-appendix-fragment"
+    },
+    {
+      "path": "upstream/datatypes.dtd.txt",
+      "url": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.dtd.txt",
+      "resolved_url": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.dtd.txt",
+      "sha256": "c68e6d52c3a8de2f69a794e8a332a232a78ea42fabffe956389475ed8fb9a8f1",
+      "bytes": 6314,
+      "content_type": "text/plain",
+      "last_modified": "Thu, 28 Oct 2004 21:44:54 GMT",
+      "role": "dated-appendix-fragment"
+    },
+    {
+      "path": "upstream/components.gif",
+      "url": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/components.gif",
+      "resolved_url": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/components.gif",
+      "sha256": "15358f6b9de65ff684798389a1a65f8153e431cc4afd0a386243cd030c04e3a1",
+      "bytes": 89283,
+      "content_type": "image/gif; qs=0.5",
+      "last_modified": "Thu, 28 Oct 2004 21:38:05 GMT",
+      "role": "rendering"
+    },
+    {
+      "path": "upstream/type-hierarchy.gif",
+      "url": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/type-hierarchy.gif",
+      "resolved_url": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/type-hierarchy.gif",
+      "sha256": "2a3d683369a2dec0a789c18aaa518ba86d06704434fefdaac113d6b7dcad2de7",
+      "bytes": 33041,
+      "content_type": "image/gif; qs=0.5",
+      "last_modified": "Thu, 28 Oct 2004 21:44:54 GMT",
+      "role": "rendering"
+    },
+    {
+      "path": "upstream/errata-second-edition.html",
+      "url": "https://www.w3.org/2004/03/xmlschema-errata.html",
+      "resolved_url": "https://www.w3.org/2004/03/xmlschema-errata.html",
+      "sha256": "d07bc24a7e631afd518f8442071f563fdf853fcba33ab996323eaa6081222ceb",
+      "bytes": 31742,
+      "content_type": "text/html; charset=utf-8",
+      "last_modified": "Thu, 19 Aug 2010 18:36:29 GMT",
+      "role": "approved-errata"
+    },
+    {
+      "path": "upstream/errata-first-edition.html",
+      "url": "https://www.w3.org/2001/05/xmlschema-errata.html",
+      "resolved_url": "https://www.w3.org/2001/05/xmlschema-errata.html",
+      "sha256": "c47f7e57736458564dab555c06ac9604533cd5f2ad97c1d27757209c3a3d2ac1",
+      "bytes": 679988,
+      "content_type": "text/html; charset=iso-8859-1",
+      "last_modified": "Fri, 15 Oct 2004 16:01:49 GMT",
+      "role": "historical-errata"
+    },
+    {
+      "path": "upstream/XMLSchema.xsd",
+      "url": "https://www.w3.org/2001/XMLSchema.xsd",
+      "resolved_url": "https://www.w3.org/2001/XMLSchema.xsd",
+      "sha256": "e767a159c179bd6e4dc2bac2a63a62f50cbd027ec19d6b5cc9eb1c2f33e0cb2e",
+      "bytes": 87677,
+      "content_type": "application/xml",
+      "last_modified": "Sat, 20 Mar 2004 12:53:09 GMT",
+      "role": "undated-independent-distribution"
+    },
+    {
+      "path": "upstream/XMLSchema-datatypes.xsd",
+      "url": "https://www.w3.org/2001/XMLSchema-datatypes.xsd",
+      "resolved_url": "https://www.w3.org/2001/XMLSchema-datatypes.xsd",
+      "sha256": "052c88327a4c73d66fc39efdb1ae4cabd4f4e2e1210207e0448e23cd8d23aa4a",
+      "bytes": 4576,
+      "content_type": "application/xml",
+      "last_modified": "Sat, 08 Jun 2002 21:08:08 GMT",
+      "role": "undated-independent-distribution"
+    },
+    {
+      "path": "upstream/XMLSchema.dtd",
+      "url": "https://www.w3.org/2001/XMLSchema.dtd",
+      "resolved_url": "https://www.w3.org/2001/XMLSchema.dtd",
+      "sha256": "2032ead9fd47a61b22fe56aa02be1840bd9bb9015b0c0d3f1e8aac75dd91c3b9",
+      "bytes": 16075,
+      "content_type": "application/xml-dtd",
+      "last_modified": "Thu, 25 Oct 2001 10:37:11 GMT",
+      "role": "undated-independent-distribution"
+    },
+    {
+      "path": "upstream/datatypes.dtd",
+      "url": "https://www.w3.org/2001/datatypes.dtd",
+      "resolved_url": "https://www.w3.org/2001/datatypes.dtd",
+      "sha256": "6946432ca7af2e9584f91b48564111fd2c73c8debbbcd9a0e3f5ddd382eeb51c",
+      "bytes": 6357,
+      "content_type": "application/xml-dtd",
+      "last_modified": "Fri, 16 Mar 2001 19:01:14 GMT",
+      "role": "undated-independent-distribution"
+    },
+    {
+      "path": "upstream/xml.xsd",
+      "url": "https://www.w3.org/2001/xml.xsd",
+      "resolved_url": "https://www.w3.org/2001/xml.xsd",
+      "sha256": "61960fb3131e38022caad5360e2f33a3382578ab3c80cd58bd74320ede61b20c",
+      "bytes": 8836,
+      "content_type": "application/xml",
+      "last_modified": "Wed, 21 Jan 2009 22:06:40 GMT",
+      "role": "undated-independent-distribution"
+    },
+    {
+      "path": "upstream/next.jpg",
+      "url": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/next.jpg",
+      "resolved_url": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/next.jpg",
+      "sha256": "61d2a2606462b764e51ab20a56f199bc48efbb6fbb04364206854d94b3059d18",
+      "bytes": 452,
+      "content_type": "image/jpeg; qs=0.8",
+      "last_modified": "Thu, 28 Oct 2004 21:38:05 GMT",
+      "role": "rendering"
+    },
+    {
+      "path": "upstream/previous.jpg",
+      "url": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/previous.jpg",
+      "resolved_url": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/previous.jpg",
+      "sha256": "21d81bfef6cc24c7e4433f2104db9aa6f27a3ea5cdd59a1455249a1402879f16",
+      "bytes": 454,
+      "content_type": "image/jpeg; qs=0.8",
+      "last_modified": "Thu, 28 Oct 2004 21:38:05 GMT",
+      "role": "rendering"
+    },
+    {
+      "path": "dependencies/xml-1.0-second-edition.html",
+      "url": "https://www.w3.org/TR/2000/REC-xml-20001006",
+      "resolved_url": "https://www.w3.org/TR/2000/REC-xml-20001006",
+      "sha256": "e5350fb462ada6babfc43d72263a955bddf78605180457c6e006886f60a89b67",
+      "bytes": 196460,
+      "content_type": "text/html; charset=iso-8859-1",
+      "last_modified": "Tue, 09 Oct 2018 13:32:08 GMT",
+      "role": "cited-dependency"
+    },
+    {
+      "path": "dependencies/namespaces-1999.html",
+      "url": "https://www.w3.org/TR/1999/REC-xml-names-19990114/",
+      "resolved_url": "https://www.w3.org/TR/1999/REC-xml-names-19990114/",
+      "sha256": "3cfed2a7ea34bd5b45f4d88046928afc2efcd9e9fd3cf161313c7ab094e1c298",
+      "bytes": 48078,
+      "content_type": "text/html; charset=iso-8859-1",
+      "last_modified": "Mon, 02 Oct 2017 11:15:22 GMT",
+      "role": "cited-dependency"
+    },
+    {
+      "path": "dependencies/infoset-20010316.html",
+      "url": "https://www.w3.org/TR/2001/WD-xml-infoset-20010316/",
+      "resolved_url": "https://www.w3.org/TR/2001/WD-xml-infoset-20010316/",
+      "sha256": "a1cd003f9ad2ec79f393b7af9ea87164855513bb2e497123a178705c065f7b2e",
+      "bytes": 43381,
+      "content_type": "text/html; charset=iso-8859-1",
+      "last_modified": "Mon, 02 Oct 2017 10:24:41 GMT",
+      "role": "cited-dependency"
+    },
+    {
+      "path": "dependencies/xpath-1.0.html",
+      "url": "https://www.w3.org/TR/1999/REC-xpath-19991116",
+      "resolved_url": "https://www.w3.org/TR/1999/REC-xpath-19991116/",
+      "sha256": "bf0d586e06b83cfcd60da4c6fe4c3841d3ecb10d3381e98b83b9e582cd0e9384",
+      "bytes": 117524,
+      "content_type": "text/html; charset=iso-8859-1",
+      "last_modified": "Mon, 02 Oct 2017 10:22:05 GMT",
+      "role": "cited-dependency"
+    },
+    {
+      "path": "dependencies/xlink-1.0.html",
+      "url": "https://www.w3.org/TR/2001/REC-xlink-20010627/",
+      "resolved_url": "https://www.w3.org/TR/2001/REC-xlink-20010627/",
+      "sha256": "7abd10b32c87e7c2d9312c9d0cbb4eb1b946898df72fd22b6eb5a2ffed3413e1",
+      "bytes": 109049,
+      "content_type": "text/html; charset=iso-8859-1",
+      "last_modified": "Mon, 02 Oct 2017 10:23:52 GMT",
+      "role": "cited-dependency"
+    },
+    {
+      "path": "dependencies/rfc1766.txt",
+      "url": "https://www.rfc-editor.org/rfc/rfc1766.txt",
+      "resolved_url": "https://www.rfc-editor.org/rfc/rfc1766.txt",
+      "sha256": "2588b2a99bb5f81a4140a25ff44e88660655d72c3ff29fd051be4d68c3452630",
+      "bytes": 16966,
+      "content_type": "text/plain;charset=utf-8",
+      "last_modified": null,
+      "role": "historical-dependency"
+    },
+    {
+      "path": "dependencies/rfc2045.txt",
+      "url": "https://www.rfc-editor.org/rfc/rfc2045.txt",
+      "resolved_url": "https://www.rfc-editor.org/rfc/rfc2045.txt",
+      "sha256": "9bb251635dd37fda97dcce6c08dea019432117a0f1e389051d2ecbf7b76350b0",
+      "bytes": 72932,
+      "content_type": "text/plain;charset=utf-8",
+      "last_modified": null,
+      "role": "cited-dependency"
+    },
+    {
+      "path": "dependencies/rfc2396.txt",
+      "url": "https://www.rfc-editor.org/rfc/rfc2396.txt",
+      "resolved_url": "https://www.rfc-editor.org/rfc/rfc2396.txt",
+      "sha256": "67866c0aaa65b29372b4c7ca80ffdfa6caee825088593f4b8b296bff3c05cdc7",
+      "bytes": 84503,
+      "content_type": "text/plain;charset=utf-8",
+      "last_modified": null,
+      "role": "cited-dependency"
+    },
+    {
+      "path": "dependencies/rfc2732.txt",
+      "url": "https://www.rfc-editor.org/rfc/rfc2732.txt",
+      "resolved_url": "https://www.rfc-editor.org/rfc/rfc2732.txt",
+      "sha256": "dadcad8a716449d06d3ad42f2428c09b68af5424a382185d244d1eeec1a5076e",
+      "bytes": 7984,
+      "content_type": "text/plain;charset=utf-8",
+      "last_modified": null,
+      "role": "cited-dependency"
+    },
+    {
+      "path": "dependencies/rfc3066.txt",
+      "url": "https://www.rfc-editor.org/rfc/rfc3066.txt",
+      "resolved_url": "https://www.rfc-editor.org/rfc/rfc3066.txt",
+      "sha256": "87e4dc0a85dde4e5161bb63384a69cd43cf5e52aceab46c3a9729c0b91778b24",
+      "bytes": 26522,
+      "content_type": "text/plain;charset=utf-8",
+      "last_modified": null,
+      "role": "cited-dependency"
+    },
+    {
+      "path": "dependencies/UnicodeData-3.1.0.txt",
+      "url": "https://www.unicode.org/Public/3.1-Update/UnicodeData-3.1.0.txt",
+      "resolved_url": "https://www.unicode.org/Public/3.1-Update/UnicodeData-3.1.0.txt",
+      "sha256": "8e57884da0da3a66782b8a6332a601fccbcae9ed0060e12501aca02fa56ffecd",
+      "bytes": 780369,
+      "content_type": "text/plain; charset=utf-8",
+      "last_modified": "Tue, 27 Feb 2001 09:37:16 GMT",
+      "role": "cited-dependency"
+    },
+    {
+      "path": "dependencies/Blocks-3.1.0.txt",
+      "url": "https://www.unicode.org/Public/3.1-Update/Blocks-4.txt",
+      "resolved_url": "https://www.unicode.org/Public/3.1-Update/Blocks-4.txt",
+      "sha256": "00cdecb26876e7576abb724e39fafb78be24c2f34fe59b94deb70e8262f7bba5",
+      "bytes": 2866,
+      "content_type": "text/plain; charset=utf-8",
+      "last_modified": "Tue, 27 Feb 2001 09:33:54 GMT",
+      "role": "cited-dependency"
+    },
+    {
+      "path": "dependencies/document-license-2023.html",
+      "url": "https://www.w3.org/copyright/document-license-2023/",
+      "resolved_url": "https://www.w3.org/copyright/document-license-2023/",
+      "sha256": "888bd32d1e7b386edd688a588b70873d794563bd8ae9cdeb09089ea50d0da29d",
+      "bytes": 27473,
+      "content_type": "text/html; charset=UTF-8",
+      "last_modified": null,
+      "role": "reuse-terms"
+    },
+    {
+      "path": "dependencies/xml-base-2001.html",
+      "url": "https://www.w3.org/TR/2001/REC-xmlbase-20010627/",
+      "resolved_url": "https://www.w3.org/TR/2001/REC-xmlbase-20010627/",
+      "sha256": "ebd20c48e24921f44f1a72767c861c9902fe87b601f47ecf8fec2426896ab1e9",
+      "bytes": 24125,
+      "content_type": "text/html; charset=iso-8859-1",
+      "last_modified": "Mon, 02 Oct 2017 10:23:54 GMT",
+      "role": "cited-dependency"
+    },
+    {
+      "path": "dependencies/xpointer-20010108.html",
+      "url": "https://www.w3.org/TR/2001/WD-xptr-20010108/",
+      "resolved_url": "https://www.w3.org/TR/2001/WD-xptr-20010108/",
+      "sha256": "ba399be0b38bbcbca1f236631d1eed78510390a9e41e6b02693b0eb9d9e880ac",
+      "bytes": 94610,
+      "content_type": "text/html; charset=iso-8859-1",
+      "last_modified": "Mon, 02 Oct 2017 10:24:46 GMT",
+      "role": "cited-dependency"
+    },
+    {
+      "path": "dependencies/xml-schema-requirements.html",
+      "url": "https://www.w3.org/TR/1999/NOTE-xml-schema-req-19990215",
+      "resolved_url": "https://www.w3.org/TR/1999/NOTE-xml-schema-req-19990215",
+      "sha256": "3a76cec2f4d99a7988f70cac5ffad420536c912b31d02181e7cb6f46611d7a7f",
+      "bytes": 14995,
+      "content_type": "text/html; charset=iso-8859-1",
+      "last_modified": "Mon, 02 Oct 2017 11:00:28 GMT",
+      "role": "cited-dependency"
+    },
+    {
+      "path": "dependencies/xml-1.0-20000814.html",
+      "url": "https://www.w3.org/TR/2000/WD-xml-2e-20000814/",
+      "resolved_url": "https://www.w3.org/TR/2000/WD-xml-2e-20000814/",
+      "sha256": "b0a481bdc04a7e4d0ac5a63d7f4f6ade9832bf837feb50ee6e80f87027b198aa",
+      "bytes": 202143,
+      "content_type": "text/html; charset=iso-8859-1",
+      "last_modified": "Mon, 02 Oct 2017 10:22:28 GMT",
+      "role": "cited-dependency"
+    },
+    {
+      "path": "dependencies/unicode-3.1.html",
+      "url": "https://www.unicode.org/Public/3.1-Update/UnicodeCharacterDatabase-3.1.0.html",
+      "resolved_url": "https://www.unicode.org/Public/3.1-Update/UnicodeCharacterDatabase-3.1.0.html",
+      "sha256": "878c4ab29155ef2d54ad16a4a22dfee301ddaaef88176dc083d072d34cad171e",
+      "bytes": 15701,
+      "content_type": "text/html; charset=UTF-8",
+      "last_modified": "Thu, 01 Mar 2001 18:21:55 GMT",
+      "role": "cited-dependency"
+    },
+    {
+      "path": "upstream/note-xml11schema10-20050511.html",
+      "url": "https://www.w3.org/TR/2005/NOTE-xml11schema10-20050511/",
+      "resolved_url": "https://www.w3.org/TR/2005/NOTE-xml11schema10-20050511/",
+      "sha256": "28e2d297e1c613ff485fb933cec0cbaf8f818a92e0484be6c0e3a23e12751f62",
+      "bytes": 22475,
+      "content_type": "text/html; charset=utf-8",
+      "last_modified": "Tue, 09 Oct 2018 13:31:18 GMT",
+      "role": "related-note-not-baseline"
+    },
+    {
+      "path": "upstream/note-xsd-unicode-blocknames-20110609.html",
+      "url": "https://www.w3.org/TR/2011/NOTE-xsd-unicode-blocknames-20110609/",
+      "resolved_url": "https://www.w3.org/TR/2011/NOTE-xsd-unicode-blocknames-20110609/",
+      "sha256": "14cd362a2a2912fd24e1091ccb74036e156a86285167723964f27257eca06886",
+      "bytes": 57404,
+      "content_type": "text/html; charset=utf-8",
+      "last_modified": "Tue, 09 Oct 2018 13:25:22 GMT",
+      "role": "related-note-not-baseline"
+    },
+    {
+      "path": "upstream/note-xsd-precisionDecimal-20110609.html",
+      "url": "https://www.w3.org/TR/2011/NOTE-xsd-precisionDecimal-20110609/",
+      "resolved_url": "https://www.w3.org/TR/2011/NOTE-xsd-precisionDecimal-20110609/",
+      "sha256": "e4dd98b3e61c48932243b0ad432d4d8640e8b5caa0d222c9650f7cc39a5b0060",
+      "bytes": 85803,
+      "content_type": "text/html; charset=utf-8",
+      "last_modified": "Tue, 09 Oct 2018 13:24:35 GMT",
+      "role": "related-note-not-baseline"
+    },
+    {
+      "path": "dependencies/unicode-license.txt",
+      "url": "https://www.unicode.org/license.txt",
+      "resolved_url": "https://www.unicode.org/license.txt",
+      "sha256": "e7a93b009565cfce55919a381437ac4db883e9da2126fa28b91d12732bc53d96",
+      "bytes": 1995,
+      "content_type": "text/plain; charset=utf-8",
+      "last_modified": "Mon, 05 Jan 2026 15:17:23 GMT",
+      "role": "reuse-terms"
+    },
+    {
+      "path": "upstream/issue-10236.html",
+      "url": "https://www.w3.org/Bugs/Public/show_bug.cgi?id=10236",
+      "resolved_url": "https://www.w3.org/Bugs/Public/show_bug.cgi?id=10236",
+      "sha256": "5849ae602555cbeb39893d1409588a054086accca521a7e909def9ef43931081",
+      "bytes": 24657,
+      "content_type": "text/html; charset=utf-8",
+      "last_modified": "Tue, 02 Apr 2019 04:48:11 GMT",
+      "role": "interpretation-history-not-erratum"
+    },
+    {
+      "path": "upstream/issue-1937.html",
+      "url": "https://www.w3.org/Bugs/Public/show_bug.cgi?id=1937",
+      "resolved_url": "https://www.w3.org/Bugs/Public/show_bug.cgi?id=1937",
+      "sha256": "b708f48943dbeebc7ba913750a80b1e2c286184ddaadc95bbcb0a0bd5c45dffc",
+      "bytes": 13605,
+      "content_type": "text/html; charset=utf-8",
+      "last_modified": "Tue, 02 Apr 2019 04:11:06 GMT",
+      "role": "interpretation-history-not-erratum"
+    },
+    {
+      "path": "upstream/issue-2219.html",
+      "url": "https://www.w3.org/Bugs/Public/show_bug.cgi?id=2219",
+      "resolved_url": "https://www.w3.org/Bugs/Public/show_bug.cgi?id=2219",
+      "sha256": "aacd12c346f088e2c2183f656b06591442582524743bd38a99087424861cfd21",
+      "bytes": 16427,
+      "content_type": "text/html; charset=utf-8",
+      "last_modified": "Tue, 02 Apr 2019 04:11:06 GMT",
+      "role": "interpretation-history-not-erratum"
+    },
+    {
+      "path": "dependencies/rfc2373.txt",
+      "url": "https://www.rfc-editor.org/rfc/rfc2373.txt",
+      "resolved_url": "https://www.rfc-editor.org/rfc/rfc2373.txt",
+      "sha256": "ce445bc8fb3db984c050170699ba78b987ac83a9b7c5f7e027b471d6370615ae",
+      "bytes": 52547,
+      "content_type": "text/plain;charset=utf-8",
+      "last_modified": null,
+      "role": "transitive-normative-dependency",
+      "retrieved": "2026-10-17T14:18:07.062215+00:00"
+    },
+    {
+      "path": "dependencies/rfc2373-errata-455.html",
+      "url": "https://www.rfc-editor.org/errata/eid455",
+      "resolved_url": "https://errata.rfc-editor.org/eid455/",
+      "sha256": "3d8e97df0ed0c2cb555682814b49b480b9f41bb1b67a855499cfdebc6209bf5e",
+      "bytes": 7119,
+      "content_type": "text/html; charset=utf-8",
+      "last_modified": null,
+      "role": "dependency-errata-history",
+      "retrieved": "2026-10-17T14:18:07.256935+00:00"
+    },
+    {
+      "path": "dependencies/rfc2373-errata-456.html",
+      "url": "https://www.rfc-editor.org/errata/eid456",
+      "resolved_url": "https://errata.rfc-editor.org/eid456/",
+      "sha256": "02f46d62651059f0213f4aedb6009a9206082a7d66b70af572910b1cb56f7413",
+      "bytes": 8939,
+      "content_type": "text/html; charset=utf-8",
+      "last_modified": null,
+      "role": "dependency-errata-history",
+      "retrieved": "2026-10-17T14:18:07.436802+00:00"
+    },
+    {
+      "path": "dependencies/ieee754-1985.pdf",
+      "url": "https://ethw-images.s3.us-east-va.perf.cloud.ovh.us/ieee/d/d9/Ieee754-1985.pdf",
+      "resolved_url": "https://ethw-images.s3.us-east-va.perf.cloud.ovh.us/ieee/d/d9/Ieee754-1985.pdf",
+      "sha256": "398ad705b8ede85b9ba4e33873d14d57e1a7be5170de1e109690af5914f8cbf3",
+      "bytes": 50715,
+      "content_type": "application/pdf",
+      "last_modified": "Sat, 29 Nov 2025 00:25:39 GMT",
+      "role": "normative-dependency-reformatted-text",
+      "edition": "IEEE 754-1985 technical content, reformatted with declared spelling/punctuation corrections; not a publication facsimile.",
+      "retrieved": "2026-10-17T15:25:46.902522+00:00",
+      "discovery_url": "https://ieeemilestones.ethw.org/File:Ieee754-1985.pdf"
+    },
+    {
+      "path": "dependencies/clinger-1990-corrected.pdf",
+      "url": "https://scholarsbank.uoregon.edu/bitstreams/ba79372c-1283-483a-9915-24e45d1417dd/download",
+      "resolved_url": "https://scholarsbank.uoregon.edu/server/api/core/bitstreams/ba79372c-1283-483a-9915-24e45d1417dd/content",
+      "sha256": "30e03e5c0bafeb57182e196a34b854ca9bc28481ae262c6dca47d9e695bd33a9",
+      "bytes": 5764819,
+      "content_type": "application/pdf;charset=UTF-8",
+      "last_modified": "Tue, 20 Jun 2023 17:46:55 GMT",
+      "role": "normative-dependency-author-corrected-version",
+      "edition": "University of Oregon CIS-TR-90-01, 5 June 1990; author-corrected report, not the ACM proceedings artifact.",
+      "retrieved": "2026-10-17T15:25:46.915982+00:00"
+    },
+    {
+      "path": "dependencies/ieee754-1985-interpretation-2002.pdf",
+      "url": "https://standards.ieee.org/wp-content/uploads/import/documents/interpretations/754-1985_interp.pdf",
+      "resolved_url": "https://standards.ieee.org/wp-content/uploads/import/documents/interpretations/754-1985_interp.pdf",
+      "sha256": "cf730e92ed8f60cba69af31f66d4154e06fedcc5b986b575ab12e7348c52d911",
+      "bytes": 73212,
+      "content_type": "application/pdf",
+      "last_modified": "Fri, 21 Oct 2022 19:12:23 GMT",
+      "role": "dependency-interpretation-not-xsd-erratum",
+      "edition": "8 October 2002 interpretation of IEEE 754-1985 subclause 7.2; not an alteration to the standard or an XSD erratum.",
+      "retrieved": "2026-10-17T15:25:46.917138+00:00"
+    },
+    {
+      "path": "upstream/rec-comments.html",
+      "url": "https://www.w3.org/2001/05/xmlschema-rec-comments.html",
+      "resolved_url": "https://www.w3.org/2001/05/xmlschema-rec-comments.html",
+      "sha256": "bb34a962441ed00f30a625f1ae6ac8cd317af27ff40a78afb8f0b74bf59435cb",
+      "bytes": 490778,
+      "content_type": "text/html; charset=iso-8859-1",
+      "last_modified": "Thu, 08 Sep 2005 18:50:03 GMT",
+      "retrieved": "2026-10-19T11:38:14.155185+00:00",
+      "role": "interpretation-history-not-erratum"
+    },
+    {
+      "path": "upstream/nsrecurse-reply-2004.html",
+      "url": "https://lists.w3.org/Archives/Public/www-xml-schema-comments/2004JanMar/0000.html",
+      "resolved_url": "https://lists.w3.org/Archives/Public/www-xml-schema-comments/2004JanMar/0000.html",
+      "sha256": "31cf64bf4bafd2e2f4746837c46bc15f5d7ecdbd4da97cbc38cbc601a2b03936",
+      "bytes": 11292,
+      "content_type": "text/html",
+      "last_modified": "Thu, 13 Jul 2023 17:44:58 GMT",
+      "retrieved": "2026-10-19T11:38:14.390289+00:00",
+      "role": "interpretation-history-not-erratum"
+    },
+    {
+      "path": "upstream/substitution-order-reply-2002.html",
+      "url": "https://lists.w3.org/Archives/Public/www-xml-schema-comments/2002JanMar/0512.html",
+      "resolved_url": "https://lists.w3.org/Archives/Public/www-xml-schema-comments/2002JanMar/0512.html",
+      "sha256": "e4358a947bc3bc0553a715a82a9cbb726d657bb565385b316708f61bbc11156c",
+      "bytes": 9325,
+      "content_type": "text/html",
+      "last_modified": "Thu, 13 Jul 2023 17:44:56 GMT",
+      "retrieved": "2026-10-19T11:38:14.548360+00:00",
+      "role": "interpretation-history-not-erratum"
+    }
+  ],
+  "failures": [],
+  "purpose": "Historical acquisition provenance only; not a corpus inventory or current bundled-file inventory.",
+  "path_semantics": "Source path entries are historical audit download locations. Bulk upstream/dependency snapshots are not bundled; preexisting xml/ source copies remain separately retained historical aids."
+}

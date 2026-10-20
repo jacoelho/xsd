@@ -1,26 +1,42 @@
-# Local XSD 1.0 Reference
+# XSD 1.0 reference notes
 
-Use this directory to locate the relevant standards rule before changing schema
-or validation semantics. The Markdown files are searchable topic guides; the
-W3C XML snapshots under `xml/` preserve clause IDs cited by those guides.
+The oracle baseline is the English **28 October 2004 Second Edition**, read
+with approved later errata. These notes record source authority and decisions;
+they do not replace the specifications or assert exhaustive corpus coverage.
 
-| Question | Start here | Typical implementation owner |
-| --- | --- | --- |
-| Schema shape and basic terminology | `01_primer.md` | `internal/schema` |
-| Element and attribute declarations, defaults, fixed values, qualification | `02_elements_and_attributes.md` | `internal/schema`, `internal/validate` |
-| Complex types, particles, derivation, wildcards, abstract types | `03_complex_types.md` | `internal/schema` |
-| `unique`, `key`, `keyref`, selectors, and fields | `04_identity_constraints.md` | `internal/schema`, `internal/validate` |
-| Assessment order, `xsi:type`, `xsi:nil`, and validity rules | `05_validation.md` | `internal/validate` |
-| Simple types, lexical/value spaces, facets, and whitespace | `06_data_types.md` | `internal/value`, `internal/schema` |
-| Namespace declarations, form defaults, include/import, and composition | `07_namespaces.md` | `internal/xmlstream`, `internal/source`, `internal/schema` |
-| Schema components, groups, annotations, notations, and uniqueness | `08_schema_components.md` | `internal/schema` |
+| Reference | Purpose |
+| --- | --- |
+| [Sources](SOURCES.md) | Authoritative editions, appendix scope and dependency-version caveats. |
+| [Corrected reading](corrected-reading.md) | The seven E1-56 changes and their PSVI scope. |
+| [Interpretations](INTERPRETATIONS.md) | Published-rule decisions, WG clarifications and unresolved boundaries. |
+| [Provenance](source-manifest.json) | Historical source URLs, retrieval metadata, byte lengths and SHA-256 hashes. Paths identify audit download locations, not a bundled-file inventory. |
+| [Attribution](NOTICE.md) | Source notices and reuse terms. |
 
-Search by the specification term or constraint code before translating it into
-repository vocabulary. Record the exact rule in the focused regression test.
-Use `ARCHITECTURE.md` to locate the authoritative module and `tests/README.md`
-to select the evidence surface.
+Read the published [Primer](https://www.w3.org/TR/2004/REC-xmlschema-0-20041028/primer.html),
+[Structures](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html)
+and [Datatypes](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html)
+online. Bulk publication/dependency archives and the research scenario catalogue
+are not bundled. The preexisting `xml/` sources remain as historical reference;
+they contain deleted text and generated/external placeholders, so use published
+HTML for semantic reading. Historical `*-with-errata.html` views compare 2001
+with 2004 and do not incorporate E1-56.
 
-These guides do not define supported behavior. XSD 1.0 and XML 1.0 requirements,
-the repository's explicit public contract, and deliberate unsupported cases are
-authoritative. If a guide conflicts with them, correct or remove the guide; do
-not create a second implementation interpretation.
+The topic guides remain navigation aids:
+
+| Topic | Guide |
+| --- | --- |
+| Basic schema vocabulary | [Primer](01_primer.md) |
+| Declarations, defaults, fixed values and form | [Elements and attributes](02_elements_and_attributes.md) |
+| Particles, derivation and wildcards | [Complex types](03_complex_types.md) |
+| Keys, unique constraints and references | [Identity constraints](04_identity_constraints.md) |
+| Assessment, xsi:type and xsi:nil | [Validation](05_validation.md) |
+| Lexical/value spaces and facets | [Datatypes](06_data_types.md) |
+| Namespace admission and composition | [Namespaces](07_namespaces.md) |
+| Groups, annotations and notations | [Schema components](08_schema_components.md) |
+
+[ARCHITECTURE.md](../../ARCHITECTURE.md) owns implementation boundaries;
+[tests/README.md](../../tests/README.md) owns corpus operation.
+`tests/manifest.json` remains the only inventory and expectation authority.
+Cite the exact source rule for new cases. Preserve unresolved oracles,
+unobservable outputs and deliberate product limits separately from executed
+coverage; processor agreement is diagnostic evidence, not an oracle.

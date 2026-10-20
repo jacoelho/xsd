@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:corpus:oracle-ordering" targetNamespace="urn:corpus:oracle-ordering" elementFormDefault="qualified" attributeFormDefault="unqualified">
+  <xs:element name="h" type="xs:string" block="" final="" abstract="true"/>
+  <xs:element name="m" type="xs:string" block="" final="" substitutionGroup="t:h"/>
+  <xs:element name="c" type="xs:string" block="" final=""/>
+  <xs:complexType name="B" final="" block=""><xs:sequence><xs:element ref="t:m" minOccurs="1" maxOccurs="1"/></xs:sequence></xs:complexType>
+  <xs:element name="base" type="t:B" block="" final=""/>
+  <xs:complexType name="D" final="" block=""><xs:complexContent><xs:restriction base="t:B"><xs:sequence><xs:element ref="t:h" minOccurs="1" maxOccurs="1"/></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>
+  <xs:element name="derived" type="t:D" block="" final=""/>
+</xs:schema>

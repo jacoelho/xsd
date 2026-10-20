@@ -6,7 +6,9 @@ from an `io.Reader` without building a document tree or storing the full XML.
 Requires Go 1.27 or newer. Accepts UTF-8 XSD 1.0 and XML 1.0. DTDs, external
 entities, XML 1.1, and `xs:redefine` are unsupported. Schema sources are explicit:
 the library does not fetch schemas over the network, and instance
-`xsi:schemaLocation` hints never trigger loading.
+`xsi:schemaLocation` hints never supply components. Validation uses the compiled
+component set and reports missing required declarations or types as validation
+errors. Hint syntax and resource limits still apply.
 
 ## Install and validate
 

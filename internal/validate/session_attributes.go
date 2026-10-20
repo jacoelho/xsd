@@ -190,10 +190,7 @@ type declaredAttributePlan struct {
 func newDeclaredAttributePlan(use xsdSchema.AttributeUseRead, target identityValueTarget, input xsdValue.InputRequirements) declaredAttributePlan {
 	fixed, hasFixed := use.FixedValue()
 	var needs xsdValue.Needs
-	if hasFixed {
-		needs |= xsdValue.NeedCanonical
-	}
-	if target.needsIdentity() || hasFixed && use.FixedUsesValueSpace() {
+	if target.needsIdentity() || hasFixed && (use.FixedUsesValueSpace() || input.NeedsQName) {
 		needs |= xsdValue.NeedIdentity
 	}
 	return declaredAttributePlan{use: use, target: target, fixed: fixed, needs: needs, hasFixed: hasFixed, input: input}
@@ -205,6 +202,12 @@ func (p declaredAttributePlan) canValidateFixedString() bool {
 
 func (p declaredAttributePlan) canValidateRaw() bool {
 	return !p.target.needsIdentity() && !p.hasFixed
+}
+
+func (p declaredAttributePlan) fixedUsesValueSpace(actual xsdValue.Value) bool {
+	// QName/NOTATION projections are expanded-name keys, not canonical
+	// XML spellings. Only accepted members select this qualified policy.
+	return p.use.FixedUsesValueSpace() || actual.HasQualifiedNames() || p.fixed.Value().HasQualifiedNames()
 }
 
 func (s *session) validateDeclaredAttributeFast(plan declaredAttributePlan, attr *xmlstream.Attr, rn xsdSchema.RuntimeName, ctx StartContext) (bool, error) {
@@ -240,7 +243,7 @@ func validateFixedAttributeString(value string, fixed xsdSchema.ValueConstraintR
 
 func (s *session) validateDeclaredAttributeValue(plan declaredAttributePlan, lexical string, rn xsdSchema.RuntimeName, ctx StartContext) error {
 	typeID := plan.use.TypeID()
-	value, err := s.validateAdmittedSimpleValue(typeID, lexical, plan.input, plan.needs)
+	value, normalized, err := s.rt.ValueProgram().ValidateAdmittedNormalized(typeID, lexical, s.simpleValueQNameResolver(plan.input), plan.needs, s.limits.InstanceValueWork, &s.valueScratch)
 	if err != nil {
 		return s.declaredAttributeValueError(plan.target, rn, ctx, err)
 	}
@@ -251,12 +254,12 @@ func (s *session) validateDeclaredAttributeValue(plan declaredAttributePlan, lex
 		return err
 	}
 	if plan.hasFixed {
-		comparison := xsdSchema.FixedAttributeComparisonLexical
-		if plan.use.FixedUsesValueSpace() {
-			comparison = xsdSchema.FixedAttributeComparisonValueSpace
-		}
-		if err := s.validateFixedAttributeValue(value, plan.fixed, comparison, plan.target, ctx, rn.Label()); err != nil {
-			return err
+		if plan.fixedUsesValueSpace(value) {
+			if err := s.validateFixedAttributeValue(value, plan.fixed, plan.target, ctx, rn.Label()); err != nil {
+				return err
+			}
+		} else if err := validateFixedAttributeString(normalized, plan.fixed, rn, ctx); err != nil {
+			return s.rejectAttributeIdentityValue(plan.target, ctx, err)
 		}
 	}
 	return s.doc.identity.commitValue(plan.target)
@@ -287,7 +290,7 @@ func (s *session) validateWildcardAttribute(
 		return true, xsderrors.InternalInvariant("attribute wildcard state is invalid")
 	}
 	switch match.disposition {
-	case attributeWildcardNoMatch:
+	case attributeWildcardNoMatch, attributeWildcardStrictMissing:
 		return false, nil
 	case attributeWildcardSkip, attributeWildcardLaxMissing:
 		return true, s.rejectUnassessedIdentityAttribute(rn, ctx, identityMissingSimpleValue)
@@ -297,11 +300,6 @@ func (s *session) validateWildcardAttribute(
 			return true, xsderrors.InternalInvariant("attribute wildcard matched invalid declaration")
 		}
 		return true, s.validateKnownWildcardAttribute(decl, rn, s.attributeValue(attr), ctx)
-	case attributeWildcardStrictMissing:
-		if s.hasSchemaLocationHint(rn.NS) {
-			return true, unsupportedSchemaLocation(ctx, vocab.XSDElemAttribute, rn)
-		}
-		return false, nil
 	}
 	return true, xsderrors.InternalInvariant("attribute wildcard match disposition is invalid")
 }
@@ -399,7 +397,7 @@ func (s *session) commitKnownWildcardAttributeValue(identityTarget identityValue
 		return err
 	}
 	if fixed.present {
-		if err := s.validateFixedAttributeValue(value, fixed.value, xsdSchema.FixedAttributeComparisonValueSpace, identityTarget, ctx, rn.Label()); err != nil {
+		if err := s.validateFixedAttributeValue(value, fixed.value, identityTarget, ctx, rn.Label()); err != nil {
 			return err
 		}
 	}
@@ -412,12 +410,11 @@ func (s *session) commitKnownWildcardAttributeValue(identityTarget identityValue
 func (s *session) validateFixedAttributeValue(
 	actual xsdValue.Value,
 	fixed xsdSchema.ValueConstraintRead,
-	comparison xsdSchema.FixedAttributeComparison,
 	identityTarget identityValueTarget,
 	ctx StartContext,
 	label string,
 ) error {
-	equal, valid := fixedAttributeValueEqual(actual, fixed, comparison)
+	equal, valid := xsdSchema.FixedAttributeValueEqual(actual, fixed)
 	if equal {
 		return nil
 	}
@@ -428,10 +425,6 @@ func (s *session) validateFixedAttributeValue(
 		return xsderrors.InternalInvariant("fixed attribute value-space identity is missing")
 	}
 	return attributeValidation(ctx, "fixed attribute mismatch "+label)
-}
-
-func fixedAttributeValueEqual(actual xsdValue.Value, fixed xsdSchema.ValueConstraintRead, comparison xsdSchema.FixedAttributeComparison) (equal, valid bool) {
-	return xsdSchema.FixedAttributeValueEqual(actual, fixed, comparison)
 }
 
 func (s *session) validateAttributeTypeAvailable(id xsdSchema.SimpleTypeID, label string, ctx StartContext) error {
@@ -556,15 +549,4 @@ func (s *session) recordSchemaLocationHints(attrs []xmlstream.Attr, line, col in
 		},
 		s.startContext(line, col),
 	)
-}
-
-func (s *session) hasSchemaLocationHint(ns string) bool {
-	return s.doc.schemaLocationHints.Has(ns)
-}
-
-func (s *session) schemaLocationHintLookup() HasSchemaLocation {
-	if s.doc.schemaLocationHints.namespaces == nil {
-		return nil
-	}
-	return s.hasSchemaLocationHint
 }

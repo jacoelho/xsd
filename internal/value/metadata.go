@@ -85,6 +85,78 @@ func (b *Builder) TypeView(id TypeID) (TypeView, bool) {
 	return view, true
 }
 
+// NotationWithoutEnumeration reports whether a completed type is atomic
+// NOTATION without any effective enumeration. Restriction bases may have this
+// property; the schema owner decides which references are actual type uses.
+func (b *Builder) NotationWithoutEnumeration(id TypeID) (bare, ok bool) {
+	t, ok := b.completedTypeDef(id)
+	if !ok {
+		return false, false
+	}
+	return t.variety == Atomic && t.primitive == PrimitiveNotation && len(t.facets.enumGroups) == 0, true
+}
+
+// ConstructorUses is an immutable view of immediate list-item or union-member
+// type uses. Atomic restriction bases are excluded. Its zero value is empty.
+// A returned view remains valid across further construction and sealing.
+type ConstructorUses struct {
+	members []TypeID
+	item    TypeID
+	list    bool
+}
+
+// Len returns the number of immediate constructor uses.
+func (u ConstructorUses) Len() int {
+	if u.list {
+		return 1
+	}
+	return len(u.members)
+}
+
+// At returns the type at index, or false when index is outside the view.
+func (u ConstructorUses) At(index int) (TypeID, bool) {
+	if index < 0 || index >= u.Len() {
+		return NoType, false
+	}
+	if u.list {
+		return u.item, true
+	}
+	return u.members[index], true
+}
+
+// ConstructorUses borrows immutable dependencies from a completed definition.
+// Invalid, reserved or sealed builder queries return false rather than an empty
+// successful view. Committed definitions cannot be completed again.
+func (b *Builder) ConstructorUses(id TypeID) (ConstructorUses, bool) {
+	t, ok := b.completedTypeDef(id)
+	if !ok {
+		return ConstructorUses{}, false
+	}
+	switch t.variety {
+	case Atomic:
+		return ConstructorUses{}, true
+	case List:
+		return ConstructorUses{item: t.listItem, list: true}, true
+	case Union:
+		return ConstructorUses{members: t.union}, true
+	default:
+		return ConstructorUses{}, false
+	}
+}
+
+func (b *Builder) completedTypeDef(id TypeID) (*typeDef, bool) {
+	if b == nil || b.program == nil || b.program.sealed {
+		return nil, false
+	}
+	if id >= BuiltinTypeCount {
+		i := id - BuiltinTypeCount
+		if uint64(i) >= uint64(len(b.program.complete)) || b.program.complete[i] != completionCommitted {
+			return nil, false
+		}
+	}
+	return b.program.typeDef(id)
+}
+
 func (p *Program) typeNeedsQName(id TypeID, active map[TypeID]struct{}, depth int) bool {
 	t, ok := p.typeDef(id)
 	if !ok {

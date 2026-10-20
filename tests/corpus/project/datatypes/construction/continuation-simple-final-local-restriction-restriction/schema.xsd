@@ -1,0 +1,5 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" finalDefault="#all">
+<xs:simpleType name="B" final="restriction"><xs:restriction base="xs:integer"/></xs:simpleType>
+<xs:simpleType name="D" final=""><xs:restriction base="B"><xs:minInclusive value="0"/></xs:restriction></xs:simpleType>
+<xs:element name="r" type="D"/>
+</xs:schema>

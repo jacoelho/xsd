@@ -1186,7 +1186,8 @@ func TestFreezeRejectsIDAttributeSchemaInvariantDrift(t *testing.T) {
 func TestFreezeRejectsBareNotationElementValueConstraint(t *testing.T) {
 	rt := mutableSchemaBuild(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:notation name="gif" public="image/gif"/>
-  <xs:element name="root" type="xs:NOTATION"/>
+  <xs:simpleType name="N"><xs:restriction base="xs:NOTATION"><xs:enumeration value="gif"/></xs:restriction></xs:simpleType>
+  <xs:element name="root" type="N"/>
 </xs:schema>`)
 	if err := validateSchemaBuild(rt); err != nil {
 		t.Fatalf("ValidateSchema() before mutation error = %v", err)
@@ -1200,6 +1201,7 @@ func TestFreezeRejectsBareNotationElementValueConstraint(t *testing.T) {
 	if !ok {
 		t.Fatal("NOTATION builtin is not a simple type")
 	}
+	rt.Elements[root].Type = xsdSchema.SimpleRef(notationID)
 	rt.Elements[root].Default = buildValueConstraint(t, rt, notationID, "gif")
 	err := validateSchemaBuild(rt)
 	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
@@ -1369,31 +1371,6 @@ func TestFreezeRejectsInvalidContentModelShape(t *testing.T) {
 			},
 		},
 		{
-			name: "unsorted choice limits",
-			mutate: func(t *testing.T, rt *xsdSchema.SchemaBuild) {
-				t.Helper()
-				model := &rt.Models[rootBuildContentModel(t, rt)]
-				model.ChoiceLimits = []uint32{1, 0}
-			},
-		},
-		{
-			name: "unjustified choice limits",
-			mutate: func(t *testing.T, rt *xsdSchema.SchemaBuild) {
-				t.Helper()
-				model := &rt.Models[rootBuildContentModel(t, rt)]
-				model.ChoiceLimits = []uint32{1}
-			},
-		},
-		{
-			name: "choice limit on non-sequence",
-			mutate: func(t *testing.T, rt *xsdSchema.SchemaBuild) {
-				t.Helper()
-				model := &rt.Models[rootBuildContentModel(t, rt)]
-				model.Kind = xsdSchema.ModelChoice
-				model.ChoiceLimits = []uint32{1}
-			},
-		},
-		{
 			name: "any model inactive state",
 			mutate: func(t *testing.T, rt *xsdSchema.SchemaBuild) {
 				t.Helper()
@@ -1413,49 +1390,6 @@ func TestFreezeRejectsInvalidContentModelShape(t *testing.T) {
 			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 		})
 	}
-}
-
-func TestFreezeRejectsLimitedContentModelSharedByNonRestriction(t *testing.T) {
-	rt := mutableSchemaBuild(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:complexType name="Base">
-    <xs:sequence>
-      <xs:choice maxOccurs="unbounded">
-        <xs:element name="a" type="xs:string"/>
-        <xs:element name="b" type="xs:string"/>
-      </xs:choice>
-    </xs:sequence>
-  </xs:complexType>
-  <xs:complexType name="Derived">
-    <xs:complexContent>
-      <xs:restriction base="Base">
-        <xs:sequence><xs:element name="a" type="xs:string" maxOccurs="unbounded"/></xs:sequence>
-      </xs:restriction>
-    </xs:complexContent>
-  </xs:complexType>
-  <xs:complexType name="Other">
-    <xs:sequence><xs:element name="other" type="xs:string"/></xs:sequence>
-  </xs:complexType>
-</xs:schema>`)
-	if err := validateSchemaBuild(rt); err != nil {
-		t.Fatalf("ValidateSchema() before mutation error = %v", err)
-	}
-	limited := xsdSchema.NoContentModel
-	for id, model := range rt.Models {
-		if len(model.ChoiceLimits) != 0 {
-			limited = xsdSchema.ContentModelID(id)
-			break
-		}
-	}
-	if limited == xsdSchema.NoContentModel {
-		t.Fatal("no limited content model found")
-	}
-	otherID, ok := rt.GlobalTypes[mustQName(t, &rt.Names, "Other")].Complex()
-	if !ok {
-		t.Fatal("Other is not complex")
-	}
-	rt.ComplexTypes[otherID].Content = limited
-	err := validateSchemaBuild(rt)
-	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 }
 
 func TestFreezeRejectsComplexExtensionDroppingOptionalBaseParticle(t *testing.T) {
@@ -1513,6 +1447,63 @@ func TestPublishSchemaRejectsInvalidComplexContentRestrictionAndAllowsRetry(t *t
 	build.ComplexTypes[derived].Content = validContent
 	if _, err := publishSchema(build); err != nil {
 		t.Fatalf("PublishSchema() retry error = %v", err)
+	}
+}
+
+func TestPublishSchemaSubstitutionRestrictionFailurePreservesBuildAndBudget(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="H" type="xs:string"/>
+  <xs:element name="a" type="xs:string" substitutionGroup="H"/>
+  <xs:element name="b" type="xs:string" substitutionGroup="H"/>
+  <xs:complexType name="Base">
+    <xs:sequence><xs:element ref="H" minOccurs="2" maxOccurs="2"/></xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Derived">
+    <xs:complexContent><xs:restriction base="Base"><xs:sequence><xs:element ref="a"/><xs:element ref="b"/></xs:sequence></xs:restriction></xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="Other">
+    <xs:sequence><xs:element name="c" type="xs:string"/><xs:element name="d" type="xs:string"/></xs:sequence>
+  </xs:complexType>
+</xs:schema>`
+	build := mutableSchemaBuild(t, schema)
+	derived := complexBuildTypeIDByName(t, build, "Derived")
+	other := complexBuildTypeIDByName(t, build, "Other")
+	validContent := build.ComplexTypes[derived].Content
+	build.ComplexTypes[derived].Content = build.ComplexTypes[other].Content
+	expected := mutableSchemaBuild(t, schema)
+	expectedDerived := complexBuildTypeIDByName(t, expected, "Derived")
+	expectedOther := complexBuildTypeIDByName(t, expected, "Other")
+	expected.ComplexTypes[expectedDerived].Content = expected.ComplexTypes[expectedOther].Content
+
+	const initialBudget = 100_000
+	remaining := initialBudget
+	budgetExceeded := errors.New("publication content work exhausted")
+	work := func(steps int) error {
+		remaining -= steps
+		if remaining < 0 {
+			return budgetExceeded
+		}
+		return nil
+	}
+	published, err := xsdSchema.PublishSchema(build, work)
+	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+	if published != nil || !reflect.DeepEqual(*build, *expected) {
+		t.Fatal("failed substitution restriction audit changed or consumed build")
+	}
+	if remaining >= initialBudget || remaining < 0 {
+		t.Fatalf("failed publication remaining work = %d, want charged work within budget", remaining)
+	}
+	remainingAfterFailure := remaining
+	build.ComplexTypes[derived].Content = validContent
+	published, err = xsdSchema.PublishSchema(build, work)
+	if err != nil {
+		t.Fatalf("PublishSchema() retry with remaining work error = %v", err)
+	}
+	if published == nil || !reflect.DeepEqual(*build, xsdSchema.SchemaBuild{}) {
+		t.Fatal("successful substitution restriction audit did not consume build")
+	}
+	if remaining >= remainingAfterFailure || remaining < 0 {
+		t.Fatalf("successful publication remaining work = %d, want additional charged work within remaining budget %d", remaining, remainingAfterFailure)
 	}
 }
 

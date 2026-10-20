@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:notation name="a" public="urn:a"/><xs:notation name="ab" public="urn:ab"/><xs:notation name="abc" public="urn:abc"/><xs:simpleType name="N"><xs:restriction base="xs:NOTATION"><xs:enumeration value="a"/><xs:enumeration value="ab"/><xs:enumeration value="abc"/></xs:restriction></xs:simpleType>
+<xs:element name="r"><xs:simpleType><xs:restriction base="N"><xs:maxLength value="2"/></xs:restriction></xs:simpleType></xs:element>
+</xs:schema>

@@ -1,0 +1,26 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:simpleType name="P" final=""><xs:union memberTypes="xs:integer xs:boolean"/></xs:simpleType>
+<xs:simpleType name="S" final=""><xs:restriction base="P"><xs:enumeration value="1"/><xs:enumeration value="true"/></xs:restriction></xs:simpleType>
+<xs:complexType name="D" final="" block=""><xs:simpleContent><xs:extension base="S"/></xs:simpleContent></xs:complexType>
+<xs:simpleType name="T" final=""><xs:restriction base="xs:string"/></xs:simpleType>
+<xs:complexType name="X" final="" block=""><xs:simpleContent><xs:extension base="T"/></xs:simpleContent></xs:complexType>
+<xs:element name="s-empty" type="S" final="" block=""/>
+<xs:element name="s-extension" type="S" final="" block="extension"/>
+<xs:element name="s-restriction" type="S" final="" block="restriction"/>
+<xs:element name="s-extension-restriction" type="S" final="" block="extension restriction"/>
+<xs:element name="parent-empty" type="P" final="" block=""/>
+<xs:element name="parent-extension" type="P" final="" block="extension"/>
+<xs:element name="parent-restriction" type="P" final="" block="restriction"/>
+<xs:element name="parent-extension-restriction" type="P" final="" block="extension restriction"/>
+<xs:element name="simple-root-empty" type="xs:anySimpleType" final="" block=""/>
+<xs:element name="simple-root-extension" type="xs:anySimpleType" final="" block="extension"/>
+<xs:element name="simple-root-restriction" type="xs:anySimpleType" final="" block="restriction"/>
+<xs:element name="simple-root-extension-restriction" type="xs:anySimpleType" final="" block="extension restriction"/>
+<xs:element name="root-empty" type="xs:anyType" final="" block=""/>
+<xs:element name="root-extension" type="xs:anyType" final="" block="extension"/>
+<xs:element name="root-restriction" type="xs:anyType" final="" block="restriction"/>
+<xs:element name="root-extension-restriction" type="xs:anyType" final="" block="extension restriction"/>
+<xs:element name="unrelated-t" type="T" final="" block=""/>
+<xs:element name="unrelated-x" type="X" final="" block=""/>
+<xs:element name="plain-d" type="D" final="" block=""/>
+</xs:schema>

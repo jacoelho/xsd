@@ -1,0 +1,5 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:complexType name="Target"><xs:attribute name="a" type="xs:integer" use="required"/><xs:attribute name="b" type="xs:integer" use="required"/><xs:attribute name="c" type="xs:integer" use="required"/></xs:complexType>
+<xs:complexType name="Row"><xs:sequence><xs:element name="a" type="xs:integer" minOccurs="0" maxOccurs="2"/><xs:element name="b" type="xs:integer" minOccurs="0" maxOccurs="2"/><xs:element name="c" type="xs:integer" minOccurs="0" maxOccurs="2"/></xs:sequence></xs:complexType>
+<xs:element name="root"><xs:complexType><xs:choice minOccurs="0" maxOccurs="unbounded"><xs:element name="target" type="Target"/><xs:element name="row" type="Row"/></xs:choice></xs:complexType><xs:key name="K"><xs:selector xpath="target"/><xs:field xpath="@a"/><xs:field xpath="@b"/><xs:field xpath="@c"/></xs:key><xs:keyref name="R" refer="K"><xs:selector xpath="row"/><xs:field xpath="a"/><xs:field xpath="b"/><xs:field xpath="c"/></xs:keyref></xs:element>
+</xs:schema>

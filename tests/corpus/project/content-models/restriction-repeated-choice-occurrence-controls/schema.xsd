@@ -1,0 +1,37 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="RequiredBase">
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="a" type="xs:string" maxOccurs="unbounded"/>
+        <xs:element name="b" type="xs:string"/>
+      </xs:choice>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Required">
+    <xs:complexContent><xs:restriction base="RequiredBase">
+      <xs:sequence><xs:element name="a" type="xs:string" maxOccurs="unbounded"/></xs:sequence>
+    </xs:restriction></xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="FiniteBase">
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="a" type="xs:string" minOccurs="0" maxOccurs="3"/>
+        <xs:element name="b" type="xs:string"/>
+      </xs:choice>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="FiniteDerived">
+    <xs:complexContent><xs:restriction base="FiniteBase">
+      <xs:sequence><xs:element name="a" type="xs:string" minOccurs="2" maxOccurs="3"/></xs:sequence>
+    </xs:restriction></xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="DirectChoice">
+    <xs:choice>
+      <xs:element name="a" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="b" type="xs:string"/>
+    </xs:choice>
+  </xs:complexType>
+  <xs:element name="required" type="Required"/>
+  <xs:element name="finite" type="FiniteDerived"/>
+  <xs:element name="choice" type="DirectChoice"/>
+</xs:schema>

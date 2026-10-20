@@ -756,7 +756,7 @@ func (s *session) assessXSIType(start *schemaStart, assessment xsiTypeAssessment
 		start.typeOrigin = selectedTypeDefault
 	} else {
 		var err error
-		override, err = resolveXSIType(s.rt, assessment.attribute.value, s.qnameResolver(), s.schemaLocationHintLookup(), assessment.ctx)
+		override, err = resolveXSIType(s.rt, assessment.attribute.value, s.qnameResolver(), assessment.ctx)
 		if err != nil {
 			return s.recoverXSITypeError(start, assessment.typeInfo, err)
 		}
@@ -869,21 +869,17 @@ func (s *session) rootStartType(rn xsdSchema.RuntimeName, se preparedXMLStart, t
 		return declaredSchemaStart(id, decl), nil
 	}
 	ctx := s.startContext(line, col)
-	hasSchemaLocation := s.schemaLocationHintLookup()
 	for i := range token.Attr {
 		a := &token.Attr[i]
 		if !IsXSITypeName(a.Name) {
 			continue
 		}
 		value, _ := s.reader.MaterializeValue(a)
-		typ, err := resolveXSIType(s.rt, value, s.qnameResolver(), hasSchemaLocation, ctx)
+		typ, err := resolveXSIType(s.rt, value, s.qnameResolver(), ctx)
 		if err != nil {
 			return schemaStart{}, err
 		}
 		return rootXSITypeStart(typ), nil
-	}
-	if hasSchemaLocation != nil && hasSchemaLocation(rn.NS) {
-		return schemaStart{}, unsupportedSchemaLocation(ctx, vocab.XSDElemElement, rn)
 	}
 	err := validation(ctx, xsderrors.CodeValidationRoot, "root element is not declared: "+formatXMLName(se.name))
 	if recoverErr := s.recover(err); recoverErr != nil {

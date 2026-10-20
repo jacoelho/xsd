@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:notation name="n" public="urn:example:notation"/><xs:simpleType name="Base"><xs:restriction base="xs:NOTATION"><xs:enumeration value="n"/></xs:restriction></xs:simpleType>
+<xs:element name="r"><xs:simpleType><xs:restriction base="Base"><xs:maxLength value="1"/></xs:restriction></xs:simpleType></xs:element>
+</xs:schema>

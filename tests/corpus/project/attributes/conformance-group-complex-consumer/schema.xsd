@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" ><xs:attributeGroup name="G"><xs:attribute name="value" type="xs:int" use="required"/></xs:attributeGroup><xs:complexType name="Base"/><xs:element name="root"><xs:complexType><xs:complexContent><xs:extension base="Base"><xs:attributeGroup ref="G"/></xs:extension></xs:complexContent></xs:complexType></xs:element></xs:schema>

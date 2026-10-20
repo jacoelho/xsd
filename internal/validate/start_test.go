@@ -118,12 +118,11 @@ func TestXSIStartAttributeFlagsType(t *testing.T) {
 	}
 }
 
-func TestResolveXSITypeSchemaHintUsesResolvedLocalName(t *testing.T) {
+func TestResolveXSITypeReportsUnknownType(t *testing.T) {
 	t.Parallel()
 
 	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
 	ctx := StartContext{Line: 2, Column: 3, Path: "/root"}
-	const want = "unsupported.xsi_schema_location at 2:3 /root: xsi:schemaLocation loading is not supported for type {urn:missing}Missing"
 	for _, lexical := range []string{"p:Missing", "Missing"} {
 		t.Run(lexical, func(t *testing.T) {
 			t.Parallel()
@@ -137,13 +136,13 @@ func TestResolveXSITypeSchemaHintUsesResolvedLocalName(t *testing.T) {
 					}
 					return xsdValue.ExpandedName{Namespace: "urn:missing", Local: "Missing"}, true
 				},
-				func(ns string) bool { return ns == "urn:missing" },
 				ctx,
 			)
+			want := "validation.type at 2:3 /root: unknown xsi:type " + lexical
 			if err == nil || err.Error() != want {
 				t.Fatalf("resolveXSIType(%q) error = %v, want %q", lexical, err, want)
 			}
-			expectXSDCode(t, err, xsderrors.CodeUnsupportedSchemaHint)
+			expectXSDCode(t, err, xsderrors.CodeValidationType)
 		})
 	}
 }

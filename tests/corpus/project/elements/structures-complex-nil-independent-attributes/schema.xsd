@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" >
+<xs:element name="required" nillable="true"><xs:complexType><xs:attribute name="a" type="xs:int" use="required"/></xs:complexType></xs:element><xs:element name="closed" nillable="true"><xs:complexType/></xs:element>
+</xs:schema>

@@ -6,12 +6,20 @@ import "errors"
 // count-range, substitution-name, and particle-overlap facts.
 type ContentModelAnalysis struct {
 	rt        *schemaBuild
+	models    *restrictionModelView
 	work      ContentModelWork
 	names     map[ElementID]particleAcceptedNames
 	emptiable map[ContentModelID]bool
 	ranges    map[ContentModelID]Occurrence
 	emptyPath map[ContentModelID]bool
 	rangePath map[ContentModelID]bool
+}
+
+func (a *ContentModelAnalysis) contentModel(id ContentModelID) (ContentModel, bool) {
+	if a.models != nil {
+		return a.models.model(id)
+	}
+	return ContentModelByID(a.rt.Models, id)
 }
 
 type particleAcceptedNames struct {
@@ -92,7 +100,7 @@ func (a *ContentModelAnalysis) cachedModelCountRange(id ContentModelID) (Occurre
 	if err := spendContentModelWork(a.work); err != nil {
 		return Occurrence{}, err
 	}
-	model, ok := ContentModelByID(a.rt.Models, id)
+	model, ok := a.contentModel(id)
 	if !ok {
 		return Occurrence{}, errors.New("content model count analysis references missing content model")
 	}
@@ -185,7 +193,7 @@ func (a *ContentModelAnalysis) elementParticleOverlap(left, right Particle) (QNa
 }
 
 func (a *ContentModelAnalysis) modelStartOverlap(id ContentModelID, particle Particle) (QName, bool, error) {
-	model, ok := ContentModelByID(a.rt.Models, id)
+	model, ok := a.contentModel(id)
 	if !ok {
 		return QName{}, false, errors.New("content model overlap analysis references missing content model")
 	}
@@ -348,7 +356,7 @@ func (a *ContentModelAnalysis) cachedModelEmptiable(id ContentModelID) (bool, er
 	if a.emptyPath[id] {
 		return false, errors.New("content model emptiability analysis contains a cycle")
 	}
-	model, ok := ContentModelByID(a.rt.Models, id)
+	model, ok := a.contentModel(id)
 	if !ok {
 		return false, errors.New("content model emptiability analysis references missing content model")
 	}

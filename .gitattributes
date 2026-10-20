@@ -1,0 +1,10 @@
+# Preserve pinned upstream line endings and final blank lines.
+tests/corpus/w3c/msData/attributeGroup/attgD034.inc -text whitespace=cr-at-eol
+tests/corpus/w3c/msData/complexType/ctL021b.xsd -text whitespace=cr-at-eol
+tests/corpus/w3c/msData/particles/particlesB013_1.xsd -text whitespace=cr-at-eol
+tests/corpus/w3c/msData/schema/schA1_b.xsd -text whitespace=cr-at-eol
+tests/corpus/w3c/msData/schema/schA1_c.xsd -text whitespace=cr-at-eol,-blank-at-eof
+tests/corpus/w3c/sunData/SType/ST_targetNS/ST_targetNS00101m/ST_targetNS00101ma.xsd -text whitespace=-blank-at-eof
+
+# Trailing whitespace is the instance content under test.
+tests/corpus/project/elements/structures-empty-and-element-only-character-items/eo-xml-space.xml -text whitespace=-blank-at-eol

@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" ><xs:simpleType name="T"><xs:restriction base="xs:ID"/></xs:simpleType><xs:attribute name="id" type="T" fixed="a"/></xs:schema>

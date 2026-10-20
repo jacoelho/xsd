@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" >
+<xs:complexType name="Base"/><xs:complexType name="Concrete"><xs:complexContent><xs:extension base="Base"/></xs:complexContent></xs:complexType><xs:complexType name="Abstract" abstract="true"><xs:complexContent><xs:extension base="Base"/></xs:complexContent></xs:complexType><xs:element name="ordinary" type="Base" nillable="true"/><xs:element name="abstract" type="Base" nillable="true" abstract="true"/>
+</xs:schema>

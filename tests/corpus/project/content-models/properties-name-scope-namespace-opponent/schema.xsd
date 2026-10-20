@@ -1,0 +1,5 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:particle:properties" xmlns:t="urn:particle:properties" >
+<xs:element name="a" type="xs:integer"/>
+<xs:complexType name="B"><xs:sequence><xs:element name="a" type="xs:integer" form="qualified"/></xs:sequence></xs:complexType>
+<xs:complexType name="R"><xs:complexContent><xs:restriction base="t:B"><xs:sequence><xs:element name="a" type="xs:integer" form="unqualified"/></xs:sequence></xs:restriction></xs:complexContent></xs:complexType><xs:element name="root" type="t:R"/>
+</xs:schema>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:simpleType name="A"><xs:restriction base="xs:string"><xs:enumeration value="a"/></xs:restriction></xs:simpleType>
+<xs:simpleType name="B"><xs:restriction base="xs:string"><xs:enumeration value="b"/></xs:restriction></xs:simpleType>
+<xs:simpleType name="C"><xs:restriction base="xs:string"><xs:enumeration value="c"/></xs:restriction></xs:simpleType>
+<xs:simpleType name="U"><xs:union memberTypes="A B"/></xs:simpleType>
+<xs:simpleType name="V"><xs:union memberTypes="U C U"/></xs:simpleType>
+<xs:element name="r" type="V"/>
+</xs:schema>

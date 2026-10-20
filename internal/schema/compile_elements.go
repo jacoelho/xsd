@@ -196,7 +196,15 @@ func (c *compiler) compileElementProperties(n *schemaNode, ctx *schemaSetDocumen
 		return compiledElementProperties{}, abstractErr
 	}
 	typ, err := c.compileElementDeclType(n, ctx)
-	return compiledElementProperties{typ: typ, nillable: nillable, abstract: abstract}, err
+	if err != nil {
+		return compiledElementProperties{}, err
+	}
+	if simple, ok := typ.Simple(); ok {
+		if err := c.admitNotationTypeUse(n, simple); err != nil {
+			return compiledElementProperties{}, err
+		}
+	}
+	return compiledElementProperties{typ: typ, nillable: nillable, abstract: abstract}, nil
 }
 
 func (c *compiler) compileElementDeclType(n *schemaNode, ctx *schemaSetDocument) (TypeID, error) {

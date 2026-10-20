@@ -1,0 +1,11 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="B" block="" final=""><xs:attribute name="value" type="xs:int" use="required"/></xs:complexType>
+  <xs:complexType name="M1" block="restriction" final=""><xs:complexContent><xs:extension base="B"></xs:extension></xs:complexContent></xs:complexType>
+  <xs:complexType name="M2" block="" final=""><xs:complexContent><xs:restriction base="M1"><xs:attribute name="value" type="xs:int" use="required"/></xs:restriction></xs:complexContent></xs:complexType>
+  <xs:complexType name="D" block="#all" final=""><xs:complexContent><xs:extension base="M2"></xs:extension></xs:complexContent></xs:complexType>
+  <xs:element name="h" type="B" block="" final=""/>
+  <xs:element name="first" type="M1" block="" final="" substitutionGroup="h"/>
+  <xs:element name="second" type="M2" block="" final="" substitutionGroup="first"/>
+  <xs:element name="d" type="D" block="" final="" substitutionGroup="second"/>
+  <xs:element name="head" block="" final=""><xs:complexType><xs:sequence><xs:element ref="h"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>

@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" >
+<xs:element name="root"><xs:complexType><xs:sequence><xs:element name="row" minOccurs="0" maxOccurs="unbounded"><xs:complexType><xs:sequence><xs:element name="a" type="xs:string" minOccurs="0" maxOccurs="2"/><xs:element name="b" type="xs:string" minOccurs="0"/></xs:sequence></xs:complexType></xs:element></xs:sequence></xs:complexType><xs:unique name="C"><xs:selector xpath="row"/><xs:field xpath="a"/><xs:field xpath="b"/></xs:unique></xs:element>
+</xs:schema>

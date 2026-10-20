@@ -2,7 +2,6 @@ package schema
 
 import (
 	"errors"
-	"slices"
 	"testing"
 
 	valuepkg "github.com/jacoelho/xsd/internal/value"
@@ -27,7 +26,7 @@ func mustContentModelAnalysis(
 
 func checkElementDeclarationsConsistent(rt *schemaBuild, model ContentModel) error {
 	work := newWorkBudget(contentModelWorkBudget, 10_000)
-	checker := newElementDeclarationConsistencyChecker(rt, &work)
+	checker := newElementDeclarationConsistencyChecker(rt, work.spend)
 	_, err := checker.collectParticles(model.Particles)
 	return err
 }
@@ -147,7 +146,12 @@ func TestCheckElementDeclarationsConsistentAllowsSameNameSameType(t *testing.T) 
 			2: ComplexRef(1),
 		},
 	}
-	if err := checkElementDeclarationsConsistent(rt.build(), rt.models[0]); err != nil {
+	build := rt.build()
+	typeName := QName{Namespace: EmptyNamespaceID, Local: 2}
+	build.ComplexTypes = make([]ComplexType, 2)
+	build.ComplexTypes[1] = ComplexType{Name: typeName, Scope: DeclarationScopeGlobal}
+	build.GlobalTypes = map[QName]TypeID{typeName: ComplexRef(1)}
+	if err := checkElementDeclarationsConsistent(build, rt.models[0]); err != nil {
 		t.Fatalf("CheckElementDeclarationsConsistent() error = %v", err)
 	}
 }
@@ -466,22 +470,6 @@ func TestNormalizeSingleParticleModelPreservesOverflowingOccurrenceProduct(t *te
 	got := normalizeSingleParticleModel(model)
 	if got.Kind != model.Kind || got.Occurs != model.Occurs || got.Particles[0].Occurs != model.Particles[0].Occurs {
 		t.Fatalf("overflowing normalization changed model: got %+v want %+v", got, model)
-	}
-}
-
-func TestNormalizeSingleParticleModelPreservesChoiceLimits(t *testing.T) {
-	t.Parallel()
-
-	model := ContentModel{
-		Kind:         ModelSequence,
-		Occurs:       Occurrence{Min: 1, Max: 1},
-		Particles:    []Particle{ElementParticle(1, Occurrence{Min: 0, Unbounded: true})},
-		ChoiceLimits: []uint32{0},
-	}
-	got := normalizeSingleParticleModel(model)
-	if got.Kind != model.Kind || got.Occurs != model.Occurs ||
-		!slices.Equal(got.Particles, model.Particles) || !slices.Equal(got.ChoiceLimits, model.ChoiceLimits) {
-		t.Fatalf("choice-limited normalization changed model: got %+v want %+v", got, model)
 	}
 }
 

@@ -45,17 +45,17 @@ func TestManifestRegexFixtures(t *testing.T) {
 		negative []string
 	}{
 		"project/architecture-regex-class-subtraction-unsupported": {
-			path:     "project/architecture-regex-class-subtraction-unsupported/schema.xsd",
+			path:     "project/datatypes/regex/architecture-regex-class-subtraction-unsupported/schema.xsd",
 			positive: []string{"rhythm", "bcdf"},
 			negative: []string{"reader", "aeiou"},
 		},
 		"project/architecture-regex-i-escape-unsupported": {
-			path:     "project/architecture-regex-i-escape-unsupported/schema.xsd",
+			path:     "project/datatypes/regex/architecture-regex-i-escape-unsupported/schema.xsd",
 			positive: []string{"Name_2", "éclair"},
 			negative: []string{"2Name", ""},
 		},
 		"project/architecture-regex-unicode-block-unsupported": {
-			path:     "project/architecture-regex-unicode-block-unsupported/schema.xsd",
+			path:     "project/datatypes/regex/architecture-regex-unicode-block-unsupported/schema.xsd",
 			positive: []string{"abc123"},
 			negative: []string{"é", "Ω"},
 		},

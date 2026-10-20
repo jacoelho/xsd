@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:simpleType name="T"><xs:union memberTypes="U"/></xs:simpleType>
+<xs:simpleType name="U"><xs:union memberTypes="V"/></xs:simpleType>
+<xs:simpleType name="V"><xs:union memberTypes="T"/></xs:simpleType>
+
+</xs:schema>

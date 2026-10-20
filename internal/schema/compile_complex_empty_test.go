@@ -48,8 +48,8 @@ func TestCanonicalComplexContentModelAllocatesEmptyRowForNonCanonicalInput(t *te
 		{
 			name: "empty model with inactive slices",
 			model: ContentModel{
-				Kind:         ModelEmpty,
-				ChoiceLimits: []uint32{1},
+				Kind:      ModelEmpty,
+				Particles: []Particle{ElementParticle(1, Occurrence{Min: 1, Max: 1})},
 			},
 		},
 		{

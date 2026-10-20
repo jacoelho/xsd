@@ -1,0 +1,1 @@
+<root><row><a>1</a><b>2</b><c>3</c></row><row><a>4</a><b>5</b><c>6</c></row><target a="1" b="2" c="3"/><target a="4" b="5" c="6"/></root>

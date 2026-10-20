@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:coverage:type-a" xmlns:q="urn:coverage:type-b">
+<xs:import namespace="urn:coverage:type-a" schemaLocation="a.xsd"/><xs:import namespace="urn:coverage:type-b" schemaLocation="b.xsd"/><xs:element name="root"><xs:complexType><xs:sequence><xs:element name="a" type="p:T"/><xs:element name="a" type="q:T"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>

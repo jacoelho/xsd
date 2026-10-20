@@ -163,7 +163,7 @@ func (b *AttributeWildcardBuilder) finishRestriction(rt SchemaAttributeWildcardR
 	if err != nil {
 		return NoWildcard, err
 	}
-	if !WildcardSubset(declared, inherited) {
+	if !wildcardNamespaceSubset(declared, inherited) {
 		return NoWildcard, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "attribute wildcard restriction is not subset of base")
 	}
 	return b.wildcard, nil

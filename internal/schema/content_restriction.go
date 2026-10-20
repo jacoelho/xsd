@@ -116,34 +116,17 @@ func (v contentRestrictionValidator) validateContentRestriction(baseID, derivedI
 	if baseID == NoContentModel || derivedID == NoContentModel {
 		return nil
 	}
-	base, derived, err := v.restrictionModels(baseID, derivedID)
-	if err != nil {
+	if _, _, err := v.restrictionModels(baseID, derivedID); err != nil {
 		return err
 	}
 	if err := v.validateContentRestrictionRanges(baseID, derivedID); err != nil {
 		return err
 	}
-	return v.validateContentRestrictionModels(derivedID, base, derived)
-}
-
-func (v contentRestrictionValidator) validateContentRestrictionModels(
-	derivedID ContentModelID,
-	base, derived ContentModel,
-) error {
-	if base.Kind == ModelAny {
+	if baseID == derivedID {
 		return nil
 	}
-	hasNoParticles, err := v.modelHasNoParticles(derivedID)
-	if err != nil || hasNoParticles {
-		return err
-	}
-	if handled, err := v.validateSingleWildcardBase(base, derived); handled || err != nil {
-		return err
-	}
-	if handled, err := v.validateKnownGroupRestriction(base, derived); handled || err != nil {
-		return err
-	}
-	return v.validateFallbackContentRestriction(base, derived)
+	one := Occurrence{Min: 1, Max: 1}
+	return v.compareNormalizedRestriction(ModelParticle(baseID, one), ModelParticle(derivedID, one))
 }
 
 func (v contentRestrictionValidator) restrictionModels(
@@ -192,18 +175,6 @@ func (v contentRestrictionValidator) validateContentRestrictionRanges(baseID, de
 	return nil
 }
 
-func (v contentRestrictionValidator) validateSingleWildcardBase(base, derived ContentModel) (bool, error) {
-	if len(base.Particles) == 1 && base.Particles[0].Kind == ParticleWildcard {
-		for _, p := range derived.Particles {
-			if wildcardErr := v.validateParticleRestrictsWildcard(base.Particles[0], p); wildcardErr != nil {
-				return true, wildcardErr
-			}
-		}
-		return true, nil
-	}
-	return false, nil
-}
-
 func (v contentRestrictionValidator) validateFallbackContentRestriction(base, derived ContentModel) error {
 	derivedContainsWildcard, err := v.modelContainsWildcard(derived)
 	if err != nil {
@@ -217,39 +188,6 @@ func (v contentRestrictionValidator) validateFallbackContentRestriction(base, de
 		return contentRestrictionMismatch("wildcard restriction is not subset of base")
 	}
 	return contentRestrictionMismatch("content restriction is not subset of base")
-}
-
-func (v contentRestrictionValidator) modelHasNoParticles(id ContentModelID) (bool, error) {
-	if id == NoContentModel {
-		return true, nil
-	}
-	model, err := v.requireContentModel(id)
-	if err != nil {
-		return false, err
-	}
-	switch model.Kind {
-	case ModelEmpty:
-		return true, nil
-	case ModelSequence, ModelChoice, ModelAll:
-		return len(model.Particles) == 0, nil
-	case ModelAny:
-		return false, nil
-	default:
-	}
-	return false, nil
-}
-
-func (v contentRestrictionValidator) particleEffectiveMin(particle Particle) (uint32, error) {
-	if particle.Kind == ParticleModel {
-		emptiable, err := v.analysis.ModelEmptiable(particle.Model)
-		if err != nil {
-			return 0, err
-		}
-		if emptiable {
-			return 0, nil
-		}
-	}
-	return particle.Occurs.Min, nil
 }
 
 func (v contentRestrictionValidator) validateContentModelGraph(id ContentModelID) error {
@@ -332,7 +270,7 @@ func (v contentRestrictionValidator) validateKnownGroupRestriction(base, derived
 	case base.Kind == ModelSequence && derived.Kind == ModelSequence:
 		return true, v.validateOrderedGroupRestriction(base, derived, "sequence restriction is not subset of base")
 	case base.Kind == ModelSequence && derived.Kind == ModelChoice:
-		return true, v.validatePointlessChoiceRestrictsSequence(base, derived)
+		return true, contentRestrictionMismatch("choice restriction of sequence is forbidden")
 	case base.Kind == ModelAll && derived.Kind == ModelAll:
 		return true, v.validateOrderedGroupRestriction(base, derived, "all restriction is not subset of base")
 	case base.Kind == ModelAll && derived.Kind == ModelSequence:
@@ -340,17 +278,10 @@ func (v contentRestrictionValidator) validateKnownGroupRestriction(base, derived
 	case base.Kind == ModelChoice && derived.Kind == ModelSequence:
 		return true, v.validateSequenceRestrictsChoice(base, derived)
 	case base.Kind == ModelSequence && derived.Kind == ModelAll:
-		return true, v.validateAllRestrictsSequence(base, derived)
+		return true, contentRestrictionMismatch("all restriction of sequence is forbidden")
 	default:
 		return false, nil
 	}
-}
-
-func (v contentRestrictionValidator) validateAllRestrictsSequence(base, derived ContentModel) error {
-	if len(base.Particles) == 1 && len(derived.Particles) == 1 {
-		return v.validateParticleRestriction(base.Particles[0], derived.Particles[0])
-	}
-	return contentRestrictionMismatch("all restriction is not subset of sequence")
 }
 
 func (v contentRestrictionValidator) choiceRestrictionBranchAllowed(base []Particle, derived Particle) (bool, error) {
@@ -397,10 +328,14 @@ func (v contentRestrictionValidator) matchChoiceRestrictionBranch(
 ) (bool, error) {
 	for *baseIndex < len(base) {
 		allowed, err := v.choiceBranchRestricts(base[*baseIndex], derived)
-		if err != nil || allowed {
+		if err != nil {
 			return allowed, err
 		}
+		// RecurseLax requires each target to follow the preceding target.
 		*baseIndex++
+		if allowed {
+			return true, nil
+		}
 	}
 	return false, nil
 }
@@ -498,17 +433,7 @@ func (v contentRestrictionValidator) particleContainsChoiceBelow(particle Partic
 }
 
 func (v contentRestrictionValidator) choiceBranchRestricts(base, derived Particle) (bool, error) {
-	candidate := derived
-	if base.Kind != ParticleModel && base.Occurs.IsExactlyOne() {
-		normalize, err := v.particleNeedsChoiceBranchNormalization(derived)
-		if err != nil {
-			return false, err
-		}
-		if normalize {
-			candidate.Occurs = Occurrence{Min: 1, Max: 1}
-		}
-	}
-	err := v.validateParticleRestriction(base, candidate)
+	err := v.compareParticleRestriction(base, derived)
 	if err == nil {
 		return true, nil
 	}
@@ -516,21 +441,6 @@ func (v contentRestrictionValidator) choiceBranchRestricts(base, derived Particl
 		return false, nil
 	}
 	return false, err
-}
-
-func (v contentRestrictionValidator) particleNeedsChoiceBranchNormalization(p Particle) (bool, error) {
-	effectiveMin, err := v.particleEffectiveMin(p)
-	if err != nil {
-		return false, err
-	}
-	if effectiveMin > 0 {
-		return true, nil
-	}
-	rangeForParticle, err := v.analysis.ParticleCountRange(p)
-	if err != nil {
-		return false, err
-	}
-	return rangeForParticle.Unbounded || rangeForParticle.Max > 1, nil
 }
 
 func (v contentRestrictionValidator) validateOrderedGroupRestriction(base, derived ContentModel, msg string) error {
@@ -555,7 +465,7 @@ type orderedGroupRestrictionMatcher struct {
 
 func (m *orderedGroupRestrictionMatcher) match(derived Particle) error {
 	for m.next < len(m.base) {
-		err := m.validator.validateParticleRestriction(m.base[m.next], derived)
+		err := m.validator.compareParticleRestriction(m.base[m.next], derived)
 		if err == nil {
 			m.next++
 			return nil
@@ -619,7 +529,7 @@ func (v contentRestrictionValidator) findMappedGroupParticle(
 		if mapped[i] {
 			continue
 		}
-		err := v.validateParticleRestriction(baseParticle, derived)
+		err := v.compareParticleRestriction(baseParticle, derived)
 		if err == nil {
 			return i, nil
 		}
@@ -664,49 +574,6 @@ func (v contentRestrictionValidator) validateSequenceRestrictsChoice(base, deriv
 		}
 	}
 	return nil
-}
-
-func (v contentRestrictionValidator) validatePointlessChoiceRestrictsSequence(base, derived ContentModel) error {
-	if !derived.Occurs.IsExactlyOne() || len(derived.Particles) != 1 {
-		return contentRestrictionMismatch("choice restriction of sequence is forbidden")
-	}
-	return v.validateChoiceBranchRestrictsSequence(base, derived.Particles[0])
-}
-
-func (v contentRestrictionValidator) validateChoiceBranchRestrictsSequence(base ContentModel, derived Particle) error {
-	for i, baseParticle := range base.Particles {
-		err := v.validateParticleRestriction(baseParticle, derived)
-		if err != nil {
-			if !IsContentRestrictionMismatch(err) {
-				return err
-			}
-			continue
-		}
-		emptiable, err := v.sequenceRemainderEmptiable(base.Particles, i)
-		if err != nil {
-			return err
-		}
-		if emptiable {
-			return nil
-		}
-	}
-	return contentRestrictionMismatch("choice restriction branch is not subset of sequence")
-}
-
-func (v contentRestrictionValidator) sequenceRemainderEmptiable(particles []Particle, selected int) (bool, error) {
-	for i, p := range particles {
-		if i == selected {
-			continue
-		}
-		emptiable, err := v.analysis.ParticleEmptiable(p)
-		if err != nil {
-			return false, err
-		}
-		if !emptiable {
-			return false, nil
-		}
-	}
-	return true, nil
 }
 
 func (v contentRestrictionValidator) modelContainsWildcard(model ContentModel) (bool, error) {
@@ -754,7 +621,7 @@ func (v contentRestrictionValidator) modelIDContainsWildcard(id ContentModelID) 
 	return result, nil
 }
 
-func (v contentRestrictionValidator) validateParticleRestriction(base, derived Particle) error {
+func (v contentRestrictionValidator) compareParticleRestriction(base, derived Particle) error {
 	if err := v.charge(); err != nil {
 		return err
 	}
@@ -769,6 +636,16 @@ func (v contentRestrictionValidator) validateParticleRestriction(base, derived P
 	if !OccurrenceRangeSubset(derivedRange, baseRange) {
 		return contentRestrictionMismatch("particle restriction occurrence is not subset of base")
 	}
+	if derived.Kind == ParticleModel {
+		model, err := v.requireContentModel(derived.Model)
+		if err != nil {
+			return err
+		}
+		// Empty restrictions are admitted by the aggregate range check.
+		if model.Kind == ModelEmpty {
+			return nil
+		}
+	}
 	switch base.Kind {
 	case ParticleWildcard:
 		return v.validateParticleRestrictsWildcard(base, derived)
@@ -782,9 +659,8 @@ func (v contentRestrictionValidator) validateParticleRestriction(base, derived P
 }
 
 func (v contentRestrictionValidator) validateParticleRestrictsElement(base, derived Particle) error {
-	handled, err := v.validateParticleElementKind(base, derived)
-	if err != nil || handled {
-		return err
+	if derived.Kind != ParticleElement {
+		return contentRestrictionMismatch("particle restriction is not subset of element")
 	}
 	baseElement, derivedElement, err := v.restrictedElementIDs(base.Element, derived.Element)
 	if err != nil {
@@ -803,39 +679,6 @@ func (v contentRestrictionValidator) validateParticleRestrictsElement(base, deri
 	return validateRestrictedElementProperties(baseDecl, derivedDecl)
 }
 
-func (v contentRestrictionValidator) validateParticleElementKind(base, derived Particle) (bool, error) {
-	switch derived.Kind {
-	case ParticleWildcard:
-		return true, contentRestrictionMismatch("wildcard restriction is not subset of element")
-	case ParticleModel:
-		return true, v.validateModelParticleRestrictsElement(base, derived.Model)
-	case ParticleElement:
-		return false, nil
-	default:
-		return true, nil
-	}
-}
-
-func (v contentRestrictionValidator) validateModelParticleRestrictsElement(base Particle, modelID ContentModelID) error {
-	model, err := v.requireContentModel(modelID)
-	if err != nil {
-		return err
-	}
-	if model.Kind != ModelChoice {
-		return contentRestrictionMismatch("model group restriction is not subset of element")
-	}
-	for _, particle := range model.Particles {
-		allowed, err := v.choiceBranchRestricts(base, particle)
-		if err != nil {
-			return err
-		}
-		if !allowed {
-			return contentRestrictionMismatch("choice restriction branch is not subset of element")
-		}
-	}
-	return nil
-}
-
 func (v contentRestrictionValidator) restrictedElementIDs(base, derived ElementID) (baseID, derivedID ElementID, err error) {
 	baseName, err := v.requireElementName(base)
 	if err != nil {
@@ -846,11 +689,7 @@ func (v contentRestrictionValidator) restrictedElementIDs(base, derived ElementI
 		return NoElement, NoElement, err
 	}
 	if baseName != derivedName {
-		member, ok := v.SubstitutionMemberByName(base, derivedName)
-		if !ok || member != derived {
-			return NoElement, NoElement, contentRestrictionMismatch("element restriction name is not subset of base")
-		}
-		base = member
+		return NoElement, NoElement, contentRestrictionMismatch("element restriction name is not subset of base")
 	}
 	return base, derived, nil
 }
@@ -907,75 +746,33 @@ func (v contentRestrictionValidator) validateParticleRestrictsModel(base, derive
 	if err != nil {
 		return err
 	}
-	if model.Kind == ModelChoice {
-		return v.validateParticleRestrictsChoiceModel(base, derived, model)
-	}
-	if len(model.Particles) == 1 {
-		return v.validateParticleRestriction(model.Particles[0], derived)
-	}
-	if derived.Kind == ParticleWildcard {
-		return contentRestrictionMismatch("wildcard restriction is not subset of model group")
-	}
-	if model.Kind == ModelSequence && derived.Kind == ParticleElement {
-		return v.validateElementParticleRestrictsSequenceModel(model, derived)
-	}
-	if derived.Kind != ParticleModel {
+	if model.Kind == ModelAny {
 		return nil
 	}
-	return v.validateContentRestriction(base.Model, derived.Model)
-}
-
-func (v contentRestrictionValidator) validateParticleRestrictsChoiceModel(base, derived Particle, model ContentModel) error {
-	if derived.Kind == ParticleModel {
-		derivedModel, err := v.requireContentModel(derived.Model)
+	model.Occurs = MultiplyOccurrence(model.Occurs, base.Occurs)
+	var restricted ContentModel
+	switch derived.Kind {
+	case ParticleWildcard:
+		return contentRestrictionMismatch("wildcard restriction is not subset of model group")
+	case ParticleElement:
+		// RecurseAsIfGroup preserves the element's bounds inside a unit group.
+		restricted = ContentModel{Kind: model.Kind, Occurs: Occurrence{Min: 1, Max: 1}, Particles: []Particle{derived}}
+	case ParticleModel:
+		restricted, err = v.requireContentModel(derived.Model)
 		if err != nil {
 			return err
 		}
-		if derivedModel.Kind == ModelChoice && derived.Occurs.Min < base.Occurs.Min {
-			return contentRestrictionMismatch("choice restriction occurrence is not subset of base")
+		if restricted.Kind == ModelEmpty {
+			return nil
 		}
-		switch derivedModel.Kind {
-		case ModelChoice:
-			return v.validateChoiceRestriction(model, derivedModel)
-		case ModelSequence:
-			return v.validateSequenceRestrictsChoice(model, derivedModel)
-		case ModelEmpty, ModelAny, ModelAll:
-		default:
-			return errors.New("content restriction references invalid model kind")
-		}
+		restricted.Occurs = MultiplyOccurrence(restricted.Occurs, derived.Occurs)
+	default:
+		return contentRestrictionInvariant("content restriction references invalid particle kind")
 	}
-	allowed, err := v.choiceRestrictionBranchAllowed(model.Particles, derived)
-	if err != nil {
+	if handled, err := v.validateKnownGroupRestriction(model, restricted); handled || err != nil {
 		return err
 	}
-	if !allowed {
-		return contentRestrictionMismatch("choice restriction branch is not subset of base")
-	}
-	return nil
-}
-
-func (v contentRestrictionValidator) validateElementParticleRestrictsSequenceModel(base ContentModel, derived Particle) error {
-	for i, baseParticle := range base.Particles {
-		err := v.validateParticleRestriction(baseParticle, derived)
-		if err == nil {
-			return v.validateElementSequenceRemainder(base.Particles, i)
-		}
-		if !IsContentRestrictionMismatch(err) {
-			return err
-		}
-	}
-	return contentRestrictionMismatch("sequence restriction particle is not subset of base")
-}
-
-func (v contentRestrictionValidator) validateElementSequenceRemainder(base []Particle, selected int) error {
-	emptiable, err := v.sequenceRemainderEmptiable(base, selected)
-	if err != nil {
-		return err
-	}
-	if !emptiable {
-		return contentRestrictionMismatch("sequence restriction omits required base particle")
-	}
-	return nil
+	return v.validateFallbackContentRestriction(model, restricted)
 }
 
 func (v contentRestrictionValidator) validateParticleRestrictsWildcard(base, derived Particle) error {
@@ -1029,7 +826,7 @@ func (v contentRestrictionValidator) validateModelRestrictsWildcard(base Particl
 		return err
 	}
 	for _, child := range model.Particles {
-		if err := v.validateParticleRestrictsWildcard(base, child); err != nil {
+		if err := v.compareParticleRestriction(base, child); err != nil {
 			return err
 		}
 	}
@@ -1048,7 +845,7 @@ func (v contentRestrictionValidator) ContentModel(id ContentModelID) (ContentMod
 	if v.charge() != nil {
 		return ContentModel{}, false
 	}
-	return ContentModelByID(v.rt.Models, id)
+	return v.analysis.contentModel(id)
 }
 
 func (v contentRestrictionValidator) ElementName(id ElementID) (QName, bool) {

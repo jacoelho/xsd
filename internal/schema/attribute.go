@@ -42,12 +42,14 @@ type AttributeUseSet struct {
 	WildcardDerive   AttributeWildcardDerivation
 }
 
-// AttributeUse is the runtime record for one attribute use.
+// AttributeUse is the construction record for one attribute use. Copies retain
+// componentID for set union; publication discards this compiler-local identity.
 type AttributeUse struct {
 	Default              *ValueConstraint
 	Fixed                *ValueConstraint
 	Name                 QName
 	Type                 SimpleTypeID
+	componentID          uint32
 	Required             bool
 	Prohibited           bool
 	FixedFromDeclaration bool
@@ -398,9 +400,8 @@ func ValidateAttributeUseRestriction(
 	return nil
 }
 
-// ValidateAttributeUseSetRestriction validates attribute-use-set restriction
-// rules owned by complex-type restriction. It delegates pairwise use
-// restriction, new-use wildcard allowance, and wildcard provenance.
+// ValidateAttributeUseSetRestriction validates pairwise use restrictions,
+// new-use wildcard allowance and wildcard provenance.
 func ValidateAttributeUseSetRestriction(
 	rt *schemaBuild,
 	base, derived AttributeUseSet,
@@ -552,8 +553,8 @@ func uint32Index(i int) (uint32, bool) {
 	return uint32(i), true
 }
 
-// ValidateAttributeWildcardDerivation validates a derived use-set wildcard
-// against the wildcard provenance inherited from its owning type.
+// ValidateAttributeWildcardDerivation validates a derived use-set wildcard's
+// binding to its owning type's base and derivation.
 func ValidateAttributeWildcardDerivation(
 	rt *schemaBuild,
 	base, derived AttributeUseSet,
@@ -614,7 +615,7 @@ func validateAttributeWildcardRestriction(rt *schemaBuild, state AttributeUseSet
 	if !ok {
 		return errors.New("attribute use set references invalid base wildcard")
 	}
-	if !WildcardSubset(declared, base) || state.Wildcard != state.WildcardDeclared {
+	if !wildcardNamespaceSubset(declared, base) || state.Wildcard != state.WildcardDeclared {
 		return errors.New("attribute wildcard restriction does not match provenance")
 	}
 	return nil

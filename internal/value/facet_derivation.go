@@ -36,8 +36,9 @@ func allowedFacetMask(variety Variety, primitive PrimitiveKind) FacetMask {
 		return common
 	case Atomic:
 		mask := common | FacetWhiteSpace
-		//nolint:exhaustive // Unknown primitive kinds retain the common atomic facets.
 		switch primitive {
+		case PrimitiveBoolean:
+			return FacetPattern | FacetWhiteSpace
 		case PrimitiveString, PrimitiveAnyURI, PrimitiveHexBinary, PrimitiveBase64Binary,
 			PrimitiveQName, PrimitiveNotation:
 			return mask | lengthFacetMask

@@ -254,7 +254,7 @@ func TestLibraryDoesNotLoadSchemasOverNetwork(t *testing.T) {
 		if got := requests.Load(); got != 0 {
 			t.Fatalf("Validate() made %d network requests", got)
 		}
-		expectCategoryCode(t, err, xsderrors.CategoryUnsupported, xsderrors.CodeUnsupportedSchemaHint)
+		expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationRoot)
 	})
 }
 
@@ -2269,11 +2269,11 @@ func TestUndeclaredRootXSISelectionOrder(t *testing.T) {
 		code                 xsderrors.Code
 	}{
 		{name: "missing declaration", element: "root", code: xsderrors.CodeValidationRoot},
-		{name: "matching root hint", element: "p:root", attrs: `xsi:schemaLocation="urn:missing ignored.xsd"`, code: xsderrors.CodeUnsupportedSchemaHint},
+		{name: "matching root hint", element: "p:root", attrs: `xsi:schemaLocation="urn:missing ignored.xsd"`, code: xsderrors.CodeValidationRoot},
 		{name: "selected type before root hint", element: "p:root", attrs: `xsi:type="xs:string" xsi:schemaLocation="urn:missing ignored.xsd"`},
 		{name: "unknown type before malformed nil", element: "root", attrs: `xsi:type="p:Missing" xsi:nil="bad"`, code: xsderrors.CodeValidationType},
 		{name: "unknown type after malformed nil spelling", element: "root", attrs: `xsi:nil="bad" xsi:type="p:Missing"`, code: xsderrors.CodeValidationType},
-		{name: "type hint before malformed nil", element: "root", attrs: `xsi:type="p:Missing" xsi:nil="bad" xsi:schemaLocation="urn:missing ignored.xsd"`, code: xsderrors.CodeUnsupportedSchemaHint},
+		{name: "type hint before malformed nil", element: "root", attrs: `xsi:type="p:Missing" xsi:nil="bad" xsi:schemaLocation="urn:missing ignored.xsd"`, code: xsderrors.CodeValidationType},
 		{name: "selected type and absent nil", element: "root", attrs: `xsi:type="xs:string"`},
 		{name: "selected type and false nil", element: "root", attrs: `xsi:type="xs:string" xsi:nil="false"`},
 		{name: "selected type and zero nil", element: "root", attrs: `xsi:type="xs:string" xsi:nil="0"`},
@@ -2318,9 +2318,6 @@ func assertStartDiagnostics(t *testing.T, err error, want []startDiagnostic) {
 		}
 		got = append(got, startDiagnostic{diagnostic.Code(), diagnostic.Path(), diagnostic.Line(), diagnostic.Column()})
 		category := xsderrors.CategoryValidation
-		if diagnostic.Code() == xsderrors.CodeUnsupportedSchemaHint {
-			category = xsderrors.CategoryUnsupported
-		}
 		if diagnostic.Category() != category || diagnostic.Cause() != nil {
 			t.Fatalf("diagnostic %d category/cause = %s/%v, want %s/no cause", i, diagnostic.Category(), diagnostic.Cause(), category)
 		}

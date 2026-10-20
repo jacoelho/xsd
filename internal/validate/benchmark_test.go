@@ -76,11 +76,13 @@ func BenchmarkNestedIdentityTablePropagation(b *testing.B) {
 						constraint: {keys[i]: {node: uint64(scopeDepth), originDepth: scopeDepth}},
 					}
 				}
-				state := identityState{scopes: scopes}
-				for len(state.scopes) > 1 {
-					last := len(state.scopes) - 1
-					state.mergeClosedIdentityScope(&state.scopes[last])
-					state.scopes = state.scopes[:last]
+				var evaluation identityEvaluation
+				evaluation.scopes = scopes
+				for len(evaluation.scopes) > 1 {
+					last := len(evaluation.scopes) - 1
+					if _, err := evaluation.closeScopes(evaluation.scopes[last].depth, nil); err != nil {
+						b.Fatal(err)
+					}
 				}
 			}
 		})

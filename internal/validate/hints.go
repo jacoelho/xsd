@@ -11,9 +11,9 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// SchemaLocationHints records instance schema-location hints seen during
-// validation. Only namespaces are retained because loading external schemas is
-// intentionally unsupported at validation time.
+// SchemaLocationHints accounts for distinct namespace names admitted from
+// instance location attributes. Retained names enforce document resource limits;
+// they do not participate in component selection.
 type SchemaLocationHints struct {
 	namespaces     map[string]struct{}
 	namespaceBytes int64

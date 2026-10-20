@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:element name="p"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="\p{C}"/></xs:restriction></xs:simpleType></xs:element><xs:element name="complement"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="\P{C}"/></xs:restriction></xs:simpleType></xs:element><xs:element name="bracket"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[^\p{C}]"/></xs:restriction></xs:simpleType></xs:element>
+</xs:schema>

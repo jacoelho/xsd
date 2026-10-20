@@ -1,0 +1,5 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" finalDefault="extension list">
+<xs:simpleType name="B"><xs:restriction base="xs:integer"/></xs:simpleType>
+<xs:simpleType name="D" final=""><xs:list itemType="B"/></xs:simpleType>
+<xs:element name="r" type="D"/>
+</xs:schema>

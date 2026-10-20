@@ -324,6 +324,99 @@ func TestFacetContractRejectsForbiddenFacetFamilies(t *testing.T) {
 	}
 }
 
+func TestBooleanEnumerationRejectionAndCompletionRetry(t *testing.T) {
+	t.Parallel()
+	pattern, err := xsdregex.Compile("true|1", xsdregex.CompileOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	builder := value.NewBuilder(value.BuilderOptions{})
+	id, err := builder.Reserve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec := atomicFacetType(value.PrimitiveBoolean, value.FacetSpec{
+		Enumeration: []value.LiteralSpec{{Lexical: "true", Type: value.NoType}},
+	})
+	spec.Base = value.BuiltinType(value.PrimitiveBoolean)
+	err = builder.Complete(id, spec)
+	if !errors.Is(err, value.ErrFacet) {
+		t.Fatalf("Complete(boolean enumeration) = %v; want applicability rejection", err)
+	}
+	if _, available := builder.InputRequirements(id); available {
+		t.Fatal("failed completion exposed Boolean type metadata")
+	}
+	spec.Facets = value.FacetSpec{Patterns: [][]*value.Pattern{{pattern}}}
+	if err = builder.Complete(id, spec); err != nil {
+		t.Fatalf("Complete(boolean pattern) retry = %v", err)
+	}
+	program, err := builder.Seal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, lexical := range []string{"true", "1", " true "} {
+		if _, err := program.Validate(id, lexical, value.Resolver{}, 0, 16<<20, nil); err != nil {
+			t.Errorf("Validate(%q) = %v; want admitted Boolean pattern", lexical, err)
+		}
+	}
+	for _, lexical := range []string{"false", "0"} {
+		if _, validationErr := program.Validate(id, lexical, value.Resolver{}, 0, 16<<20, nil); !errors.Is(validationErr, value.ErrFacet) {
+			t.Errorf("Validate(%q) = %v; want Boolean pattern rejection", lexical, validationErr)
+		}
+	}
+}
+
+func TestBooleanListAndUnionEnumeration(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name    string
+		variety value.Variety
+		literal string
+		valid   []string
+		invalid []string
+	}{
+		{name: "list", variety: value.List, literal: "true false", valid: []string{"true false", "1 0"}, invalid: []string{"false true", "true"}},
+		{name: "union", variety: value.Union, literal: "true", valid: []string{"true", "1"}, invalid: []string{"false", "0"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			builder := value.NewBuilder(value.BuilderOptions{})
+			id, err := builder.Reserve()
+			if err != nil {
+				t.Fatal(err)
+			}
+			spec := value.TypeSpec{
+				Variety: test.variety, Primitive: value.PrimitiveBoolean,
+				Whitespace: value.WhitespaceCollapse, WhitespacePresent: true,
+				Base: value.NoType, ListItem: value.NoType,
+				Facets: value.FacetSpec{Enumeration: []value.LiteralSpec{{Lexical: test.literal, Type: value.NoType}}},
+			}
+			if test.variety == value.List {
+				spec.ListItem = value.BuiltinType(value.PrimitiveBoolean)
+			} else {
+				spec.Union = []value.TypeID{value.BuiltinType(value.PrimitiveBoolean)}
+			}
+			if err = builder.Complete(id, spec); err != nil {
+				t.Fatalf("Complete(%s Boolean enumeration) = %v", test.name, err)
+			}
+			program, err := builder.Seal()
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, lexical := range test.valid {
+				if _, err := program.Validate(id, lexical, value.Resolver{}, 0, 16<<20, nil); err != nil {
+					t.Errorf("Validate(%q) = %v; want value-equivalent enumerand", lexical, err)
+				}
+			}
+			for _, lexical := range test.invalid {
+				if _, validationErr := program.Validate(id, lexical, value.Resolver{}, 0, 16<<20, nil); !errors.Is(validationErr, value.ErrFacet) {
+					t.Errorf("Validate(%q) = %v; want enumeration rejection", lexical, validationErr)
+				}
+			}
+		})
+	}
+}
+
 func TestFacetContractRejectsPrimitiveAndVarietyChanges(t *testing.T) {
 	t.Parallel()
 

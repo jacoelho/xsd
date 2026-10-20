@@ -872,7 +872,9 @@ func TestIdentityTableLocalEntryWinsPropagatedChildInEitherCompletionOrder(t *te
 			keyID: {"x": {path: explicitRetainedPath("/root/root"), node: 2, originDepth: childDepth}},
 		}
 
-		state.mergeClosedIdentityScope(&state.scopes[1])
+		if _, err := closeIdentityScopesForTest(&state, 2, failIdentityReport(t)); err != nil {
+			t.Fatal(err)
+		}
 		got := state.scopes[0].tables[keyID]["x"]
 		if got.originDepth != parentDepth || got.node != 1 || got.conflict {
 			t.Fatalf("merged local entry = %+v, want parent origin depth/node and no conflict", got)
@@ -891,7 +893,9 @@ func TestIdentityTableLocalEntryWinsPropagatedChildInEitherCompletionOrder(t *te
 			keyID: {"x": {path: explicitRetainedPath("/root/root"), node: 2, originDepth: childDepth}},
 		}
 		state.entries = 1
-		state.mergeClosedIdentityScope(&state.scopes[1])
+		if _, err := closeIdentityScopesForTest(&state, 2, failIdentityReport(t)); err != nil {
+			t.Fatal(err)
+		}
 
 		err := state.publishIdentityKey(
 			&state.scopes[0],
@@ -928,7 +932,7 @@ func TestMergeIdentityTableUsesLargerMapWithoutChangingParentPrecedence(t *testi
 		"other1": {path: explicitRetainedPath("/child/1"), node: 2, originDepth: childDepth},
 		"other2": {path: explicitRetainedPath("/child/2"), node: 3, originDepth: childDepth},
 	}
-	merged := mergeIdentityTable(parent, child, parentDepth)
+	merged, _ := mergeIdentityTable(parent, child, parentDepth)
 	if got := merged["same"]; got != parentEntry {
 		t.Fatalf("same-node entry = %+v, want parent entry", got)
 	}
@@ -937,7 +941,7 @@ func TestMergeIdentityTableUsesLargerMapWithoutChangingParentPrecedence(t *testi
 	}
 
 	parentEntry = identityTableEntry{path: explicitRetainedPath("/parent"), node: 1, originDepth: childDepth}
-	conflict := mergeIdentityTable(
+	conflict, _ := mergeIdentityTable(
 		map[string]identityTableEntry{"same": parentEntry},
 		map[string]identityTableEntry{
 			"same":   {path: explicitRetainedPath("/child"), node: 2, originDepth: childDepth},

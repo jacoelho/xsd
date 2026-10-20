@@ -57,6 +57,9 @@ func (c *compiler) compileAttributeDecl(n *schemaNode, ctx *schemaSetDocument, q
 	if err != nil {
 		return AttributeDecl{}, err
 	}
+	if err := c.admitNotationTypeUse(n, typ); err != nil {
+		return AttributeDecl{}, err
+	}
 	decl := AttributeDecl{Name: q, Type: typ}
 	readAttributeDeclValueConstraints(n, &decl)
 	if err := validateAttributeDeclValueConstraintAtNode(n, DeclarationValueConstraintOf(decl.Default, decl.Fixed)); err != nil {
@@ -342,6 +345,11 @@ func (b *attributeUseCompilation) mergeUse(use AttributeUse) error {
 		return xsderrors.InternalInvariant("unknown attribute merge mode")
 	}
 	if index, ok := b.seen[use.Name]; ok {
+		// Reaching the same component through multiple groups adds no member.
+		// Zero belongs to construction directives and uses without identity.
+		if use.componentID != 0 && use.componentID == b.uses[index].componentID {
+			return nil
+		}
 		if err := b.validateReplacement(use, index, b.compiler.rt.spendTypeDerivationWork); err != nil {
 			return err
 		}
@@ -431,13 +439,27 @@ func (c *compiler) compileAttributeUse(n *schemaNode, ctx *schemaSetDocument) (A
 	use.Required = modeState.Required
 	use.Prohibited = modeState.Prohibited
 	applyAttributeUseDefaultOverride(&use, base, overrides)
-	if err := c.validateAttributeUseOverrides(n, &use, base, overrides); err != nil {
+	if err = c.validateAttributeUseOverrides(n, &use, base, overrides); err != nil {
 		return AttributeUse{}, err
 	}
-	if err := validateAttributeUseFixedValueAtNode(n, NewValueConstraintIdentity(use.Fixed), NewValueConstraintIdentity(base.refFixed)); err != nil {
+	if err = validateAttributeUseFixedValueAtNode(n, NewValueConstraintIdentity(use.Fixed), NewValueConstraintIdentity(base.refFixed)); err != nil {
 		return AttributeUse{}, err
+	}
+	if !use.Prohibited {
+		use.componentID, err = c.allocateAttributeUseID()
+		if err != nil {
+			return AttributeUse{}, err
+		}
 	}
 	return use, nil
+}
+
+func (c *compiler) allocateAttributeUseID() (uint32, error) {
+	if c.attributeUseCount == ^uint32(0) {
+		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "attribute use identity limit exceeded")
+	}
+	c.attributeUseCount++
+	return c.attributeUseCount, nil
 }
 
 type attributeUseOverrides struct {
@@ -601,8 +623,13 @@ func (c *compiler) compileAttributeGroupUse(n *schemaNode, ctx *schemaSetDocumen
 	if err != nil {
 		return nil, NoWildcard, withSchemaCompileLocation(n, err)
 	}
-	uses, wildcard := c.rt.attributeUsesAndWildcardForCompilation(id)
-	return uses, wildcard, nil
+	set := c.rt.AttributeUseSets[id]
+	// Every traversed member costs work, including shared members already in
+	// the destination. The caller borrows these immutable records by value.
+	if err := c.dependencyWork.spend(len(set.Uses)); err != nil {
+		return nil, NoWildcard, withSchemaCompileLocation(n, err)
+	}
+	return set.Uses, set.Wildcard, nil
 }
 
 func (c *compiler) compileAttributeGroupUseID(n *schemaNode, ctx *schemaSetDocument) (AttributeUseSetID, error) {

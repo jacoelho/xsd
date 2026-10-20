@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:notation name="n" system=" &#x9;&#xA;&#xD; "/>
+</xs:schema>

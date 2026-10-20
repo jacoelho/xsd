@@ -184,7 +184,7 @@ func (c *compiler) checkContentModelElementDeclarationsConsistentBuild() error {
 	if len(c.modelSources) != len(c.rt.Models) {
 		return xsderrors.InternalInvariant("content model provenance count does not match model count")
 	}
-	checker := newElementDeclarationConsistencyChecker(&c.rt, &c.contentWork)
+	checker := newElementDeclarationConsistencyChecker(&c.rt, c.contentWork.spend)
 	for id := range c.rt.Models {
 		if err := checker.checkModel(ContentModelID(id)); err != nil {
 			if c.modelSources[id] != nil {
@@ -194,17 +194,6 @@ func (c *compiler) checkContentModelElementDeclarationsConsistentBuild() error {
 		}
 	}
 	return nil
-}
-
-func (c *compiler) restrictionChoiceLimitUpdates() ([]RestrictionChoiceLimitUpdate, error) {
-	return RestrictionChoiceLimitUpdates(
-		&c.rt,
-		c.rt.ComplexTypes,
-		c.rt.Models,
-		c.rt.AnyType,
-		c.contentWork.spend,
-		c.contentAnalysis,
-	)
 }
 
 func (c *compiler) validateAttributeDeclNameBuild(q QName) error {

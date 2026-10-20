@@ -89,33 +89,9 @@ func (v ValueConstraintRead) ResolveQName(lexical string) (valuepkg.ExpandedName
 	return v.qnameContext.ResolveQName(lexical)
 }
 
-// FixedAttributeComparison identifies the equality relation for a fixed
-// attribute constraint.
-type FixedAttributeComparison uint8
-
-const (
-	// FixedAttributeComparisonInvalid is not a valid equality relation.
-	FixedAttributeComparisonInvalid FixedAttributeComparison = iota
-	// FixedAttributeComparisonLexical compares canonical lexical values.
-	FixedAttributeComparisonLexical
-	// FixedAttributeComparisonValueSpace compares datatype identity values.
-	FixedAttributeComparisonValueSpace
-)
-
-// FixedAttributeValueEqual compares an attribute value with a fixed
-// constraint. valid is false for invalid comparison modes or when a
-// value-space comparison lacks its precomputed identity projection.
-func FixedAttributeValueEqual(actual valuepkg.Value, fixed ValueConstraintRead, comparison FixedAttributeComparison) (equal, valid bool) {
-	switch comparison {
-	case FixedAttributeComparisonLexical:
-		return actual.CanonicalText() == fixed.canonical, true
-	case FixedAttributeComparisonValueSpace:
-	case FixedAttributeComparisonInvalid:
-		return false, false
-	default:
-		valid := false
-		return false, valid
-	}
+// FixedAttributeValueEqual compares a fixed constraint in datatype value space.
+// The validation owner selects this policy. valid is false without identity.
+func FixedAttributeValueEqual(actual valuepkg.Value, fixed ValueConstraintRead) (equal, valid bool) {
 	if actual.IdentityKey() == "" || fixed.value.IdentityKey() == "" {
 		return false, false
 	}
@@ -464,43 +440,4 @@ func ValidateValueConstraintReplay(cached ValueConstraintValidation, expected Si
 		return err
 	}
 	return ValidateValueConstraintReplayResult(cached, value)
-}
-
-// SimpleTypeUsesBareNotation reports whether a simple type graph contains
-// xs:NOTATION without an enumeration facet.
-func SimpleTypeUsesBareNotation(rt *schemaBuild, id SimpleTypeID) bool {
-	return hasBareNotationUse(rt, id, make(map[SimpleTypeID]bool))
-}
-
-func hasBareNotationUse(rt *schemaBuild, id SimpleTypeID, seen map[SimpleTypeID]bool) bool {
-	if rt == nil || id == NoSimpleType || seen[id] {
-		return false
-	}
-	seen[id] = true
-	st, ok := rt.ValueConstraintSimpleType(id)
-	if !ok {
-		return false
-	}
-	if st.Primitive == valuepkg.PrimitiveNotation && !st.HasEnumeration {
-		return true
-	}
-	switch st.Variety {
-	case valuepkg.List:
-		return hasBareNotationUse(rt, st.ListItem, seen)
-	case valuepkg.Union:
-		return unionUsesBareNotation(rt, st.Union, seen)
-	case valuepkg.Atomic:
-		return false
-	default:
-	}
-	return false
-}
-
-func unionUsesBareNotation(rt *schemaBuild, members []SimpleTypeID, seen map[SimpleTypeID]bool) bool {
-	for _, member := range members {
-		if hasBareNotationUse(rt, member, seen) {
-			return true
-		}
-	}
-	return false
 }

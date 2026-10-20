@@ -27,10 +27,7 @@ func validateSchema(rt *schemaValidation) error {
 	if err := validateBuiltinIDs(rt); err != nil {
 		return err
 	}
-	if err := validateRuntimeComponents(rt); err != nil {
-		return err
-	}
-	return validateRuntimeChoiceLimits(rt)
+	return validateRuntimeComponents(rt)
 }
 
 // validateSchemaBuildOwnership checks the compiler's reverse indexes before
@@ -308,6 +305,12 @@ func validateRuntimeContentModelComponents(rt *schemaValidation) error {
 	if err := validateContentModelGraph(rt.build.Models); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
+	checker := newElementDeclarationConsistencyChecker(rt.build, rt.contentModelWork)
+	for id := range rt.build.Models {
+		if err := checker.checkModel(ContentModelID(id)); err != nil {
+			return schemaBuildValidationError(err)
+		}
+	}
 	return nil
 }
 
@@ -426,20 +429,6 @@ func validateMissingSimpleTypeGlobals(rt *schemaValidation, missingID SimpleType
 	return nil
 }
 
-func validateRuntimeChoiceLimits(rt *schemaValidation) error {
-	if err := ValidateChoiceLimitDerivations(
-		rt.build,
-		rt.build.ComplexTypes,
-		rt.build.Models,
-		rt.build.AnyType,
-		rt.contentModelWork,
-		rt.contentAnalysis,
-	); err != nil {
-		return schemaBuildValidationError(err)
-	}
-	return nil
-}
-
 func validateBuiltinIDs(rt *schemaValidation) error {
 	if err := validateBuiltinDeclarations(rt); err != nil {
 		return err
@@ -554,6 +543,9 @@ func validateElementDeclShape(rt *schemaValidation, decl ElementDecl) error {
 	}); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
+	if simple, ok := decl.Type.Simple(); ok {
+		return validateNotationTypeUse(rt.build, simple)
+	}
 	return nil
 }
 
@@ -577,6 +569,9 @@ func validateAttributeDecl(rt *schemaValidation, decl AttributeDecl) error {
 	}); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
+	if err := checkNotationTypeUse(rt.build, decl.Type); err != nil {
+		return schemaBuildValidationError(err)
+	}
 	if err := ValidateAttributeDeclValueConstraintRuntime(rt.build, decl.Type, DeclarationValueConstraintOf(decl.Default, decl.Fixed)); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
@@ -599,7 +594,7 @@ func validateSimpleType(rt *schemaValidation, id SimpleTypeID, st SimpleType) er
 	if _, ok := rt.build.valueBuilder.InputRequirements(id); !ok {
 		return xsderrors.InternalInvariant("simple type has no admitted value definition")
 	}
-	return nil
+	return validateNotationConstructorUses(rt.build, id)
 }
 
 func validateComplexTypeRecord(build *schemaBuild, id ComplexTypeID, ct ComplexType) error {
@@ -610,6 +605,9 @@ func validateComplexTypeRecord(build *schemaBuild, id ComplexTypeID, ct ComplexT
 		AnyType:              build.AnyType,
 	}); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
+	}
+	if ct.TextType != NoSimpleType {
+		return validateNotationTypeUse(build, ct.TextType)
 	}
 	return nil
 }
@@ -660,6 +658,9 @@ func validateComplexRestrictionRuntime(rt *schemaValidation, ct ComplexType) err
 	}
 	if err := ValidateComplexTypeRestrictionRuntime(rt.build, rt.contentAnalysis, base, ct, rt.build.spendTypeDerivationWork); err != nil {
 		return schemaBuildValidationError(err)
+	}
+	if err := validateComplexRestrictionAttributeWildcard(rt.build, ct); err != nil {
+		return xsderrors.InternalInvariant(err.Error())
 	}
 	if err := ValidateContentRestriction(
 		rt.build,
@@ -721,6 +722,9 @@ func validateAttributeUseSetRuntime(rt *schemaValidation, _ AttributeUseSetID, s
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	for _, use := range set.Uses {
+		if err := checkNotationTypeUse(rt.build, use.Type); err != nil {
+			return schemaBuildValidationError(err)
+		}
 		if err := validateValueConstraintRuntime(rt, use.Default, use.Type, "attribute use default"); err != nil {
 			return err
 		}

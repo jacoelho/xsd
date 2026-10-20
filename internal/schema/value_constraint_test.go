@@ -340,24 +340,18 @@ func TestFixedValueConstraintEqual(t *testing.T) {
 	}
 }
 
-func TestFixedAttributeValueEqualDistinguishesConstraintOwner(t *testing.T) {
+func TestFixedAttributeValueEqualUsesValueSpace(t *testing.T) {
 	t.Parallel()
 
 	fixedValue := testBuiltinValue(t, valuepkg.PrimitiveDuration, "P1Y", valuepkg.NeedCanonical|valuepkg.NeedIdentity)
 	fixed := newValueConstraintRead("P1Y", "P1Y", fixedValue)
 	actual := testBuiltinValue(t, valuepkg.PrimitiveDuration, "P12M", valuepkg.NeedCanonical|valuepkg.NeedIdentity)
-	if equal, valid := FixedAttributeValueEqual(actual, fixed, FixedAttributeComparisonLexical); equal || !valid {
-		t.Fatalf("use-owned equality = %v, %v, want false, true", equal, valid)
-	}
-	if equal, valid := FixedAttributeValueEqual(actual, fixed, FixedAttributeComparisonValueSpace); !equal || !valid {
+	if equal, valid := FixedAttributeValueEqual(actual, fixed); !equal || !valid {
 		t.Fatalf("declaration-owned equality = %v, %v, want true, true", equal, valid)
 	}
 	actual = testBuiltinValue(t, valuepkg.PrimitiveDuration, "P12M", valuepkg.NeedCanonical)
-	if equal, valid := FixedAttributeValueEqual(actual, fixed, FixedAttributeComparisonValueSpace); equal || valid {
+	if equal, valid := FixedAttributeValueEqual(actual, fixed); equal || valid {
 		t.Fatalf("missing identity equality = %v, %v, want false, false", equal, valid)
-	}
-	if equal, valid := FixedAttributeValueEqual(actual, fixed, FixedAttributeComparisonInvalid); equal || valid {
-		t.Fatalf("invalid comparison equality = %v, %v, want false, false", equal, valid)
 	}
 }
 
@@ -374,8 +368,8 @@ func completeConstraintFixtureType(t *testing.T, b *valuepkg.Builder, spec value
 }
 
 type notationConstraintTypes struct {
-	build                         *schemaBuild
-	bare, enumerated, list, union SimpleTypeID
+	build      *schemaBuild
+	enumerated SimpleTypeID
 }
 
 func notationConstraintFixture(t *testing.T) notationConstraintTypes {
@@ -394,38 +388,7 @@ func notationConstraintFixture(t *testing.T) notationConstraintTypes {
 			},
 		}}},
 	})
-	list := completeConstraintFixtureType(t, b, valuepkg.TypeSpec{Base: valuepkg.NoType, Variety: valuepkg.List, ListItem: bare})
-	union := completeConstraintFixtureType(t, b, valuepkg.TypeSpec{Base: valuepkg.NoType, ListItem: valuepkg.NoType,
-		Variety: valuepkg.Union, Union: []valuepkg.TypeID{valuepkg.BuiltinType(valuepkg.PrimitiveString), bare}})
-	return notationConstraintTypes{build: &schemaBuild{valueBuilder: b, SimpleTypes: make([]SimpleType, int(union)+1)}, bare: bare, enumerated: enumerated, list: list, union: union}
-}
-
-func TestSimpleTypeUsesBareNotation(t *testing.T) {
-	t.Parallel()
-	fixture := notationConstraintFixture(t)
-	rt := fixture.build
-	cycle, cycleID := compileOwnerCallbackCycleFixture(t)
-	tests := []struct {
-		name string
-		rt   *schemaBuild
-		id   SimpleTypeID
-		want bool
-	}{
-		{"atomic bare notation", rt, fixture.bare, true},
-		{"enumerated notation", rt, fixture.enumerated, false},
-		{"list item bare notation", rt, fixture.list, true},
-		{"union member bare notation", rt, fixture.union, true},
-		{"cycle terminates", cycle, cycleID, false},
-		{"missing type", rt, 999, false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			if got := SimpleTypeUsesBareNotation(tt.rt, tt.id); got != tt.want {
-				t.Fatalf("SimpleTypeUsesBareNotation() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+	return notationConstraintTypes{build: &schemaBuild{valueBuilder: b, SimpleTypes: make([]SimpleType, int(enumerated)+1)}, enumerated: enumerated}
 }
 
 func TestValidateValueConstraintShape(t *testing.T) {

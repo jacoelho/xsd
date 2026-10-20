@@ -12,7 +12,9 @@
 // Compilation and validation are synchronous. Callers that need interruption
 // must provide resolver, opener, and reader implementations they can unblock.
 //
-// Instance validation is streaming. Engine.Validate consumes an io.Reader with
+// Instance validation uses the compiled component set; location hints cannot
+// supply missing declarations or types. Hint syntax and resource limits apply.
+// Validation is streaming. Engine.Validate consumes an io.Reader with
 // a low-level byte XML parser, rejects DTD declarations, rejects non-UTF-8
 // instance documents, and resets document state before retaining bounded scratch
 // for a later call.

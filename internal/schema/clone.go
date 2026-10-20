@@ -11,7 +11,6 @@ func CloneWildcard(in Wildcard) Wildcard {
 // CloneContentModel deep-clones content-model metadata.
 func CloneContentModel(in ContentModel) ContentModel {
 	in.Particles = slices.Clone(in.Particles)
-	in.ChoiceLimits = slices.Clone(in.ChoiceLimits)
 	return in
 }
 
