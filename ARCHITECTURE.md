@@ -1122,6 +1122,14 @@ graph preserves these ownership rules:
 - The benchmark smoke target spans every owning package selected by its bounded
   pattern; the exhaustive benchmark target remains separate.
 
+`.github/workflows/test.yml` owns CI ordering. Native CI runs the test suite
+once with race detection; `make test` remains the local uninstrumented entry
+point. Staticcheck and lint remain separate because their finding policies
+differ. Independent analysis and runtime checks use parallel groups of at most
+four steps, with browser dependencies installed before runtime checks. Each
+group joins failures before later stages. Fuzz and benchmark smoke run
+separately after those groups, so benchmarks do not compete with other checks.
+
 ## Rejected Alternatives
 
 - Deriving maximum-one execution overrides from a repeated base choice was
