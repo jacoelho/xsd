@@ -415,7 +415,6 @@ func ValidateSimpleContentRestrictionTextType(
 	return nil
 }
 
-// Attribute-use provenance is admitted before this owner-dependent check.
 // Only the immediate built-in anyType base exempts restriction clause 4.3;
 // equal wildcard shapes, shared wildcard IDs and anyType ancestry do not.
 func validateComplexRestrictionAttributeWildcard(rt *schemaBuild, ct ComplexType) error {

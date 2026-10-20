@@ -401,8 +401,7 @@ func ValidateAttributeUseRestriction(
 }
 
 // ValidateAttributeUseSetRestriction validates pairwise use restrictions,
-// new-use wildcard allowance and wildcard provenance. The owning complex type
-// separately checks wildcard processing strength against its exact base.
+// new-use wildcard allowance and wildcard provenance.
 func ValidateAttributeUseSetRestriction(
 	rt *schemaBuild,
 	base, derived AttributeUseSet,
@@ -555,8 +554,7 @@ func uint32Index(i int) (uint32, bool) {
 }
 
 // ValidateAttributeWildcardDerivation validates a derived use-set wildcard's
-// binding to its owning type's base and derivation. Processing strength is
-// checked separately with the owner's exact complex base identity.
+// binding to its owning type's base and derivation.
 func ValidateAttributeWildcardDerivation(
 	rt *schemaBuild,
 	base, derived AttributeUseSet,
@@ -572,8 +570,7 @@ func ValidateAttributeWildcardDerivation(
 }
 
 // ValidateAttributeWildcardProvenance validates a use-set wildcard against its
-// stored base/declared/derivation provenance. Processing strength for restriction
-// belongs to the owning complex type, whose base identity is not stored here.
+// stored base/declared/derivation provenance.
 func ValidateAttributeWildcardProvenance(rt *schemaBuild, state AttributeUseSet) error {
 	if err := validateAttributeWildcardID(rt, state.Wildcard, "attribute use set references invalid wildcard"); err != nil {
 		return err
