@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>10236 &ndash; key/keyref/unique fields having a complex type with simple content</title>
+
+      <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<link href="data/assets/54486398487c111ba3305277d0702e66.css" rel="stylesheet" type="text/css">
+<link rel="stylesheet" href="style.css">
+
+
+
+    
+
+
+    
+
+
+    
+
+    
+    <link rel="search" type="application/opensearchdescription+xml"
+                       title="Bugzilla" href="./search_plugin.cgi">
+    <link rel="shortcut icon" href="images/favicon.ico">
+  </head>
+
+  <body 
+        class="www-w3-org-Bugs-Public
+                 bz_bug
+                 bz_status_CLOSED
+                 bz_product_XML_Schema
+                 bz_component_Structures&#X3A;_XSD_Part_1
+                 bz_bug_10236 yui-skin-sam">
+
+  <div id="header"><div id="banner">
+  </div>
+
+    <div id="titles">
+      <span id="title">Bugzilla &ndash; Bug&nbsp;10236</span>
+
+        <span id="subtitle" class="subheader">key/keyref/unique fields having a complex type with simple content</span>
+
+        <span id="information" class="header_addl_info">Last modified: 2010-11-03 21:00:33 UTC</span>
+    </div>
+
+
+    
+  </div>
+
+  <div id="bugzilla-body"><div class="archivalnote"><p>This is an archived snapshot of W3C's public bugzilla bug tracker, decommissioned in April 2019. Please see the <a href="./">home page</a> for more details.</p></div>
+
+
+
+
+<form name="changeform" id="changeform" method="post" action="process_bug.cgi">
+
+  <input type="hidden" name="delta_ts" value="2010-11-03 21:00:33">
+  <input type="hidden" name="id" value="10236">
+  <input type="hidden" name="token" value="1554139010-KV-pHzKy6clvfVMua6D8F-E8i6ChlO2ofbEhX0LN1Gk">
+<div class="bz_short_desc_container edit_form">
+     <a href="show_bug.cgi?id=10236"><b>Bug&nbsp;10236</b></a> <span id="summary_container" class="bz_default_hidden">
+      - <span id="short_desc_nonedit_display">key/keyref/unique fields having a complex type with simple content</span>
+     </span>
+
+    <div id="summary_input"><span class="field_label "
+    id="field_label_short_desc">
+
+
+  <a 
+      title="The bug summary is a short sentence which succinctly describes what the bug is about."
+      class="field_help_link"
+      href="page.cgi?id=fields.html#short_desc"
+  >Summary:</a>
+
+</span>key/keyref/unique fields having a complex type with simple content
+    </div>
+  </div>
+  
+  <table class="edit_form">
+    <tr>
+      
+      <td id="bz_show_bug_column_1" class="bz_show_bug_column">     
+        <table>
+          <tr>
+    <th class="field_label">
+      <a href="page.cgi?id=fields.html#bug_status">Status</a>:
+    </th>
+    <td id="bz_field_status">
+      <span id="static_bug_status">CLOSED
+          FIXED
+      </span>
+    </td>
+  </tr>
+<tr>
+    <td colspan="2" class="bz_section_spacer"></td>
+  </tr>
+<tr><th class="field_label "
+    id="field_label_alias">
+
+
+  <a 
+      title="A short, unique name assigned to a bug in order to assist with looking it up and referring to it in other places in Bugzilla."
+      class="field_help_link"
+      href="page.cgi?id=fields.html#alias"
+  >Alias:</a>
+
+</th>
+    <td>
+        None
+    </td>
+  </tr>
+<tr>
+    <td colspan="2" class="bz_section_spacer"></td>
+  </tr>
+<tr><th class="field_label "
+    id="field_label_product">
+
+
+  <a 
+      title="Bugs are categorised into Products and Components."
+      class="field_help_link"
+      href="describecomponents.cgi"
+  >Product:</a>
+
+</th>
+  <td class="field_value "
+      id="field_container_product" >XML Schema
+
+</td>
+    </tr>
+
+    
+    <tr class="bz_default_hidden"><th class="field_label "
+    id="field_label_classification">
+
+
+  <a 
+      title="Bugs are categorised into Classifications, Products and Components. classifications is the top-level categorisation."
+      class="field_help_link"
+      href="page.cgi?id=fields.html#classification"
+  >Classification:</a>
+
+</th>
+  <td class="field_value "
+      id="field_container_classification" >Unclassified
+
+</td>
+    </tr>
+        
+    
+    
+    <tr><th class="field_label "
+    id="field_label_component">
+
+
+  <a 
+      title="Components are second-level categories; each belongs to a particular Product. Select a Product to narrow down this list."
+      class="field_help_link"
+      href="describecomponents.cgi?product=XML Schema"
+  >Component:</a>
+
+</th>
+  <td class="field_value "
+      id="field_container_component" >Structures: XSD Part 1
+
+  (<a href="buglist.cgi?component=Structures%3A%20XSD%20Part%201&amp;product=XML%20Schema&amp;bug_status=__open__"
+      target="_blank">show other bugs</a>)
+</td>
+    </tr>
+    <tr><th class="field_label "
+    id="field_label_version">
+
+
+  <a 
+      title="The version field defines the version of the software the bug was found in."
+      class="field_help_link"
+      href="page.cgi?id=fields.html#version"
+  >Version:</a>
+
+</th>
+<td>1.0/1.1 both
+  </td>
+    </tr>
+        
+    
+        
+    <tr><th class="field_label "
+    id="field_label_rep_platform">
+
+
+  <a 
+      title="The hardware platform the bug was observed on. Note: When searching, selecting the option &quot;All&quot; only finds bugs whose value for this field is literally the word &quot;All&quot;."
+      class="field_help_link"
+      href="page.cgi?id=fields.html#rep_platform"
+  >Hardware:</a>
+
+</th>
+      <td class="field_value">PC
+        Windows NT
+      </td>
+    </tr>
+          <tr>
+    <td colspan="2" class="bz_section_spacer"></td>
+  </tr>
+          
+          <tr>
+      <th class="field_label">
+        <label  accesskey="i">
+          <a href="page.cgi?id=fields.html#importance"><u>I</u>mportance</a></label>:
+      </th>
+      <td>P2
+       normal
+      </td>
+    </tr>
+
+      <tr><th class="field_label "
+    id="field_label_target_milestone">
+
+
+  <a 
+      title="The Target Milestone field is used to define when the engineer the bug is assigned to expects to fix it."
+      class="field_help_link"
+      href="page.cgi?id=fields.html#target_milestone"
+  >Target Milestone:</a>
+
+</th><td>---
+  </td>
+      </tr>
+          
+          <tr><th class="field_label "
+    id="field_label_assigned_to">
+
+
+  <a 
+      title="The person in charge of resolving the bug."
+      class="field_help_link"
+      href="page.cgi?id=fields.html#assigned_to"
+  >Assignee:</a>
+
+</th>
+      <td><span class="vcard"><span class="fn">David Ezell</span>
+</span>
+      </td>
+    </tr>
+
+    <tr><th class="field_label "
+    id="field_label_qa_contact">
+
+
+  <a 
+      title="The person responsible for confirming this bug if it is unconfirmed, and for verifying the fix once the bug has been resolved."
+      class="field_help_link"
+      href="page.cgi?id=fields.html#qa_contact"
+  >QA Contact:</a>
+
+</th>
+      <td><span class="vcard"><span class="fn">XML Schema comments list</span>
+</span>
+      </td>
+    </tr>
+    
+          <tr>
+    <td colspan="2" class="bz_section_spacer"></td>
+  </tr>
+          <tr><th class="field_label "
+    id="field_label_bug_file_loc">
+
+
+  <a 
+      title="Bugs can have a URL associated with them - for example, a pointer to a web site where the problem is seen."
+      class="field_help_link"
+      href="page.cgi?id=fields.html#bug_file_loc"
+  >URL:</a>
+
+</th>
+    <td>
+      <span id="bz_url_input_area">
+      </span>
+    </td>
+  </tr>
+
+    <tr><th class="field_label "
+    id="field_label_status_whiteboard">
+
+
+  <a 
+      title="Each bug has a free-form single line text entry box for adding tags and status information."
+      class="field_help_link"
+      href="page.cgi?id=fields.html#status_whiteboard"
+  >Whiteboard:</a>
+
+</th><td>  
+  </td>
+    </tr>
+
+    <tr><th class="field_label "
+    id="field_label_keywords">
+
+
+  <a 
+      title="You can add keywords from a defined list to bugs, in order to easily identify and group them."
+      class="field_help_link"
+      href="describekeywords.cgi"
+  >Keywords:</a>
+
+</th>
+  <td class="field_value "
+      id="field_container_keywords" >resolved
+
+</td>
+    </tr>
+          <tr>
+    <td colspan="2" class="bz_section_spacer"></td>
+  </tr>
+
+          
+<tr><th class="field_label "
+    id="field_label_dependson">
+
+
+  <a 
+      title="The bugs listed here must be resolved before this bug can be resolved."
+      class="field_help_link"
+      href="page.cgi?id=fields.html#dependson"
+  >Depends on:</a>
+
+</th>
+
+  <td>
+    <span id="dependson_input_area">
+    </span>
+
+  </td>
+  </tr>
+  
+  <tr><th class="field_label "
+    id="field_label_blocked">
+
+
+  <a 
+      title="This bug must be resolved before the bugs listed in this field can be resolved."
+      class="field_help_link"
+      href="page.cgi?id=fields.html#blocked"
+  >Blocks:</a>
+
+</th>
+
+  <td>
+    <span id="blocked_input_area">
+    </span>
+
+  </td>
+  </tr>
+          
+        </table>
+      </td>
+      <td>
+        <div class="bz_column_spacer">&nbsp;</div>
+      </td>
+      
+      <td id="bz_show_bug_column_2" class="bz_show_bug_column">
+        <table>
+        <tr>
+    <th class="field_label">
+      Reported:
+    </th>
+    <td>2010-07-25 22:40 UTC by <span class="vcard"><span class="fn">Michael Kay</span>
+</span>
+    </td>
+  </tr>
+  
+  <tr>
+    <th class="field_label">
+      Modified:
+    </th>
+    <td>2010-11-03 21:00 UTC
+      (<a href="show_activity.cgi?id=10236">History</a>)
+    </td>
+  
+  </tr>
+<tr>
+      <th class="field_label">
+        <label  accesskey="a">
+          CC List:
+        </label>
+      </th>
+      <td>2 
+          users
+          <span id="cc_edit_area_showhide_container" class="bz_default_hidden">
+            (<a href="#" id="cc_edit_area_showhide">show</a>)
+          </span>
+        <div id="cc_edit_area">
+          <br>
+            <select id="cc" multiple="multiple" size="5" >
+                <option value="cmsmcq">cmsmcq</option>
+                <option value="sandygao">sandygao</option>
+            </select>
+        </div>
+          
+      </td>
+    </tr>
+
+<tr>
+    <td colspan="2" class="bz_section_spacer"></td>
+  </tr>
+<tr><th class="field_label "
+    id="field_label_see_also">
+
+
+  <a 
+      title="This allows you to refer to bugs in other installations. You can enter a URL to a bug in the 'Add Bug URLs' field to note that that bug is related to this one. You can enter multiple URLs at once by separating them with whitespace. You should normally use this field to refer to bugs in other installations. For bugs in this installation, it is better to use the Depends on and Blocks fields."
+      class="field_help_link"
+      href="page.cgi?id=fields.html#see_also"
+  >See Also:</a>
+
+</th>
+  <td class="field_value "
+      id="field_container_see_also" >
+
+</td>
+    </tr> 
+
+<tr>
+    <td colspan="2" class="bz_section_spacer"></td>
+  </tr>
+
+
+
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td colspan="3">
+          <hr id="bz_top_half_spacer">
+      </td>
+    </tr>
+  </table>
+
+  <table id="bz_big_form_parts">
+  <tr>
+  <td>
+
+    
+
+
+<br>
+<table id="attachment_table">
+  <tr id="a0">
+    <th colspan="2" class="left">
+      Attachments
+    </th>
+  </tr>
+
+
+
+  
+</table>
+<br>
+<div id="add_comment" class="bz_section_additional_comments">
+      <table>
+        <tr>
+          <td>
+            
+          </td>
+        </tr> 
+      </table>
+  </div>
+  </td>
+  <td>
+  </td>
+  </tr></table>
+
+  
+  <div id="comments">
+
+
+
+
+<!-- This auto-sizes the comments and positions the collapse/expand links 
+     to the right. -->
+<table class="bz_comment_table">
+<tr>
+<td>
+<div id="c0" class="bz_comment bz_first_comment">
+
+      <div class="bz_first_comment_head">
+
+
+        <span class="bz_comment_number">
+          <a 
+             href="show_bug.cgi?id=10236#c0">Description</a>
+        </span>
+
+        <span class="bz_comment_user">
+          <span class="vcard"><span class="fn">Michael Kay</span>
+</span>
+        </span>
+
+        <span class="bz_comment_user_images">
+        </span>
+
+        <span class="bz_comment_time">
+          2010-07-25 22:40:38 UTC
+        </span>
+
+      </div>
+
+
+
+
+<pre class="bz_comment_text">In XSD 1.0, it was specified that the element acting as the target of the field expression in key/keyref/unique &quot;must&quot; have a simple type; having a complex type with simple content was not good enough. In XSD 1.1 the specification has changed to allow a complex type with simple content.
+
+There appears to be some outstanding admin associated with this change.
+
+(a) there seems to be no bug report that I can find that triggered the change.
+
+(b) the change is not listed in appendix G of the specification
+
+(c) in consequence, the change does not appear in the list of changes that need to be tested by the XSD 1.1 test suite
+
+(d) there is no open bug report against XSD 1.0 that needs to be considered when reviewing which changes to retrofit as XSD 1.0 errata.</pre>
+    </div>
+
+    <div id="c1" class="bz_comment">
+
+      <div class="bz_comment_head">
+
+
+        <span class="bz_comment_number">
+          <a 
+             href="show_bug.cgi?id=10236#c1">Comment 1</a>
+        </span>
+
+        <span class="bz_comment_user">
+          <span class="vcard"><span class="fn">C. M. Sperberg-McQueen</span>
+</span>
+        </span>
+
+        <span class="bz_comment_user_images">
+        </span>
+
+        <span class="bz_comment_time">
+          2010-08-12 23:41:36 UTC
+        </span>
+
+      </div>
+
+
+
+
+<pre class="bz_comment_text">For the record (to save others the task of reconstructing this history from scratch).
+
+The crucial change seems to be in clause 3 of Validation Rule: Identity-constraint Satisfied, which in 1.0 reads (in part):
+
+  3 For each node in the ·target node set· all of the {fields}, with that node as the context node, 
+    evaluate to either an empty node-set or a node-set with exactly one member, which must 
+    have a simple type. 
+
+  <a href="https://www.w3.org/TR/xmlschema-1/#d0e13819">http://www.w3.org/TR/xmlschema-1/#d0e13819</a>
+
+In the current public draft the corresponding sentence reads
+
+  3 For each node in the ·target node set· all of the {fields}, with that node as the context node, 
+    evaluates to a sequence of nodes (as defined in XPath Evaluation (§3.13.4.2)) that only 
+    contains ·skipped· nodes and at most one node whose ·governing· type definition is either 
+    a simple type definition or a complex type definition with {variety} simple.
+
+  <a href="https://www.w3.org/TR/xmlschema11-1/#sec-cvc-identity-constraint">http://www.w3.org/TR/xmlschema11-1/#sec-cvc-identity-constraint</a>
+
+Several change proposals are involved in this sentence; others appear nearby but do not seem relevant to the point raised in the bug report.  In chronological order, the changes appear to be:
+
+  - modals (approved 18 February 2005), which changed &quot;must have a simple type&quot; to
+    &quot;has a simple type&quot; since there is already a &quot;must&quot; in the introductory prose at 
+    the beginning of the list.
+
+  - idc (approved 17 November 2006), which was submitted to the WG in document
+    <a href="https://www.w3.org/XML/Group/2004/06/xmlschema-1/structures.idc.200611.html">http://www.w3.org/XML/Group/2004/06/xmlschema-1/structures.idc.200611.html</a>
+    and which is a fix to <a class="bz_bug_link 
+          bz_status_CLOSED  bz_closed"
+   title="CLOSED FIXED - Interaction between &quot;skip&quot; and identity constraints"
+   href="show_bug.cgi?id=1937">bug 1937</a> and <a class="bz_bug_link 
+          bz_status_CLOSED  bz_closed"
+   title="CLOSED FIXED - R-227: identity constraints and xsi:nil"
+   href="show_bug.cgi?id=2219">bug 2219</a>, which ask for clarification of issues relating
+    to the interaction of identity constraints with skipped subtrees and xsi:nil='true'.
+
+    Diff group idc changed 
+
+        has a simple type
+
+     to 
+
+        either is ·skipped·, or has [nil] true,  or has a ·non-absent· [schema actual value].
+
+  - idc1 (approved 1 December 2006), which contains amendments to the changes 
+    adopted 17 November 2006 from an email sent by Sandy Gao on 21 Nov 2006
+    <a href="http://lists.w3.org/Archives/Member/w3c-xml-schema-ig/2006Nov/0051.html">http://lists.w3.org/Archives/Member/w3c-xml-schema-ig/2006Nov/0051.html</a>
+
+    In particular, the proposal adopted by the WG changed 
+
+        evaluate to either an empty node-set or a node-set with exactly one member, 
+        which either is ·skipped·, or has [nil] true, or has a ·non-absent· [schema actual 
+        value]
+
+    to 
+
+        evaluate to a node set that only contains ·skipped· nodes and at most one 
+        node whose ·governing· type definition is either a simple type definition 
+        or a complex type definition with {variety} simple.
+
+  - b4416-3 (approved 3 August 2007), which changed 
+
+        a node set
+
+    to 
+
+        a sequence of nodes (as defined in XPath Evaluation (§3.12.4))
+
+It seems to me on first examination that the wording in question was introduced by change idc1, but that the substantive change (of including elements whose type is a complex type with simple content) was introduced by change idc and the introduction of the phrase &quot;non-absent [schema actual value]&quot;.
+
+The minutes of 17 November and 1 December 2006 are at 
+
+  <a href="http://lists.w3.org/Archives/Member/w3c-xml-schema-ig/2006Nov/0047.html">http://lists.w3.org/Archives/Member/w3c-xml-schema-ig/2006Nov/0047.html</a>
+  <a href="http://lists.w3.org/Archives/Member/w3c-xml-schema-ig/2006Dec/0006.html">http://lists.w3.org/Archives/Member/w3c-xml-schema-ig/2006Dec/0006.html</a>
+
+The latter notes in section 6.1.5:
+
+    NM pointed out in email that there is a substantive change to allow both simpletype 
+    and complextype with simple content, but is now satisfied with the response that 
+    most developers already do it this way.
+
+This appears to refer to the discussion thread started by SG's email cited above.  In that thread, in turn, SG points to yet earlier discussions that have a bearing here.
+
+Schema comment R-206 (&quot;pfiIdConstrFields: Can fields identity nodes with types having simpleContent?&quot; <a href="https://www.w3.org/2001/05/xmlschema-rec-comments.html#pfiIdConstrFields">http://www.w3.org/2001/05/xmlschema-rec-comments.html#pfiIdConstrFields</a>, migrated to Bugzilla in 2005 as <a class="bz_bug_link 
+          bz_status_NEW "
+   title="NEW - R-206: Can fields identity nodes with types having simpleContent?"
+   href="show_bug.cgi?id=2198">bug 2198</a>) directly raises the question at issue here.  The issue (raised in February 2003) was discussed in the call of 29 August 2003:
+
+  <a href="http://lists.w3.org/Archives/Member/w3c-xml-schema-ig/2003Sep/0002.html">http://lists.w3.org/Archives/Member/w3c-xml-schema-ig/2003Sep/0002.html</a>
+
+The WG seems to have been of divided mind whether the text of 1.0 was clear and needed a substantive change, or unclear and in need of a clarification.  A test was constructed:
+
+  <a href="http://lists.w3.org/Archives/Member/w3c-xml-schema-ig/2003Aug/0035.html">http://lists.w3.org/Archives/Member/w3c-xml-schema-ig/2003Aug/0035.html</a>
+
+Empirical research showed that all of the then-available processors tested (Tibco, Oracle C, Oracle Java, xsv, Xerces C, Xerces J) interpreted the rules in the spec as covering (i.e. allowing) both simple types and complex types with simple values.  The WG then reached the formal conclusion that the text of 1.0 was not clear, rather than that it was clear and said the wrong thing.  So the official view of the WG (at least, the WG of 2003) is that the change at issue here is not a substantive change but only a clarification.
+
+From the initial description of this issue, I infer that opinions may still be divided on whether the 1.0 text is clear or not.  But in any case, I agree with the implicit suggestion that this should probably be listed explicitly among the changes, if we can find wording we can agree on.</pre>
+    </div>
+
+    <div id="c2" class="bz_comment">
+
+      <div class="bz_comment_head">
+
+
+        <span class="bz_comment_number">
+          <a 
+             href="show_bug.cgi?id=10236#c2">Comment 2</a>
+        </span>
+
+        <span class="bz_comment_user">
+          <span class="vcard"><span class="fn">Michael Kay</span>
+</span>
+        </span>
+
+        <span class="bz_comment_user_images">
+        </span>
+
+        <span class="bz_comment_time">
+          2010-08-13 08:38:41 UTC
+        </span>
+
+      </div>
+
+
+
+
+<pre class="bz_comment_text">Wow! Great to have this thorough analysis of the history. At the very least, it gives me the confidence to remove the Saxon code that raises an error if the field has a complex type with simple content (which at present is subject to an &quot;if xsdVersion = 1.0&quot; test).
+
+I'm adding the referenced test case to the test suite (as saxonica/Unique/unique001) and making the results unconditional: anyone who fails the tests with a 1.0 processor can always raise a challenge.
+
+Quite how the WG came to decide that the XSD 1.0 spec didn't mean what it plainly says is somewhat beyond me, but I guess it was under pressure at the time.</pre>
+    </div>
+
+    <div id="c3" class="bz_comment">
+
+      <div class="bz_comment_head">
+
+
+        <span class="bz_comment_number">
+          <a 
+             href="show_bug.cgi?id=10236#c3">Comment 3</a>
+        </span>
+
+        <span class="bz_comment_user">
+          <span class="vcard"><span class="fn">Michael Kay</span>
+</span>
+        </span>
+
+        <span class="bz_comment_user_images">
+        </span>
+
+        <span class="bz_comment_time">
+          2010-08-13 09:17:07 UTC
+        </span>
+
+      </div>
+
+
+
+
+<pre class="bz_comment_text">Some deeper digging revealed also <a class="bz_bug_link 
+          bz_status_NEW "
+   title="NEW - Identity Constraints on Complex Types with Simple Content"
+   href="show_bug.cgi?id=5780">bug #5780</a> against XSD 1.0, which is still open, and <a class="bz_bug_link 
+          bz_status_ASSIGNED "
+   title="ASSIGNED - IdentityConstraint test idH031 - complex type with simple content"
+   href="show_bug.cgi?id=4060">bug #4060</a> against the test suite. I found these referenced from the Saxon code that handles the question.</pre>
+    </div>
+
+    <div id="c4" class="bz_comment">
+
+      <div class="bz_comment_head">
+
+
+        <span class="bz_comment_number">
+          <a 
+             href="show_bug.cgi?id=10236#c4">Comment 4</a>
+        </span>
+
+        <span class="bz_comment_user">
+          <span class="vcard"><span class="fn">David Ezell</span>
+</span>
+        </span>
+
+        <span class="bz_comment_user_images">
+        </span>
+
+        <span class="bz_comment_time">
+          2010-08-13 16:19:14 UTC
+        </span>
+
+      </div>
+
+
+
+
+<pre class="bz_comment_text">RESOLUTION: change the change list to call out the change as indicated at the end of <a href="show_bug.cgi?id=10236#c1">comment #1</a>.  This issue is a clarification and should be so listed.  But 4060 give the &quot;official&quot; story that 1.0 was underspecified.</pre>
+    </div>
+
+    <div id="c5" class="bz_comment">
+
+      <div class="bz_comment_head">
+
+
+        <span class="bz_comment_number">
+          <a 
+             href="show_bug.cgi?id=10236#c5">Comment 5</a>
+        </span>
+
+        <span class="bz_comment_user">
+          <span class="vcard"><span class="fn">Sandy Gao</span>
+</span>
+        </span>
+
+        <span class="bz_comment_user_images">
+        </span>
+
+        <span class="bz_comment_time">
+          2010-11-03 18:08:26 UTC
+        </span>
+
+      </div>
+
+
+
+
+<pre class="bz_comment_text">At the 2010-10-29 telecon, the WG adopted a fix for this bug shown in the following proposal:
+ 
+<a href="https://www.w3.org/XML/Group/2004/06/xmlschema-1/structures.omni.20101029.html">http://www.w3.org/XML/Group/2004/06/xmlschema-1/structures.omni.20101029.html</a>
+  (member-only link)
+
+The fix added a new entry in appendix G as a change since 1.0.
+
+Accordingly, I'm marking this issue as resolved.  Michael Kay, as the
+originator of the bug report, you are invited to indicate either that you are
+happy with the resolution of the issue (by changing the bug's status to CLOSED)
+or else that you are not happy (by reopening it and explaining what's wrong). 
+If we don't hear from you in two weeks, the WG will assume you are happy.</pre>
+    </div>
+
+
+  
+
+</td>
+<td>
+</td>
+</tr></table>
+  </div>
+        
+
+</form>
+
+<hr>
+<ul class="related_actions">
+    <li><a href="show_bug.cgi?format=multiple&amp;id=10236">Format For Printing</a></li>
+    <li>&nbsp;-&nbsp;<a href="show_bug.cgi?ctype=xml&amp;id=10236">XML</a></li>
+    <li>&nbsp;-&nbsp;<a href="enter_bug.cgi?cloned_bug_id=10236">Clone This Bug</a></li>
+    
+    <li>&nbsp;-&nbsp;<a href="#">Top of page </a></li>
+    </ul>
+
+<br>
+</div>
+
+    
+
+  </body>
+</html>

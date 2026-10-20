@@ -1,6 +1,7 @@
 # Documentation
 
-- [XSD 1.0 reference](spec/README.md): topic guides and W3C specification sources.
+- [XSD 1.0 reference](spec/README.md): corrected reading, preserved W3C sources,
+  and specification-derived scenario catalogues.
 - [Architecture](../ARCHITECTURE.md): module ownership, contracts, lifecycle,
   resource limits, and design decisions.
 - [Library usage](../README.md): public API, CLI, and configuration.

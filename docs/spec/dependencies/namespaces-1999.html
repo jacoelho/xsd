@@ -1,0 +1,823 @@
+
+
+<!doctype html public '-//W3C//DTD HTML 4.0 Transitional//EN' 'http://www.w3.org/TR/REC-html40-971218/loose.dtd'><HTML><HEAD><meta name='GENERATOR' content='XML/XH/Lark'><link rel='STYLESHEET' type='text/css' href='xml.css'><TITLE>Namespaces in XML</TITLE></HEAD><BODY BGCOLOR='#ffffff'>
+
+<H3 align='right'><A HREF="https://www.w3.org/"><IMG border='0' align='left' alt='W3C' src="https://www.w3.org/Icons/WWW/w3c_home"></A>REC-xml-names-19990114</H3><br><H1 align='center'>Namespaces in XML</H1>
+
+<h3 align='center'>World Wide Web Consortium 
+14-January-1999 </h3>
+<P></P>
+<DL><DT>This version:</DT>
+<dd><A HREF="https://www.w3.org/TR/1999/REC-xml-names-19990114">
+http://www.w3.org/TR/1999/REC-xml-names-19990114</A>
+<dd><A HREF="https://www.w3.org/TR/1999/REC-xml-names-19990114/xml-names.xml">
+http://www.w3.org/TR/1999/REC-xml-names-19990114/xml-names.xml</A>
+<dd><A HREF="https://www.w3.org/TR/1999/REC-xml-names-19990114/Overview.html">
+http://www.w3.org/TR/1999/REC-xml-names-19990114/Overview.html</A>
+
+<DT>Latest version:</DT>
+<dd><A HREF="https://www.w3.org/TR/REC-xml-names">http://www.w3.org/TR/REC-xml-names</A>
+ 
+<DT>Previous version:</DT>
+<dd><A HREF="https://www.w3.org/TR/1998/PR-xml-names-19981117">
+http://www.w3.org/TR/1998/PR-xml-names-19981117</A>
+
+<dt>Editors:</dt>
+<DD>Tim Bray
+ (Textuality) 
+<A HREF='mailto:tbray@textuality.com'>&lt;tbray@textuality.com&gt;</A></DD>
+<DD>Dave Hollander
+ (Hewlett-Packard Company) 
+<A HREF='mailto:dmh@corp.hp.com'>&lt;dmh@corp.hp.com&gt;</A></DD>
+<DD>Andrew Layman
+ (Microsoft) 
+<A HREF='mailto:andrewl@microsoft.com'>&lt;andrewl@microsoft.com&gt;</A></DD>
+</dl><p><small><A href="https://www.w3.org/Consortium/Legal/ipr-notice.html#Copyright">Copyright</A> &nbsp;&copy;&nbsp; 1999 <A href="https://www.w3.org">W3C</A> (<A href='http://www.lcs.mit.edu'>MIT</A>, <A href='http://www.inria.fr/'>INRIA</A>, <A href='http://www.keio.ac.jp/'>Keio</A> ), All Rights Reserved. W3C <A href="https://www.w3.org/Consortium/Legal/ipr-notice.html#Legal Disclaimer">liability,</A> <A href="https://www.w3.org/Consortium/Legal/ipr-notice.html#W3C Trademarks">trademark</A>, <A href="https://www.w3.org/Consortium/Legal/copyright-documents.html">document use </A>and <A href="https://www.w3.org/Consortium/Legal/copyright-software.html">software licensing </A>rules apply.</small></p>
+<h2>Status of this document</h2>
+<P>This document has been reviewed by W3C Members and
+other interested parties and has been endorsed by the
+Director as a W3C Recommendation. It is a stable
+document and may be used as reference material or cited
+as a normative reference from another document. W3C's
+role in making the Recommendation is to draw attention
+to the specification and to promote its widespread
+deployment. This enhances the functionality and
+interoperability of the Web.</P>
+<P>The list of known errors in this specification is 
+available at 
+<A HREF="https://www.w3.org/XML/xml-names-19990114-errata">http://www.w3.org/XML/xml-names-19990114-errata</A>.</P>
+<P>Please report errors in this document to 
+<A HREF='mailto:xml-names-editor@w3.org'>xml-names-editor@w3.org</A>.
+</P>
+ 
+<H2>Abstract</H2>
+<P>XML namespaces provide a simple method for qualifying 
+element and attribute
+names used in Extensible Markup Language documents by associating them
+with namespaces identified by URI references.</P>
+
+
+
+
+<h2><a name='XML-TOC'>Table of Contents</a></h2>
+<dl>
+<dd><dl>
+<dt>1. <A HREF='#sec-intro'>Motivation and Summary</A>
+<dd>1.1 <A HREF='#notation'>A Note on Notation and Usage</A>
+<dt>2. <A HREF='#ns-decl'>Declaring Namespaces</A><BR>
+<dt>3. <A HREF='#ns-qualnames'>Qualified Names</A><BR>
+<dt>4. <A HREF='#ns-using'>Using Qualified Names</A><BR>
+<dt>5. <A HREF='#scoping-defaulting'>Applying Namespaces to Elements and Attributes</A><BR>
+<dd>5.1 <A HREF='#scoping'>Namespace Scoping</A><BR>
+<dd>5.2 <A HREF='#defaulting'>Namespace Defaulting</A><BR>
+<dd>5.3 <A HREF='#uniqAttrs'>Uniqueness of Attributes</A><BR>
+<dt>6. <A HREF='#Conformance'>Conformance of Documents</A><BR>
+</dl>
+</dl>
+<h3>Appendices</h3>
+<dl>
+<dd><dl>
+<dt>A. <A HREF='#Philosophy'>The Internal Structure of XML Namespaces (Non-Normative)</A><BR>
+<dd>A.1 <A HREF='#sets-no-good'>The Insufficiency of the Traditional Namespace</A><BR>
+<dd>A.2 <A HREF='#ns-breakdown'>XML Namespace Partitions</A><BR>
+<dd>A.3 <A HREF='#ns-expnames'>Expanded Element Types and Attribute Names</A><BR>
+<dd>A.4 <A HREF='#check-uniqattr'>Unique Expanded Attribute Names</A><BR>
+<dt>B. <A HREF='#sec-xml-and-sgml'>Acknowledgements (Non-Normative)</A><BR>
+<dt>C. <A HREF='#refs'>References</A><BR>
+</dl>
+</dl>
+
+<HR>
+ 
+
+
+<H2><A NAME='sec-intro'>1. Motivation and Summary</a></h2>
+<P>We envision applications of Extensible Markup Language (XML) where
+a single XML document may
+contain elements and attributes
+(here referred to as a "markup vocabulary")
+that are defined for and used by multiple software modules.
+One motivation for this is modularity; if such a markup vocabulary exists
+which is well-understood and for which there is useful software 
+available, it is better to re-use this markup rather than re-invent it.
+</P>
+<P>Such documents, containing multiple markup vocabularies,
+pose problems of recognition and collision.  Software modules need to
+be able to recognize the tags and attributes which they are designed
+to process, even in the face 
+of "collisions" occurring when markup intended for some other software
+package uses the same element type or attribute name.
+</P>
+
+<P>These considerations require that document
+constructs
+should have universal names, 
+whose scope extends beyond their
+containing document. 
+This specification describes a mechanism,
+<EM>XML namespaces</EM>, which accomplishes this.</P>
+
+<P><a name='dt-namespace'></a><span class='TStart'>[Definition:] An <b>XML namespace</b>
+is a collection of names, identified by a URI reference
+<A href='#URIRef'>[RFC2396]</A>,
+which are used in XML documents as 
+<A HREF="https://www.w3.org/TR/REC-xml#dt-stag">element types</A> 
+and <A HREF="https://www.w3.org/TR/REC-xml#dt-attrname">attribute names</A>.
+</span>
+XML namespaces
+differ from the "namespaces" conventionally used in computing disciplines
+in that the XML version has internal structure and is not, mathematically
+speaking, a set.
+These issues are discussed in
+"<A href='#Philosophy'>A.&nbsp;The Internal Structure of XML Namespaces</A>".
+</P>
+<P><a name='dt-identical'></a><span class='TStart'>[Definition:] URI references which
+identify namespaces are considered <b>identical</b> when they are
+exactly the same character-for-character.</span>
+Note that URI references which are not identical in this sense may in fact be
+functionally equivalent.
+Examples include URI references which differ only in case, or which are in
+external entities which have different effective base URIs.
+</P>
+
+<P>Names from XML namespaces may appear as
+<A href='#dt-qname'>qualified names</A>, 
+which contain a single colon, separating the name into a
+<A href='#dt-prefix'>namespace prefix</A> and a
+<A href='#dt-localname'>local part</A>.
+The prefix, which is mapped to a URI reference, selects a namespace. 
+The combination of
+the universally managed URI namespace and the document's own namespace
+produces identifiers that are universally unique.
+Mechanisms are provided for prefix scoping and defaulting.
+</P>
+
+<P>URI references can contain characters not allowed in names, so cannot
+be used directly as namespace prefixes.
+Therefore, the 
+namespace prefix serves as a proxy for a URI reference.
+An attribute-based syntax described below is used
+to <A href='#dt-NSDecl'>declare</A> the association of the 
+namespace prefix with a URI reference; 
+software which supports this namespace proposal must
+recognize and act on these declarations and prefixes.
+</P>
+
+
+<H3><A NAME='notation'>1.1 A Note on Notation and Usage</a></h3>
+<P>Note that many of the
+nonterminals in the productions in 
+this specification are defined not here but in
+the XML specification <A href='#XML'>[XML]</A>.
+When nonterminals defined here have the same names as nonterminals
+defined in the XML specification, the productions here
+in all cases match a subset of the strings matched by the 
+corresponding ones there.
+</P>
+<P>In this document's productions, 
+the <CODE>NSC</CODE> is a "Namespace Constraint", 
+one of the rules that documents conforming to this specification must follow.
+</P>
+<P>Note that all Internet domain names used in
+examples, with the exception of <CODE>w3.org</CODE>, are selected
+at random and should not be taken as having any import.</P>
+
+
+ 
+
+<H2><A NAME='ns-decl'>2. Declaring Namespaces</a></h2>
+<P><a name='dt-NSDecl'></a><span class='TStart'>[Definition:] A namespace is
+<b>declared</b> using 
+a family of reserved attributes.
+Such an attribute's name  must either
+be <code>xmlns</code> or have <code>xmlns:</code> as a prefix.
+These attributes, like any other XML attributes, may be provided
+directly or by <A HREF="https://www.w3.org/TR/REC-xml#dt-default">default</A>.
+</span>
+</P>
+
+<table cellpadding='5' border='1' bgcolor='#f5dcb3' width='100%'><tr align='left'><td><strong>
+Attribute Names for Namespace Declaration</strong></td></tr><tr><td>
+<table border='0' bgcolor='#f5dcb3'>
+
+<tr valign='top'><td align='right'><a name='NT-NSAttName'></a>[1]&nbsp;</td><td align='right'><font><code>NSAttName</code></font></td>
+<td align='center'><font><code> ::= </code></font></td><td align='left'><font><code><a href='#NT-PrefixedAttName'>PrefixedAttName</A></code></font></td>
+</tr><tr valign='top'><td align='right'></td><td></td><td></td><td align='left'><font><code>|&nbsp;<a href='#NT-DefaultAttName'>DefaultAttName</A></code></font></td></tr>
+<tr valign='top'><td align='right'><a name='NT-PrefixedAttName'></a>[2]&nbsp;</td><td align='right'><font><code>PrefixedAttName</code></font></td>
+<td align='center'><font><code> ::= </code></font></td><td align='left'><font><code>'xmlns:' <a href='#NT-NCName'>NCName</A></code></font></td>
+<td align='center'><font><code> [ </code></font></td><td align='left'><font><code>NSC: <a href='#xmlReserved'>Leading "XML"</A> ]</code></font></td>
+</tr>
+<tr valign='top'><td align='right'><a name='NT-DefaultAttName'></a>[3]&nbsp;</td><td align='right'><font><code>DefaultAttName</code></font></td>
+<td align='center'><font><code> ::= </code></font></td><td align='left'><font><code>'xmlns'</code></font></td></tr>
+<tr valign='top'><td align='right'><a name='NT-NCName'></a>[4]&nbsp;</td><td align='right'><font><code>NCName</code></font></td>
+<td align='center'><font><code> ::= </code></font></td><td align='left'><font><code>(<a href="https://www.w3.org/TR/REC-xml#NT-Letter">Letter</A> |&nbsp;'_')
+(<a href='#NT-NCNameChar'>NCNameChar</A>)*</code></font></td><td align='center'><font><code> /* </code></font></td><td align='left'><font><code>An XML
+<a href="https://www.w3.org/TR/REC-xml#NT-Name">Name</A>, minus the ":" */</code></font></td></tr>
+<tr valign='top'><td align='right'><a name='NT-NCNameChar'></a>[5]&nbsp;</td><td align='right'><font><code>NCNameChar</code></font></td>
+<td align='center'><font><code> ::= </code></font></td><td align='left'><font><code><a href="https://www.w3.org/TR/REC-xml#NT-Letter">Letter</A>
+|&nbsp;<a href="https://www.w3.org/TR/REC-xml#NT-Digit">Digit</A> 
+|&nbsp;'.' |&nbsp;'-' |&nbsp;'_'
+|&nbsp;<a href="https://www.w3.org/TR/REC-xml#NT-CombiningChar">CombiningChar</A>
+|&nbsp;<a href="https://www.w3.org/TR/REC-xml#NT-Extender">Extender</A></code></font></td>
+</tr>
+</table>
+</td></tr></table>
+
+
+<P>
+<a name='dt-NSName'></a><span class='TStart'>[Definition:] The attribute's 
+<A HREF="https://www.w3.org/TR/REC-xml#dt-attrval">value</A>,
+a URI reference,
+is the <b>namespace name</b> identifying the namespace.</span>
+The namespace name, to serve its
+intended purpose, should have the characteristics of uniqueness and
+persistence.
+It is not a goal that it be directly usable for retrieval of a schema (if
+any exists). 
+An example of a syntax that is designed with these goals in mind is
+that for Uniform Resource Names <A href='#URNs'>[RFC2141]</A>.
+However, it should be noted that ordinary URLs can be managed in such a way as
+to achieve these same goals.</P>
+
+<P>
+<a name='dt-prefix'></a><span class='TStart'>[Definition:] If the
+attribute name matches <code><a href='#NT-PrefixedAttName'>PrefixedAttName</A></code>,
+then the
+<code><a href='#NT-NCName'>NCName</A></code> gives the <b>namespace prefix</b>,
+used to associate element and attribute names with the
+<A href='#dt-NSName'>namespace name</A> in the attribute value
+in the scope of the element to which the declaration
+is attached.</span>
+In such declarations, the namespace name may not be empty.</P>
+
+<P><a name='dt-defaultNS'></a><span class='TStart'>[Definition:] If the 
+attribute name matches <code><a href='#NT-DefaultAttName'>DefaultAttName</A></code>,
+then the
+<A href='#dt-NSName'>namespace name</A> in the
+attribute value is
+that of the <b>default namespace</b>
+in the scope of the element to which the declaration
+is attached.</span>
+
+In such a default declaration, the attribute value may be empty.
+Default namespaces and overriding of declarations are discussed in 
+"<A href='#scoping-defaulting'>5.&nbsp;Applying Namespaces to Elements and Attributes</A>".
+</P>
+
+
+<P>An example namespace declaration, which associates the 
+namespace prefix <code>edi</code> with the namespace name 
+<CODE>http://ecommerce.org/schema</CODE>:
+</p><table cellpadding='5' border='1' bgcolor='#80ffff' width='100%'><tr><td><code><font>&lt;x&nbsp;xmlns:edi='http://ecommerce.org/schema'&gt;<BR>&nbsp;&nbsp;&lt;!--&nbsp;the&nbsp;"edi"&nbsp;prefix&nbsp;is&nbsp;bound&nbsp;to&nbsp;http://ecommerce.org/schema<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for&nbsp;the&nbsp;"x"&nbsp;element&nbsp;and&nbsp;contents&nbsp;--&gt;<BR>&lt;/x&gt;</font></code></td></tr></table><p>
+</P>
+
+
+
+<A NAME='xmlReserved'></A><P><b>Namespace Constraint: 
+Leading "XML"</b><br>
+Prefixes beginning with the three-letter sequence <CODE>x</CODE>,
+<CODE>m</CODE>, <CODE>l</CODE>, in any case combination, are reserved
+for use by XML and XML-related specifications.
+</P>
+
+
+
+
+
+<H2><A NAME='ns-qualnames'>3. Qualified Names</a></h2>
+<P><a name='dt-qname'></a><span class='TStart'>[Definition:] In XML
+documents conforming to this specification, some
+names (constructs corresponding to the nonterminal 
+<code><a href="https://www.w3.org/TR/REC-xml#NT-Name">Name</a></code>)
+may be given as <b>qualified names</b>, defined as follows:
+</span></p>
+<table cellpadding='5' border='1' bgcolor='#f5dcb3' width='100%'><tr align='left'><td><strong>
+Qualified Name</strong></td></tr><tr><td>
+<table border='0' bgcolor='#f5dcb3'>
+<tr valign='top'><td align='right'><a name='NT-QName'></a>[6]&nbsp;</td><td align='right'><font><code>QName</code></font></td>
+<td align='center'><font><code> ::= </code></font></td><td align='left'><font><code>
+(<a href='#NT-Prefix'>Prefix</A> ':')?
+<a href='#NT-LocalPart'>LocalPart</A></code></font></td></tr>
+<tr valign='top'><td align='right'><a name='NT-Prefix'></a>[7]&nbsp;</td><td align='right'><font><code>Prefix</code></font></td>
+<td align='center'><font><code> ::= </code></font></td><td align='left'><font><code><a href='#NT-NCName'>NCName</A></code></font></td></tr>
+<tr valign='top'><td align='right'><a name='NT-LocalPart'></a>[8]&nbsp;</td><td align='right'><font><code>LocalPart</code></font></td>
+<td align='center'><font><code> ::= </code></font></td><td align='left'><font><code><a href='#NT-NCName'>NCName</A></code></font></td>
+</tr>
+
+</table>
+</td></tr></table>
+<p>
+The 
+<code><a href='#NT-Prefix'>Prefix</A></code> provides the 
+<A href='#dt-prefix'>namespace prefix</A>
+part of the qualified name, and must be associated with a namespace URI
+reference in a
+<A href='#dt-NSDecl'>namespace declaration</A>.
+<a name='dt-localname'></a><span class='TStart'>[Definition:] 
+The <code><a href='#NT-LocalPart'>LocalPart</A></code> provides the
+<b>local part</b> of the qualified name.</span>
+</P>
+<P>Note that the prefix functions <EM>only</EM> as a placeholder for a
+namespace name.
+Applications should use the namespace name, not the prefix, in constructing
+names whose scope extends beyond the 
+containing document.</P>
+
+
+
+<H2><A NAME='ns-using'>4. Using Qualified Names</a></h2>
+<P>In XML documents conforming to this specification,
+element types are given as
+<A href='#dt-qname'>qualified names</A>, as
+follows:
+</p>
+<table cellpadding='5' border='1' bgcolor='#f5dcb3' width='100%'><tr align='left'><td><strong>
+Element Types</strong></td></tr><tr><td>
+<table border='0' bgcolor='#f5dcb3'>
+<tr valign='top'><td align='right'><a name='NT-STag'></a>[9]&nbsp;</td><td align='right'><font><code>STag</code></font></td>
+<td align='center'><font><code> ::= </code></font></td><td align='left'><font><code>'&lt;' <a href='#NT-QName'>QName</A> 
+(<a href="https://www.w3.org/TR/REC-xml#NT-S">S</A> 
+<a href="https://www.w3.org/TR/REC-xml#NT-Attribute">Attribute</A>)* 
+<a href="https://www.w3.org/TR/REC-xml#NT-S">S</A>? '&gt;'
+</code></font></td><td align='center'><font><code> [ </code></font></td><td align='left'><font><code>NSC: <a href='#nsc-NSDeclared'>Prefix Declared</A> ]</code></font></td>
+</tr>
+<tr valign='top'><td align='right'><a name='NT-ETag'></a>[10]&nbsp;</td><td align='right'><font><code>ETag</code></font></td>
+<td align='center'><font><code> ::= </code></font></td><td align='left'><font><code>'&lt;/' <a href='#NT-QName'>QName</A> 
+<a href="https://www.w3.org/TR/REC-xml#NT-S">S</A>? '&gt;'</code></font></td>
+<td align='center'><font><code> [ </code></font></td><td align='left'><font><code>NSC: <a href='#nsc-NSDeclared'>Prefix Declared</A> ]</code></font></td></tr>
+<tr valign='top'><td align='right'><a name='NT-EmptyElemTag'></a>[11]&nbsp;</td><td align='right'><font><code>EmptyElemTag</code></font></td>
+<td align='center'><font><code> ::= </code></font></td><td align='left'><font><code>'&lt;' <a href='#NT-QName'>QName</A> 
+(<a href="https://www.w3.org/TR/REC-xml#NT-S">S</A>
+<a href="https://www.w3.org/TR/REC-xml#NT-Attribute">Attribute</A>)* 
+<a href="https://www.w3.org/TR/REC-xml#NT-S">S</A>? '/&gt;'</code></font></td>
+<td align='center'><font><code> [ </code></font></td><td align='left'><font><code>NSC: <a href='#nsc-NSDeclared'>Prefix Declared</A> ]</code></font></td></tr>
+</table>
+</td></tr></table>
+<p>
+</P>
+<P>An example of a qualified name serving as an element type:
+</p><table cellpadding='5' border='1' bgcolor='#80ffff' width='100%'><tr><td><code><font>&lt;x&nbsp;xmlns:edi='http://ecommerce.org/schema'&gt;<BR>&nbsp;&nbsp;&lt;!--&nbsp;the&nbsp;'price'&nbsp;element's&nbsp;namespace&nbsp;is&nbsp;http://ecommerce.org/schema&nbsp;--&gt;<BR>&nbsp;&nbsp;&lt;edi:price&nbsp;units='Euro'&gt;32.18&lt;/edi:price&gt;<BR>&lt;/x&gt;</font></code></td></tr></table><p>
+</P>
+
+<P>
+Attributes are either <A href='#dt-NSDecl'>namespace
+declarations</A>
+or their names are given as
+<A href='#dt-qname'>qualified names</A>:
+</p>
+<table cellpadding='5' border='1' bgcolor='#f5dcb3' width='100%'><tr align='left'><td><strong>
+Attribute</strong></td></tr><tr><td>
+<table border='0' bgcolor='#f5dcb3'>
+<tr valign='top'><td align='right'><a name='NT-Attribute'></a>[12]&nbsp;</td><td align='right'><font><code>Attribute</code></font></td>
+<td align='center'><font><code> ::= </code></font></td><td align='left'><font><code><a href='#NT-NSAttName'>NSAttName</A>
+<a href="https://www.w3.org/TR/REC-xml#NT-Eq">Eq</A> 
+<a href="https://www.w3.org/TR/REC-xml#NT-AttValue">AttValue</A></code></font></td>
+</tr><tr valign='top'><td align='right'></td><td></td><td></td><td align='left'><font><code>|&nbsp;<a href='#NT-QName'>QName</A> <a href="https://www.w3.org/TR/REC-xml#NT-Eq">Eq</A> 
+<a href="https://www.w3.org/TR/REC-xml#NT-AttValue">AttValue</A></code></font></td>
+<td align='center'><font><code> [ </code></font></td><td align='left'><font><code>NSC: <a href='#nsc-NSDeclared'>Prefix Declared</A> ]</code></font></td></tr>
+</table>
+</td></tr></table>
+<p>
+</P>
+<P>An example of a qualified name serving as an attribute name:
+</p><table cellpadding='5' border='1' bgcolor='#80ffff' width='100%'><tr><td><code><font>&lt;x&nbsp;xmlns:edi='http://ecommerce.org/schema'&gt;<BR>&nbsp;&nbsp;&lt;!--&nbsp;the&nbsp;'taxClass'&nbsp;attribute's&nbsp;namespace&nbsp;is&nbsp;http://ecommerce.org/schema&nbsp;--&gt;<BR>&nbsp;&nbsp;&lt;lineItem&nbsp;edi:taxClass="exempt"&gt;Baby&nbsp;food&lt;/lineItem&gt;<BR>&lt;/x&gt;</font></code></td></tr></table><p>
+</P>
+<A NAME='nsc-NSDeclared'></A><P><b>Namespace Constraint: 
+Prefix Declared</b><br>
+The namespace prefix, unless it is <CODE>xml</CODE>
+or <CODE>xmlns</CODE>, must have been
+declared in a <A href='#dt-NSDecl'>namespace declaration</A>
+attribute in either the start-tag of the element where the prefix 
+is used or in an an ancestor element (i.e. an element in whose 
+<A HREF="https://www.w3.org/TR/REC-xml#dt-content">content</A> the
+prefixed markup occurs).
+The prefix <CODE>xml</CODE> is by definition bound to the 
+namespace name <CODE>http://www.w3.org/XML/1998/namespace</CODE>.
+The prefix <CODE>xmlns</CODE> is used only for namespace bindings
+and is not itself bound to any namespace name.
+</P>
+<P>This constraint may lead to operational difficulties in the case where
+the namespace declaration attribute is provided, not directly in the XML
+<A HREF="https://www.w3.org/TR/REC-xml#dt-docent">document entity</A>, but 
+via a default attribute declared in an external entity.
+Such declarations may not be read by software which is based on a
+non-validating XML processor.
+Many XML applications, presumably including namespace-sensitive ones, fail to
+require validating processors.
+For correct operation with such applications, namespace declarations must be
+provided either directly or via default attributes declared in the
+<A HREF="https://www.w3.org/TR/REC-xml#dt-doctype">internal subset of the DTD</A>.
+</P>
+<P>Element names and attribute types are also given as qualified names when
+they appear in declarations in the 
+<A HREF="https://www.w3.org/TR/REC-xml#dt-dtd">DTD</A>:
+</p>
+<table cellpadding='5' border='1' bgcolor='#f5dcb3' width='100%'><tr align='left'><td><strong>
+Qualified Names in Declarations</strong></td></tr><tr><td>
+<table border='0' bgcolor='#f5dcb3'>
+<tr valign='top'><td align='right'><a name='NT-doctypedecl'></a>[13]&nbsp;</td><td align='right'><font><code>doctypedecl</code></font></td>
+<td align='center'><font><code> ::= </code></font></td><td align='left'><font><code>'&lt;!DOCTYPE' <a href="https://www.w3.org/TR/REC-xml#NT-S">S</A>
+<a href='#NT-QName'>QName</A> (<a href="https://www.w3.org/TR/REC-xml#NT-S">S</A>
+<a href="https://www.w3.org/TR/REC-xml#NT-ExternalID">ExternalID</A>)? 
+<a href="https://www.w3.org/TR/REC-xml#NT-S">S</A>? ('[' 
+(<a href="https://www.w3.org/TR/REC-xml#NT-markupdecl">markupdecl</A> 
+|&nbsp;<a href="https://www.w3.org/TR/REC-xml#NT-PEReference">PEReference</A> 
+|&nbsp;<a href="https://www.w3.org/TR/REC-xml#NT-S">S</A>)* 
+']' 
+<a href="https://www.w3.org/TR/REC-xml#NT-S">S</A>?)? '&gt;'</code></font></td>
+</tr>
+
+<tr valign='top'><td align='right'><a name='NT-elementdecl'></a>[14]&nbsp;</td><td align='right'><font><code>elementdecl</code></font></td>
+<td align='center'><font><code> ::= </code></font></td><td align='left'><font><code>'&lt;!ELEMENT' <a href="https://www.w3.org/TR/REC-xml#NT-S">S</A> 
+<a href='#NT-QName'>QName</A> 
+<a href="https://www.w3.org/TR/REC-xml#NT-S">S</A> 
+<a href="https://www.w3.org/TR/REC-xml#NT-contentspec">contentspec</A>
+<a href="https://www.w3.org/TR/REC-xml#NT-S">S</A>? '&gt;'</code></font></td>
+</tr>
+<tr valign='top'><td align='right'><a name='NT-cp'></a>[15]&nbsp;</td><td align='right'><font><code>cp</code></font></td>
+<td align='center'><font><code> ::= </code></font></td><td align='left'><font><code>(<a href='#NT-QName'>QName</A> 
+|&nbsp;<a href="https://www.w3.org/TR/REC-xml#NT-choice">choice</A> 
+|&nbsp;<a href="https://www.w3.org/TR/REC-xml#NT-seq">seq</A>) 
+('?' |&nbsp;'*' |&nbsp;'+')?</code></font></td></tr>
+<tr valign='top'><td align='right'><a name='NT-Mixed'></a>[16]&nbsp;</td><td align='right'><font><code>Mixed</code></font></td>
+<td align='center'><font><code> ::= </code></font></td><td align='left'><font><code>'(' <a href="https://www.w3.org/TR/REC-xml#NT-S">S</A>? 
+'#PCDATA'
+(<a href="https://www.w3.org/TR/REC-xml#NT-S">S</A>? 
+'|' 
+<a href="https://www.w3.org/TR/REC-xml#NT-S">S</A>? 
+<a href='#NT-QName'>QName</A>)* 
+<a href="https://www.w3.org/TR/REC-xml#NT-S">S</A>? 
+')*' </code></font></td>
+</tr><tr valign='top'><td align='right'></td><td></td><td></td><td align='left'><font><code>|&nbsp;'(' <a href="https://www.w3.org/TR/REC-xml#NT-S">S</A>? '#PCDATA' <a href="https://www.w3.org/TR/REC-xml#NT-S">S</A>? ')'
+</code></font></td>
+</tr>
+<tr valign='top'><td align='right'><a name='NT-AttlistDecl'></a>[17]&nbsp;</td><td align='right'><font><code>AttlistDecl</code></font></td>
+<td align='center'><font><code> ::= </code></font></td><td align='left'><font><code>'&lt;!ATTLIST' <a href="https://www.w3.org/TR/REC-xml#NT-S">S</A> 
+<a href='#NT-QName'>QName</A> 
+<a href='#NT-AttDef'>AttDef</A>*
+<a href="https://www.w3.org/TR/REC-xml#NT-S">S</A>? '&gt;'</code></font></td>
+</tr>
+<tr valign='top'><td align='right'><a name='NT-AttDef'></a>[18]&nbsp;</td><td align='right'><font><code>AttDef</code></font></td>
+<td align='center'><font><code> ::= </code></font></td><td align='left'><font><code><a href="https://www.w3.org/TR/REC-xml#NT-S">S</A> 
+(<a href='#NT-QName'>QName</A> |&nbsp;<a href='#NT-NSAttName'>NSAttName</A>)
+<a href="https://www.w3.org/TR/REC-xml#NT-S">S</A> <a href="https://www.w3.org/TR/REC-xml#NT-AttType">AttType</A> 
+<a href="https://www.w3.org/TR/REC-xml#NT-S">S</A> <a href="https://www.w3.org/TR/REC-xml#NT-DefaultDecl">DefaultDecl</A></code></font></td>
+</tr>
+</table>
+</td></tr></table>
+<p>
+</P>
+
+
+
+
+
+<H2><A NAME='scoping-defaulting'>5. Applying Namespaces to Elements and Attributes</a></h2>
+
+
+<H3><A NAME='scoping'>5.1 Namespace Scoping</a></h3>
+<P>The namespace declaration is considered to apply to the 
+element where it is specified and to all elements within the content  
+of that element, unless overridden by another namespace declaration
+with the same <code><a href='#NT-NSAttName'>NSAttName</A></code> part:
+</p><table cellpadding='5' border='1' bgcolor='#80ffff' width='100%'><tr><td><code><font>&lt;?xml&nbsp;version="1.0"?&gt;<BR>&lt;!--&nbsp;all&nbsp;elements&nbsp;here&nbsp;are&nbsp;explicitly&nbsp;in&nbsp;the&nbsp;HTML&nbsp;namespace&nbsp;--&gt;<BR>&lt;html:html&nbsp;xmlns:html='http://www.w3.org/TR/REC-html40'&gt;<BR>&nbsp;&nbsp;&lt;html:head&gt;&lt;html:title&gt;Frobnostication&lt;/html:title&gt;&lt;/html:head&gt;<BR>&nbsp;&nbsp;&lt;html:body&gt;&lt;html:p&gt;Moved&nbsp;to&nbsp;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&lt;html:a&nbsp;href='http://frob.com'&gt;here.&lt;/html:a&gt;&lt;/html:p&gt;&lt;/html:body&gt;<BR>&lt;/html:html&gt;</font></code></td></tr></table><p>
+</P>
+<P>Multiple namespace prefixes can be declared as attributes of a single element, 
+as shown in this example:
+</p><table cellpadding='5' border='1' bgcolor='#80ffff' width='100%'><tr><td><code><font>&lt;?xml&nbsp;version="1.0"?&gt;<BR>&lt;!--&nbsp;both&nbsp;namespace&nbsp;prefixes&nbsp;are&nbsp;available&nbsp;throughout&nbsp;--&gt;<BR>&lt;bk:book&nbsp;xmlns:bk='urn:loc.gov:books'<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xmlns:isbn='urn:ISBN:0-395-36341-6'&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&lt;bk:title&gt;Cheaper&nbsp;by&nbsp;the&nbsp;Dozen&lt;/bk:title&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&lt;isbn:number&gt;1568491379&lt;/isbn:number&gt;<BR>&lt;/bk:book&gt;</font></code></td></tr></table><p>
+</P>
+
+
+
+<H3><A NAME='defaulting'>5.2 Namespace Defaulting</a></h3>
+<P>A <A href='#dt-defaultNS'>default namespace</A> is considered
+to apply to the element where it is declared (if that element has no
+<A href='#dt-prefix'>namespace prefix</A>), and to all elements
+with no prefix within the content of that
+element.
+If the URI reference in a default namespace declaration is empty, then 
+unprefixed
+elements in the scope of the declaration are not considered to be in 
+any namespace.
+Note that default namespaces do not apply directly to attributes.
+
+</p><table cellpadding='5' border='1' bgcolor='#80ffff' width='100%'><tr><td><code><font>&lt;?xml&nbsp;version="1.0"?&gt;<BR>&lt;!--&nbsp;elements&nbsp;are&nbsp;in&nbsp;the&nbsp;HTML&nbsp;namespace,&nbsp;in&nbsp;this&nbsp;case&nbsp;by&nbsp;default&nbsp;--&gt;<BR>&lt;html&nbsp;xmlns='http://www.w3.org/TR/REC-html40'&gt;<BR>&nbsp;&nbsp;&lt;head&gt;&lt;title&gt;Frobnostication&lt;/title&gt;&lt;/head&gt;<BR>&nbsp;&nbsp;&lt;body&gt;&lt;p&gt;Moved&nbsp;to&nbsp;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&lt;a&nbsp;href='http://frob.com'&gt;here&lt;/a&gt;.&lt;/p&gt;&lt;/body&gt;<BR>&lt;/html&gt;</font></code></td></tr></table><p>
+</p><table cellpadding='5' border='1' bgcolor='#80ffff' width='100%'><tr><td><code><font>&lt;?xml&nbsp;version="1.0"?&gt;<BR>&lt;!--&nbsp;unprefixed&nbsp;element&nbsp;types&nbsp;are&nbsp;from&nbsp;"books"&nbsp;--&gt;<BR>&lt;book&nbsp;xmlns='urn:loc.gov:books'<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xmlns:isbn='urn:ISBN:0-395-36341-6'&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&lt;title&gt;Cheaper&nbsp;by&nbsp;the&nbsp;Dozen&lt;/title&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&lt;isbn:number&gt;1568491379&lt;/isbn:number&gt;<BR>&lt;/book&gt;</font></code></td></tr></table><p>
+</P>
+<P>A larger example of namespace scoping:
+</p><table cellpadding='5' border='1' bgcolor='#80ffff' width='100%'><tr><td><code><font>&lt;?xml&nbsp;version="1.0"?&gt;<BR>&lt;!--&nbsp;initially,&nbsp;the&nbsp;default&nbsp;namespace&nbsp;is&nbsp;"books"&nbsp;--&gt;<BR>&lt;book&nbsp;xmlns='urn:loc.gov:books'<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xmlns:isbn='urn:ISBN:0-395-36341-6'&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&lt;title&gt;Cheaper&nbsp;by&nbsp;the&nbsp;Dozen&lt;/title&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&lt;isbn:number&gt;1568491379&lt;/isbn:number&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&lt;notes&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;!--&nbsp;make&nbsp;HTML&nbsp;the&nbsp;default&nbsp;namespace&nbsp;for&nbsp;some&nbsp;commentary&nbsp;--&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;p&nbsp;xmlns='urn:w3-org-ns:HTML'&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This&nbsp;is&nbsp;a&nbsp;&lt;i&gt;funny&lt;/i&gt;&nbsp;book!<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;/p&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&lt;/notes&gt;<BR>&lt;/book&gt;</font></code></td></tr></table><p>
+</P>
+<P>The default namespace can be set to the empty string.  
+This has the same
+effect, within the scope of the declaration, of there being no default
+namespace.
+</p><table cellpadding='5' border='1' bgcolor='#80ffff' width='100%'><tr><td><code><font>&lt;?xml&nbsp;version='1.0'?&gt;<BR>&lt;Beers&gt;<BR>&nbsp;&nbsp;&lt;!--&nbsp;the&nbsp;default&nbsp;namespace&nbsp;is&nbsp;now&nbsp;that&nbsp;of&nbsp;HTML&nbsp;--&gt;<BR>&nbsp;&nbsp;&lt;table&nbsp;xmlns='http://www.w3.org/TR/REC-html40'&gt;<BR>&nbsp;&nbsp;&nbsp;&lt;th&gt;&lt;td&gt;Name&lt;/td&gt;&lt;td&gt;Origin&lt;/td&gt;&lt;td&gt;Description&lt;/td&gt;&lt;/th&gt;<BR>&nbsp;&nbsp;&nbsp;&lt;tr&gt;&nbsp;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;!--&nbsp;no&nbsp;default&nbsp;namespace&nbsp;inside&nbsp;table&nbsp;cells&nbsp;--&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;td&gt;&lt;brandName&nbsp;xmlns=""&gt;Huntsman&lt;/brandName&gt;&lt;/td&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;td&gt;&lt;origin&nbsp;xmlns=""&gt;Bath,&nbsp;UK&lt;/origin&gt;&lt;/td&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;td&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;details&nbsp;xmlns=""&gt;&lt;class&gt;Bitter&lt;/class&gt;&lt;hop&gt;Fuggles&lt;/hop&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;pro&gt;Wonderful&nbsp;hop,&nbsp;light&nbsp;alcohol,&nbsp;good&nbsp;summer&nbsp;beer&lt;/pro&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;con&gt;Fragile;&nbsp;excessive&nbsp;variance&nbsp;pub&nbsp;to&nbsp;pub&lt;/con&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;/details&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;/td&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;/tr&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&lt;/table&gt;<BR>&nbsp;&nbsp;&lt;/Beers&gt;</font></code></td></tr></table><p>
+</P>
+
+
+
+<H3><A NAME='uniqAttrs'>5.3 Uniqueness of Attributes</a></h3>
+<P>In XML documents conforming
+to this specification, no tag
+may contain two attributes which:
+<OL><LI>have identical names, or</LI>
+<LI>have qualified names with the same
+<A href='#dt-localname'>local part</A> and with 
+<A href='#dt-prefix'>prefixes</A> which have been bound
+to <A href='#dt-NSName'>namespace names</A> that
+are <A href='#dt-identical'>identical</A>.
+
+</LI>
+</OL>
+
+
+<P>For example, each of the <CODE>bad</CODE> start-tags is illegal in the
+following:
+</p><table cellpadding='5' border='1' bgcolor='#80ffff' width='100%'><tr><td><code><font>&lt;!--&nbsp;http://www.w3.org&nbsp;is&nbsp;bound&nbsp;to&nbsp;n1&nbsp;and&nbsp;n2&nbsp;--&gt;<BR>&lt;x&nbsp;xmlns:n1="http://www.w3.org"&nbsp;<BR>&nbsp;&nbsp;&nbsp;xmlns:n2="http://www.w3.org"&nbsp;&gt;<BR>&nbsp;&nbsp;&lt;bad&nbsp;a="1"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a="2"&nbsp;/&gt;<BR>&nbsp;&nbsp;&lt;bad&nbsp;n1:a="1"&nbsp;&nbsp;n2:a="2"&nbsp;/&gt;<BR>&lt;/x&gt;</font></code></td></tr></table><p>
+However, each of the following is legal, the second because the default 
+namespace does not apply to attribute names:
+</p><table cellpadding='5' border='1' bgcolor='#80ffff' width='100%'><tr><td><code><font>&lt;!--&nbsp;http://www.w3.org&nbsp;is&nbsp;bound&nbsp;to&nbsp;n1&nbsp;and&nbsp;is&nbsp;the&nbsp;default&nbsp;--&gt;<BR>&lt;x&nbsp;xmlns:n1="http://www.w3.org"&nbsp;<BR>&nbsp;&nbsp;&nbsp;xmlns="http://www.w3.org"&nbsp;&gt;<BR>&nbsp;&nbsp;&lt;good&nbsp;a="1"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b="2"&nbsp;/&gt;<BR>&nbsp;&nbsp;&lt;good&nbsp;a="1"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;n1:a="2"&nbsp;/&gt;<BR>&lt;/x&gt;</font></code></td></tr></table><p>
+</P>
+
+
+
+
+
+<H2><A NAME='Conformance'>6. Conformance of Documents</a></h2>
+<P>In XML documents which conform to this specification, 
+element types and attribute names must match the production for 
+<code><a href='#NT-QName'>QName</A></code> and
+must satisfy the "Namespace Constraints".</P>
+<P>An XML document conforms to this specification if all other 
+tokens in the document which are required, for XML conformance, to match the
+XML production for <code><a href="https://www.w3.org/TR/REC-xml#NT-Name">Name</A></code>, match
+this specification's production for <code><a href='#NT-NCName'>NCName</A></code>.
+</P>
+<P>The effect of conformance is that in such a document:
+<UL><LI>All element types and attribute names contain either zero
+or one colon.</LI>
+<LI>No entity names, PI targets, or notation names contain any colons.
+</LI>
+</UL>
+
+<P>Strictly speaking, attribute values declared to be of types
+<code>ID</code>, <code>IDREF(S)</code>, <code>ENTITY(IES)</code>,
+and <code>NOTATION</code> are also <code><a href="https://www.w3.org/TR/REC-xml#NT-Name">Names</A></code>,
+and thus should be colon-free.
+However, the declared type of attribute values is only available
+to processors which read markup declarations, for example
+<A HREF="https://www.w3.org/TR/REC-xml#dt-validating">validating processors</A>.
+Thus, unless the use of a validating processor has been specified,
+there can be no assurance that the contents of attribute values
+have been checked for conformance to this specification.</P>
+
+
+<HR>
+
+<h1>Appendices</h1>
+ 
+
+
+<H2><A NAME='Philosophy'>A. The Internal Structure of XML Namespaces (Non-Normative)</a></h2>
+
+
+<H3><A NAME='sets-no-good'>A.1 The Insufficiency of the Traditional Namespace</a></h3>
+<P>In the computing disciplines, the term "namespace" conventionally refers to
+a <EM>set</EM> of names, i.e. a collection containing no duplicates.
+However, treating the names used in XML markup
+as such a namespace would greatly impair their usefulness.
+The primary use of such names in XML documents is to enable identification 
+of logical 
+structures in documents by software modules such as query processors,
+stylesheet-driven
+rendering engines, and schema-driven validators.
+Consider the following example:
+</p><table cellpadding='5' border='1' bgcolor='#80ffff' width='100%'><tr><td><code><font>&lt;section&gt;&lt;title&gt;Book-Signing&nbsp;Event&lt;/title&gt;<BR>&lt;signing&gt;<BR>&nbsp;&nbsp;&lt;author&nbsp;title="Mr"&nbsp;name="Vikram&nbsp;Seth"&nbsp;/&gt;<BR>&nbsp;&nbsp;&lt;book&nbsp;title="A&nbsp;Suitable&nbsp;Boy"&nbsp;price="$22.95"&nbsp;/&gt;&lt;/signing&gt;<BR>&lt;signing&gt;<BR>&nbsp;&nbsp;&lt;author&nbsp;title="Dr"&nbsp;name="Oliver&nbsp;Sacks"&nbsp;/&gt;<BR>&nbsp;&nbsp;&lt;book&nbsp;title="The&nbsp;Island&nbsp;of&nbsp;the&nbsp;Color-Blind"&nbsp;price="$12.95"&nbsp;/&gt;&lt;/signing&gt;<BR>&lt;/section&gt;</font></code></td></tr></table><p>
+In this example, there are three occurrences of the name <CODE>title</CODE>
+within markup, and the name alone clearly provides insufficient information
+to allow correct processing by a software module.</P>
+<P>Another problematic area comes from the use of "global" attributes, as
+illustrated by this example, a fragment of an XML document which is to 
+be displayed using a CSS stylesheet:
+</p><table cellpadding='5' border='1' bgcolor='#80ffff' width='100%'><tr><td><code><font>&lt;RESERVATION&gt;<BR>&nbsp;&lt;NAME&nbsp;HTML:CLASS="largeSansSerif"&gt;Layman,&nbsp;A&lt;/NAME&gt;<BR>&nbsp;&lt;SEAT&nbsp;CLASS="Y"&nbsp;HTML:CLASS="reallyImportant"&gt;33B&lt;/SEAT&gt;<BR>&nbsp;&lt;DEPARTURE&gt;1997-05-24T07:55:00+1&lt;/DEPARTURE&gt;&lt;/RESERVATION&gt;</font></code></td></tr></table><p>
+In this case, the <CODE>CLASS</CODE> attribute, which describes the fare basis
+and takes values such as "J", "Y", and "C", is distinct at all semantic levels
+from the <CODE>HTML:CLASS</CODE> attribute, which 
+is used to
+simulate syntactic richness in HTML, as a means of overcoming the
+limited element repertoire by subclassing.</P>
+<P>XML 1.0 does not provide a built-in way to declare "global" attributes;
+items such as the HTML <CODE>CLASS</CODE> attribute are global only in their
+prose description and their interpretation by HTML applications.
+However, such attributes, an important distinguishing feature of which is that
+their names are unique, are commonly observed to occur in a variety of
+applications.</P>
+
+
+
+<H3><A NAME='ns-breakdown'>A.2 XML Namespace Partitions</a></h3>
+<P>In order to support the goal of making both qualified and unqualified names
+useful in meeting their intended purpose, we identify the names appearing in
+an XML namespace as belonging to one of several disjoint traditional
+(i.e. set-structured) namespaces, called namespace partitions.
+The partitions are:
+<DL>
+<DT><B>The All Element Types Partition</B></DT>
+<DD>All element types in an XML namespace appear in this partition.
+Each has a unique <A href='#dt-localname'>local part</A>; the
+combination of the namespace name and the local part uniquely identifies the
+element type.</DD>
+
+<DT><B>The Global Attribute Partition</B></DT>
+<DD>This partition contains the names of all attributes which are defined,
+in this namespace, to be global.
+The only required characteristic of a global attribute is that its name be
+unique in the global attribute partition.
+This specification makes no
+assertions as to the proper usage of such attributes.
+The combination of the namespace name and the attribute name uniquely
+identifies the global attribute.</DD>
+
+<DT><B>The Per-Element-Type Partitions</B></DT>
+<DD>Each type in the All Element Types Partition has an
+associated namespace in which appear the names of the unqualified attributes
+that are provided for that element.
+This is a traditional namespace because the appearance of duplicate attribute
+names on an element is forbidden by XML 1.0.
+The combination of the attribute name with the element's type and namespace
+name uniquely identifies each unqualified attribute.</DD>
+
+</DL>
+
+
+<P>In XML documents conforming to this specification, the names of 
+all qualified (prefixed) attributes are assigned to the global attribute
+partition, and the names of all unqualified attributes are assigned to the
+appropriate per-element-type partition.</P>
+
+
+
+<H3><A NAME='ns-expnames'>A.3 Expanded Element Types and Attribute Names</a></h3>
+<P>For convenience in specifying rules and in making comparisons, we define an
+expanded form, expressed here in XML element syntax, for each element type and
+attribute name in an XML document.</P>
+<P><a name='dt-ExpEType'></a><span class='TStart'>[Definition:] An 
+<b>expanded element
+type</b> is expressed as an empty XML element of type
+<CODE>ExpEType</CODE>. 
+It has a required <CODE>type</CODE> attribute which
+gives the type's <code><a href='#NT-LocalPart'>LocalPart</A></code>, and an optional
+<CODE>ns</CODE> attribute which, if the element is qualified, gives its
+<A href='#dt-NSName'>namespace name</A>.</span></P>
+<P><a name='dt-expaname'></a><span class='TStart'>[Definition:] An 
+<b>expanded
+attribute name</b> is expressed as an empty XML element of type
+<CODE>ExpAName</CODE>.
+It has a required <CODE>name</CODE> attribute which gives the name.
+If the attribute is global, it has a required <CODE>ns</CODE> attribute
+which gives the <A href='#dt-NSName'>namespace name</A>;
+otherwise, it has a required attribute <CODE>eltype</CODE> which
+gives the type of the attached element, and an optional attribute
+<CODE>elns</CODE> which gives the namespace name, if known, of the
+attached element.</span></P>
+<P>Slight variations on the examples given above will illustrate
+the working of expanded element types and attribute names.
+The following two fragments are each followed by a table showing
+the expansion of the names:
+</p><table cellpadding='5' border='1' bgcolor='#80ffff' width='100%'><tr><td><code><font>&lt;!--&nbsp;1&nbsp;--&gt;&nbsp;&lt;section&nbsp;xmlns='urn:com:books-r-us'&gt;<BR>&lt;!--&nbsp;2&nbsp;--&gt;&nbsp;&nbsp;&nbsp;&lt;title&gt;Book-Signing&nbsp;Event&lt;/title&gt;<BR>&lt;!--&nbsp;3&nbsp;--&gt;&nbsp;&nbsp;&nbsp;&lt;signing&gt;<BR>&lt;!--&nbsp;4&nbsp;--&gt;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;author&nbsp;title="Mr"&nbsp;name="Vikram&nbsp;Seth"&nbsp;/&gt;<BR>&lt;!--&nbsp;5&nbsp;--&gt;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;book&nbsp;title="A&nbsp;Suitable&nbsp;Boy"&nbsp;price="$22.95"&nbsp;/&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;/signing&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;/section&gt;</font></code></td></tr></table><p>
+The names would expand as follows:
+
+<table bgcolor='#c0d9c0' border='1' cellpadding='7'>
+<tr align='left'><td rowspan='1' colspan='1'>Line</td><td rowspan='1' colspan='1'>Name</td><td rowspan='1' colspan='1'>Expanded</td>
+</tr>
+<tr>
+<td rowspan='1' colspan='1'>1</td><td rowspan='1' colspan='1'>section</td>
+<td rowspan='1' colspan='1'>&lt;ExpEType type="section" ns="urn:com:books-r-us" /&gt; </td></tr>
+<tr><td rowspan='1' colspan='1'>2</td>
+<td rowspan='1' colspan='1'>title</td><td rowspan='1' colspan='1'>&lt;ExpEType type="title" ns="urn:com:books-r-us" /&gt; </td>
+</tr>
+<tr>
+<td rowspan='1' colspan='1'>3</td>
+<td rowspan='1' colspan='1'>signing</td><td rowspan='1' colspan='1'>&lt;ExpEType type="signing" ns="urn:com:books-r-us" /&gt;<BR></td>
+</tr>
+<tr>
+<td rowspan='1' colspan='1'>4</td>
+<td rowspan='1' colspan='1'>author</td><td rowspan='1' colspan='1'>&lt;ExpEType type="author" ns="urn:com:books-r-us" /&gt; </td>
+</tr>
+<tr>
+<td rowspan='1' colspan='1'>4</td>
+<td rowspan='1' colspan='1'>title</td>
+<td rowspan='1' colspan='1'>&lt;ExpAName name='title' eltype="author" elns="urn:com:books-r-us" /&gt;<BR></td>
+</tr>
+<tr>
+<td rowspan='1' colspan='1'>4</td>
+<td rowspan='1' colspan='1'>name</td>
+<td rowspan='1' colspan='1'>&lt;ExpAName name='name' eltype="author" elns="urn:com:books-r-us" /&gt;</td>
+</tr>
+<tr>
+<td rowspan='1' colspan='1'>5</td>
+<td rowspan='1' colspan='1'>book</td><td rowspan='1' colspan='1'>&lt;ExpEType type="book" ns="urn:com:books-r-us" /&gt;</td>
+</tr>
+<tr>
+<td rowspan='1' colspan='1'>5</td>
+<td rowspan='1' colspan='1'>title</td><td rowspan='1' colspan='1'>&lt;ExpAName name='title' eltype="book" elns="urn:com:books-r-us" /&gt;</td>
+</tr>
+<tr>
+<td rowspan='1' colspan='1'>5</td>
+<td rowspan='1' colspan='1'>price</td><td rowspan='1' colspan='1'>&lt;ExpAName name='price' eltype="book" elns="urn:com:books-r-us" /&gt;</td>
+</tr>
+
+</table>
+
+<table cellpadding='5' border='1' bgcolor='#80ffff' width='100%'><tr><td><code><font>&lt;!--&nbsp;1&nbsp;--&gt;&nbsp;&lt;RESERVATION&nbsp;xmlns:HTML="http://www.w3.org/TR/REC-html40"&gt;<BR>&lt;!--&nbsp;2&nbsp;--&gt;&nbsp;&lt;NAME&nbsp;HTML:CLASS="largeSansSerif"&gt;Layman,&nbsp;A&lt;/NAME&gt;<BR>&lt;!--&nbsp;3&nbsp;--&gt;&nbsp;&lt;SEAT&nbsp;CLASS="Y"&nbsp;HTML:CLASS="largeMonotype"&gt;33B&lt;/SEAT&gt;<BR>&lt;!--&nbsp;4&nbsp;--&gt;&nbsp;&lt;HTML:A&nbsp;HREF='/cgi-bin/ResStatus'&gt;Check&nbsp;Status&lt;/HTML:A&gt;<BR>&lt;!--&nbsp;5&nbsp;--&gt;&nbsp;&lt;DEPARTURE&gt;1997-05-24T07:55:00+1&lt;/DEPARTURE&gt;&lt;/RESERVATION&gt;</font></code></td></tr></table><p>
+
+<table bgcolor='#c0d9c0' border='1' cellpadding='7'>
+
+<tr><td rowspan='1' colspan='1'>1</td>
+<td rowspan='1' colspan='1'>RESERVATION</td><td rowspan='1' colspan='1'>&lt;ExpEType type="RESERVATION" /&gt;</td>
+</tr>
+<tr>
+<td rowspan='1' colspan='1'>2</td>
+<td rowspan='1' colspan='1'>NAME</td><td rowspan='1' colspan='1'>&lt;ExpEType type="NAME" /&gt;</td>
+</tr>
+<tr>
+<td rowspan='1' colspan='1'>2</td>
+<td rowspan='1' colspan='1'>HTML:CLASS</td>
+<td rowspan='1' colspan='1'>&lt;ExpAName name="CLASS" ns=http://www.w3.org/TR/REC-html40 /&gt;</td>
+</tr>
+<tr>
+<td rowspan='1' colspan='1'>3</td>
+<td rowspan='1' colspan='1'>SEAT</td><td rowspan='1' colspan='1'>&lt;ExpEType type="SEAT" /&gt;</td>
+</tr>
+<tr>
+<td rowspan='1' colspan='1'>3</td>
+<td rowspan='1' colspan='1'>CLASS</td><td rowspan='1' colspan='1'>&lt;ExpAName name="CLASS" eltype="SEAT"&gt;</td>
+</tr>
+<tr>
+<td rowspan='1' colspan='1'>3</td>
+<td rowspan='1' colspan='1'>HTML:CLASS</td><td rowspan='1' colspan='1'>&lt;ExpAName name="CLASS" ns="http://www.w3.org/TR/REC-html40" /&gt;</td>
+</tr>
+<tr>
+<td rowspan='1' colspan='1'>4</td>
+<td rowspan='1' colspan='1'>HTML:A</td><td rowspan='1' colspan='1'>&lt;ExpEType type="A" ns="http://www.w3.org/TR/REC-html40" /&gt;</td>
+</tr>
+<tr>
+<td rowspan='1' colspan='1'>4</td>
+<td rowspan='1' colspan='1'>HREF</td><td rowspan='1' colspan='1'>&lt;ExpAName name="HREF" eltype="A" elns="http://www.w3.org/TR/REC-html40" /&gt;</td>
+</tr>
+<tr>
+<td rowspan='1' colspan='1'>5</td>
+<td rowspan='1' colspan='1'>DEPARTURE</td><td rowspan='1' colspan='1'>&lt;ExpEType type="DEPARTURE" /&gt;</td>
+</tr>
+</table>
+
+
+
+
+<H3><A NAME='check-uniqattr'>A.4 Unique Expanded Attribute Names</a></h3>
+<P>The constraint expressed by "<A href='#uniqAttrs'>5.3&nbsp;Uniqueness of Attributes</A>" above
+may straightforwardly be implemented by requiring that
+no element have
+two attributes whose expanded names are equivalent, i.e. have the same
+attribute-value pairs.</P>
+
+
+
+
+
+<H2><A NAME='sec-xml-and-sgml'>B. Acknowledgements (Non-Normative)</a></h2>
+ 
+<P>This work reflects input from a very large number of people, 
+including especially the members of the World Wide
+Web Consortium XML Working Group and Special Interest Group 
+and the participants in the W3C Metadata Activity.
+The contributions of Charles Frankston of Microsoft 
+were particularly valuable.</P>
+
+
+
+<H2><A NAME='refs'>C. References</a></h2>
+<DL>
+<dt><a name='URNs'>RFC2141</a></dt><dd>
+IETF (Internet Engineering Task Force)
+<EM>RFC 2141: URN Syntax</EM>, ed. R. Moats. May 1997.
+</DD>
+<dt><a name='URIRef'>RFC2396</a></dt><dd>
+IETF (Internet Engineering Task Force)
+<EM>RFC 2396: Uniform Resource Identifiers (URI): Generic Syntax</EM>, eds. 
+T. Berners-Lee, R. Fielding, L. Masinter.  
+August 1998.
+</DD>
+<dt><a name='XML'>XML</a></dt><dd>
+<EM>Extensible Markup Language
+(XML) 1.0</EM>, eds. Tim Bray, Jean
+Paoli, and C. M.
+Sperberg-McQueen.
+10 February 1998. Available at
+<a href="https://www.w3.org/TR/REC-xml">http://www.w3.org/TR/REC-xml</a>.
+</DD>
+</DL>
+
+
+
+<script src="https://www.w3.org/scripts/TR/fixup.js"></script>

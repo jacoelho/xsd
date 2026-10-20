@@ -160,10 +160,18 @@ Specifies that field values must correspond to existing values of a referenced `
 
 **Missing Fields in Keyref:**
 
-Per the spec, if any field of a keyref evaluates to an empty node-set (the target node is absent or nilled), that entire tuple is **excluded** from referential checking. This is defined behavior:
+If a field evaluates to an empty node-set, the tuple is incomplete and is
+excluded from referential checking. An absent target and a selected nilled
+element are different: XPath can still select the nilled node, while its
+schema-normalized value is absent. The
+[interpretation record](INTERPRETATIONS.md#i-003--nilled-field-values)
+separates the published XSD 1.0 wording from the later 1.1 clarification.
 
 - Absent field → tuple excluded from keyref check (no error)
 - All fields present → tuple must exist in referenced key (error if not found)
+
+Here “present” requires the suitable typed values used to construct the
+qualified tuple; it does not mean merely that an XML element exists.
 
 **Keyref Resolution Scope:**
 

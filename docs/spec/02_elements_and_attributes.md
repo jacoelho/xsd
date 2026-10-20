@@ -246,17 +246,21 @@ For an element to be valid:
    - For `fixed`: if not empty, the content value must match the fixed constraint value
 5. All identity constraints must be satisfied
 
-**Default/Fixed Value Processing:**
+### Default/Fixed Value Processing
 
 | Condition | Default | Fixed |
 |-----------|---------|-------|
-| Element is nilled (`xsi:nil="true"`) | Not applied | Not checked |
+| Element is nilled (`xsi:nil="true"`) | Not applied | Invalid: a nilled element must not have a fixed value constraint |
 | Element has no element or character children | Default value applied in PSVI | Fixed value applied in PSVI |
 | Element has element or character content | No effect | Content must match fixed value |
 
 Whitespace-only text still counts as character content and does not trigger default/fixed value application.
 
 The default/fixed value must be valid for the element's type. For complex types with simple content, the value applies to the text content.
+
+For PSVI calculation, an applied element constraint uses its lexical form and
+adds no character children. See the [E1-56 corrected reading](corrected-reading.md)
+for the ordered simple-content, mixed-content, nil, and invalid-value cases.
 
 For an attribute to be valid:
 

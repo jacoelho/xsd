@@ -1366,8 +1366,10 @@ graph preserves these ownership rules:
 - `docs` contains XSD 1.0 reference documentation and the browser validator's
   deployable assets. Review reports, comparison reports, completed plans,
   benchmark evidence, and verification logs do not belong there.
-- `docs/spec` contains searchable local specification material and an index; it
-  does not define repository behavior.
+- `docs/spec` contains unchanged standards sources, provenance, a corrected
+  reading layer and specification-derived scenario references. Its inventory
+  and mappings establish traceability, not implementation or corpus coverage;
+  it does not define repository behavior.
 - `tests/README.md` documents corpus and harness operation. Counts and other
   cheap derived facts come from the manifest or test commands rather than
   manually maintained prose.

@@ -1,0 +1,1251 @@
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html lang="en"><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+   <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>XML Pointer Language (XPointer) Version 1.0</title><style type="text/css">
+code           { font-family: monospace; }
+
+div.constraint,
+div.issue,
+div.note,
+div.notice     { margin-left: 2em; }
+
+li p           { margin-top: 0.3em;
+                 margin-bottom: 0.3em; }
+      </style><link rel="stylesheet" type="text/css" href="https://www.w3.org/StyleSheets/TR/W3C-WD"></head><body>
+
+<div class="head"><p><a href="https://www.w3.org/"><img src="https://www.w3.org/Icons/w3c_home" alt="W3C" height="48" width="72"></a></p><h1>XML Pointer Language (XPointer) Version 1.0</h1>
+<h2>W3C Last Call Working Draft 8 January 2001</h2>
+
+<dl>
+<dt>This version:</dt>
+<dd><a href="https://www.w3.org/TR/2001/WD-xptr-20010108">http://www.w3.org/TR/2001/WD-xptr-20010108</a></dd>
+<dt>Latest version:</dt>
+<dd><a href="https://www.w3.org/TR/xptr">http://www.w3.org/TR/xptr</a></dd>
+<dt>Previous version:</dt>
+<dd><a href="https://www.w3.org/TR/2000/WD-xptr-20000607">http://www.w3.org/TR/2000/CR-xptr-20000607</a></dd>
+<dt>Editors:</dt>
+<dd>Steve DeRose, Brown University Scholarly Technology
+Group <a href="mailto:Steven_DeRose@Brown.edu">&lt;Steven_DeRose@Brown.edu></a>
+</dd>
+<dd>Eve Maler, Sun Microsystems
+ <a href="mailto:elm@east.sun.com">&lt;eve.maler@east.sun.com></a></dd>
+<dd>Ron Daniel Jr., Interwoven <a href="mailto:rdaniel@interwoven.com">&lt;rdaniel@interwoven.com></a></dd>
+</dl>
+
+<p class="copyright"><a href="https://www.w3.org/Consortium/Legal/ipr-notice-20000612#Copyright"> Copyright</a>
+&copy;2001 <a href="https://www.w3.org/"><abbr title="World Wide Web
+Consortium">W3C</abbr></a><sup>&reg;</sup> (<a href="http://www.lcs.mit.edu/"><abbr
+title="Massachusetts Institute of Technology">MIT</abbr></a>, <a
+href="http://www.inria.fr/"><abbr lang="fr" title="Institut National de Recherche en
+Informatique et Automatique">INRIA</abbr></a>, <a href="http://www.keio.ac.jp/">Keio</a>),
+All Rights Reserved. W3C <a href="https://www.w3.org/Consortium/Legal/ipr-notice-20000612#Legal_Disclaimer">liability</a>,
+<a href="https://www.w3.org/Consortium/Legal/ipr-notice-20000612#W3C_Trademarks">trademark</a>,
+<a href="https://www.w3.org/Consortium/Legal/copyright-documents-19990405">document use</a>
+and <a href="https://www.w3.org/Consortium/Legal/copyright-software-19980720">software
+licensing</a> rules apply.</p>
+</div>
+
+<hr>
+
+<div><h2><a name="abstract">Abstract</a></h2>
+<p>This specification defines the XML Pointer Language (XPointer), the language
+to be used as the basis for a fragment identifier for any URI reference that
+locates a resource whose Internet media type is one of <code>text/xml</code>, <code>application/xml</code>, <code>text/xml-external-parsed-entity</code>,
+or <code>application/xml-external-parsed-entity</code>.</p>
+<p>XPointer, which is based on the XML Path Language (XPath), supports addressing
+into the internal structures of XML documents. It allows for examination of
+a hierarchical document structure and choice of its internal parts based on
+various properties, such as element types, attribute values, character content,
+and relative position.</p>
+</div>
+<div><h2><a name="status">Status of this Document</a></h2>
+<p>This is a W3C Last Call Working Draft for review by W3C members and other
+interested parties.</p>
+<p>The <a href="https://www.w3.org/XML/Activity#linking-wg">XML Linking Working Group</a> invites comment on this specification,
+especially on <a href="#ns-context">the new xmlns XPointer scheme</a>
+which was added to the previous Candidate Recommentation version.
+The Last Call period begins 8 January 2001 and ends 29 January 2001.</p>
+<p> It is a draft document and may be updated, replaced, or
+obsoleted by other documents at any time.
+It is inappropriate to use W3C Working Drafts
+as reference material or to cite them as other than "work in progress."
+Comments on this document should be sent to the public mailing list <a href="mailto:www-xml-linking-comments@w3.org">www-xml-linking-comments@w3.org</a> (<a href="http://lists.w3.org/Archives/Public/www-xml-linking-comments/">archive</a>).</p>
+<p>This document is intended to be taken in conjunction with the IETF XML
+Media Types Internet Draft <a href="#draft-xmlmediatypes">[IETF I-D XMT]</a>, in order for
+that document to officially designate XPointer as the fragment identifier
+language for resources whose type is one of <code>text/xml</code>, <code>application/xml</code>, <code>text/xml-external-parsed-entity</code>,
+or <code>application/xml-external-parsed-entity</code>. However, because of the
+timing problems associated with publishing two related documents on separate
+tracks, currently that document refers to this one only non-normatively. It
+is anticipated that the Internet Draft will be updated to make a normative
+reference when XPointer reaches the Recommendation stage.</p>
+
+<p>XPointer is affected by a technology patent held by Sun Microsystems. The
+legal terms and conditions offered by Sun to XPointer implementors can be
+found in the <a href="http://lists.w3.org/Archives/Public/www-xml-linking-comments/2000OctDec/0092.html">archives</a>
+of the public comments list.</p>
+<p>For background on this work, please see the <a href="https://www.w3.org/XML/Activity">XML
+Activity Statement</a>. For information about the XLink language with which
+XPointer <a title="Must, May, etc." href="#dt-must">may</a> be used, see <a href="https://www.w3.org/TR/xlink">http://www.w3.org/TR/xlink</a>.
+For information about the requirements that informed development of this specification,
+see <a href="/TR/NOTE-xptr-req">http://www.w3.org/TR/NOTE-xptr-req</a>.
+A list of current W3C working drafts can be found at <a href="https://www.w3.org/TR">http://www.w3.org/TR</a>.</p>
+</div>
+<div class="toc"><h2><a name="contents">Table of Contents</a></h2><p class="toc">1 <a href="#b2d250b5b1">Introduction</a><br>&nbsp;&nbsp;&nbsp;&nbsp;1.1 <a href="#b2d250b5b1c17">Origin and Goals</a><br>&nbsp;&nbsp;&nbsp;&nbsp;1.2 <a href="#b2d250b5b1c19">Notation and Document Conventions</a><br>2 <a href="#b2d250b5b3">XPointer Terms and Concepts</a><br>3 <a href="#conformance">XPointer Processing and Conformance</a><br>&nbsp;&nbsp;&nbsp;&nbsp;3.1 <a href="#b2d250b5b5b7">Processing Dependencies</a><br>&nbsp;&nbsp;&nbsp;&nbsp;3.2 <a href="#b2d250b5b5b9">String Conformance</a><br>&nbsp;&nbsp;&nbsp;&nbsp;3.3 <a href="#app-conformance">Application Conformance</a><br>&nbsp;&nbsp;&nbsp;&nbsp;3.4 <a href="#b2d250b5b5c13">Classes of XPointer Errors</a><br>4 <a href="#b2d250b5b7">XPointer Model and Language</a><br>&nbsp;&nbsp;&nbsp;&nbsp;4.1 <a href="#escaping">Character Escaping</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.1.1 <a href="#escaping-model">Escaping Contexts</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.1.2 <a href="#uri-escaping">URI Reference Encoding and Escaping</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.1.3 <a href="#b2d250b5b7b7b9">Examples of Escaping</a><br>&nbsp;&nbsp;&nbsp;&nbsp;4.2 <a href="#xptr-forms">Forms of XPointer</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.2.1 <a href="#full-form">Full XPointers</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.2.2 <a href="#bare-names">Bare Names</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.2.3 <a href="#child-seqs">Child Sequences</a><br>&nbsp;&nbsp;&nbsp;&nbsp;4.3 <a href="#schemes">Schemes</a><br>5 <a href="#b2d250b5b9">XPointer Extensions to XPath</a><br>&nbsp;&nbsp;&nbsp;&nbsp;5.1 <a href="#terminology">XPointer Additions to XPath Terms and Concepts</a><br>&nbsp;&nbsp;&nbsp;&nbsp;5.2 <a href="#context">Evaluation Context Initialization</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.2.1 <a href="#ns-context">Namespace Initialization</a><br>&nbsp;&nbsp;&nbsp;&nbsp;5.3 <a href="#datatypes">The point and range Location Types</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.3.1 <a href="#b2d250b5b9c11b9">Definition of Point Location</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.3.2 <a href="#b2d250b5b9c11c11">Definition of Range Location</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.3.3 <a href="#b2d250b5b9c11c13">Covering Ranges for All Location Types</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.3.4 <a href="#b2d250b5b9c11c15">Tests for point and range Locations</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.3.5 <a href="#document-order-sec">Document Order</a><br>&nbsp;&nbsp;&nbsp;&nbsp;5.4 <a href="#xptr-functions">XPointer Functions</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.4.1 <a href="#rangeexprs">range-to Function</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.4.2 <a href="#stringrange">string-range() Function</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.4.3 <a href="#b2d250b5b9c13b9">Additional Range-Related Functions</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.4.3.1 <a href="#b2d250b5b9c13b9b5">range Function</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.4.3.2 <a href="#b2d250b5b9c13b9b7">range-inside Function</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.4.3.3 <a href="#b2d250b5b9c13b9b9">start-point Function</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.4.3.4 <a href="#b2d250b5b9c13b9c11">end-point Function</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.4.4 <a href="#b2d250b5b9c13c11">here Function</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.4.5 <a href="#b2d250b5b9c13c13">origin Function</a><br>&nbsp;&nbsp;&nbsp;&nbsp;5.5 <a href="#b2d250b5b9c15">Root Node Children</a><br></p><h3>Appendices</h3><p class="toc">A <a href="#references">References</a><br>&nbsp;&nbsp;&nbsp;&nbsp;A.1 <a href="#b2d250b6b1b3">Normative References</a><br>&nbsp;&nbsp;&nbsp;&nbsp;A.2 <a href="#b2d250b6b1b5">Non-Normative References</a><br>B <a href="#b2d250b6b3">Working Group Members</a> (Non-Normative)<br></p></div><hr><div class="body">
+<div class="div1">
+<h2><a name="b2d250b5b1"></a>1 Introduction</h2>
+<p>This specification defines the XML Pointer Language (XPointer), the language
+to be used as the basis for a fragment identifier for any URI reference that
+locates a resource whose Internet media type is one of <code>text/xml</code>, <code>application/xml</code>, <code>text/xml-external-parsed-entity</code>,
+or <code>application/xml-external-parsed-entity</code> <a href="#rfc2376">[IETF RFC 2376]</a>.
+This specification does not constrain the syntax or semantics of URI references
+to resources of other media types, although it provides extension facilities
+that <a title="Must, May, etc." href="#dt-must">may</a> be used with other types.</p>
+<p>XPointer supports addressing into the internal structures of XML documents.
+It allows for examination of a document's hierarchical structure and choice
+of its internal parts based on various properties, such as element types,
+attribute values, character content, and relative position. In particular,
+it provides for specific reference to elements, character strings, and other
+parts of XML documents, whether or not they bear an explicit ID attribute.</p>
+<p>The structures located with XPointer can be used as link targets or for
+any other application-specific purpose. This specification does not constrain
+what uses an application <a title="Must, May, etc." href="#dt-must">may</a> make of locations
+identified by XPointers. In particular, implementation of traversal to a resource
+is not constrained by this specification, and whether user "traversal"
+is the purpose of an XPointer at all is application-dependent. A formatted-text
+browser traversal might scroll to and highlight the designated location; a
+structure-oriented graphical viewer or a document-relationship display might
+do traversal in quite a different way; and a search application, parser, archival
+system, or expert agent might use XPointers for other purposes entirely. (The
+construction of linking elements in XML documents that associate arbitrary
+resources, including XML documents and portions thereof, is defined in a related
+specification, <a href="#XLink">[XLink]</a>.)</p>
+<p>XPointer is built on top of the XML Path Language <a href="#XPath">[XPath]</a>,
+which is an expression language underlying the XSL Transformations (XSLT)
+language. XPointer's extensions to XPath allow it to:</p>
+<ul>
+<li><p>Address points and ranges as well as whole nodes</p></li>
+<li><p>Locate information by string matching</p></li>
+<li><p>Use addressing expressions in URI references as fragment identifiers
+(after suitable escaping)</p></li>
+</ul>
+<p>Addressing into the internal structures of DTDs and the XML declaration
+is outside the scope of this specification.</p>
+<div class="note"><p class="prefix"><b>Note:</b></p>
+<p>XPointer is intended to be the basis of fragment identifiers only for resources
+whose media type is one of <code>text/xml</code>, <code>application/xml</code>, <code>text/xml-external-parsed-entity</code>,
+or <code>application/xml-external-parsed-entity</code>. It is expected that many applications of
+XML will define their own media types in order to indicate the particular
+usage of XML they define. (Note that a recent Internet Draft <a href="#draft-xmlmediatypes">[IETF I-D XMT]</a>
+suggests the use of a naming convention for specialized media types based
+on XML.) XPointer is expected to be useful as a fragment identifier language
+for the generic XML aspects of those media types. Schemes (discussed in <a href="#schemes"><b>4.3 Schemes</b></a>) can be used to provide specialized addressing into the content
+of resources of those media types.</p>
+</div>
+<div class="div2">
+<h3><a name="b2d250b5b1c17"></a>1.1 Origin and Goals</h3>
+<p>In addition to XPath, the following standards have been especially influential
+in the development of this specification:</p>
+<ul>
+<li><p><em>HTML</em> <a href="#html">[HTML]</a>: This system popularized an
+important location specifier type, the URL (now URI).</p></li>
+<li><p><em>HyTime</em> <a href="#iso10744">[ISO/IEC 10744]</a>: This ISO standard defines
+location specifier types for all kinds of data.</p></li>
+<li><p><em>Text Encoding Initiative Guidelines</em> <a href="#tei">[TEI]</a>:
+This application provides a formal syntax for "extended pointers,"
+locators for structured markup that underlie the initial design for XPointer.</p>
+</li>
+</ul>
+<p>The addressing components of many other hypertext systems have also informed
+the design of XPointer, especially <a href="#dexter">[Dexter]</a>, <a href="#ohs">[OHS]</a>, <a href="#fress">[FRESS]</a>, <a href="#microcosm">[MicroCosm]</a>, and <a href="#intermedia">[Intermedia]</a>.</p>
+<p>See the XPointer Requirements Document <a href="#xpreq">[XPREQ]</a> for a thorough
+explanation of requirements for the design of XPointer.</p>
+</div>
+<div class="div2">
+<h3><a name="b2d250b5b1c19"></a>1.2 Notation and Document Conventions</h3>
+<p>The formal grammar for XPointer is given using a simple Extended Backus-Naur
+Form (EBNF) notation, as described in the XML Recommendation <a href="#XML">[XML]</a>.
+The circumflex (<code>^</code>) metacharacter used in this notation (to denote
+the complement of a set of characters) is not to be confused with the circumflex
+used to escape parenthesis characters in an XPointer.</p>
+<p>The prototypes for XPointer functions are given using the same notation
+used in the <a href="#XPath">[XPath]</a> Recommendation.</p>
+<p>This specification contains some explanatory text on the XPath language;
+however, such text is non-normative. In the case of conflicts, <a href="#XPath">[XPath]</a>
+is the normative version.</p>
+</div>
+</div>
+<div class="div1">
+<h2><a name="b2d250b5b3"></a>2 XPointer Terms and Concepts</h2>
+<p>Some special terms are defined here in order to clarify their relationship
+to similar terms used in the technologies on which XPointer is based. Additional
+XPointer-specific terms are defined in the flow of the text. Refer to <a href="#XPath">[XPath]</a>, <a href="#dom2">[DOM2]</a>, <a href="#infoset">[XIS]</a>, and <a href="#rfc2396">[IETF RFC 2396]</a> for definitions of other technical terms used in this specification.</p>
+<dl>
+<dt class="label">[<a name="dt-point" title="Point">Definition</a>: point]</dt>
+<dd>
+<p>A position in XML information. This notion comes from the DOM Level 2 <a href="#dom2">[DOM2]</a> specification's notion of positions; this specification refers
+to DOM positions by the term "point" to avoid confusion with
+XPath positions.</p>
+</dd>
+<dt class="label">[<a name="dt-range" title="Range">Definition</a>: range]</dt>
+<dd>
+<p>An identification of all the XML information between a pair of end points.
+This notion comes from the DOM Level 2 <a href="#dom2">[DOM2]</a> specification.</p>
+</dd>
+<dt class="label">[<a name="dt-location" title="Location">Definition</a>: location]</dt>
+<dd>
+<p>A generalization of XPath's <b>node</b> that includes points and
+range in addition to nodes.</p>
+</dd>
+<dt class="label">[<a name="dt-locset" title="Location set">Definition</a>: location-set]</dt>
+<dd>
+<p>An ordered list of locations, such as produced by an XPointer expression.
+This corresponds to the <b>node-set</b> that is produced by XPath expressions,
+except for the generalization to include points and ranges.</p>
+</dd>
+<dt class="label">[<a name="dt-singleton" title="singleton">Definition</a>: singleton]</dt>
+<dd>
+<p>A location-set that consists of a single location. A point is always a
+singleton. A range is always a singleton as well, even if a different XPointer
+could have produced multiple individual components encompassed by the range.
+For example, for a <code>list</code> element with ID "list37" that
+contains three <code>item</code> element children, the following XPointer produces
+a location-set consisting of three locations (the <code>item</code> children in
+that <code>list</code>):</p>
+<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>xpointer(id('list37')/item)</pre></td></tr></table>
+<p>By contrast, the following XPointer returns a singleton location-set:</p>
+<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>xpointer(id('list37')/item[1]/range-to(following-sibling::item[2]))</pre></td></tr></table>
+</dd>
+<dt class="label">[<a name="dt-subresource" title="Sub-Resource">Definition</a>: sub-resource]</dt>
+<dd>
+<p>The portion of an XML resource that is identified by an XPointer. For example,
+the whole resource being referred to is an XML document, but a sub-resource
+might be a particular element inside the document. Following a link to such
+a sub-resource might result, for example, in highlighting that element or
+scrolling to that point in the document.</p>
+</dd>
+</dl>
+</div>
+<div class="div1">
+<h2><a name="conformance"></a>3 XPointer Processing and Conformance</h2>
+<p>This section details processing and conformance requirements on XPointers,
+the fragment identifiers that are based on them, and the applications that
+create and process them.</p>
+<p>[<a name="dt-must" title="Must, May, etc.">Definition</a>: The key words <b>must</b>, <b>must
+not</b>, <b>required</b>, <b>shall</b>, <b>shall not</b>, <b>should</b>, <b>should
+not</b>, <b>recommended</b>, <b>may</b>, and <b>optional</b>
+in this specification are to be interpreted as described in <a href="#rfc2119">[IETF RFC 2119]</a>.]</p>
+<div class="div2">
+<h3><a name="b2d250b5b5b7"></a>3.1 Processing Dependencies</h3>
+<p>XPointer processing depends on <a href="#rfc2396">[IETF RFC 2396]</a> (as updated by <a href="#rfc2732">[IETF RFC 2732]</a>) processing. Fully conformant XPointer processing depends
+on <a href="#XPath">[XPath]</a> processing.</p>
+</div>
+<div class="div2">
+<h3><a name="b2d250b5b5b9"></a>3.2 String Conformance</h3>
+<p>A string conforms to the XPointer specification if it adheres to the syntactic
+requirements and validity constraints imposed by this specification (including <a href="#XPath">[XPath]</a>, whose requirements are imposed by reference). This specification
+does not require that the string, in association with a URI, actually point
+to a resource or sub-resource that exists at any given moment.</p>
+</div>
+<div class="div2">
+<h3><a name="app-conformance"></a>3.3 Application Conformance</h3>
+<p>This specification defines two levels of conformance:</p>
+<ul>
+<li><p>[<a name="dt-minimal-conf" title="Minimal Conformance">Definition</a>: <b>Minimal
+conformance</b> entails handling series of <a title="XPointer Part" href="#dt-xptrpart">XPointer
+parts</a>, routing XPointer parts with particular schemes to an application
+that can evaluate those parts, and skipping over schemes that are not understood],
+as defined in <a href="#schemes"><b>4.3 Schemes</b></a>, as well as interpretation of bare-name
+XPointers, as prescribed in <a href="#bare-names"><b>4.2.2 Bare Names</b></a>.</p></li>
+<li><p>[<a name="dt-full-conf" title="Full Conformance">Definition</a>: <b>Full conformance</b>
+entails (in addition to the items comprising minimal conformance) interpretation
+of child-sequence XPointers and full-form XPointer parts that use the <code>xpointer</code>
+and <code>xmlns</code> schemes, as prescribed by this specification.]</p>
+</li>
+</ul>
+<p>For applications that recognize and interpret XPointers in URI references
+that locate resources whose Internet media type is one of <code>text/xml</code>, <code>application/xml</code>, <code>text/xml-external-parsed-entity</code>,
+or <code>application/xml-external-parsed-entity</code>, full conformance
+is required. The minimal conformance level is defined for the convenience
+of XML-based Internet media types <a href="#draft-xmlmediatypes">[IETF I-D XMT]</a> that
+define fragment identifier languages based on XPointer.</p>
+</div>
+<div class="div2">
+<h3><a name="b2d250b5b5c13"></a>3.4 Classes of XPointer Errors</h3>
+<p>The use of XPointers can give rise to several kinds of errors:</p>
+<ul>
+<li><p>[<a name="dt-syntax-err" title="Syntax error">Definition</a>: A string that does
+not match the syntax specified in this document has a <b>syntax error</b>,
+and applications <a title="Must, May, etc." href="#dt-must">must not</a> attempt to evaluate
+it as an XPointer.]</p></li>
+<li><p>[<a name="dt-rsc-err" title="Resource error">Definition</a>: If a syntactically
+correct XPointer, suitably escaped, is appended to a URI that identifies no
+resource, or a resource that is not well-formed XML, the XPointer has a <b>resource
+error</b>.]</p></li>
+<li><p>[<a name="dt-sub-rsc-err" title=" Sub-resource error">Definition</a>: If a syntactically
+correct XPointer, suitably escaped, fails as discussed in <a href="#schemes"><b>4.3 Schemes</b></a>,
+the XPointer has a <b>sub-resource error</b>.] Note that XPath
+allows expressions that return empty node-sets as their results and does not
+regard this situation as an error. Because the XPointer language is intended
+as a specification of document locations rather than a broader query language,
+an empty result is an error.</p></li>
+</ul>
+<p>This specification does not constrain how applications deal with resource
+errors and sub-resource errors.</p>
+</div>
+</div>
+<div class="div1">
+<h2><a name="b2d250b5b7"></a>4 XPointer Model and Language</h2>
+<p>XPath expressions work with a data set that is derived from the elements
+and other markup constructs of an XML document. The XPointer model augments
+this data set. Both XPointers and XPath expressions operate by selecting portions
+of such data sets, often by their structural relationship to other parts (for
+example, the parent of a node with a certain ID value). XPointers use iterative
+selections, each operating on what is found by the prior one.</p>
+<p>Selection of portions of the information hierarchy is done through axes,
+predicates, and functions. An axis defines a sequence of candidates that might
+be located; predicates then test for various criteria relative to such portions;
+and functions generate new candidates or perform various other tasks. For
+example, one can select certain elements from among the siblings of some previously
+located element, based on whether those sibling elements have an attribute
+with a certain value, or are of a certain type such as "footnote";
+or select the point location immediately preceding a certain "para".</p>
+<div class="div2">
+<h3><a name="escaping"></a>4.1 Character Escaping</h3>
+<p>The XPointer language is designed to be used in the context of URI references,
+which require encoding and escaping of certain characters. XPointers (in URI
+references) also often appear in XML documents, which impose some escaping
+requirements of their own when the document encoding limits the repertoire
+that can be used directly. Finally, because some characters are significant
+to XPointer processing, escaping is needed to use these characters in their
+ordinary sense. The following sections describe the escaping necessary for
+these contexts.</p>
+<div class="div3">
+<h4><a name="escaping-model"></a>4.1.1 Escaping Contexts</h4>
+<p>The following contexts require various types of escaping to be applied
+to XPointers.</p>
+<dl>
+<dt class="label">A. Escaping of XPointer-significant characters</dt>
+<dd>
+<p>When an XPointer is created that addresses into an XML resource, it might
+contain characters that are significant in the XPointer syntax itself. Parentheses
+are significant to the XPointer language, so unbalanced parentheses <a title="Must, May, etc." href="#dt-must">must</a> be escaped. Because the circumflex (<code>^</code>)
+is used to escape such parentheses, normal circumflexes <a title="Must, May, etc." href="#dt-must">must</a>
+be escaped. Thus, occurrences of the circumflex are escaped with a second
+circumflex (<code>^^</code>), and any occurrences of unbalanced parentheses
+are escaped with a circumflex, as described in <a href="#xptr-forms"><b>4.2 Forms of XPointer</b></a>.</p>
+</dd>
+<dt class="label">B. Escaping of reserved URI characters</dt>
+<dd>
+<p>[<a name="dt-iuri" title="Internationalized URI reference">Definition</a>: An <b>internationalized
+URI reference</b>, or IURI <a href="#iuri">[IURI]</a>, is a URI reference that
+directly uses Unicode characters <a href="#unicode">[Unicode]</a>.] IURI references
+allow a superset of the characters of fully escaped URI references, but both <a title="Must, May, etc." href="#dt-must">must</a> have normal occurrences of the percent sign (<code>%</code>)
+escaped because it is the character used for escaping in URIs and IURIs. Thus,
+when an XPointer is inserted into a URI reference or IURI reference, any occurrences
+of percent signs (<code>%</code>) are replaced with <code>%25</code>.</p>
+</dd>
+<dt class="label">C. XML escaping</dt>
+<dd>
+<p>If an XPointer appears in a URI reference or IURI reference in an XML document,
+any characters not expressible in the encoding used for the XML document <a title="Must, May, etc." href="#dt-must">must</a> be escaped as character references, and any characters
+that are significant to XML processing <a title="Must, May, etc." href="#dt-must">must</a>
+be escaped as character references or as predefined entity references. This
+escaping is removed when the XML document is parsed.</p>
+</dd>
+<dt class="label">D. Converting IURI references to URI references</dt>
+<dd>
+<p>When an IURI reference containing an XPointer (perhaps originating in an
+XML document) is ultimately converted to a fully escaped URI reference that
+is suitable for resolution, any remaining characters not allowed in URI references <a title="Must, May, etc." href="#dt-must">must</a> be escaped using the process described in <a href="#uri-escaping"><b>4.1.2 URI Reference Encoding and Escaping</b></a>. This process can safely be applied repeatedly to fully
+escaped URI references in XML documents.</p>
+<p>Square brackets (<code>[</code> and <code>]</code>) <a title="Must, May, etc." href="#dt-must">should</a>
+be replaced with <code>%5B</code> and <code>%5D</code> respectively, for compatibility
+with applications that have not implemented the <a href="#rfc2732">[IETF RFC 2732]</a> update
+to <a href="#rfc2396">[IETF RFC 2396]</a>.</p>
+</dd>
+</dl>
+<p>When resolving an XPointer, the encodings and escapings described in these
+sections <a title="Must, May, etc." href="#dt-must">must</a> be undone in the reverse order.
+If the result does not conform to the syntactic rules for XPointers in this
+specification, a <a title="Syntax error" href="#dt-syntax-err">syntax error</a> results.</p>
+</div>
+<div class="div3">
+<h4><a name="uri-escaping"></a>4.1.2 URI Reference Encoding and Escaping</h4>
+<p>The set of characters for XPointers is necessarily the same as for XML,
+namely <a href="#unicode">[Unicode]</a>. However, some Unicode characters are disallowed
+from URI references. Thus, the disallowed characters in XPointer-containing
+URI references <a title="Must, May, etc." href="#dt-must">must</a> ultimately be encoded
+and escaped in order for URI resolver software to be able to handle them.</p>
+<p>The disallowed characters include all non-ASCII characters, plus the excluded
+characters listed in Section 2.4 of <a href="#rfc2396">[IETF RFC 2396]</a>, except for the
+number sign (#) and percent sign (%) and the square bracket characters re-allowed
+in <a href="#rfc2732">[IETF RFC 2732]</a>. Disallowed characters are escaped as follows:</p>
+<ol>
+<li><p>Each disallowed character is converted to UTF-8 <a href="#rfc2279">[IETF RFC 2279]</a>
+as one or more bytes.</p></li>
+<li><p>Any bytes corresponding to a disallowed character are escaped with
+the URI escaping mechanism (that is, converted to <code>%</code><var>HH</var>,
+where HH is the hexadecimal notation of the byte value).</p></li>
+<li><p>The original character is replaced by the resulting character sequence.</p>
+</li>
+</ol>
+</div>
+<div class="div3">
+<h4><a name="b2d250b5b7b7b9"></a>4.1.3 Examples of Escaping</h4>
+<p>The following table shows the progressive escaping of an XPointer containing
+circumflexes, double quotation marks, and spaces that is intended to appear
+in an XML document.</p>
+<table border="1" frame="border"><thead><tr><th rowspan="1" colspan="1">Context</th><th rowspan="1" colspan="1">Notation</th>
+</tr></thead><tbody><tr><td rowspan="1" colspan="1">Initial</td><td rowspan="1" colspan="1">The desired XPointer as it was
+initially created:<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>xpointer(string-range(//P,"a little hat ^"))</pre></td></tr></table></td>
+</tr><tr><td rowspan="1" colspan="1">A. XPointer</td><td rowspan="1" colspan="1">With the circumflex escaped, as required
+by this specification:<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>doc.xml#xpointer(string-range(//P,"a little hat ^^"))</pre></td></tr></table></td>
+</tr><tr><td rowspan="1" colspan="1">B. IURI reference</td><td rowspan="1" colspan="1">Same as A (no percent sign found that
+needs escaping):<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>doc.xml#xpointer(string-range(//P,"a little hat ^^"))</pre></td></tr></table></td>
+</tr><tr><td rowspan="1" colspan="1">C. XML document</td><td rowspan="1" colspan="1">Double quotation marks escaped using
+XML's predefined <code>&amp;quot;</code> entity reference (assuming that the
+XPointer appears in an attribute value delimited by double quotation marks):<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>doc.xml#xpointer(string-range(//P,&amp;quot;a little hat ^^&amp;quot;))</pre></td></tr></table></td></tr><tr><td rowspan="1" colspan="1">D. URI reference</td><td rowspan="1" colspan="1">With occurrences of the double
+quotatation marks (<code>%22</code>), spaces (<code>%20</code>), and circumflexes
+(<code>%5E</code>) escaped:<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>doc.xml#xpointer(string-range(//P,%22a%20little%20hat%20%5E%5E%22))</pre></td></tr></table></td>
+</tr></tbody></table>
+<p>The following table shows the progressive escaping of an XPointer containing
+accented characters. The XPointer is intended to appear in an XML document
+encoded in <code>US-ASCII</code>, which does not allow the letter "&eacute;"
+to appear directly.</p>
+<table border="1" frame="border"><thead><tr><th rowspan="1" colspan="1">Context</th><th rowspan="1" colspan="1">Notation</th>
+</tr></thead><tbody><tr><td rowspan="1" colspan="1">Initial</td><td rowspan="1" colspan="1">The desired XPointer as it was
+initially created:<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>xpointer(id('r&eacute;sum&eacute;'))</pre></td></tr></table></td></tr><tr><td rowspan="1" colspan="1">A. XPointer</td>
+<td rowspan="1" colspan="1">Same (no circumflex or unbalanced parenthesis found that needs escaping):<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>xpointer(id('r&eacute;sum&eacute;'))</pre></td></tr></table></td>
+</tr><tr><td rowspan="1" colspan="1">B. IURI reference</td><td rowspan="1" colspan="1">Same as A (no percent sign found that
+needs escaping):<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>doc.xml#xpointer(id('r&eacute;sum&eacute;'))</pre></td></tr></table></td></tr><tr><td rowspan="1" colspan="1">C.
+XML document</td><td rowspan="1" colspan="1">Represented in the <code>US-ASCII</code> encoding; accented
+letters are escaped with XML character references:<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>doc.xml#xpointer(id('r&amp;#xE9;sum&amp;#xE9;'))</pre></td></tr></table></td>
+</tr><tr><td rowspan="1" colspan="1">D. URI reference</td><td rowspan="1" colspan="1">With occurrences of the letter "&eacute;"
+(<code>%C3%A9</code>) escaped:<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>doc.xml#xpointer(id('r%C3%A9sum%C3%A9'))</pre></td></tr></table></td>
+</tr></tbody></table></div>
+</div>
+<div class="div2">
+<h3><a name="xptr-forms"></a>4.2 Forms of XPointer</h3>
+<p>This specification defines one full form of XPointer addressing and two
+shorthand forms. The shorthand forms are defined as abbreviations of the full
+form, although applications need not convert an abbreviated form into the
+full form before evaluation. All error conditions apply as if the full form
+of the XPointer were specified.</p>
+<p>The full form is described in <a href="#full-form"><b>4.2.1 Full XPointers</b></a>. The two short
+forms are bare names (<a href="https://www.w3.org/TR/REC-xml#NT-Name">Name</a>, described in <a href="#bare-names"><b>4.2.2 Bare Names</b></a>) and child sequences (<a href="#NT-ChildSeq">ChildSeq</a>,
+described in <a href="#child-seqs"><b>4.2.3 Child Sequences</b></a>). Thus, XPointer offers the following
+overall options.</p>
+<h5>XPointer Forms</h5><table class="scrap" summary="Scrap"><tbody><tr valign="baseline"><td><a name="NT-XPointer"></a>[1]&nbsp;&nbsp;&nbsp;</td><td><code>XPointer</code></td><td>&nbsp;&nbsp;&nbsp;::=&nbsp;&nbsp;&nbsp;</td><td><code><a href="https://www.w3.org/TR/REC-xml#NT-Name">Name</a></code></td></tr><tr valign="baseline"><td></td><td></td><td></td><td><code>| <a href="#NT-ChildSeq">ChildSeq</a></code></td></tr><tr valign="baseline"><td></td><td></td><td></td><td><code>| <a href="#NT-FullXPtr">FullXPtr</a></code></td></tr></tbody></table>
+<p>The internal structure of an XPointer is as follows. Any XPointer whose
+evaluation returns anything other than a non-empty location-set <a title="Must, May, etc." href="#dt-must">must</a>
+signal a <a title=" Sub-resource error" href="#dt-sub-rsc-err">sub-resource error</a>.</p>
+<h5>Internal Structure of XPointer</h5><table class="scrap" summary="Scrap"><tbody><tr valign="baseline"><td><a name="NT-ChildSeq"></a>[2]&nbsp;&nbsp;&nbsp;</td><td><code>ChildSeq</code></td><td>&nbsp;&nbsp;&nbsp;::=&nbsp;&nbsp;&nbsp;</td><td><code><a href="https://www.w3.org/TR/REC-xml#NT-Name">Name</a>? ('/' [1-9] [0-9]*
+)+</code></td></tr></tbody><tbody><tr valign="baseline"><td><a name="NT-FullXPtr"></a>[3]&nbsp;&nbsp;&nbsp;</td><td><code>FullXPtr</code></td><td>&nbsp;&nbsp;&nbsp;::=&nbsp;&nbsp;&nbsp;</td><td><code><a href="#NT-XPtrPart">XPtrPart</a> (<a href="https://www.w3.org/TR/REC-xml#NT-S">S</a>? <a href="#NT-XPtrPart">XPtrPart</a>)*</code></td></tr></tbody><tbody><tr valign="baseline"><td><a name="NT-XPtrPart"></a>[4]&nbsp;&nbsp;&nbsp;</td><td><code>XPtrPart</code></td><td>&nbsp;&nbsp;&nbsp;::=&nbsp;&nbsp;&nbsp;</td><td><code> 'xpointer' '(' <a href="#NT-XPtrExpr">XPtrExpr</a>
+')'</code></td></tr><tr valign="baseline"><td></td><td></td><td></td><td><code>| 'xmlns' '(' <a href="#NT-XPtrNsDecl">XPtrNsDecl</a>? ')'</code></td></tr><tr valign="baseline"><td></td><td></td><td></td><td><code>| <a href="#NT-Scheme">Scheme</a> '(' <a href="#NT-SchemeSpecificExpr">SchemeSpecificExpr</a>
+')'</code></td></tr></tbody><tbody><tr valign="baseline"><td><a name="NT-Scheme"></a>[5]&nbsp;&nbsp;&nbsp;</td><td><code>Scheme</code></td><td>&nbsp;&nbsp;&nbsp;::=&nbsp;&nbsp;&nbsp;</td><td><code><a href="https://www.w3.org/TR/REC-xml-names#NT-NCName">NCName</a></code></td></tr></tbody><tbody><tr valign="baseline"><td><a name="NT-SchemeSpecificExpr"></a>[6]&nbsp;&nbsp;&nbsp;</td><td><code>SchemeSpecificExpr</code></td><td>&nbsp;&nbsp;&nbsp;::=&nbsp;&nbsp;&nbsp;</td><td><code><a href="#NT-StringWithBalancedParentheses">StringWithBalancedParens</a></code></td></tr></tbody><tbody><tr valign="baseline"><td><a name="NT-StringWithBalancedParentheses"></a>[7]&nbsp;&nbsp;&nbsp;</td><td><code>StringWithBalancedParens</code></td><td>&nbsp;&nbsp;&nbsp;::=&nbsp;&nbsp;&nbsp;</td><td><code>[^()]* ('(' <a href="#NT-StringWithBalancedParentheses">StringWithBalancedParens</a>
+')' [^()]*)*</code></td><td><a href="#circumflex">[VC: Parenthesis escaping]</a></td></tr></tbody><tbody><tr valign="baseline"><td><a name="NT-XPtrExpr"></a>[8]&nbsp;&nbsp;&nbsp;</td><td><code>XPtrExpr</code></td><td>&nbsp;&nbsp;&nbsp;::=&nbsp;&nbsp;&nbsp;</td><td><code><a href="https://www.w3.org/TR/xpath#NT-Expr">Expr</a></code></td><td><a href="#circumflex">[VC: Parenthesis escaping]</a></td></tr></tbody><tbody><tr valign="baseline"><td><a name="NT-XPtrNsDecl"></a>[9]&nbsp;&nbsp;&nbsp;</td><td><code>XPtrNsDecl</code></td><td>&nbsp;&nbsp;&nbsp;::=&nbsp;&nbsp;&nbsp;</td><td><code><a href="https://www.w3.org/TR/REC-xml-names#NT-NCName">NCName</a> <a href="https://www.w3.org/TR/REC-xml#NT-S">S</a>? '=' <a href="https://www.w3.org/TR/REC-xml#NT-S">S</a>? <a href="#NT-XPtrNsURI">XPtrNsURI</a></code></td></tr></tbody><tbody><tr valign="baseline"><td><a name="NT-XPtrNsURI"></a>[10]&nbsp;&nbsp;&nbsp;</td><td><code>XPtrNsURI</code></td><td>&nbsp;&nbsp;&nbsp;::=&nbsp;&nbsp;&nbsp;</td><td><code><a href="https://www.w3.org/TR/REC-xml#NT-Char">Char</a>*</code></td><td><a href="#circumflex">[VC: Parenthesis escaping]</a></td></tr><tr valign="baseline"><td></td><td></td><td></td><td></td><td><a href="#Valid-Namespace-Name">[VC: Namespace Name]</a></td></tr></tbody></table>
+<div class="constraint"><p class="prefix"><a name="circumflex"></a><b>Validity constraint: Parenthesis escaping</b></p><p> The end of an
+XPointer part is signaled by the right parenthesis "<code>)</code>"
+character that is balanced with the left parenthesis "<code>(</code>"
+character that began the part. Although the production disallows unbalanced
+parenthesis characters, they <a title="Must, May, etc." href="#dt-must">may</a> occur. However,
+if one does occur, even within literals, it <a title="Must, May, etc." href="#dt-must">must</a>
+be escaped with a circumflex (<code>^</code>) character preceding it. If the
+expression contains any literal occurrences of the circumflex, each <a title="Must, May, etc." href="#dt-must">must</a> be escaped with an additional circumflex (that
+is, <code>^^</code>). Any other use of a circumflex results in a <a title="Syntax error" href="#dt-syntax-err">syntax error</a>. </p>
+</div>
+<div class="constraint"><p class="prefix"><a name="Valid-Namespace-Name"></a><b>Validity constraint: Namespace Name</b></p><p>The value
+of an <a href="#NT-XPtrNsURI">XPtrNsURI</a> must be a URI reference suitable
+for a namespace name.</p>
+</div>
+<p><a href="https://www.w3.org/TR/REC-xml#NT-Name">Name</a>, <a href="https://www.w3.org/TR/REC-xml#NT-S">S</a>, and <a href="https://www.w3.org/TR/REC-xml#NT-Char">Char</a> are as defined in the
+XML Recommendation <a href="#XML">[XML]</a>; <a href="https://www.w3.org/TR/REC-xml-names#NT-QName">NCName</a>
+is as defined in the Namespaces in XML Recommendation <a href="#XML-Names">[XML-Names]</a>;
+and <a href="https://www.w3.org/TR/xpath#NT-Expr">Expr</a> is as defined in the XPath Recommendation <a href="#XPath">[XPath]</a>, with the XPointer extensions defined in this specification.</p>
+<div class="div3">
+<h4><a name="full-form"></a>4.2.1 Full XPointers</h4>
+<p>The full form of addressing consists of one or more [<a name="dt-xptrpart" title="XPointer Part">Definition</a>: <b>XPointer parts</b>; each starts with a scheme
+name and is followed by a parenthesized expression, and multiple parts are
+optionally separated by whitespace.] When the scheme is <code>xpointer</code>
+(see <a href="#schemes"><b>4.3 Schemes</b></a> for more information), the associated expression
+provides access to nodes in an XML document's data set (except for nodes representing
+CDATA sections and entities) and access to arbitrary non-node locations.</p>
+</div>
+<div class="div3">
+<h4><a name="bare-names"></a>4.2.2 Bare Names</h4>
+<p>A bare name stands for the same name provided as the argument of a location
+step using the <code>id()</code> function. For example, the first XPointer
+below is the bare-name equivalent of the second, which uses the full XPointer
+form:</p>
+<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>intro
+xpointer(id("intro"))</pre></td></tr></table>
+<p>The bare-name shorthand is provided for two reasons:</p>
+<ul>
+<li><p>To encourage use of IDs, which are the form of addressing most likely
+to survive document change. (See <a href="#xpreq">[XPREQ]</a> and <a href="#rlocs">[RLocs]</a>
+for more information on creating robust addresses into resources.)</p></li>
+<li><p>To provide an analog of the HTML fragment identifier behavior for
+resources with XML media types that use a markup language similar to that
+of HTML. (Note that the XHTML specification <a href="#xhtml">[XHTML]</a> defines
+some guidelines for anchors that help the bare-name shorthand to work in concert
+with the HTML fragment identifier in cases of content negotiation.)</p></li>
+</ul>
+</div>
+<div class="div3">
+<h4><a name="child-seqs"></a>4.2.3 Child Sequences</h4>
+<p>A child sequence locates an element by stepwise navigation using a sequence
+of integers separated by slashes (/). Each integer <var>n</var> locates the <var>n</var>th
+child element of the previously located element, equivalent to an XPath location
+step of the form <code>*[</code><var>n</var><code>]</code>. The first integer
+in the sequence refers to either the document element, in which case the integer
+will be 1, or one of the top-level elements in an external parsed entity.</p>
+<p>A child sequence can optionally begin with a name before the integers;
+the name locates an element as described for bare names in <a href="#bare-names"><b>4.2.2 Bare Names</b></a>.
+For example, the following two XPointers would locate the same XML information,
+assuming <code>intro</code> is the ID attribute value of the element that
+is the fifth child of the second child of the document element:</p>
+<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>intro/14/3
+/1/2/5/14/3</pre></td></tr></table>
+</div>
+</div>
+<div class="div2">
+<h3><a name="schemes"></a>4.3 Schemes</h3>
+<p>Each <a href="#NT-XPtrPart">XPtrPart</a> begins with a <a href="#NT-Scheme">Scheme</a>
+that identifies the particular notation used for that <a href="#NT-XPtrPart">XPtrPart</a>.
+This specification defines only two schemes, <code>xpointer</code> and <code>xmlns</code>,
+and reserves all others when the media type of the referenced resource is one of <code>text/xml</code>, <code>application/xml</code>, <code>text/xml-external-parsed-entity</code>,
+or <code>application/xml-external-parsed-entity</code>.
+However, the scheme mechanism provides a general framework for extensibility
+that can be used for future versions of XPointer, or for other media types
+that wish to adopt all or part of this specification in defining their own
+fragment identifier languages. It is <a title="Must, May, etc." href="#dt-must">recommended</a>
+that if XML-based media types governed by <a href="#draft-xmlmediatypes">[IETF I-D XMT]</a>
+define any XPointer-style scheme names, the names beginning with "xpointer"
+and "xmlns" be avoided until they can be formally reserved.</p>
+<p>For example, an XML-based vocabulary that is registered to have the <code>image/4Dgrafix+xml</code>
+media type might choose to adopt the XPointer scheme mechanism and define
+its own <code>4Dgrafix-xml</code> scheme instead of, or in addition to, the <code>xpointer</code>
+scheme. It is particularly useful for XML-based media types to incorporate
+XPointer by reference so that, in the case of content negotiation, a client
+that does not support the specific XML-based media type can fall back on the <code>xpointer</code>
+scheme if one is provided. The provision for <a title="Full Conformance" href="#dt-full-conf">full
+conformance</a> is defined in <a href="#app-conformance"><b>3.3 Application Conformance</b></a> to this
+end. Alternatively, XML-based media types can incorporate XPointer's notion
+of <a title="Minimal Conformance" href="#dt-minimal-conf">minimal conformance</a> so that the
+scheme framework can be used, even without interpretation of the <code>xpointer</code>
+or <code>xmlns</code> scheme.</p>
+<p>Minimal conformance requires the following handling. When multiple <a href="#NT-XPtrPart">XPtrPart</a>s are provided, they <a title="Must, May, etc." href="#dt-must">must</a>
+be evaluated in left-to-right order. If a part being evaluated fails for one
+of the following reasons, the next is evaluated:</p>
+<ul>
+<li><p>An unknown scheme</p></li>
+<li><p>A scheme that is not applicable to the media type of the resource</p>
+</li>
+<li><p>A scheme that does not locate any sub-resource present in the resource</p>
+<p>Note that an XPointer part that uses <code>xmlns</code> scheme never returns
+a sub-resource and thus always fails. However, its evaluation has a potential
+effect on XPointer parts to its right; see <a href="#ns-context"><b>5.2.1 Namespace Initialization</b></a> for
+more information.</p></li>
+<li><p>If the scheme being interpreted is <code>xpointer</code>:</p>
+<ul>
+<li><p>The <var>string</var> argument in a <code>string-range</code>
+function is not found in the string-value of the location, or the third or
+fourth argument of the function indicates a string that is beyond the beginning
+or end of the document</p></li>
+<li><p>The point returned by the <code>start-point</code> function
+is of type attribute or namespace</p></li>
+</ul>
+</li>
+</ul>
+<p>The XPointer application <a title="Must, May, etc." href="#dt-must">must</a> consume
+a failed XPointer part and attempt to evaluate the next one, if any. The result
+of the first XPointer part whose evaluation succeeds is taken to be the sub-resource
+located by the XPointer as a whole. If all the parts fail, the result for
+the XPointer as a whole has a <a title=" Sub-resource error" href="#dt-sub-rsc-err">sub-resource error</a>.
+If a <a title="Syntax error" href="#dt-syntax-err">syntax error</a> is detected in any
+part or in the construction of the XPointer as a whole, evaluation stops and
+additional parts are not consumed.</p>
+<p>For example, the following XPointer locates the element with an ID attribute
+whose value is "chap1":</p>
+<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>xpointer(id("chap1"))</pre></td></tr></table>
+<p>However, in the absence of the DTD, it is not typically possible to determine
+if an attribute is of type <b>ID</b>. An XPointer like the following, with
+two parts, will have its first part fail if no DTD is available, but will
+have its second part succeed if the desired attribute's <em>name</em>
+is <code>id</code>; note that the intent of the second XPointer part is just
+an approximation of the first.</p>
+<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>xpointer(id("chap1"))xpointer(//*[@id="chap1"])</pre></td></tr></table>
+</div>
+</div>
+<div class="div1">
+<h2><a name="b2d250b5b9"></a>5 XPointer Extensions to XPath</h2>
+<p>XPointer extends XPath by adding the following:</p>
+<ul>
+<li><p>A generalization of the XPath concepts of nodes, node types, and
+node-sets to the XPointer concepts of <a title="Location set" href="#dt-locset">locations,
+location types, and location-sets</a>, which subsume nodes, <a title="Point" href="#dt-point">points</a>, and <a title="Range" href="#dt-range">ranges</a>.</p>
+</li>
+<li><p>Two new location types, <code>point</code> and <code>range</code>,
+corresponding to DOM positions and ranges, that can appear in location-set
+results; also tests (akin to node tests) for these location types.</p></li>
+<li><p>Rules for establishing the XPath evaluation context.</p></li>
+<li><p>The functions <code>string-range</code> and <code>range-to</code>,
+which return the range location type for selections that are not single XML
+nodes.</p></li>
+<li><p>The functions <code>here</code> and <code>origin</code>,
+to provide for addressing relative to the location of an XPointer expression
+itself, and to the point of origin for hypertext traversal when XPointers
+are used in that (very common) application domain.</p></li>
+<li><p>The functions <code>start-point</code> and <code>end-point</code>,
+to address the beginning and ending locations which bound another location
+such as a node or range.</p></li>
+<li><p>Like <a href="#XSLT">[XSLT]</a>, XPointer allows the root node to have
+multiple child elements, to allow XPointers to address into arbitrary external
+parsed entities as well as well-formed documents.</p></li>
+</ul>
+<div class="div2">
+<h3><a name="terminology"></a>5.1 XPointer Additions to XPath Terms and Concepts</h3>
+<p>XPath provides for locating any subset of the <em>nodes</em> in an
+XML document. XPath functionality, such as filtering an axis output by predicate,
+is generally defined in terms of operations on nodes and node-sets.</p>
+<p>XPointer has a requirement to identify document portions that are not nodes
+in this sense. One example of such a non-node region is an arbitrary user
+selection indicated by a drag between two points in a document. The two points
+might have different sets of ancestors in the hierarchy, or the region might
+form only a small part of a node. For example, a range could be a single letter
+or could extend from the middle of one paragraph to the middle of the next,
+thus containing only part of the relevant paragraphs and text nodes. Even
+though such locations are not nodes, XPointer needs to be able to apply XPath
+operations to them as well as to nodes.</p>
+<p>To accomplish this, XPointer defines <b>location</b> as a generalization
+of XPath's <b>node</b>. Every location is either a <a title="Point" href="#dt-point">point</a>,
+a <a title="Range" href="#dt-range">range</a>, or an XPath node. Thus, XPointer
+also defines <b>location-set</b> as a generalization of XPath's node-set.
+All locations generated by XPath constructs are nodes; XPointer constructs
+can also generate points and ranges.</p>
+<div class="note"><p class="prefix"><b>Note:</b></p>
+<p>The order of characters displayed on a computer screen might not reflect
+their order in the underlying XML document, for example, when a portion of
+a right-to-left language such as Arabic is embedded in a left-to-right language
+such as French. For XPointers that identify ranges of strings, the document
+order is used, not the display order. Thus, an XPointer for a single range
+might be displayed non-contiguously, and conversely a user selection of an
+apparent single range might correspond to multiple non-contiguous XPointer
+ranges in the underlying document.</p>
+</div>
+</div>
+<div class="div2">
+<h3><a name="context"></a>5.2 Evaluation Context Initialization</h3>
+<p>An XPointer is evaluated to yield an object of type location-set. This
+evaluation is carried out within a context identical to the XPath evaluation
+context, except for the generalization of nodes to locations. XPointer applications <a title="Must, May, etc." href="#dt-must">must</a> initialize the evaluation context as described
+in this section before evaluating an <a href="#NT-XPtrExpr">XPtrExpr</a>.</p>
+<p>An XPointer evaluation context contains the following information:</p>
+<ul>
+<li><p>A location (the <b>context location</b>), initialized to the
+root node of an XML document. When the XPointer is a fragment identifier of
+a URI reference, the document is the one identified by the URI portion. If
+an application uses XPointers in another context than as a URI reference's
+fragment identifier, this specification does not constrain how the applicable
+document is chosen.</p></li>
+<li><p>A non-zero context position, initialized to 1.</p></li>
+<li><p>A non-zero context size, initialized to 1. (At the start, the only
+location in the current location list is the context location.)</p></li>
+<li><p>A set of variable bindings. No means for initializing these is defined
+for XPointer applications. Thus, the set of variable bindings used when evaluating
+an XPointer is empty, and use of a variable reference in an XPointer results
+in a <a title="Syntax error" href="#dt-syntax-err">syntax error</a>.</p></li>
+<li><p>A library of functions. Only functions defined in XPath or XPointer
+can be used in XPointers. An XPointer that uses other functions results in
+a <a title="Syntax error" href="#dt-syntax-err">syntax error</a>.</p></li>
+<li><p>A set of namespace declarations, described in <a href="#ns-context"><b>5.2.1 Namespace Initialization</b></a>.</p>
+</li>
+</ul>
+<div class="div3">
+<h4><a name="ns-context"></a>5.2.1 Namespace Initialization</h4>
+<p>For any XPointer part that uses the <code>xpointer</code> scheme, the evaluation
+context of that part <a title="Must, May, etc." href="#dt-must">must</a> be initialized
+to a set of namespace declarations consisting of a declaration of the <code>xml</code>
+prefix, bound to the URI <code>http://www.w3.org/XML/1998/namespace</code>,
+plus any namespace declarations specified by <code>xmlns</code> XPointer parts
+appearing to its left. Each <code>xmlns</code> part defines a namespace declaration
+as a prefix (<a href="https://www.w3.org/TR/REC-xml-names#NT-NCName">NCName</a>) and namespace URI
+(<a href="#NT-XPtrNsURI">XPtrNsURI</a>). In the event that two or more <code>xmlns</code>
+parts specify the same prefix, the rightmost one is used. Any <code>xmlns</code>
+parts attempting to override the <code>xml</code> prefix <a title="Must, May, etc." href="#dt-must">must</a>
+be ignored.</p>
+<p>As an example, assume the following target XML resource:</p>
+<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>&lt;doc>
+  &lt;x:a xmlns:x="http://example.com/foo">
+    &lt;x:a xmlns:x="http://example.org/bar">This element and 
+    its parent are in different namespaces.&lt;/x:a>
+  &lt;/x:a>
+&lt;/doc></pre></td></tr></table>
+<p>The evaluation of the following XPointer appearing in a non-XML document
+(or in an XML document with no declaration of the namespace prefix <code>x</code>)
+will result in a sub-resource error; it cannot be known which <code>a</code> element
+is desired because no namespace declarations are in scope:</p>
+<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>xpointer(//x:a)</pre></td></tr></table>
+<p>The following avoids this evaluation error and ensures that the outer <code>a</code>
+element is addressed:</p>
+<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>xmlns(x=http://example.com/foo) xpointer(//x:a)</pre></td></tr></table>
+<p>The following (printed on two lines for convenience) allows for accurate
+addressing of the inner <code>a</code> element; note that the prefix used inside
+the XPointer need not correspond to the prefix (if any) actually used in the
+target resource:</p>
+<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>xmlns(x=http://example.com/foo) xmlns(y=http://example.org/bar)
+xpointer(//x:a/y:a)</pre></td></tr></table>
+</div>
+</div>
+<div class="div2">
+<h3><a name="datatypes"></a>5.3 The <code>point</code> and <code>range</code> Location Types</h3>
+<p>To address non-node locations, XPointer defines two new location types, <code>point</code>
+and <code>range</code>, that can appear in location-sets and can be operated
+on by XPath node tests and predicates. Locations of the <code>point</code>
+and <code>range</code> type represent positions and ranges as in DOM Level
+2 <a href="#dom2">[DOM2]</a>. This section defines the <code>point</code> and <code>range</code>
+types and their characteristics required for XPath interoperability.</p>
+<div class="note"><p class="prefix"><b>Note:</b></p>
+<p>Unlike DOM Level 2, which is based on UTF-16 units, XPath and XPointer
+are based on UCS characters. So while the concepts of points and ranges are
+based on the DOM 2 notions of positions and ranges, there are differences
+in detail. For example, a sequence which in DOM counts as two characters might
+count in XPointer as one character.</p>
+</div>
+<p>Points and ranges can be used as XPointer context locations. This allows
+the XPointer <code>[]</code> operator to be used to select from sets of ranges.
+Also, a point as a context location, when followed by a <code>range-to</code>
+function, selects a range.</p>
+<div class="div3">
+<h4><a name="b2d250b5b9c11b9"></a>5.3.1 Definition of Point Location</h4>
+<p>[<a name="dt-container-node-index" title="Container Node and Index">Definition</a>: A
+location of type <a title="Point" href="#dt-point">point</a> is defined by a node,
+called the <b>container node</b>, and a non-negative integer, called
+the <b>index</b>.] It can represent the location preceding
+any individual character, or preceding or following any node in the data set
+constructed from an XML document. The <b>self</b> axis of a point is the
+point itself. The <b>parent</b> axis of a point is a location set containing
+a single location, the container node. Two points are identical if they have
+the same container node and index.<div class="note"><p class="prefix"><b>Note:</b></p>
+<p> This specification does not constrain the implementation of points; applications
+need not actually represent points using data structures consisting of a node
+and an index.</p>
+<p>Also note that, while some nodes containing points have explicit boundaries
+(such as element start-tags and end-tags), the boundaries of text nodes are
+implicit. Applications that present a graphical user interface for the selection
+or rendering of points and ranges need to take into consideration the fact
+that some seemingly identical points, such as the points just inside and just
+outside the closing boundary of a text node inside an element, are in fact
+distinguished.</p>
+</div>
+<p>[<a name="dt-node-point" title="Node point">Definition</a>: When the container node of
+a point is of a node type that can have child nodes (that is, when the container
+node is an element node or a root node), then the index is an index into the
+child nodes; such a point is called a <b>node-point</b>.] The
+index of a node-point <a title="Must, May, etc." href="#dt-must">must</a> be greater than
+or equal to zero and less than or equal to the number of child nodes of the
+container. An index of zero indicates the point before any child nodes, and
+a non-zero index <var>n</var> indicates the point immediately after the <var>n</var>th
+child node.</p>
+<div class="note"><p class="prefix"><b>Note:</b></p>
+<p>The zero-based counting of node-points differs from the one-based counting
+of <code>string-range</code> and other XPointer and XPath functions.</p>
+</div>
+<p>[<a name="dt-character-point" title="Character point">Definition</a>: When the container
+node of a point is of a node type that cannot have child nodes (such as text
+nodes, comments, and processing instructions), then the index is an index
+into the characters of the string-value of the node; such a point is called
+a <b>character-point</b>.] The index of a character-point <a title="Must, May, etc." href="#dt-must">must</a> be greater than or equal to zero and less than
+or equal to the length of the string-value of the node. An index of zero indicates
+a point immediately before the first character of the string-value, and a
+non-zero index <var>n</var> indicates the point immediately after the <var>n</var>th
+character of the string-value.</p>
+<p>A point location does not have an expanded-name.</p>
+<p>The <a href="https://www.w3.org/TR/xpath#dt-string-value">string-value</a> of
+a point location is empty.</p>
+<p> The axes of a point location are defined as follows: <ul>
+<li><p>The <b>child</b>, <b>descendant</b>, <b>preceding-sibling</b>, <b>following-sibling</b>, <b>attribute</b>,
+and <b>namespace</b> axes are empty.</p></li>
+<li><p>The <b>self</b> axis contains the point itself.</p></li>
+<li><p>The <b>parent</b> axis contains the node-point's container node.</p>
+</li>
+<li><p>The <b>ancestor</b> axis contains the node-point's container node
+and its ancestors.</p></li>
+<li><p>A node-point's siblings are the children of the container node that
+are before or after the node-point.</p></li>
+</ul>
+</div>
+<div class="div3">
+<h4><a name="b2d250b5b9c11c11"></a>5.3.2 Definition of Range Location</h4>
+<p>A location of type <a title="Range" href="#dt-range">range</a> is defined by
+two points, a start point and an end point. A range represents all of the
+XML structure and content between the start point and end point. This is distinct
+from any list of nodes and/or characters, in part because some nodes might
+be only partly included. The start and end points of a range <a title="Must, May, etc." href="#dt-must">must</a>
+be in the same document. The start point <a title="Must, May, etc." href="#dt-must">must</a>
+not appear after the end point in document order (see <a href="#document-order-sec"><b>5.3.5 Document Order</b></a>).</p>
+<p>[<a name="dt-collapsed-range" title="Collapsed range">Definition</a>: A range whose start
+and end points are equal is a <b>collapsed range.</b>]</p>
+<p>If the container node of one point of a range is a node of a type other
+than element, text, or root, the container node of the other point of the
+range <a title="Must, May, etc." href="#dt-must">must</a> be the same node. For example,
+it is allowed to specify a range from the start of a processing instruction
+to the end of an element (encompassing both those nodes, but still a singleton),
+but not to specify a range from text inside a processing instruction to text
+outside it.</p>
+<p>A range location does not have an expanded-name.</p>
+<p>The <a href="https://www.w3.org/TR/xpath#dt-string-value">string-value</a> of
+a range location is defined as follows. If the points are both character-points
+and the container nodes of the points are the same, then the string-value
+consists of the characters between the two points. Otherwise, the string-value
+consists of the characters that are in text nodes and that are between the
+two points.</p>
+<p>The axes of a range location are identical to the axes of its start point.
+For example, the <b>parent</b> axis of a range returns the parent of the
+start point of the range.</p>
+<div class="note"><p class="prefix"><b>Note:</b></p>
+<p>The <code>start-point</code> and <code>end-point</code>
+functions can be used to navigate with respect to the respective boundaries
+of a range location.</p>
+</div>
+</div>
+<div class="div3">
+<h4><a name="b2d250b5b9c11c13"></a>5.3.3 Covering Ranges for All Location Types</h4>
+<p>[<a name="dt-covering-range" title="Covering range">Definition</a>: A <b>covering
+range</b> is a range that wholly encompasses a location. For every location,
+a covering range is defined as follows:]</p>
+<ul>
+<li><p>For a range location, the covering range is identical to the range.</p>
+</li>
+<li><p>For an attribute or namespace location, the container node of the
+start point and end point of the covering range is the attribute or namespace
+location; the index of the start point of the covering range is 0; and the
+index of the end point of the covering range is the length of the string-value
+of the attribute or namespace location.</p></li>
+<li><p>For the root location, the container node of the start point and
+end point of the covering range is the root node; the index of the start point
+of the covering range is 0; and the index of the end point of the covering
+range is the number of children of the root location.</p></li>
+<li><p>For a point location, the start and end points of the covering range
+are the point itself.</p></li>
+<li><p>For any other kind of location, the container node of the start point
+and end point of the covering range is the parent of the location; the index
+of the start point of the covering range is the number of preceding sibling
+nodes of the location; and the index of the end point is one greater than
+the index of the start point.</p></li>
+</ul>
+</div>
+<div class="div3">
+<h4><a name="b2d250b5b9c11c15"></a>5.3.4 Tests for <code>point</code> and <code>range</code> Locations</h4>
+<p>XPointer extends the XPath production for <a href="https://www.w3.org/TR/xpath#NT-NodeType">NodeType</a>
+by adding items for the <code>point</code> and <code>range</code> location
+types. That production becomes as follows:<h5>NodeType</h5><table class="scrap" summary="Scrap"><tbody><tr valign="baseline"><td><a name="NT-NodeType"></a>[11]&nbsp;&nbsp;&nbsp;</td><td><code>NodeType</code></td><td>&nbsp;&nbsp;&nbsp;::=&nbsp;&nbsp;&nbsp;</td><td><code>'comment'</code></td></tr><tr valign="baseline"><td></td><td></td><td></td><td><code>| 'text'</code></td></tr><tr valign="baseline"><td></td><td></td><td></td><td><code>| 'processing-instruction'</code></td></tr><tr valign="baseline"><td></td><td></td><td></td><td><code>| 'node'</code></td></tr><tr valign="baseline"><td></td><td></td><td></td><td><code>| 'point'</code></td></tr><tr valign="baseline"><td></td><td></td><td></td><td><code>| 'range'</code></td></tr></tbody></table>
+<p>This definition allows <a href="https://www.w3.org/TR/xpath#NT-NodeTest">NodeTest</a>s
+to select locations of type <code>point</code> and <code>range</code> from
+a location-set that might include locations of all three types.</p>
+</div>
+<div class="div3">
+<h4><a name="document-order-sec"></a>5.3.5 Document Order</h4>
+<p>XPointer extends XPath's concept of <b>document order</b> to cover
+point and range locations.</p>
+<p>For any point, there is an immediately preceding node defined as follows
+(except that there is no point defined preceding or following the root):</p>
+<ul>
+<li><p>For a <a title="Node point" href="#dt-node-point">node-point</a> with a non-zero
+index, the immediately preceding node is the node immediately preceding the
+point (that is, the node that is the <var>n</var>th child of the container
+node, where <var>n</var> is the index).</p></li>
+<li><p>For a node-point with a zero index, the <a title="Container Node and Index" href="#dt-container-node-index">container
+node</a> is also the immediately preceding node unless it has any attribute
+or namespace nodes. If the container node does have attribute or namespace
+nodes, then the immediately preceding node is the last of those nodes.</p>
+</li>
+<li><p>For a <a title="Character point" href="#dt-character-point">character-point</a>
+the immediately preceding node is the container node of the character-point.</p>
+</li>
+</ul>
+<p>For any point, the immediately following node is the node that is immediately
+after the immediately preceding node (as just defined).</p>
+<p>A node is before a point if the node is before or equal in document order
+to the immediately preceding node of the point; otherwise, the node is after
+the point.</p>
+<p>The relative order of a node and a range is determined by the relative
+order of the node and the start point of the range.</p>
+<p>Document order for a point is defined as follows:</p>
+<ul>
+<li><p>If the immediately preceding nodes of the two points are the same,
+then either the points are the same or they are both character-points with
+the same container node; in the latter case, the order of the indices determines
+the document order.</p></li>
+<li><p>Otherwise, the document order of the immediately preceding nodes
+of the points determines the document order of the points.</p></li>
+</ul>
+<p>One range location is before another range location if and only if</p>
+<ul>
+<li><p>the start point of the one range is before the start point of the
+other range, or</p></li>
+<li><p>the start point of the one range is the same as the start point of
+the other range, and the end point of the one range is before the end point
+of the other range.</p></li>
+</ul>
+</div>
+</div>
+<div class="div2">
+<h3><a name="xptr-functions"></a>5.4 XPointer Functions</h3>
+<p>XPointer adds the following functions to those in XPath; these functions <a title="Must, May, etc." href="#dt-must">must</a> be provided by XPointer applications.</p>
+<div class="div3">
+<h4><a name="rangeexprs"></a>5.4.1 <code>range-to</code> Function</h4>
+<p><em>location-set</em> <b>range-to</b>(<var>location-set</var>
+)</p>
+<p>For each location in the context, <code>range-to</code> returns
+a range. The start of the range is the start-point of the context location,
+and the end of the range is the end-point of the location found by evaluating
+the <a href="https://www.w3.org/TR/xpath#NT-Expr">expression</a> argument with respect to
+that context location.</p>
+<p>The change made to the XPath syntax to support the <code>range-to</code>
+construct corresponds to a single addition to the <a href="https://www.w3.org/TR/xpath#section-Location-Steps">Step
+production</a> of the <a href="#XPath">[XPath]</a> specification. The original
+production is as follows:</p>
+<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>[4] Step ::= AxisSpecifier NodeTest Predicate*
+               | AbbreviatedStep</pre></td></tr></table>
+<p>The XPointer version is as follows:</p>
+<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>[4xptr] Step ::= AxisSpecifier NodeTest Predicate*
+                   | AbbreviatedStep
+                   | 'range-to' '(' Expr ')' Predicate*</pre></td></tr></table>
+<p>This change is a single exception for the <code>range-to</code>
+function. It is not a generic change and is not extensible to other functions.
+The modified production expresses that a range computation must be made for
+each of the nodes in the current node list.</p>
+<p>As an example of using the <code>range-to</code> function, the
+following XPointer locates the range from the start-point for the element
+with ID "chap1" to the end-point for the element with ID "chap2".</p>
+<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>xpointer(id("chap1")/range-to(id("chap2")))</pre></td></tr></table>
+<p>As another example, imagine a document that uses empty elements (such as <code>&lt;REVST/></code>
+for revision start and <code>&lt;REVEND/></code> for revision end) to mark
+the boundaries of edits. The following XPointer would select, for each revision,
+a range starting at the beginning of the <code>REVST</code> element and ending
+at the end of the next <code>REVEND</code> element:</p>
+<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>xpointer(descendant::REVST/range-to(following::REVEND[1]))</pre></td></tr></table>
+</div>
+<div class="div3">
+<h4><a name="stringrange"></a>5.4.2 <code>string-range</code>() Function</h4>
+<p><em>location-set</em> <b>string-range</b>(<var>location-set</var>
+, <var>string</var>, <var>number</var>?, <var>number</var>?
+)</p>
+<p>For each location in the location-set argument, <code>string-range</code>
+returns a set of [<a name="dt-string-range" title="String Range">Definition</a>: <b>string
+ranges</b>, substrings in a string.] Specifically, the <a href="https://www.w3.org/TR/xpath#dt-string-value">string-value</a> of the location is
+searched for substrings that match the <var>string</var> argument, and the
+resulting location-set will contain a range location for each non-overlapping
+match. An empty string is considered to match before each character of the
+string-value and after the final character. Whitespace in a string is matched
+literally, with no normalization except that provided by XML for line ends
+and attribute values. The third argument gives the position of the first character
+to be in the resulting range, relative to the start of the match. The default
+value is 1, which makes the range start immediately before the first character
+of the matched string. The fourth argument gives the number of characters
+in the range; the default is that the range extends to the end of the matched
+string.</p>
+<p>Element boundaries, as well as entire embedded nodes such as processing
+instructions and comments, are ignored as specified by the definition of <a href="https://www.w3.org/TR/xpath#dt-string-value">string-value</a> in <a href="#XPath">[XPath]</a>.</p>
+<p>If the <var>string</var> argument is not found in the string-value of the
+location, or if the third or fourth argument indicates a position that is
+beyond the beginning or end of the document, the XPointer part in which the
+function appears fails.</p>
+<p>The points of the range-locations in the returned location-set will all
+be character points.</p>
+<p>For example, the following expression returns a range that selects the
+17th occurrence of the string "Thomas Pynchon" occurring in a <code>title</code>
+element:</p>
+<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>string-range(//title,"Thomas Pynchon")[17]</pre></td></tr></table>
+<p>As another example, the following expression returns a collapsed range
+whose points immediately precede the letter "P" (8 from the start
+of the string) in the third occurrence of the string "Thomas Pynchon"
+in a <code>P</code> element:</p>
+<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>string-range(//P,"Thomas Pynchon",8,0)[3]</pre></td></tr></table>
+<p>Alternatively this could be specified as follows:</p>
+<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>string-range(string-range(//P,"Thomas Pynchon")[3],"P",1,0)</pre></td></tr></table>
+<p>String-values are "views" into only the string content of
+a document; they do not retain the structural context of any non-text nodes
+interspersed with the text. Because the <code>string-range</code>
+function operates on a string-value, markup that intervenes in the middle
+of a string does not prevent a match. (Note that for this reason, a <code>string-range</code>
+match is a range describing the relevant substring of the string-value, not
+necessarily a contiguous string in a single text node in the document.) For
+example, if the 17th occurrence of "Thomas Pynchon" had some
+inline markup in it as follows, it would not change the string returned by
+the XPointer application:</p>
+<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>Thomas &lt;em>Pyn&lt;/em>chon</pre></td></tr></table>
+<p>The following expression selects the fifth exclamation mark in any text
+node in the document and the character immediately following it:</p>
+<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>string-range(/,"!",1,2)[5]</pre></td></tr></table>
+<p>Although these examples locate ranges in elements, <code>string-range</code>
+is useful for locating ranges that are wholly enclosed in other node types
+as well, such as attributes, processing instructions, and comments.</p>
+</div>
+<div class="div3">
+<h4><a name="b2d250b5b9c13b9"></a>5.4.3 Additional Range-Related Functions</h4>
+<p>The following functions are related to ranges.</p>
+<div class="div4">
+<h5><a name="b2d250b5b9c13b9b5"></a>5.4.3.1 <code>range</code> Function</h5>
+<p><em>location-set</em> <b>range</b>(<var>location-set</var>
+)</p>
+<p>The <code>range</code> function returns ranges covering the locations
+in the argument location-set. For each location <var>x</var> in the argument
+location-set, a range location representing the covering range of <var>x</var>
+is added to the result location-set.</p>
+</div>
+<div class="div4">
+<h5><a name="b2d250b5b9c13b9b7"></a>5.4.3.2 <code>range-inside</code> Function</h5>
+<p><em>location-set</em> <b>range-inside</b>(<var>location-set</var>
+)</p>
+<p>The <code>range-inside</code> function returns ranges covering
+the contents of the locations in the argument location-set. For each location <var>x</var>
+in the argument location-set, a range location is added to the result location-set.
+If <var>x</var> is a range location or a point, then <var>x</var> is added
+to the result location-set. If <var>x</var> is not a range location, then <var>x</var>
+is used as the container node of the start and end points of the range location
+to be added; the index of the start point of the range is zero; if the end
+point is a character point then its index is the length of the string-value
+of <var>x</var>, and otherwise is the number of children of <var>x</var>.</p>
+</div>
+<div class="div4">
+<h5><a name="b2d250b5b9c13b9b9"></a>5.4.3.3 <code>start-point</code> Function</h5>
+<p><em>location-set</em> <b>start-point</b>(<var>location-set</var>
+)</p>
+<p>For each location <em>x</em> in the argument location-set, <code>start-point</code>
+adds a location of type point to the result location-set. That point represents
+the start point of location <em>x</em> and is determined by the following
+rules:</p>
+<ul>
+<li><p>If <em>x</em> is of type point, the start point is <em>x</em>.</p>
+</li>
+<li><p>If <em>x</em> is of type range, the start point is the start
+point of <em>x</em>.</p></li>
+<li><p>If <em>x</em> is of type root, element, text, comment, or processing
+instruction, the container node of the start point is <em>x</em> and the
+index is 0.</p></li>
+<li><p>If <em>x</em> is of type attribute or namespace, the XPointer
+part in which the function appears fails.</p></li>
+</ul>
+</div>
+<div class="div4">
+<h5><a name="b2d250b5b9c13b9c11"></a>5.4.3.4 <code>end-point</code> Function</h5>
+<p><em>location-set</em> <b>end-point</b>(<var>location-set</var>
+)</p>
+<p>For each location <var>x</var> in the argument location-set, <code>end-point</code>
+adds a location of type point to the result location-set. That point represents
+the end point of location <var>x</var> and is determined by the following
+rules:</p>
+<ul>
+<li><p>If <var>x</var> is of type point, the resulting point is <var>x</var>.</p>
+</li>
+<li><p>If <var>x</var> is of type range, the resulting point is the end
+point of <var>x</var>.</p></li>
+<li><p>If <var>x</var> is of type root or element, the container node of
+the resulting point is <var>x</var> and the index is the number of children
+of <var>x</var>.</p></li>
+<li><p>If <var>x</var> is of type text, comment, or processing instruction,
+the container node of the resulting point is <var>x</var> and the index is
+the length of the string-value of x.</p></li>
+<li><p>If <em>x</em> is of type attribute or namespace, the XPointer
+part in which the function appears fails.</p></li>
+</ul>
+</div>
+</div>
+<div class="div3">
+<h4><a name="b2d250b5b9c13c11"></a>5.4.4 <code>here</code> Function</h4>
+<p><em>location-set</em> <b>here</b>()</p>
+<p>The <code>here</code> function returns a location-set with a single
+member. There are two possibilties for the location returned:</p>
+<ul>
+<li><p>If the XPointer being evaluated appears in a text node inside an
+element node, the location returned is the element node.</p></li>
+<li><p>Otherwise, the location returned is the node that directly contains
+the XPointer being evaluated.</p></li>
+</ul>
+<p>In the following example, the <code>here</code> function appears
+inside an XPointer that is in an attribute node. The XPointer as a whole,
+then, returns the <code>slide</code> element just preceding the <code>slide</code>
+element that most directly contains the attribute node in question.</p>
+<table class="eg" cellpadding="5" border="1" bgcolor="#99ffff" width="100%" summary="Example"><tr><td><pre>&lt;button
+  xlink:type="simple"
+  xlink:href="#xpointer(here()/ancestor::slide[1]/preceding::slide[1])">
+Previous
+&lt;/button></pre></td></tr></table>
+<div class="note"><p class="prefix"><b>Note:</b></p>
+<p>The type of the node in which the <code>here</code> function appears
+is likely to be <code>text</code>, <code>attribute</code>, or <code>processing-instruction</code>.
+The returned location for an XPointer appearing in element content does not
+have a node type of <code>element</code> because the XPointer is in a text
+node that is itself inside an element.</p>
+</div>
+<p>If the resource in which the XPointer appears is not XML, the XPointer
+part in which the <code>here</code> function appears fails.</p>
+</div>
+<div class="div3">
+<h4><a name="b2d250b5b9c13c13"></a>5.4.5 <code>origin</code> Function</h4>
+<p><em>location-set</em> <b>origin</b>()</p>
+<p>The <code>origin</code> function enables addressing relative to
+third-party and inbound links such as defined in <a href="https://www.w3.org/TR/xlink">XLink</a>.
+This allows XPointers to be used in applications to express relative locations
+when links do not reside directly at one of their endpoints. The function
+returns a location-set with a single member, which locates the element from
+which a user or program initiated traversal of the link. The <code>origin()</code>
+function thus provides a meaningful location-set only if the XPointer is being
+processed by application software in response to a traversal instruction from
+an XML document. (See <a href="#XLink">[XLink]</a> for information about traversal.)</p>
+<p>It is a <a title="Resource error" href="#dt-rsc-err">resource error</a> to use <code>origin</code>
+in the fragment identifier portion of a URI reference where a URI is also
+provided and identifies a containing resource different from the resource
+from which traversal was initiated, or in a situation where traversal is not
+occurring.</p>
+</div>
+</div>
+<div class="div2">
+<h3><a name="b2d250b5b9c15"></a>5.5 Root Node Children</h3>
+<p><a href="#XML">[XML]</a> requires well-formed documents to contain a single
+element at the top level. Thus, the XPath data model of a well-formed document
+will have a root node with a single child node of type element. In order to
+allow XPointer to be used to address locations in arbitrary external parsed
+entities, along with well-formed documents, XPointer extends the XPath data
+model to allow the root node to have any sequence of nodes as children that
+would be possible of an element node. This extension is identical to the one
+made by <a href="#XSLT">[XSLT]</a>. Thus, the root node may contain child nodes
+of type text, and any number of child nodes of type element.</p>
+</div>
+</div>
+</div><div class="back">
+<div class="div1">
+<h2><a name="references"></a>A References</h2>
+<div class="div2">
+<h3><a name="b2d250b6b1b3"></a>A.1 Normative References</h3>
+<dl>
+<dt class="label"><a name="rfc2119"></a>IETF RFC 2119</dt><dd><cite>RFC
+2119: Key words for use in RFCs to Indicate Requirement Levels</cite>.
+Internet Engineering Task Force, 1997.  (See <a href="http://www.ietf.org/rfc/rfc2119.txt">http://www.ietf.org/rfc/rfc2119.txt</a>.)</dd>
+<dt class="label"><a name="rfc2279"></a>IETF RFC 2279</dt><dd><cite>RFC
+2279: UTF-8, a transformation format of ISO 10646</cite>. Internet Engineering
+Task Force, 1998.  (See <a href="http://www.ietf.org/rfc/rfc2279.txt">http://www.ietf.org/rfc/rfc2279.txt</a>.)</dd>
+<dt class="label"><a name="rfc2376"></a>IETF RFC 2376</dt><dd><cite>RFC
+2376: XML Media Types</cite>. Internet Engineering Task Force, 1998.  (See <a href="http://www.ietf.org/rfc/rfc2376.txt">http://www.ietf.org/rfc/rfc2376.txt</a>.)</dd>
+<dt class="label"><a name="rfc2396"></a>IETF RFC 2396</dt><dd><cite>RFC
+2396: Uniform Resource Identifiers</cite>. Internet Engineering Task Force,
+1995.  (See <a href="http://www.ietf.org/rfc/rfc2396.txt">http://www.ietf.org/rfc/rfc2396.txt</a>.)</dd>
+<dt class="label"><a name="rfc2732"></a>IETF RFC 2732</dt><dd><cite>RFC
+2732: Format for Literal IPv6 Addresses in URL's</cite>. Internet Engineering
+Task Force, 1999.  (See <a href="http://www.ietf.org/rfc/rfc2732.txt">http://www.ietf.org/rfc/rfc2732.txt</a>.)</dd>
+<dt class="label"><a name="dom2"></a>DOM2</dt><dd><cite>Document
+Object Model (DOM) Level 2 Specification: Version 1.0.</cite> World Wide
+Web Consortium, 2000.  (See <a href="https://www.w3.org/TR/DOM-Level-2">http://www.w3.org/TR/DOM-Level-2</a>.)</dd>
+<dt class="label"><a name="unicode"></a>Unicode</dt><dd>The Unicode Consortium. <cite>The Unicode Standard.</cite>  (See <a href="http://www.unicode.org/unicode/standard/standard.html">http://www.unicode.org/unicode/standard/standard.html</a>.)</dd>
+<dt class="label"><a name="XML"></a>XML</dt><dd>Tim Bray, Jean
+Paoli, C.M. Sperberg-McQueen, and Eve Maler, editors. <em>Extensible Markup
+Language (XML) 1.0 (Second Edition).</em> World Wide Web Consortium, 2000.  (See <a href="https://www.w3.org/TR/REC-xml">http://www.w3.org/TR/REC-xml</a>.)</dd>
+<dt class="label"><a name="XML-Names"></a>XML-Names</dt><dd>Tim Bray, Dave Hollander, and Andrew Layman, editors. <cite>Namespaces
+in XML</cite>. World Wide Web Consortium, 1999.  (See <a href="https://www.w3.org/TR/REC-xml-names">http://www.w3.org/TR/REC-xml-names</a>.)</dd>
+<dt class="label"><a name="XPath"></a>XPath</dt><dd>James Clark
+and Steve DeRose, editors. <cite>XML Path Language (XPath)</cite>.
+World Wide Web Consortium, 1999.  (See <a href="https://www.w3.org/TR/xpath">http://www.w3.org/TR/xpath</a>.)</dd>
+</dl></div>
+<div class="div2">
+<h3><a name="b2d250b6b1b5"></a>A.2 Non-Normative References</h3>
+<dl>
+<dt class="label"><a name="chum"></a>CHUM</dt><dd>Steven J. DeRose and David G. Durand. 1995. "The
+TEI Hypertext Guidelines." In <cite>Computing and the Humanities</cite>
+29(3). Reprinted in <cite>Text Encoding Initiative: Background and Context</cite>,
+ed. Nancy Ide and Jean Veronis, ISBN 0-7923-3704-2.</dd>
+<dt class="label"><a name="charmod"></a>CMOD</dt><dd>Martin
+D&uuml;rst and Fran&ccedil;ois Yergeau, editors. <a href="https://www.w3.org/TR/charmod"><cite>Character
+Model for the World Wide Web</cite></a>. World Wide Web Consortium, 1999.  (See <a href="https://www.w3.org/TR/charmod">http://www.w3.org/TR/charmod</a>.)</dd>
+<dt class="label"><a name="dexter"></a>Dexter</dt><dd>Halasz, Frank. 1994. "The Dexter Hypertext
+Reference Model." In <cite>Communications of the Association for
+Computing Machinery</cite> 37 (2), February 1994: 30-39.</dd>
+<dt class="label"><a name="xptr-errata"></a>ERR</dt><dd><cite>XPointer Errata</cite>.
+This document will be created when XPointer goes to Recommendation. Until
+that time, check the public XML Linking page at <a href="https://www.w3.org/XML/Linking.html">http://www.w3.org/XML/Linking.html</a>.</dd>
+<dt class="label"><a name="fress"></a>FRESS</dt><dd>Steven
+J. DeRose and Andries van Dam. 1999. "Document structure in the FRESS
+Hypertext System." <cite>Markup Languages 1</cite> (1) Winter.
+Cambridge: MIT Press: 7-32.  (See <a href="http://www.stg.brown.edu/~sjd/fress.html">http://www.stg.brown.edu/~sjd/fress.html</a>.)</dd>
+<dt class="label"><a name="html"></a>HTML</dt><dd><a href="https://www.w3.org/TR/html4/"><cite>HTML
+4.01 Specification</cite></a>. World Wide Web Consortium, 1999.  (See <a href="https://www.w3.org/TR/html4/">http://www.w3.org/TR/html4/</a>.)</dd>
+<dt class="label"><a name="draft-xmlmediatypes"></a>IETF I-D XMT</dt><dd><cite>Internet Draft: XML Media Types</cite>. Internet
+Engineering Task Force, 2000.  (See <a href="http://search.ietf.org/internet-drafts/draft-murata-xml-09.txt">http://search.ietf.org/internet-drafts/draft-murata-xml-09.txt</a>.)</dd>
+<dt class="label"><a name="intermedia"></a>Intermedia</dt><dd>Yankelovich, Nicole, Bernard J. Haan,
+Norman K. Meyrowitz, and Steven M. Drucker. 1988. "Intermedia: The Concept
+and the Construction of a Seamless Information Environment." <cite>IEEE
+Computer</cite> 21 (January, 1988): 81-96.</dd>
+<dt class="label"><a name="iso10744"></a>ISO/IEC 10744</dt><dd><cite>ISO/IEC 10744-1992 (E). Information technology
+--Hypermedia/Time-based Structuring Language (HyTime).</cite> Geneva:
+International Organization for Standardization, 1992. <cite>Extended Facilities
+Annex.</cite> [Geneva]: International Organization for Standardization,
+1996.  (See <a href="http://www.ornl.gov/sgml/wg8/docs/n1920/html/n1920.html">http://www.ornl.gov/sgml/wg8/docs/n1920/html/n1920.html</a>.)</dd>
+<dt class="label"><a name="iuri"></a>IURI</dt><dd><cite>Internationalized URIs.</cite> Expired Internet-Draft.
+Internet Engineering Task Force, 2000.  (See <a href="https://www.w3.org/International/2000/03/draft-masinter-url-i18n-05.txt">http://www.w3.org/International/2000/03/draft-masinter-url-i18n-05.txt</a>.)</dd>
+<dt class="label"><a name="microcosm"></a>MicroCosm</dt><dd>Hall, Wendy, Hugh Davis, and Gerard Hutchings.
+1996. <cite>Rethinking Hypermedia: The Microcosm Approach.</cite>
+Boston: Kluwer Academic Publishers. ISBN 0-7923-9679-0.</dd>
+<dt class="label"><a name="ohs"></a>OHS</dt><dd>van Ossenbruggen, Jacco, Anton Eli&euml;ns and Lloyd Rutledge. "The
+Role of XML in Open Hypermedia Systems." Position paper for the 4th
+Workshop on Open Hypermedia Systems, ACM Hypertext '98.  (See <a href="http://aue.auc.dk/~kock/OHS-HT98/Papers/ossenbruggen.html">http://aue.auc.dk/~kock/OHS-HT98/Papers/ossenbruggen.html</a>.)</dd>
+<dt class="label"><a name="rlocs"></a>RLocs</dt><dd>Thomas A Phelps and Robert Wilensky. <cite>Robust Intra-document
+Locations.</cite> University of California, Berkeley.  (See <a href="http://www.cs.berkeley.edu/~phelps/Robust/Locations/RobustLocations.html">http://www.cs.berkeley.edu/~phelps/Robust/Locations/RobustLocations.html</a>.)</dd>
+<dt class="label"><a name="tei"></a>TEI</dt><dd>C. M. Sperberg-McQueen
+and Lou Burnard, editors. <cite>Guidelines for Electronic Text Encoding
+and Interchange</cite>. Association for Computers and the Humanities (ACH),
+Association for Computational Linguistics (ACL), and Association for Literary
+and Linguistic Computing (ALLC). Chicago, Oxford: Text Encoding Initiative,
+1994.  (See <a href="http://www.uic.edu/orgs/tei/p3/">http://www.uic.edu/orgs/tei/p3/</a>.)</dd>
+<dt class="label"><a name="xhtml"></a>XHTML</dt><dd><a href="https://www.w3.org/TR/xhtml1/"><cite>XHTML 1.0: The Extensible HyperText Markup
+Language</cite></a>. World Wide Web Consortium, 2000.  (See <a href="https://www.w3.org/TR/xhtml1/">http://www.w3.org/TR/xhtml1/</a>.)</dd>
+<dt class="label"><a name="infoset"></a>XIS</dt><dd>John
+Cowan and David Megginson, editors. <cite>XML Information Set</cite>.
+World Wide Web Consortium, 1999.  (See <a href="https://www.w3.org/TR/xml-infoset">http://www.w3.org/TR/xml-infoset</a>.)</dd>
+<dt class="label"><a name="XLink"></a>XLink</dt><dd>Steve DeRose,
+Eve Maler, David Orchard, and Ben Trafford, editors. <cite>XML Linking
+Language (XLink)</cite>. World Wide Web Consortium, 2000.  (See <a href="https://www.w3.org/TR/xlink">http://www.w3.org/TR/xlink</a>.)</dd>
+<dt class="label"><a name="xpreq"></a>XPREQ</dt><dd>Steve
+DeRose, editor. <cite>XML XPointer Language Requirements Version 1.0</cite>.
+World Wide Web Consortium, 1999.  (See <a href="https://www.w3.org/TR/NOTE-xptr-req">http://www.w3.org/TR/NOTE-xptr-req</a>.)</dd>
+<dt class="label"><a name="XSLT"></a>XSLT</dt><dd>James Clark, editor. <cite>XSL
+Transformations (XSLT) Version 1.0</cite>. World Wide Web Consortium,
+1999.  (See <a href="https://www.w3.org/TR/xslt">http://www.w3.org/TR/xslt</a>.)</dd>
+</dl></div>
+</div>
+<div class="div1">
+<h2><a name="b2d250b6b3"></a>B Working Group Members (Non-Normative)</h2>
+<p>The first working drafts of this specification were developed in the XML
+Working Group, whose members are listed in <a href="#XML">[XML]</a>. The work was
+completed in the XML Linking Working Group, with the following members active
+at the completion of this specification:</p>
+<ul>
+<li>Peter Chen, LSU, Bootstrap Alliance
+</li>
+<li>Ron Daniel, Interwoven (<i>XPointer
+co-editor</i>) </li>
+<li>Steve DeRose, invited expert
+ (<i>XPointer co-editor</i>) </li>
+<li>David Durand, University of Southhampton,
+Dynamic Diagrams</li>
+<li>Masatomo Goto, Fujitsu Laboratories
+</li>
+<li>Paul Grosso, Arbortext</li>
+<li>Chris Maden, Lexica</li>
+<li>Eve Maler, Sun Microsystems
+ (<i>co-chair and XPointer co-editor</i>) </li>
+<li>Jonathan Marsh, Microsoft</li>
+<li>David Orchard, Jamcracker</li>
+<li>Daniel Veillard, W3C staff contact
+ (<i>co-chair</i>) </li>
+</ul>
+<p>The editors wish to acknowledge substantial contributions from Tim Bray,
+who previously served as co-editor and co-chair. We would also like to acknowledge
+substantial contributions from James Clark, especially on the integration
+with XPath. We would like to thank Gavin Nicol and Martin D&uuml;rst for help with
+passages related to internationalization. Finally, we would like to thank
+the XML Linking Interest Group and Working Group for their support and input.</p>
+</div>
+</div><script src="https://www.w3.org/scripts/TR/fixup.js"></script></body></html>

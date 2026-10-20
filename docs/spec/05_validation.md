@@ -47,6 +47,11 @@ Validation operates top-down:
 
 6. **Determine outcome** — Valid if all rules pass; invalid with specific error codes otherwise
 
+For ID/IDREF contribution eligibility and the validation-root check, retain
+[IBS-Q001](scenarios/source-questions.md#ibs-q001--root-id-eligibility-and-successful-declaration-validation).
+Content validity and successful declaration validation remain distinct premises;
+the outline does not settle that contribution dependency.
+
 Spec refs: docs/spec/xml/structures.xml#cvc-assess-elt, docs/spec/xml/structures.xml#cvc-assess-attr.
 
 ## Element Validation
@@ -250,11 +255,11 @@ Validation augments each element and attribute with additional properties:
 | `[schema information]` | Present on the validation root element; set of namespace schema information items |
 | `[element declaration]` | Optional; item isomorphic to the declaration component |
 | `[type definition]` | The type used; either a component item or a name/namespace/anonymous summary |
-| `[member type definition]` | For union simple types; the member type that validated the value |
+| `[member type definition]` | When a schema-normalized value is present for a union simple/simple-content type, the member that validated that value |
 | `[nil]` | Whether the element was nilled |
-| `[schema normalized value]` | If applicable and valid: the normalized value for simple/simple-content types; if a value constraint is applied due to empty content, the canonical lexical representation of the constraint value; otherwise absent |
+| `[schema normalized value]` | For nonnilled simple/simple-content cases: the constraint's lexical form when clause 5.1 applied; otherwise the normalized instance value if type-valid; otherwise absent. See the ordered E1-56 cases below. |
 | `[schema default]` | Canonical lexical representation of the value constraint, if present; otherwise absent |
-| `[schema specified]` | `schema` if the value constraint was applied due to empty content; otherwise `infoset` |
+| `[schema specified]` | `schema` exactly when Element Locally Valid (Element) clause 5.1 applied; otherwise `infoset` |
 
 **Attribute Contributions:**
 
@@ -263,7 +268,7 @@ Validation augments each element and attribute with additional properties:
 | `[validation context]` | Nearest ancestor element with `[schema information]` |
 | `[validity]` | `valid`, `invalid`, or `notKnown` |
 | `[type definition]` | The simple type used; either a component item or a name/namespace/anonymous summary |
-| `[member type definition]` | For union simple types; the member type that validated the value |
+| `[member type definition]` | For a successfully validated union attribute value, the member type that validated it; absent on failed type validation |
 | `[schema normalized value]` | Normalized value if valid against the governing type; otherwise absent |
 | `[schema default]` | Canonical lexical representation of the value constraint, if present; otherwise absent |
 | `[schema specified]` | `schema` if the attribute was supplied by a value constraint due to absence; otherwise `infoset` |
@@ -271,6 +276,12 @@ Validation augments each element and attribute with additional properties:
 | `[attribute declaration]` | Optional; item isomorphic to the declaration component |
 
 Default application affects PSVI properties only; it does not add character children to the element. Defaulted attributes are added to the attribute set with `[schema specified] = schema`.
+
+The [E1-56 corrected reading](corrected-reading.md) applies to these tables.
+In particular, an applied element default contributes its lexical form, which
+can differ from the canonical representation still used by `[schema default]`.
+Mixed-content elements have no `[schema normalized value]`. Type validity is
+distinct from validity against every constraint on the declaration.
 
 Spec refs: docs/spec/xml/structures.xml#sic-eltType, docs/spec/xml/structures.xml#sic-eltDefault, docs/spec/xml/structures.xml#sic-attrType, docs/spec/xml/structures.xml#sic-attrDefault.
 

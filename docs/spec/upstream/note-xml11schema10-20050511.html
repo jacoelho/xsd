@@ -1,0 +1,287 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html lang="EN" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Processing XML 1.1 documents with XML Schema 1.0 processors</title>
+<style type="text/css">
+code           { font-family: monospace; }
+
+div.constraint,
+div.issue,
+div.note,
+div.notice     { margin-left: 2em; }
+
+ol.enumar      { list-style-type: decimal; }
+ol.enumla      { list-style-type: lower-alpha; }
+ol.enumlr      { list-style-type: lower-roman; }
+ol.enumua      { list-style-type: upper-alpha; }
+ol.enumur      { list-style-type: upper-roman; }
+
+
+div.exampleInner pre { margin-left: 1em;
+                       margin-top: 0em; margin-bottom: 0em}
+div.exampleOuter {border: 4px double gray;
+                  margin: 0em; padding: 0em}
+div.exampleInner { background-color: #d5dee3;
+                   border-top-width: 4px;
+                   border-top-style: double;
+                   border-top-color: #d3d3d3;
+                   border-bottom-width: 4px;
+                   border-bottom-style: double;
+                   border-bottom-color: #d3d3d3;
+                   padding: 4px; margin: 0em }
+div.exampleWrapper { margin: 4px }
+div.exampleHeader { font-weight: bold;
+                    margin: 4px}
+</style>
+<link href="https://www.w3.org/StyleSheets/TR/W3C-WG-NOTE.css" type="text/css" rel="stylesheet" />
+</head>
+<body><div class="head"><p><a href="https://www.w3.org/"><img width="72" height="48" alt="W3C" src="https://www.w3.org/Icons/w3c_home" /></a></p>
+<h1><a id="title" name="title"/>Processing XML 1.1 documents with XML Schema 1.0 processors</h1>
+<h2><a id="w3c-doctype" name="w3c-doctype"/>W3C Working Group Note 11 May 2005</h2>
+<dl>
+<dt>This version:</dt>
+<dd>
+   <a href="https://www.w3.org/TR/2005/NOTE-xml11schema10-20050511">http://www.w3.org/TR/2005/NOTE-xml11schema10-20050511</a>
+  </dd>
+<dt>Latest version:</dt>
+<dd><a href="https://www.w3.org/TR/xml11schema10">http://www.w3.org/TR/xml11schema10</a></dd>
+<dt>Editor:</dt>
+<dd>Henry S. Thompson, University of Edinburgh/W3C <a href="mailto:ht@inf.ed.ac.uk">&lt;ht@inf.ed.ac.uk&gt;</a></dd>
+</dl>
+<p>This document is also available in these non-normative formats: <a href="https://www.w3.org/TR/2005/NOTE-xml11schema10-20050511/11sp.xml">http://www.w3.org/TR/2005/NOTE-xml11schema10-20050511/11sp.xml</a>.</p>
+<p class="copyright"><a href="https://www.w3.org/Consortium/Legal/ipr-notice#Copyright">Copyright</a>&#xa0;&#xa9;&#xa0;2005&#xa0;<a href="https://www.w3.org/"><acronym title="World Wide Web Consortium">W3C</acronym></a><sup>&#xae;</sup> (<a href="http://www.csail.mit.edu/"><acronym title="Massachusetts Institute of Technology">MIT</acronym></a>, <a href="http://www.ercim.org/"><acronym title="European Research Consortium for Informatics and Mathematics">ERCIM</acronym></a>, <a href="http://www.keio.ac.jp/">Keio</a>), All Rights Reserved. W3C <a href="https://www.w3.org/Consortium/Legal/ipr-notice#Legal_Disclaimer">liability</a>, <a href="https://www.w3.org/Consortium/Legal/ipr-notice#W3C_Trademarks">trademark</a>, and <a href="https://www.w3.org/Consortium/Legal/copyright-documents">document use</a> rules apply.</p>
+</div>
+<hr/>
+<div>
+<h2><a id="abstract" name="abstract"/>Abstract</h2><p>XML Schema 1.0 did not anticipate new versions of XML, and mandated
+  XML 1.0 documents as the starting point for schema-validity
+  assessment.  Some users and specifications would like to use XML
+  Schema processors which process XML 1.1 documents, and some
+  implementors of XML Schema processors would like to provide XML 1.1
+  support.</p><p>This Note suggests an implementation strategy for implementors to
+  adopt to enable users and specifications to get such support in a
+  consistent way. All aspects of XML Schema which are liable to
+  re-interpretation as a result of changes in XML 1.1 are discussed.</p><p>An implementation of schema-validity assessment employing such a
+  strategy is strictly speaking non-conformant to the current version
+  of the XML Schema specification. The XML Schema WG none-the-less
+  believes that interoperability will best be served by such
+  non-conformant processors being made available to users, until such
+  time as a subsequent version of XML Schema addressing this issue
+  normatively is approved.</p></div><div>
+<h2><a id="status" name="status"/>Status of this Document</h2><p><em>This section describes the status of this document at the
+time of its publication. Other documents may supersede this
+document. A list of current W3C publications and the latest revision
+of this technical report can be found in the <a href="https://www.w3.org/TR/">W3C technical reports index</a> at
+<code>http://www.w3.org/TR/</code>.</em></p><p>This document is a Working Group Note prepared by the 
+<a href="https://www.w3.org/XML/Schema">W3C XML Schema Working Group</a>, 
+as part of the W3C <a href="https://www.w3.org/XML/Activity">XML
+Activity</a>, and published on
+11 May 2005.  It describes methods of
+supporting XML 1.1 documents with schema processors designed to support
+XML Schema 1.0.</p><p>XML Schema 1.0 parts <a href="https://www.w3.org/TR/xmlschema-1">1</a> 
+and <a href="https://www.w3.org/TR/xmlschema-2">2</a>
+refer normatively to XML 1.0 and makes no explicit
+provision for support of later versions of the XML specification; this
+lack is sometimes advanced as a reason for W3C specifications which depend
+on XML Schema not to support XML 1.1. But there are strong reasons
+to encourage the wide adoption of XML 1.1, which is more successfully
+internationalized than XML 1.0.  At the time this Note is published,
+
+the question of how best to support XML 1.1 in 
+XML Schema is still open.
+</p><p>This Note offers strategies for supporting XML 1.1, based on the
+implementation experience of some members of the XML Schema Working Group.
+It is hoped that the techniques described here will be helpful to
+other implementors and to users.  Equally, the Working Group hopes that this Note 
+will elicit discussion in the larger XML community concerning the best 
+way for the XML Schema Working Group 
+to balance the competing demands of flexibility in references to
+other specifications, stability, and interoperability.
+
+This Note is published with the full consensus of the XML Schema Working Group.
+</p><p>Comments on this document and the issues it raises are welcome;
+please send comments on this document to 
+<a href="mailto:www-xml-schema-comments@w3.org">www-xml-schema-comments@w3.org</a> 
+(<a href="http://lists.w3.org/Archives/Public/www-xml-schema-comments/">archive</a>).</p><p>Publication as a Working Group Note does not imply endorsement by the W3C
+Membership. This 
+<!--* is a draft document and *-->
+document 
+may be updated, replaced or obsoleted by
+other documents at any time.  
+<!--* 
+It is inappropriate to cite this
+document as other than work in progress.  
+*-->
+The XML Schema Working Group
+does not currently expect to produce further versions or revisions of
+this document, but experience with the subject matter of this
+Note may lead to changes in the normative text of future versions
+of the XML Schema specification.</p></div><div class="toc">
+<h2><a id="contents" name="contents"/>Table of Contents</h2><p class="toc">1 <a href="#intro">Introduction</a><br/>
+2 <a href="#d0e138">Survey of XML 1.1 challenges for XML Schema 1.0</a><br/>
+3 <a href="#d0e193">First step towards XML 1.1: the parser</a><br/>
+4 <a href="#d0e478">Recommended strategy: Move to 1.1-compatible type definitions</a><br/>
+5 <a href="#d0e491">The details</a><br/>
+6 <a href="#d0e507">Backward incompatibilities</a><br/>
+7 <a href="#d0e532">Summary of Recommendations for Interoperability</a><br/>
+</p></div><hr/><div class="body"><div class="div1">
+<h2><a id="intro" name="intro"/>1 Introduction</h2><p>As published the XML Schema specification references XML 1.0<span>and XML Namespaces 1.0</span> explicitly,
+and incorporates by reference certain key definitions, in particular those of
+the <code>Char</code>, <code>Name</code><span>, QName</span> and <code>S</code> character classes.
+The contents of these classes has changed in XML 1.1<span>and XML Namespaces 1.1</span>, so although nothing in
+the existing XML Schema specification specifically bars the processing of
+infosets produced by XML 1.1 conformant parsers, such infosets, if they exploit
+any of the relevant changes in XML 1.1, will not be accepted as valid by
+conformant XML Schema 1.0 processors.</p><p>The XML Schema WG has judged that any changes to the existing
+specification to support XML 1.1 go beyond what could be considered as errata,
+and so will have to wait for a new version of the specification.  As this may
+take some time, this Note addresses the question of what should be done in the
+interim to best serve the XML community.</p><p>In the sections which follow, a non-normative strategy is set out
+suggesting a number of changes which processors implementing the XML Schema
+specification can make to enable sensible and interoperable support for XML
+1.1.  Any implementation of XML Schema employing such a strategy is strictly
+speaking non-conformant to the current version of the XML Schema specification.
+The XML Schema WG none-the-less believes that interoperability will best be
+served by the availability of such non-conformant processors until such time as a subsequent
+version of XML Schema addressing this issue normatively is approved. </p></div><div class="div1">
+<h2><a id="d0e138" name="d0e138"/>2 Survey of XML 1.1 challenges for XML Schema 1.0</h2><p>Consider the following four cases:</p><ol class="enumar"><li><p>C1 vs. C0 in content, e.g. #x83 vs. #x03</p></li><li><p>Old vs. new name chars in element names, e.g. <code>y</code> (25th letter in English alphabet) vs.
+<code>&#x133;</code> (25th letter in Dutch alphabet)</p></li><li><p>Old vs. new name chars in ID-typed content, e.g. <code>y</code> vs. <code>&#x133;</code></p></li><li><p>LF vs NEL in length-specified list-typed content</p></li></ol><p>(&#x133; == U+0133 (#x133) is common in Dutch, e.g. in the word
+<em>&#x133;s</em> == English <em>ice-cream</em>.  It's a good example of something arbitrarily and
+irritatingly not allowed as a name character in XML 1.0 which is
+allowed as a name character in 1.1).</p><p>In each of the above cases, the first alternative is OK and has the same
+behaviour with respect to Schema validation in both XML 1.0 and XML 1.1,
+whereas the second alternative either
+is not Schema-valid under the strict XML 1.0 interpretation (1-3) or might be
+expected to have different behaviour between XML 1.0 and
+XML 1.1 (4).</p><p>In other words, if you used a conformant XML Schema validator on the
+following four instances (Figure 1), using the same schema document (Figure
+2) each time, all four
+would have validity problems.</p><div class="exampleOuter"><div class="exampleInner"><pre>&lt;?xml version='1.0'?&gt;
+&lt;root&gt;There's an &amp;amp;#3; here: &amp;#3;&lt;/root&gt;</pre></div><div class="exampleInner"><pre>&lt;?xml version='1.0'?&gt;
+&lt;&#x133;s/&gt;</pre></div><div class="exampleInner"><pre>&lt;?xml version='1.0'?&gt;
+&lt;root id=&quot;&#x133;&quot;/&gt;</pre></div><div class="exampleInner"><pre>&lt;?xml version='1.0'?&gt;
+&lt;!-- There's a NEL character (U+0085) between the 'a' and the 'b' below --&gt;
+&lt;root list=&quot;a&#x85;b&quot;/&gt;</pre></div></div><div class="note"><p class="prefix"><b>Note:</b></p><div class="exampleInner"><pre>&lt;?xml version='1.0'?&gt;
+&lt;xs:schema xmlns:xs=&quot;http://www.w3.org/2001/XMLSchema&quot;&gt;
+ &lt;xs:element name=&quot;root&quot;&gt;
+  &lt;xs:annotation&gt;
+   &lt;xs:documentation&gt;String content, id attr of type ID,
+                     list attr of type [list of token], length 2
+   &lt;/xs:documentation&gt;
+  &lt;/xs:annotation&gt;
+
+  &lt;xs:complexType&gt;
+   &lt;xs:simpleContent&gt;
+    &lt;xs:extension base=&quot;xs:string&quot;&gt;
+
+     &lt;xs:attribute name=&quot;id&quot; type=&quot;xs:ID&quot;/&gt;
+     
+     &lt;xs:attribute name=&quot;list&quot;&gt;
+      &lt;xs:simpleType&gt;
+       &lt;xs:restriction&gt;
+        &lt;xs:simpleType&gt;
+         &lt;xs:list itemType=&quot;xs:token&quot;/&gt;
+        &lt;/xs:simpleType&gt;
+        &lt;xs:length value=&quot;2&quot;/&gt;
+       &lt;/xs:restriction&gt;
+      &lt;/xs:simpleType&gt;
+     &lt;/xs:attribute&gt;
+
+    &lt;/xs:extension&gt;
+   &lt;/xs:simpleContent&gt;
+  &lt;/xs:complexType&gt;
+ &lt;/xs:element&gt;
+ 
+ &lt;xs:element name=&quot;&#x133;s&quot;/&gt;
+ 
+&lt;/xs:schema&gt;</pre></div><p>Schema for use with XML documents in Figure 1</p></div></div><div class="div1">
+<h2><a id="d0e193" name="d0e193"/>3 First step towards XML 1.1: the parser</h2><p>The first obvious step for anyone considering modifying an existing XML
+Schema processor of any kind to allow XML 1.1 documents is replacing its front
+end, presumably currently an XML 1.0 parser, i.e. a parser which converts
+<em>only</em> documents with a <code>version='1.0'</code> XML declaration
+(or none), and enforces XML 1.0 well-formedness, with an XML 1.1 parser, i.e.
+one which enforces <em>either</em> XML 1.0 <em>or</em> XML 1.1
+well-formedness, depending on the <code>version</code> stated in the XML declaration.</p><p>The resulting behaviour will be as follows:</p><table border="1"><colgroup span="1"><col span="1"/><col span="1" align="center"/><col span="1" align="center"/></colgroup><thead><tr><td/><td>XML 1.0 Declaration</td><td>XML 1.1 Declaration</td></tr></thead><tbody><tr><td>XML 1.0 Content</td><td>
+       <table><thead><tr><td>Doc</td><td>Outcome</td></tr></thead><tbody><tr><td>A</td><td>OK</td></tr><tr><td>B</td><td>OK</td></tr><tr><td>C</td><td>OK</td></tr><tr><td>D</td><td>OK</td></tr></tbody></table>
+      </td><td>
+       <table><thead><tr><td>Doc</td><td>Outcome</td></tr></thead><tbody><tr><td>A</td><td>OK</td></tr><tr><td>B</td><td>OK</td></tr><tr><td>C</td><td>OK</td></tr><tr><td>D</td><td>OK</td></tr></tbody></table>
+      </td></tr><tr><td>XML 1.1 Content</td><td>
+       <table><thead><tr><td>Doc</td><td>Outcome</td></tr></thead><tbody><tr><td>A</td><td>X1</td></tr><tr><td>B</td><td>X1</td></tr><tr><td>C</td><td>X2</td></tr><tr><td>D</td><td>X3</td></tr></tbody></table>
+      </td><td>
+       <table><thead><tr><td>Doc</td><td>Outcome</td></tr></thead><tbody><tr><td>A</td><td>OK/**</td></tr><tr><td>B</td><td>**</td></tr><tr><td>C</td><td>**</td></tr><tr><td>D</td><td>OK</td></tr></tbody></table>
+      </td></tr></tbody></table><p>Note that by &quot;XML 1.0 Content&quot; is meant documents exemplifying the <em>first</em> member of each of the
+four pairs of differences introduced above, and by &quot;XML 1.1 Content&quot; is meant
+documents exemplifying the <em>second</em> member thereof.  The top two
+cells then require no explanation -- these are just the existing XML Schema
+processor, using an XML 1.1 parser front end, behaving correctly on data it
+already should be processing correctly.</p><p>The bottom two cells are the interesting ones.  The bottom-left cell is
+characterised by what I'll call <em>misaligned</em> XML versions.  Let's
+consider the outcomes here one at a time.  Note that these cases cover not
+only what our putative XML Schema 1.0 processor with an XML 1.1 parser would
+do, but also what an unmodified 1.0/1.0 processor should do today.</p><dl><dt class="label">A, B (<em>misaligned</em> versions): X1</dt><dd><p>These cases are (correctly) rejected as ill-formed by the front-end XML parser,
+because they break the 1.0 rules for CDATA content (A) and element names (B).</p></dd><dt class="label">C (<em>misaligned</em> versions): X2</dt><dd><p>This case is (correctly) rejected as schema-invalid by the XML Schema processor -- a string with an
+&#x133; in it is not an NCName per XML 1.0.</p></dd><dt class="label">D (<em>misaligned</em> versions): X3</dt><dd><p>This case is (correctly) rejected as schema-invalid by the XML Schema
+processor -- a 'list' with only NEL
+separators is a single token when considered as XML 1.0 content.</p></dd></dl><p>Moving on to the final, lower-right, cell, this is of course where things
+get interesting:</p><dl><dt class="label">A (<em>aligned</em> versions): OK/**</dt><dd><p>The behaviour of this case depends on an implementation choice. Some
+  processors, which take their input only in the form of encoded
+  character streams and always use an XML parser as a front end,
+  depend on that front end to enforce the basic constraint that all
+  <code>xs:string</code>s consist of XML 1.0 Chars. Other XML Schema processors,
+  particularly those which also accept synthetic infosets as input,
+  enforce that constraint explicitly. It follows that a processor of
+  the first kind, simply by changing to use an XML 1.1 front-end, will
+  thereby accept case A documents, but processors of the second kind
+  will not, because they will still be explicitly checking instances
+  of <code>xs:string</code> using its XML Schema 1.0 definition.&quot;</p></dd><dt class="label">D (<em>aligned</em> versions): OK</dt><dd><p>This case is (correctly) accepted -- a 'list' with a NEL
+separator will have been normalized to have a space (#x20) separator by
+the XML 1.1 front-end parser, and so the XML Schema processor will find two tokens.</p></dd><dt class="label">C (<em>aligned</em> versions): **</dt><dd><p>This case is (incorrectly) rejected as schema-invalid by the XML
+Schema processor -- because the <code>ID</code> type is derived from the
+<code>Name</code> type, which in turn has a <code>pattern</code> facet based on
+the XML 1.0 definition for Names, which does not allow the &#x133;.</p></dd><dt class="label">B (<em>aligned</em> versions): **</dt><dd><p>This case is actually very similar to the previous one, but with
+respect to a different document, that is, the <em>schema</em> document. 
+<em>That</em> document is (incorrectly) rejected as schema-invalid by the XML
+Schema processor -- because the relevant element name turns up as the value of
+the <code>name</code> attribute on the <code>xs:element</code> element, and
+that <em>attributes</em> type in the schema for schema documents is 
+<code>NCName</code>, which is derived from the
+<code>Name</code> type, which in turn has a <code>pattern</code> facet based on
+the XML 1.0 definition for Names, which does not allow the &#x133;.</p></dd></dl></div><div class="div1">
+<h2><a id="d0e478" name="d0e478"/>4 <span>Recommended strategy</span>: Move to 1.1-compatible type definitions</h2><p>What does it mean to say the last two results are <em>incorrect</em>?
+It means that type definitions which enforce XML-1.0-appropriate constraints 
+are being applied to self-identified XML 1.1 data.</p><p>The simplest resolution is to simply change the XML Schema processor
+itself so that the
+relevant built-in type definitions enforce the XML 1.1 contraints.  This
+will make all the entries in the lower-right quadrant 'OK'.</p></div><div class="div1">
+<h2><a id="d0e491" name="d0e491"/>5 The details</h2><p>The XML Schema 1.0 type definitions which include either direct dependencies
+on XML 1.0 productions (that is, xsd:Name, which depends on XML 1.0
+Name, xsd:NMTOKEN, which depends on XML Nmtoken, xsd:QName, which depends on XML 1.0 Letter, Digit, CombiningChar and Extender via XML Namespaces QName and xsd:string, which depends on XML 1.0 Char), as well as those type definitions which inherit from them (that is, xsd:NCName, xsd:ID, xsd:IDREF, xsd:IDREFS, xsd:ENTITY, xsd:ENTITIES, xsd:NMTOKENS, xsd:normalizedString, xsd:token and xsd:language), must use the
+XML 1.1 productions.</p><p>This change will fix the <code>B</code> and <code>C</code> results by using the XML 1.1
+definition of Name.  For processors which don't depend on their XML front-end
+parser to check CDATA, it will also fix the incorrect result they get for the
+<code>A</code> example by using the XML 1.1 definition of Char.</p></div><div class="div1">
+<h2><a id="d0e507" name="d0e507"/>6 Backward incompatibilities</h2><p>The approach selected here isn't perfect.  The unconditional switch to
+1.1-appropriate type definitions means that version 1.0 XML documents with
+1.1-only Name characters in e.g. ID-typed attributes will be valid, where an
+unmodified Schema 1.0 processor would find them invalid.</p><p>The immediate negative consequences of this are presumably small, since
+anyone already schema-validating their XML 1.0 documents will presumably have
+<em>corrected</em> any examples of this.  But as and when processors
+implementing this Note are widespread, it may be that documents with such
+attribute type definitions and values will be
+created, identified as version 1.0 and validated by modified processors, only
+to be (correctly) rejected by unmodified processors.  We judge the risk of this
+having serious negative consequences are small enough to be discounted, but it
+is of course open to implementors to detect this case and issue a warning.</p><p>The other weakness is with respect to cases where no front-end XML
+  parser is involved, that is where schema validity assessment is
+  carried out on what are sometimes called &quot;synthetic infosets&quot;.</p><p>Since on this proposal enforcement of XML 1.0 conformance for
+  element names and character content is the responsibility of the
+  front-end parser, it follows that for a synthetic infoset to contain
+  for example an element with an XML-1.1-only element name will never
+  be a problem solely because of its name, even if it has a document
+  information item <strong>[version]</strong> property with value <code>1.0</code>.</p><p>Again we judge the likelihood of this causing a problem to be
+  vanishingly small, particularly as any attempt to <em>serialize</em> such a
+  synthetic infoset should raise an error.</p></div><div class="div1">
+<h2><a id="d0e532" name="d0e532"/>7 Summary of Recommendations for Interoperability</h2><p>To produce an XML-1.1-friendly version of an XML Schema 1.0 processor:</p><ol class="enumar"><li><p><em>Replace</em> <span>its</span> XML 1.0 front-end parser with an XML 1.1
+front-end parser;</p></li><li><p><em>Change</em> <span>its</span> implementations of the XML Schema types <code>Name</code>,
+<code>NMTOKEN</code>, <code>QName</code> and <code>string</code>, to use the relevant XML (Namespaces) 1.1 productions;</p></li></ol></div></div><script type="application/javascript" src="https://www.w3.org/scripts/TR/fixup.js"></script></body></html>
