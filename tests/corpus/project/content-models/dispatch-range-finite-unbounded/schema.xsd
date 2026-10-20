@@ -1,0 +1,5 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:complexType name="B" final="" block=""><xs:sequence><xs:element name="a" type="xs:string" minOccurs="1" maxOccurs="3"/></xs:sequence></xs:complexType>
+<xs:complexType name="R" final="" block=""><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:element name="a" type="xs:string" minOccurs="2" maxOccurs="unbounded"/></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>
+<xs:element name="r" type="R"/><xs:element name="base" type="B"/>
+</xs:schema>

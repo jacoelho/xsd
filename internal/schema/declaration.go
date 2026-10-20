@@ -7,10 +7,6 @@ import (
 	"github.com/jacoelho/xsd/internal/vocab"
 )
 
-// ErrBareNotationValueConstraint reports an element value constraint whose
-// owner simple type graph includes xs:NOTATION without enumeration.
-var ErrBareNotationValueConstraint = errors.New("NOTATION value constraint requires enumeration")
-
 // DeclRefLimits are table sizes used to validate declaration references in a
 // frozen runtime schema.
 type DeclRefLimits struct {
@@ -163,13 +159,7 @@ func DeclarationValueConstraintOf[T any](defaultValue, fixedValue *T) Declaratio
 // ValidateElementDeclValueConstraintRuntime validates element declaration
 // value-constraint rules that depend on the constraint's simple owner type.
 func ValidateElementDeclValueConstraintRuntime(rt *schemaBuild, typ SimpleTypeID, constraint DeclarationValueConstraint) error {
-	if err := validateDeclValueConstraintIdentity(rt, typ, constraint, "ID-typed element declaration stores value constraint"); err != nil {
-		return err
-	}
-	if constraint.present() && SimpleTypeUsesBareNotation(rt, typ) {
-		return ErrBareNotationValueConstraint
-	}
-	return nil
+	return validateDeclValueConstraintIdentity(rt, typ, constraint, "ID-typed element declaration stores value constraint")
 }
 
 // ValidateAttributeDeclValueConstraintRuntime validates attribute declaration

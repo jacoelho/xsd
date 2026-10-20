@@ -57,6 +57,33 @@ func TestFacetAllowed(t *testing.T) {
 			want:      true,
 		},
 		{
+			name:      "atomic boolean enumeration disallowed",
+			variety:   value.Atomic,
+			primitive: value.PrimitiveBoolean,
+			facet:     value.FacetEnumeration,
+		},
+		{
+			name:      "atomic boolean whitespace",
+			variety:   value.Atomic,
+			primitive: value.PrimitiveBoolean,
+			facet:     value.FacetWhiteSpace,
+			want:      true,
+		},
+		{
+			name:      "list boolean enumeration",
+			variety:   value.List,
+			primitive: value.PrimitiveBoolean,
+			facet:     value.FacetEnumeration,
+			want:      true,
+		},
+		{
+			name:      "union boolean enumeration",
+			variety:   value.Union,
+			primitive: value.PrimitiveBoolean,
+			facet:     value.FacetEnumeration,
+			want:      true,
+		},
+		{
 			name:      "list length",
 			variety:   value.List,
 			primitive: value.PrimitiveString,

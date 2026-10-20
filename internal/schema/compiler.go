@@ -119,6 +119,7 @@ type compilerBuildState struct {
 	deferredAnonymousComplex  []deferredAnonymousComplex
 	pendingElementConstraints []pendingElementConstraint
 	unionMemberEntries        int
+	attributeUseCount         uint32
 }
 
 type deferredAnonymousComplex struct {
@@ -284,7 +285,7 @@ func (c *compiler) finalizeCompiledGlobals() error {
 	if err := c.compileSubstitutions(); err != nil {
 		return err
 	}
-	if err := c.validateCompiledComplexRestrictions(); err != nil {
+	if err := c.validateComplexRestrictionModels(); err != nil {
 		return err
 	}
 	if err := c.checkCompiledElementDeclarationsConsistent(); err != nil {
@@ -313,17 +314,6 @@ func (c *compiler) compileModelGroupByQName(q QName) error {
 	return err
 }
 
-func (c *compiler) validateCompiledComplexRestrictions() error {
-	if err := c.validateComplexRestrictionModels(); err != nil {
-		return err
-	}
-	updates, err := c.restrictionChoiceLimitUpdates()
-	if err != nil {
-		return contentRestrictionCompileError(err)
-	}
-	return c.applyRestrictionChoiceLimitUpdates(updates)
-}
-
 func (c *compiler) validateComplexRestrictionModels() error {
 	for id := range len(c.rt.ComplexTypes) {
 		ct := c.rt.complexType(ComplexTypeID(id))
@@ -344,19 +334,6 @@ func (c *compiler) validateComplexRestrictionModels() error {
 		); err != nil {
 			return contentRestrictionCompileError(err)
 		}
-	}
-	return nil
-}
-
-func (c *compiler) applyRestrictionChoiceLimitUpdates(updates []RestrictionChoiceLimitUpdate) error {
-	for _, update := range updates {
-		id, err := c.addModel(update.Model)
-		if err != nil {
-			return err
-		}
-		ct := c.rt.complexType(update.ComplexType)
-		ct.Content = id
-		c.completeComplexType(update.ComplexType, ct)
 	}
 	return nil
 }
@@ -724,11 +701,8 @@ func (c *compiler) compileList(n *schemaNode, ctx *schemaSetDocument, name QName
 	if item == NoSimpleType {
 		return SimpleType{}, xsderrors.InternalInvariant("list source validator admitted missing item type")
 	}
-	if err := CheckSimpleTypeFinalAllows(c.rt.simpleTypeFinalMask(item), DerivationList, SimpleTypeFinalListItem); err != nil {
-		return SimpleType{}, withSchemaCompileLocation(n, err)
-	}
-	if c.simpleListItemReachesList(item) {
-		return SimpleType{}, withSchemaCompileLocation(n, simpleListItemListReachError())
+	if err := c.admitListItemType(n, item); err != nil {
+		return SimpleType{}, err
 	}
 	return SimpleType{
 		Name: name,
@@ -738,6 +712,16 @@ func (c *compiler) compileList(n *schemaNode, ctx *schemaSetDocument, name QName
 			Base: value.AnySimpleTypeID, ListItem: item,
 		},
 	}, nil
+}
+
+func (c *compiler) admitListItemType(n *schemaNode, item SimpleTypeID) error {
+	if err := CheckSimpleTypeFinalAllows(c.rt.simpleTypeFinalMask(item), DerivationList, SimpleTypeFinalListItem); err != nil {
+		return withSchemaCompileLocation(n, err)
+	}
+	if c.simpleListItemReachesList(item) {
+		return withSchemaCompileLocation(n, simpleListItemListReachError())
+	}
+	return c.admitNotationTypeUse(n, item)
 }
 
 func (c *compiler) compileListItemType(n *schemaNode, ctx *schemaSetDocument, itemType xml.Name) (SimpleTypeID, error) {
@@ -844,6 +828,9 @@ func (c *simpleUnionCompilation) addAnonymous(node *schemaNode) error {
 func (c *simpleUnionCompilation) add(node *schemaNode, id SimpleTypeID) error {
 	if err := CheckSimpleTypeFinalAllows(c.compiler.rt.simpleTypeFinalMask(id), DerivationUnion, SimpleTypeFinalUnionMember); err != nil {
 		return withSchemaCompileLocation(node, err)
+	}
+	if err := c.compiler.admitNotationTypeUse(node, id); err != nil {
+		return err
 	}
 	remaining := c.compiler.limits.MaxSimpleUnionMemberEntries - c.compiler.unionMemberEntries
 	added, ok := c.compiler.rt.appendFlattenedUnionMember(&c.typeDef.ValueSpec.Union, id, c.seen, remaining)

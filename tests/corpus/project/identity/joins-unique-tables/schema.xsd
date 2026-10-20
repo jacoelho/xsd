@@ -1,0 +1,9 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:complexType name="Row"><xs:attribute name="v" type="xs:integer"/></xs:complexType>
+<xs:complexType name="Ref"><xs:attribute name="v" type="xs:integer"/></xs:complexType>
+<xs:complexType name="Wrap"><xs:choice minOccurs="0" maxOccurs="unbounded"><xs:element ref="node"/><xs:element ref="wrap"/></xs:choice></xs:complexType>
+<xs:element name="wrap" type="Wrap"/>
+<xs:complexType name="Node"><xs:choice minOccurs="0" maxOccurs="unbounded"><xs:element name="row" type="Row"/><xs:element name="ref" type="Ref"/><xs:element ref="node"/><xs:element ref="wrap"/></xs:choice></xs:complexType>
+<xs:element name="node" type="Node"><xs:unique name="K"><xs:selector xpath="row"/><xs:field xpath="@v"/></xs:unique><xs:keyref name="NodeRef" refer="K"><xs:selector xpath="ref"/><xs:field xpath="@v"/></xs:keyref></xs:element>
+<xs:element name="doc"><xs:complexType><xs:choice minOccurs="0" maxOccurs="unbounded"><xs:element ref="node"/><xs:element ref="wrap"/><xs:element name="ref" type="Ref"/></xs:choice></xs:complexType><xs:keyref name="DocRef" refer="K"><xs:selector xpath="ref"/><xs:field xpath="@v"/></xs:keyref></xs:element>
+</xs:schema>

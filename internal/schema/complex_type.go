@@ -415,6 +415,35 @@ func ValidateSimpleContentRestrictionTextType(
 	return nil
 }
 
+// Attribute-use provenance is admitted before this owner-dependent check.
+// Only the immediate built-in anyType base exempts restriction clause 4.3;
+// equal wildcard shapes, shared wildcard IDs and anyType ancestry do not.
+func validateComplexRestrictionAttributeWildcard(rt *schemaBuild, ct ComplexType) error {
+	if ct.Derivation != DerivationKindRestriction {
+		return nil
+	}
+	derivedID := rt.AttributeUseSets[ct.Attrs].Wildcard
+	if derivedID == NoWildcard || ct.Base == ComplexRef(rt.AnyType) {
+		return nil
+	}
+	baseID, err := ComplexTypeDerivationBaseID(ct.Base, len(rt.ComplexTypes))
+	if err != nil {
+		return err
+	}
+	base := rt.AttributeUseSets[rt.ComplexTypes[baseID].Attrs]
+	if !ValidWildcardID(base.Wildcard, len(rt.Wildcards)) {
+		return errors.New("attribute wildcard restriction requires base wildcard")
+	}
+	if !ValidWildcardID(derivedID, len(rt.Wildcards)) {
+		return errors.New("attribute wildcard restriction references invalid wildcard")
+	}
+	// Read only admitted scalars; the cloning lookup would copy namespaces.
+	if rt.Wildcards[derivedID].Process > rt.Wildcards[base.Wildcard].Process {
+		return errors.New("attribute wildcard restriction weakens processContents")
+	}
+	return nil
+}
+
 // ValidateSimpleBaseComplexExtensionFinalAllows validates the final-mask rule
 // for a complex type extending a simple type through simpleContent.
 func ValidateSimpleBaseComplexExtensionFinalAllows(final DerivationMask) error {

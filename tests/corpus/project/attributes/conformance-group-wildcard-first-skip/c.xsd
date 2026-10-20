@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:c"><xs:attribute name="value" type="xs:int"/></xs:schema>

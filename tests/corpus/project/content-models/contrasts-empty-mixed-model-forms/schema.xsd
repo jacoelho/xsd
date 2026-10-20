@@ -1,0 +1,10 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:element name="empty-absent"><xs:complexType mixed="false"></xs:complexType></xs:element>
+<xs:element name="empty-sequence"><xs:complexType mixed="false"><xs:sequence><xs:annotation><xs:documentation>metadata</xs:documentation></xs:annotation></xs:sequence></xs:complexType></xs:element>
+<xs:element name="empty-all"><xs:complexType mixed="false"><xs:all><xs:annotation><xs:documentation>metadata</xs:documentation></xs:annotation></xs:all></xs:complexType></xs:element>
+<xs:element name="empty-choice"><xs:complexType mixed="false"><xs:choice minOccurs="0"><xs:annotation><xs:documentation>metadata</xs:documentation></xs:annotation></xs:choice></xs:complexType></xs:element>
+<xs:element name="mixed-absent"><xs:complexType mixed="true"></xs:complexType></xs:element>
+<xs:element name="mixed-sequence"><xs:complexType mixed="true"><xs:sequence><xs:annotation><xs:documentation>metadata</xs:documentation></xs:annotation></xs:sequence></xs:complexType></xs:element>
+<xs:element name="mixed-all"><xs:complexType mixed="true"><xs:all><xs:annotation><xs:documentation>metadata</xs:documentation></xs:annotation></xs:all></xs:complexType></xs:element>
+<xs:element name="mixed-choice"><xs:complexType mixed="true"><xs:choice minOccurs="0"><xs:annotation><xs:documentation>metadata</xs:documentation></xs:annotation></xs:choice></xs:complexType></xs:element>
+</xs:schema>

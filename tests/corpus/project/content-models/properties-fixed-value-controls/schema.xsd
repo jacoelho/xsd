@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" >
+<xs:complexType name="B-absent-fixed"><xs:sequence><xs:element name="a" type="xs:integer" /></xs:sequence></xs:complexType><xs:complexType name="R-absent-fixed"><xs:complexContent><xs:restriction base="B-absent-fixed"><xs:sequence><xs:element name="a" type="xs:integer" fixed="2"/></xs:sequence></xs:restriction></xs:complexContent></xs:complexType><xs:element name="absent-fixed" type="R-absent-fixed"/>
+<xs:complexType name="B-default-fixed"><xs:sequence><xs:element name="a" type="xs:integer" default="1"/></xs:sequence></xs:complexType><xs:complexType name="R-default-fixed"><xs:complexContent><xs:restriction base="B-default-fixed"><xs:sequence><xs:element name="a" type="xs:integer" fixed="2"/></xs:sequence></xs:restriction></xs:complexContent></xs:complexType><xs:element name="default-fixed" type="R-default-fixed"/>
+<xs:complexType name="B-fixed-alias"><xs:sequence><xs:element name="a" type="xs:integer" fixed="2"/></xs:sequence></xs:complexType><xs:complexType name="R-fixed-alias"><xs:complexContent><xs:restriction base="B-fixed-alias"><xs:sequence><xs:element name="a" type="xs:integer" fixed="02"/></xs:sequence></xs:restriction></xs:complexContent></xs:complexType><xs:element name="fixed-alias" type="R-fixed-alias"/>
+
+</xs:schema>

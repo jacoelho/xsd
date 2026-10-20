@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:form" attributeFormDefault="unqualified"><xs:element name="root"><xs:complexType><xs:attribute name="value" type="xs:int" use="required" form="qualified"/></xs:complexType></xs:element></xs:schema>

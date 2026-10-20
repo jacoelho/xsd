@@ -1,0 +1,16 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:element name="a" type="xs:string"/><xs:group name="G"><xs:sequence><xs:element name="g" type="xs:string"/><xs:element name="h" type="xs:string"/></xs:sequence></xs:group>
+
+<xs:complexType name="T_local_omitted" final="" block=""><xs:sequence><xs:element name="a" type="xs:string"/></xs:sequence></xs:complexType><xs:element name="local-omitted" type="T_local_omitted"/>
+<xs:complexType name="T_local_alias" final="" block=""><xs:sequence><xs:element name="a" type="xs:string" minOccurs="+01" maxOccurs="01"/></xs:sequence></xs:complexType><xs:element name="local-alias" type="T_local_alias"/>
+<xs:complexType name="T_ref_omitted" final="" block=""><xs:sequence><xs:element ref="a"/></xs:sequence></xs:complexType><xs:element name="ref-omitted" type="T_ref_omitted"/>
+<xs:complexType name="T_ref_alias" final="" block=""><xs:sequence><xs:element ref="a" minOccurs="+01" maxOccurs="01"/></xs:sequence></xs:complexType><xs:element name="ref-alias" type="T_ref_alias"/>
+<xs:complexType name="T_group_omitted" final="" block=""><xs:sequence><xs:group ref="G"/></xs:sequence></xs:complexType><xs:element name="group-omitted" type="T_group_omitted"/>
+<xs:complexType name="T_group_alias" final="" block=""><xs:sequence><xs:group ref="G" minOccurs="+01" maxOccurs="01"/></xs:sequence></xs:complexType><xs:element name="group-alias" type="T_group_alias"/>
+<xs:complexType name="T_sequence_omitted" final="" block=""><xs:sequence><xs:element name="a" type="xs:string"/><xs:element name="b" type="xs:string"/></xs:sequence></xs:complexType><xs:element name="sequence-omitted" type="T_sequence_omitted"/>
+<xs:complexType name="T_sequence_alias" final="" block=""><xs:sequence minOccurs="+01" maxOccurs="01"><xs:element name="a" type="xs:string"/><xs:element name="b" type="xs:string"/></xs:sequence></xs:complexType><xs:element name="sequence-alias" type="T_sequence_alias"/>
+<xs:complexType name="T_choice_omitted" final="" block=""><xs:choice><xs:element name="a" type="xs:string"/><xs:element name="b" type="xs:string"/></xs:choice></xs:complexType><xs:element name="choice-omitted" type="T_choice_omitted"/>
+<xs:complexType name="T_choice_alias" final="" block=""><xs:choice minOccurs="+01" maxOccurs="01"><xs:element name="a" type="xs:string"/><xs:element name="b" type="xs:string"/></xs:choice></xs:complexType><xs:element name="choice-alias" type="T_choice_alias"/>
+<xs:complexType name="T_any_omitted" final="" block=""><xs:sequence><xs:any namespace="##local" processContents="skip"/></xs:sequence></xs:complexType><xs:element name="any-omitted" type="T_any_omitted"/>
+<xs:complexType name="T_any_alias" final="" block=""><xs:sequence><xs:any namespace="##local" processContents="skip" minOccurs="+01" maxOccurs="01"/></xs:sequence></xs:complexType><xs:element name="any-alias" type="T_any_alias"/>
+</xs:schema>

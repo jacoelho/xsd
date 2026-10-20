@@ -2,6 +2,7 @@ package schema
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/jacoelho/xsd/xsderrors"
@@ -246,24 +247,26 @@ func TestAppendFlattenedModelChild(t *testing.T) {
 			child:      ContentModel{Kind: ModelChoice, Occurs: modelRepeat, Particles: []Particle{a}},
 		},
 		{
-			name:       "sequence multiplies single exactly-one particle by model occurrence",
+			name:       "sequence keeps repeated singleton model nested",
 			parentKind: ModelSequence,
 			child:      ContentModel{Kind: ModelSequence, Occurs: modelRepeat, Particles: []Particle{a}},
-			want:       true,
-			wantLen:    1,
-			wantOccurs: modelRepeat,
 		},
 		{
-			name:       "sequence flattens optional single particle through repeated model",
+			name:       "sequence keeps repeated model around optional particle nested",
 			parentKind: ModelSequence,
 			child: ContentModel{
 				Kind:      ModelChoice,
 				Occurs:    modelRepeat,
 				Particles: []Particle{ElementParticle(1, optional)},
 			},
+		},
+		{
+			name:       "sequence flattens unit singleton preserving repeated child",
+			parentKind: ModelSequence,
+			child:      ContentModel{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(1, particleRepeat)}},
 			want:       true,
 			wantLen:    1,
-			wantOccurs: Occurrence{Min: 0, Max: 3},
+			wantOccurs: particleRepeat,
 		},
 		{
 			name:       "sequence keeps unsafe optional repeated single particle nested",
@@ -294,9 +297,13 @@ func TestAppendFlattenedModelChild(t *testing.T) {
 			t.Parallel()
 
 			model := ContentModel{Kind: tt.parentKind, Occurs: one}
+			before := CloneContentModel(model)
 			got := AppendFlattenedModelChild(&model, tt.child)
 			if got != tt.want {
 				t.Fatalf("AppendFlattenedModelChild() = %v, want %v", got, tt.want)
+			}
+			if !got && !reflect.DeepEqual(model, before) {
+				t.Fatalf("refused flatten changed parent: got %#v, want %#v", model, before)
 			}
 			if len(model.Particles) != tt.wantLen {
 				t.Fatalf("particle count = %d, want %d", len(model.Particles), tt.wantLen)

@@ -1,0 +1,11 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:particle:head" xmlns:t="urn:particle:head" >
+<xs:include schemaLocation="head.xsd"/><xs:import namespace="urn:particle:member" schemaLocation="member.xsd"/>
+<xs:element name="head-strict"><xs:complexType><xs:sequence><xs:any namespace="urn:particle:head" processContents="strict" minOccurs="2" maxOccurs="3"/></xs:sequence></xs:complexType></xs:element>
+<xs:element name="head-lax"><xs:complexType><xs:sequence><xs:any namespace="urn:particle:head" processContents="lax" minOccurs="2" maxOccurs="3"/></xs:sequence></xs:complexType></xs:element>
+<xs:element name="head-skip"><xs:complexType><xs:sequence><xs:any namespace="urn:particle:head" processContents="skip" minOccurs="2" maxOccurs="3"/></xs:sequence></xs:complexType></xs:element>
+<xs:element name="member-strict"><xs:complexType><xs:sequence><xs:any namespace="urn:particle:member" processContents="strict" minOccurs="2" maxOccurs="3"/></xs:sequence></xs:complexType></xs:element>
+<xs:element name="member-lax"><xs:complexType><xs:sequence><xs:any namespace="urn:particle:member" processContents="lax" minOccurs="2" maxOccurs="3"/></xs:sequence></xs:complexType></xs:element>
+<xs:element name="member-skip"><xs:complexType><xs:sequence><xs:any namespace="urn:particle:member" processContents="skip" minOccurs="2" maxOccurs="3"/></xs:sequence></xs:complexType></xs:element>
+<xs:element name="local"><xs:complexType><xs:sequence><xs:element name="head" type="xs:integer" form="qualified" minOccurs="2" maxOccurs="3"/></xs:sequence></xs:complexType></xs:element>
+<xs:element name="global"><xs:complexType><xs:sequence><xs:element ref="t:head" minOccurs="2" maxOccurs="3"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>

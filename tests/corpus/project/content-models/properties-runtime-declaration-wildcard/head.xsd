@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:particle:head" xmlns:t="urn:particle:head" >
+<xs:element name="head" type="xs:anySimpleType"/>
+</xs:schema>

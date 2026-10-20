@@ -1,0 +1,12 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:envelopes:notation" xmlns:r="urn:envelopes:notation" xmlns:a="urn:a" xmlns:b="urn:b" xmlns:q="urn:b" xmlns:x="urn:a">
+<xs:import namespace="urn:a" schemaLocation="a.xsd"/><xs:import namespace="urn:b" schemaLocation="b.xsd"/>
+<xs:simpleType name="Both"><xs:restriction base="xs:NOTATION"><xs:enumeration value="a:n"/><xs:enumeration value="b:n"/></xs:restriction></xs:simpleType>
+<xs:simpleType name="OnlyA"><xs:restriction base="xs:NOTATION"><xs:enumeration xmlns:q="urn:a" value="q:n"/><xs:enumeration value="x:n"/></xs:restriction></xs:simpleType>
+<xs:simpleType name="Alias1"><xs:restriction base="r:OnlyA"/></xs:simpleType><xs:simpleType name="Alias2"><xs:restriction base="r:Alias1"/></xs:simpleType>
+<xs:simpleType name="ListA"><xs:list itemType="r:Alias2"/></xs:simpleType><xs:simpleType name="UnionA"><xs:union memberTypes="r:Alias2 xs:integer"/></xs:simpleType>
+<xs:element name="both"><xs:complexType><xs:attribute name="kind" type="r:Both" use="required"/></xs:complexType></xs:element>
+<xs:element name="only"><xs:complexType><xs:attribute name="kind" type="r:Alias2" use="required"/></xs:complexType></xs:element>
+<xs:element name="list"><xs:complexType><xs:attribute name="kind" type="r:ListA" use="required"/></xs:complexType></xs:element>
+<xs:element name="union"><xs:complexType><xs:attribute name="kind" type="r:UnionA" use="required"/></xs:complexType></xs:element>
+<xs:element name="wrap"><xs:complexType><xs:sequence><xs:element ref="r:only"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>

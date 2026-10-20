@@ -729,8 +729,8 @@ func TestRestrictionRepeatedSequenceCanMapToRepeatedChoiceBranch(t *testing.T) {
 	</xs:schema>`)
 }
 
-func TestRestrictionRepeatedElementCanRestrictRepeatedChoice(t *testing.T) {
-	engine := mustCompile(t, `
+func TestRestrictionRejectsRepeatedElementAgainstUnitChoiceBranch(t *testing.T) {
+	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base">
     <xs:sequence>
@@ -748,14 +748,12 @@ func TestRestrictionRepeatedElementCanRestrictRepeatedChoice(t *testing.T) {
     </xs:complexContent>
   </xs:complexType>
   <xs:element name="root" type="derived"/>
-</xs:schema>`)
-	mustValidate(t, engine, `<root><a/><a/></root>`)
-	mustNotValidate(t, engine, `<root><a/></root>`, xsderrors.CodeValidationContent)
-	mustNotValidate(t, engine, `<root><b/><b/></root>`, xsderrors.CodeValidationElement)
+</xs:schema>`))})
+	expectCode(t, err, xsderrors.CodeSchemaContentModel)
 }
 
-func TestRestrictionOptionalBoundedElementCanRestrictRepeatedChoice(t *testing.T) {
-	engine := mustCompile(t, `
+func TestRestrictionRejectsOptionalBoundedElementAgainstUnitChoiceBranch(t *testing.T) {
+	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base">
     <xs:sequence>
@@ -773,16 +771,12 @@ func TestRestrictionOptionalBoundedElementCanRestrictRepeatedChoice(t *testing.T
     </xs:complexContent>
   </xs:complexType>
   <xs:element name="root" type="derived"/>
-</xs:schema>`)
-	mustValidate(t, engine, `<root/>`)
-	mustValidate(t, engine, `<root><a/></root>`)
-	mustValidate(t, engine, `<root><a/><a/></root>`)
-	mustNotValidate(t, engine, `<root><a/><a/><a/></root>`, xsderrors.CodeValidationElement)
-	mustNotValidate(t, engine, `<root><b/></root>`, xsderrors.CodeValidationElement)
+</xs:schema>`))})
+	expectCode(t, err, xsderrors.CodeSchemaContentModel)
 }
 
 func TestRestrictionChoiceBranchOccurrenceIsPreserved(t *testing.T) {
-	mustCompile(t, `
+	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base">
     <xs:sequence>
@@ -803,7 +797,11 @@ func TestRestrictionChoiceBranchOccurrenceIsPreserved(t *testing.T) {
       </xs:restriction>
     </xs:complexContent>
   </xs:complexType>
+  <xs:element name="root" type="derived"/>
 </xs:schema>`)
+	mustValidate(t, engine, `<root><c1/><c1/></root>`)
+	mustNotValidate(t, engine, `<root><c1/></root>`, xsderrors.CodeValidationContent)
+	mustNotValidate(t, engine, `<root><c1/><c1/><c1/></root>`, xsderrors.CodeValidationElement)
 }
 
 func TestRestrictionOptionalElementCannotRestrictOptionalChoice(t *testing.T) {
@@ -829,8 +827,8 @@ func TestRestrictionOptionalElementCannotRestrictOptionalChoice(t *testing.T) {
 	expectCode(t, err, xsderrors.CodeSchemaContentModel)
 }
 
-func TestRestrictionRepeatedOptionalElementCanRestrictRepeatedOptionalChoice(t *testing.T) {
-	engine := mustCompile(t, `
+func TestRestrictionRejectsRepeatedOptionalElementAgainstUnitChoiceBranch(t *testing.T) {
+	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test" xmlns:t="urn:test" elementFormDefault="qualified">
   <xs:complexType name="base">
     <xs:sequence>
@@ -852,14 +850,12 @@ func TestRestrictionRepeatedOptionalElementCanRestrictRepeatedOptionalChoice(t *
     </xs:complexContent>
   </xs:complexType>
   <xs:element name="root" type="t:derived"/>
-</xs:schema>`)
-	mustValidate(t, engine, `<root xmlns="urn:test"><annotation/><element/></root>`)
-	mustNotValidate(t, engine, `<root xmlns="urn:test"><annotation/><element/><element/></root>`, xsderrors.CodeValidationElement)
-	mustNotValidate(t, engine, `<root xmlns="urn:test"><annotation/><any/></root>`, xsderrors.CodeValidationElement)
+</xs:schema>`))})
+	expectCode(t, err, xsderrors.CodeSchemaContentModel)
 }
 
-func TestRestrictionSingleRepeatedElementRetainsRepeatedChoiceLimit(t *testing.T) {
-	engine := mustCompile(t, `
+func TestRestrictionRejectsUnboundedElementAgainstUnitChoiceBranch(t *testing.T) {
+	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base">
     <xs:sequence>
@@ -877,13 +873,12 @@ func TestRestrictionSingleRepeatedElementRetainsRepeatedChoiceLimit(t *testing.T
     </xs:complexContent>
   </xs:complexType>
   <xs:element name="root" type="derived"/>
-</xs:schema>`)
-	mustValidate(t, engine, `<root><a/></root>`)
-	mustNotValidate(t, engine, `<root><a/><a/></root>`, xsderrors.CodeValidationElement)
+</xs:schema>`))})
+	expectCode(t, err, xsderrors.CodeSchemaContentModel)
 }
 
-func TestRestrictionRepeatedChoiceLimitDoesNotApplyToNestedGroup(t *testing.T) {
-	engine := mustCompile(t, `
+func TestRestrictionRejectsRepeatedElementWithNestedGroup(t *testing.T) {
+	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base">
     <xs:sequence>
@@ -909,13 +904,12 @@ func TestRestrictionRepeatedChoiceLimitDoesNotApplyToNestedGroup(t *testing.T) {
     </xs:complexContent>
   </xs:complexType>
   <xs:element name="root" type="derived"/>
-</xs:schema>`)
-	mustValidate(t, engine, `<root><a/><c/><c/></root>`)
-	mustNotValidate(t, engine, `<root><a/><a/></root>`, xsderrors.CodeValidationElement)
+</xs:schema>`))})
+	expectCode(t, err, xsderrors.CodeSchemaContentModel)
 }
 
-func TestRestrictionParticleLimitDoesNotLeakToSharedGroup(t *testing.T) {
-	engine := mustCompile(t, `
+func TestRestrictionRejectsRepeatedElementInSharedGroup(t *testing.T) {
+	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:group name="G">
     <xs:sequence>
@@ -943,10 +937,23 @@ func TestRestrictionParticleLimitDoesNotLeakToSharedGroup(t *testing.T) {
     <xs:complexType><xs:group ref="G"/></xs:complexType>
   </xs:element>
   <xs:element name="root" type="derived"/>
+</xs:schema>`))})
+	expectCode(t, err, xsderrors.CodeSchemaContentModel)
+}
+
+func TestRestrictionRetainedSharedGroupKeepsIndependentOccurrences(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:group name="G"><xs:sequence><xs:element name="a"/><xs:element name="b"/></xs:sequence></xs:group>
+  <xs:complexType name="base"><xs:choice minOccurs="0" maxOccurs="4"><xs:element name="a"/><xs:element name="b"/></xs:choice></xs:complexType>
+  <xs:complexType name="derived"><xs:complexContent><xs:restriction base="base"><xs:group ref="G" maxOccurs="2"/></xs:restriction></xs:complexContent></xs:complexType>
+  <xs:element name="root" type="derived"/>
+  <xs:element name="direct"><xs:complexType><xs:group ref="G" maxOccurs="unbounded"/></xs:complexType></xs:element>
 </xs:schema>`)
-	mustValidate(t, engine, `<direct><element/><element/></direct>`)
-	mustValidate(t, engine, `<root><element/></root>`)
-	mustNotValidate(t, engine, `<root><element/><element/></root>`, xsderrors.CodeValidationElement)
+	mustValidate(t, engine, `<root><a/><b/></root>`)
+	mustValidate(t, engine, `<root><a/><b/><a/><b/></root>`)
+	mustNotValidate(t, engine, `<root><a/><b/><a/><b/><a/><b/></root>`, xsderrors.CodeValidationElement)
+	mustValidate(t, engine, `<direct><a/><b/><a/><b/><a/><b/></direct>`)
 }
 
 func TestRestrictionSequenceToChoiceRequiresValidBranchMap(t *testing.T) {
@@ -1128,7 +1135,10 @@ func TestSingleParticleNestedSequenceOccurrenceIsFlattened(t *testing.T) {
     </xs:complexType>
   </xs:element>
 </xs:schema>`)
+	mustValidate(t, engine, `<doc xmlns="urn:test"><foo/></doc>`)
 	mustValidate(t, engine, `<doc xmlns="urn:test"><foo/><foo/><foo/></doc>`)
+	mustNotValidate(t, engine, `<doc xmlns="urn:test"/>`, xsderrors.CodeValidationContent)
+	mustNotValidate(t, engine, `<doc xmlns="urn:test"><foo/><foo/><foo/><foo/></doc>`, xsderrors.CodeValidationElement)
 }
 
 func TestSingleBranchNestedChoiceOccurrenceIsFlattened(t *testing.T) {

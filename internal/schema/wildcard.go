@@ -269,9 +269,10 @@ func WildcardAllowsNamespace(w Wildcard, ns NamespaceID) bool {
 // WildcardSubset reports whether derived admits only namespaces admitted by
 // base and is no less strict in processContents.
 func WildcardSubset(derived, base Wildcard) bool {
-	if derived.Process > base.Process {
-		return false
-	}
+	return derived.Process <= base.Process && wildcardNamespaceSubset(derived, base)
+}
+
+func wildcardNamespaceSubset(derived, base Wildcard) bool {
 	switch derived.Mode {
 	case WildcardAny:
 		return base.Mode == WildcardAny

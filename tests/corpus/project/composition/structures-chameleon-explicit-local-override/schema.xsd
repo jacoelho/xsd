@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:coverage:adopt" xmlns:a="urn:coverage:adopt" elementFormDefault="unqualified">
+<xs:include schemaLocation="fragment.xsd"/><xs:element name="root" type="a:T"/>
+</xs:schema>

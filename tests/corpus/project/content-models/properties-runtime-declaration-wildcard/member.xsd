@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:particle:member" xmlns:t="urn:particle:member" xmlns:h="urn:particle:head">
+<xs:import namespace="urn:particle:head" schemaLocation="head.xsd"/>
+<xs:element name="member" type="xs:integer" substitutionGroup="h:head"/>
+</xs:schema>

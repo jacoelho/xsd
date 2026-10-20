@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" finalDefault="#all">
+  <xs:simpleType name="A" final="restriction"><xs:restriction base="xs:integer"/></xs:simpleType>
+  <xs:simpleType name="M" final=" &#x9;&#xA;&#xD; "><xs:list itemType="A"/></xs:simpleType>
+  <xs:simpleType name="R" final=""><xs:restriction base="M"><xs:length value="2"/></xs:restriction></xs:simpleType>
+  <xs:element name="r" type="R" final="" block=""/>
+</xs:schema>

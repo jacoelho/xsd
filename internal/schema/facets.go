@@ -72,9 +72,6 @@ func ElementValueConstraintRuntimeError(err error) error {
 	if err == nil {
 		return nil
 	}
-	if errors.Is(err, ErrBareNotationValueConstraint) {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, err.Error())
-	}
 	return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error())
 }
 

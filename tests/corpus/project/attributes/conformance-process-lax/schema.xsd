@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" ><xs:import namespace="urn:conformance:attributes" schemaLocation="attributes.xsd"/><xs:element name="root"><xs:complexType><xs:anyAttribute namespace="urn:conformance:attributes" processContents="lax"/></xs:complexType></xs:element></xs:schema>

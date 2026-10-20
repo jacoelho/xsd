@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" ><xs:attribute name="value" type="xs:int"/><xs:attributeGroup name="G"><xs:anyAttribute namespace="##other" processContents="skip"/></xs:attributeGroup></xs:schema>

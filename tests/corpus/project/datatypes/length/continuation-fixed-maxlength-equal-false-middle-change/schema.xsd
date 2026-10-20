@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:simpleType name="Base"><xs:restriction base="xs:string"><xs:maxLength value="3" fixed="true"/></xs:restriction></xs:simpleType><xs:simpleType name="Middle"><xs:restriction base="Base"><xs:maxLength value="03" fixed="false"/></xs:restriction></xs:simpleType><xs:simpleType name="Derived"><xs:restriction base="Middle"><xs:maxLength value="2"/></xs:restriction></xs:simpleType><xs:element name="r" type="Derived"/>
+</xs:schema>

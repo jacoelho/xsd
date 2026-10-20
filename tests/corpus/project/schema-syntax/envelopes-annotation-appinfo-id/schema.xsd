@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:f="urn:foreign" xmlns:m="urn:payload" xmlns:a="urn:attrs:a" xmlns:b="urn:attrs:b" id="schema-id">
+<xs:annotation><xs:appinfo id="ordinary"/></xs:annotation><xs:element name="r" type="xs:int"/>
+</xs:schema>

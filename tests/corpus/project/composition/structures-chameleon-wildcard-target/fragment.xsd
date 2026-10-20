@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" >
+<xs:complexType name="T"><xs:sequence><xs:any namespace="##targetNamespace" processContents="skip"/></xs:sequence></xs:complexType>
+</xs:schema>

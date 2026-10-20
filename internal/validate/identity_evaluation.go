@@ -216,10 +216,9 @@ func (e *identityEvaluation) closeScopes(depth int, report func(error) error) (b
 			return true, err
 		}
 		invalid = invalid || scope.invalid
+		scope.completeTables()
 		e.unregisterIdentityScope(index, scope.constraints)
-		e.mergeClosedIdentityScope(scope)
-		*scope = identityScope{}
-		e.scopes = e.scopes[:index]
+		e.propagateClosedIdentityScope()
 	}
 	return invalid, nil
 }

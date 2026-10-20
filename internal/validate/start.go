@@ -37,9 +37,6 @@ func ResolveLexicalQName(lexical string, lookup NamespaceLookup) (xsdValue.Expan
 	return xsdValue.ExpandedName{Namespace: uri, Local: parts.Local}, true
 }
 
-// HasSchemaLocation reports whether an xsi:schemaLocation hint was seen for a namespace.
-type HasSchemaLocation func(string) bool
-
 type pathSource interface {
 	PathString() string
 	PathStringAtDepth(depth int) string
@@ -158,43 +155,22 @@ func resolveXSIType(
 	rt *xsdSchema.Schema,
 	value string,
 	resolve xsdValue.QNameResolver,
-	hasSchemaLocation HasSchemaLocation,
 	ctx StartContext,
 ) (xsdSchema.TypeID, error) {
 	name, ok := resolve(value)
 	if !ok {
 		return xsdSchema.TypeID{}, validation(ctx, xsderrors.CodeValidationType, "unknown xsi:type "+value)
 	}
-	ns, local := name.Namespace, name.Local
-	q, knownName := rt.LookupQName(ns, local)
-	if knownName {
+	if q, knownName := rt.LookupQName(name.Namespace, name.Local); knownName {
 		if typ, ok := rt.Type(q); ok {
 			return typ, nil
 		}
-		ns = rt.Namespace(q.Namespace)
-	}
-	if hasSchemaLocation != nil && hasSchemaLocation(ns) {
-		return xsdSchema.TypeID{}, unsupportedSchemaLocation(ctx, vocab.XSIAttrType, xsdSchema.RuntimeName{
-			Name:  q,
-			Known: knownName,
-			NS:    ns,
-			Local: local,
-		})
 	}
 	return xsdSchema.TypeID{}, validation(ctx, xsderrors.CodeValidationType, "unknown xsi:type "+value)
 }
 
 func validation(ctx StartContext, code xsderrors.Code, msg string) error {
 	return xsderrors.WithLocation(ctx.PathString(), ctx.Line, ctx.Column, xsderrors.Validation(code, msg, nil))
-}
-
-func unsupportedSchemaLocation(ctx StartContext, component string, rn xsdSchema.RuntimeName) error {
-	return xsderrors.WithLocation(ctx.PathString(), ctx.Line, ctx.Column,
-		xsderrors.Unsupported(
-			xsderrors.CodeUnsupportedSchemaHint,
-			"xsi:schemaLocation loading is not supported for "+component+" "+rn.Label(),
-			nil,
-		))
 }
 
 // IsXSITypeName reports whether name is the xsi:type attribute.

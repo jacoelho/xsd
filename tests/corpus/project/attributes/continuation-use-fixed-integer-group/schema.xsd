@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:attribute name="a" type="xs:integer"/><xs:attributeGroup name="G"><xs:attribute ref="a" fixed="1"/></xs:attributeGroup><xs:element name="root"><xs:complexType><xs:attributeGroup ref="G"/></xs:complexType></xs:element></xs:schema>

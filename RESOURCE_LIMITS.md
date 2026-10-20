@@ -64,7 +64,7 @@ func validateWithLimits(engine *xsd.Engine, doc io.Reader) error {
 | `MaxIdentityScopes` | `10_000` | Max active identity-constraint scopes. |
 | `MaxIdentityEntries` | `100_000` | Independent max for stored ID, IDREF, key, unique, and keyref entries, pending identity-selector matches, and pending identity-field values. |
 | `MaxIdentityTupleBytes` | `4 KiB` | Max byte length of one stored identity key. |
-| `MaxSchemaLocationNamespaces` | `256` | Max distinct schema-location namespace names retained per document. |
+| `MaxSchemaLocationNamespaces` | `256` | Max distinct schema-location namespace names admitted per document. Retained names enforce accounting limits, not component lookup. |
 | `MaxSchemaLocationNamespaceBytes` | `64 KiB` | Max aggregate bytes in distinct retained schema-location namespace names. `MaxInstanceTokenBytes` also bounds each complete hint attribute. |
 | `MaxInstanceDepth` | `256` | Max nested XML elements. |
 | `MaxInstanceAttributes` | `4,096` | Max attributes on one XML element. |

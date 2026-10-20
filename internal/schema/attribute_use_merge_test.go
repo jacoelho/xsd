@@ -8,6 +8,19 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+func TestAttributeUseIdentityExhaustion(t *testing.T) {
+	var c compiler
+	c.attributeUseCount = ^uint32(0) - 1
+	if id, err := c.allocateAttributeUseID(); err != nil || id != ^uint32(0) {
+		t.Fatalf("last identity = %d, error = %v", id, err)
+	}
+	id, err := c.allocateAttributeUseID()
+	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
+	if id != 0 || c.attributeUseCount != ^uint32(0) {
+		t.Fatalf("exhaustion reused an identity: returned %d, retained %d", id, c.attributeUseCount)
+	}
+}
+
 func TestAttributeUseCompilationNormalMode(t *testing.T) {
 	t.Parallel()
 

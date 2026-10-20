@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" >
+<xs:element name="root"><xs:complexType><xs:sequence><xs:element name="row"><xs:complexType><xs:attribute name="a" type="xs:string"/><xs:attribute name="b" type="xs:string"/></xs:complexType></xs:element></xs:sequence></xs:complexType><xs:unique name="U"><xs:selector xpath="row"/><xs:field xpath="@a|@b"/></xs:unique></xs:element>
+</xs:schema>

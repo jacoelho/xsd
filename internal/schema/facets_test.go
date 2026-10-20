@@ -199,19 +199,8 @@ func TestElementValueConstraintRuntimeError(t *testing.T) {
 		t.Fatalf("ElementValueConstraintRuntimeError(nil) error = %v", err)
 	}
 
-	err := ElementValueConstraintRuntimeError(ErrBareNotationValueConstraint)
+	err := ElementValueConstraintRuntimeError(fmt.Errorf("runtime reject"))
 	var xerr *xsderrors.Error
-	if !errors.As(err, &xerr) {
-		t.Fatalf("ElementValueConstraintRuntimeError(bare notation) error = %T %v, want *xsderrors.Error", err, err)
-	}
-	if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != xsderrors.CodeSchemaFacet {
-		t.Fatalf("bare notation diagnostic = %s/%s, want schema compile facet", xerr.Category(), xerr.Code())
-	}
-	if xerr.Message() != ErrBareNotationValueConstraint.Error() {
-		t.Fatalf("bare notation message = %q, want runtime message", xerr.Message())
-	}
-
-	err = ElementValueConstraintRuntimeError(fmt.Errorf("runtime reject"))
 	if !errors.As(err, &xerr) {
 		t.Fatalf("ElementValueConstraintRuntimeError(reject) error = %T %v, want *xsderrors.Error", err, err)
 	}

@@ -136,7 +136,11 @@ type identityScope struct {
 	constraints xsdSchema.IdentityConstraintIDs
 	refs        []identityTupleRef
 	depth       int
-	invalid     bool
+	// Implicit table frames inherit this prefix count without consuming a
+	// declared-scope allowance. Truncation restores it on pop or start abort.
+	declaredScopes   int
+	mayHaveConflicts bool
+	invalid          bool
 }
 
 // identityTableEntry records where a key tuple was first seen. originDepth is
@@ -288,12 +292,14 @@ func (s *identityState) startScope(constraints xsdSchema.IdentityConstraintIDs, 
 	if constraints.Len() == 0 {
 		return nil
 	}
-	if maxScopes > 0 && len(s.scopes) >= maxScopes {
+	declared := s.declaredScopeCount()
+	if maxScopes > 0 && declared >= maxScopes {
 		return validation(ctx, xsderrors.CodeValidationLimit, "identity scope limit exceeded")
 	}
 	s.scopes = append(s.scopes, identityScope{
-		depth:       depth,
-		constraints: constraints,
+		depth:          depth,
+		constraints:    constraints,
+		declaredScopes: declared + 1,
 	})
 	return nil
 }
@@ -676,10 +682,43 @@ func validateIdentityScopeRefs(scope *identityScope, report func(error) error) e
 	return nil
 }
 
-func (s *identityState) mergeClosedIdentityScope(scope *identityScope) {
-	if len(s.scopes) > 1 {
-		mergeIdentityTables(&s.scopes[len(s.scopes)-2], scope)
+func (s *identityState) declaredScopeCount() int {
+	if len(s.scopes) == 0 {
+		return 0
 	}
+	return s.scopes[len(s.scopes)-1].declaredScopes
+}
+
+func (scope *identityScope) completeTables() {
+	if !scope.mayHaveConflicts {
+		return
+	}
+	for _, table := range scope.tables {
+		for key, entry := range table {
+			if entry.conflict {
+				delete(table, key)
+			}
+		}
+	}
+	scope.mayHaveConflicts = false
+}
+
+// propagateClosedIdentityScope consumes an unregistered, completed frame.
+// Its immediate XML parent may be eligible only through these child bindings.
+func (s *identityState) propagateClosedIdentityScope() {
+	index := len(s.scopes) - 1
+	closed := s.scopes[index]
+	s.scopes[index] = identityScope{}
+	s.scopes = s.scopes[:index]
+	parentDepth := closed.depth - 1
+	if parentDepth == 0 || len(closed.tables) == 0 {
+		return
+	}
+	if len(s.scopes) == 0 || s.scopes[len(s.scopes)-1].depth < parentDepth {
+		parent := identityScope{depth: parentDepth, declaredScopes: s.declaredScopeCount()}
+		s.scopes = append(s.scopes, parent)
+	}
+	mergeIdentityTables(&s.scopes[len(s.scopes)-1], &closed)
 }
 
 func mergeIdentityTables(dst, src *identityScope) {
@@ -687,39 +726,51 @@ func mergeIdentityTables(dst, src *identityScope) {
 		return
 	}
 	if dst.tables == nil {
-		dst.tables = make(map[xsdSchema.IdentityConstraintID]map[string]identityTableEntry)
+		dst.tables = src.tables
+		return
 	}
-	for id, srcTable := range src.tables {
-		dstTable := dst.tables[id]
-		if dstTable == nil {
-			dst.tables[id] = srcTable
+	larger, smaller := dst.tables, src.tables
+	parentIsLarger := len(larger) >= len(smaller)
+	if !parentIsLarger {
+		larger, smaller = smaller, larger
+	}
+	for id, child := range smaller {
+		parent := larger[id]
+		if parent == nil {
+			larger[id] = child
 			continue
 		}
-		dst.tables[id] = mergeIdentityTable(dstTable, srcTable, dst.depth)
+		if !parentIsLarger {
+			parent, child = child, parent
+		}
+		merged, conflict := mergeIdentityTable(parent, child, dst.depth)
+		larger[id] = merged
+		dst.mayHaveConflicts = dst.mayHaveConflicts || conflict
 	}
+	dst.tables = larger
 }
 
-func mergeIdentityTable(parent, child map[string]identityTableEntry, parentDepth int) map[string]identityTableEntry {
-	if len(parent) >= len(child) {
-		for key, childEntry := range child {
-			parentEntry, exists := parent[key]
-			if !exists {
-				parent[key] = childEntry
-				continue
-			}
-			parent[key] = mergeIdentityTableEntry(parentEntry, childEntry, parentDepth)
-		}
-		return parent
+func mergeIdentityTable(parent, child map[string]identityTableEntry, parentDepth int) (map[string]identityTableEntry, bool) {
+	larger, smaller := parent, child
+	parentIsLarger := len(parent) >= len(child)
+	if !parentIsLarger {
+		larger, smaller = child, parent
 	}
-	for key, parentEntry := range parent {
-		childEntry, exists := child[key]
+	conflict := false
+	for key, childEntry := range smaller {
+		parentEntry, exists := larger[key]
 		if !exists {
-			child[key] = parentEntry
+			larger[key] = childEntry
 			continue
 		}
-		child[key] = mergeIdentityTableEntry(parentEntry, childEntry, parentDepth)
+		if !parentIsLarger {
+			parentEntry, childEntry = childEntry, parentEntry
+		}
+		merged := mergeIdentityTableEntry(parentEntry, childEntry, parentDepth)
+		larger[key] = merged
+		conflict = conflict || merged.conflict
 	}
-	return child
+	return larger, conflict
 }
 
 func mergeIdentityTableEntry(parent, child identityTableEntry, parentDepth int) identityTableEntry {

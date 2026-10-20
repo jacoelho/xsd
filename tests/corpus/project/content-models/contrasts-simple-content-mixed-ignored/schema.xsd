@@ -1,0 +1,7 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:element name="vabsent"><xs:complexType><xs:simpleContent><xs:extension base="xs:int"/></xs:simpleContent></xs:complexType></xs:element>
+<xs:element name="vfalse"><xs:complexType mixed="false"><xs:simpleContent><xs:extension base="xs:int"/></xs:simpleContent></xs:complexType></xs:element>
+<xs:element name="vtrue"><xs:complexType mixed="true"><xs:simpleContent><xs:extension base="xs:int"/></xs:simpleContent></xs:complexType></xs:element>
+<xs:element name="v0"><xs:complexType mixed="0"><xs:simpleContent><xs:extension base="xs:int"/></xs:simpleContent></xs:complexType></xs:element>
+<xs:element name="v1"><xs:complexType mixed="1"><xs:simpleContent><xs:extension base="xs:int"/></xs:simpleContent></xs:complexType></xs:element>
+</xs:schema>

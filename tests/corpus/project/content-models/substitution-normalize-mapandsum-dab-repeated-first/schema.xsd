@@ -1,0 +1,12 @@
+<?xml version="1.0" ?><xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:corpus:oracle-ordering" targetNamespace="urn:corpus:oracle-ordering" elementFormDefault="qualified" attributeFormDefault="unqualified">
+  <xs:element name="h" type="xs:string" block="" final="" abstract="true"/>
+  <xs:element name="a" type="xs:string" block="" final="" substitutionGroup="t:h"/>
+  <xs:element name="b" type="xs:string" block="" final="" substitutionGroup="t:h"/>
+
+  <xs:complexType name="B" final="" block=""><xs:sequence><xs:element ref="t:h" minOccurs="2" maxOccurs="2"/></xs:sequence></xs:complexType>
+
+  <xs:complexType name="Dab" final="" block=""><xs:complexContent><xs:restriction base="t:B"><xs:sequence><xs:element ref="t:a" minOccurs="2" maxOccurs="2"/></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>
+
+
+
+</xs:schema>

@@ -1,0 +1,7 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:f="urn:foreign" xmlns:m="urn:payload" xmlns:a="urn:attrs:a" xmlns:b="urn:attrs:b" id="schema-id">
+<xs:element name="r" type="xs:int" id="owner-id" f:note="owner"><xs:annotation id="shared" f:note="annotation">
+<xs:documentation source="../notes" f:note="documentation">before<m:data id="shared" a:x="1" b:x="2"/>after</xs:documentation>
+<xs:appinfo source="" f:note="appinfo"><xs:element name="ghost" type="xs:int"/><m:data id="shared"/></xs:appinfo>
+<xs:documentation><![CDATA[tail]]><!--comment--><?p data?></xs:documentation>
+</xs:annotation></xs:element>
+</xs:schema>

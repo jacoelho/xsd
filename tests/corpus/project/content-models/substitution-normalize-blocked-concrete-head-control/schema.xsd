@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="h" type="xs:string" block="substitution"/>
+  <xs:element name="m" type="xs:string" substitutionGroup="h"/>
+  <xs:complexType name="B">
+    <xs:sequence><xs:element ref="h"/></xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="D">
+    <xs:complexContent>
+      <xs:restriction base="B">
+        <xs:sequence><xs:element ref="h"/></xs:sequence>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="root" type="D"/>
+</xs:schema>

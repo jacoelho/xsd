@@ -13,17 +13,18 @@ import (
 func TestSessionStartRollsBackRootOnFatalAssessment(t *testing.T) {
 	t.Parallel()
 
-	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
+	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType><xs:attribute name="a" type="xs:base64Binary"/></xs:complexType></xs:element></xs:schema>`)
 	var s session
-	if err := initializeSessionForTest(&s, rt, Options{}); err != nil {
+	if err := initializeSessionForTest(&s, rt, Options{MaxInstanceValueWork: 1}); err != nil {
 		t.Fatal(err)
 	}
 	err := startForTest(t, &s, 1, 1, testXMLStart(
-		xml.Name{Local: "missing"},
+		xml.Name{Local: "root"},
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "xsi"}, vocab.XSINamespaceURI),
 		testXMLAttr(xml.Name{Space: "xsi", Local: vocab.XSIAttrNoNamespaceSchemaLocation}, "missing.xsd"),
+		testXMLAttr(xml.Name{Local: "a"}, "AQID"),
 	))
-	expectXSDCode(t, err, xsderrors.CodeUnsupportedSchemaHint)
+	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
 	if s.doc.Depth() != 0 || s.doc.schemaLocationHints.Has("") {
 		t.Fatalf("failed root start changed document state: depth=%d hints=%+v", s.doc.Depth(), s.doc.schemaLocationHints)
 	}
@@ -39,10 +40,10 @@ func TestSessionStartRollsBackParentContentOnFatalChildAssessment(t *testing.T) 
 	t.Parallel()
 
 	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-		<xs:element name="root"><xs:complexType><xs:sequence><xs:element name="child" type="xs:string"/></xs:sequence></xs:complexType></xs:element>
+		<xs:element name="root"><xs:complexType><xs:sequence><xs:element name="child"><xs:complexType><xs:attribute name="a" type="xs:base64Binary"/></xs:complexType></xs:element></xs:sequence></xs:complexType></xs:element>
 	</xs:schema>`)
 	var s session
-	if err := initializeSessionForTest(&s, rt, Options{}); err != nil {
+	if err := initializeSessionForTest(&s, rt, Options{MaxInstanceValueWork: 1}); err != nil {
 		t.Fatal(err)
 	}
 	if err := startForTest(t, &s, 1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
@@ -58,9 +59,9 @@ func TestSessionStartRollsBackParentContentOnFatalChildAssessment(t *testing.T) 
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "xsi"}, vocab.XSINamespaceURI),
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, "urn:missing"),
 		testXMLAttr(xml.Name{Space: "xsi", Local: vocab.XSIAttrSchemaLocation}, "urn:missing missing.xsd"),
-		testXMLAttr(xml.Name{Space: "xsi", Local: vocab.XSIAttrType}, "p:Missing"),
+		testXMLAttr(xml.Name{Local: "a"}, "AQID"),
 	))
-	expectXSDCode(t, err, xsderrors.CodeUnsupportedSchemaHint)
+	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
 	parent, ok = s.doc.Current()
 	if !ok || s.doc.Depth() != 1 || *parent != parentBefore {
 		t.Fatalf("failed child start changed parent: depth=%d frame=%+v want=%+v", s.doc.Depth(), parent, parentBefore)
@@ -77,10 +78,10 @@ func TestSessionStartRollsBackAllModelBitsOnFatalChildAssessment(t *testing.T) {
 	t.Parallel()
 
 	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-		<xs:element name="root"><xs:complexType><xs:all><xs:element name="child" type="xs:string"/></xs:all></xs:complexType></xs:element>
+		<xs:element name="root"><xs:complexType><xs:all><xs:element name="child"><xs:complexType><xs:attribute name="a" type="xs:base64Binary"/></xs:complexType></xs:element></xs:all></xs:complexType></xs:element>
 	</xs:schema>`)
 	var s session
-	if err := initializeSessionForTest(&s, rt, Options{}); err != nil {
+	if err := initializeSessionForTest(&s, rt, Options{MaxInstanceValueWork: 1}); err != nil {
 		t.Fatal(err)
 	}
 	if err := startForTest(t, &s, 1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
@@ -92,9 +93,9 @@ func TestSessionStartRollsBackAllModelBitsOnFatalChildAssessment(t *testing.T) {
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "xsi"}, vocab.XSINamespaceURI),
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, "urn:missing"),
 		testXMLAttr(xml.Name{Space: "xsi", Local: vocab.XSIAttrSchemaLocation}, "urn:missing missing.xsd"),
-		testXMLAttr(xml.Name{Space: "xsi", Local: vocab.XSIAttrType}, "p:Missing"),
+		testXMLAttr(xml.Name{Local: "a"}, "AQID"),
 	))
-	expectXSDCode(t, err, xsderrors.CodeUnsupportedSchemaHint)
+	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
 	if !slices.Equal(s.doc.allBits, allBitsBefore) {
 		t.Fatalf("failed child start changed xs:all bits: got %v want %v", s.doc.allBits, allBitsBefore)
 	}
@@ -107,16 +108,16 @@ func TestSessionStartRollsBackAllModelBitsOnFatalChildAssessment(t *testing.T) {
 	}
 }
 
-func TestSessionStartRollsBackStagedContentAfterFatalTypeAssessment(t *testing.T) {
+func TestSessionStartRollsBackStagedContentAfterFatalValueAssessment(t *testing.T) {
 	t.Parallel()
 
 	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root"><xs:complexType><xs:sequence>
-    <xs:element name="child" type="xs:string"/>
+    <xs:element name="child"><xs:complexType><xs:attribute name="a" type="xs:base64Binary"/></xs:complexType></xs:element>
   </xs:sequence></xs:complexType></xs:element>
 </xs:schema>`)
 	var s session
-	if err := initializeSessionForTest(&s, rt, Options{}); err != nil {
+	if err := initializeSessionForTest(&s, rt, Options{MaxInstanceValueWork: 1}); err != nil {
 		t.Fatal(err)
 	}
 	if err := startForTest(t, &s, 1, 1, testXMLStart(
@@ -137,9 +138,9 @@ func TestSessionStartRollsBackStagedContentAfterFatalTypeAssessment(t *testing.T
 	err := startForTest(t, &s, 2, 1, testXMLStart(
 		xml.Name{Local: "child"},
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, "urn:missing"),
-		testXMLAttr(xml.Name{Space: "xsi", Local: vocab.XSIAttrType}, "p:Missing"),
+		testXMLAttr(xml.Name{Local: "a"}, "AQID"),
 	))
-	expectXSDCode(t, err, xsderrors.CodeUnsupportedSchemaHint)
+	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
 	parent, ok = s.doc.Current()
 	if !ok || s.doc.Depth() != 1 || *parent != parentBefore {
 		t.Fatalf("failed staged child changed parent: depth=%d frame=%+v want=%+v", s.doc.Depth(), parent, parentBefore)

@@ -6,6 +6,7 @@ import (
 )
 
 // Engine validates against one immutable compiled schema and is safe for concurrent use.
+// Instance location hints cannot add components to that schema.
 type Engine struct {
 	pool *validate.SessionPool
 }

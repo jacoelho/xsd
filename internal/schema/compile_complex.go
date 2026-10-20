@@ -294,7 +294,6 @@ func (c *compiler) canonicalComplexContentModel(id ContentModelID, kind ContentK
 	if kind == ContentEmpty {
 		if model.Kind == ModelEmpty &&
 			len(model.Particles) == 0 &&
-			len(model.ChoiceLimits) == 0 &&
 			model.Occurs == (Occurrence{}) &&
 			!model.Mixed {
 			return id, nil
@@ -586,6 +585,9 @@ func (c *compiler) compileComplexContentRestriction(child *schemaNode, ctx *sche
 		return ComplexType{}, err
 	}
 	ct.Attrs = attrs
+	if err := validateComplexRestrictionAttributeWildcard(&c.rt, ct); err != nil {
+		return ComplexType{}, withSchemaCompileLocation(child, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error()))
+	}
 	return ct, nil
 }
 
@@ -618,7 +620,13 @@ func (c *compiler) compileSimpleContent(n *schemaNode, ctx *schemaSetDocument, c
 	if err != nil {
 		return ComplexType{}, err
 	}
-	textType = derivation.textType
+	return c.finishSimpleContent(source, ctx, ct, derivation)
+}
+
+func (c *compiler) finishSimpleContent(source simpleContentSource, ctx *schemaSetDocument, ct ComplexType, derivation simpleContentDerivation) (ComplexType, error) {
+	if err := c.admitNotationTypeUse(source.child, derivation.textType); err != nil {
+		return ComplexType{}, err
+	}
 	inheritedUses, inheritedWildcard := c.rt.attributeUsesAndWildcardForCompilation(ct.Attrs)
 	attrs, err := c.compileAttributeUses(source.child, ctx, inheritedUses, inheritedWildcard, derivation.mergeMode)
 	if err != nil {
@@ -629,7 +637,7 @@ func (c *compiler) compileSimpleContent(n *schemaNode, ctx *schemaSetDocument, c
 	if err != nil {
 		return ComplexType{}, err
 	}
-	ct.TextType = textType
+	ct.TextType = derivation.textType
 	// xs:simpleContent has no mixed attribute; ct.Mixed() carries mixed="true"
 	// from the enclosing complexType element, which downstream complexContent
 	// mixed-derivation checks read.
@@ -640,6 +648,9 @@ func (c *compiler) compileSimpleContent(n *schemaNode, ctx *schemaSetDocument, c
 	}
 	ct.Derivation = derivation.kind
 	ct.ExplicitDerivation = true
+	if err := validateComplexRestrictionAttributeWildcard(&c.rt, ct); err != nil {
+		return ComplexType{}, withSchemaCompileLocation(source.child, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error()))
+	}
 	return ct, nil
 }
 

@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" >
+<xs:group name="A"><xs:sequence><xs:group ref="B"/></xs:sequence></xs:group><xs:group name="B"><xs:sequence><xs:group ref="C"/></xs:sequence></xs:group><xs:group name="C"><xs:sequence><xs:group ref="A"/></xs:sequence></xs:group>
+</xs:schema>

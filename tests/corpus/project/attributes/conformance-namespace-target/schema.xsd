@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:s"><xs:import schemaLocation="local.xsd"/><xs:import namespace="urn:a" schemaLocation="foreign.xsd"/><xs:attribute name="number" type="xs:int"/><xs:element name="root"><xs:complexType><xs:anyAttribute namespace="##targetNamespace"/></xs:complexType></xs:element></xs:schema>

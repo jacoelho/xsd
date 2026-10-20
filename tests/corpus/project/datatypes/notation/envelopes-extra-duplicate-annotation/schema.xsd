@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:f="urn:notation:metadata">
+<xs:notation name="n" public="notation/n" system="viewer.exe" f:note="metadata"><xs:annotation/><xs:annotation/></xs:notation>
+</xs:schema>

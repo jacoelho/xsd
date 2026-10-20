@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" >
+<xs:complexType name="IntegerOwner"><xs:sequence><xs:element name="x" type="xs:int"/></xs:sequence></xs:complexType><xs:complexType name="StringOwner"><xs:sequence><xs:element name="x" type="xs:string"/></xs:sequence></xs:complexType><xs:element name="integer" type="IntegerOwner"/><xs:element name="string" type="StringOwner"/>
+</xs:schema>

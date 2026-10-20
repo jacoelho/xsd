@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" ><xs:attribute name="value" type="xs:string" fixed="a b"/><xs:element name="root"><xs:complexType><xs:attribute ref="value"/></xs:complexType></xs:element></xs:schema>

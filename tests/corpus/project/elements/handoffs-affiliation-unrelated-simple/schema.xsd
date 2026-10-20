@@ -1,0 +1,10 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:simpleType name="S" final=""><xs:restriction base="xs:integer"><xs:minInclusive value="1"/></xs:restriction></xs:simpleType>
+<xs:complexType name="C" final="" block=""><xs:simpleContent><xs:extension base="S"/></xs:simpleContent></xs:complexType>
+<xs:complexType name="D" final="" block=""><xs:simpleContent><xs:extension base="C"/></xs:simpleContent></xs:complexType>
+<xs:simpleType name="T" final=""><xs:restriction base="xs:string"/></xs:simpleType>
+<xs:complexType name="X" final="" block=""><xs:simpleContent><xs:extension base="T"/></xs:simpleContent></xs:complexType>
+<xs:element name="head" type="T" final="" block=""/>
+<xs:element name="member" type="D" substitutionGroup="head" final="" block=""/>
+<xs:element name="root" final="" block=""><xs:complexType><xs:sequence><xs:element ref="head"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>

@@ -21,16 +21,14 @@ func TestRuntimePublicationCloneHelpersDoNotAliasMutableState(t *testing.T) {
 
 	occurs := Occurrence{Min: 1, Max: 1}
 	models := []ContentModel{{
-		Particles:    []Particle{ElementParticle(1, occurs)},
-		ChoiceLimits: []uint32{0},
-		Occurs:       occurs,
-		Kind:         ModelSequence,
+		Particles: []Particle{ElementParticle(1, occurs)},
+		Occurs:    occurs,
+		Kind:      ModelSequence,
 	}}
 	clonedModel := CloneContentModel(models[0])
 	models[0].Particles[0].Element = 9
-	models[0].ChoiceLimits[0] = 9
-	if clonedModel.Particles[0].Element != 1 || clonedModel.ChoiceLimits[0] != 0 {
-		t.Fatalf("CloneContentModel aliased nested slices: %#v", clonedModel)
+	if clonedModel.Particles[0].Element != 1 {
+		t.Fatalf("CloneContentModel aliased particle slice: %#v", clonedModel)
 	}
 
 	simpleDerivation := SimpleTypeDerivation{Union: []SimpleTypeID{1, 2}}

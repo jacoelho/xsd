@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" ><xs:attribute name="number" type="xs:int"/><xs:element name="root"><xs:complexType><xs:attribute name="number" type="xs:string"/><xs:anyAttribute namespace="##local"/></xs:complexType></xs:element></xs:schema>

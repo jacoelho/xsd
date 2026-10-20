@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:simpleType name="B" final="union"><xs:restriction base="xs:integer"/></xs:simpleType>
+<xs:simpleType name="M" final="union"><xs:restriction base="B"/></xs:simpleType>
+<xs:simpleType name="D" final=""><xs:union memberTypes="M xs:boolean"/></xs:simpleType>
+<xs:element name="r" type="D"/>
+</xs:schema>

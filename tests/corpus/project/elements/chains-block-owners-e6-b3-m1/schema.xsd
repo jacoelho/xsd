@@ -1,0 +1,34 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="BEE" block="extension restriction" final=""><xs:attribute name="value" type="xs:int" use="required"/></xs:complexType>
+  <xs:complexType name="MEE" block="extension" final=""><xs:complexContent><xs:extension base="BEE"></xs:extension></xs:complexContent></xs:complexType>
+  <xs:complexType name="DEE" block="#all" final=""><xs:complexContent><xs:extension base="MEE"></xs:extension></xs:complexContent></xs:complexType>
+  <xs:element name="hEE" type="BEE" block="restriction substitution" final=""/>
+  <xs:element name="mEE" type="MEE" block="" final="" substitutionGroup="hEE"/>
+  <xs:element name="dEE" type="DEE" block="" final="" substitutionGroup="mEE"/>
+  <xs:element name="headEE" block="" final=""><xs:complexType><xs:sequence><xs:element ref="hEE"/></xs:sequence></xs:complexType></xs:element>
+  <xs:element name="middleEE" block="" final=""><xs:complexType><xs:sequence><xs:element ref="mEE"/></xs:sequence></xs:complexType></xs:element>
+  <xs:complexType name="BER" block="extension restriction" final=""><xs:attribute name="value" type="xs:int" use="required"/></xs:complexType>
+  <xs:complexType name="MER" block="extension" final=""><xs:complexContent><xs:extension base="BER"></xs:extension></xs:complexContent></xs:complexType>
+  <xs:complexType name="DER" block="#all" final=""><xs:complexContent><xs:restriction base="MER"><xs:attribute name="value" type="xs:int" use="required"/></xs:restriction></xs:complexContent></xs:complexType>
+  <xs:element name="hER" type="BER" block="restriction substitution" final=""/>
+  <xs:element name="mER" type="MER" block="" final="" substitutionGroup="hER"/>
+  <xs:element name="dER" type="DER" block="" final="" substitutionGroup="mER"/>
+  <xs:element name="headER" block="" final=""><xs:complexType><xs:sequence><xs:element ref="hER"/></xs:sequence></xs:complexType></xs:element>
+  <xs:element name="middleER" block="" final=""><xs:complexType><xs:sequence><xs:element ref="mER"/></xs:sequence></xs:complexType></xs:element>
+  <xs:complexType name="BRE" block="extension restriction" final=""><xs:attribute name="value" type="xs:int" use="required"/></xs:complexType>
+  <xs:complexType name="MRE" block="extension" final=""><xs:complexContent><xs:restriction base="BRE"><xs:attribute name="value" type="xs:int" use="required"/></xs:restriction></xs:complexContent></xs:complexType>
+  <xs:complexType name="DRE" block="#all" final=""><xs:complexContent><xs:extension base="MRE"></xs:extension></xs:complexContent></xs:complexType>
+  <xs:element name="hRE" type="BRE" block="restriction substitution" final=""/>
+  <xs:element name="mRE" type="MRE" block="" final="" substitutionGroup="hRE"/>
+  <xs:element name="dRE" type="DRE" block="" final="" substitutionGroup="mRE"/>
+  <xs:element name="headRE" block="" final=""><xs:complexType><xs:sequence><xs:element ref="hRE"/></xs:sequence></xs:complexType></xs:element>
+  <xs:element name="middleRE" block="" final=""><xs:complexType><xs:sequence><xs:element ref="mRE"/></xs:sequence></xs:complexType></xs:element>
+  <xs:complexType name="BRR" block="extension restriction" final=""><xs:attribute name="value" type="xs:int" use="required"/></xs:complexType>
+  <xs:complexType name="MRR" block="extension" final=""><xs:complexContent><xs:restriction base="BRR"><xs:attribute name="value" type="xs:int" use="required"/></xs:restriction></xs:complexContent></xs:complexType>
+  <xs:complexType name="DRR" block="#all" final=""><xs:complexContent><xs:restriction base="MRR"><xs:attribute name="value" type="xs:int" use="required"/></xs:restriction></xs:complexContent></xs:complexType>
+  <xs:element name="hRR" type="BRR" block="restriction substitution" final=""/>
+  <xs:element name="mRR" type="MRR" block="" final="" substitutionGroup="hRR"/>
+  <xs:element name="dRR" type="DRR" block="" final="" substitutionGroup="mRR"/>
+  <xs:element name="headRR" block="" final=""><xs:complexType><xs:sequence><xs:element ref="hRR"/></xs:sequence></xs:complexType></xs:element>
+  <xs:element name="middleRR" block="" final=""><xs:complexType><xs:sequence><xs:element ref="mRR"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>

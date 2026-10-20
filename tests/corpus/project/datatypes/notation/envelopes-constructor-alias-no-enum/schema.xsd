@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:notation name="n" public="notation/n"/><xs:notation name="other" public="notation/other"/><xs:simpleType name="T"><xs:restriction base="xs:NOTATION"/></xs:simpleType><xs:element name="r" type="T"/>
+</xs:schema>

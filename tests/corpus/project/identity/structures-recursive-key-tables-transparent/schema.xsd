@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" >
+<xs:complexType name="Node"><xs:choice minOccurs="0" maxOccurs="unbounded"><xs:element name="row"><xs:complexType><xs:attribute name="v" type="xs:string" use="required"/></xs:complexType></xs:element><xs:element name="wrap"><xs:complexType><xs:sequence><xs:element ref="node"/></xs:sequence></xs:complexType></xs:element><xs:element name="ref"><xs:complexType><xs:attribute name="v" type="xs:string" use="required"/></xs:complexType></xs:element></xs:choice></xs:complexType><xs:element name="node" type="Node"><xs:key name="K"><xs:selector xpath="row"/><xs:field xpath="@v"/></xs:key><xs:keyref name="R" refer="K"><xs:selector xpath="ref"/><xs:field xpath="@v"/></xs:keyref></xs:element>
+</xs:schema>

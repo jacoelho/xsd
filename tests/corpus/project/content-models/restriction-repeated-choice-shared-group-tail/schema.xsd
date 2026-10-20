@@ -1,0 +1,30 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:group name="Restricted">
+    <xs:sequence>
+      <xs:element name="a" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:choice minOccurs="0">
+        <xs:element name="c" type="xs:string"/>
+        <xs:element name="d" type="xs:string"/>
+      </xs:choice>
+    </xs:sequence>
+  </xs:group>
+  <xs:complexType name="Base">
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="a" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element name="b" type="xs:string"/>
+      </xs:choice>
+      <xs:choice minOccurs="0">
+        <xs:element name="c" type="xs:string"/>
+        <xs:element name="d" type="xs:string"/>
+      </xs:choice>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Derived">
+    <xs:complexContent><xs:restriction base="Base"><xs:group ref="Restricted"/></xs:restriction></xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="Direct"><xs:group ref="Restricted"/></xs:complexType>
+  <xs:element name="root" type="Derived"/>
+  <xs:element name="direct" type="Direct"/>
+  <xs:element name="rootBase" type="Base"/>
+</xs:schema>
