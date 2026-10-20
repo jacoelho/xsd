@@ -26,8 +26,8 @@ func TestConstructorUsesAvailabilityAndLifetime(t *testing.T) {
 	}
 	assertUses(value.ConstructorUses{})
 	builder := value.NewBuilder(value.BuilderOptions{})
-	anySimple := normalizedBuiltin(t, "anySimpleType")
-	boolean := normalizedBuiltin(t, "boolean")
+	anySimple := value.AnySimpleTypeID
+	boolean := value.BuiltinType(value.PrimitiveBoolean)
 	reserved, err := builder.Reserve()
 	if err != nil {
 		t.Fatal(err)
@@ -61,7 +61,7 @@ func TestConstructorUsesAvailabilityAndLifetime(t *testing.T) {
 	}
 	assertUses(list, anySimple)
 	members := []value.TypeID{boolean, anySimple, boolean}
-	unionID := completeNormalizedType(t, builder, value.TypeSpec{
+	unionID := completeConstructorType(t, builder, value.TypeSpec{
 		Variety: value.Union, Primitive: value.PrimitiveString,
 		Whitespace: value.WhitespaceCollapse, WhitespacePresent: true,
 		Base: value.NoType, ListItem: value.NoType, Union: members,
@@ -73,7 +73,7 @@ func TestConstructorUsesAvailabilityAndLifetime(t *testing.T) {
 	members[0] = anySimple
 	assertUses(union, boolean, anySimple, boolean)
 	for range 256 {
-		completeNormalizedType(t, builder, atomicFacetType(value.PrimitiveString, value.FacetSpec{}))
+		completeConstructorType(t, builder, atomicFacetType(value.PrimitiveString, value.FacetSpec{}))
 	}
 	if _, err := builder.Seal(); err != nil {
 		t.Fatal(err)
@@ -123,4 +123,16 @@ func TestConstructorUsesExcludesProvisionalCompletion(t *testing.T) {
 	if view, ok := builder.ConstructorUses(id); !ok || view.Len() != 0 {
 		t.Fatalf("committed atomic constructor uses = %#v, %t; want empty, true", view, ok)
 	}
+}
+
+func completeConstructorType(t *testing.T, builder *value.Builder, spec value.TypeSpec) value.TypeID {
+	t.Helper()
+	id, err := builder.Reserve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := builder.Complete(id, spec); err != nil {
+		t.Fatal(err)
+	}
+	return id
 }

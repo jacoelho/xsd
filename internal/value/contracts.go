@@ -123,10 +123,6 @@ const (
 	BuiltinLanguage
 	// BuiltinEntity applies xs:ENTITY lexical rules.
 	BuiltinEntity
-	// BuiltinXMLLang applies the xml:lang lexical rules.
-	BuiltinXMLLang
-	// BuiltinXMLSpace applies the xml:space lexical rules.
-	BuiltinXMLSpace
 )
 
 // FacetMask records the facet families present on a type.

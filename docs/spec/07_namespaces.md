@@ -226,9 +226,15 @@ The same namespace can be imported multiple times:
 ```
 
 When a namespace is imported multiple times:
-- All schema documents for that namespace are combined
-- Component definitions must be consistent (no conflicts)
-- Duplicate identical definitions are allowed
+
+- Successfully obtained referents contribute their schema components.
+- Repeated imports of the same schema do not create duplicate components.
+- Distinct declarations must satisfy the schema's symbol-space uniqueness rules;
+  identical spelling alone does not establish component identity.
+
+`schemaLocation` remains a hint: XSD permits a reference strategy to use only
+the first import for a namespace. This library resolves supplied locations
+through its explicit source strategy; it does not fetch schemas over HTTP.
 
 **Import without schemaLocation:**
 
@@ -236,7 +242,13 @@ When a namespace is imported multiple times:
 <xs:import namespace="http://example.com/external"/>
 ```
 
-The processor must locate the schema through other means (application-provided, catalog lookup, etc.).
+Components may be supplied through other means, such as application-provided
+schema roots. Failure to locate a referent is not itself an import error; a
+required component can still be missing. An import permits foreign references
+but does not create declarations.
+
+Spec refs: Structures §4.2.3 [Import Constraints and Semantics](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import),
+§3.15.6 [Schema Properties Correct](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#sch-props-correct).
 
 **Importing No-Namespace Components:**
 
@@ -320,7 +332,7 @@ Spec refs: docs/spec/xml/structures.xml#xsi_type, docs/spec/xml/structures.xml#x
 |-----------|--------|---------|
 | `http://www.w3.org/2001/XMLSchema` | `xs` or `xsd` | Schema definition language |
 | `http://www.w3.org/2001/XMLSchema-instance` | `xsi` | Instance document attributes |
-| `http://www.w3.org/XML/1998/namespace` | `xml` | XML built-in attributes (`xml:lang`, `xml:space`) |
+| `http://www.w3.org/XML/1998/namespace` | `xml` | Predefined prefix and XML names such as `xml:lang` and `xml:space` |
 | `http://www.w3.org/2000/xmlns/` | `xmlns` | Namespace declarations (implicit) |
 
 **Constraints:**
@@ -330,6 +342,69 @@ Spec refs: docs/spec/xml/structures.xml#xsi_type, docs/spec/xml/structures.xml#x
 - No prefix may bind to the `xmlns` namespace URI
 
 Spec refs: docs/spec/xml/structures.xml#declare-schema.
+
+### Intrinsic components and schema references
+
+Built-in component availability and permission to reference a foreign namespace
+are separate requirements. The library adopts WG correction 1890: references
+into the XSD and XSI namespaces need no import. Normal lookup still enforces
+component kind, name and existence. Supplied custom XSD components require
+explicit sources, while canonical builtins cannot be replaced. See
+[I-006](INTERPRETATIONS.md#i-006--xsdxsi-schema-references).
+
+The four global XSI declarations are present in every schema:
+
+| Attribute | Type |
+| --- | --- |
+| `xsi:type` | Built-in `xs:QName` |
+| `xsi:nil` | Built-in `xs:boolean` |
+| `xsi:noNamespaceSchemaLocation` | Built-in `xs:anyURI` |
+| `xsi:schemaLocation` | Anonymous list of `xs:anyURI`, based on `xs:anySimpleType` |
+
+They have no declaration default or fixed constraint. Supplied schemas cannot
+redeclare them or introduce other XSI attribute declarations. Schema-level
+`ref="xsi:nil"` and other XSI references need no import or schema retrieval. Instance
+use of the four names needs neither a schema attribute use nor an import.
+Other XSI names receive ordinary attribute-use/wildcard assessment.
+
+Spec refs: docs/spec/xml/structures.xml#src-resolve,
+docs/spec/xml/structures.xml#no-xsi, docs/spec/xml/structures.xml#xsi.type,
+docs/spec/xml/structures.xml#xsi.nil,
+docs/spec/xml/structures.xml#xsi.schemaLocation,
+docs/spec/xml/structures.xml#xsi.noNamespaceSchemaLocation.
+
+### XML and XLink schema declarations
+
+XSD §3.2.7 defines four built-in attribute declarations: `xsi:type`, `xsi:nil`,
+`xsi:schemaLocation` and `xsi:noNamespaceSchemaLocation`. XML and XLink attribute
+declarations are ordinary schema components. The predefined `xml` prefix binds
+a namespace; it neither supplies declarations nor permits foreign schema
+references without an import.
+
+A supplied XML/XLink declaration owns its complete type, facets and value
+constraints. Attribute references and strict/lax wildcard assessment must use
+that declaration. Skip wildcards do not assess its datatype. Duplicate
+declarations and invalid declaration constraints remain schema errors even for
+familiar names such as `xml:lang` or `xlink:actuate`.
+
+This library requires those declarations through explicit roots, local imports
+or a caller-supplied resolver. It has no implicit XML/XLink schema and performs
+no HTTP retrieval. A missing attribute reference fails compilation; a strict
+wildcard rejects an unavailable declaration, while lax accepts an unavailable
+declaration and assesses one when supplied. Skip does not require a declaration.
+
+XML namespace syntax, schema `xml:base`, annotation-language admission and
+formatter `xml:space` handling have separate rules. Supplying an XSD declaration
+does not replace those rules. `xml:id` identity constraints follow a supplied
+ID-derived declaration; intrinsic xml:id processing is not added by the dated
+XSD/XML baseline. The [XML schema version caveat](SOURCES.md#attribute-declarations-in-other-vocabularies)
+also prevents treating the acquired 2009 `xml.xsd` as an implicit 2004 source.
+
+Spec refs: Structures [§3.2.7 and xsi restrictions](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xsi),
+[attribute mapping](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute),
+[attribute validity](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-attribute),
+[wildcard validity](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-wildcard)
+and [schema QName resolution](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve).
 
 ## Validation Considerations
 

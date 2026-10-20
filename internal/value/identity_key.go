@@ -1,6 +1,9 @@
 package value
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
 
 // PrimitiveIdentityKey builds the value-space identity key for one primitive
 // value. The separator and primitive tag are part of the schema/runtime
@@ -9,10 +12,26 @@ import "strings"
 func PrimitiveIdentityKey(kind PrimitiveKind, canonical string) string {
 	var b strings.Builder
 	b.Grow(2 + len(canonical))
+	appendPrimitiveIdentity(&b, kind, canonical)
+	return b.String()
+}
+
+func appendPrimitiveIdentity(b *strings.Builder, kind PrimitiveKind, canonical string) {
 	b.WriteByte(byte(kind))
 	b.WriteByte('\x1e')
 	b.WriteString(canonical)
-	return b.String()
+}
+
+func appendPrimitiveIdentityItem(b *strings.Builder, kind PrimitiveKind, canonical string, digits *[20]byte) {
+	b.Write(strconv.AppendInt(digits[:0], int64(len(canonical))+2, 10))
+	b.WriteByte(':')
+	appendPrimitiveIdentity(b, kind, canonical)
+}
+
+func appendListIdentityItem(b *strings.Builder, item string, digits *[20]byte) {
+	b.Write(strconv.AppendInt(digits[:0], int64(len(item)), 10))
+	b.WriteByte(':')
+	b.WriteString(item)
 }
 
 // ListIdentityKey builds the value-space identity key for a list. Each item

@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:simpleType name="S" final="#all"><xs:restriction base="xs:int"/></xs:simpleType><xs:complexType name="C" final="#all"><xs:sequence><xs:element name="a" type="xs:int"/></xs:sequence></xs:complexType><xs:element name="s" type="S" block="#all"/><xs:element name="c" type="C" block="#all"/></xs:schema>

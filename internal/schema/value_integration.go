@@ -13,9 +13,9 @@ import (
 // detailed type and facet checks.
 func newSchemaValueBuilder(limits Limits) *value.Builder {
 	// Schema component admission bounds the number of value records. The
-	// value builder's fixed builtin prefix is not part of that source-node
-	// budget; XML attribute declarations reference fixed value IDs directly.
-	maxTypes := uint64(value.BuiltinTypeCount)
+	// intrinsic types, including the anonymous XSI list, do not consume that
+	// source-node allowance.
+	maxTypes := uint64(builtinSchemaSimpleTypeCount)
 	maxTypes = addBounded(maxTypes, nonNegativeLimit(limits.MaxSchemaInstantiatedNodes))
 	maxTypes = min(maxTypes, uint64(^uint32(0)))
 
@@ -36,7 +36,7 @@ func newSchemaValueBuilder(limits Limits) *value.Builder {
 
 func valueEvalWorkBound(limits Limits) uint64 {
 	input := uint64(max(0, limits.MaxSchemaTokenBytes)) + 1
-	types := addBounded(uint64(value.BuiltinTypeCount), nonNegativeLimit(limits.MaxSchemaInstantiatedNodes))
+	types := addBounded(uint64(builtinSchemaSimpleTypeCount), nonNegativeLimit(limits.MaxSchemaInstantiatedNodes))
 	return multiplyBounded(input, types)
 }
 
@@ -56,8 +56,8 @@ func valueStorageBound(limits Limits) uint64 {
 	nodes := nonNegativeLimit(limits.MaxSchemaInstantiatedNodes)
 	sourceBytes := uint64(max(0, limits.MaxSchemaTotalBytes))
 	bound := addBounded(multiplyBounded(sourceBytes, 2), multiplyBounded(nodes, perNode))
-	if bound < uint64(value.BuiltinTypeCount)+1 {
-		return uint64(value.BuiltinTypeCount) + 1
+	if bound < uint64(builtinSchemaSimpleTypeCount)+1 {
+		return uint64(builtinSchemaSimpleTypeCount) + 1
 	}
 	return bound
 }
@@ -119,7 +119,15 @@ func (c *compiler) completeValueType(id SimpleTypeID, st SimpleType) error {
 			ListItem:          value.NoType,
 		}
 	}
-	return valueBuilderError(builder.Complete(id, spec))
+	if err := builder.Complete(id, spec); err != nil {
+		return valueBuilderError(err)
+	}
+	constrained, ok := builder.UnionHasFacets(id)
+	if !ok {
+		return xsderrors.InternalInvariant("completed simple type has no value definition")
+	}
+	c.rt.SimpleTypes[id].unionHasFacets = constrained
+	return nil
 }
 
 func (c *compiler) validateValue(id SimpleTypeID, lexical string, resolve value.QNameResolver, needs value.Needs) (value.Value, []ResolvedValueName, error) {

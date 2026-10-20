@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.w3.org/2001/XMLSchema-instance"><xs:element name="root"><xs:complexType><xs:attribute name="nil" form="qualified" type="xs:boolean" use="required"/></xs:complexType></xs:element></xs:schema>

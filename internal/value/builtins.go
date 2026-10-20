@@ -50,12 +50,10 @@ const (
 	builtinNMTOKENS
 	builtinENTITY
 	builtinENTITIES
-	builtinXMLLang
-	builtinXMLSpace
 )
 
-// BuiltinTypeCount is the fixed number of XSD and XML-internal simple types.
-const BuiltinTypeCount = builtinXMLSpace + 1
+// BuiltinTypeCount is the fixed number of XSD simple types.
+const BuiltinTypeCount = builtinENTITIES + 1
 
 type builtinMeta struct {
 	name       string
@@ -120,8 +118,6 @@ var builtinMetadata = [...]builtinMeta{
 	{name: "NMTOKENS", base: AnySimpleTypeID, listItem: builtinNMTOKEN, variety: List, primitive: PrimitiveString, whitespace: WhitespaceCollapse, minLength: 1},
 	{name: "ENTITY", base: builtinNCName, primitive: PrimitiveString, whitespace: WhitespaceCollapse, builtin: BuiltinEntity},
 	{name: "ENTITIES", base: AnySimpleTypeID, listItem: builtinENTITY, variety: List, primitive: PrimitiveString, whitespace: WhitespaceCollapse, minLength: 1},
-	{name: "xml:lang", base: builtinString, primitive: PrimitiveString, whitespace: WhitespaceCollapse, builtin: BuiltinXMLLang},
-	{name: "xml:space", base: builtinString, primitive: PrimitiveString, whitespace: WhitespaceCollapse, builtin: BuiltinXMLSpace},
 }
 
 var builtinDefinitions = buildBuiltinDefinitions()

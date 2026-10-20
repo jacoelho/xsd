@@ -241,6 +241,15 @@ Examples of **invalid** restrictions:
 - `minOccurs="1"` → `minOccurs="0"` (required → optional) ✗
 - `maxOccurs="5"` → `maxOccurs="10"` ✗
 
+Extension after restriction must also satisfy
+[cos-ct-extends 1.5](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-extends):
+an extension followed by a restriction must be possible from the ancestor whose
+base is `anyType`. An original attribute `a:int` cannot be removed and then
+restored as unrelated `a:string`; any such extension would have to retain the
+original declaration. New attribute names remain allowed. The original
+ancestor's requiredness and typed fixed-value constraints also remain binding.
+An intermediate restriction's narrower type is not itself the original anchor.
+
 ### simpleContent and complexContent
 
 Use these wrappers when deriving types:
@@ -258,6 +267,16 @@ Use these wrappers when deriving types:
 
 <!-- Instance: <price currency="USD">19.99</price> -->
 ```
+
+An enclosing `complexType`'s `mixed` attribute is lexically checked but has no
+effect when `simpleContent` is present. The component has simple content,
+regardless of that spelling. An explicit mixed `complexContent` extension cannot
+turn that simple content into mixed content. An effectively empty extension can
+still inherit the entire simple content of its base under representation
+mapping 3.2.1.
+
+Spec refs: [Complex Type Definition Representation, src-ct](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-ct)
+and [content mapping](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type).
 
 **complexContent** — element has element/mixed content:
 
@@ -301,13 +320,53 @@ Wildcards allow elements or attributes not explicitly declared:
 | `##targetNamespace` | The schema's target namespace |
 | URI list | Specific namespace URIs (space-separated) |
 
+An absent `namespace` attribute defaults to `##any`. A present empty or
+whitespace-only list denotes the empty namespace set. It overlaps no wildcard,
+including `##any`. A required wildcard with that set cannot consume an element;
+it does not become an empty particle. `##other` excludes both the target
+namespace and the absent namespace, so it is disjoint from a list containing
+only those two values.
+
+Spec refs: [Wildcard representation](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-openness)
+and [Wildcard allows Namespace Name](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-wildcard-namespace).
+
 **processContents Values:**
 
 | Value | Meaning |
 |-------|---------|
-| `strict` | Must find declaration and validate |
-| `lax` | Validate if declaration found, otherwise accept |
-| `skip` | Accept without validation |
+| `strict` | Assess through an element declaration or a known `xsi:type`; missing assessment is an error |
+| `lax` | Use an available declaration or `xsi:type`; otherwise assess with `anyType` |
+| `skip` | Skip schema assessment of the element and its subtree |
+
+A known `xsi:type` can supply strict type assessment for an undeclared element.
+Its value and the selected type's attributes and content still validate; an
+unknown, malformed or unbound type name does not satisfy this condition. When
+lax processing falls back to `anyType`, declared descendants still validate.
+The library also rejects unresolved physical `xsi:type` on laxly assessed
+elements under [selected WG correction 4299](INTERPRETATIONS.md#i-014--xsitype-under-element-wildcards);
+this type-existence requirement is not explicit in the printed 2004 fallback.
+Skip processing suppresses these schema checks throughout its subtree, while
+XML well-formedness and namespace rules still apply. No selected type can waive
+the wildcard's namespace constraint, and instance hints never load schemas.
+
+These element-assessment rules differ from attribute wildcards, which have no
+`xsi:type` fallback. See [Item Valid (Wildcard)](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-wildcard),
+[Schema-Validity Assessment (Element)](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-assess-elt)
+and [Assessment Outcome (Element)](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#sic-e-outcome).
+
+Restriction between element wildcards requires namespace and occurrence containment,
+and processing at least as strong as the base (`strict` > `lax` > `skip`).
+NSSubset clause 3 exempts the actual content wildcard of `xs:anyType`. An empty
+extension inherits its base's entire content type, so an unchanged inherited
+ur-type wildcard retains that exemption. An independently declared lax
+wildcard with equal bounds and namespaces does not. Arbitrary ancestry from
+`xs:anyType` is also insufficient.
+
+This component-based exception differs from attribute restriction clause 4.3,
+which names the immediate base **type**. See the published
+[content mapping, 3.2.1](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type),
+[NSSubset, clause 3](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSSubset),
+and [same-by-construction component identity](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-identity).
 
 ### Attribute Wildcards (`<xs:anyAttribute>`)
 
@@ -439,15 +498,32 @@ When restricting a complex type, the derived content model must be a valid restr
 |---------------|------------------|----------|
 | Element | Element | Same name/namespace, derived type ⊆ base type, occurrence ⊆ base |
 | Wildcard | Element | Element's namespace matches wildcard |
-| Wildcard | Wildcard | Derived namespace ⊆ base namespace |
+| Wildcard | Wildcard | Namespace and occurrence containment, permitted processing strength |
 | Model group | Model group | Recursive check on children |
-| Any particle | Empty | Base particle's `minOccurs="0"` |
+
+Empty **content** is a separate complex-type restriction case. It may restrict
+empty base content, or an element-only or mixed base whose particle is
+emptiable (`derivation-ok-restriction` 5.3). The base's outer `minOccurs` need
+not be zero: a choice containing an empty sequence is also emptiable. An
+optional particle with a nonempty term still has element-only content and
+must satisfy the particle restriction rules; emptiability alone is insufficient.
 
 **Sequence/Choice/All Mapping:**
 
-- Sequence to sequence: each derived particle maps to corresponding base particle
-- Choice to choice: each derived particle maps to some base particle
-- All to all: each derived particle maps to a base particle (order-independent)
+- Sequence to sequence, and all to all: complete ordered recursive mapping;
+  unmapped base particles must be emptiable (`Recurse`). XSD 1.0 uses this
+  ordered restriction rule even though all-group instance matching is unordered.
+- Choice to choice: complete ordered recursive mapping; unmatched base
+  alternatives may be skipped (`RecurseLax`). Nested choices and retained
+  unbounded branches are permitted when their recursive restrictions succeed.
+  Their presence alone does not require XSD 1.1.
+- Sequence to all: complete injective mapping without order; unmapped base
+  particles must be emptiable (`RecurseUnordered`).
+- Sequence to choice: each derived member maps to a permitted base member;
+  targets may be shared (`MapAndSum`). Its additional range check multiplies
+  the sequence's occurrence bounds by its number of direct particles, then
+  compares that product with the base choice's occurrence bounds. Aggregate
+  effective element-count containment cannot replace this check.
 
 **Occurrence Range Subsumption:**
 
@@ -455,8 +531,48 @@ The derived occurrence range `[minD, maxD]` must be a subset of base `[minB, max
 - `minD ≥ minB`
 - `maxD ≤ maxB`
 
+Restriction checks apply at each retained group boundary. The specified
+pointless-group removals do not permit general multiplication of nested
+repetition bounds: fitting the base's aggregate effective range alone does not
+establish a valid structural restriction. For example, changing an outer
+sequence from 2–3 repetitions to four is invalid even if tighter inner bounds
+keep the total count within the base's effective range.
+
+Pointlessness removes an empty sequence or all group, and an empty choice
+only when its minimum is zero. A singleton all group is pointless even when
+its outer minimum is zero; both its outer and member bounds still determine
+the resulting occurrence range. Singleton sequence and choice groups require
+unit bounds to be removed. Unit sequence-in-sequence and choice-in-choice
+groups can also be flattened; nonunit boundaries remain.
+
+The effective-content mapping separately erases a direct empty sequence or
+all group, an optional empty choice, and a zero-maximum particle. A required
+empty choice remains a present element-only particle and accepts no element
+sequence, including the empty sequence. These rules do not turn every
+particle accepting zero children into empty content.
+
+A named model group's direct compositor cannot specify `minOccurs` or
+`maxOccurs`; its references carry occurrence bounds. A repeated reference can
+also contain a repeated nested compositor, and both boundaries still apply.
+
+Spec refs: [Derivation Valid (Restriction, Complex), clause 5.3](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction),
+[Complex Type Definition representation](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#Complex_Type_Definition_details),
+[Element Sequence Valid](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group),
+[Particle Valid (Restriction), clause 2.2](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict),
+[Occurrence Range OK](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#range-ok),
+[Recurse](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-Recurse),
+[RecurseLax](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-RecurseLax),
+[RecurseUnordered](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-RecurseUnordered),
+[MapAndSum](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-MapAndSum),
+and [Model Group Definition representation](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#Model_Group_Definition_details).
+
 ### Attribute Wildcard Intersection
 
-When attribute groups and a local `<xs:anyAttribute>` are combined, their namespace constraints are intersected (per `cos-aw-intersect`). The intersection must be expressible; if it is empty or not expressible, the schema is invalid.
+When attribute groups and a local `<xs:anyAttribute>` are combined, their
+namespace constraints are intersected. An empty finite intersection is valid
+and admits no additional attributes. An intersection that cannot be expressed
+by the XSD 1.0 wildcard forms is invalid.
+
+Spec ref: [Attribute Wildcard Intersection](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-aw-intersect).
 
 Spec refs: docs/spec/xml/structures.xml#cos-nonambig, docs/spec/xml/structures.xml#cos-element-consistent, docs/spec/xml/structures.xml#cos-particle-restrict, docs/spec/xml/structures.xml#cos-aw-intersect.

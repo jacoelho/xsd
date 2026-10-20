@@ -11,12 +11,12 @@ func newSchemaBuild(names NameTable) schemaBuild {
 	return schemaBuild{
 		Names:            names,
 		GlobalElements:   make(map[QName]ElementID),
-		GlobalAttributes: make(map[QName]AttributeID, BuiltinAttributeCount()),
+		GlobalAttributes: make(map[QName]AttributeID, len(builtinXSIAttributes)),
 		GlobalTypes:      make(map[QName]TypeID, BuiltinGlobalTypeCount()),
 		GlobalIdentities: make(map[QName]IdentityConstraintID),
 		Notations:        make(map[QName]bool),
 		SimpleTypes:      make([]SimpleType, 0, BuiltinSimpleTypeCount()),
-		Attributes:       make([]AttributeDecl, 0, BuiltinAttributeCount()),
+		Attributes:       make([]AttributeDecl, 0, len(builtinXSIAttributes)),
 		ComplexTypes:     make([]ComplexType, 0, BuiltinComplexTypeCount()),
 		Wildcards:        make([]Wildcard, 0, 1),
 		AttributeUseSets: make([]AttributeUseSet, 0, 1),
@@ -68,7 +68,7 @@ func (rt *schemaBuild) appendFlattenedUnionMember(
 ) (int, bool) {
 	typ := rt.SimpleTypes[id]
 	members := []SimpleTypeID{id}
-	if typ.ValueSpec.Variety == value.Union {
+	if typ.ValueSpec.Variety == value.Union && !typ.unionHasFacets {
 		members = typ.ValueSpec.Union
 	}
 	added := 0
@@ -129,11 +129,10 @@ func (rt *schemaBuild) buildSubstitutionTable(elements []ElementDecl, maxEntries
 func (rt *schemaBuild) attributeUse(id AttributeID) AttributeUse {
 	decl := rt.Attributes[id]
 	return AttributeUse{
-		Name:                 decl.Name,
-		Type:                 decl.Type,
-		Default:              cloneValueConstraint(decl.Default),
-		Fixed:                cloneValueConstraint(decl.Fixed),
-		FixedFromDeclaration: decl.Fixed != nil,
+		Name:    decl.Name,
+		Type:    decl.Type,
+		Default: cloneValueConstraint(decl.Default),
+		Fixed:   cloneValueConstraint(decl.Fixed),
 	}
 }
 
@@ -399,7 +398,10 @@ func (c *compiler) installFinalizedElements(elements []ElementDecl, substitution
 }
 
 func (c *compiler) indexGlobalAttribute(q QName, component schemaComponent, label string) error {
-	return AddGlobalAttributeComponent(c.attributeComponents, c.rt.GlobalAttributes, q, component, label)
+	if err := c.validateAttributeDeclNameBuild(q); err != nil {
+		return invalidAttributeError(err)
+	}
+	return AddSchemaComponent(c.attributeComponents, q, component, label)
 }
 
 func (c *compiler) addNotation(q QName, label string) error {

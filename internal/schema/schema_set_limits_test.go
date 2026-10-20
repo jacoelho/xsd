@@ -441,17 +441,17 @@ func TestSchemaReferenceLimitCountsImportsWithoutSchemaLocation(t *testing.T) {
 	}
 }
 
-func TestSchemaReferenceLimitExemptsBuiltinXMLNamespaceImport(t *testing.T) {
+func TestSchemaReferenceLimitCountsXMLNamespaceImport(t *testing.T) {
 	t.Parallel()
 
 	schema := func(imports string) source.Source {
 		data := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:root"><xs:import namespace="http://www.w3.org/XML/1998/namespace" schemaLocation="xml.xsd"/>` + imports + `</xs:schema>`)
 		return source.Bytes("root.xsd", data)
 	}
-	if _, err := Compile(Options{MaxSchemaReferences: 1}, []source.Source{schema(`<xs:import namespace="urn:a"/>`)}); err != nil {
+	if _, err := Compile(Options{MaxSchemaReferences: 2}, []source.Source{schema(`<xs:import namespace="urn:a"/>`)}); err != nil {
 		t.Fatalf("Compile(exact) error = %v", err)
 	}
-	_, err := Compile(Options{MaxSchemaReferences: 1}, []source.Source{schema(`<xs:import namespace="urn:a"/><xs:import namespace="urn:b"/>`)})
+	_, err := Compile(Options{MaxSchemaReferences: 1}, []source.Source{schema(`<xs:import namespace="urn:a"/>`)})
 	if err == nil || !strings.Contains(err.Error(), "MaxSchemaReferences") {
 		t.Fatalf("Compile(over) error = %v, want reference limit", err)
 	}

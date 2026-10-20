@@ -1,6 +1,9 @@
 package schema
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 // DerivationKind identifies how a complex type derives from its base.
 type DerivationKind uint8
@@ -34,8 +37,6 @@ const (
 	ContentMixed
 	// ContentSimple is simple content.
 	ContentSimple
-	// ContentSimpleMixed is simple content that recorded mixed="true".
-	ContentSimpleMixed
 	// ContentEmpty is empty complex content. It permits neither character nor
 	// element information items. The zero value remains ContentElementOnly so
 	// compiler and test fixtures that use an omitted kind retain their meaning.
@@ -44,18 +45,18 @@ const (
 
 // Mixed reports whether content permits character text mixed with elements.
 func (k ContentKind) Mixed() bool {
-	return k == ContentMixed || k == ContentSimpleMixed
+	return k == ContentMixed
 }
 
 // Simple reports whether content is simple content.
 func (k ContentKind) Simple() bool {
-	return k == ContentSimple || k == ContentSimpleMixed
+	return k == ContentSimple
 }
 
 // ValidContentKind reports whether kind is a known complex-type content kind.
 func ValidContentKind(kind ContentKind) bool {
 	switch kind {
-	case ContentElementOnly, ContentMixed, ContentSimple, ContentSimpleMixed, ContentEmpty:
+	case ContentElementOnly, ContentMixed, ContentSimple, ContentEmpty:
 		return true
 	default:
 		return false
@@ -341,6 +342,66 @@ func ValidateComplexTypeExtensionRuntime(rt *schemaBuild, base, derived ComplexT
 	}
 	if !ComplexContentExtendsBase(rt, base.Content, derived.Content) {
 		return errors.New("complex extension content does not preserve base content")
+	}
+	return nil
+}
+
+// Extension after restriction must retain the attribute obligations of the
+// ancestor whose base is anyType (cos-ct-extends 1.5). Intermediate restrictions
+// can be discarded by the required two-step reconstruction; they are not anchors.
+func validateComplexExtensionAttributeAncestry(rt *schemaBuild, derived ComplexType) error {
+	if derived.Derivation != DerivationKindExtension {
+		return nil
+	}
+	anchor, restricted, err := complexExtensionAttributeAnchor(rt, derived.Base)
+	if err != nil {
+		return err
+	}
+	if !restricted {
+		return nil
+	}
+	return validateExtensionAnchorAttributes(rt, anchor.Attrs, derived.Attrs)
+}
+
+func complexExtensionAttributeAnchor(rt *schemaBuild, base TypeID) (*ComplexType, bool, error) {
+	current := base
+	restricted := false
+	for range len(rt.ComplexTypes) {
+		id, isComplex := current.Complex()
+		if !isComplex || id == rt.AnyType {
+			return nil, false, nil
+		}
+		if err := rt.spendTypeDerivationWork(1); err != nil {
+			return nil, false, err
+		}
+		// Base references are admitted before derivation checks.
+		ancestor := &rt.ComplexTypes[id]
+		if ancestor.Base == ComplexRef(rt.AnyType) {
+			return ancestor, restricted, nil
+		}
+		restricted = restricted || ancestor.Derivation == DerivationKindRestriction
+		current = ancestor.Base
+	}
+	return nil, false, errors.New("extension ancestry contains a cycle")
+}
+
+func validateExtensionAnchorAttributes(rt *schemaBuild, anchorID, derivedID AttributeUseSetID) error {
+	anchor := rt.AttributeUseSets[anchorID]
+	derived := rt.AttributeUseSets[derivedID]
+	for _, use := range anchor.Uses {
+		if err := rt.spendTypeDerivationWork(1); err != nil {
+			return err
+		}
+		slot, present := derived.Index[use.Name]
+		if !present {
+			if use.Required {
+				return errors.New("extension omits required ancestor attribute")
+			}
+			continue
+		}
+		if err := ValidateAttributeUseRestriction(rt, use, derived.Uses[slot]); err != nil {
+			return fmt.Errorf("extension attribute %s violates original ancestor: %w", rt.formatName(use.Name), err)
+		}
 	}
 	return nil
 }

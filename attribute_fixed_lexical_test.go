@@ -8,7 +8,7 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-func TestFixedAttributeUseComparesNormalizedSpellingAndRecovers(t *testing.T) {
+func TestFixedAttributeUseComparesTypedValuesAndRecovers(t *testing.T) {
 	t.Parallel()
 	engine, err := xsd.Compile(xsd.Bytes("fixed.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:attribute name="v" type="xs:integer" fixed="1"/>
@@ -39,16 +39,16 @@ func TestFixedAttributeUseComparesNormalizedSpellingAndRecovers(t *testing.T) {
 		{"canonical after collapse", `<use v=" 1 "/>`, false},
 		{"canonical character reference", `<use v="&#x31;"/>`, false},
 		{"canonical character-reference whitespace", `<use v="&#x9;1&#xA;"/>`, false},
-		{"alias after collapse", `<use v=" +001 "/>`, true},
-		{"alias through character reference", `<use v="&#x2B;001"/>`, true},
+		{"alias after collapse", `<use v=" +001 "/>`, false},
+		{"alias through character reference", `<use v="&#x2B;001"/>`, false},
 		{"declaration typed alias", `<decl v=" +001 "/>`, false},
 		{"wildcard declaration typed alias", `<wild v=" +001 "/>`, false},
 		{"string preserves whitespace", `<string v=" x "/>`, true},
 		{"canonical zero uses and typed element aliases", `<zero float="0.0E0" double="0.0E0"><float>0</float><double>-0</double></zero>`, false},
-		{"float zero alias", `<zero float="0" double="0.0E0"><float>0</float><double>-0</double></zero>`, true},
-		{"float negative zero alias", `<zero float="-0" double="0.0E0"><float>0</float><double>-0</double></zero>`, true},
-		{"double zero alias", `<zero float="0.0E0" double="0"><float>0</float><double>-0</double></zero>`, true},
-		{"double negative zero alias", `<zero float="0.0E0" double="-0"><float>0</float><double>-0</double></zero>`, true},
+		{"float zero alias", `<zero float="0" double="0.0E0"><float>0</float><double>-0</double></zero>`, false},
+		{"float negative zero alias", `<zero float="-0" double="0.0E0"><float>0</float><double>-0</double></zero>`, false},
+		{"double zero alias", `<zero float="0.0E0" double="0"><float>0</float><double>-0</double></zero>`, false},
+		{"double negative zero alias", `<zero float="0.0E0" double="-0"><float>0</float><double>-0</double></zero>`, false},
 		{"isolated nonzero float", `<zero float="1.0E0" double="0.0E0"><float>0</float><double>-0</double></zero>`, true},
 		{"declaration zero aliases", `<zero-decl gfloat="0" gdouble="-0"/>`, false},
 	} {
@@ -71,9 +71,6 @@ func TestFixedAttributeUseComparesNormalizedSpellingAndRecovers(t *testing.T) {
 	}
 }
 
-// QName canonical prefix spelling is unresolved in the retained XSD 1.0
-// sources. These checks preserve the existing expanded-name product policy;
-// they do not settle that separate canonical-projection question.
 func TestFixedAttributeUsePreservesQualifiedValuePolicy(t *testing.T) {
 	t.Parallel()
 	engine, err := xsd.Compile(xsd.Bytes("qualified-fixed.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:a" xmlns:b="urn:b">
@@ -121,7 +118,7 @@ func TestFixedAttributeUsePreservesQualifiedValuePolicy(t *testing.T) {
 		{"NOTATION list aliases", `<ln xmlns:q="urn:a" v="q:n q:m"/>`, false},
 		{"NOTATION list order", `<ln xmlns:q="urn:a" v="q:m q:n"/>`, true},
 		{"numeric member canonical", `<number v=" 1 "/>`, false},
-		{"numeric member alias", `<number v="+001"/>`, true},
+		{"numeric member alias", `<number v="+001"/>`, false},
 		{"selected QName member", `<union xmlns:q="urn:a" v="q:n"/>`, false},
 		{"mixed list compatibility", `<mixed-list xmlns:q="urn:a" v="q:n 01"/>`, false},
 		{"mixed list order", `<mixed-list xmlns:q="urn:a" v="1 q:n"/>`, true},

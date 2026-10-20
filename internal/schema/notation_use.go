@@ -3,7 +3,6 @@ package schema
 import (
 	"errors"
 
-	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -48,7 +47,9 @@ func validateNotationTypeUse(build *schemaBuild, id SimpleTypeID) error {
 }
 
 func validateNotationConstructorUses(build *schemaBuild, id SimpleTypeID) error {
-	if id < value.BuiltinTypeCount {
+	// Fixed intrinsic constructors are checked by the canonical declaration
+	// audit; only source constructors consume the dependency-work allowance.
+	if id < builtinSchemaSimpleTypeCount {
 		return nil
 	}
 	uses, ok := build.valueBuilder.ConstructorUses(id)

@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:attribute name="a" type="xs:int"/><xs:complexType name="Base"><xs:attribute ref="a"/></xs:complexType><xs:complexType name="Derived"><xs:complexContent><xs:restriction base="Base"><xs:attribute ref="a" use="prohibited" fixed="37"/></xs:restriction></xs:complexContent></xs:complexType></xs:schema>

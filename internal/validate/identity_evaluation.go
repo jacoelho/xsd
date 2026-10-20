@@ -413,7 +413,7 @@ func (e *identityEvaluation) appendElementDispatchEntry(
 }
 
 func (e *identityEvaluation) dispatchAttributeFieldMatches(name xsdSchema.RuntimeName) ([]identityFieldMatch, error) {
-	if len(e.path) == 0 {
+	if len(e.path) == 0 || e.elements[len(e.elements)-1].mode == elementWildcardSkipped {
 		return nil, nil
 	}
 	matches := e.attributeScratch[:0]
@@ -607,7 +607,9 @@ func (e *identityEvaluation) startElement(in identityElementStart) error {
 		return nil
 	}
 	e.path = append(e.path, in.Name)
-	if in.Mode == elementRecovery {
+	// Skipped subtrees retain structural depth for end/rollback, but contribute
+	// no identity nodes, scopes, or selector rows.
+	if in.Mode != elementAssessed {
 		return nil
 	}
 	depth := len(e.path)
@@ -764,7 +766,7 @@ func (e *identityEvaluation) captureValue(target identityValueTarget, ctx StartC
 	if e.targetPhase != identityTargetRecorded {
 		return xsderrors.InternalInvariant("identity value target is not ready for capture")
 	}
-	if err := e.captureFields(e.matches, e.targetKey, ctx); err != nil {
+	if err := e.captureFields(e.matches, identityFieldValue{value: e.targetKey, state: identityFieldPresent}, ctx); err != nil {
 		e.releaseTarget()
 		return err
 	}
@@ -838,7 +840,7 @@ func (e *identityEvaluation) captureXSIAttribute(
 	if !identity.present {
 		return nil
 	}
-	return e.captureFields(e.matches, identity.key, ctx)
+	return e.captureFields(e.matches, identityFieldValue{value: identity.key, state: identityFieldPresent}, ctx)
 }
 
 func (e *identityEvaluation) validateTarget(target identityValueTarget) error {
@@ -974,7 +976,7 @@ func (e *identityEvaluation) endElement(in identityElementEnd, report func(error
 	}
 	element := e.elements[len(e.elements)-1]
 	defer e.popElement()
-	if !e.constraintsEnabled {
+	if !e.constraintsEnabled || element.mode == elementWildcardSkipped {
 		return result, nil
 	}
 	depth := len(e.path)
@@ -1043,7 +1045,7 @@ func (e *identityEvaluation) finishElementValue(
 ) error {
 	switch element.mode {
 	case elementWildcardSkipped:
-		return e.rejectCurrentElement(identityMissingSimpleValue, in.Context, report)
+		return xsderrors.InternalInvariant("skipped element reached identity value assessment")
 	case elementRecovery:
 		return e.rejectCurrentElement(identityInvalidValue, in.Context, report)
 	case elementAssessed:
@@ -1055,7 +1057,7 @@ func (e *identityEvaluation) finishElementValue(
 	case endIdentityCaptureNone:
 		return nil
 	case endIdentityCaptureNilledElement:
-		return reportIdentityError(e.captureFields(e.dispatchElementFieldMatches(), nilledElementIdentityKey, in.Context), report)
+		return reportIdentityError(e.captureFields(e.dispatchElementFieldMatches(), identityFieldValue{state: identityFieldNilled}, in.Context), report)
 	case endIdentityCaptureComplexElement:
 		return e.rejectCurrentElement(identityMissingSimpleValue, in.Context, report)
 	default:

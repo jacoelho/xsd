@@ -74,20 +74,81 @@ admission, unsupported features, resource limits and semantic rejection
 distinct. An unresolved source question or unavailable output is an explicit
 coverage limit, not a reason to derive an expectation from current behavior.
 
+## Cross-validator Diagnosis
+
+For XSD/XML conformance investigations and new or changed corpus cases, compare
+the minimal discriminator and its valid/opposing controls across these four
+independent implementations:
+
+| Implementation | Validation interface | Oracle key |
+| --- | --- | --- |
+| Java Xerces-J | Apache `org.apache.xerces.jaxp.validation.XMLSchemaFactory` | `xerces` |
+| .NET XSD | `System.Xml.Schema.XmlSchemaSet` and schema-validating `XmlReader` | `dotnet` |
+| Python xmlschema | `xmlschema.XMLSchema10`, explicitly using XSD 1.0 | `xmlschema` |
+| libxml2 | `xmllint` or a binding with its actual libxml2 version recorded | `libxml2` |
+
+Python `lxml` uses libxml2 and counts as that implementation, not as an
+independent Python xmlschema result.
+
+1. Freeze the schema roots, dependency closure, instance bytes and relevant
+   options. Use XSD 1.0 and XML 1.0. An adapter that cannot represent the same
+   source set must report the limitation rather than silently rewriting inputs
+   or omitting roots.
+2. Run all four using installed runtimes and local dependencies. Record an
+   unavailable implementation and its concrete reason; an omitted run is not
+   agreement. Keep schema acquisition offline: allow only the explicit closure,
+   block network protocols and external entities, and preserve locationless
+   imports without inventing schema documents. Record unsupported security
+   settings and the mechanism that enforces the same boundary.
+   Verify that resolved include/import URIs select the intended documents;
+   choosing a different allowlisted document is still an adapter failure.
+3. Isolate cases with fresh schema factories/sets and fresh instance validators.
+   Use fresh processes when provider globals still leak between cases. Clear
+   diagnostics between phases. Record schema compilation separately from
+   instance validation. Schema rejection blocks its instances; it does not make
+   them independently invalid. Keep unsupported features, resource limits,
+   harness failures and unavailable observations distinct from validity.
+   For unexpected provider exceptions, reproduce with supported validation APIs
+   and valid/invalid controls before assigning a cause. Record yielded validation
+   errors, iterator completion and terminal exceptions separately. An unexpected
+   exception leaves the run incomplete even if validation errors were yielded.
+4. Retain implementation/runtime versions, commands, options, fixture identities
+   and raw diagnostics in revision-scoped evidence. Reproduce each disagreement
+   with the smallest opposing controls and diagnose specification, processor,
+   source-closure or harness differences before changing behavior.
+5. Derive effective corpus expectations from the local specifications, approved
+   corrections and documented qualifications. Agreement is diagnostic evidence,
+   not a majority-vote replacement for those sources. Preserve measured provider
+   disagreements as implementation-specific oracle metadata without overwriting
+   the project expectation or fabricating results for blocked phases.
+
+Historical releases and modified provider copies are separate diagnostic
+profiles. Record their selection reason, versions, source changes and hashes;
+run the complete affected packet with the same offline inputs and controls.
+Their results never replace an unavailable stock result or enter that stock
+profile's oracle metadata. An exception-routing patch can explain a provider
+failure without independently establishing the instance's required validity.
+
+The comparison is complete when every implementation has a measured result or
+an explicit unavailable/blocked reason, and every disagreement has a diagnosis
+or a stated unresolved boundary. Report remaining coverage limits to the user.
+
 ## Corpus Contract
 
 - Every manifest path is relative to this directory.
 - Every referenced schema, instance, and auxiliary file resolves under `corpus/`.
 - `source.w3cSuitePath` and `source.xercesJPath` are provenance only. Consumers MUST NOT need those paths to run the corpus.
-- Per-case `oracle.xerces` entries retain expected Xerces-J results and reasons
-  as provenance. They may match a later corrected project expectation; they do
-  not establish a fresh validator run or redefine XSD validity.
+- Schema or instance `oracle.<implementation>` entries retain provider results
+  and reasons as provenance, using the keys above. They may match a later
+  corrected project expectation; metadata alone does not establish a fresh
+  validator run or redefine XSD validity. Actual comparisons follow
+  [Cross-validator Diagnosis](#cross-validator-diagnosis).
 - Each schema or instance `expected` is the effective project expectation. The
   `source` metadata and per-fixture `status` preserve upstream provenance
   without overriding it.
   When a project expectation corrects an upstream W3C result,
-  `schema.oracle.w3c` records the original expectation, reason, and
-  specification reference. Oracle metadata is explanatory; consumers do not
+  `schema.oracle.w3c` or `instance.oracle.w3c` records the original expectation,
+  reason, and specification reference. Oracle metadata is explanatory; consumers do not
   merge it into the effective expectation or infer a Xerces-J result.
   An instance's `oracle.project` likewise records a corrected original project
   expectation. Existing `internalExpected` values remain historical extraction
@@ -113,7 +174,12 @@ go test ./tests -run '^TestHarness/w3c'
 
 ## Runner Contract
 
-A runner SHOULD read `manifest.json`, compile each case schema document set, then validate each listed instance against that schema. Expected values are `valid` or `invalid`. If a consumer is comparing against Xerces-J, use `oracle.xerces.expected` when present; otherwise use the case expected value.
+A runner SHOULD read `manifest.json`, compile each case schema document set,
+then validate each listed instance against that schema. Expected values are
+`valid` or `invalid`. For provider comparisons, use the phase's
+`oracle.<implementation>.expected` when present; otherwise compare the measured
+result against the project expectation. Provider expectations remain separate
+from the effective project result.
 
 Every entry in `schema.documents` is a compilation root, in manifest order.
 Entries listed only in `files` with role `dependency` are copied dependencies
@@ -124,6 +190,11 @@ Upstream cases that need additional schema documents supply those documents as
 explicit manifest roots. Recovered W3C companion files retain the layout and
 exact bytes from the manifest-pinned upstream revision. Instance location hints
 never supply components or dynamically promote files to compilation roots.
+
+Project-owned auxiliary namespace schemas can close an upstream case's missing
+XML/XLink declarations as explicit roots. Their source metadata must identify
+their limited scope; they are not complete copies of the upstream vocabulary
+schemas. Supplying these roots does not authorize network loading.
 
 The checked-in `manifest.json` is the authoritative expectation source. The
 extractor named in its metadata is not part of this repository; any future

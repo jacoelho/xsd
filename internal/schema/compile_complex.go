@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"errors"
 	"fmt"
 
 	valuepkg "github.com/jacoelho/xsd/internal/value"
@@ -119,6 +120,12 @@ func (c *compiler) completeComplexDefinition(id ComplexTypeID) error {
 	if err != nil {
 		return err
 	}
+	if err := validateComplexExtensionAttributeAncestry(&c.rt, ct); err != nil {
+		if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
+			return withSchemaCompileLocation(n, err)
+		}
+		return withSchemaCompileLocation(n, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error()))
+	}
 	c.completeComplexType(id, ct)
 	c.complexDefinitions[id].state = complexTypeComplete
 	return nil
@@ -130,7 +137,7 @@ func schemaComplexContentKind(n *schemaNode, attr LexicalAttribute, defaultKind 
 	case ContentElementOnly, ContentEmpty:
 	case ContentMixed:
 		defaultMixed = true
-	case ContentSimple, ContentSimpleMixed:
+	case ContentSimple:
 		return ContentElementOnly, xsderrors.InternalInvariant("complex content inherited a simple content kind")
 	default:
 		return ContentElementOnly, xsderrors.InternalInvariant("complex content inherited an unknown content kind")
@@ -560,14 +567,7 @@ func (c *compiler) finishSimpleContent(source simpleContentSource, ctx *schemaSe
 		return ComplexType{}, err
 	}
 	ct.TextType = derivation.textType
-	// xs:simpleContent has no mixed attribute; ct.Mixed() carries mixed="true"
-	// from the enclosing complexType element, which downstream complexContent
-	// mixed-derivation checks read.
-	if ct.Mixed() {
-		ct.ContentKind = ContentSimpleMixed
-	} else {
-		ct.ContentKind = ContentSimple
-	}
+	ct.ContentKind = ContentSimple
 	ct.Derivation = derivation.kind
 	ct.ExplicitDerivation = true
 	if err := validateComplexRestrictionAttributeWildcard(&c.rt, ct); err != nil {

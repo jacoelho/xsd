@@ -550,14 +550,14 @@ func TestIdentityStateCaptureFieldsRejectsInvalidAndDuplicateMatches(t *testing.
 	startIdentityScope(t, &state, []xsdSchema.IdentityConstraintID{id}, 1, "/root")
 	state.startSelectionForTest(0, 2, id, 1, identityTestContext("/row", 4, 5))
 
-	err := state.captureFields([]identityFieldMatch{{Selection: 1, Field: 0}}, "a", identityTestContext("/row/id", 6, 7))
+	err := state.captureFields([]identityFieldMatch{{Selection: 1, Field: 0}}, identityFieldValue{value: "a", state: identityFieldPresent}, identityTestContext("/row/id", 6, 7))
 	expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
 
-	err = state.captureFields([]identityFieldMatch{{Selection: 0, Field: 0}}, "a", identityTestContext("/row/id", 6, 7))
+	err = state.captureFields([]identityFieldMatch{{Selection: 0, Field: 0}}, identityFieldValue{value: "a", state: identityFieldPresent}, identityTestContext("/row/id", 6, 7))
 	if err != nil {
 		t.Fatalf("captureFields(first) error = %v", err)
 	}
-	err = state.captureFields([]identityFieldMatch{{Selection: 0, Field: 0}}, "b", identityTestContext("/row", 8, 9))
+	err = state.captureFields([]identityFieldMatch{{Selection: 0, Field: 0}}, identityFieldValue{value: "b", state: identityFieldPresent}, identityTestContext("/row", 8, 9))
 	expectXSDCode(t, err, xsderrors.CodeValidationIdentity)
 	expectXSDMessage(t, err, "identity field selects multiple values")
 	expectXSDLocation(t, err, "/row", 8, 9)
@@ -610,18 +610,6 @@ func TestIdentityStateRejectFieldsWithoutSimpleValueInvalidatesField(t *testing.
 		identityTestContext("/root/item", 8, 9),
 	); err != nil {
 		t.Fatalf("finishSelectionWithInfo(invalid key field) error = %v", err)
-	}
-}
-
-func TestNilledElementIdentityKeyIsStableAndDistinct(t *testing.T) {
-	t.Parallel()
-
-	got := nilledElementIdentityKey
-	if got != "\xff\x1e\x00nil" {
-		t.Fatalf("nilledElementIdentityKeyForTest() = %q", got)
-	}
-	if got == value.PrimitiveIdentityKey(value.PrimitiveString, "nil") {
-		t.Fatal("nilled element identity key collided with string nil")
 	}
 }
 
@@ -1082,7 +1070,7 @@ func startIdentityScope(t *testing.T, state *identityState, constraints []xsdSch
 
 func captureIdentityField(t *testing.T, state *identityState, selection int, lexical string) {
 	t.Helper()
-	err := state.captureFields([]identityFieldMatch{{Selection: selection, Field: 0}}, lexical, identityTestContext("/field", 1, 1))
+	err := state.captureFields([]identityFieldMatch{{Selection: selection, Field: 0}}, identityFieldValue{value: lexical, state: identityFieldPresent}, identityTestContext("/field", 1, 1))
 	if err != nil {
 		t.Fatalf("captureFields(selection=%d) error = %v", selection, err)
 	}

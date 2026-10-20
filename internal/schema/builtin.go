@@ -7,40 +7,46 @@ import (
 	"github.com/jacoelho/xsd/internal/vocab"
 )
 
-// BuiltinAttributeSeed describes one schema-owned global XML or XLink
-// attribute. The declared type is a fixed value-program ID; the value package
-// owns that type's lexical and value-space semantics.
-type BuiltinAttributeSeed struct {
-	Namespace string
-	Local     string
-	typ       SimpleTypeID
+const (
+	builtinSchemaLocationTypeID  = value.BuiltinTypeCount
+	builtinSchemaSimpleTypeCount = value.BuiltinTypeCount + 1
+)
+
+type builtinAttributeDefinition struct {
+	local string
+	typ   SimpleTypeID
 }
 
-var builtinAttributeSeedTable = [...]BuiltinAttributeSeed{
-	{Namespace: vocab.XMLNamespaceURI, Local: vocab.XMLAttrBase, typ: builtinTypeID(vocab.XSDValueAnyURI)},
-	{Namespace: vocab.XMLNamespaceURI, Local: vocab.XMLAttrID, typ: builtinTypeID(vocab.XSDValueID)},
-	{Namespace: vocab.XMLNamespaceURI, Local: vocab.XMLAttrLang, typ: builtinTypeID("xml:lang")},
-	{Namespace: vocab.XMLNamespaceURI, Local: vocab.XMLAttrSpace, typ: builtinTypeID("xml:space")},
-	{Namespace: vocab.XLinkNamespaceURI, Local: vocab.XLinkAttrType, typ: builtinTypeID(vocab.XSDValueString)},
-	{Namespace: vocab.XLinkNamespaceURI, Local: vocab.XLinkAttrHref, typ: builtinTypeID(vocab.XSDValueAnyURI)},
-	{Namespace: vocab.XLinkNamespaceURI, Local: vocab.XLinkAttrRole, typ: builtinTypeID(vocab.XSDValueAnyURI)},
-	{Namespace: vocab.XLinkNamespaceURI, Local: vocab.XLinkAttrArcrole, typ: builtinTypeID(vocab.XSDValueAnyURI)},
-	{Namespace: vocab.XLinkNamespaceURI, Local: vocab.XLinkAttrTitle, typ: builtinTypeID(vocab.XSDValueString)},
-	{Namespace: vocab.XLinkNamespaceURI, Local: vocab.XLinkAttrShow, typ: builtinTypeID(vocab.XSDValueString)},
-	{Namespace: vocab.XLinkNamespaceURI, Local: vocab.XLinkAttrActuate, typ: builtinTypeID(vocab.XSDValueString)},
+var builtinXSIAttributes = [...]builtinAttributeDefinition{
+	{local: vocab.XSIAttrType, typ: value.BuiltinType(value.PrimitiveQName)},
+	{local: vocab.XSIAttrNil, typ: value.BuiltinType(value.PrimitiveBoolean)},
+	{local: vocab.XSIAttrSchemaLocation, typ: builtinSchemaLocationTypeID},
+	{local: vocab.XSIAttrNoNamespaceSchemaLocation, typ: value.BuiltinType(value.PrimitiveAnyURI)},
 }
 
-// BuiltinAttributeSeedAt returns one fixed XML/XLink global attribute seed.
-func BuiltinAttributeSeedAt(i int) (BuiltinAttributeSeed, bool) {
-	if i < 0 || i >= len(builtinAttributeSeedTable) {
-		return BuiltinAttributeSeed{}, false
+func builtinXSIAttributeNames() []ExpandedName {
+	names := make([]ExpandedName, len(builtinXSIAttributes))
+	for i, attribute := range builtinXSIAttributes {
+		names[i] = ExpandedName{Namespace: vocab.XSINamespaceURI, Local: attribute.local}
 	}
-	return builtinAttributeSeedTable[i], true
+	return names
 }
 
-// TypeID returns the canonical value-program type assigned to this attribute.
-func (s BuiltinAttributeSeed) TypeID() (SimpleTypeID, bool) {
-	return s.typ, s.typ != NoSimpleType
+func builtinXSIAttributeType(local string) (SimpleTypeID, bool) {
+	for _, attribute := range builtinXSIAttributes {
+		if attribute.local == local {
+			return attribute.typ, true
+		}
+	}
+	return NoSimpleType, false
+}
+
+func builtinSchemaLocationTypeSpec() value.TypeSpec {
+	return value.TypeSpec{
+		Variety: value.List, Primitive: value.PrimitiveString,
+		Whitespace: value.WhitespaceCollapse, WhitespacePresent: true,
+		Base: value.AnySimpleTypeID, ListItem: value.BuiltinType(value.PrimitiveAnyURI),
+	}
 }
 
 // BuiltinAnyTypeLocalName returns the fixed local name for xs:anyType.
@@ -91,22 +97,12 @@ type BuiltinDeclarationCounts struct {
 	Models           int
 }
 
-const (
-	// xml:lang and xml:space have fixed value IDs but are internal schema
-	// declarations rather than XSD global type bindings.
-	builtinInternalAttributeSimpleTypeCount = 2
-	builtinComplexTypeDeclarationCount      = 1
-)
+const builtinComplexTypeDeclarationCount = 1
 
 // BuiltinSimpleTypeCount returns the number of fixed value-program type IDs
 // represented by schema declaration records.
 func BuiltinSimpleTypeCount() int {
-	return int(value.BuiltinTypeCount)
-}
-
-// BuiltinAttributeCount returns the number of fixed global attributes.
-func BuiltinAttributeCount() int {
-	return len(builtinAttributeSeedTable)
+	return int(builtinSchemaSimpleTypeCount)
 }
 
 // BuiltinComplexTypeCount returns the number of fixed complex declarations.
@@ -116,14 +112,14 @@ func BuiltinComplexTypeCount() int {
 
 // BuiltinGlobalTypeCount returns the number of fixed global type bindings.
 func BuiltinGlobalTypeCount() int {
-	return BuiltinSimpleTypeCount() - builtinInternalAttributeSimpleTypeCount + builtinComplexTypeDeclarationCount
+	return int(value.BuiltinTypeCount) + builtinComplexTypeDeclarationCount
 }
 
 // ValidateBuiltinDeclarationCounts validates the required fixed declaration
 // cardinalities seeded into every schema build.
 func ValidateBuiltinDeclarationCounts(counts BuiltinDeclarationCounts) error {
 	if counts.SimpleTypes < BuiltinSimpleTypeCount() ||
-		counts.Attributes < BuiltinAttributeCount() ||
+		counts.Attributes < len(builtinXSIAttributes) ||
 		counts.ComplexTypes < builtinComplexTypeDeclarationCount ||
 		counts.Wildcards == 0 ||
 		counts.AttributeUseSets == 0 ||
@@ -131,49 +127,6 @@ func ValidateBuiltinDeclarationCounts(counts BuiltinDeclarationCounts) error {
 		return errors.New("runtime is missing builtin declarations")
 	}
 	return nil
-}
-
-// builtinTypeID resolves a fixed value-program name. A missing name is a
-// repository invariant failure, so the fixed declaration table fails during
-// package initialization rather than silently assigning an invalid type.
-func builtinTypeID(local string) SimpleTypeID {
-	id, ok := value.BuiltinTypeID(local)
-	if !ok {
-		panic("missing canonical builtin type: " + local)
-	}
-	return id
-}
-
-// builtinSimpleDeclaration maps one canonical value-program ID to its
-// schema-facing expanded name and declaration scope. The XML-internal value
-// types are used by xml:lang/xml:space attributes and deliberately have no
-// global type binding.
-type builtinSimpleDeclarationInfo struct {
-	namespace string
-	local     string
-	scope     DeclarationScope
-}
-
-func builtinSimpleDeclaration(id SimpleTypeID) (builtinSimpleDeclarationInfo, bool) {
-	name, ok := value.BuiltinTypeName(id)
-	if !ok {
-		return builtinSimpleDeclarationInfo{}, false
-	}
-	switch name {
-	case "xml:lang":
-		return builtinSimpleDeclarationInfo{namespace: vocab.XMLNamespaceURI, local: vocab.XMLAttrLang, scope: DeclarationScopeNonGlobal}, true
-	case "xml:space":
-		return builtinSimpleDeclarationInfo{namespace: vocab.XMLNamespaceURI, local: vocab.XMLAttrSpace, scope: DeclarationScopeNonGlobal}, true
-	default:
-		return builtinSimpleDeclarationInfo{namespace: vocab.XSDNamespaceURI, local: name, scope: DeclarationScopeGlobal}, true
-	}
-}
-
-func builtinAttributeQName(names *NameTable, seed BuiltinAttributeSeed) (QName, bool) {
-	if names == nil {
-		return QName{}, false
-	}
-	return names.LookupQName(seed.Namespace, seed.Local)
 }
 
 func builtinAnyTypeQName(names *NameTable) (QName, bool) {

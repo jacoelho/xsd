@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.w3.org/2001/XMLSchema"><xs:attributeGroup name="string"><xs:attribute name="groupValue" use="required"><xs:simpleType><xs:restriction base="xs:token"><xs:enumeration value="allowed"/></xs:restriction></xs:simpleType></xs:attribute></xs:attributeGroup></xs:schema>

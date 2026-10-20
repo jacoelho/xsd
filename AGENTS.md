@@ -92,6 +92,9 @@ unowned follow-up remains.
 
 ## Verification Contract
 
+- For XSD/XML conformance diagnosis or new/changed corpus cases, follow the
+  mandatory [cross-validator comparison](tests/README.md#cross-validator-diagnosis)
+  procedure.
 - Format changed Go files with `gofmt` and run `git diff --check`.
 - Before completion run `make test`, `make race`, `make wasm-test`,
   `make web-test`, `make browser-test`, `make fuzz-smoke`, `make bench-smoke`,

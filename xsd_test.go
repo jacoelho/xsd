@@ -636,14 +636,14 @@ func TestIdentityConstraintValueSpaceRules(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Compile() error = %v", err)
 		}
-		for _, doc := range []string{
-			`<root><row><code>present</code></row></root>`,
-			`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><row><code xsi:nil="true"/></row></root>`,
+		for _, test := range []struct{ doc, diagnostic string }{
+			{`<root><row><code>present</code></row></root>`, "key field selects nillable element declaration"},
+			{`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><row><code xsi:nil="true"/></row></root>`, "key field is missing"},
 		} {
-			err = engine.Validate(strings.NewReader(doc))
+			err = engine.Validate(strings.NewReader(test.doc))
 			expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationIdentity)
-			if !strings.Contains(err.Error(), "key field selects nillable element declaration") {
-				t.Fatalf("Validate(%s) error = %v, want nillable key-field error", doc, err)
+			if !strings.Contains(err.Error(), test.diagnostic) {
+				t.Fatalf("Validate(%s) error = %v, want %q", test.doc, err, test.diagnostic)
 			}
 		}
 	})
@@ -980,13 +980,13 @@ func TestOwnedIdentityFailureSuppressesOuterNillableKeyError(t *testing.T) {
 	if compileErr != nil {
 		t.Fatalf("Compile(self-key schema) error = %v", compileErr)
 	}
-	for _, document := range []string{
-		`<root>value</root>`,
-		`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>`,
+	for _, test := range []struct{ document, diagnostic string }{
+		{`<root>value</root>`, "key field selects nillable element declaration"},
+		{`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>`, "key field is missing"},
 	} {
-		validationErr := selfKeyEngine.Validate(strings.NewReader(document))
-		if !errorTreeContains(validationErr, "key field selects nillable element declaration") {
-			t.Fatalf("Validate(self key %s) error = %v, want nillable-key error", document, validationErr)
+		validationErr := selfKeyEngine.Validate(strings.NewReader(test.document))
+		if !errorTreeContains(validationErr, test.diagnostic) {
+			t.Fatalf("Validate(self key %s) error = %v, want %q", test.document, validationErr, test.diagnostic)
 		}
 	}
 
@@ -1103,15 +1103,14 @@ func TestRecursiveIdentityLocalKeyShadowsPropagatedChildEntries(t *testing.T) {
 	}
 }
 
-func TestFixedAttributeConstraintComparisonUsesItsSchemaOwner(t *testing.T) {
+func TestFixedAttributeConstraintsCompareTypedValues(t *testing.T) {
 	const schemaPrefix = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:test" targetNamespace="urn:test" elementFormDefault="qualified">
   <xs:attribute name="v" type="xs:duration" fixed="P1Y"/>`
 	const schemaSuffix = `</xs:schema>`
 	tests := []struct {
-		name    string
-		body    string
-		doc     string
-		wantErr bool
+		name string
+		body string
+		doc  string
 	}{
 		{
 			name: "referenced declaration uses value equality",
@@ -1131,19 +1130,17 @@ func TestFixedAttributeConstraintComparisonUsesItsSchemaOwner(t *testing.T) {
 			doc: `<t:root xmlns:t="urn:test" t:v="P12M"/>`,
 		},
 		{
-			name:    "local use retains canonical lexical equality",
-			body:    `<xs:element name="root"><xs:complexType><xs:attribute name="v" type="xs:duration" fixed="P1Y"/></xs:complexType></xs:element>`,
-			doc:     `<t:root xmlns:t="urn:test" v="P12M"/>`,
-			wantErr: true,
+			name: "local use compares values",
+			body: `<xs:element name="root"><xs:complexType><xs:attribute name="v" type="xs:duration" fixed="P1Y"/></xs:complexType></xs:element>`,
+			doc:  `<t:root xmlns:t="urn:test" v="P12M"/>`,
 		},
 		{
-			name:    "explicit reference override uses canonical lexical equality",
-			body:    `<xs:element name="root"><xs:complexType><xs:attribute ref="t:v" fixed="P12M"/></xs:complexType></xs:element>`,
-			doc:     `<t:root xmlns:t="urn:test" t:v="P1Y"/>`,
-			wantErr: true,
+			name: "explicit reference override compares values",
+			body: `<xs:element name="root"><xs:complexType><xs:attribute ref="t:v" fixed="P12M"/></xs:complexType></xs:element>`,
+			doc:  `<t:root xmlns:t="urn:test" t:v="P1Y"/>`,
 		},
 		{
-			name: "group and extension preserve declaration provenance",
+			name: "group and extension preserve value equality",
 			body: `<xs:attributeGroup name="values"><xs:attribute ref="t:v"/></xs:attributeGroup>
   <xs:complexType name="base"><xs:attributeGroup ref="t:values"/></xs:complexType>
   <xs:complexType name="derived"><xs:complexContent><xs:extension base="t:base"/></xs:complexContent></xs:complexType>
@@ -1158,10 +1155,6 @@ func TestFixedAttributeConstraintComparisonUsesItsSchemaOwner(t *testing.T) {
 				t.Fatalf("Compile() error = %v", err)
 			}
 			err = engine.Validate(strings.NewReader(test.doc))
-			if test.wantErr {
-				expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationAttribute)
-				return
-			}
 			if err != nil {
 				t.Fatalf("Validate() error = %v", err)
 			}
@@ -1169,7 +1162,7 @@ func TestFixedAttributeConstraintComparisonUsesItsSchemaOwner(t *testing.T) {
 	}
 }
 
-func TestIdentityFieldsRejectUnassessedWildcardElements(t *testing.T) {
+func TestIdentityFieldsIgnoreSkippedWildcardElements(t *testing.T) {
 	schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="known" type="xs:string"/>
   <xs:element name="root">
@@ -1192,19 +1185,19 @@ func TestIdentityFieldsRejectUnassessedWildcardElements(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			err := engine.Validate(strings.NewReader(test.doc))
-			expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationIdentity)
-			if !strings.Contains(err.Error(), "identity field has no simple value") {
-				t.Fatalf("Validate() error = %v, want no-simple-value identity error", err)
+			if err != nil {
+				t.Fatalf("Validate() error = %v, want skipped identity nodes ignored", err)
 			}
 		})
 	}
 }
 
-func TestIdentityFieldsRejectUnassessedWildcardAttributes(t *testing.T) {
+func TestIdentityFieldsIgnoreSkippedAttributesAndRejectUnassessedLax(t *testing.T) {
 	for _, test := range []struct {
-		name     string
-		schema   string
-		instance string
+		name          string
+		schema        string
+		instance      string
+		noSimpleValue bool
 	}{
 		{
 			name: "attribute wildcard skip",
@@ -1239,7 +1232,8 @@ func TestIdentityFieldsRejectUnassessedWildcardAttributes(t *testing.T) {
 			instance: `<root><unknown code="value"/></root>`,
 		},
 		{
-			name: "attribute wildcard lax missing",
+			name:          "attribute wildcard lax missing",
+			noSimpleValue: true,
 			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">
     <xs:complexType><xs:anyAttribute processContents="lax"/></xs:complexType>
@@ -1255,6 +1249,12 @@ func TestIdentityFieldsRejectUnassessedWildcardAttributes(t *testing.T) {
 				t.Fatalf("Compile() error = %v", err)
 			}
 			err = engine.Validate(strings.NewReader(test.instance))
+			if !test.noSimpleValue {
+				if err != nil {
+					t.Fatalf("Validate() error = %v, want skipped attributes ignored", err)
+				}
+				return
+			}
 			expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationIdentity)
 			if !strings.Contains(err.Error(), "identity field has no simple value") {
 				t.Fatalf("Validate() error = %v, want no-simple-value identity error", err)

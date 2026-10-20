@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/xsdregex"
 )
 
 func TestCompositeValueIdentityProjections(t *testing.T) {
@@ -109,6 +110,62 @@ func TestListOfUnionCarriesSelectedIDREFs(t *testing.T) {
 	}
 }
 
+func TestIdentityPayloadsSurviveLaterEvaluation(t *testing.T) {
+	pattern, err := xsdregex.Compile("[a-z]+", xsdregex.CompileOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	builder := value.NewBuilder(value.BuilderOptions{})
+	item := completeCanonicalProjectionType(t, builder, value.TypeSpec{
+		Variety: value.Atomic, Primitive: value.PrimitiveString,
+		Base: value.BuiltinType(value.PrimitiveString), ListItem: value.NoType,
+		Facets: value.FacetSpec{Patterns: [][]*value.Pattern{{pattern}}},
+	})
+	list := completeCanonicalProjectionType(t, builder, value.TypeSpec{
+		Variety: value.List, Base: value.NoType, ListItem: item,
+	})
+	program, err := builder.Seal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var scratch value.Scratch
+	raw := []byte("first")
+	primitive, err := program.ValidateBytes(item, raw, value.Resolver{}, value.NeedIdentity, 16<<20, &scratch)
+	clear(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw = []byte("first last")
+	aggregate, err := program.ValidateBytes(list, raw, value.Resolver{}, value.NeedIdentity, 16<<20, &scratch)
+	clear(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := program.Validate(list, "a much longer pair", value.Resolver{}, value.NeedIdentity, 16<<20, &scratch); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := program.Validate(item, "123", value.Resolver{}, value.NeedIdentity, 16<<20, &scratch); !errors.Is(err, value.ErrFacet) {
+		t.Fatalf("invalid patterned value error = %v", err)
+	}
+	scratch.Reset(0)
+	for _, test := range []struct {
+		name, lexical, identity string
+		typ                     value.TypeID
+		retained                value.Value
+	}{
+		{"primitive", "first", "\x00\x1efirst", item, primitive},
+		{"list", "first last", "\x00\x1e7:\x00\x1efirst6:\x00\x1elast", list, aggregate},
+	} {
+		fresh, err := program.Validate(test.typ, test.lexical, value.Resolver{}, value.NeedIdentity, 16<<20, &scratch)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !test.retained.HasIdentity() || test.retained.IdentityKey() != test.identity || !test.retained.Equal(fresh) {
+			t.Fatalf("%s identity after later evaluation = %q", test.name, test.retained.IdentityKey())
+		}
+	}
+}
+
 func TestEmptyListIdentityThroughUnions(t *testing.T) {
 	builder := value.NewBuilder(value.BuilderOptions{})
 	stringType := value.BuiltinType(value.PrimitiveString)
@@ -161,7 +218,7 @@ func TestEmptyListIdentityThroughUnions(t *testing.T) {
 					if err != nil {
 						t.Fatalf("needs %d, bytes %t: %v", needs, bytes, err)
 					}
-					if got.Type() != route.typeID || got.SelectedType() != route.selected || got.IdentityKey() != "\x00\x1e" || got.CanonicalText() != "" {
+					if !got.HasIdentity() || got.Type() != route.typeID || got.SelectedType() != route.selected || got.IdentityKey() != "\x00\x1e" || got.CanonicalText() != "" {
 						t.Fatalf("needs %d, bytes %t: type=%d, selected=%d, identity=%q, canonical=%q", needs, bytes, got.Type(), got.SelectedType(), got.IdentityKey(), got.CanonicalText())
 					}
 					if got.Equal(atomic) {
@@ -174,6 +231,9 @@ func TestEmptyListIdentityThroughUnions(t *testing.T) {
 }
 
 func TestCanonicalProjectionRequestsAndOwnership(t *testing.T) {
+	if (value.Value{}).HasIdentity() {
+		t.Fatal("zero value has an identity projection")
+	}
 	program, err := value.NewBuilder(value.BuilderOptions{}).Seal()
 	if err != nil {
 		t.Fatal(err)
@@ -293,6 +353,9 @@ func completeCanonicalProjectionType(t *testing.T, builder *value.Builder, spec 
 
 func assertRequestedCanonicalProjection(t *testing.T, got value.Value, needs value.Needs, canonical, identity string) {
 	t.Helper()
+	if got.HasIdentity() != needs.Has(value.NeedIdentity) {
+		t.Fatalf("needs %d: identity availability = %t", needs, got.HasIdentity())
+	}
 	if !needs.Has(value.NeedCanonical) {
 		canonical = ""
 	}

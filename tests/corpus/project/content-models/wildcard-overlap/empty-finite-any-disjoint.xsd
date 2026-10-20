@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:t">
+  <xs:element name="r"><xs:complexType><xs:choice><xs:any namespace="" processContents="skip"/><xs:any namespace="##any" processContents="skip"/></xs:choice></xs:complexType></xs:element>
+  <xs:element name="dead"><xs:complexType><xs:sequence><xs:any namespace="" processContents="skip"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>

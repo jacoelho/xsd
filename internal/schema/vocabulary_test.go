@@ -9,6 +9,5 @@ const (
 	XSDNamespaceURI   = vocab.XSDNamespaceURI
 	XSINamespaceURI   = vocab.XSINamespaceURI
 	XMLNamespaceURI   = vocab.XMLNamespaceURI
-	XLinkNamespaceURI = vocab.XLinkNamespaceURI
 	XMLNSNamespaceURI = vocab.XMLNSNamespaceURI
 )

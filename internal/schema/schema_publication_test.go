@@ -285,7 +285,7 @@ func TestComplexTypeReadDerivesValidationViews(t *testing.T) {
 		Content:     3,
 		Attrs:       4,
 		TextType:    5,
-		ContentKind: ContentSimpleMixed,
+		ContentKind: ContentSimple,
 		Block:       DerivationExtension,
 		Abstract:    true,
 	}

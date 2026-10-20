@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/source"
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 func TestContentRestrictionSubstitutionNormalizationPreservesBuild(t *testing.T) {
@@ -112,6 +113,133 @@ func TestContentRestrictionChoiceWorkFailureAllowsRetry(t *testing.T) {
 		})
 	}
 	assertRestrictionWorkFailureAllowsRetry(t, fixture.build(), 0, 1)
+}
+
+func TestContentRestrictionRecursiveChoiceWorkFailureAllowsRetry(t *testing.T) {
+	t.Parallel()
+	one := Occurrence{Min: 1, Max: 1}
+	fixture := contentRestrictionRuntimeWith([]ContentModel{
+		{Kind: ModelChoice, Occurs: Occurrence{Min: 2, Max: 3}, Particles: []Particle{ElementParticle(1, one), ElementParticle(2, one)}},
+		{Kind: ModelChoice, Occurs: Occurrence{Min: 2, Max: 2}, Particles: []Particle{ElementParticle(1, one), ElementParticle(2, one)}},
+		{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(3, one), ModelParticle(0, one)}},
+		{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(3, one), ModelParticle(1, one)}},
+		{Kind: ModelChoice, Occurs: one, Particles: []Particle{ModelParticle(2, one), ElementParticle(4, one)}},
+		{Kind: ModelChoice, Occurs: one, Particles: []Particle{ModelParticle(3, one), ElementParticle(4, one)}},
+	})
+	for i := 3; i <= 4; i++ {
+		fixture.elements = append(fixture.elements, QName{Namespace: EmptyNamespaceID, Local: LocalNameID(i)})
+		fixture.elementRestrictions = append(fixture.elementRestrictions, ParticleRestrictionElement{Type: ComplexRef(0), Scope: DeclarationScopeNonGlobal})
+	}
+	assertRestrictionWorkFailureAllowsRetry(t, fixture.build(), 4, 5)
+}
+
+func TestContentRestrictionEmptyAgainstEmptiableChoice(t *testing.T) {
+	t.Parallel()
+	one := Occurrence{Min: 1, Max: 1}
+	for _, test := range []struct {
+		name      string
+		epsilon   bool
+		malformed bool
+	}{
+		{name: "empty branch", epsilon: true},
+		{name: "required branch only"},
+		{name: "malformed base", epsilon: true, malformed: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			element := ElementID(1)
+			if test.malformed {
+				element = 99
+			}
+			children := []Particle{ElementParticle(element, one)}
+			if test.epsilon {
+				children = append(children, ModelParticle(0, one))
+			}
+			fixture := contentRestrictionRuntimeWith([]ContentModel{
+				{Kind: ModelEmpty},
+				{Kind: ModelChoice, Occurs: one, Particles: children},
+				{Kind: ModelEmpty},
+			})
+			rt := fixture.build()
+			err := ValidateContentRestriction(rt, 1, 2, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt))
+			switch {
+			case test.malformed:
+				if !IsContentRestrictionInvariant(err) {
+					t.Fatalf("restriction error = %v, want graph invariant", err)
+				}
+			case !test.epsilon:
+				if !IsContentRestrictionMismatch(err) {
+					t.Fatalf("restriction error = %v, want nonemptiable base mismatch", err)
+				}
+			case err != nil:
+				t.Fatalf("empty restriction of emptiable base: %v", err)
+			default:
+				assertRestrictionWorkFailureAllowsRetry(t, rt, 1, 2)
+			}
+		})
+	}
+}
+
+func TestContentRestrictionBodyOccurrences(t *testing.T) {
+	t.Parallel()
+	one := Occurrence{Min: 1, Max: 1}
+	type testCase struct {
+		name         string
+		body         Occurrence
+		baseOuter    Occurrence
+		derivedOuter Occurrence
+		baseOptional bool
+		invalid      bool
+	}
+	for _, kind := range []ModelKind{ModelChoice, ModelSequence} {
+		tests := []testCase{
+			{name: "tightened body", body: Occurrence{Min: 2, Max: 2}, baseOuter: one, derivedOuter: one},
+			{name: "too few", body: one, baseOuter: one, derivedOuter: one, invalid: true},
+			{name: "too many", body: Occurrence{Min: 2, Max: 4}, baseOuter: one, derivedOuter: one, invalid: true},
+		}
+		if kind == ModelSequence {
+			tests = append(tests,
+				testCase{name: "tightened both layers", body: Occurrence{Min: 2, Max: 2}, baseOuter: Occurrence{Min: 2, Max: 3}, derivedOuter: Occurrence{Min: 2, Max: 2}},
+				testCase{name: "outer minimum lost", body: Occurrence{Min: 2, Max: 3}, baseOuter: Occurrence{Min: 2, Max: 3}, derivedOuter: one, invalid: true},
+			)
+		} else {
+			tests = append(tests,
+				testCase{name: "mixed occurrence ownership", body: one, baseOuter: one, derivedOuter: Occurrence{Min: 2, Max: 3}},
+				testCase{name: "optional body", body: Occurrence{Min: 0, Max: 2}, baseOuter: one, derivedOuter: one, baseOptional: true},
+				testCase{name: "introduced empty body", body: Occurrence{Min: 0, Max: 2}, baseOuter: one, derivedOuter: one, invalid: true},
+			)
+		}
+		for _, test := range tests {
+			t.Run(fmt.Sprintf("kind=%d/%s", kind, test.name), func(t *testing.T) {
+				t.Parallel()
+				children := []Particle{ElementParticle(1, one), ElementParticle(2, one)}
+				baseBody := Occurrence{Min: 2, Max: 3}
+				if test.baseOptional {
+					baseBody.Min = 0
+				}
+				fixture := contentRestrictionRuntimeWith([]ContentModel{
+					{Kind: kind, Occurs: baseBody, Particles: children},
+					{Kind: kind, Occurs: test.body, Particles: children},
+					{Kind: kind, Occurs: one, Particles: []Particle{ModelParticle(0, test.baseOuter), ElementParticle(3, one)}},
+					{Kind: kind, Occurs: one, Particles: []Particle{ModelParticle(1, test.derivedOuter), ElementParticle(3, one)}},
+				})
+				fixture.elements = append(fixture.elements, QName{Namespace: EmptyNamespaceID, Local: 3})
+				fixture.elementRestrictions = append(fixture.elementRestrictions, ParticleRestrictionElement{Type: ComplexRef(0), Scope: DeclarationScopeNonGlobal})
+				rt := fixture.build()
+				err := ValidateContentRestriction(rt, 2, 3, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt))
+				if test.invalid {
+					if !IsContentRestrictionMismatch(err) {
+						t.Fatalf("ValidateContentRestriction() error = %v, want occurrence mismatch", err)
+					}
+					return
+				}
+				if err != nil {
+					t.Fatalf("ValidateContentRestriction() error = %v", err)
+				}
+				assertRestrictionWorkFailureAllowsRetry(t, rt, 2, 3)
+			})
+		}
+	}
 }
 
 func assertRestrictionWorkFailureAllowsRetry(t *testing.T, rt *schemaBuild, base, derived ContentModelID) {
@@ -278,4 +406,122 @@ func assertRestrictionSemanticsUnchanged(t *testing.T, rt *schemaBuild, analysis
 	if got := restrictionModelSemantics(t, rt, unlimitedContentModelAnalysis(rt)); !slices.Equal(got, want) {
 		t.Fatalf("fresh model analysis changed: got %+v, want %+v", got, want)
 	}
+}
+
+func TestContentRestrictionWildcardUsesAggregateMinimum(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name    string
+		members string
+		invalid bool
+	}{
+		{name: "optional member", members: `<xs:element name="a"/><xs:element name="b" minOccurs="0"/>`},
+		{name: "aggregate minimum", members: `<xs:element name="a" minOccurs="0"/><xs:element name="b" minOccurs="0"/>`, invalid: true},
+		{name: "aggregate maximum", members: `<xs:element name="a"/><xs:element name="b"/><xs:element name="c"/>`, invalid: true},
+		{name: "excluded namespace", members: `<xs:element name="a"/><xs:element name="b" minOccurs="0" form="unqualified"/>`, invalid: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			text := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:allowed" targetNamespace="urn:allowed" elementFormDefault="qualified">
+<xs:complexType name="Base"><xs:sequence><xs:any namespace="urn:allowed" minOccurs="1" maxOccurs="2" processContents="skip"/></xs:sequence></xs:complexType>
+<xs:complexType name="Derived"><xs:complexContent><xs:restriction base="t:Base"><xs:all>` + test.members + `</xs:all></xs:restriction></xs:complexContent></xs:complexType>
+</xs:schema>`
+			_, err := Compile(Options{}, []source.Source{source.Bytes("restriction.xsd", []byte(text))})
+			if !test.invalid {
+				if err != nil {
+					t.Fatalf("Compile() error = %v", err)
+				}
+				return
+			}
+			if diagnostic, ok := errors.AsType[*xsderrors.Error](err); !ok || diagnostic.Code() != xsderrors.CodeSchemaContentModel {
+				t.Fatalf("Compile() error = %v, want content restriction failure", err)
+			}
+		})
+	}
+}
+
+func TestContentRestrictionImplicitChoiceOrdering(t *testing.T) {
+	t.Parallel()
+	ref := func(names ...string) string {
+		var text strings.Builder
+		for _, name := range names {
+			fmt.Fprintf(&text, `<xs:element ref="t:%s"/>`, name)
+		}
+		return text.String()
+	}
+	tests := []struct {
+		name    string
+		base    string
+		derived string
+		invalid bool
+	}{
+		{name: "generated base span", base: ref("p", "H", "q"), derived: ref("p", "b", "a", "q")},
+		{name: "generated derived span", base: ref("p", "b", "a", "q"), derived: ref("p", "G", "q")},
+		{name: "both generated spans", base: ref("p", "H", "q"), derived: ref("p", "G", "q")},
+		{name: "explicit sibling reversal", base: ref("p", "H", "q"), derived: ref("q", "b", "a", "p"), invalid: true},
+		{name: "cross generated boundary", base: ref("p", "H", "q"), derived: ref("p", "a", "q", "b"), invalid: true},
+		{name: "adjacent generated spans", base: ref("p", "H", "J", "q"), derived: ref("p", "b", "a", "e", "d", "q")},
+		{name: "cross adjacent generated spans", base: ref("p", "H", "J", "q"), derived: ref("p", "d", "b", "a", "e", "q"), invalid: true},
+		{name: "explicit branch reversal", base: ref("p", "a", "b", "q"), derived: ref("p", "b", "a", "q"), invalid: true},
+		{name: "nested generated span", base: ref("p") + `<xs:choice>` + ref("H", "q") + `</xs:choice>`, derived: ref("p", "b", "a", "q")},
+		{name: "nested boundary crossing", base: ref("p") + `<xs:choice>` + ref("H", "q") + `</xs:choice>`, derived: ref("p", "a", "q", "b"), invalid: true},
+		{name: "generated members share wildcard", base: `<xs:any namespace="urn:choice" processContents="skip"/><xs:element name="local" form="unqualified"/>`, derived: ref("G")},
+		{name: "explicit members cannot share wildcard", base: `<xs:any namespace="urn:choice" processContents="skip"/><xs:element name="local" form="unqualified"/>`, derived: ref("a", "b"), invalid: true},
+	}
+	for _, test := range tests {
+		for _, reverse := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/reverse=%t", test.name, reverse), func(t *testing.T) {
+				t.Parallel()
+				members := []string{"a", "b"}
+				if reverse {
+					slices.Reverse(members)
+				}
+				var text strings.Builder
+				text.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:choice" targetNamespace="urn:choice">
+<xs:element name="H" abstract="true" type="xs:string"/>
+<xs:element name="G" abstract="true" type="xs:string" substitutionGroup="t:H"/>
+<xs:element name="c" type="xs:string" substitutionGroup="t:H"/>
+<xs:element name="p" type="xs:string"/><xs:element name="q" type="xs:string"/>
+<xs:element name="J" abstract="true" type="xs:string"/>
+<xs:element name="d" type="xs:string" substitutionGroup="t:J"/>
+<xs:element name="e" type="xs:string" substitutionGroup="t:J"/>`)
+				for _, name := range members {
+					fmt.Fprintf(&text, `<xs:element name="%s" type="xs:string" substitutionGroup="t:G"/>`, name)
+				}
+				fmt.Fprintf(&text, `<xs:complexType name="Base"><xs:choice>%s</xs:choice></xs:complexType>
+<xs:complexType name="Derived"><xs:complexContent><xs:restriction base="t:Base"><xs:choice>%s</xs:choice></xs:restriction></xs:complexContent></xs:complexType></xs:schema>`, test.base, test.derived)
+				_, err := Compile(Options{}, []source.Source{source.Bytes("restriction.xsd", []byte(text.String()))})
+				if !test.invalid {
+					if err != nil {
+						t.Fatalf("Compile() error = %v", err)
+					}
+					return
+				}
+				if diagnostic, ok := errors.AsType[*xsderrors.Error](err); !ok || diagnostic.Code() != xsderrors.CodeSchemaContentModel {
+					t.Fatalf("Compile() error = %v, want content restriction failure", err)
+				}
+			})
+		}
+	}
+}
+
+func TestContentRestrictionImplicitChoiceWorkFailureAllowsRetry(t *testing.T) {
+	t.Parallel()
+	rt, base, derived := substitutionRestrictionFixture(t, true)
+	one := Occurrence{Min: 1, Max: 1}
+	var particles []Particle
+	for i := 9; i >= 0; i-- {
+		name, ok := rt.Names.LookupQName("urn:heads", fmt.Sprintf("m%d", i))
+		if !ok {
+			t.Fatal("missing substitution member name")
+		}
+		id, ok := rt.GlobalElements[name]
+		if !ok {
+			t.Fatal("missing substitution member")
+		}
+		particles = append(particles, ElementParticle(id, one))
+	}
+	rt.Models[base] = ContentModel{Kind: ModelChoice, Occurs: one, Particles: particles}
+	assertRestrictionWorkFailureAllowsRetry(t, rt, base, derived)
 }

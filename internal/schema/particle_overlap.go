@@ -19,7 +19,12 @@ func (a *ContentModelAnalysis) contentModel(id ContentModelID) (ContentModel, bo
 	if a.models != nil {
 		return a.models.model(id)
 	}
-	return ContentModelByID(a.rt.Models, id)
+	if !ValidContentModelID(id, len(a.rt.Models)) {
+		return ContentModel{}, false
+	}
+	// Analysis borrows model children without mutation, just like its private
+	// restriction view; defensive copies belong to component read boundaries.
+	return a.rt.Models[id], true
 }
 
 type particleAcceptedNames struct {

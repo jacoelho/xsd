@@ -7,7 +7,6 @@ const (
 	XSDNamespaceURI   = "http://www.w3.org/2001/XMLSchema"
 	XSINamespaceURI   = "http://www.w3.org/2001/XMLSchema-instance"
 	XMLNamespaceURI   = "http://www.w3.org/XML/1998/namespace"
-	XLinkNamespaceURI = "http://www.w3.org/1999/xlink"
 	XMLNSNamespaceURI = "http://www.w3.org/2000/xmlns/"
 )
 
@@ -16,7 +15,6 @@ const (
 	XMLVersion10 = "1.0"
 	XMLPrefix    = "xml"
 	XMLAttrBase  = "base"
-	XMLAttrID    = "id"
 	XMLAttrLang  = "lang"
 	XMLAttrSpace = "space"
 	XMLNSPrefix  = "xmlns"
@@ -25,23 +23,12 @@ const (
 	XMLValuePreserve = "preserve"
 )
 
-// XLink attribute names.
-const (
-	XLinkAttrActuate = "actuate"
-	XLinkAttrArcrole = "arcrole"
-	XLinkAttrHref    = "href"
-	XLinkAttrRole    = "role"
-	XLinkAttrShow    = "show"
-	XLinkAttrTitle   = "title"
-	XLinkAttrType    = "type"
-)
-
 // XSI attribute names.
 const (
 	XSIAttrNil                       = "nil"
 	XSIAttrNoNamespaceSchemaLocation = "noNamespaceSchemaLocation"
 	XSIAttrSchemaLocation            = "schemaLocation"
-	XSIAttrType                      = "type" //nolint:goconst // XSI and XLink names are separate namespace vocabulary.
+	XSIAttrType                      = "type"
 )
 
 // XSD element names.

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"slices"
-	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -16,12 +15,14 @@ import (
 // Value is one validated value-space result. Its typed payload remains
 // private so callers cannot construct a value that bypasses parsing or facets.
 type Value struct {
-	canonical  string
-	identity   string
-	projection string
-	typeID     TypeID
-	selected   TypeID
-	flags      valueFlags
+	canonical string
+	// The immutable identity payload excludes framing until IdentityKey is used.
+	identity     string
+	projection   string
+	typeID       TypeID
+	selected     TypeID
+	identityKind PrimitiveKind
+	flags        valueFlags
 }
 
 // NewUntypedValue constructs the lexical value used by mixed-content default
@@ -39,6 +40,7 @@ const (
 	valueIDRefs
 	valueList
 	valueQualifiedNames
+	valueHasIdentity
 )
 
 // parsedValue is transient validation state. It is deliberately separate from
@@ -57,6 +59,7 @@ type parsedValue struct {
 	count              uint32
 	isList             bool
 	listQualifiedNames bool
+	identityReady      bool
 }
 
 type atomicValue struct {
@@ -92,8 +95,16 @@ func (v Value) CanonicalText() string { return v.canonical }
 // HasQualifiedNames reports whether the accepted value contains QName or NOTATION values.
 func (v Value) HasQualifiedNames() bool { return v.flags&valueQualifiedNames != 0 }
 
-// IdentityKey returns the value-space equality projection when requested.
-func (v Value) IdentityKey() string { return v.identity }
+// HasIdentity reports whether the value-space identity projection was requested.
+func (v Value) HasIdentity() bool { return v.flags&valueHasIdentity != 0 }
+
+// IdentityKey serializes the value-space identity projection when requested.
+func (v Value) IdentityKey() string {
+	if !v.HasIdentity() {
+		return ""
+	}
+	return PrimitiveIdentityKey(v.identityKind, v.identity)
+}
 
 // IDs returns an xs:ID document-identity projection, when requested.
 func (v Value) IDs() string {
@@ -114,10 +125,10 @@ func (v Value) IDRefs() string {
 // Equal compares values in their typed value space. It does not compare source
 // lexical or canonical spellings.
 func (v Value) Equal(other Value) bool {
-	if v.identity == "" || other.identity == "" {
+	if !v.HasIdentity() || !other.HasIdentity() {
 		return false
 	}
-	if v.flags&valueList != other.flags&valueList {
+	if v.identityKind != other.identityKind || v.flags&valueList != other.flags&valueList {
 		return false
 	}
 	return v.identity == other.identity
@@ -166,22 +177,6 @@ func (p *Program) ValidateAdmitted(id TypeID, lexical string, resolver Resolver,
 		return Value{}, err
 	}
 	return p.validateValueWithBudget(id, lexical, &evaluationRequest{
-		resolver: resolver, needs: needs, scratch: scratch, budget: &budget, admitted: true,
-	})
-}
-
-// ValidateAdmittedNormalized also returns the successful type's whitespace-
-// normalized spelling before canonicalization, including the selected union
-// member's normalization. No normalized result is returned on failure.
-func (p *Program) ValidateAdmittedNormalized(id TypeID, lexical string, resolver Resolver, needs Needs, workLimit uint64, scratch *Scratch) (Value, string, error) {
-	if p == nil || !p.sealed {
-		return Value{}, "", ErrMetadata
-	}
-	budget, err := newEvaluationBudget(workLimit)
-	if err != nil {
-		return Value{}, "", err
-	}
-	return p.validateNormalizedValueWithBudget(id, lexical, &evaluationRequest{
 		resolver: resolver, needs: needs, scratch: scratch, budget: &budget, admitted: true,
 	})
 }
@@ -667,23 +662,18 @@ type evaluationRequest struct {
 }
 
 func (p *Program) validateValueWithBudget(id TypeID, lexical string, request *evaluationRequest) (Value, error) {
-	out, _, err := p.validateNormalizedValueWithBudget(id, lexical, request)
-	return out, err
-}
-
-func (p *Program) validateNormalizedValueWithBudget(id TypeID, lexical string, request *evaluationRequest) (Value, string, error) {
 	if p == nil || id == NoType || id >= BuiltinTypeCount && uint64(id-BuiltinTypeCount) >= uint64(len(p.types)) {
-		return Value{}, "", ErrMetadata
+		return Value{}, ErrMetadata
 	}
 	t, ok := p.typeDef(id)
 	if !ok {
-		return Value{}, "", ErrMetadata
+		return Value{}, ErrMetadata
 	}
 	if out, handled, err := validatePlainString(id, t, lexical, request); handled {
 		if err != nil {
-			return Value{}, "", err
+			return Value{}, err
 		}
-		return out, lexical, nil
+		return out, nil
 	}
 	evalNeeds := request.needs
 	// ID/IDREF projections are required by the type contract even when the
@@ -692,7 +682,7 @@ func (p *Program) validateNormalizedValueWithBudget(id TypeID, lexical string, r
 		evalNeeds |= NeedCanonical
 	}
 	var v parsedValue
-	normalized, err := p.eval(id, lexical, evalOptions{
+	_, err := p.eval(id, lexical, evalOptions{
 		resolver:      request.resolver,
 		needs:         evalNeeds,
 		enforceFacets: true,
@@ -701,11 +691,11 @@ func (p *Program) validateNormalizedValueWithBudget(id TypeID, lexical string, r
 		admitted:      request.admitted,
 	}, &v)
 	if err != nil {
-		return Value{}, "", err
+		return Value{}, err
 	}
 	out := projectValue(&v, request.needs)
 	projectDocumentIdentity(&out, &v, t.identity)
-	return out, normalized, nil
+	return out, nil
 }
 
 func projectDocumentIdentity(out *Value, value *parsedValue, identity IdentityKind) {
@@ -745,7 +735,9 @@ func validatePlainString(id TypeID, t *typeDef, lexical string, request *evaluat
 		out.canonical = lexical
 	}
 	if request.needs.Has(NeedIdentity) {
-		out.identity = PrimitiveIdentityKey(PrimitiveString, lexical)
+		out.identity = lexical
+		out.identityKind = PrimitiveString
+		out.flags |= valueHasIdentity
 	}
 	return out, true, nil
 }
@@ -757,6 +749,8 @@ func projectValue(v *parsedValue, needs Needs) Value {
 	}
 	if needs.Has(NeedIdentity) {
 		out.identity = v.identity
+		out.identityKind = v.atom.kind
+		out.flags |= valueHasIdentity
 	}
 	if v.isList {
 		out.flags |= valueList
@@ -968,11 +962,7 @@ func (b *listValueBuilder) appendCanonical(text string) {
 }
 
 func (b *listValueBuilder) appendIdentity(item parsedValue) {
-	text := item.identity
-	if text == "" {
-		text = item.canonical
-	}
-	appendListIdentityItem(&b.identity, text, &b.identityLength)
+	appendPrimitiveIdentityItem(&b.identity, item.atom.kind, item.identity, &b.identityLength)
 }
 
 func (b *listValueBuilder) appendIDRefs(text string) {
@@ -985,7 +975,8 @@ func (b *listValueBuilder) appendIDRefs(text string) {
 func (b *listValueBuilder) finish(identity IdentityKind) parsedValue {
 	b.value.canonical = b.canonical.String()
 	if b.needs.Has(NeedIdentity) {
-		b.value.identity = PrimitiveIdentityKey(PrimitiveString, b.identity.String())
+		b.value.identity = b.identity.String()
+		b.value.identityReady = true
 	}
 	if b.collectIDRefs {
 		// Union items carry the identity of the member that accepted each
@@ -1052,8 +1043,9 @@ func unionFailure(last, unsupported error) error {
 }
 
 func finalizeParsedValue(t *typeDef, value *parsedValue, normalized string, needs Needs) {
-	if needs.Has(NeedIdentity) && value.identity == "" {
-		value.identity = valueIdentity(value)
+	if needs.Has(NeedIdentity) && !value.identityReady {
+		value.identity = valueIdentityCanonical(value)
+		value.identityReady = true
 	}
 	if t.identity == IdentityNone {
 		return
@@ -1292,27 +1284,21 @@ func effectiveWhitespace(p *Program, id TypeID) WhitespaceMode {
 	return WhitespacePreserve
 }
 
-func valueIdentity(v *parsedValue) string {
+func valueIdentityCanonical(v *parsedValue) string {
 	if v.atom.kind == PrimitiveDuration {
-		return PrimitiveIdentityKey(v.atom.kind, durationIdentityCanonical(v.atom.duration))
+		return durationIdentityCanonical(v.atom.duration)
 	}
 	if v.atom.kind == PrimitiveDecimal {
 		// Integer-derived builtins share the decimal value space; their
 		// integer presentation must not change equality with xs:decimal.
-		return PrimitiveIdentityKey(v.atom.kind, v.atom.decimal.CanonicalText())
+		return v.atom.decimal.CanonicalText()
 	}
 	//nolint:exhaustive // Only g* values need a separate value-space identity projection.
 	switch v.atom.kind {
 	case PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth:
-		return PrimitiveIdentityKey(v.atom.kind, v.atom.g.identityCanonical())
+		return v.atom.g.identityCanonical()
 	}
-	return PrimitiveIdentityKey(v.atom.kind, v.canonical)
-}
-
-func appendListIdentityItem(b *strings.Builder, item string, digits *[20]byte) {
-	b.Write(strconv.AppendInt(digits[:0], int64(len(item)), 10))
-	b.WriteByte(':')
-	b.WriteString(item)
+	return v.canonical
 }
 
 func formatExpandedName(ns, local string) string {

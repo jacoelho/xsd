@@ -1056,8 +1056,8 @@ func TestPublishedAttributeSlotsFollowCanonicalUses(t *testing.T) {
 		t.Fatalf("empty default = %+v, %v", constraint, present)
 	}
 	fixed, ok := read.UseAt(3)
-	if !ok || !fixed.FixedUsesValueSpace() {
-		t.Fatal("referenced fixed constraint lost declaration provenance")
+	if !ok {
+		t.Fatal("fixed use missing")
 	}
 	if constraint, present := fixed.FixedValue(); !present || constraint.ApplicationText() != "fixed" {
 		t.Fatalf("fixed constraint = %+v, %v", constraint, present)
@@ -1068,58 +1068,6 @@ func TestPublishedAttributeSlotsFollowCanonicalUses(t *testing.T) {
 	mustNotValidate(t, engine, `<root required="r"/>`, xsderrors.CodeValidationAttribute)
 	mustNotValidate(t, engine, `<root required="r" inherited="poison"/>`, xsderrors.CodeValidationAttribute)
 	mustValidate(t, engine, `<root required="r" inherited="fixed"/>`)
-}
-
-func TestFreezeRejectsPublishedProhibitedAttributeUse(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root">
-    <xs:complexType>
-      <xs:attribute name="plain" type="xs:string"/>
-      <xs:attribute name="defaulted" type="xs:string" default="x"/>
-    </xs:complexType>
-  </xs:element>
-</xs:schema>`
-	useByName := func(t *testing.T, rt *xsdSchema.SchemaBuild, set *xsdSchema.AttributeUseSet, local string) *xsdSchema.AttributeUse {
-		t.Helper()
-		name := mustQName(t, &rt.Names, local)
-		for i := range set.Uses {
-			if set.Uses[i].Name == name {
-				return &set.Uses[i]
-			}
-		}
-		t.Fatalf("attribute use %q not found", local)
-		return nil
-	}
-	mutations := []struct {
-		name   string
-		mutate func(t *testing.T, rt *xsdSchema.SchemaBuild, set *xsdSchema.AttributeUseSet)
-	}{
-		{
-			name: "plain prohibited",
-			mutate: func(t *testing.T, rt *xsdSchema.SchemaBuild, set *xsdSchema.AttributeUseSet) {
-				t.Helper()
-				useByName(t, rt, set, "plain").Prohibited = true
-			},
-		},
-		{
-			name: "prohibited with default",
-			mutate: func(t *testing.T, rt *xsdSchema.SchemaBuild, set *xsdSchema.AttributeUseSet) {
-				t.Helper()
-				useByName(t, rt, set, "defaulted").Prohibited = true
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			rt := mutableSchemaBuild(t, schema)
-			if err := validateSchemaBuild(rt); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			tc.mutate(t, rt, rootBuildAttributeUseSet(t, rt))
-			err := validateSchemaBuild(rt)
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
 }
 
 func TestFreezeRejectsIDAttributeSchemaInvariantDrift(t *testing.T) {
@@ -1294,21 +1242,6 @@ func TestFreezeRejectsBuiltinHandleDrift(t *testing.T) {
 			mutate: func(t *testing.T, rt *xsdSchema.SchemaBuild) {
 				t.Helper()
 				rt.Wildcards = nil
-			},
-		},
-		{
-			name: "builtin attribute handle drift",
-			mutate: func(t *testing.T, rt *xsdSchema.SchemaBuild) {
-				t.Helper()
-				q, ok := rt.Names.LookupQName(vocab.XMLNamespaceURI, vocab.XMLAttrBase)
-				if !ok {
-					t.Fatal("xml:base name not found")
-				}
-				id, ok := rt.GlobalAttributes[q]
-				if !ok {
-					t.Fatal("xml:base attribute not found")
-				}
-				rt.Attributes[id].Type = builtinSimpleValueIDForTest(t, "string")
 			},
 		},
 		{
@@ -2043,5 +1976,30 @@ func TestAllocatedAnyTypeBindingRejectsConsistentRenameAndRetries(t *testing.T) 
 	}
 	if !reflect.DeepEqual(*build, xsdSchema.SchemaBuild{}) {
 		t.Fatal("successful retry did not consume the build")
+	}
+}
+
+func TestPublishSchemaRejectsExtensionAncestorAttributeWithoutConsumingBuild(t *testing.T) {
+	const input = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="A"><xs:attribute name="a" type="xs:int"/></xs:complexType>
+  <xs:complexType name="R"><xs:complexContent><xs:restriction base="A"><xs:attribute name="a" use="prohibited"/></xs:restriction></xs:complexContent></xs:complexType>
+  <xs:complexType name="E"><xs:complexContent><xs:extension base="R"><xs:attribute name="a" type="xs:int"/></xs:extension></xs:complexContent></xs:complexType>
+  <xs:element name="root" type="E"/>
+</xs:schema>`
+	build := mutableSchemaBuild(t, input)
+	set := rootBuildAttributeUseSet(t, build)
+	original := set.Uses[0].Type
+	set.Uses[0].Type = builtinSimpleValueIDForTest(t, "string")
+	published, err := publishSchema(build)
+	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+	if published != nil {
+		t.Fatal("published incompatible restored ancestor attribute")
+	}
+	if set.Uses[0].Type != builtinSimpleValueIDForTest(t, "string") {
+		t.Fatal("failed publication changed the restored attribute")
+	}
+	set.Uses[0].Type = original
+	if published, err = publishSchema(build); err != nil || published == nil {
+		t.Fatalf("publication after repair = %v, %v", published, err)
 	}
 }

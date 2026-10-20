@@ -144,10 +144,10 @@ The unchanged NSRecurseCheckCardinality rule checks both immediate member
 restrictions and aggregate range. Its published member check retains the
 original wildcard minimum. The acknowledged historical bug does not supply
 an approved zero-minimum replacement; [I-004](INTERPRETATIONS.md#i-004--published-member-minimum-rule)
-records the resulting corpus oracle and its intent qualification.
+records the library's separately selected zero-minimum repair.
 
 Substitution-set expansion supplies no implicit-choice list order. The
 historical proposal to waive order was not incorporated into this baseline.
 [I-005](INTERPRETATIONS.md#i-005--implicit-substitution-choice-order) separates
-that under-specification from executable order-independent consequences.
+that under-specification from the library's selected generated-span order waiver.
 Neither record is an additional approved correction.

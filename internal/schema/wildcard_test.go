@@ -6,6 +6,35 @@ import (
 	"testing"
 )
 
+func TestWildcardsOverlapBoundarySets(t *testing.T) {
+	t.Parallel()
+	empty := Wildcard{Mode: WildcardList}
+	other := Wildcard{Mode: WildcardOther, OtherThan: 1}
+	for _, test := range []struct {
+		name string
+		a, b Wildcard
+		want bool
+	}{
+		{name: "empty and any", a: empty, b: Wildcard{Mode: WildcardAny}},
+		{name: "empty and other", a: empty, b: other},
+		{name: "empty and local", a: empty, b: Wildcard{Mode: WildcardLocal}},
+		{name: "empty and finite", a: empty, b: Wildcard{Mode: WildcardList, Namespaces: []NamespaceID{1, 2}}},
+		{name: "empty and empty", a: empty, b: empty},
+		{name: "other excludes every finite member", a: other, b: Wildcard{Mode: WildcardList, Namespaces: []NamespaceID{EmptyNamespaceID, 1}}},
+		{name: "other admits a finite member", a: other, b: Wildcard{Mode: WildcardList, Namespaces: []NamespaceID{EmptyNamespaceID, 1, 2}}, want: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := WildcardsOverlap(test.a, test.b); got != test.want {
+				t.Fatalf("WildcardsOverlap(%+v, %+v) = %v, want %v", test.a, test.b, got, test.want)
+			}
+			if got := WildcardsOverlap(test.b, test.a); got != test.want {
+				t.Fatalf("WildcardsOverlap(%+v, %+v) = %v, want %v", test.b, test.a, got, test.want)
+			}
+		})
+	}
+}
+
 func TestWildcardByID(t *testing.T) {
 	t.Parallel()
 

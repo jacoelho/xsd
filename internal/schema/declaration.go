@@ -99,8 +99,13 @@ func ValidateAttributeDeclRuntime(names *NameTable, decl AttributeDecl, limits D
 	if names == nil || !names.ValidQName(decl.Name) || !ValidSimpleTypeID(decl.Type, limits.SimpleTypeCount) {
 		return errors.New("attribute declaration references invalid name or type")
 	}
-	if err := ValidateAttributeDeclName(names, decl.Name); err != nil {
+	if err := validateAttributeName(names, decl.Name); err != nil {
 		return err
+	}
+	if names.Namespace(decl.Name.Namespace) == vocab.XSINamespaceURI {
+		if _, ok := builtinXSIAttributeType(names.Local(decl.Name.Local)); !ok {
+			return errors.New("attribute target namespace cannot be XMLSchema-instance")
+		}
 	}
 	if decl.Default != nil && decl.Fixed != nil {
 		return errors.New("attribute declaration stores both default and fixed value constraints")
@@ -110,14 +115,21 @@ func ValidateAttributeDeclRuntime(names *NameTable, decl AttributeDecl, limits D
 
 // ValidateAttributeDeclName validates reserved attribute declaration names.
 func ValidateAttributeDeclName(names *NameTable, name QName) error {
+	if err := validateAttributeName(names, name); err != nil {
+		return err
+	}
+	if names.Namespace(name.Namespace) == vocab.XSINamespaceURI {
+		return errors.New("attribute target namespace cannot be XMLSchema-instance")
+	}
+	return nil
+}
+
+func validateAttributeName(names *NameTable, name QName) error {
 	if names == nil || !names.ValidQName(name) {
 		return errors.New("attribute declaration references invalid name")
 	}
 	if names.Local(name.Local) == vocab.XMLNSPrefix {
 		return errors.New("attribute cannot be named xmlns")
-	}
-	if names.Namespace(name.Namespace) == vocab.XSINamespaceURI {
-		return errors.New("attribute target namespace cannot be XMLSchema-instance")
 	}
 	return nil
 }

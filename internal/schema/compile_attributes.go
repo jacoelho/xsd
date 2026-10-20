@@ -226,27 +226,34 @@ func soleAttributeGroupChild(parent *schemaNode) (*schemaNode, bool) {
 	return group, group != nil
 }
 
-// attributeUseCompilation owns both use storage and its name index until finish.
+// attributeUseCompilation keeps source directives separate from actual uses;
+// inherited uses remain immutable until the completed set is assembled.
 type attributeUseCompilation struct {
 	compiler          *compiler
 	ctx               *schemaSetDocument
-	seen              map[QName]int
+	seen              map[QName]uint32
+	inheritedIndex    map[QName]int
+	prohibited        map[QName]struct{}
 	uses              []AttributeUse
+	inherited         []AttributeUse
 	wildcards         AttributeWildcardBuilder
 	inheritedWildcard WildcardID
 	mode              AttributeMergeMode
 }
 
 func newAttributeUseCompilation(c *compiler, ctx *schemaSetDocument, inherited []AttributeUse, inheritedWildcard WildcardID, mode AttributeMergeMode) attributeUseCompilation {
-	seen := make(map[QName]int, len(inherited))
+	var inheritedIndex map[QName]int
+	if len(inherited) != 0 {
+		inheritedIndex = make(map[QName]int, len(inherited))
+	}
 	for i := range inherited {
-		seen[inherited[i].Name] = i
+		inheritedIndex[inherited[i].Name] = i
 	}
 	return attributeUseCompilation{
 		compiler:          c,
 		ctx:               ctx,
-		seen:              seen,
-		uses:              inherited,
+		inheritedIndex:    inheritedIndex,
+		inherited:         inherited,
 		wildcards:         NewAttributeWildcardBuilder(inheritedWildcard, mode),
 		inheritedWildcard: inheritedWildcard,
 		mode:              mode,
@@ -278,7 +285,23 @@ func (b *attributeUseCompilation) add(child *schemaNode) error {
 }
 
 func (b *attributeUseCompilation) addAttribute(child *schemaNode) error {
-	use, err := b.compiler.compileAttributeUse(child, b.ctx)
+	overrides := readAttributeUseOverrides(child)
+	mode, err := parseAttributeUseModeChecked(child, overrides.mode)
+	if err != nil {
+		return err
+	}
+	if mode == AttributeUseProhibited {
+		name, admissionErr := b.compiler.admitAttributeProhibition(child, b.ctx)
+		if admissionErr != nil {
+			return admissionErr
+		}
+		if err = validateAttributeUseValueConstraintAtNode(child, mode, overrides.hasDefault, overrides.hasFixed, false); err != nil {
+			return err
+		}
+		b.addProhibition(name)
+		return nil
+	}
+	use, err := b.compiler.compileAttributeUse(child, b.ctx, mode, overrides)
 	if err != nil {
 		return err
 	}
@@ -322,19 +345,56 @@ func (b *attributeUseCompilation) finish(parent *schemaNode, inheritedWildcard W
 	if err != nil {
 		return NoAttributeUseSet, withSchemaCompileLocation(parent, err)
 	}
-	finalUses := RemoveProhibitedAttributeUses(b.uses)
-	set, err := newAttributeUseSet(finalUses, wildcard, attributeWildcardProvenance{
-		base:     inheritedWildcard,
-		declared: declaredWildcard,
-		derive:   derivation,
-	})
-	if err != nil {
-		return NoAttributeUseSet, err
+	finalUses := b.finalUses()
+	// Finalization transfers the explicit-use index to the completed set.
+	for i := len(b.uses); i < len(finalUses); i++ {
+		slot, slotErr := CheckedUint32Index(i, "attribute use limit exceeded")
+		if slotErr != nil {
+			return NoAttributeUseSet, slotErr
+		}
+		if b.seen == nil {
+			b.seen = make(map[QName]uint32, len(finalUses))
+		}
+		b.seen[finalUses[i].Name] = slot
+	}
+	set := AttributeUseSet{
+		Uses: finalUses, Index: b.seen,
+		Wildcard: wildcard, WildcardBase: inheritedWildcard,
+		WildcardDeclared: declaredWildcard, WildcardDerive: derivation,
+	}
+	if err = b.validateRequiredInheritedUses(set); err != nil {
+		return NoAttributeUseSet, withSchemaCompileLocation(parent, err)
 	}
 	if err = b.compiler.validateAttributeUseSet(set); err != nil {
 		return NoAttributeUseSet, withSchemaCompileLocation(parent, err)
 	}
 	return b.compiler.addAttributeUseSet(set)
+}
+
+func (b *attributeUseCompilation) validateRequiredInheritedUses(set AttributeUseSet) error {
+	if b.mode != AttributeMergeRestriction {
+		return nil
+	}
+	for _, use := range b.inherited {
+		if _, present := set.Index[use.Name]; use.Required && !present {
+			return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "complex restriction omits required base attribute")
+		}
+	}
+	return nil
+}
+
+func (b *attributeUseCompilation) finalUses() []AttributeUse {
+	uses := b.uses
+	for _, inherited := range b.inherited {
+		if _, explicit := b.seen[inherited.Name]; explicit {
+			continue
+		}
+		if _, prohibited := b.prohibited[inherited.Name]; prohibited {
+			continue
+		}
+		uses = append(uses, inherited)
+	}
+	return uses
 }
 
 func (b *attributeUseCompilation) mergeUse(use AttributeUse) error {
@@ -345,36 +405,63 @@ func (b *attributeUseCompilation) mergeUse(use AttributeUse) error {
 		return xsderrors.InternalInvariant("unknown attribute merge mode")
 	}
 	if index, ok := b.seen[use.Name]; ok {
-		// Reaching the same component through multiple groups adds no member.
-		// Zero belongs to construction directives and uses without identity.
-		if use.componentID != 0 && use.componentID == b.uses[index].componentID {
+		if sameAttributeUseComponent(use, b.uses[index]) {
 			return nil
 		}
-		if err := b.validateReplacement(use, index, b.compiler.rt.spendTypeDerivationWork); err != nil {
-			return err
-		}
-		b.uses[index] = use
-		return nil
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate attribute use")
 	}
-	if b.mode == AttributeMergeRestriction && !use.Prohibited && !b.inheritedWildcardAllows(use.Name) {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "new restricted attribute is not allowed by base wildcard")
+	if err := b.validateInheritedUse(use); err != nil {
+		return err
 	}
-	b.seen[use.Name] = len(b.uses)
+	slot, err := CheckedUint32Index(len(b.uses), "attribute use limit exceeded")
+	if err != nil {
+		return err
+	}
+	if b.seen == nil {
+		b.seen = make(map[QName]uint32)
+	}
+	b.seen[use.Name] = slot
 	b.uses = append(b.uses, use)
 	return nil
 }
 
-func (b *attributeUseCompilation) validateReplacement(use AttributeUse, index int, work func(int) error) error {
-	if b.mode != AttributeMergeRestriction && !b.uses[index].Prohibited && !use.Prohibited {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate attribute use")
+func (b *attributeUseCompilation) addProhibition(name QName) {
+	if b.mode != AttributeMergeRestriction {
+		return
 	}
-	if b.mode == AttributeMergeRestriction {
-		if err := ValidateAttributeUseRestriction(&b.compiler.rt, b.uses[index], use, work); err != nil {
-			if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
-				return err
-			}
-			return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error())
+	if b.prohibited == nil {
+		b.prohibited = make(map[QName]struct{})
+	}
+	b.prohibited[name] = struct{}{}
+}
+
+func sameAttributeUseComponent(first, second AttributeUse) bool {
+	return first.componentID != 0 && first.componentID == second.componentID
+}
+
+func (b *attributeUseCompilation) validateInheritedUse(use AttributeUse) error {
+	index, inherited := b.inheritedIndex[use.Name]
+	if b.mode != AttributeMergeRestriction {
+		if inherited && !sameAttributeUseComponent(use, b.inherited[index]) {
+			return xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate attribute use")
 		}
+		return nil
+	}
+	if !inherited {
+		if !b.inheritedWildcardAllows(use.Name) {
+			return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "new restricted attribute is not allowed by base wildcard")
+		}
+		return nil
+	}
+	return b.validateRestrictedUse(b.inherited[index], use)
+}
+
+func (b *attributeUseCompilation) validateRestrictedUse(base, use AttributeUse) error {
+	if err := ValidateAttributeUseRestriction(&b.compiler.rt, base, use); err != nil {
+		if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
+			return err
+		}
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error())
 	}
 	return nil
 }
@@ -387,69 +474,33 @@ func (b *attributeUseCompilation) inheritedWildcardAllows(name QName) bool {
 	return ok && WildcardAllowsNamespace(wildcard, name.Namespace)
 }
 
-type attributeWildcardProvenance struct {
-	base     WildcardID
-	declared WildcardID
-	derive   AttributeWildcardDerivation
-}
-
-func newAttributeUseSet(uses []AttributeUse, wildcard WildcardID, provenance attributeWildcardProvenance) (AttributeUseSet, error) {
-	set := AttributeUseSet{
-		Uses:             uses,
-		Wildcard:         wildcard,
-		WildcardBase:     provenance.base,
-		WildcardDeclared: provenance.declared,
-		WildcardDerive:   provenance.derive,
-	}
-	if len(uses) != 0 {
-		set.Index = make(map[QName]uint32, len(uses))
-	}
-	for i, use := range uses {
-		slot, err := CheckedUint32Index(i, "attribute use limit exceeded")
-		if err != nil {
-			return AttributeUseSet{}, err
-		}
-		set.Index[use.Name] = slot
-	}
-	return set, nil
-}
-
 type attributeUseBase struct {
 	refFixed *ValueConstraint
 	use      AttributeUse
 	ref      bool
 }
 
-func (c *compiler) compileAttributeUse(n *schemaNode, ctx *schemaSetDocument) (AttributeUse, error) {
+// Source admission consumes prohibitions before this boundary; a returned use
+// owns validated constraints and a component identity.
+func (c *compiler) compileAttributeUse(n *schemaNode, ctx *schemaSetDocument, mode AttributeUseMode, overrides attributeUseOverrides) (AttributeUse, error) {
 	base, err := c.compileAttributeUseBase(n, ctx)
 	if err != nil {
 		return AttributeUse{}, err
 	}
 	use := base.use
-	overrides := readAttributeUseOverrides(n)
-	applyAttributeUseFixedOverride(&use, base, overrides)
-	mode, err := validateAttributeUseMode(n, overrides, base.refFixed != nil)
-	if err != nil {
+	if err = validateAttributeUseValueConstraintAtNode(n, mode, overrides.hasDefault, overrides.hasFixed, base.refFixed != nil); err != nil {
 		return AttributeUse{}, err
 	}
-	modeState, err := applyAttributeUseModeAtNode(n, mode, overrides.hasFixed)
-	if err != nil {
-		return AttributeUse{}, err
-	}
-	use.Required = modeState.Required
-	use.Prohibited = modeState.Prohibited
-	applyAttributeUseDefaultOverride(&use, base, overrides)
+	use.Required = mode == AttributeUseRequired
 	if err = c.validateAttributeUseOverrides(n, &use, base, overrides); err != nil {
 		return AttributeUse{}, err
 	}
 	if err = validateAttributeUseFixedValueAtNode(n, NewValueConstraintIdentity(use.Fixed), NewValueConstraintIdentity(base.refFixed)); err != nil {
 		return AttributeUse{}, err
 	}
-	if !use.Prohibited {
-		use.componentID, err = c.allocateAttributeUseID()
-		if err != nil {
-			return AttributeUse{}, err
-		}
+	use.componentID, err = c.allocateAttributeUseID()
+	if err != nil {
+		return AttributeUse{}, err
 	}
 	return use, nil
 }
@@ -481,30 +532,6 @@ func readAttributeUseOverrides(n *schemaNode) attributeUseOverrides {
 	}
 }
 
-func applyAttributeUseFixedOverride(use *AttributeUse, base attributeUseBase, overrides attributeUseOverrides) {
-	if base.ref && overrides.hasFixed {
-		use.Fixed = &ValueConstraint{Lexical: overrides.fixedValue}
-		use.FixedFromDeclaration = false
-	}
-}
-
-func validateAttributeUseMode(n *schemaNode, overrides attributeUseOverrides, inheritedFixed bool) (AttributeUseMode, error) {
-	mode, err := parseAttributeUseModeChecked(n, overrides.mode)
-	if err != nil {
-		return AttributeUseOptional, err
-	}
-	if err := validateAttributeUseValueConstraintAtNode(n, mode, overrides.hasDefault, overrides.hasFixed, inheritedFixed); err != nil {
-		return AttributeUseOptional, err
-	}
-	return mode, nil
-}
-
-func applyAttributeUseDefaultOverride(use *AttributeUse, base attributeUseBase, overrides attributeUseOverrides) {
-	if base.ref && overrides.hasDefault {
-		use.Default = &ValueConstraint{Lexical: overrides.defaultValue}
-	}
-}
-
 func (c *compiler) validateAttributeUseOverrides(n *schemaNode, use *AttributeUse, base attributeUseBase, overrides attributeUseOverrides) error {
 	if !base.ref || !overrides.hasDefault && !overrides.hasFixed {
 		return nil
@@ -519,18 +546,13 @@ func (c *compiler) validateAttributeUseOverrides(n *schemaNode, use *AttributeUs
 	if err := c.validateAttributeValueConstraints(&decl, n); err != nil {
 		return withSchemaCompileLocation(n, err)
 	}
-	applyValidatedAttributeUseOverrides(use, decl, overrides)
-	return nil
-}
-
-func applyValidatedAttributeUseOverrides(use *AttributeUse, decl AttributeDecl, overrides attributeUseOverrides) {
 	if overrides.hasDefault {
 		use.Default = decl.Default
 	}
 	if overrides.hasFixed {
 		use.Fixed = decl.Fixed
-		use.FixedFromDeclaration = false
 	}
+	return nil
 }
 
 func (c *compiler) compileAttributeUseBase(n *schemaNode, ctx *schemaSetDocument) (attributeUseBase, error) {
@@ -546,10 +568,7 @@ func (c *compiler) compileAttributeUseBase(n *schemaNode, ctx *schemaSetDocument
 }
 
 func (c *compiler) compileAttributeRefUse(n *schemaNode, ctx *schemaSetDocument, ref xml.Name) (attributeUseBase, error) {
-	if err := checkAttributeRefAttributes(n); err != nil {
-		return attributeUseBase{}, err
-	}
-	if err := checkAttributeRefChildren(n); err != nil {
+	if err := checkAttributeRefSource(n); err != nil {
 		return attributeUseBase{}, err
 	}
 	q, err := c.referenceQName(n, ctx, ref)
@@ -577,13 +596,22 @@ func (c *compiler) compileLocalAttributeUse(n *schemaNode, ctx *schemaSetDocumen
 		return AttributeUse{}, err
 	}
 	defer leave()
-	if err = checkAttributeUseSource(n); err != nil {
+	name, err := c.localAttributeUseName(n, ctx)
+	if err != nil {
 		return AttributeUse{}, err
 	}
-	source := semanticSource[*schemaAttributeSource](&n.semantic)
-	if source == nil {
-		return AttributeUse{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("attribute use has no typed attribute source"))
+	decl, err := c.compileAttributeDecl(n, ctx, name)
+	if err != nil {
+		return AttributeUse{}, err
 	}
+	return attributeUseFromDecl(decl), nil
+}
+
+func (c *compiler) localAttributeUseName(n *schemaNode, ctx *schemaSetDocument) (QName, error) {
+	if err := checkAttributeUseSource(n); err != nil {
+		return QName{}, err
+	}
+	source := semanticSource[*schemaAttributeSource](&n.semantic)
 	name := source.Global.Name.Value
 	ns := ""
 	form, hasForm := source.Form.Value, source.Form.Present
@@ -593,20 +621,61 @@ func (c *compiler) compileLocalAttributeUse(n *schemaNode, ctx *schemaSetDocumen
 		DefaultQualified: ctx.doc.defaults.AttributeQualified,
 	})
 	if err != nil {
-		return AttributeUse{}, withSchemaCompileLocation(n, err)
+		return QName{}, withSchemaCompileLocation(n, err)
 	}
 	if qualified {
 		ns = ctx.effectiveTargetNS
 	}
-	nameID, err := c.rt.internQName(ns, name)
-	if err != nil {
-		return AttributeUse{}, err
+	return c.rt.internQName(ns, name)
+}
+
+// A prohibition admits source syntax and independently mapped children, but
+// contributes only a name directive rather than an attribute-use component.
+func (c *compiler) admitAttributeProhibition(n *schemaNode, ctx *schemaSetDocument) (QName, error) {
+	source := semanticSource[*schemaAttributeSource](&n.semantic)
+	if source.Ref.Lexical.Present {
+		if err := checkAttributeRefSource(n); err != nil {
+			return QName{}, err
+		}
+		if err := c.spendComponentDependency(n); err != nil {
+			return QName{}, err
+		}
+		return c.rt.internQName(effectiveReferenceNamespace(ctx, source.Ref.Name), source.Ref.Name.Local)
 	}
-	decl, err := c.compileAttributeDecl(n, ctx, nameID)
-	if err != nil {
-		return AttributeUse{}, err
+	if err := c.spendComponentDependency(n); err != nil {
+		return QName{}, err
 	}
-	return attributeUseFromDecl(decl), nil
+	leave, err := c.enterComponent(n)
+	if err != nil {
+		return QName{}, err
+	}
+	defer leave()
+	name, err := c.localAttributeUseName(n, ctx)
+	if err != nil {
+		return QName{}, err
+	}
+	if err := c.admitProhibitedAttributeChildren(n, ctx); err != nil {
+		return QName{}, err
+	}
+	return name, nil
+}
+
+func (c *compiler) admitProhibitedAttributeChildren(n *schemaNode, ctx *schemaSetDocument) error {
+	if err := checkAttributeDeclarationChildren(n); err != nil {
+		return err
+	}
+	source := semanticSource[*schemaAttributeSource](&n.semantic)
+	simple := n.firstXS(vocab.XSDElemSimpleType)
+	if err := ValidateAttributeTypeSource(AttributeTypeSource{Type: source.Type.Lexical, HasSimpleTypeChild: simple != nil}); err != nil {
+		return withSchemaCompileLocation(n, err)
+	}
+	// The prohibited source item maps to nothing, but its inline type maps
+	// independently and retains its own component checks and limits.
+	if simple == nil {
+		return nil
+	}
+	_, err := c.compileAnonymousSimple(simple, ctx)
+	return err
 }
 
 func attributeUseFromDecl(decl AttributeDecl) AttributeUse {

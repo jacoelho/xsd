@@ -79,22 +79,6 @@ func AddSchemaComponent[T any](components map[QName]T, name QName, component T, 
 	return nil
 }
 
-// AddGlobalAttributeComponent inserts one top-level attribute declaration.
-// Existing runtime global attributes are builtin declarations and take
-// precedence over schema redeclarations.
-func AddGlobalAttributeComponent[T any](
-	components map[QName]T,
-	globals map[QName]AttributeID,
-	name QName,
-	component T,
-	label string,
-) error {
-	if _, exists := globals[name]; exists {
-		return nil
-	}
-	return AddSchemaComponent(components, name, component, label)
-}
-
 // SchemaComponentCycleError reports recursive compilation of one named schema
 // component.
 func SchemaComponentCycleError(kind SchemaComponentKind, label string) error {

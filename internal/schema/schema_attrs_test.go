@@ -69,12 +69,12 @@ func TestCheckReferenceAttributes(t *testing.T) {
 			attrs:  []string{"ref", "type"}, wantMessage: "element ref cannot have attribute type",
 		},
 		{
-			name: "attribute ref accepts value constraint attrs", check: checkAttributeRefAttributes, local: attributeChild,
+			name: "attribute ref accepts value constraint attrs", check: checkAttributeRefSource, local: attributeChild,
 			source: &schemaAttributeSource{Ref: reference, Use: LexicalAttribute{Present: true}, Default: LexicalAttribute{Present: true}, Fixed: LexicalAttribute{Present: true}},
 			attrs:  []string{"id", "ref", "use", "default", "fixed"},
 		},
 		{
-			name: "attribute ref rejects form", check: checkAttributeRefAttributes, local: attributeChild,
+			name: "attribute ref rejects form", check: checkAttributeRefSource, local: attributeChild,
 			source: &schemaAttributeSource{Ref: reference, Form: LexicalAttribute{Present: true}},
 			attrs:  []string{"ref", "form"}, wantMessage: "attribute ref cannot have attribute form",
 		},
@@ -124,13 +124,13 @@ func TestReferenceAttributeDiagnosticPriority(t *testing.T) {
 			start: schemaStartFixture{name: "attribute name wins reverse XML order", body: `  <xs:complexType name="T">
     <xs:attribute ref="Target" form="" name="Local"/>
   </xs:complexType>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "attribute ref cannot have attribute name", wantLine: 3, wantCol: 5},
-			path: []string{complexTypeChild, attributeChild}, check: checkAttributeRefAttributes,
+			path: []string{complexTypeChild, attributeChild}, check: checkAttributeRefSource,
 		},
 		{
 			start: schemaStartFixture{name: "attribute name wins matching XML order", body: `  <xs:complexType name="T">
     <xs:attribute ref="Target" name="Local" form=""/>
   </xs:complexType>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "attribute ref cannot have attribute name", wantLine: 3, wantCol: 5},
-			path: []string{complexTypeChild, attributeChild}, check: checkAttributeRefAttributes,
+			path: []string{complexTypeChild, attributeChild}, check: checkAttributeRefSource,
 		},
 	} {
 		t.Run(fixture.start.name, func(t *testing.T) {

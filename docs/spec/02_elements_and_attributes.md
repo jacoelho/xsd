@@ -87,10 +87,21 @@ In an instance, `<book>` or `<cd>` can appear wherever `<item>` is expected.
 
 **Transitive Substitution:**
 
-Substitution is transitive with type derivation requirements:
-- If C substitutes for B and B substitutes for A, then C can substitute for A
-- However, C's type must be derivable from A's type (not just from B's type)
-- The entire derivation chain must be valid: C's type → B's type → A's type
+Potential membership follows the transitive affiliation chain. Actual membership
+is checked separately for each requested head:
+
+- An abstract intermediate declaration remains in the affiliation chain but
+  cannot itself be used as an instance element.
+- An intermediate element's `block` applies when that element is the requested
+  head. It does not prevent a concrete descendant from substituting for an
+  unblocked ancestor.
+- The complete type-derivation methods must satisfy the requested head's
+  blocking constraints and the prohibited substitutions of the head's type and
+  intermediate **types**. Equal-type affiliation edges add no derivation methods
+  or unrelated ancestor-type blocks.
+- Omitted member types inherit through the affiliation chain before value
+  constraints are checked; they do not fall back to `anyType` while the head's
+  type is still being completed.
 
 ```xml
 <xs:element name="A" type="TypeA"/>
@@ -99,15 +110,19 @@ Substitution is transitive with type derivation requirements:
 <!-- C can substitute for A because TypeC → TypeB → TypeA forms valid derivation chain -->
 ```
 
+Spec refs: [Substitution Group](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-class),
+[Substitution Group OK (Transitive)](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec),
+and [Element Declaration representation](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element).
+
 **Block and Final Attributes:**
 
 | Attribute | On | Effect |
 |-----------|-----|--------|
 | `block="substitution"` | Element | Prevents any substitution group member from substituting |
-| `block="extension"` | Element | Blocks `xsi:type` to types derived by extension |
-| `block="restriction"` | Element | Blocks `xsi:type` to types derived by restriction |
-| `final="extension"` | Element | Prevents elements with extension-derived types from joining substitution group |
-| `final="restriction"` | Element | Prevents elements with restriction-derived types from joining substitution group |
+| `block="extension"` | Element | Blocks extension-derived `xsi:type` overrides and substitution-group use |
+| `block="restriction"` | Element | Blocks restriction-derived `xsi:type` overrides and substitution-group use |
+| `final="extension"` | Element | Prevents direct affiliates with extension-derived types |
+| `final="restriction"` | Element | Prevents direct affiliates with restriction-derived types |
 
 The `blockDefault` and `finalDefault` attributes on `<xs:schema>` set defaults for element declarations and type definitions where applicable.
 

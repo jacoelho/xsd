@@ -27,7 +27,7 @@ func TestElementFrameUsesEffectiveTypeAndDeclarationConstraint(t *testing.T) {
 			{
 				contentModel: modelID,
 				textType:     stringID,
-				contentKind:  ContentSimpleMixed,
+				contentKind:  ContentSimple,
 			},
 		},
 		CompiledModels: testCompiledModelReads([]CompiledModel{
@@ -47,8 +47,8 @@ func TestElementFrameUsesEffectiveTypeAndDeclarationConstraint(t *testing.T) {
 	if read.SimpleContent != stringID {
 		t.Fatalf("SimpleContent = %d, want %d from effective type", read.SimpleContent, stringID)
 	}
-	if !read.TextContent.AllowsMixedContent() || !read.TextContent.HasFixedElementValue() || !read.TextContent.HasValueConstraint() {
-		t.Fatalf("TextContent = %+v, want mixed and fixed constraint", read.TextContent)
+	if read.TextContent.AllowsMixedContent() || !read.TextContent.HasFixedElementValue() || !read.TextContent.HasValueConstraint() {
+		t.Fatalf("TextContent = %+v, want simple content and fixed constraint", read.TextContent)
 	}
 	state := read.Content.ContentState()
 	if state.model != modelID || state.state != 7 || read.Content.AllBitLen() != 2 {
@@ -85,12 +85,11 @@ func TestSchemaReadsRejectInvalidSimpleContent(t *testing.T) {
 		SimpleTypeUnavailable: make([]bool, value.BuiltinTypeCount),
 		ComplexTypes: []complexTypeRead{
 			{contentModel: NoContentModel, textType: NoSimpleType, contentKind: ContentSimple},
-			{contentModel: NoContentModel, textType: NoSimpleType, contentKind: ContentSimpleMixed},
 			{contentModel: NoContentModel, textType: stringID, contentKind: ContentSimple},
 			{contentModel: NoContentModel, textType: stringID, contentKind: ContentEmpty},
 		},
 	}}
-	for _, id := range []ComplexTypeID{0, 1} {
+	for _, id := range []ComplexTypeID{0} {
 		if info, valid := rt.TypeInfo(ComplexRef(id)); valid {
 			t.Fatalf("TypeInfo(%d) accepted present invalid simple content: %+v", id, info)
 		}
@@ -98,16 +97,16 @@ func TestSchemaReadsRejectInvalidSimpleContent(t *testing.T) {
 			t.Fatalf("ElementFrame(%d) accepted present invalid simple content: %+v", id, frame)
 		}
 	}
-	if info, valid := rt.TypeInfo(ComplexRef(2)); !valid || info.Unavailable {
+	if info, valid := rt.TypeInfo(ComplexRef(1)); !valid || info.Unavailable {
 		t.Fatalf("TypeInfo(valid simple content) = %+v, %v", info, valid)
 	}
-	if frame, valid := rt.ElementFrame(ComplexRef(2), NoElement); !valid || frame.SimpleContent != stringID {
+	if frame, valid := rt.ElementFrame(ComplexRef(1), NoElement); !valid || frame.SimpleContent != stringID {
 		t.Fatalf("ElementFrame(valid simple content) = %+v, %v; want string type", frame, valid)
 	}
-	if _, valid := rt.TypeInfo(ComplexRef(3)); !valid {
+	if _, valid := rt.TypeInfo(ComplexRef(2)); !valid {
 		t.Fatal("TypeInfo(absent simple content with stray text ID) failed")
 	}
-	if frame, valid := rt.ElementFrame(ComplexRef(3), NoElement); !valid || frame.SimpleContent != NoSimpleType {
+	if frame, valid := rt.ElementFrame(ComplexRef(2), NoElement); !valid || frame.SimpleContent != NoSimpleType {
 		t.Fatalf("ElementFrame(absent simple content) = %+v, %v; want NoSimpleType", frame, valid)
 	}
 }

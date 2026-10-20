@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="Base"><xs:all minOccurs="0"><xs:element name="a" type="xs:string"/></xs:all></xs:complexType>
+  <xs:complexType name="Restricted"><xs:complexContent><xs:restriction base="Base"><xs:sequence><xs:element name="a" type="xs:string" minOccurs="0" maxOccurs="2"/></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>
+  <xs:element name="restricted" type="Restricted"/>
+</xs:schema>

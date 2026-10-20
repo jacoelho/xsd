@@ -1275,21 +1275,6 @@ func TestMalformedFragmentSchemaLocationRemainsFatal(t *testing.T) {
 	expectCode(t, err, xsderrors.CodeSchemaReference)
 }
 
-func TestXMLNamespaceImportDoesNotCallResolver(t *testing.T) {
-	called := false
-	resolver := source.Resolver(func(_, location string) (source.Source, error) {
-		called = true
-		return source.Source{}, errors.New("unexpected resolver call for " + location)
-	})
-	schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:import namespace="http://www.w3.org/XML/1998/namespace" schemaLocation="xml.xsd"/></xs:schema>`
-	if _, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema)).WithResolver(resolver)}); err != nil {
-		t.Fatalf("Compile() error = %v", err)
-	}
-	if called {
-		t.Fatal("XML namespace import called resolver")
-	}
-}
-
 func TestResolvedIdentityUsesResolverReturnedSourceName(t *testing.T) {
 	main := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:main"><xs:include schemaLocation="common.xsd"/></xs:schema>`
 	alias := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="fromAlias"/></xs:schema>`
@@ -2680,33 +2665,6 @@ func TestValidationComparesRawLexicalElementNames(t *testing.T) {
 	}
 }
 
-func TestImportedXMLNamespaceSchemaDefersToBuiltinAttributes(t *testing.T) {
-	xmlSchema := `
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
-           targetNamespace="http://www.w3.org/XML/1998/namespace">
-  <xs:attribute name="lang" type="xs:string"/>
-</xs:schema>`
-	schema := `
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
-           xmlns:xml="http://www.w3.org/XML/1998/namespace">
-  <xs:import namespace="http://www.w3.org/XML/1998/namespace" schemaLocation="xml.xsd"/>
-  <xs:element name="root">
-    <xs:complexType>
-      <xs:attribute ref="xml:lang"/>
-    </xs:complexType>
-  </xs:element>
-</xs:schema>`
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
-		source.Bytes("schema.xsd", []byte(schema)),
-		source.Bytes("xml.xsd", []byte(xmlSchema))})
-
-	if err != nil {
-		t.Fatal(err)
-	}
-	mustValidate(t, engine, `<root xml:lang="en"/>`)
-	mustNotValidate(t, engine, `<root xml:lang="@@"/>`, xsderrors.CodeValidationFacet)
-}
-
 func TestMissingElementTypeInvalidatesOnlyThatElement(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -2738,7 +2696,7 @@ func TestUnionRejectsMissingSchemaNamespaceMember(t *testing.T) {
 	expectSchemaCompileLine(t, err, 3)
 }
 
-func TestUnionFlattensUnionValuedMembers(t *testing.T) {
+func TestUnionPreservesConstrainedUnionMembers(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="baseUnion"><xs:union memberTypes="xs:int"/></xs:simpleType>
@@ -2752,8 +2710,10 @@ func TestUnionFlattensUnionValuedMembers(t *testing.T) {
   <xs:element name="named" type="namedOuter"/>
   <xs:element name="anonymous" type="anonymousOuter"/>
 </xs:schema>`)
-	mustValidate(t, engine, `<named>2</named>`)
-	mustValidate(t, engine, `<anonymous>2</anonymous>`)
+	mustValidate(t, engine, `<named>1</named>`)
+	mustValidate(t, engine, `<anonymous>1</anonymous>`)
+	mustNotValidate(t, engine, `<named>2</named>`, xsderrors.CodeValidationFacet)
+	mustNotValidate(t, engine, `<anonymous>2</anonymous>`, xsderrors.CodeValidationFacet)
 }
 
 func TestUnionCanonicalizesRepeatedFlattenedMembers(t *testing.T) {
@@ -3891,7 +3851,7 @@ func TestFixedWhitespaceFacetFreezes(t *testing.T) {
 	}
 }
 
-func TestMixedSimpleContentExtensionChain(t *testing.T) {
+func TestSimpleContentMixedAttributeDoesNotAdmitMixedExtension(t *testing.T) {
 	const mixedBase = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="A" mixed="true">
     <xs:simpleContent><xs:extension base="xs:string"/></xs:simpleContent>
@@ -3904,7 +3864,8 @@ func TestMixedSimpleContentExtensionChain(t *testing.T) {
   </xs:complexType>
   <xs:element name="root" type="C"/>
 </xs:schema>`
-	mustCompile(t, mixedBase)
+	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(mixedBase))})
+	expectCode(t, err, xsderrors.CodeSchemaContentModel)
 
 	const nonMixedBase = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="A">
@@ -3915,7 +3876,7 @@ func TestMixedSimpleContentExtensionChain(t *testing.T) {
   </xs:complexType>
   <xs:element name="root" type="B"/>
 </xs:schema>`
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(nonMixedBase))})
+	_, err = xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(nonMixedBase))})
 	expectCode(t, err, xsderrors.CodeSchemaContentModel)
 }
 

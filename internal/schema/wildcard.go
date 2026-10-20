@@ -296,14 +296,18 @@ func wildcardNamespaceSubset(derived, base Wildcard) bool {
 
 // WildcardsOverlap reports whether two wildcards can admit the same namespace.
 func WildcardsOverlap(a, b Wildcard) bool {
+	if a.Mode == WildcardList && len(a.Namespaces) == 0 ||
+		b.Mode == WildcardList && len(b.Namespaces) == 0 {
+		return false
+	}
 	if wildcardsAlwaysOverlap(a, b) {
 		return true
 	}
 	if a.Mode == WildcardOther {
-		return wildcardHasNamespaceOtherThan(b, a.OtherThan)
+		return finiteWildcardsOverlap(b, a)
 	}
 	if b.Mode == WildcardOther {
-		return wildcardHasNamespaceOtherThan(a, b.OtherThan)
+		return finiteWildcardsOverlap(a, b)
 	}
 	if overlap, handled := localWildcardOverlap(a, b); handled {
 		return overlap
@@ -441,22 +445,6 @@ func wildcardFiniteNamespaces(w Wildcard) []NamespaceID {
 	default:
 	}
 	return nil
-}
-
-func wildcardHasNamespaceOtherThan(w Wildcard, excluded NamespaceID) bool {
-	switch w.Mode {
-	case WildcardAny, WildcardOther:
-		return true
-	case WildcardLocal:
-		return false
-	case WildcardTargetNamespace, WildcardList:
-		for _, ns := range wildcardNamespaces(w) {
-			if ns != excluded {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func wildcardNamespaces(w Wildcard) []NamespaceID {

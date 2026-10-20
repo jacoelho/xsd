@@ -666,7 +666,7 @@ func (s *session) validateStartAttributes(start schemaStart, attrs []xmlstream.A
 	case elementAssessed:
 		return s.validateAttributes(start.typ, attrs, line, col)
 	case elementWildcardSkipped:
-		return s.rejectUnassessedIdentityAttributes(attrs, line, col, identityMissingSimpleValue)
+		return nil
 	case elementRecovery:
 		return s.rejectUnassessedIdentityAttributes(attrs, line, col, identityInvalidValue)
 	default:

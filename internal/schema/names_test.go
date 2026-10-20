@@ -160,7 +160,6 @@ func TestRuntimeNameTableIncludesRequiredSeeds(t *testing.T) {
 		XSDNamespaceURI,
 		XSINamespaceURI,
 		XMLNamespaceURI,
-		XLinkNamespaceURI,
 		XMLNSNamespaceURI,
 	} {
 		if _, ok := names.LookupNamespace(uri); !ok {

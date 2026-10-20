@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="urn:n"><xs:simpleType name="L"><xs:list itemType="xs:int"/></xs:simpleType><xs:element name="root"><xs:complexType><xs:attribute name="a" type="L" fixed="1 2"/></xs:complexType></xs:element></xs:schema>

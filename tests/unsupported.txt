@@ -1,3 +1,5 @@
+instance	project	project/corrections-derived-entity-components	derived-entity	unsupported.entity
+instance	project	project/corrections-derived-entity-components	nonempty-entity-list	unsupported.entity
 schema	w3c	w3c/boeingMeta/BoeingXSDTestSet.testSet/ipo4	unsupported.xs_redefine
 schema	w3c	w3c/ibmMeta/anyAttribute.testSet/s3_10_6ii01	unsupported.xsd_1_1
 schema	w3c	w3c/ibmMeta/anyAttribute.testSet/s3_10_6ii02	unsupported.xsd_1_1

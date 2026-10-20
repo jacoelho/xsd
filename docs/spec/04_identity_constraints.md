@@ -62,10 +62,11 @@ Specifies that field values must be unique within the selected scope. Elements w
 
 - If any field evaluates to empty (absent), that element is excluded from checking
 - Duplicate values among remaining elements cause a validation error
-- A non-empty field must select one node with an assessed simple type. Elements
-  or attributes admitted without assessment by `processContents="skip"` (or by
-  a lax wildcard with no declaration) are invalid field values; they are not
-  treated as absent fields.
+- A value-bearing field selects at most one node with assessed simple or
+  complex simple content. Nilled fields supply no value but count as selected
+  nodes. Under the selected skip correction, skipped selectors/fields contribute
+  nothing. Lax wildcards without a declaration remain invalid field values;
+  they are distinct from skip and absence.
 
 ### xs:key
 
@@ -165,7 +166,9 @@ excluded from referential checking. An absent target and a selected nilled
 element are different: XPath can still select the nilled node, while its
 schema-normalized value is absent. The
 [interpretation record](INTERPRETATIONS.md#i-003--nilled-field-values)
-separates the published XSD 1.0 wording from the later 1.1 clarification.
+records the selected correction: nilled simple/simple-content values make an
+incomplete tuple, but still count as selected nodes for field cardinality. Key
+fields must supply values and still cannot use nillable declarations.
 
 - Absent field → tuple excluded from keyref check (no error)
 - All fields present → tuple must exist in referenced key (error if not found)

@@ -1,13 +1,15 @@
 # XSD 1.0 reference notes
 
 The oracle baseline is the English **28 October 2004 Second Edition**, read
-with approved later errata. These notes record source authority and decisions;
+with approved later errata and the [selected corrections](SOURCES.md#selected-corrections).
+These notes record source authority and decisions;
 they do not replace the specifications or assert exhaustive corpus coverage.
 
 | Reference | Purpose |
 | --- | --- |
-| [Sources](SOURCES.md) | Authoritative editions, appendix scope and dependency-version caveats. |
+| [Sources](SOURCES.md) | Authoritative editions, selected corrections, appendix scope and dependency-version caveats. |
 | [Corrected reading](corrected-reading.md) | The seven E1-56 changes and their PSVI scope. |
+| [XSD 1.1 correction audit](XSD11_CORRECTIONS.md) | Selected repairs, family dispositions and diagnostic boundaries. |
 | [Interpretations](INTERPRETATIONS.md) | Published-rule decisions, WG clarifications and unresolved boundaries. |
 | [Provenance](source-manifest.json) | Historical source URLs, retrieval metadata, byte lengths and SHA-256 hashes. Paths identify audit download locations, not a bundled-file inventory. |
 | [Attribution](NOTICE.md) | Source notices and reuse terms. |

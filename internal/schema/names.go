@@ -81,16 +81,10 @@ var requiredRuntimeNamespaces = []string{
 	vocab.XSDNamespaceURI,
 	vocab.XSINamespaceURI,
 	vocab.XMLNamespaceURI,
-	vocab.XLinkNamespaceURI,
 	vocab.XMLNSNamespaceURI,
 }
 
-var requiredRuntimeNames = []ExpandedName{
-	{Namespace: vocab.XSINamespaceURI, Local: vocab.XSIAttrType},
-	{Namespace: vocab.XSINamespaceURI, Local: vocab.XSIAttrNil},
-	{Namespace: vocab.XSINamespaceURI, Local: vocab.XSIAttrSchemaLocation},
-	{Namespace: vocab.XSINamespaceURI, Local: vocab.XSIAttrNoNamespaceSchemaLocation},
-}
+var requiredRuntimeNames = builtinXSIAttributeNames()
 
 // NewRuntimeNameTable returns a runtime name table seeded with required XML
 // Schema namespaces and XSI attribute names.
@@ -144,7 +138,6 @@ func newBoundedNameTable(maxNames int, requiredNamespaces []string, requiredName
 func runtimeNameLocalCapacity() int {
 	return len(requiredRuntimeNames) +
 		BuiltinSimpleTypeCount() +
-		BuiltinAttributeCount() +
 		1 // xs:anyType
 }
 

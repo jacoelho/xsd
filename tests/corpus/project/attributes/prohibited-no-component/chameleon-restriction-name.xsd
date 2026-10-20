@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:f="urn:foreign" targetNamespace="urn:adopted" xmlns:t="urn:adopted"><xs:include schemaLocation="chameleon-types.xsd"/><xs:element name="root" type="t:Derived"/></xs:schema>

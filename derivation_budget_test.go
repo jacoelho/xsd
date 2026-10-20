@@ -11,29 +11,41 @@ import (
 func TestDerivationBudgetExhaustionKeepsSchemaLimitDiagnostic(t *testing.T) {
 	t.Parallel()
 
-	schema := xsd.Bytes("restriction.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	for _, test := range []struct{ name, schema string }{
+		{name: "restriction", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base"><xs:attribute name="a" type="xs:string"/></xs:complexType>
   <xs:complexType name="derived"><xs:complexContent><xs:restriction base="base">
     <xs:attribute name="a" type="xs:token"/>
   </xs:restriction></xs:complexContent></xs:complexType>
   <xs:element name="root" type="derived"/>
-</xs:schema>`))
-	// Sweep the budget through every failing compilation phase without fixing
-	// the test to one internal step count or publication order.
-	for limit := 1; limit <= 1024; limit++ {
-		engine, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaDependencySteps: limit}, schema)
-		if err == nil {
-			if engine == nil {
-				t.Fatal("successful compilation returned no engine")
+</xs:schema>`},
+		{name: "extension after restriction", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="A"><xs:attribute name="a" type="xs:int"/></xs:complexType>
+  <xs:complexType name="R"><xs:complexContent><xs:restriction base="A"><xs:attribute name="a" use="prohibited"/></xs:restriction></xs:complexContent></xs:complexType>
+  <xs:complexType name="E"><xs:complexContent><xs:extension base="R"><xs:attribute name="a" type="xs:int"/></xs:extension></xs:complexContent></xs:complexType>
+  <xs:element name="root" type="E"/>
+</xs:schema>`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			schema := xsd.Bytes("derivation.xsd", []byte(test.schema))
+			// Sweep failing phases without depending on an internal step count.
+			for limit := 1; limit <= 1024; limit++ {
+				engine, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaDependencySteps: limit}, schema)
+				if err == nil {
+					if engine == nil {
+						t.Fatal("successful compilation returned no engine")
+					}
+					return
+				}
+				if engine != nil {
+					t.Fatal("failed compilation returned an engine")
+				}
+				expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 			}
-			return
-		}
-		if engine != nil {
-			t.Fatal("failed compilation returned an engine")
-		}
-		expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
+			t.Fatal("small derivation schema did not compile within the dependency budget")
+		})
 	}
-	t.Fatal("small restriction schema did not compile within the dependency budget")
 }
 
 func TestModelGroupDependencyBudgetPreservesReferenceLocation(t *testing.T) {

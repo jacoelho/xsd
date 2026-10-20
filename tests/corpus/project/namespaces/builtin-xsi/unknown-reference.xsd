@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><xs:import namespace="http://www.w3.org/2001/XMLSchema-instance"/><xs:complexType name="Self"><xs:attribute ref="xsi:unknown"/><xs:attribute name="guard" use="required"/></xs:complexType><xs:element name="root" type="Self" nillable="true"/></xs:schema>

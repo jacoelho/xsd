@@ -19,6 +19,8 @@ type SimpleType struct {
 
 	// Union admission derives this from completed members; restrictions preserve it.
 	unionContainsList bool
+	// The completed value definition owns this effective-facet projection.
+	unionHasFacets bool
 }
 
 // SimpleTypeByID returns the declaration at id when it is within types.

@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xl="http://www.w3.org/1999/xlink"><xs:element name="root"><xs:complexType><xs:anyAttribute namespace="http://www.w3.org/1999/xlink" processContents="strict"/></xs:complexType></xs:element></xs:schema>

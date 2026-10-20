@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:import namespace="http://www.w3.org/2001/XMLSchema"/><xs:element name="root"><xs:complexType><xs:sequence><xs:element ref="xs:customElement"/></xs:sequence></xs:complexType></xs:element></xs:schema>

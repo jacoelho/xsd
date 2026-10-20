@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	"github.com/jacoelho/xsd/internal/lex"
-	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -46,10 +45,6 @@ func ValidateBuiltinDerived(in BuiltinDerivedInput) error {
 		return validateNMTOKENLexical(in.Norm)
 	case BuiltinLanguage:
 		return validateLanguageLexical(in.Norm)
-	case BuiltinXMLLang:
-		return validateXMLLangLexical(in.Norm)
-	case BuiltinXMLSpace:
-		return validateXMLSpaceLexical(in.Norm)
 	case BuiltinNone:
 		return nil
 	default:
@@ -81,20 +76,6 @@ func validateNMTOKENLexical(normalized string) error {
 func validateLanguageLexical(normalized string) error {
 	if !lex.IsLanguage(normalized) {
 		return errors.New("invalid language")
-	}
-	return nil
-}
-
-func validateXMLLangLexical(normalized string) error {
-	if normalized != "" {
-		return validateLanguageLexical(normalized)
-	}
-	return nil
-}
-
-func validateXMLSpaceLexical(normalized string) error {
-	if normalized != vocab.XMLValueDefault && normalized != vocab.XMLValuePreserve {
-		return errors.New("invalid xml:space")
 	}
 	return nil
 }

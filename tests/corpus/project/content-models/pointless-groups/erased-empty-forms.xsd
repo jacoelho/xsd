@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="sequence"><xs:complexType><xs:sequence minOccurs="2" maxOccurs="unbounded"/></xs:complexType></xs:element>
+  <xs:element name="allOptional"><xs:complexType><xs:all minOccurs="0"/></xs:complexType></xs:element>
+  <xs:element name="allRequired"><xs:complexType><xs:all/></xs:complexType></xs:element>
+  <xs:element name="choiceOptional"><xs:complexType><xs:choice minOccurs="0"/></xs:complexType></xs:element>
+  <xs:element name="choiceZero"><xs:complexType><xs:choice minOccurs="0" maxOccurs="0"/></xs:complexType></xs:element>
+</xs:schema>

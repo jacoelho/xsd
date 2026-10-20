@@ -305,3 +305,38 @@ func unconstrainedStringQueryProgram(tb testing.TB) (*Program, map[string]TypeID
 	}
 	return program, types
 }
+
+func TestBuilderUnionHasFacetsRequiresCompletionAndIncludesInheritance(t *testing.T) {
+	builder := NewBuilder(BuilderOptions{})
+	base := NoType
+	for _, test := range []struct {
+		name   string
+		facets FacetSpec
+		want   bool
+	}{
+		{name: "plain"},
+		{name: "enumeration", facets: FacetSpec{Enumeration: []LiteralSpec{{Type: NoType, Lexical: "1"}}}, want: true},
+		{name: "inherited", want: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			id, err := builder.Reserve()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if constrained, available := builder.UnionHasFacets(id); available || constrained {
+				t.Fatalf("reserved union facets = %v, %v, want false, false", constrained, available)
+			}
+			if err := builder.Complete(id, TypeSpec{
+				Variety: Union, Base: base, ListItem: NoType,
+				Union: []TypeID{builtinInteger}, Facets: test.facets,
+				Whitespace: WhitespaceCollapse, WhitespacePresent: true,
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if constrained, available := builder.UnionHasFacets(id); !available || constrained != test.want {
+				t.Fatalf("completed union facets = %v, %v, want %v, true", constrained, available, test.want)
+			}
+			base = id
+		})
+	}
+}
