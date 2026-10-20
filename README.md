@@ -317,23 +317,24 @@ make browser-test
 
 ## Benchmarks
 
-Go results were measured on 2026-10-16 using Go 1.27.0
+Go results were measured on 2026-10-20 using Go 1.27.0
 on an Apple M2 Max with 32 GiB RAM. Libxml2 2.9.13
 results are unchanged from the 2026-09-06 run on the same machine; libxml2 was
 not rerun.
 
 | Workload | Go time | libxml2 time | Go peak RSS | libxml2 peak RSS |
 | --- | ---: | ---: | ---: | ---: |
-| Streaming, 20 MiB | 501.041 ms | 377.093 ms | 6.625 MiB | 243.08 MiB |
-| Streaming, 100 MiB | 2.458 s | 1.789 s | 6.750 MiB | 1.17 GiB |
-| Streaming, 500 MiB | 12.165 s | 8.859 s | 6.719 MiB | 5.81 GiB |
-| Streaming, 1 GiB | 24.856 s | 21.209 s | 6.781 MiB | 10.29 GiB |
-| Streaming, 2 GiB | 50.950 s | 51.485 s | 6.797 MiB | 13.33 GiB |
-| Identity constraints, 100,000 rows | 328.905 ms | 605.858 ms | 88.891 MiB | 186.66 MiB |
+| Streaming, 20 MiB | 499.797 ms | 377.093 ms | 6.594 MiB | 243.08 MiB |
+| Streaming, 100 MiB | 2.422 s | 1.789 s | 6.766 MiB | 1.17 GiB |
+| Streaming, 500 MiB | 11.978 s | 8.859 s | 6.938 MiB | 5.81 GiB |
+| Streaming, 1 GiB | 24.435 s | 21.209 s | 6.891 MiB | 10.29 GiB |
+| Streaming, 2 GiB | 48.796 s | 51.485 s | 6.812 MiB | 13.33 GiB |
+| Identity constraints, 100,000 rows | 312.665 ms | 605.858 ms | 89.219 MiB | 186.66 MiB |
 
 Each result is the upper median (sixth sorted value) of 10 runs after one
-warm-up per workload and validator. Time and peak RSS are summarized independently. Measurements include
-process startup and schema compilation. Peak RSS is process memory reported by
+warm-up per workload and validator. Time and peak RSS are summarized
+independently. Measurements include process startup and schema compilation.
+Peak RSS is process memory reported by
 `/usr/bin/time`, not cumulative Go allocations.
 
 Go streams input; libxml2 uses tree mode with `--huge --noout --schema`.

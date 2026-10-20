@@ -7,8 +7,15 @@ Each result is the upper median (sixth sorted value) of 10 runs after one
 warm-up per workload and validator. Time and peak RSS are summarized
 independently.
 
-Libxml2 timings varied on the larger files: 20.86–37.68 s for 1 GiB and
-51.08–52.20 s for 2 GiB across the 10 samples.
+In the 2026-10-20 Go run, elapsed times ranged from 24.315–25.739 s for
+1 GiB and 48.620–49.584 s for 2 GiB. The 100,000-row identity workload ranged
+from 300.193–329.040 ms. Streaming peak RSS upper medians stayed between
+6.594 MiB and 6.938 MiB; the identity upper median was 89.219 MiB.
+
+Libxml2 was not rerun. Its 2026-09-06 timings varied on the larger files:
+20.86–37.68 s for 1 GiB and 51.08–52.20 s for 2 GiB across the 10 samples.
+The Go and libxml2 columns therefore come from separate measurement dates,
+rather than a paired comparison.
 
 Timings include process startup, schema compilation, and validation. Go streams
 input; libxml2 runs in tree mode with `--huge --noout --schema`. Peak RSS is
