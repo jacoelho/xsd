@@ -122,7 +122,7 @@ func (s *session) validateDeclaredAttribute(set xsdSchema.AttributeUseSetRead, s
 		return false, nil
 	}
 	if !seen.mark(slot) {
-		return true, s.recoverAssessment(attributeValidation(ctx, "duplicate attribute "+rn.Label()))
+		return true, s.recoverAssessment(attributeValidation(ctx, duplicateAttributeMessage(rn)))
 	}
 	return true, s.recoverAssessment(s.validateDeclaredAttributeUse(use, rn, attr, ctx))
 }
@@ -135,7 +135,7 @@ func (s *session) validateUndeclaredAttribute(set xsdSchema.AttributeUseSetRead,
 	if handled {
 		return nil
 	}
-	return s.recoverUnassessedIdentityAttribute(rn, ctx, attributeValidation(ctx, "attribute is not declared: "+rn.Label()))
+	return s.recoverUnassessedIdentityAttribute(rn, ctx, attributeValidation(ctx, undeclaredAttributeMessage(rn)))
 }
 
 func (s *session) validateSimpleTypeAttributes(attrs []xmlstream.Attr, line, col int) error {
@@ -151,7 +151,7 @@ func (s *session) validateSimpleTypeAttributes(attrs []xmlstream.Attr, line, col
 			continue
 		}
 		rn := s.runtimeName(a.Name)
-		if err := s.recoverUnassessedIdentityAttribute(rn, ctx, attributeValidation(ctx, "simple type does not allow attributes")); err != nil {
+		if err := s.recoverUnassessedIdentityAttribute(rn, ctx, attributeValidation(ctx, simpleTypeAttributeMessage(rn))); err != nil {
 			return err
 		}
 	}
@@ -226,7 +226,7 @@ func (s *session) validateDeclaredAttributeFast(plan declaredAttributePlan, attr
 	if plan.canValidateFixedString() {
 		lexical := s.attributeValue(attr)
 		if _, err := s.validateAdmittedSimpleValue(plan.use.TypeID(), lexical, plan.input, 0); err != nil {
-			return true, simpleValueFacetError(ctx, "invalid attribute "+rn.Label(), err)
+			return true, simpleValueError(ctx, xsderrors.CodeValidationFacet, invalidAttributeMessage(rn), err, s.limits.InstanceValueWork)
 		}
 		return true, validateFixedAttributeString(lexical, plan.fixed, rn, ctx)
 	}
@@ -239,7 +239,7 @@ func (s *session) validateDeclaredAttributeFast(plan declaredAttributePlan, attr
 		typeID := plan.use.TypeID()
 		value, err := s.validateSimpleValueBytes(typeID, raw, plan.input, 0)
 		if err != nil {
-			return true, simpleValueFacetError(ctx, "invalid attribute "+rn.Label(), err)
+			return true, simpleValueError(ctx, xsderrors.CodeValidationFacet, invalidAttributeMessage(rn), err, s.limits.InstanceValueWork)
 		}
 		return true, s.doc.identity.recordValue(plan.target, value, ctx)
 	}
@@ -248,7 +248,7 @@ func (s *session) validateDeclaredAttributeFast(plan declaredAttributePlan, attr
 
 func validateFixedAttributeString(value string, fixed xsdSchema.ValueConstraintRead, rn xsdSchema.RuntimeName, ctx StartContext) error {
 	if value != fixed.CanonicalText() {
-		return attributeValidation(ctx, "fixed attribute mismatch "+rn.Label())
+		return attributeValidation(ctx, fixedAttributeMessage(rn.Label(), value, fixed.CanonicalText()))
 	}
 	return nil
 }
@@ -266,7 +266,7 @@ func (s *session) validateDeclaredAttributeValue(plan declaredAttributePlan, lex
 		return err
 	}
 	if plan.hasFixed {
-		if err := s.validateFixedAttributeValue(value, plan.fixed, plan.target, ctx, rn.Label()); err != nil {
+		if err := s.validateFixedAttributeValue(value, plan.fixed, plan.target, ctx, rn.Label(), lexical); err != nil {
 			return err
 		}
 	}
@@ -277,7 +277,7 @@ func (s *session) declaredAttributeValueError(target identityValueTarget, rn xsd
 	if rejectErr := s.doc.identity.rejectValue(target, identityInvalidValue, ctx); rejectErr != nil {
 		return rejectErr
 	}
-	return simpleValueFacetError(ctx, "invalid attribute "+rn.Label(), err)
+	return simpleValueError(ctx, xsderrors.CodeValidationFacet, invalidAttributeMessage(rn), err, s.limits.InstanceValueWork)
 }
 
 func (s *session) rejectAttributeIdentityValue(target identityValueTarget, ctx StartContext, reason error) error {
@@ -298,8 +298,10 @@ func (s *session) validateWildcardAttribute(
 		return true, xsderrors.InternalInvariant("attribute wildcard state is invalid")
 	}
 	switch match.disposition {
-	case attributeWildcardNoMatch, attributeWildcardStrictMissing:
+	case attributeWildcardNoMatch:
 		return false, nil
+	case attributeWildcardStrictMissing:
+		return true, attributeValidation(ctx, strictAttributeMessage(rn))
 	case attributeWildcardSkip:
 		return true, nil
 	case attributeWildcardLaxMissing:
@@ -387,14 +389,14 @@ func (s *session) validateKnownWildcardAttribute(
 	if err != nil {
 		return s.wildcardAttributeValueError(identityTarget, rn, ctx, err)
 	}
-	return s.commitKnownWildcardAttributeValue(identityTarget, value, optionalFixedAttribute{value: fixed, present: hasFixed}, rn, ctx)
+	return s.commitKnownWildcardAttributeValue(identityTarget, value, optionalFixedAttribute{value: fixed, present: hasFixed}, rn, lexical, ctx)
 }
 
 func (s *session) wildcardAttributeValueError(target identityValueTarget, rn xsdSchema.RuntimeName, ctx StartContext, err error) error {
 	if rejectErr := s.doc.identity.rejectValue(target, identityInvalidValue, ctx); rejectErr != nil {
 		return rejectErr
 	}
-	return simpleValueFacetError(ctx, "invalid wildcard attribute "+rn.Label(), err)
+	return simpleValueError(ctx, xsderrors.CodeValidationFacet, invalidWildcardAttributeMessage(rn), err, s.limits.InstanceValueWork)
 }
 
 type optionalFixedAttribute struct {
@@ -402,12 +404,12 @@ type optionalFixedAttribute struct {
 	present bool
 }
 
-func (s *session) commitKnownWildcardAttributeValue(identityTarget identityValueTarget, value xsdValue.Value, fixed optionalFixedAttribute, rn xsdSchema.RuntimeName, ctx StartContext) error {
+func (s *session) commitKnownWildcardAttributeValue(identityTarget identityValueTarget, value xsdValue.Value, fixed optionalFixedAttribute, rn xsdSchema.RuntimeName, lexical string, ctx StartContext) error {
 	if err := s.doc.identity.recordValue(identityTarget, value, ctx); err != nil {
 		return err
 	}
 	if fixed.present {
-		if err := s.validateFixedAttributeValue(value, fixed.value, identityTarget, ctx, rn.Label()); err != nil {
+		if err := s.validateFixedAttributeValue(value, fixed.value, identityTarget, ctx, rn.Label(), lexical); err != nil {
 			return err
 		}
 	}
@@ -423,6 +425,7 @@ func (s *session) validateFixedAttributeValue(
 	identityTarget identityValueTarget,
 	ctx StartContext,
 	label string,
+	lexical string,
 ) error {
 	equal, valid := xsdSchema.FixedAttributeValueEqual(actual, fixed)
 	if equal {
@@ -434,7 +437,7 @@ func (s *session) validateFixedAttributeValue(
 	if !valid {
 		return xsderrors.InternalInvariant("fixed attribute value-space identity is missing")
 	}
-	return attributeValidation(ctx, "fixed attribute mismatch "+label)
+	return attributeValidation(ctx, fixedAttributeMessage(label, lexical, fixed.CanonicalText()))
 }
 
 func (s *session) validateAttributeTypeAvailable(id xsdSchema.SimpleTypeID, label string, ctx StartContext) error {
@@ -443,7 +446,7 @@ func (s *session) validateAttributeTypeAvailable(id xsdSchema.SimpleTypeID, labe
 		return xsderrors.InternalInvariant("attribute type metadata is invalid")
 	}
 	if unavailable {
-		return attributeValidation(ctx, "attribute type is unavailable: "+label)
+		return attributeValidation(ctx, unavailableAttributeTypeMessage(label))
 	}
 	return nil
 }
@@ -481,7 +484,7 @@ func requiredAttributeError(set xsdSchema.AttributeUseSetRead, seen AttributeSee
 	if !ok {
 		return xsderrors.InternalInvariant("required attribute slot is invalid")
 	}
-	return attributeValidation(ctx, "missing required attribute "+use.Label())
+	return attributeValidation(ctx, requiredAttributeMessage(use.Label()))
 }
 
 func (s *session) validateDefaultAttributes(set xsdSchema.AttributeUseSetRead, seen AttributeSeen, ctx StartContext) error {

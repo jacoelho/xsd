@@ -30,7 +30,7 @@ func ParseTextValue(kind PrimitiveKind, normalized string, needs PrimitiveValueN
 	}
 	value := TextValue{Canonical: normalized}
 	if needs.Has(PrimitiveNeedLength) {
-		length, err := checkedUint32(utf8.RuneCountInString(normalized), "string length exceeds uint32 limit")
+		length, err := checkedUint32(utf8.RuneCountInString(normalized), msgStringLengthLimit)
 		if err != nil {
 			return TextValue{}, err
 		}
@@ -48,7 +48,7 @@ func parseAnyURITextValue(normalized string, needs PrimitiveValueNeed) (TextValu
 	if !needs.Has(PrimitiveNeedLength) {
 		return value, nil
 	}
-	length, err := checkedUint32(characters, "anyURI length exceeds uint32 limit")
+	length, err := checkedUint32(characters, msgAnyURILengthLimit)
 	if err != nil {
 		return TextValue{}, err
 	}

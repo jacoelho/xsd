@@ -105,8 +105,14 @@ func newSchemaProgram(build *schemaBuild, work ContentModelWork) (schemaProgram,
 	if err != nil {
 		return schemaProgram{}, err
 	}
+	for _, count := range []int{len(build.Names.locals), len(build.Identities), len(build.SimpleTypes), len(build.ComplexTypes)} {
+		if err := spendContentModelWorkN(work, count); err != nil {
+			return schemaProgram{}, err
+		}
+	}
 	names := newNameReadView(&build.Names)
 	reads := schemaProgram{
+		DiagnosticNames:       newDiagnosticNames(build),
 		GlobalAttributes:      maps.Clone(build.GlobalAttributes),
 		GlobalElements:        maps.Clone(build.GlobalElements),
 		GlobalTypes:           maps.Clone(build.GlobalTypes),

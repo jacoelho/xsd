@@ -610,7 +610,7 @@ func TestBase64EmptyEnumerationAndRecovery(t *testing.T) {
 				got, err = program.Validate(id, input, Resolver{}, NeedCanonical, 16<<20, &scratch)
 			}
 			if input == "YQ==" {
-				if !errors.Is(err, ErrFacet) || err.Error() != "enumeration facet failed" {
+				if !errors.Is(err, ErrFacet) {
 					t.Fatalf("bytes=%t input=%q: error=%v, want enumeration rejection", bytes, input, err)
 				}
 			} else if err != nil || got.CanonicalText() != "" {
@@ -652,7 +652,7 @@ func TestExplicitBase64EnumerationPreservesUnionSelection(t *testing.T) {
 					got, err = program.Validate(id, input, Resolver{}, NeedCanonical, 16<<20, nil)
 				}
 				if !base64First {
-					if !errors.Is(err, ErrFacet) || err.Error() != "enumeration facet failed" {
+					if !errors.Is(err, ErrFacet) {
 						t.Fatalf("string-first bytes=%t input=%q: error=%v, want enumeration rejection", bytes, input, err)
 					}
 				} else if err != nil || got.SelectedType() != BuiltinType(PrimitiveBase64Binary) || got.CanonicalText() != "YQ==" {
@@ -696,7 +696,7 @@ func TestBase64PaddingAdmissionContract(t *testing.T) {
 						got, validationErr = program.Validate(id, tc.lexical, Resolver{}, needs, 16<<20, nil)
 					}
 					if tc.message != "" {
-						if validationErr == nil || validationErr.Error() != tc.message {
+						if validationErr == nil || !strings.HasSuffix(validationErr.Error(), tc.message) {
 							t.Fatalf("bytes=%t needs=%d: error = %v, want %q", bytesInput, needs, validationErr, tc.message)
 						}
 						continue

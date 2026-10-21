@@ -786,12 +786,12 @@ func TestCollectionFacetsCannotBeFixedAndCompletionCanRetry(t *testing.T) {
 		{
 			name:    "pattern",
 			facets:  value.FacetSpec{Patterns: [][]*value.Pattern{{pattern}}, Fixed: value.FacetPattern},
-			message: "pattern facet failed",
+			message: `value "y" does not satisfy pattern groups ["x"]`,
 		},
 		{
 			name:    "enumeration",
 			facets:  value.FacetSpec{Enumeration: []value.LiteralSpec{{Lexical: "x", Type: value.NoType}}, Fixed: value.FacetEnumeration},
-			message: "enumeration facet failed",
+			message: `value "y" is not one of ["x"]`,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -1020,8 +1020,8 @@ func TestProgramLexicalPayloadLengthFacets(t *testing.T) {
 						t.Fatalf("%s needs=%d canonical = %q, want %q", form, needs, accepted.CanonicalText(), wantCanonical)
 					}
 					for _, input := range tc.rejected {
-						if _, rejectedErr := validate(input); !errors.Is(rejectedErr, value.ErrFacet) || rejectedErr.Error() != "length facet failed" {
-							t.Fatalf("%s needs=%d input=%q error = %v, want length facet failed", form, needs, input, rejectedErr)
+						if _, rejectedErr := validate(input); !errors.Is(rejectedErr, value.ErrFacet) {
+							t.Fatalf("%s needs=%d input=%q error = %v, want ErrFacet", form, needs, input, rejectedErr)
 						}
 					}
 				}

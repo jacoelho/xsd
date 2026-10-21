@@ -2,6 +2,7 @@ package value_test
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/value"
@@ -60,10 +61,10 @@ func TestOrderedMixedTimezoneBoundsDefiniteOrder(t *testing.T) {
 		name, bound, accepted, rejected, overlap, message string
 		lower                                             bool
 	}{
-		{"zoned lower", "2000-01-15T12:00:00Z", "2000-01-16T03:00:00", "2000-01-14T21:00:00", "2000-01-15T12:00:00", "lower bound facet failed", true},
-		{"zoned upper", "2000-01-15T12:00:00Z", "2000-01-14T21:00:00", "2000-01-16T03:00:00", "2000-01-15T12:00:00", "upper bound facet failed", false},
-		{"unzoned lower", "2000-01-15T12:00:00", "2000-01-16T03:00:00Z", "2000-01-14T21:00:00Z", "2000-01-15T12:00:00Z", "lower bound facet failed", true},
-		{"unzoned upper", "2000-01-15T12:00:00", "2000-01-14T21:00:00Z", "2000-01-16T03:00:00Z", "2000-01-15T12:00:00Z", "upper bound facet failed", false},
+		{"zoned lower", "2000-01-15T12:00:00Z", "2000-01-16T03:00:00", "2000-01-14T21:00:00", "2000-01-15T12:00:00", "minInclusive", true},
+		{"zoned upper", "2000-01-15T12:00:00Z", "2000-01-14T21:00:00", "2000-01-16T03:00:00", "2000-01-15T12:00:00", "maxInclusive", false},
+		{"unzoned lower", "2000-01-15T12:00:00", "2000-01-16T03:00:00Z", "2000-01-14T21:00:00Z", "2000-01-15T12:00:00Z", "minInclusive", true},
+		{"unzoned upper", "2000-01-15T12:00:00", "2000-01-14T21:00:00Z", "2000-01-16T03:00:00Z", "2000-01-15T12:00:00Z", "maxInclusive", false},
 	}
 	builder := value.NewBuilder(value.BuilderOptions{})
 	var ids [4]value.TypeID
@@ -105,7 +106,7 @@ func TestOrderedMixedTimezoneBoundsDefiniteOrder(t *testing.T) {
 			checkAccepted()
 			for _, input := range [2]string{test.rejected, test.overlap} {
 				_, validationErr := program.Validate(ids[i], input, value.Resolver{}, 0, 16<<20, &scratch)
-				if !errors.Is(validationErr, value.ErrFacet) || validationErr.Error() != test.message {
+				if !errors.Is(validationErr, value.ErrFacet) || !strings.Contains(validationErr.Error(), test.message) {
 					t.Fatalf("rejected %q: %v, want ErrFacet with %q", input, validationErr, test.message)
 				}
 				checkAccepted()

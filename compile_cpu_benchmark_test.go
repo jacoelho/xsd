@@ -309,10 +309,10 @@ func checkBuiltinOwnership(tb testing.TB, engine *xsd.Engine) {
 		document string
 		message  string
 	}{
-		{"list", `<root><l>1 x</l><u>true</u><amount>2.0</amount><text note="raw p:q">abc</text></root>`, "invalid simple content: invalid decimal"},
-		{"union", `<root><l>1 2</l><u>not-a-value</u><amount>2.0</amount><text note="raw p:q">abc</text></root>`, "invalid simple content: invalid boolean"},
-		{"bound", `<root><l>1 2</l><u>true</u><amount>1.0</amount><text note="raw p:q">abc</text></root>`, "invalid simple content: minInclusive facet failed"},
-		{"length", `<root><l>1 2</l><u>true</u><amount>2.0</amount><text note="raw p:q">abcd</text></root>`, "invalid simple content: length facet failed"},
+		{"list", `<root><l>1 x</l><u>true</u><amount>2.0</amount><text note="raw p:q">abc</text></root>`, `value "1 x" is not a valid list of xs:int`},
+		{"union", `<root><l>1 2</l><u>not-a-value</u><amount>2.0</amount><text note="raw p:q">abc</text></root>`, `value "not-a-value" does not match any union member`},
+		{"bound", `<root><l>1 2</l><u>true</u><amount>1.0</amount><text note="raw p:q">abc</text></root>`, `value "1.0" does not satisfy minInclusive "1.5"`},
+		{"length", `<root><l>1 2</l><u>true</u><amount>2.0</amount><text note="raw p:q">abcd</text></root>`, `has length 4 characters; expected at most 3`},
 	} {
 		reader.Reset([]byte(opponent.document))
 		err := session.Validate(reader)
@@ -324,7 +324,7 @@ func checkBuiltinOwnership(tb testing.TB, engine *xsd.Engine) {
 			tb.Fatalf("%s diagnostic count = %d, want 1: %v", opponent.name, len(failures), err)
 		}
 		diagnostic, ok := errors.AsType[*xsderrors.Error](failures[0])
-		if !ok || diagnostic.Category() != xsderrors.CategoryValidation || diagnostic.Code() != xsderrors.CodeValidationFacet || diagnostic.Message() != opponent.message {
+		if !ok || diagnostic.Category() != xsderrors.CategoryValidation || diagnostic.Code() != xsderrors.CodeValidationFacet || !strings.Contains(diagnostic.Message(), opponent.message) {
 			tb.Fatalf("%s diagnostic = %v", opponent.name, err)
 		}
 		reader.Reset([]byte(builtinOwnershipValid))
@@ -894,19 +894,19 @@ func occurrencePublished(tb testing.TB, engine *xsd.Engine, fifthCode xsderrors.
 		code     xsderrors.Code
 		message  string
 	}{
-		{occurrenceDoc(0), xsderrors.CodeValidationContent, "missing required child element"},
-		{`<number>1234.567</number>`, xsderrors.CodeValidationFacet, "invalid simple content: digit facet failed"},
-		{`<number>12.345</number>`, xsderrors.CodeValidationFacet, "invalid simple content: digit facet failed"},
-		{`<number>12345.67</number>`, xsderrors.CodeValidationFacet, "invalid simple content: digit facet failed"},
-		{strings.Replace(good, "<e0>x</e0>", "<e0/>", 1), xsderrors.CodeValidationFacet, "invalid simple content: length facet failed"},
-		{strings.Replace(good, "<e0>x</e0>", "<e0>123456789</e0>", 1), xsderrors.CodeValidationFacet, "invalid simple content: length facet failed"},
+		{occurrenceDoc(0), xsderrors.CodeValidationContent, `content is incomplete; expected next child ["e0"]`},
+		{`<number>1234.567</number>`, xsderrors.CodeValidationFacet, `value "1234.567" has 7 total digits; totalDigits permits at most 6`},
+		{`<number>12.345</number>`, xsderrors.CodeValidationFacet, `value "12.345" has 3 fractional digits; fractionDigits permits at most 2`},
+		{`<number>12345.67</number>`, xsderrors.CodeValidationFacet, `value "12345.67" has 7 total digits; totalDigits permits at most 6`},
+		{strings.Replace(good, "<e0>x</e0>", "<e0/>", 1), xsderrors.CodeValidationFacet, `has length 0 characters; expected at least 1`},
+		{strings.Replace(good, "<e0>x</e0>", "<e0>123456789</e0>", 1), xsderrors.CodeValidationFacet, `has length 9 characters; expected at most 8`},
 	}
 	if fifthCode != "" {
 		bad = append(bad, struct {
 			document string
 			code     xsderrors.Code
 			message  string
-		}{occurrenceDoc(5), fifthCode, "unexpected child element e0"})
+		}{occurrenceDoc(5), fifthCode, `unexpected child element "e0"; expected next child ["e1"]`})
 	} else {
 		if err := session.Validate(strings.NewReader(occurrenceDoc(5))); err != nil {
 			tb.Fatal(err)
@@ -920,7 +920,7 @@ func occurrencePublished(tb testing.TB, engine *xsd.Engine, fifthCode xsderrors.
 		found := false
 		for _, failure := range xsderrors.Flatten(err) {
 			d, ok := errors.AsType[*xsderrors.Error](failure)
-			if ok && d.Category() == xsderrors.CategoryValidation && d.Code() == c.code && d.Message() == c.message {
+			if ok && d.Category() == xsderrors.CategoryValidation && d.Code() == c.code && strings.Contains(d.Message(), c.message) {
 				found = true
 			}
 		}

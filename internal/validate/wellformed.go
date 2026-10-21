@@ -41,6 +41,9 @@ func (c *xmlWellFormedChecker) check(r io.Reader) error {
 		},
 		LazyAttrValues: true,
 	}); err != nil {
+		if limitErr := instanceLimitError(err, StartContext{}, c.limitOptions()); limitErr != nil {
+			return limitErr
+		}
 		return instanceReaderError(err)
 	}
 	defer c.reader.Detach()
@@ -97,5 +100,12 @@ func (c *xmlWellFormedChecker) end(line, col int) error {
 
 func (c *xmlWellFormedChecker) streamError(err error) error {
 	line, col := streamErrorPosition(&c.reader, err)
+	if limitErr := instanceLimitError(err, c.doc.context(line, col), c.limitOptions()); limitErr != nil {
+		return limitErr
+	}
 	return StreamError(line, col, c.doc.PathString(), err)
+}
+
+func (c *xmlWellFormedChecker) limitOptions() Limits {
+	return Limits{InstanceBytes: c.maxInputBytes, InstanceTokenBytes: c.maxTokenBytes, InstanceAttributes: c.maxAttributes}
 }

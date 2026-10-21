@@ -105,12 +105,12 @@ func TestIdentityScopeDispatchIndexUnregistersNestedReuseAndPartialAbort(t *test
 	for index := range 2 {
 		child := identityScope{depth: 3}
 		selection := identitySelection{constraint: constraint, node: uint64(index + 10), depth: 4}
-		if err := evaluation.publishIdentityKey(&child, selection, "conflict", identityLimits{}, identityTestContext("/root/branch/row", 1, 1)); err != nil {
+		if err := evaluation.publishIdentityKey(nil, &child, selection, "conflict", identityLimits{}, identityTestContext("/root/branch/row", 1, 1)); err != nil {
 			t.Fatal(err)
 		}
 		if index == 0 {
 			selection.node = 20
-			if err := evaluation.publishIdentityKey(&child, selection, "kept", identityLimits{}, identityTestContext("/root/branch/other", 1, 1)); err != nil {
+			if err := evaluation.publishIdentityKey(nil, &child, selection, "kept", identityLimits{}, identityTestContext("/root/branch/other", 1, 1)); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -148,13 +148,13 @@ func TestIdentityScopeDispatchIndexUnregistersNestedReuseAndPartialAbort(t *test
 		t.Fatalf("selector hits after successful close = %+v, want child removed", hits)
 	}
 	other := identityScope{depth: 2}
-	if err := evaluation.publishIdentityKey(&other, identitySelection{constraint: constraint, node: 30, depth: 3}, "conflict", identityLimits{}, identityTestContext("/root/other/row", 1, 1)); err != nil {
+	if err := evaluation.publishIdentityKey(nil, &other, identitySelection{constraint: constraint, node: 30, depth: 3}, "conflict", identityLimits{}, identityTestContext("/root/other/row", 1, 1)); err != nil {
 		t.Fatal(err)
 	}
 	mergeIdentityTables(&evaluation.scopes[0], &other)
 	parent := &evaluation.scopes[0]
 	parent.refs = []identityTupleRef{{refer: constraint, key: "conflict"}, {refer: constraint, key: "kept"}}
-	if err := validateIdentityScopeRefs(parent, failIdentityReport(t)); err != nil {
+	if err := validateIdentityScopeRefs(nil, parent, failIdentityReport(t)); err != nil {
 		t.Fatalf("parent references after completed-child removal: %v", err)
 	}
 }
@@ -167,7 +167,7 @@ func TestIdentityInheritedFramesPreserveScopeAllowanceAfterStartAbort(t *testing
 	constraint := evaluation.selections[0].constraint
 	constraints := evaluation.scopes[0].constraints
 	child := identityScope{depth: 3}
-	if err := evaluation.publishIdentityKey(&child, identitySelection{constraint: constraint, node: 10}, "kept", identityLimits{}, identityTestContext("/root/wrap/row", 1, 1)); err != nil {
+	if err := evaluation.publishIdentityKey(nil, &child, identitySelection{constraint: constraint, node: 10}, "kept", identityLimits{}, identityTestContext("/root/wrap/row", 1, 1)); err != nil {
 		t.Fatal(err)
 	}
 	evaluation.scopes = append(evaluation.scopes, child)
@@ -201,7 +201,7 @@ func TestIdentityInheritedFramesPreserveScopeAllowanceAfterStartAbort(t *testing
 	}
 	parent := &evaluation.scopes[0]
 	parent.refs = []identityTupleRef{{refer: constraint, key: "kept"}}
-	if err := validateIdentityScopeRefs(parent, failIdentityReport(t)); err != nil {
+	if err := validateIdentityScopeRefs(nil, parent, failIdentityReport(t)); err != nil {
 		t.Fatalf("start abort lost inherited rows: %v", err)
 	}
 }
@@ -250,7 +250,7 @@ func TestIdentityCompletedTablesExcludeConflictsAcrossMergeSizes(t *testing.T) {
 			evaluation.scopes = []identityScope{{depth: 1}, {depth: 2}}
 			publish := func(scope *identityScope, id xsdSchema.IdentityConstraintID, key string, node uint64) {
 				t.Helper()
-				if err := evaluation.publishIdentityKey(scope, identitySelection{constraint: id, node: node}, key, identityLimits{}, identityTestContext("/row", 1, 1)); err != nil {
+				if err := evaluation.publishIdentityKey(nil, scope, identitySelection{constraint: id, node: node}, key, identityLimits{}, identityTestContext("/row", 1, 1)); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -293,7 +293,7 @@ func TestIdentityCompletedTablesExcludeConflictsAcrossMergeSizes(t *testing.T) {
 			for id := xsdSchema.IdentityConstraintID(2); id < 5; id++ {
 				parent.refs = append(parent.refs, identityTupleRef{refer: id, key: "local"})
 			}
-			if err := validateIdentityScopeRefs(parent, failIdentityReport(t)); err != nil {
+			if err := validateIdentityScopeRefs(nil, parent, failIdentityReport(t)); err != nil {
 				t.Fatalf("completed table references: %v", err)
 			}
 		})

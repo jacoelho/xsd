@@ -66,10 +66,10 @@ func ValidateTemporalLexical[T byteText](kind PrimitiveKind, raw T) error {
 		return validateGMonthLexical(raw)
 	case PrimitiveString, PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble, PrimitiveDuration,
 		PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
-		return errors.New("invalid temporal primitive")
+		return errors.New(msgInvalidTemporalPrimitive)
 	default:
 	}
-	return errors.New("invalid temporal primitive")
+	return errors.New(msgInvalidTemporalPrimitive)
 }
 
 // ParseDateValue parses s as an XML Schema xs:date value.
@@ -116,11 +116,11 @@ func ParseDateTimeValue(s string) (DateTimeValue, error) {
 		return DateTimeValue{}, err
 	}
 	if next >= len(s) || s[next] != 'T' {
-		return DateTimeValue{}, errors.New("invalid dateTime")
+		return DateTimeValue{}, errors.New(msgInvalidDateTime)
 	}
 	tm, err := parseXSDTimeParts(s[next+1:])
 	if err != nil {
-		return DateTimeValue{}, errors.New("invalid dateTime")
+		return DateTimeValue{}, errors.New(msgInvalidDateTime)
 	}
 	dayOffset, second := divModDay(tm.rawSecond())
 	point := xsdDateTimePoint{
@@ -248,15 +248,15 @@ func parseXSDDatePart(s string) (xsdDatePart, int, error) {
 		return xsdDatePart{}, 0, err
 	}
 	if next >= len(s) || s[next] != '-' {
-		return xsdDatePart{}, 0, errors.New("invalid date/time")
+		return xsdDatePart{}, 0, errors.New(msgInvalidDatePart)
 	}
 	month, next, ok := parseTwoDateDigits(s, next+1)
 	if !ok || next >= len(s) || s[next] != '-' {
-		return xsdDatePart{}, 0, errors.New("invalid date/time")
+		return xsdDatePart{}, 0, errors.New(msgInvalidDatePart)
 	}
 	day, next, ok := parseTwoDateDigits(s, next+1)
 	if !ok || month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month) {
-		return xsdDatePart{}, 0, errors.New("invalid date/time")
+		return xsdDatePart{}, 0, errors.New(msgInvalidDatePart)
 	}
 	return xsdDatePart{year: year, month: month, day: day}, next, nil
 }
@@ -389,15 +389,15 @@ func parseXSDTimezone(s string, i int) (xsdTimezone, int, error) {
 		return xsdTimezone{present: true}, i + 1, nil
 	}
 	if s[i] != '+' && s[i] != '-' {
-		return xsdTimezone{}, i, errors.New("invalid timezone")
+		return xsdTimezone{}, i, errors.New(msgInvalidTimezone)
 	}
 	if i+6 > len(s) || s[i+3] != ':' {
-		return xsdTimezone{}, i, errors.New("invalid timezone")
+		return xsdTimezone{}, i, errors.New(msgInvalidTimezone)
 	}
 	hour, _, ok1 := parseTwoDateDigits(s, i+1)
 	minute, _, ok2 := parseTwoDateDigits(s, i+4)
 	if !ok1 || !ok2 || !validTimezoneFields(hour, minute) {
-		return xsdTimezone{}, i, errors.New("invalid timezone")
+		return xsdTimezone{}, i, errors.New(msgInvalidTimezone)
 	}
 	offset := hour*60 + minute
 	if s[i] == '-' {
@@ -412,7 +412,7 @@ func parseXSDTimezoneToEnd(s string, i int, label string) (xsdTimezone, error) {
 		return xsdTimezone{}, err
 	}
 	if next != len(s) {
-		return xsdTimezone{}, errors.New("invalid " + label)
+		return xsdTimezone{}, invalidTypeError(label)
 	}
 	return tz, nil
 }
@@ -555,7 +555,7 @@ func parseXSDTimeParts(s string) (xsdTimeParts, error) {
 		return xsdTimeParts{}, err
 	}
 	if !validTimeClock(clock.hour, clock.minute, clock.second, frac != "") {
-		return xsdTimeParts{}, errors.New("invalid time")
+		return xsdTimeParts{}, errors.New(msgInvalidTime)
 	}
 	return xsdTimeParts{tz: tz, frac: frac, hour: clock.hour, minute: clock.minute, second: clock.second}, nil
 }
@@ -574,7 +574,7 @@ func parseFraction(s string, i int) (string, int, error) {
 		i++
 	}
 	if i == start {
-		return "", 0, errors.New("invalid time")
+		return "", 0, errors.New(msgInvalidTime)
 	}
 	frac := strings.TrimRight(s[start:i], "0")
 	if frac == "" {
@@ -609,10 +609,10 @@ func validateDateTimeLexical[T byteText](raw T) error {
 		return err
 	}
 	if next >= len(raw) || raw[next] != 'T' {
-		return errors.New("invalid dateTime")
+		return errors.New(msgInvalidDateTime)
 	}
 	if err := validateTimeLexical(raw[next+1:]); err != nil {
-		return errors.New("invalid dateTime")
+		return errors.New(msgInvalidDateTime)
 	}
 	return nil
 }
@@ -630,7 +630,7 @@ func validateTimeLexical[T byteText](raw T) error {
 		return err
 	}
 	if !validTimeClock(clock.hour, clock.minute, clock.second, nonZeroFraction) {
-		return errors.New("invalid time")
+		return errors.New(msgInvalidTime)
 	}
 	return nil
 }
@@ -645,15 +645,15 @@ type timeClock struct {
 func parseTimeClock[T byteText](raw T) (timeClock, error) {
 	hour, next, ok := parseTwoDateDigits(raw, 0)
 	if !ok || next >= len(raw) || raw[next] != ':' {
-		return timeClock{}, errors.New("invalid time")
+		return timeClock{}, errors.New(msgInvalidTime)
 	}
 	minute, next, ok := parseTwoDateDigits(raw, next+1)
 	if !ok || next >= len(raw) || raw[next] != ':' {
-		return timeClock{}, errors.New("invalid time")
+		return timeClock{}, errors.New(msgInvalidTime)
 	}
 	second, next, ok := parseTwoDateDigits(raw, next+1)
 	if !ok {
-		return timeClock{}, errors.New("invalid time")
+		return timeClock{}, errors.New(msgInvalidTime)
 	}
 	return timeClock{hour: hour, minute: minute, second: second, next: next}, nil
 }
@@ -682,7 +682,7 @@ func parseTimeFraction[T byteText](raw T, i int) (bool, int, error) {
 		i++
 	}
 	if i == start {
-		return false, 0, errors.New("invalid time")
+		return false, 0, errors.New(msgInvalidTime)
 	}
 	return nonZero, i, nil
 }
@@ -693,11 +693,11 @@ func validateGYearMonthLexical[T byteText](raw T) error {
 		return err
 	}
 	if next >= len(raw) || raw[next] != '-' {
-		return errors.New("invalid gYearMonth")
+		return errors.New(msgInvalidGYearMonth)
 	}
 	month, next, ok := parseTwoDateDigits(raw, next+1)
 	if !ok || month < 1 || month > 12 {
-		return errors.New("invalid gYearMonth")
+		return errors.New(msgInvalidGYearMonth)
 	}
 	return validateTimezoneToEnd(raw, next, "gYearMonth")
 }
@@ -712,37 +712,37 @@ func validateGYearLexical[T byteText](raw T) error {
 
 func validateGMonthDayLexical[T byteText](raw T) error {
 	if !hasTemporalPrefix(raw, "--") {
-		return errors.New("invalid gMonthDay")
+		return errors.New(msgInvalidGMonthDay)
 	}
 	month, next, ok := parseTwoDateDigits(raw, 2)
 	if !ok || next >= len(raw) || raw[next] != '-' {
-		return errors.New("invalid gMonthDay")
+		return errors.New(msgInvalidGMonthDay)
 	}
 	day, next, ok := parseTwoDateDigits(raw, next+1)
 	if !ok || month < 1 || month > 12 || day < 1 || day > daysInMonthForLeap(month, true) {
-		return errors.New("invalid gMonthDay")
+		return errors.New(msgInvalidGMonthDay)
 	}
 	return validateTimezoneToEnd(raw, next, "gMonthDay")
 }
 
 func validateGDayLexical[T byteText](raw T) error {
 	if !hasTemporalPrefix(raw, "---") {
-		return errors.New("invalid gDay")
+		return errors.New(msgInvalidGDay)
 	}
 	day, next, ok := parseTwoDateDigits(raw, 3)
 	if !ok || day < 1 || day > 31 {
-		return errors.New("invalid gDay")
+		return errors.New(msgInvalidGDay)
 	}
 	return validateTimezoneToEnd(raw, next, "gDay")
 }
 
 func validateGMonthLexical[T byteText](raw T) error {
 	if !hasTemporalPrefix(raw, "--") {
-		return errors.New("invalid gMonth")
+		return errors.New(msgInvalidGMonth)
 	}
 	month, next, ok := parseTwoDateDigits(raw, 2)
 	if !ok || month < 1 || month > 12 {
-		return errors.New("invalid gMonth")
+		return errors.New(msgInvalidGMonth)
 	}
 	return validateTimezoneToEnd(raw, next, "gMonth")
 }

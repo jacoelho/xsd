@@ -152,7 +152,7 @@ func TestQNameConstraintIdentityUsesSchemaExpandedName(t *testing.T) {
 				return
 			}
 			expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationIdentity)
-			if !errorTreeContains(err, "keyref does not resolve") {
+			if !errorTreeContains(err, `keyref value does not match any value of referenced identity constraint "sourceName"`) {
 				t.Fatalf("Validate() error = %v, want keyref mismatch for {urn:other}x", err)
 			}
 		})

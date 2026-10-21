@@ -7,13 +7,6 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-const (
-	rawDecimalErrInvalidDecimal = "invalid decimal"
-	rawDecimalErrInvalidInteger = "invalid integer"
-	rawDecimalErrMinInclusive   = "minInclusive facet failed"
-	rawDecimalErrMaxInclusive   = "maxInclusive facet failed"
-)
-
 // BuiltinDerivedInput is the projection needed to validate built-in simple
 // types whose lexical rules are layered on top of a primitive datatype.
 type BuiltinDerivedInput struct {
@@ -54,28 +47,28 @@ func ValidateBuiltinDerived(in BuiltinDerivedInput) error {
 
 func validateXMLNameLexical(normalized string) error {
 	if !lex.IsXMLName(normalized) {
-		return errors.New("invalid Name")
+		return errors.New(msgInvalidName)
 	}
 	return nil
 }
 
 func validateNCNameLexical(normalized string) error {
 	if !lex.IsNCName(normalized) {
-		return errors.New("invalid NCName")
+		return errors.New(msgInvalidNCName)
 	}
 	return nil
 }
 
 func validateNMTOKENLexical(normalized string) error {
 	if !lex.IsNMTOKEN(normalized) {
-		return errors.New("invalid NMTOKEN")
+		return errors.New(msgInvalidNMTOKEN)
 	}
 	return nil
 }
 
 func validateLanguageLexical(normalized string) error {
 	if !lex.IsLanguage(normalized) {
-		return errors.New("invalid language")
+		return errors.New(msgInvalidLanguage)
 	}
 	return nil
 }
@@ -84,5 +77,5 @@ func validateEntityLexical(normalized string) error {
 	if err := validateNCNameLexical(normalized); err != nil {
 		return err
 	}
-	return xsderrors.Unsupported(xsderrors.CodeUnsupportedEntity, "ENTITY requires DTD entity declarations, which are not supported", nil)
+	return xsderrors.Unsupported(xsderrors.CodeUnsupportedEntity, msgUnsupportedEntity, nil)
 }

@@ -2,12 +2,7 @@ package value
 
 import "errors"
 
-const (
-	dateErrInvalidDateTime = "invalid date/time"
-	dateErrInvalidTimezone = "invalid timezone"
-	dateErrInvalidDate     = "invalid date"
-	dateTypeName           = "date"
-)
+const dateTypeName = "date"
 
 func validateDateLexical[T byteText](s T) error {
 	_, next, err := parseDatePart(s)
@@ -29,15 +24,15 @@ func parseDatePart[T byteText](s T) (dateYear, int, error) {
 		return dateYear{}, 0, err
 	}
 	if next >= len(s) || s[next] != '-' {
-		return dateYear{}, 0, errors.New(dateErrInvalidDateTime)
+		return dateYear{}, 0, errors.New(msgInvalidDatePart)
 	}
 	month, next, ok := parseTwoDateDigits(s, next+1)
 	if !ok || next >= len(s) || s[next] != '-' {
-		return dateYear{}, 0, errors.New(dateErrInvalidDateTime)
+		return dateYear{}, 0, errors.New(msgInvalidDatePart)
 	}
 	day, next, ok := parseTwoDateDigits(s, next+1)
 	if !ok || month < 1 || month > 12 || day < 1 || day > daysInDateMonth(s, year, month) {
-		return dateYear{}, 0, errors.New(dateErrInvalidDateTime)
+		return dateYear{}, 0, errors.New(msgInvalidDatePart)
 	}
 	return year, next, nil
 }
@@ -45,11 +40,11 @@ func parseDatePart[T byteText](s T) (dateYear, int, error) {
 func parseDateYear[T byteText](s T) (dateYear, int, error) {
 	i := 0
 	if i >= len(s) {
-		return dateYear{}, 0, errors.New(dateErrInvalidDateTime)
+		return dateYear{}, 0, errors.New(msgInvalidDatePart)
 	}
 	neg := false
 	if s[i] == '+' {
-		return dateYear{}, 0, errors.New(dateErrInvalidDateTime)
+		return dateYear{}, 0, errors.New(msgInvalidDatePart)
 	}
 	if s[i] == '-' {
 		neg = true
@@ -60,13 +55,13 @@ func parseDateYear[T byteText](s T) (dateYear, int, error) {
 		i++
 	}
 	if i-start < 4 {
-		return dateYear{}, 0, errors.New(dateErrInvalidDateTime)
+		return dateYear{}, 0, errors.New(msgInvalidDatePart)
 	}
 	if i-start > 4 && s[start] == '0' {
-		return dateYear{}, 0, errors.New(dateErrInvalidDateTime)
+		return dateYear{}, 0, errors.New(msgInvalidDatePart)
 	}
 	if allZeroDateDigits(s, start, i) {
-		return dateYear{}, 0, errors.New(dateErrInvalidDateTime)
+		return dateYear{}, 0, errors.New(msgInvalidDatePart)
 	}
 	return dateYear{digitsStart: start, digitsEnd: i, neg: neg}, i, nil
 }
@@ -137,10 +132,7 @@ func validateTimezoneToEnd[T byteText](s T, i int, label string) error {
 		return err
 	}
 	if next != len(s) {
-		if label == dateTypeName {
-			return errors.New(dateErrInvalidDate)
-		}
-		return errors.New("invalid " + label)
+		return invalidTypeError(label)
 	}
 	return nil
 }
@@ -153,15 +145,15 @@ func parseTimezoneEnd[T byteText](s T, i int) (int, error) {
 		return i + 1, nil
 	}
 	if s[i] != '+' && s[i] != '-' {
-		return i, errors.New(dateErrInvalidTimezone)
+		return i, errors.New(msgInvalidTimezone)
 	}
 	if i+6 > len(s) || s[i+3] != ':' {
-		return i, errors.New(dateErrInvalidTimezone)
+		return i, errors.New(msgInvalidTimezone)
 	}
 	hour, _, ok1 := parseTwoDateDigits(s, i+1)
 	minute, _, ok2 := parseTwoDateDigits(s, i+4)
 	if !ok1 || !ok2 || !validTimezoneFields(hour, minute) {
-		return i, errors.New(dateErrInvalidTimezone)
+		return i, errors.New(msgInvalidTimezone)
 	}
 	return i + 6, nil
 }

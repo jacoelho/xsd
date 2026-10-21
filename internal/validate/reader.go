@@ -10,9 +10,9 @@ import (
 func instanceReaderError(err error) error {
 	switch {
 	case errors.Is(err, xmlstream.ErrXMLInputNilReader):
-		return xsderrors.Validation(xsderrors.CodeValidationXML, "instance reader is nil", nil)
+		return xsderrors.Validation(xsderrors.CodeValidationXML, msgReaderNil, nil)
 	case errors.Is(err, xmlstream.ErrUnsupportedNonUTF8):
-		return xsderrors.Unsupported(xsderrors.CodeUnsupportedNonUTF8, "instance documents must be UTF-8", err)
+		return xsderrors.Unsupported(xsderrors.CodeUnsupportedNonUTF8, msgInstanceUTF8, err)
 	case xmlstream.IsInputLimit(err) || xmlstream.IsTokenLimit(err) || xmlstream.IsAttributeLimit(err):
 		return validationReaderCause(xsderrors.CodeValidationLimit, 0, 0, "", err)
 	default:
@@ -26,7 +26,7 @@ func instanceReaderError(err error) error {
 // StreamError classifies parser errors as validation diagnostics.
 func StreamError(line, col int, path string, err error) error {
 	if errors.Is(err, xmlstream.ErrUnsupportedNonUTF8) {
-		return xsderrors.WithLocation(path, line, col, xsderrors.Unsupported(xsderrors.CodeUnsupportedNonUTF8, "instance documents must be UTF-8", err))
+		return xsderrors.WithLocation(path, line, col, xsderrors.Unsupported(xsderrors.CodeUnsupportedNonUTF8, msgInstanceUTF8, err))
 	}
 	if versionErr, ok := errors.AsType[xmlstream.UnsupportedXMLVersionError](err); ok {
 		return xsderrors.WithLocation(path, line, col, xsderrors.Unsupported(xsderrors.CodeUnsupportedXML11, versionErr.Error(), nil))
@@ -35,19 +35,19 @@ func StreamError(line, col int, path string, err error) error {
 		return validationReaderCause(xsderrors.CodeValidationLimit, line, col, path, err)
 	}
 	if xmlstream.IsUnsupportedEntityReference(err) {
-		return xsderrors.WithLocation(path, line, col, xsderrors.Unsupported(xsderrors.CodeUnsupportedExternal, "external or undeclared entity resolution is not supported", err))
+		return xsderrors.WithLocation(path, line, col, xsderrors.Unsupported(xsderrors.CodeUnsupportedExternal, msgExternalEntity, err))
 	}
 	if errors.Is(err, xmlstream.ErrUnsupportedDTD) {
-		return xsderrors.WithLocation(path, line, col, xsderrors.Unsupported(xsderrors.CodeUnsupportedDTD, "DTD declarations are not supported", err))
+		return xsderrors.WithLocation(path, line, col, xsderrors.Unsupported(xsderrors.CodeUnsupportedDTD, msgDTD, err))
 	}
 	if errors.Is(err, xmlstream.ErrTextOutsideRoot) {
-		return xsderrors.WithLocation(path, line, col, xsderrors.Validation(xsderrors.CodeValidationXML, "text outside root element", err))
+		return xsderrors.WithLocation(path, line, col, xsderrors.Validation(xsderrors.CodeValidationXML, msgTextOutsideRoot, err))
 	}
 	if errors.Is(err, xmlstream.ErrCDATOutsideRoot) {
-		return xsderrors.WithLocation(path, line, col, xsderrors.Validation(xsderrors.CodeValidationXML, "CDATA section outside root element", err))
+		return xsderrors.WithLocation(path, line, col, xsderrors.Validation(xsderrors.CodeValidationXML, msgCDATAOutsideRoot, err))
 	}
 	if errors.Is(err, xmlstream.ErrReferenceOutsideRoot) {
-		return xsderrors.WithLocation(path, line, col, xsderrors.Validation(xsderrors.CodeValidationXML, "reference outside root element", err))
+		return xsderrors.WithLocation(path, line, col, xsderrors.Validation(xsderrors.CodeValidationXML, msgReferenceOutsideRoot, err))
 	}
 	return validationReaderCause(xsderrors.CodeValidationXML, line, col, path, err)
 }

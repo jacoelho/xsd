@@ -48,7 +48,7 @@ func parseDurationLexical[T byteText](raw T) (DurationValue, error) {
 		i++
 	}
 	if i >= len(raw) || raw[i] != 'P' {
-		return DurationValue{}, errors.New("invalid duration")
+		return DurationValue{}, errors.New(msgInvalidDuration)
 	}
 	i++
 	var state durationParser
@@ -59,7 +59,7 @@ func parseDurationLexical[T byteText](raw T) (DurationValue, error) {
 	for i < len(raw) {
 		if raw[i] == 'T' {
 			if state.time {
-				return DurationValue{}, errors.New("invalid duration")
+				return DurationValue{}, errors.New(msgInvalidDuration)
 			}
 			state.time, state.stage = true, 3
 			i++
@@ -72,7 +72,7 @@ func parseDurationLexical[T byteText](raw T) (DurationValue, error) {
 			i++
 		}
 		if start == i {
-			return DurationValue{}, errors.New("invalid duration")
+			return DurationValue{}, errors.New(msgInvalidDuration)
 		}
 		var wholeValue durationInteger
 		if whole.large {
@@ -90,7 +90,7 @@ func parseDurationLexical[T byteText](raw T) (DurationValue, error) {
 				i++
 			}
 			if i == fracStart {
-				return DurationValue{}, errors.New("invalid duration")
+				return DurationValue{}, errors.New(msgInvalidDuration)
 			}
 			end := i
 			for end > fracStart && raw[end-1] == '0' {
@@ -99,13 +99,13 @@ func parseDurationLexical[T byteText](raw T) (DurationValue, error) {
 			frac = string(raw[fracStart:end])
 		}
 		if i == len(raw) {
-			return DurationValue{}, errors.New("invalid duration")
+			return DurationValue{}, errors.New(msgInvalidDuration)
 		}
 		designator := raw[i]
 		i++
 		stage, factor := state.unit(designator)
 		if stage <= state.stage || hasFrac && designator != 'S' {
-			return DurationValue{}, errors.New("invalid duration")
+			return DurationValue{}, errors.New(msgInvalidDuration)
 		}
 		if stage < 3 {
 			addDurationUnit(&state.months, wholeValue, factor)
@@ -118,7 +118,7 @@ func parseDurationLexical[T byteText](raw T) (DurationValue, error) {
 		}
 	}
 	if !state.seen || state.time && state.stage == 3 {
-		return DurationValue{}, errors.New("invalid duration")
+		return DurationValue{}, errors.New(msgInvalidDuration)
 	}
 	months, seconds := state.months, state.seconds
 	if negative {

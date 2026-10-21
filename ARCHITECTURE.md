@@ -48,6 +48,7 @@ The package graph follows capability ownership:
 | `internal/schema` | Typed schema sources, closed source graph, component compilation, private construction state, and immutable schema reads |
 | `internal/value` | XSD lexical admission, values, type derivation, facets, typed equality, and value scratch |
 | `internal/xsdregex` | XSD regular-expression syntax, bounded compilation, and matching |
+| `internal/diagnostictext` | Bounded, escaped diagnostic excerpts; no validation policy or message templates |
 | `internal/validate` | Document assessment, recovery, identity state, and reusable sessions |
 | `internal/format` | Repository-internal formatting and its input/output limits |
 | `internal/lex`, `internal/vocab`, `internal/uriref`, `xsderrors` | Shared lexical facts, vocabulary, URI-reference semantics, and structured errors |
@@ -1129,6 +1130,41 @@ Diagnostics flow:
    category/code combinations. Aggregate construction owns its input, accessors
    do not expose mutable storage, and `xsderrors.Flatten` is the sole top-level
    presentation projection.
+   `internal/value/errors.go` owns value-validation message text, error
+   identities, and diagnostic formatting; evaluators and primitive parsers own
+   the checks and return cheap failure identities. Value diagnostics are enriched
+   only after the complete value has failed: rejecting an earlier union member
+   remains part of a successful path when a later member accepts. Enrichment
+   never replays QName/NOTATION resolvers or resets evaluation work. A union's
+   own facet failure requires a successfully selected member; a failed list item
+   is described through the rejected list and its item constraints, without
+   inventing an item spelling from a discarded partial result.
+   Enumeration diagnostics identify the first failing group using retained
+   typed values and the existing pure equality operation. Literal construction
+   retains canonical text for this purpose, including list values. Pattern
+   diagnostics describe the effective OR-within/AND-across groups rather than
+   rematching or guessing which group failed. Ordered-bound wording accommodates
+   incomparable values; duration bounds are reconstructed as XSD lexical values
+   from their month/second coordinates only on failure.
+   `internal/validate/errors.go` owns document-assessment messages and the shared
+   translation of value failures: metadata, limit and unsupported failures take
+   precedence over ordinary assessment errors, in that order. Ordinary value
+   and XSI callers supply their assessment code and work limit; URI failures
+   retain their URI-specific message without a value-error suffix. Content
+   expectations come from `internal/schema`'s read-only projection of the
+   current compiled state, occurrence guards, all-group bits, substitutions and
+   wildcard constraints. Projection inspects at most 256 edges/terms/raw
+   substitution entries and displays at most eight alternatives. It distinguishes
+   truncated output from an empty expectation set and invalid metadata.
+   Published schema diagnostic names are cold immutable projections of admitted
+   names/declarations, copied and charged during publication; they do not enlarge
+   frame/session state or hot component-read records. Identity errors identify
+   constraints and one-based fields. Deferred keyrefs identify their retained
+   target constraint; no source ID or original tuple lexemes are added to
+   document state, and opaque identity keys are never presented as values.
+   `internal/diagnostictext` owns bounded quoting for all these owners: at most
+   128 UTF-8 bytes per value before escaping, explicit truncation markers and
+   bounded assembly of expanded names. Diagnostics never retain borrowed input.
    At diagnostic admission, known nil pointers and empty aggregate values or
    pointers represent absence. Construction normalizes direct absent causes;
    `xsderrors` traversal checks these shapes before invoking wrapper methods.
@@ -1268,6 +1304,19 @@ group joins failures before later stages. Fuzz and benchmark smoke run
 separately after those groups, so benchmarks do not compete with other checks.
 
 ## Rejected Alternatives
+
+- Formatting every rejected value candidate was rejected because unsuccessful
+  union members occur on successful validation paths. Replaying validation to
+  explain a final error was rejected because QName/NOTATION resolvers may have
+  effects and work must not be replenished. Terminal enrichment reuses admitted
+  values and immutable constraints instead.
+- Retaining identity tuple spellings or enlarging hot identity program reads
+  for messages was rejected because it adds successful-validation cost. Cold
+  schema name projections supply declaration context; retained target IDs and
+  field positions supply the remaining truthful identity context.
+- Reimplementing content matching in the diagnostic layer was rejected because
+  it would duplicate occurrence, wildcard and substitution rules. Bounded
+  schema-owned projection reuses the current compiled state's eligibility.
 
 - Implicit XML/XLink attribute declarations, including fallbacks used only when
   no source is supplied, were rejected because explicit sources own the schema

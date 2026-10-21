@@ -133,7 +133,7 @@ func TestIdentityEvaluationLazyIDREFStillRunsDocumentFinalCheck(t *testing.T) {
 		t.Fatalf("endDocument() error = %v", err)
 	}
 	expectXSDCode(t, got, xsderrors.CodeValidationType)
-	expectXSDMessage(t, got, "IDREF does not resolve: missing")
+	expectXSDMessage(t, got, `IDREF "missing" does not match any xs:ID value in the document`)
 }
 
 func TestSessionStartRollsBackFirstLazyDocumentIdentityActivation(t *testing.T) {

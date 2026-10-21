@@ -36,7 +36,7 @@ func xsiAttributeIdentity(rt *xsdSchema.Schema, local, lexical string, resolve x
 	case vocab.XSIAttrType:
 		return xsiTypeIdentity(rt, lexical, resolve, workLimit, ctx)
 	case vocab.XSIAttrNoNamespaceSchemaLocation:
-		return xsiURIIdentity(rt, lexical, "invalid xsi:noNamespaceSchemaLocation URI "+lexical, workLimit, ctx)
+		return xsiURIIdentity(rt, lexical, "xsi:noNamespaceSchemaLocation", workLimit, ctx)
 	case vocab.XSIAttrSchemaLocation:
 		return xsiSchemaLocationIdentity(rt, lexical, workLimit, ctx)
 	default:
@@ -47,7 +47,7 @@ func xsiAttributeIdentity(rt *xsdSchema.Schema, local, lexical string, resolve x
 func xsiNilIdentity(rt *xsdSchema.Schema, lexical string, workLimit uint64, ctx StartContext) (string, error) {
 	v, err := validateXSIValue(rt, vocab.XSDValueBoolean, lexical, xsdValue.Resolver{}, workLimit, ctx)
 	if err != nil {
-		return "", validationXSIValueError(ctx, "invalid xsi:nil value", err)
+		return "", simpleValueError(ctx, xsderrors.CodeValidationAttribute, msgInvalidXSINil, err, workLimit)
 	}
 	return v.IdentityKey(), nil
 }
@@ -59,7 +59,7 @@ func xsiTypeIdentity(rt *xsdSchema.Schema, lexical string, resolve xsdValue.QNam
 	}
 	v, err := validateXSIValue(rt, vocab.XSDValueQName, lexical, resolver, workLimit, ctx)
 	if err != nil {
-		return "", validationXSIValueError(ctx, "invalid xsi:type", err)
+		return "", simpleValueError(ctx, xsderrors.CodeValidationAttribute, msgInvalidXSIType, err, workLimit)
 	}
 	return v.IdentityKey(), nil
 }
@@ -72,36 +72,17 @@ func validateXSIValue(rt *xsdSchema.Schema, local, lexical string, resolver xsdV
 	return rt.ValueProgram().Validate(id, lexical, resolver, xsdValue.NeedIdentity, workLimit, nil)
 }
 
-func validationXSIValueError(ctx StartContext, message string, err error) error {
-	if invariantErr := simpleValueMetadataInvariant(err); invariantErr != nil {
-		return invariantErr
-	}
-	if limitErr := simpleValueLimitError(ctx, err); limitErr != nil {
-		return limitErr
-	}
-	if xsderrors.IsUnsupported(err) {
-		return err
-	}
-	return validation(ctx, xsderrors.CodeValidationAttribute, message+": "+err.Error())
-}
-
-func xsiURIIdentity(rt *xsdSchema.Schema, lexical, message string, workLimit uint64, ctx StartContext) (string, error) {
+func xsiURIIdentity(rt *xsdSchema.Schema, lexical, attribute string, workLimit uint64, ctx StartContext) (string, error) {
 	anyURI, err := xsiAnyURIType(rt)
 	if err != nil {
 		return "", err
 	}
 	result, err := rt.ValueProgram().Validate(anyURI, lexical, xsdValue.Resolver{}, xsdValue.NeedIdentity, workLimit, nil)
 	if err != nil {
-		if invariantErr := simpleValueMetadataInvariant(err); invariantErr != nil {
-			return "", invariantErr
+		if terminalErr := terminalValueError(ctx, err, workLimit); terminalErr != nil {
+			return "", terminalErr
 		}
-		if limitErr := simpleValueLimitError(ctx, err); limitErr != nil {
-			return "", limitErr
-		}
-		if xsderrors.IsUnsupported(err) {
-			return "", err
-		}
-		return "", validation(ctx, xsderrors.CodeValidationAttribute, message)
+		return "", validation(ctx, xsderrors.CodeValidationAttribute, invalidURIMessage(attribute, lexical))
 	}
 	return result.IdentityKey(), nil
 }
@@ -125,16 +106,10 @@ func xsiSchemaLocationIdentity(rt *xsdSchema.Schema, lexical string, workLimit u
 func xsiSchemaLocationItemIdentity(rt *xsdSchema.Schema, anyURI xsdSchema.SimpleTypeID, field string, workLimit uint64, ctx StartContext) (string, error) {
 	item, err := rt.ValueProgram().Validate(anyURI, field, xsdValue.Resolver{}, xsdValue.NeedIdentity, workLimit, nil)
 	if err != nil {
-		if invariantErr := simpleValueMetadataInvariant(err); invariantErr != nil {
-			return "", invariantErr
+		if terminalErr := terminalValueError(ctx, err, workLimit); terminalErr != nil {
+			return "", terminalErr
 		}
-		if limitErr := simpleValueLimitError(ctx, err); limitErr != nil {
-			return "", limitErr
-		}
-		if xsderrors.IsUnsupported(err) {
-			return "", err
-		}
-		return "", validation(ctx, xsderrors.CodeValidationAttribute, "invalid xsi:schemaLocation URI "+field)
+		return "", validation(ctx, xsderrors.CodeValidationAttribute, invalidURIMessage("xsi:schemaLocation", field))
 	}
 	if !item.HasIdentity() {
 		return "", xsderrors.InternalInvariant("xsi:schemaLocation anyURI identity is missing")

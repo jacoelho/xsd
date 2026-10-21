@@ -791,12 +791,12 @@ func TestAdmittedNumericBoundNormalization(t *testing.T) {
 	}{
 		{name: "padded-negative-integer", lower: "-00012347", upper: "-00012345", builtin: BuiltinInteger,
 			cases: []numericByteCase{{input: "-12347"}, {input: "-00012346"}, {input: "-12345"},
-				{input: "-12348", message: "minInclusive facet failed"}, {input: "-12344", message: "maxInclusive facet failed"}, {input: "-12346"}}},
+				{input: "-12348", message: "minInclusive"}, {input: "-12344", message: "maxInclusive"}, {input: "-12346"}}},
 		{name: "signed-zero-integer", lower: "-0000", upper: "+0001", builtin: BuiltinInteger,
-			cases: []numericByteCase{{input: "-0000"}, {input: "+0001"}, {input: "-1", message: "minInclusive facet failed"},
-				{input: "2", message: "maxInclusive facet failed"}, {input: "1.0", message: "invalid integer"}, {input: "0"}}},
+			cases: []numericByteCase{{input: "-0000"}, {input: "+0001"}, {input: "-1", message: "minInclusive"},
+				{input: "2", message: "maxInclusive"}, {input: "1.0", message: "invalid integer"}, {input: "0"}}},
 		{name: "padded-decimal", lower: "0", upper: "+" + strings.Repeat("0", 1024) + "1.5000",
-			cases: []numericByteCase{{input: "1.5"}, {input: "+0001.5000"}, {input: "1.5001", message: "maxInclusive facet failed"}, {input: "1.5"}}},
+			cases: []numericByteCase{{input: "1.5"}, {input: "+0001.5000"}, {input: "1.5001", message: "maxInclusive"}, {input: "1.5"}}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			builder := NewBuilder(BuilderOptions{})
@@ -864,11 +864,11 @@ func TestBorrowedNumericInheritedAndExclusiveBounds(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertNumericByteCases(t, program, derived, []numericByteCase{
-		{input: "2"}, {input: "8"}, {input: "1.5", message: "lower bound facet failed"},
-		{input: "9", message: "upper bound facet failed"}, {input: "2"},
+		{input: "2"}, {input: "8"}, {input: "1.5", message: "minInclusive"},
+		{input: "9", message: "maxInclusive"}, {input: "2"},
 	})
 	assertNumericByteCases(t, program, exclusive, []numericByteCase{
-		{input: "1", message: "lower bound facet failed"}, {input: "2"},
+		{input: "1", message: "minExclusive"}, {input: "2"},
 	})
 }
 
@@ -878,8 +878,11 @@ func assertNumericByteCases(t *testing.T, program *Program, id TypeID, cases []n
 	for _, test := range cases {
 		got, err := program.ValidateBytes(id, []byte(test.input), Resolver{}, 0, 1<<20, &scratch)
 		if test.message != "" {
-			if err == nil || err.Error() != test.message {
+			if err == nil || !strings.Contains(err.Error(), test.message) {
 				t.Fatalf("ValidateBytes(%q) = %v, want %q", test.input, err, test.message)
+			}
+			if test.message != "invalid integer" && !errors.Is(err, ErrFacet) {
+				t.Fatalf("ValidateBytes(%q) error %v lacks facet classification", test.input, err)
 			}
 			continue
 		}
@@ -919,7 +922,7 @@ func TestPresentZeroNumericBoundAndRecovery(t *testing.T) {
 	}
 	assertNumericByteCases(t, program, bounded, []numericByteCase{
 		{input: "-.5"}, {input: "-0"},
-		{input: ".0001", message: "maxInclusive facet failed"}, {input: "0"},
+		{input: ".0001", message: "maxInclusive"}, {input: "0"},
 	})
 	assertNumericByteCases(t, program, unbounded, []numericByteCase{{input: ".0001"}})
 }
@@ -932,13 +935,13 @@ func TestRawDecimalAdmittedBoundFallbacks(t *testing.T) {
 		cases          []struct{ input, message string }
 	}{
 		{name: "negative", min: "-2", max: "-1", cases: []struct{ input, message string }{
-			{"-1.5", ""}, {"0", "upper bound facet failed"},
+			{"-1.5", ""}, {"0", "maxInclusive"},
 		}},
 		{name: "digits", min: "0", max: "10", fraction: true, cases: []struct{ input, message string }{
-			{"1.20", ""}, {"1.25", "digit facet failed"},
+			{"1.20", ""}, {"1.25", "fractionDigits"},
 		}},
 		{name: "fractional", min: "+000.5000", max: "+000.5000", cases: []struct{ input, message string }{
-			{".5", ""}, {".4999", "minInclusive facet failed"}, {".5001", "maxInclusive facet failed"},
+			{".5", ""}, {".4999", "minInclusive"}, {".5001", "maxInclusive"},
 		}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -985,10 +988,10 @@ func TestRawDecimalAdmittedBoundFallbacks(t *testing.T) {
 						t.Fatalf("ValidateBytes(%q) = %#v, %v", tc.input, got, err)
 					}
 				} else {
-					if err == nil || err.Error() != tc.message {
+					if err == nil || !strings.Contains(err.Error(), tc.message) {
 						t.Fatalf("ValidateBytes(%q) = %v, want %q", tc.input, err, tc.message)
 					}
-					if test.name != "fractional" && !errors.Is(err, ErrFacet) {
+					if !errors.Is(err, ErrFacet) {
 						t.Fatalf("ValidateBytes(%q) error %v lacks facet classification", tc.input, err)
 					}
 				}

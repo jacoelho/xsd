@@ -138,7 +138,7 @@ func TestResolveXSITypeReportsUnknownType(t *testing.T) {
 				},
 				ctx,
 			)
-			want := "validation.type at 2:3 /root: unknown xsi:type " + lexical
+			want := "validation.type at 2:3 /root: xsi:type \"" + lexical + "\" resolves to \"{urn:missing}Missing\", but no global type declaration is available"
 			if err == nil || err.Error() != want {
 				t.Fatalf("resolveXSIType(%q) error = %v, want %q", lexical, err, want)
 			}

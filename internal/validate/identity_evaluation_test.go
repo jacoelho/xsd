@@ -186,7 +186,7 @@ func TestIdentityEvaluationRejectsSecondIDAttributeOnElement(t *testing.T) {
 	}
 	err = evaluation.recordValue(target, identityValueForTest(t, "ID", "second", value.NeedIdentity), ctx)
 	expectXSDCode(t, err, xsderrors.CodeValidationType)
-	expectXSDMessage(t, err, "multiple ID attributes")
+	expectXSDMessage(t, err, "an element must not have more than one attribute of type xs:ID")
 	if evaluation.targetPhase != identityTargetInactive {
 		t.Fatal("recordValue(second) retained the rejected target")
 	}
@@ -215,7 +215,7 @@ func TestIdentityEvaluationRejectsSecondIDAfterFirstIDRecordFails(t *testing.T) 
 	}
 	err = evaluation.recordValue(target, identityValueForTest(t, "ID", "x", value.NeedIdentity), ctx)
 	expectXSDCode(t, err, xsderrors.CodeValidationType)
-	expectXSDMessage(t, err, "multiple ID attributes")
+	expectXSDMessage(t, err, "an element must not have more than one attribute of type xs:ID")
 	if _, ok := evaluation.ids["x"]; ok {
 		t.Fatal("recordValue(second) stored the rejected ID")
 	}
@@ -298,7 +298,7 @@ func TestIdentityEvaluationStartTransactionRestoresPreexistingMutations(t *testi
 	if err := evaluation.beginStart(); err != nil {
 		t.Fatal(err)
 	}
-	err := evaluation.captureFields(
+	err := evaluation.captureFields(nil,
 		[]identityFieldMatch{{Selection: 0, Field: 0}},
 		identityFieldValue{value: "duplicate", state: identityFieldPresent},
 		identityTestContext("/root/child", 2, 3),
@@ -442,7 +442,7 @@ func TestIdentityReporterAbortPreservesPendingSelections(t *testing.T) {
 		t.Fatalf("abort diagnostics = %v, want one missing-key diagnostic", reported)
 	}
 	expectXSDCode(t, reported[0], xsderrors.CodeValidationIdentity)
-	expectXSDMessage(t, reported[0], "key field is missing")
+	expectXSDMessage(t, reported[0], "identity constraint \"aKey\", field 1: a key requires a value, but the selected node is absent or nilled")
 	expectXSDLocation(t, reported[0], "/root/row[2]", 3, 1)
 
 	reported = nil
@@ -457,7 +457,7 @@ func TestIdentityReporterAbortPreservesPendingSelections(t *testing.T) {
 		t.Fatalf("retry diagnostics = %v, want only the pending duplicate-key diagnostic", reported)
 	}
 	expectXSDCode(t, reported[0], xsderrors.CodeValidationIdentity)
-	expectXSDMessage(t, reported[0], "duplicate identity value first seen at /root/row[1]")
+	expectXSDMessage(t, reported[0], "duplicate value for identity constraint \"idKey\"; first seen at /root/row[1]")
 	expectXSDLocation(t, reported[0], "/root/row[2]", 3, 1)
 
 	if err := evaluation.finishSelections(2, second, identitySelectionsOwnedByAncestorScope, failIdentityReport(t)); err != nil {
@@ -518,16 +518,16 @@ func TestIdentityNilledFieldsHaveNoTupleValue(t *testing.T) {
 	}{
 		{name: "unique ignores nilled rows", kind: "unique", body: `<row><v xsi:nil="true"/></row><row><v xsi:nil="true"/></row>`},
 		{name: "nil differs from empty string", kind: "unique", body: `<row><v xsi:nil="true"/></row><row><v/></row>`},
-		{name: "empty strings duplicate", kind: "unique", body: `<row><v/></row><row><v/></row>`, message: "duplicate identity value first seen at /root/row"},
-		{name: "nil then value selects two nodes", kind: "unique", body: `<row><v xsi:nil="true"/><v>x</v></row>`, message: "identity field selects multiple values"},
-		{name: "value then nil selects two nodes", kind: "unique", body: `<row><v>x</v><v xsi:nil="true"/></row>`, message: "identity field selects multiple values"},
-		{name: "two nils select two nodes", kind: "unique", body: `<row><v xsi:nil="true"/><v xsi:nil="true"/></row>`, message: "identity field selects multiple values"},
-		{name: "key nil has no value", kind: "key", body: `<row><v xsi:nil="true"/></row>`, message: "key field is missing"},
-		{name: "key still rejects nillable declaration", kind: "key", body: `<row><v>x</v></row>`, message: "key field selects nillable element declaration"},
+		{name: "empty strings duplicate", kind: "unique", body: `<row><v/></row><row><v/></row>`, message: "duplicate value for identity constraint \"values\"; first seen at /root/row"},
+		{name: "nil then value selects two nodes", kind: "unique", body: `<row><v xsi:nil="true"/><v>x</v></row>`, message: "identity constraint \"values\", field 1: selects multiple nodes; at most one is allowed"},
+		{name: "value then nil selects two nodes", kind: "unique", body: `<row><v>x</v><v xsi:nil="true"/></row>`, message: "identity constraint \"values\", field 1: selects multiple nodes; at most one is allowed"},
+		{name: "two nils select two nodes", kind: "unique", body: `<row><v xsi:nil="true"/><v xsi:nil="true"/></row>`, message: "identity constraint \"values\", field 1: selects multiple nodes; at most one is allowed"},
+		{name: "key nil has no value", kind: "key", body: `<row><v xsi:nil="true"/></row>`, message: "identity constraint \"values\", field 1: a key requires a value, but the selected node is absent or nilled"},
+		{name: "key still rejects nillable declaration", kind: "key", body: `<row><v>x</v></row>`, message: "identity constraint \"values\", field 1: a key field must not select a nillable element declaration"},
 		{name: "keyref ignores nil", kind: "keyref", body: `<row><v xsi:nil="true"/></row>`},
 		{name: "keyref physical value resolves", kind: "keyref", body: `<target id="x"/><row><v>x</v></row>`},
-		{name: "keyref physical value is unresolved", kind: "keyref", body: `<row><v xsi:nil="true"/></row><row><v>x</v></row>`, message: "keyref does not resolve"},
-		{name: "nil does not waive field type", kind: "unique", complexNil: true, body: `<row><v xsi:nil="true"/></row>`, message: "identity field has no simple value"},
+		{name: "keyref physical value is unresolved", kind: "keyref", body: `<row><v xsi:nil="true"/></row><row><v>x</v></row>`, message: "keyref value does not match any value of referenced identity constraint \"targets\""},
+		{name: "nil does not waive field type", kind: "unique", complexNil: true, body: `<row><v xsi:nil="true"/></row>`, message: "identity constraint \"values\", field 1: selects a node without a simple value"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

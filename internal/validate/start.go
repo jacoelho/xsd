@@ -96,8 +96,6 @@ type elementEffectiveState struct {
 	typeInfo    xsdSchema.TypeInfo
 }
 
-const elementNotNillableMessage = "element is not nillable"
-
 func (state elementEffectiveState) issue() validationIssue {
 	if issue := elementEffectiveTypeIssue(state.typeID, state.typeInfo); issue.valid() {
 		return issue
@@ -110,7 +108,7 @@ func (state elementEffectiveState) issue() validationIssue {
 			return validationIssue{code: xsderrors.CodeValidationNil, message: elementNotNillableMessage}
 		}
 		if state.declaration.fixed {
-			return validationIssue{code: xsderrors.CodeValidationNil, message: "nilled element cannot have fixed value"}
+			return validationIssue{code: xsderrors.CodeValidationNil, message: msgNilledFixed}
 		}
 	}
 	return validationIssue{}
@@ -118,7 +116,7 @@ func (state elementEffectiveState) issue() validationIssue {
 
 func elementEffectiveTypeIssue(typeID xsdSchema.TypeID, info xsdSchema.TypeInfo) validationIssue {
 	if typeID.IsComplex() && info.Abstract {
-		return validationIssue{code: xsderrors.CodeValidationType, message: "complex type is abstract"}
+		return validationIssue{code: xsderrors.CodeValidationType, message: msgAbstractType}
 	}
 	return validationIssue{}
 }
@@ -137,16 +135,16 @@ func validateXSITypeOverride(
 ) error {
 	derivation, derived := rt.TypeDerivationWithScratch(input.override, input.declared, scratch)
 	if !derived {
-		return validation(input.ctx, xsderrors.CodeValidationType, "xsi:type is not derived from declared type")
+		return validation(input.ctx, xsderrors.CodeValidationType, xsiTypeDerivationMessage(rt, input.override, input.declared))
 	}
 	if !input.declaration.present || input.override == input.declared {
 		return nil
 	}
 	if input.declaration.block&xsdSchema.DerivationExtension != 0 && derivation&xsdSchema.DerivationExtension != 0 {
-		return validation(input.ctx, xsderrors.CodeValidationType, "xsi:type extension is blocked")
+		return validation(input.ctx, xsderrors.CodeValidationType, xsiTypeBlockedMessage(rt, input.override, "extension"))
 	}
 	if input.declaration.block&xsdSchema.DerivationRestriction != 0 && derivation&xsdSchema.DerivationRestriction != 0 {
-		return validation(input.ctx, xsderrors.CodeValidationType, "xsi:type restriction is blocked")
+		return validation(input.ctx, xsderrors.CodeValidationType, xsiTypeBlockedMessage(rt, input.override, "restriction"))
 	}
 	return nil
 }
@@ -159,18 +157,14 @@ func resolveXSIType(
 ) (xsdSchema.TypeID, error) {
 	name, ok := resolve(value)
 	if !ok {
-		return xsdSchema.TypeID{}, validation(ctx, xsderrors.CodeValidationType, "unknown xsi:type "+value)
+		return xsdSchema.TypeID{}, validation(ctx, xsderrors.CodeValidationType, invalidXSITypeQNameMessage(value))
 	}
 	if q, knownName := rt.LookupQName(name.Namespace, name.Local); knownName {
 		if typ, ok := rt.Type(q); ok {
 			return typ, nil
 		}
 	}
-	return xsdSchema.TypeID{}, validation(ctx, xsderrors.CodeValidationType, "unknown xsi:type "+value)
-}
-
-func validation(ctx StartContext, code xsderrors.Code, msg string) error {
-	return xsderrors.WithLocation(ctx.PathString(), ctx.Line, ctx.Column, xsderrors.Validation(code, msg, nil))
+	return xsdSchema.TypeID{}, validation(ctx, xsderrors.CodeValidationType, unknownXSITypeMessage(value, name))
 }
 
 // IsXSITypeName reports whether name is the xsi:type attribute.
@@ -200,10 +194,6 @@ func xsiStartAttributeFlagsFor(attrs []xmlstream.Attr) xsiStartAttributeFlags {
 		}
 	}
 	return flags
-}
-
-func formatXMLName(n xml.Name) string {
-	return xsdSchema.FormatExpandedName(n.Space, n.Local)
 }
 
 // ParseXSINil parses an xsi:nil attribute value after XML whitespace collapse.

@@ -261,10 +261,10 @@ func (s *identityState) markScopeInvalid(index int) {
 // reserveEntry reserves one identity entry against global identity limits.
 func (s *identityState) reserveEntry(key string, limits identityLimits, ctx StartContext) error {
 	if limits.TupleBytes > 0 && int64(len(key)) > limits.TupleBytes {
-		return validation(ctx, xsderrors.CodeValidationLimit, "identity tuple byte limit exceeded")
+		return validation(ctx, xsderrors.CodeValidationLimit, limitMessage("identity tuple byte", "MaxIdentityTupleBytes", int64(len(key)), limits.TupleBytes))
 	}
 	if limits.Entries > 0 && s.entries >= limits.Entries {
-		return validation(ctx, xsderrors.CodeValidationLimit, "identity entry limit exceeded")
+		return validation(ctx, xsderrors.CodeValidationLimit, limitMessage("identity entry", "MaxIdentityEntries", int64(s.entries)+1, int64(limits.Entries)))
 	}
 	s.entries++
 	return nil
@@ -279,7 +279,7 @@ func (s *identityState) checkIDRefs(report func(error) error) error {
 		if _, ok := s.ids[ref.Value]; ok {
 			continue
 		}
-		err := validation(StartContext{Path: ref.Path.String(), Line: ref.Line, Column: ref.Col}, xsderrors.CodeValidationType, "IDREF does not resolve: "+ref.Value)
+		err := validation(StartContext{Path: ref.Path.String(), Line: ref.Line, Column: ref.Col}, xsderrors.CodeValidationType, unresolvedIDREFMessage(ref.Value))
 		if recoverErr := report(err); recoverErr != nil {
 			return recoverErr
 		}
@@ -293,7 +293,7 @@ func (s *identityState) startScope(constraints xsdSchema.IdentityConstraintIDs, 
 	}
 	declared := s.declaredScopeCount()
 	if maxScopes > 0 && declared >= maxScopes {
-		return validation(ctx, xsderrors.CodeValidationLimit, "identity scope limit exceeded")
+		return validation(ctx, xsderrors.CodeValidationLimit, limitMessage("identity scope", "MaxIdentityScopes", int64(declared)+1, int64(maxScopes)))
 	}
 	s.scopes = append(s.scopes, identityScope{
 		depth:          depth,
@@ -320,7 +320,7 @@ func (s *identityState) startElementScope(rt *xsdSchema.Schema, elem xsdSchema.E
 func (s *identityState) startSelection(scope, depth int, constraint xsdSchema.IdentityConstraintID, fieldCount, maxEntries int, ctx StartContext) error {
 	if maxEntries > 0 &&
 		(len(s.selections) >= maxEntries || fieldCount > maxEntries-len(s.fieldValues)) {
-		return validation(ctx, xsderrors.CodeValidationLimit, "identity entry limit exceeded")
+		return validation(ctx, xsderrors.CodeValidationLimit, limitMessage("identity pending selection or field entry", "MaxIdentityEntries", max(int64(len(s.selections))+1, int64(len(s.fieldValues))+int64(fieldCount)), int64(maxEntries)))
 	}
 	if len(s.selections) != 0 && s.selections[len(s.selections)-1].depth > depth {
 		return xsderrors.InternalInvariant("identity selections are not ordered by depth")
@@ -352,11 +352,13 @@ func (s *identityState) selectionStartAtDepth(depth int) (int, bool) {
 
 // captureFields records one selected node in all matched fields. Nilled nodes
 // still count toward field cardinality even though they supply no tuple value.
-func (s *identityState) captureFields(matches []identityFieldMatch, captured identityFieldValue, ctx StartContext) error {
+func (s *identityState) captureFields(rt *xsdSchema.Schema, matches []identityFieldMatch, captured identityFieldValue, ctx StartContext) error {
 	if err := s.validateFieldMatches(matches); err != nil {
 		return err
 	}
 	var duplicatePath string
+	var duplicateConstraint xsdSchema.IdentityConstraintID
+	var duplicateField int
 	for _, match := range matches {
 		sel := &s.selections[match.Selection]
 		fieldIndex := sel.fieldStart + match.Field
@@ -373,6 +375,8 @@ func (s *identityState) captureFields(matches []identityFieldMatch, captured ide
 			s.markScopeInvalid(sel.scope)
 			if duplicatePath == "" {
 				duplicatePath = sel.pathString(ctx)
+				duplicateConstraint = sel.constraint
+				duplicateField = match.Field
 			}
 		case identityFieldInvalid:
 		default:
@@ -380,7 +384,7 @@ func (s *identityState) captureFields(matches []identityFieldMatch, captured ide
 		}
 	}
 	if duplicatePath != "" {
-		return validation(StartContext{Path: duplicatePath, Line: ctx.Line, Column: ctx.Column}, xsderrors.CodeValidationIdentity, "identity field selects multiple values")
+		return validation(StartContext{Path: duplicatePath, Line: ctx.Line, Column: ctx.Column}, xsderrors.CodeValidationIdentity, identityFieldMessage(rt, duplicateConstraint, duplicateField, msgIdentityMultipleNodes))
 	}
 	return nil
 }
@@ -417,7 +421,7 @@ func (s *identityState) markNillableKeyFields(rt *xsdSchema.Schema, matches []id
 
 // rejectFieldsWithoutSimpleValue invalidates selected field nodes that have no
 // assessment-derived simple value.
-func (s *identityState) rejectFieldsWithoutSimpleValue(matches []identityFieldMatch, ctx StartContext) error {
+func (s *identityState) rejectFieldsWithoutSimpleValue(rt *xsdSchema.Schema, matches []identityFieldMatch, ctx StartContext) error {
 	if len(matches) == 0 {
 		return nil
 	}
@@ -425,7 +429,7 @@ func (s *identityState) rejectFieldsWithoutSimpleValue(matches []identityFieldMa
 		return err
 	}
 	path := s.selections[matches[0].Selection].pathString(ctx)
-	return validation(StartContext{Path: path, Line: ctx.Line, Column: ctx.Column}, xsderrors.CodeValidationIdentity, "identity field has no simple value")
+	return validation(StartContext{Path: path, Line: ctx.Line, Column: ctx.Column}, xsderrors.CodeValidationIdentity, identityFieldMessage(rt, s.selections[matches[0].Selection].constraint, matches[0].Field, msgIdentityNoSimpleValue))
 }
 
 // invalidateFields prevents selected field nodes from being reclassified as
@@ -478,6 +482,7 @@ func (s *identityState) invalidateSelectionScope(sel identitySelection) error {
 }
 
 func (s *identityState) finishSelectionWithConstraint(
+	rt *xsdSchema.Schema,
 	kind xsdSchema.IdentityKind,
 	refer xsdSchema.IdentityConstraintID,
 	sel identitySelection,
@@ -494,11 +499,11 @@ func (s *identityState) finishSelectionWithConstraint(
 	}
 	if disposition == identityFieldsAbsent {
 		if kind == xsdSchema.IdentityKey {
-			return validation(StartContext{Path: sel.pathString(ctx), Line: ctx.Line, Column: ctx.Column}, xsderrors.CodeValidationIdentity, "key field is missing")
+			return validation(StartContext{Path: sel.pathString(ctx), Line: ctx.Line, Column: ctx.Column}, xsderrors.CodeValidationIdentity, missingKeyFieldMessage(rt, sel.constraint, fields))
 		}
 		return nil
 	}
-	if fieldErr := validateIdentityKeyFields(kind, fields, sel, ctx); fieldErr != nil {
+	if fieldErr := validateIdentityKeyFields(rt, kind, fields, sel, ctx); fieldErr != nil {
 		return fieldErr
 	}
 	key, err := identityTupleKey(fields, limits, ctx)
@@ -509,7 +514,7 @@ func (s *identityState) finishSelectionWithConstraint(
 	if err != nil {
 		return err
 	}
-	return s.publishIdentityTuple(identityTuplePublication{
+	return s.publishIdentityTuple(rt, identityTuplePublication{
 		scope:     scope,
 		selection: sel,
 		key:       key,
@@ -544,13 +549,13 @@ func classifyIdentityFields(fields []identityFieldValue) (identityFieldsDisposit
 	return disposition, nil
 }
 
-func validateIdentityKeyFields(kind xsdSchema.IdentityKind, fields []identityFieldValue, sel identitySelection, ctx StartContext) error {
+func validateIdentityKeyFields(rt *xsdSchema.Schema, kind xsdSchema.IdentityKind, fields []identityFieldValue, sel identitySelection, ctx StartContext) error {
 	if kind != xsdSchema.IdentityKey {
 		return nil
 	}
-	for _, field := range fields {
+	for index, field := range fields {
 		if field.nillable {
-			return validation(StartContext{Path: sel.pathString(ctx), Line: ctx.Line, Column: ctx.Column}, xsderrors.CodeValidationIdentity, "key field selects nillable element declaration")
+			return validation(StartContext{Path: sel.pathString(ctx), Line: ctx.Line, Column: ctx.Column}, xsderrors.CodeValidationIdentity, identityFieldMessage(rt, sel.constraint, index, msgIdentityNillableKey))
 		}
 	}
 	return nil
@@ -571,10 +576,10 @@ type identityTuplePublication struct {
 	refer     xsdSchema.IdentityConstraintID
 }
 
-func (s *identityState) publishIdentityTuple(publication identityTuplePublication, limits identityLimits, ctx StartContext) error {
+func (s *identityState) publishIdentityTuple(rt *xsdSchema.Schema, publication identityTuplePublication, limits identityLimits, ctx StartContext) error {
 	switch publication.kind {
 	case xsdSchema.IdentityUnique, xsdSchema.IdentityKey:
-		return s.publishIdentityKey(publication.scope, publication.selection, publication.key, limits, ctx)
+		return s.publishIdentityKey(rt, publication.scope, publication.selection, publication.key, limits, ctx)
 	case xsdSchema.IdentityKeyRef:
 		return s.publishIdentityKeyRef(publication.scope, publication.refer, publication.selection, publication.key, limits, ctx)
 	default:
@@ -582,7 +587,7 @@ func (s *identityState) publishIdentityTuple(publication identityTuplePublicatio
 	}
 }
 
-func (s *identityState) publishIdentityKey(scope *identityScope, sel identitySelection, key string, limits identityLimits, ctx StartContext) error {
+func (s *identityState) publishIdentityKey(rt *xsdSchema.Schema, scope *identityScope, sel identitySelection, key string, limits identityLimits, ctx StartContext) error {
 	if scope.tables == nil {
 		scope.tables = make(map[xsdSchema.IdentityConstraintID]map[string]identityTableEntry)
 	}
@@ -593,7 +598,7 @@ func (s *identityState) publishIdentityKey(scope *identityScope, sel identitySel
 	}
 	if prev, exists := table[key]; exists {
 		if prev.originDepth == scope.depth {
-			return validation(StartContext{Path: sel.pathString(ctx), Line: ctx.Line, Column: ctx.Column}, xsderrors.CodeValidationIdentity, "duplicate identity value first seen at "+prev.path.String())
+			return validation(StartContext{Path: sel.pathString(ctx), Line: ctx.Line, Column: ctx.Column}, xsderrors.CodeValidationIdentity, identityDuplicateMessage(rt, sel.constraint, prev.path.String()))
 		}
 		// A local entry takes precedence over an entry propagated from a
 		// descendant. The descendant entry has already consumed its own
@@ -650,7 +655,7 @@ func identityTupleKey(fields []identityFieldValue, limits identityLimits, ctx St
 		}
 		size += int64(len(field.value))
 		if limits.TupleBytes > 0 && size > limits.TupleBytes {
-			return "", validation(ctx, xsderrors.CodeValidationLimit, "identity tuple byte limit exceeded")
+			return "", validation(ctx, xsderrors.CodeValidationLimit, limitMessage("identity tuple byte", "MaxIdentityTupleBytes", size, limits.TupleBytes))
 		}
 	}
 	if len(fields) == 1 {
@@ -667,14 +672,14 @@ func identityTupleKey(fields []identityFieldValue, limits identityLimits, ctx St
 	return b.String(), nil
 }
 
-func validateIdentityScopeRefs(scope *identityScope, report func(error) error) error {
+func validateIdentityScopeRefs(rt *xsdSchema.Schema, scope *identityScope, report func(error) error) error {
 	for _, ref := range scope.refs {
 		entry, ok := scope.tables[ref.refer][ref.key]
 		if ok && !entry.conflict {
 			continue
 		}
 		scope.invalid = true
-		unresolvedErr := validation(StartContext{Path: ref.path.String(), Line: ref.line, Column: ref.col}, xsderrors.CodeValidationIdentity, "keyref does not resolve")
+		unresolvedErr := validation(StartContext{Path: ref.path.String(), Line: ref.line, Column: ref.col}, xsderrors.CodeValidationIdentity, identityReferenceMessage(rt, ref.refer))
 		if reportErr := report(unresolvedErr); reportErr != nil {
 			return reportErr
 		}
