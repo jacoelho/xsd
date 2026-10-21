@@ -1,12 +1,25 @@
 package schema
 
 import (
+	"errors"
 	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/source"
+	"github.com/jacoelho/xsd/internal/xmlstream"
 )
+
+func TestSchemaDTDDiagnosticPreservesCause(t *testing.T) {
+	_, err := Compile(Options{}, []source.Source{source.Bytes("dtd.xsd", []byte("\n<!DOCTYPE xs:schema>"+`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`))})
+	if !errors.Is(err, xmlstream.ErrUnsupportedDTD) {
+		t.Fatalf("DTD cause lost: %v", err)
+	}
+	boundary, ok := errors.AsType[*xmlstream.Error](err)
+	if !ok || boundary.Kind != xmlstream.ErrorUnsupported || boundary.Line != 2 || boundary.Column != 1 {
+		t.Fatalf("stream cause = %+v, want unsupported at 2:1", boundary)
+	}
+}
 
 func TestContentExpectationsDoNotConsumeState(t *testing.T) {
 	for _, model := range []string{`<xs:sequence><xs:element name="a"/><xs:element name="b"/></xs:sequence>`, `<xs:all><xs:element name="a"/><xs:element name="b"/></xs:all>`} {

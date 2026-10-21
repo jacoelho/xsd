@@ -30,7 +30,6 @@ const (
 	msgReaderNil                  = "instance reader is nil"
 	msgInstanceUTF8               = "instance documents must be UTF-8"
 	msgExternalEntity             = "external or undeclared entity resolution is not supported"
-	msgDTD                        = "DTD declarations are not supported"
 	msgTextOutsideRoot            = "text outside root element"
 	msgCDATAOutsideRoot           = "CDATA section outside root element"
 	msgReferenceOutsideRoot       = "reference outside root element"
@@ -50,6 +49,22 @@ const (
 
 func validation(ctx StartContext, code xsderrors.Code, msg string) error {
 	return xsderrors.WithLocation(ctx.PathString(), ctx.Line, ctx.Column, xsderrors.Validation(code, msg, nil))
+}
+
+func (s *session) locateElementStartError(err error) error {
+	location, locationErr := s.reader.StartLocation()
+	if locationErr != nil {
+		return xsderrors.InternalInvariant("element-start diagnostic requires an admitted XML start: " + locationErr.Error())
+	}
+	parent := s.doc.PathString()
+	mode := expandedInstancePath(elementAssessed, s.runtimeName(location.Name))
+	var path strings.Builder
+	path.Grow(len(parent) + xmlPathSegmentLength(location.Name, mode))
+	if parent != "/" {
+		path.WriteString(parent)
+	}
+	appendXMLPathSegment(&path, location.Name, mode)
+	return xsderrors.WithLocation(path.String(), location.Line, location.Column, err)
 }
 
 func quotedName(name xsdSchema.RuntimeName) string {

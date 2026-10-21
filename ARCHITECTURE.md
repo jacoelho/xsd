@@ -1064,6 +1064,14 @@ Validation flow:
    QName naming an unknown or non-derived type can still be an identity value,
    while malformed or unbound QNames invalidate the matched field. Identity
    capture cannot duplicate semantic XSI diagnostics.
+   Start assessment returns unlocated failures; its recovery boundary attaches
+   the current admitted XML start's expanded name and token position before
+   storing a diagnostic. Undeclared-root type selection uses the same decorator
+   before returning a failure. The reader exposes this metadata only between
+   successful start admission and advance, abort, reset, or detach. Path projection
+   extends the document-owned parent path only on failure, without carrying an
+   extra context through successful checks, committing a frame early, or moving
+   parent-content diagnostics off the parent.
    Every element start is a transaction across XML/namespace stacks,
    schema-location hints, parent-content state, content-model bits, and identity
    state. A fatal start rolls all of them back. A semantic-stop transition keeps
@@ -1169,6 +1177,8 @@ Diagnostics flow:
    pointers represent absence. Construction normalizes direct absent causes;
    `xsderrors` traversal checks these shapes before invoking wrapper methods.
    External wrappers retain their identity and cause chain.
+   Unsupported DTD diagnostics retain the positioned stream cause as their sole
+   message source, so presentation does not repeat the same rejection text.
 3. `xsderrors.WithLocation` is the only path/line/column decorator. Root `xsd`
    and formatter packages do not duplicate diagnostic types or codes.
 4. Missing document roots and forbidden outside-root character data use

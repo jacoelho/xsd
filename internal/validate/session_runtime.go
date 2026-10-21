@@ -543,7 +543,7 @@ func (s *session) runStartTransaction(
 	}
 	transaction.stageContent(accepted)
 	start := accepted.start
-	nilled, err := s.assessElementStart(&start, token.Attr, xsiFlags, s.startContext(line, col))
+	nilled, err := s.assessElementStart(&start, token.Attr, xsiFlags)
 	if err != nil {
 		return handleStartTransactionError(transaction, se, err)
 	}
@@ -551,7 +551,7 @@ func (s *session) runStartTransaction(
 	if err != nil {
 		return err
 	}
-	if err := transaction.commitXMLStart(se, expandedInstancePath(start, rn), schemaFrame); err != nil {
+	if err := transaction.commitXMLStart(se, expandedInstancePath(start.mode, rn), schemaFrame); err != nil {
 		return err
 	}
 	if identityErr := s.startFrameIdentity(start, rn, schemaFrame, line, col); identityErr != nil {
@@ -574,13 +574,12 @@ func (s *session) assessElementStart(
 	start *schemaStart,
 	attrs []xmlstream.Attr,
 	flags xsiStartAttributeFlags,
-	ctx StartContext,
 ) (bool, error) {
 	if start.mode != elementAssessed {
 		return false, nil
 	}
 	declaration := start.declaration
-	info, complete, err := s.initialElementAssessment(start, declaration, ctx)
+	info, complete, err := s.initialElementAssessment(start, declaration)
 	if complete {
 		return false, err
 	}
@@ -589,11 +588,11 @@ func (s *session) assessElementStart(
 		if !issue.valid() {
 			return false, nil
 		}
-		err := validationFromIssue(ctx, elementStartDiagnosticIssue(s.rt, start, issue))
+		err := validationFromIssue(StartContext{}, elementStartDiagnosticIssue(s.rt, start, issue))
 		return false, s.recoverElementStartAssessment(start, err)
 	}
 	state := elementEffectiveState{declaration: declaration, typeID: start.typ, typeInfo: info}
-	return s.assessXSIElementStart(start, attrs, flags, state, ctx)
+	return s.assessXSIElementStart(start, attrs, flags, state)
 }
 
 func (s *session) assessXSIElementStart(
@@ -601,7 +600,6 @@ func (s *session) assessXSIElementStart(
 	attrs []xmlstream.Attr,
 	flags xsiStartAttributeFlags,
 	state elementEffectiveState,
-	ctx StartContext,
 ) (bool, error) {
 	var nilValue, typeValue string
 	for i := range attrs {
@@ -614,19 +612,23 @@ func (s *session) assessXSIElementStart(
 		case xsiStartNoValue:
 		}
 	}
+	nilValid := true
 	if flags.Nil {
-		nilled, err := s.assessXSINil(start, optionalStartValue{value: nilValue, present: true}, ctx)
+		state.nil.value, nilValid = ParseXSINil(nilValue)
+		state.nil.specified = true
+	}
+	if !nilValid {
+		err := xsderrors.Validation(xsderrors.CodeValidationNil, invalidNilMessage(nilValue), nil)
+		err = s.recoverElementStartAssessment(start, err)
 		if err != nil {
 			return false, err
 		}
-		state.nil = assessedNilValue{value: nilled, specified: true}
 	}
 	if flags.Type {
 		info, complete, err := s.assessXSIType(start, xsiTypeAssessment{
 			declaration: state.declaration,
-			attribute:   optionalStartValue{value: typeValue, present: true},
+			lexical:     typeValue,
 			typeInfo:    state.typeInfo,
-			ctx:         ctx,
 		})
 		if complete {
 			return state.nil.value, err
@@ -634,20 +636,20 @@ func (s *session) assessXSIElementStart(
 		state.typeID = start.typ
 		state.typeInfo = info
 	}
-	return s.completeElementStartAssessment(start, state, ctx)
+	return s.completeElementStartAssessment(start, state)
 }
 
-func (s *session) completeElementStartAssessment(start *schemaStart, state elementEffectiveState, ctx StartContext) (bool, error) {
+func (s *session) completeElementStartAssessment(start *schemaStart, state elementEffectiveState) (bool, error) {
 	issue := state.issue()
 	if !issue.valid() {
 		return state.nil.value, nil
 	}
-	err := validationFromIssue(ctx, elementStartDiagnosticIssue(s.rt, start, issue))
+	err := validationFromIssue(StartContext{}, elementStartDiagnosticIssue(s.rt, start, issue))
 	return state.nil.value, s.recoverElementStartAssessment(start, err)
 }
 
-func expandedInstancePath(start schemaStart, rn xsdSchema.RuntimeName) xmlPathMode {
-	if start.mode == elementAssessed && !rn.Known && rn.NS != "" {
+func expandedInstancePath(mode elementMode, rn xsdSchema.RuntimeName) xmlPathMode {
+	if mode == elementAssessed && !rn.Known && rn.NS != "" {
 		return xmlPathExpanded
 	}
 	return xmlPathLexical
@@ -689,11 +691,11 @@ func (s *session) syntaxStart(line, col int) error {
 	return nil
 }
 
-func (s *session) initialElementAssessment(start *schemaStart, declaration startDeclaration, ctx StartContext) (xsdSchema.TypeInfo, bool, error) {
+func (s *session) initialElementAssessment(start *schemaStart, declaration startDeclaration) (xsdSchema.TypeInfo, bool, error) {
 	if declaration.present && declaration.abstract {
 		message := abstractElementMessage(s.rt, start.element)
 		*start = recoverySchemaStart()
-		err := validation(ctx, xsderrors.CodeValidationElement, message)
+		err := xsderrors.Validation(xsderrors.CodeValidationElement, message, nil)
 		return xsdSchema.TypeInfo{}, true, s.recoverElementStartAssessment(start, err)
 	}
 	info, known := s.rt.TypeInfo(start.typ)
@@ -703,7 +705,7 @@ func (s *session) initialElementAssessment(start *schemaStart, declaration start
 	if info.Unavailable {
 		message := unavailableElementTypeMessage(s.rt, start.typ)
 		*start = recoverySchemaStart()
-		err := validation(ctx, xsderrors.CodeValidationElement, message)
+		err := xsderrors.Validation(xsderrors.CodeValidationElement, message, nil)
 		return xsdSchema.TypeInfo{}, true, s.recoverElementStartAssessment(start, err)
 	}
 	return info, false, nil
@@ -731,40 +733,19 @@ func xsiStartValueFor(name xml.Name) xsiStartValue {
 	}
 }
 
-type optionalStartValue struct {
-	value   string
-	present bool
-}
-
-func (s *session) assessXSINil(start *schemaStart, attribute optionalStartValue, ctx StartContext) (bool, error) {
-	if !attribute.present {
-		return false, nil
-	}
-	nilled, ok := ParseXSINil(attribute.value)
-	if ok {
-		return nilled, nil
-	}
-	err := validation(ctx, xsderrors.CodeValidationNil, invalidNilMessage(attribute.value))
-	return false, s.recoverElementStartAssessment(start, err)
-}
-
 type xsiTypeAssessment struct {
-	attribute   optionalStartValue
-	ctx         StartContext
+	lexical     string
 	declaration startDeclaration
 	typeInfo    xsdSchema.TypeInfo
 }
 
 func (s *session) assessXSIType(start *schemaStart, assessment xsiTypeAssessment) (xsdSchema.TypeInfo, bool, error) {
-	if !assessment.attribute.present {
-		return assessment.typeInfo, false, nil
-	}
 	override := start.typ
 	if start.typeOrigin == selectedTypeRootXSI {
 		start.typeOrigin = selectedTypeDefault
 	} else {
 		var err error
-		override, err = resolveXSIType(s.rt, assessment.attribute.value, s.qnameResolver(), assessment.ctx)
+		override, err = resolveXSIType(s.rt, assessment.lexical, s.qnameResolver())
 		if err != nil {
 			return s.recoverXSITypeError(start, assessment.typeInfo, err)
 		}
@@ -775,14 +756,13 @@ func (s *session) assessXSIType(start *schemaStart, assessment xsiTypeAssessment
 	}
 	if overrideInfo.Unavailable {
 		*start = recoverySchemaStart()
-		err := validation(assessment.ctx, xsderrors.CodeValidationElement, unavailableElementTypeMessage(s.rt, override))
+		err := xsderrors.Validation(xsderrors.CodeValidationElement, unavailableElementTypeMessage(s.rt, override), nil)
 		return assessment.typeInfo, true, s.recoverElementStartAssessment(start, err)
 	}
 	if err := validateXSITypeOverride(s.rt, &s.derivationScratch, xsiTypeOverrideInput{
 		declaration: assessment.declaration,
 		declared:    start.typ,
 		override:    override,
-		ctx:         assessment.ctx,
 	}); err != nil {
 		return s.recoverXSITypeError(start, assessment.typeInfo, err)
 	}
@@ -798,6 +778,7 @@ func (s *session) recoverXSITypeError(start *schemaStart, info xsdSchema.TypeInf
 func (s *session) recoverElementStartAssessment(start *schemaStart, err error) error {
 	if assessmentFailure(err) {
 		start.invalid = true
+		err = s.locateElementStartError(err)
 	}
 	return s.recover(err)
 }
@@ -883,9 +864,9 @@ func (s *session) rootStartType(rn xsdSchema.RuntimeName, se preparedXMLStart, t
 			continue
 		}
 		value, _ := s.reader.MaterializeValue(a)
-		typ, err := resolveXSIType(s.rt, value, s.qnameResolver(), ctx)
+		typ, err := resolveXSIType(s.rt, value, s.qnameResolver())
 		if err != nil {
-			return schemaStart{}, err
+			return schemaStart{}, s.locateElementStartError(err)
 		}
 		return rootXSITypeStart(typ), nil
 	}

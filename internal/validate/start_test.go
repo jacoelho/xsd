@@ -122,7 +122,6 @@ func TestResolveXSITypeReportsUnknownType(t *testing.T) {
 	t.Parallel()
 
 	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
-	ctx := StartContext{Line: 2, Column: 3, Path: "/root"}
 	for _, lexical := range []string{"p:Missing", "Missing"} {
 		t.Run(lexical, func(t *testing.T) {
 			t.Parallel()
@@ -136,9 +135,8 @@ func TestResolveXSITypeReportsUnknownType(t *testing.T) {
 					}
 					return xsdValue.ExpandedName{Namespace: "urn:missing", Local: "Missing"}, true
 				},
-				ctx,
 			)
-			want := "validation.type at 2:3 /root: xsi:type \"" + lexical + "\" resolves to \"{urn:missing}Missing\", but no global type declaration is available"
+			want := "validation.type: xsi:type \"" + lexical + "\" resolves to \"{urn:missing}Missing\", but no global type declaration is available"
 			if err == nil || err.Error() != want {
 				t.Fatalf("resolveXSIType(%q) error = %v, want %q", lexical, err, want)
 			}

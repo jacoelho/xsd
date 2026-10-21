@@ -1,6 +1,7 @@
 package xmlstream
 
 import (
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -315,6 +316,31 @@ func (r *Reader) Start() (Handle, Element, error) {
 		r.root = rootOpen
 	}
 	return Handle{frame: namespace}, element, nil
+}
+
+// StartLocation identifies the current admitted element and its start position.
+// Its name is borrowed until the reader advances, resets, or detaches.
+type StartLocation struct {
+	Name   xml.Name
+	Line   int
+	Column int
+}
+
+// StartLocation reads the current admitted start without changing reader state.
+// It is available after Start succeeds and until Next, AbortStart, Reset, or
+// Detach. Namespace expansion uses the still-active admitted frame.
+func (r *Reader) StartLocation() (StartLocation, error) {
+	if !r.active {
+		return StartLocation{}, &Error{Kind: ErrorState, Cause: ErrReaderState}
+	}
+	if r.lastStartSerial == 0 || r.token.Kind != KindStart {
+		return StartLocation{}, &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrPendingStart}
+	}
+	element, err := r.ns.resolveElement(Lexical(r.token.Start.Name))
+	if err != nil {
+		return StartLocation{}, &Error{Kind: ErrorNamespace, Line: r.lastLine, Column: r.lastColumn, Cause: err}
+	}
+	return StartLocation{Name: element.Name, Line: r.token.Line, Column: r.token.Column}, nil
 }
 
 // MatchEnd validates the current borrowed end token without changing document

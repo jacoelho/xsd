@@ -109,8 +109,6 @@ func TestRuntimeDiagnosticValuesAndDeclarationFacts(t *testing.T) {
 				column = 9
 			case "empty text", "element only text":
 				column = 7
-			case "invalid nil", "unknown QName prefix":
-				path = "/"
 			}
 			if diagnostic.Path() != path || diagnostic.Line() != 1 || diagnostic.Column() != column {
 				t.Errorf("lost diagnostic location: %v", diagnostic)
