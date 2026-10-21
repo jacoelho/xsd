@@ -38,7 +38,7 @@ func StreamError(line, col int, path string, err error) error {
 		return xsderrors.WithLocation(path, line, col, xsderrors.Unsupported(xsderrors.CodeUnsupportedExternal, msgExternalEntity, err))
 	}
 	if errors.Is(err, xmlstream.ErrUnsupportedDTD) {
-		return xsderrors.WithLocation(path, line, col, xsderrors.Unsupported(xsderrors.CodeUnsupportedDTD, msgDTD, err))
+		return xsderrors.WithLocation(path, line, col, xsderrors.Unsupported(xsderrors.CodeUnsupportedDTD, "", err))
 	}
 	if errors.Is(err, xmlstream.ErrTextOutsideRoot) {
 		return xsderrors.WithLocation(path, line, col, xsderrors.Validation(xsderrors.CodeValidationXML, msgTextOutsideRoot, err))

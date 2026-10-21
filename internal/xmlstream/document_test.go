@@ -1110,3 +1110,82 @@ func TestReaderAttributeErrorsPreserveSyntaxAndSourceFailure(t *testing.T) {
 		}
 	}
 }
+
+func TestReaderStartLocationUsesAdmittedNamespacesAndTokenPosition(t *testing.T) {
+	for _, test := range []struct {
+		name, start string
+	}{
+		{"prefixed", `<p:root xmlns:p="urn:root"/>`},
+		{"default", `<root xmlns="urn:root"/>`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var reader Reader
+			if err := reader.Reset(strings.NewReader("\n  "+test.start), Config{}); err != nil {
+				t.Fatal(err)
+			}
+			mustNextToken(t, &reader)
+			mustNextToken(t, &reader)
+			if _, _, err := reader.Start(); err != nil {
+				t.Fatal(err)
+			}
+			want := StartLocation{Name: xml.Name{Space: "urn:root", Local: "root"}, Line: 2, Column: 3}
+			for range 2 {
+				got, err := reader.StartLocation()
+				if err != nil || got != want {
+					t.Fatalf("StartLocation = %+v, %v; want %+v", got, err, want)
+				}
+			}
+		})
+	}
+}
+
+func TestReaderStartLocationRejectsUnavailableStart(t *testing.T) {
+	for _, state := range []string{"before admission", "failed admission", "advance", "abort", "reset", "detach"} {
+		t.Run(state, func(t *testing.T) {
+			var reader Reader
+			input := `<root/>`
+			if state == "failed admission" {
+				input = `<p:root/>`
+			}
+			if err := reader.Reset(strings.NewReader(input), Config{}); err != nil {
+				t.Fatal(err)
+			}
+			mustNextToken(t, &reader)
+			if state != "before admission" {
+				handle, _, err := reader.Start()
+				if state == "failed admission" {
+					if err == nil {
+						t.Fatal("unbound prefix accepted")
+					}
+				} else {
+					if err != nil {
+						t.Fatal(err)
+					}
+					switch state {
+					case "advance":
+						mustNextToken(t, &reader)
+					case "abort":
+						if err := reader.AbortStart(handle); err != nil {
+							t.Fatal(err)
+						}
+					case "reset":
+						if err := reader.Reset(strings.NewReader(`<other/>`), Config{}); err != nil {
+							t.Fatal(err)
+						}
+					case "detach":
+						reader.Detach()
+					}
+				}
+			}
+			_, err := reader.StartLocation()
+			cause := ErrPendingStart
+			if state == "detach" {
+				cause = ErrReaderState
+			}
+			boundary, ok := errors.AsType[*Error](err)
+			if !ok || boundary.Kind != ErrorState || !errors.Is(err, cause) {
+				t.Fatalf("StartLocation error = %v, want state error wrapping %v", err, cause)
+			}
+		})
+	}
+}

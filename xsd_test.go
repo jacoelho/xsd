@@ -2225,8 +2225,8 @@ func TestInvalidSemanticXSITypeIdentityPreservesLexicalQName(t *testing.T) {
   </row>
 </root>`, test.value, test.value)
 			want := []startDiagnostic{
-				{xsderrors.CodeValidationType, "/root", 2, 3},
-				{xsderrors.CodeValidationType, "/root", 4, 3},
+				{xsderrors.CodeValidationType, "/root/row", 2, 3},
+				{xsderrors.CodeValidationType, "/root/row", 4, 3},
 			}
 			if test.duplicate {
 				want = append(want, startDiagnostic{xsderrors.CodeValidationIdentity, "/root/row", 5, 3})
@@ -2272,6 +2272,7 @@ func TestUndeclaredRootXSISelectionOrder(t *testing.T) {
 		{name: "matching root hint", element: "p:root", attrs: `xsi:schemaLocation="urn:missing ignored.xsd"`, code: xsderrors.CodeValidationRoot},
 		{name: "selected type before root hint", element: "p:root", attrs: `xsi:type="xs:string" xsi:schemaLocation="urn:missing ignored.xsd"`},
 		{name: "unknown type before malformed nil", element: "root", attrs: `xsi:type="p:Missing" xsi:nil="bad"`, code: xsderrors.CodeValidationType},
+		{name: "namespaced unknown type", element: "p:root", attrs: `xsi:type="p:Missing"`, code: xsderrors.CodeValidationType},
 		{name: "unknown type after malformed nil spelling", element: "root", attrs: `xsi:nil="bad" xsi:type="p:Missing"`, code: xsderrors.CodeValidationType},
 		{name: "type hint before malformed nil", element: "root", attrs: `xsi:type="p:Missing" xsi:nil="bad" xsi:schemaLocation="urn:missing ignored.xsd"`, code: xsderrors.CodeValidationType},
 		{name: "selected type and absent nil", element: "root", attrs: `xsi:type="xs:string"`},
@@ -2284,7 +2285,14 @@ func TestUndeclaredRootXSISelectionOrder(t *testing.T) {
 			doc := "<" + test.element + namespaces + test.attrs + "/>"
 			var want []startDiagnostic
 			if test.code != "" {
-				want = []startDiagnostic{{test.code, "/", 1, 1}}
+				path := "/"
+				if test.code != xsderrors.CodeValidationRoot {
+					path = "/root"
+					if test.element == "p:root" {
+						path = "/{urn:missing}root"
+					}
+				}
+				want = []startDiagnostic{{test.code, path, 1, 1}}
 			}
 			opts := xsd.ValidateOptions{MaxErrors: 10}
 			assertStartDiagnostics(t, engine.ValidateWithOptions(strings.NewReader(doc), opts), want)

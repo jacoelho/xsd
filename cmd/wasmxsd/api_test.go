@@ -447,6 +447,9 @@ func TestValidateXMLDataMarksSchemaErrors(t *testing.T) {
 	if resp.Errors[0].Code != "unsupported.dtd" {
 		t.Fatalf("error code = %q, want unsupported.dtd", resp.Errors[0].Code)
 	}
+	if resp.Errors[0].Message != "DTD declarations are not supported" {
+		t.Fatalf("error message = %q", resp.Errors[0].Message)
+	}
 }
 
 func TestValidateXMLDataUsesFormattedWhitespaceText(t *testing.T) {

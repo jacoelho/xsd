@@ -122,7 +122,6 @@ func elementEffectiveTypeIssue(typeID xsdSchema.TypeID, info xsdSchema.TypeInfo)
 }
 
 type xsiTypeOverrideInput struct {
-	ctx         StartContext
 	declaration startDeclaration
 	declared    xsdSchema.TypeID
 	override    xsdSchema.TypeID
@@ -135,16 +134,16 @@ func validateXSITypeOverride(
 ) error {
 	derivation, derived := rt.TypeDerivationWithScratch(input.override, input.declared, scratch)
 	if !derived {
-		return validation(input.ctx, xsderrors.CodeValidationType, xsiTypeDerivationMessage(rt, input.override, input.declared))
+		return xsderrors.Validation(xsderrors.CodeValidationType, xsiTypeDerivationMessage(rt, input.override, input.declared), nil)
 	}
 	if !input.declaration.present || input.override == input.declared {
 		return nil
 	}
 	if input.declaration.block&xsdSchema.DerivationExtension != 0 && derivation&xsdSchema.DerivationExtension != 0 {
-		return validation(input.ctx, xsderrors.CodeValidationType, xsiTypeBlockedMessage(rt, input.override, "extension"))
+		return xsderrors.Validation(xsderrors.CodeValidationType, xsiTypeBlockedMessage(rt, input.override, "extension"), nil)
 	}
 	if input.declaration.block&xsdSchema.DerivationRestriction != 0 && derivation&xsdSchema.DerivationRestriction != 0 {
-		return validation(input.ctx, xsderrors.CodeValidationType, xsiTypeBlockedMessage(rt, input.override, "restriction"))
+		return xsderrors.Validation(xsderrors.CodeValidationType, xsiTypeBlockedMessage(rt, input.override, "restriction"), nil)
 	}
 	return nil
 }
@@ -153,18 +152,17 @@ func resolveXSIType(
 	rt *xsdSchema.Schema,
 	value string,
 	resolve xsdValue.QNameResolver,
-	ctx StartContext,
 ) (xsdSchema.TypeID, error) {
 	name, ok := resolve(value)
 	if !ok {
-		return xsdSchema.TypeID{}, validation(ctx, xsderrors.CodeValidationType, invalidXSITypeQNameMessage(value))
+		return xsdSchema.TypeID{}, xsderrors.Validation(xsderrors.CodeValidationType, invalidXSITypeQNameMessage(value), nil)
 	}
 	if q, knownName := rt.LookupQName(name.Namespace, name.Local); knownName {
 		if typ, ok := rt.Type(q); ok {
 			return typ, nil
 		}
 	}
-	return xsdSchema.TypeID{}, validation(ctx, xsderrors.CodeValidationType, unknownXSITypeMessage(value, name))
+	return xsdSchema.TypeID{}, xsderrors.Validation(xsderrors.CodeValidationType, unknownXSITypeMessage(value, name), nil)
 }
 
 // IsXSITypeName reports whether name is the xsi:type attribute.

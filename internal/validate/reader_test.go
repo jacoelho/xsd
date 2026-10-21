@@ -87,6 +87,18 @@ func TestStreamErrorClassifiesParserErrors(t *testing.T) {
 	}
 }
 
+func TestStreamDTDDiagnosticPreservesCause(t *testing.T) {
+	streamErr := parserErr(t, "\n<!DOCTYPE root><root/>", 0, 0)
+	err := StreamError(2, 1, "/", streamErr)
+	if !errors.Is(err, xmlstream.ErrUnsupportedDTD) {
+		t.Fatalf("DTD cause lost: %v", err)
+	}
+	boundary, ok := errors.AsType[*xmlstream.Error](err)
+	if !ok || boundary.Kind != xmlstream.ErrorUnsupported || boundary.Line != 2 || boundary.Column != 1 {
+		t.Fatalf("stream cause = %+v, want unsupported at 2:1", boundary)
+	}
+}
+
 func parserErr(t *testing.T, doc string, maxTokenBytes int64, maxAttrs int) error {
 	t.Helper()
 	var reader xmlstream.Reader

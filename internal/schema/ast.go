@@ -177,7 +177,7 @@ func schemaStreamError(line, col int, err error) error {
 		return xsderrors.Unsupported(xsderrors.CodeUnsupportedXML11, versionErr.Error(), nil)
 	}
 	if errors.Is(err, xmlstream.ErrUnsupportedDTD) {
-		return xsderrors.Unsupported(xsderrors.CodeUnsupportedDTD, "DTD declarations are not supported", err)
+		return xsderrors.Unsupported(xsderrors.CodeUnsupportedDTD, "", err)
 	}
 	if xmlstream.IsTokenLimit(err) || xmlstream.IsAttributeLimit(err) {
 		return schemaParseAt(line, col, xsderrors.CodeSchemaLimit, err.Error(), err)
