@@ -85,11 +85,11 @@ type admittedNumericFixture struct {
 func admittedNumericFixtures() [3]admittedNumericFixture {
 	return [3]admittedNumericFixture{
 		{name: "NegativePaddedInteger", min: "-0002", max: "-0001", input: "-1", builtin: valuepkg.BuiltinInteger,
-			opponents: []struct{ input, message string }{{"-3", "minInclusive facet failed"}, {"0", "maxInclusive facet failed"}}},
+			opponents: []struct{ input, message string }{{"-3", `value "-3" does not satisfy minInclusive "-2.0"`}, {"0", `value "0" does not satisfy maxInclusive "-1.0"`}}},
 		{name: "SignedZeroInteger", min: "-0000", max: "+0001", input: "-0000", builtin: valuepkg.BuiltinInteger,
-			opponents: []struct{ input, message string }{{"+0001", ""}, {"-1", "minInclusive facet failed"}, {"2", "maxInclusive facet failed"}, {"1.0", "invalid integer"}}},
+			opponents: []struct{ input, message string }{{"+0001", ""}, {"-1", `value "-1" does not satisfy minInclusive "0.0"`}, {"2", `value "2" does not satisfy maxInclusive "1.0"`}, {"1.0", `value "1.0" is not valid for xs:integer: invalid integer`}}},
 		{name: "LongPaddedDecimal", min: "0", max: "+" + strings.Repeat("0", 1024) + "1.5000", input: "1.5",
-			opponents: []struct{ input, message string }{{"1.5001", "maxInclusive facet failed"}}},
+			opponents: []struct{ input, message string }{{"1.5001", `value "1.5001" does not satisfy maxInclusive "1.5"`}}},
 	}
 }
 
@@ -280,7 +280,7 @@ func BenchmarkCanonicalMagnitude(b *testing.B) {
 			b.Fatal(err)
 		}
 		var scratch valuepkg.Scratch
-		for _, test := range []struct{ input, message string }{{"-.1", "minInclusive facet failed"}, {".1", "maxInclusive facet failed"}, {"0", ""}} {
+		for _, test := range []struct{ input, message string }{{"-.1", `value "-.1" does not satisfy minInclusive "0.0"`}, {".1", `value ".1" does not satisfy maxInclusive "0.0"`}, {"0", ""}} {
 			_, checkErr := program.ValidateBytes(id, []byte(test.input), valuepkg.Resolver{}, 0, 1<<20, &scratch)
 			if test.message == "" {
 				if checkErr != nil {
@@ -317,8 +317,8 @@ func BenchmarkPublishedRawDecimalBounds(b *testing.B) {
 		{name: "Both", min: "0", max: "999999", input: "42.50"},
 		{name: "NegativeFallback", min: "-2", max: "-1", input: "-1.5"},
 		{name: "WhitespaceFallback", min: "0", max: "999999", input: " \t42.50\n"},
-		{name: "MaxReject", min: "0", max: "999999", input: "1000000", message: "maxInclusive facet failed"},
-		{name: "UnsupportedFractionDigits", min: "0", max: "10", fraction: true, input: "1.25", message: "digit facet failed"},
+		{name: "MaxReject", min: "0", max: "999999", input: "1000000", message: `value "1000000" does not satisfy maxInclusive "999999.0"`},
+		{name: "UnsupportedFractionDigits", min: "0", max: "10", fraction: true, input: "1.25", message: `value "1.25" has 2 fractional digits; fractionDigits permits at most 1`},
 	} {
 		b.Run(test.name, func(b *testing.B) {
 			builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
@@ -366,11 +366,11 @@ func BenchmarkPublishedRawDecimalBounds(b *testing.B) {
 			preflight := func() {
 				check(test.input, test.message, test.fraction)
 				if test.name == "NegativeFallback" {
-					check("0", "upper bound facet failed", true)
+					check("0", `value "0" does not satisfy maxInclusive "-1.0"`, true)
 					check("-1.5", "", false)
 				}
 				if test.fraction {
-					check("1.25", "digit facet failed", true)
+					check("1.25", `value "1.25" has 2 fractional digits; fractionDigits permits at most 1`, true)
 					check("1.20", "", false)
 				}
 			}

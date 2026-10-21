@@ -2,6 +2,7 @@ package value
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/xsdregex"
@@ -485,11 +486,11 @@ func TestProgramBoundLiteralTypeAdmissionAndRetry(t *testing.T) {
 			if _, validationErr := p.ValidateBytes(id, []byte("1"), Resolver{}, 0, 16<<20, nil); validationErr != nil {
 				t.Fatalf("ValidateBytes(boundary) = %v", validationErr)
 			}
-			if _, validationErr := p.Validate(id, "0", Resolver{}, 0, 16<<20, nil); !errors.Is(validationErr, ErrFacet) || validationErr.Error() != "lower bound facet failed" {
-				t.Fatalf("Validate(below bound) = %v, want lower bound facet failed", validationErr)
+			if _, validationErr := p.Validate(id, "0", Resolver{}, 0, 16<<20, nil); !errors.Is(validationErr, ErrFacet) || !strings.Contains(validationErr.Error(), "minInclusive") {
+				t.Fatalf("Validate(below bound) = %v, want minInclusive facet rejection", validationErr)
 			}
-			if _, validationErr := p.ValidateBytes(id, []byte("0"), Resolver{}, 0, 16<<20, nil); validationErr == nil || validationErr.Error() != "minInclusive facet failed" {
-				t.Fatalf("ValidateBytes(below bound) = %v, want minInclusive facet failed", validationErr)
+			if _, validationErr := p.ValidateBytes(id, []byte("0"), Resolver{}, 0, 16<<20, nil); !errors.Is(validationErr, ErrFacet) || !strings.Contains(validationErr.Error(), "minInclusive") {
+				t.Fatalf("ValidateBytes(below bound) = %v, want minInclusive facet rejection", validationErr)
 			}
 		})
 	}

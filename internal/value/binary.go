@@ -22,21 +22,21 @@ func ParseBinaryValue(kind PrimitiveKind, normalized string, needs PrimitiveValu
 		PrimitiveDuration, PrimitiveDateTime, PrimitiveTime, PrimitiveDate,
 		PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth,
 		PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
-		return BinaryValue{}, errors.New("invalid binary primitive")
+		return BinaryValue{}, errors.New(msgInvalidBinaryPrimitive)
 	default:
 	}
-	return BinaryValue{}, errors.New("invalid binary primitive")
+	return BinaryValue{}, errors.New(msgInvalidBinaryPrimitive)
 }
 
 // ValidateHexBinaryLexical validates raw as an XML Schema hexBinary lexical
 // value.
 func ValidateHexBinaryLexical[T byteText](raw T) error {
 	if len(raw)%2 != 0 {
-		return errors.New("invalid hexBinary")
+		return errors.New(msgInvalidHexBinary)
 	}
 	for i := range len(raw) {
 		if !isHexDigit(raw[i]) {
-			return errors.New("invalid hexBinary")
+			return errors.New(msgInvalidHexBinary)
 		}
 	}
 	return nil
@@ -58,7 +58,7 @@ func hexBinaryLength(normalized string) (uint32, error) {
 	if err := ValidateHexBinaryLexical(normalized); err != nil {
 		return 0, err
 	}
-	return checkedUint32(len(normalized)/2, "hexBinary length exceeds uint32 limit")
+	return checkedUint32(len(normalized)/2, msgHexBinaryLengthLimit)
 }
 
 // ValidateBase64BinaryLexical validates raw as an XML Schema base64Binary
@@ -73,7 +73,7 @@ func parseBase64BinaryValue(normalized string, needs PrimitiveValueNeed) (Binary
 	if err != nil {
 		return BinaryValue{}, err
 	}
-	length, err := checkedUint32(scan.cleanLen/4*3-scan.pads, "base64Binary length exceeds uint32 limit")
+	length, err := checkedUint32(scan.cleanLen/4*3-scan.pads, msgBase64BinaryLengthLimit)
 	if err != nil {
 		return BinaryValue{}, err
 	}
@@ -118,20 +118,20 @@ func scanBase64BinaryLexical[T byteText](raw T) (base64BinaryScan, error) {
 			continue
 		}
 		if scan.pads > 0 {
-			return base64BinaryScan{}, errors.New("invalid base64Binary")
+			return base64BinaryScan{}, errors.New(msgInvalidBase64Binary)
 		}
 		v, ok := base64Value(b)
 		if !ok {
-			return base64BinaryScan{}, errors.New("invalid base64Binary")
+			return base64BinaryScan{}, errors.New(msgInvalidBase64Binary)
 		}
 		scan.cleanLen++
 		lastValue = v
 	}
 	if scan.cleanLen%4 != 0 || scan.pads > 2 {
-		return base64BinaryScan{}, errors.New("invalid base64Binary")
+		return base64BinaryScan{}, errors.New(msgInvalidBase64Binary)
 	}
 	if scan.pads == 1 && lastValue&0x03 != 0 || scan.pads == 2 && lastValue&0x0f != 0 {
-		return base64BinaryScan{}, errors.New("invalid base64Binary")
+		return base64BinaryScan{}, errors.New(msgInvalidBase64Binary)
 	}
 	return scan, nil
 }

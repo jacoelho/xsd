@@ -22,7 +22,7 @@ type FloatValue struct {
 func ParseFloatValue(kind PrimitiveKind, normalized string, needs PrimitiveValueNeed) (FloatValue, error) {
 	bits, ok := floatBits(kind)
 	if !ok {
-		return FloatValue{}, errors.New("invalid float primitive")
+		return FloatValue{}, errors.New(msgInvalidFloatPrimitive)
 	}
 	value, err := parseFloatLexical(normalized, bits)
 	if err != nil {
@@ -121,7 +121,7 @@ func parseFloatLexical(s string, bits int) (float64, error) {
 		return math.NaN(), nil
 	}
 	if !floatLexicalOK(s) {
-		return 0, errors.New("invalid float")
+		return 0, errors.New(msgInvalidFloat)
 	}
 	v, err := strconv.ParseFloat(s, bits)
 	if err != nil {
@@ -129,7 +129,7 @@ func parseFloatLexical(s string, bits int) (float64, error) {
 		if errors.As(err, &numErr) && errors.Is(numErr.Err, strconv.ErrRange) {
 			return v, nil
 		}
-		return 0, errors.New("invalid float")
+		return 0, errors.New(msgInvalidFloat)
 	}
 	return v, nil
 }
@@ -160,14 +160,14 @@ func ValidateFloatLexical[T byteText](raw T, bits int) error {
 		return nil
 	}
 	if !floatLexicalOK(raw) {
-		return errors.New("invalid float")
+		return errors.New(msgInvalidFloat)
 	}
 	if _, err := strconv.ParseFloat(string(raw), bits); err != nil {
 		var numErr *strconv.NumError
 		if errors.As(err, &numErr) && errors.Is(numErr.Err, strconv.ErrRange) {
 			return nil
 		}
-		return errors.New("invalid float")
+		return errors.New(msgInvalidFloat)
 	}
 	return nil
 }

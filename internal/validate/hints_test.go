@@ -88,7 +88,7 @@ func TestSchemaLocationHintsRejectMalformedHints(t *testing.T) {
 			name:    "schemaLocation invalid URI",
 			local:   vocab.XSIAttrSchemaLocation,
 			value:   "urn:t %zz",
-			message: "invalid xsi:schemaLocation URI %zz",
+			message: "invalid xsi:schemaLocation URI \"%zz\"",
 		},
 		{
 			name:    "schemaLocation non XML whitespace",
@@ -100,7 +100,7 @@ func TestSchemaLocationHintsRejectMalformedHints(t *testing.T) {
 			name:    "noNamespace invalid URI",
 			local:   vocab.XSIAttrNoNamespaceSchemaLocation,
 			value:   "%zz",
-			message: "invalid xsi:noNamespaceSchemaLocation URI %zz",
+			message: "invalid xsi:noNamespaceSchemaLocation URI \"%zz\"",
 		},
 	}
 

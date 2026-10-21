@@ -36,6 +36,7 @@ type schemaBuild struct {
 // successful publication. It contains only data consumed after compilation;
 // compiler records and provenance stay in SchemaBuild until sealing succeeds.
 type schemaProgram struct {
+	DiagnosticNames  diagnosticNames
 	GlobalElements   map[QName]ElementID
 	GlobalTypes      map[QName]TypeID
 	Notations        map[ExpandedName]bool

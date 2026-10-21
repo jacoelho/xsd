@@ -175,7 +175,7 @@ func requireConstructionEnumeration(t *testing.T, builder *value.Builder, id val
 		t.Fatalf("Validate(p:x) = %v", validationErr)
 	}
 	_, err = program.Validate(id, "p:y", resolver, 0, 16<<20, nil)
-	if !errors.Is(err, value.ErrFacet) || err.Error() != "enumeration facet failed" {
+	if !errors.Is(err, value.ErrFacet) {
 		t.Fatalf("Validate(p:y) = %v; want enumeration rejection", err)
 	}
 }

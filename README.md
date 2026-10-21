@@ -109,6 +109,24 @@ column. `Message()` omits the cause; `Error()` includes it. Multiple recoverable
 errors use `xsderrors.Errors`, with `Len()` and `At()` accessors.
 Use `xsderrors.IsUnsupported(err)` to detect unsupported features.
 
+Enumeration errors include the rejected value and choices from the failing
+enumeration, for example:
+`invalid attribute "actuate": value "bogus" is not one of ["onLoad", "onRequest"]`.
+Choices use canonical representations; long values and lists are
+truncated with `...`.
+
+Other validation errors include relevant constraints and observed values:
+
+```text
+value "é" has length 1 character; expected exactly 2
+value "1" does not satisfy minInclusive "2.0"
+unexpected child element "c"; expected next child ["b"]
+```
+
+Names include their namespace when needed. Identity errors identify the
+constraint and field or referenced key. Detailed formatting runs only after
+validation fails, including when a union has tried several member types.
+
 For a non-nil error, `xsderrors.IsConclusiveValidation(err)` returns true only
 when every independent diagnostic branch establishes a schema violation.
 Malformed XML and resource failures return false. False can also mean there is

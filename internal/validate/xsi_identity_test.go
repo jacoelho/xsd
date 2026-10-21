@@ -2,6 +2,7 @@ package validate
 
 import (
 	"encoding/xml"
+	"errors"
 	"testing"
 
 	xsdSchema "github.com/jacoelho/xsd/internal/schema"
@@ -117,9 +118,10 @@ func TestXSIAttributeIdentityKeyErrors(t *testing.T) {
 		name    string
 		local   string
 		lexical string
+		message string
 	}{
-		{name: "schemaLocation", local: vocab.XSIAttrSchemaLocation, lexical: "urn:test %zz"},
-		{name: "noNamespaceSchemaLocation", local: vocab.XSIAttrNoNamespaceSchemaLocation, lexical: "%zz"},
+		{name: "schemaLocation", local: vocab.XSIAttrSchemaLocation, lexical: "urn:test %zz", message: `invalid xsi:schemaLocation URI "%zz"`},
+		{name: "noNamespaceSchemaLocation", local: vocab.XSIAttrNoNamespaceSchemaLocation, lexical: "%zz", message: `invalid xsi:noNamespaceSchemaLocation URI "%zz"`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -129,6 +131,10 @@ func TestXSIAttributeIdentityKeyErrors(t *testing.T) {
 				t.Fatalf("xsiAttributeIdentityKey(invalid %s) = %+v, want empty error result", test.local, identity)
 			}
 			expectXSDCode(t, err, xsderrors.CodeValidationAttribute)
+			diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+			if !ok || diagnostic.Message() != test.message || diagnostic.Cause() != nil {
+				t.Fatalf("diagnostic = %v; want message %q without cause", err, test.message)
+			}
 		})
 	}
 }

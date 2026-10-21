@@ -1,6 +1,7 @@
 package value
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/xsdregex"
@@ -366,7 +367,7 @@ func TestListXMLWhitespaceAdmission(t *testing.T) {
 					got, validationErr = program.ValidateBytes(id, []byte(tc.input), Resolver{}, NeedCanonical, 64, nil)
 				}
 				if tc.error != "" {
-					if validationErr == nil || validationErr.Error() != tc.error {
+					if validationErr == nil || !strings.HasSuffix(validationErr.Error(), tc.error) {
 						t.Fatalf("validation error = %v, want %q", validationErr, tc.error)
 					}
 					return

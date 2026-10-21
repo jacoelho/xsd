@@ -46,7 +46,7 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 	if !needsIdentity && !hasValueConstraint && input.Identity == xsdValue.IdentityNone {
 		value, err := s.validateSimpleValueBytes(typeID, rawText, input, 0)
 		if err != nil {
-			return false, simpleValueFacetError(ctx, "invalid simple content", err)
+			return false, simpleValueError(ctx, xsderrors.CodeValidationFacet, msgInvalidSimpleContent, err, s.limits.InstanceValueWork)
 		}
 		return true, s.doc.identity.recordValue(identityTarget, value, ctx)
 	}
@@ -107,7 +107,7 @@ func (s *session) elementSimpleContentValueError(target identityValueTarget, err
 	if rejectErr := s.doc.identity.rejectValue(target, identityInvalidValue, ctx); rejectErr != nil {
 		return rejectErr
 	}
-	return simpleValueFacetError(ctx, "invalid simple content", err)
+	return simpleValueError(ctx, xsderrors.CodeValidationFacet, msgInvalidSimpleContent, err, s.limits.InstanceValueWork)
 }
 
 func (s *session) commitElementSimpleContentValue(result xsdValue.Value, constraints xsdSchema.ElementValueConstraints, target identityValueTarget, ctx StartContext) (bool, error) {
@@ -118,7 +118,7 @@ func (s *session) commitElementSimpleContentValue(result xsdValue.Value, constra
 		if rejectErr := s.doc.identity.rejectValue(target, identityInvalidValue, ctx); rejectErr != nil {
 			return false, rejectErr
 		}
-		return false, validation(ctx, xsderrors.CodeValidationElement, "fixed element value mismatch")
+		return false, validation(ctx, xsderrors.CodeValidationElement, fixedElementMessage(result.CanonicalText(), fixed.CanonicalText()))
 	}
 	if err := s.doc.identity.captureValue(target, ctx); err != nil {
 		return false, err
@@ -155,10 +155,10 @@ func (*session) validateNonSimpleFixedContent(
 		return nil
 	}
 	if f.HasChild {
-		return validation(ctx, xsderrors.CodeValidationElement, "fixed element value mismatch")
+		return validation(ctx, xsderrors.CodeValidationElement, fixedChildContentMessage(fixed.CanonicalText()))
 	}
 	if len(rawText) != 0 && !bytesEqualString(rawText, fixed.ApplicationText()) {
-		return validation(ctx, xsderrors.CodeValidationElement, "fixed element value mismatch")
+		return validation(ctx, xsderrors.CodeValidationElement, fixedElementMessage(rawText, fixed.ApplicationText()))
 	}
 	return nil
 }

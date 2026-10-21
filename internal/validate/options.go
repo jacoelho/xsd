@@ -1,8 +1,6 @@
 // Package validate owns XML instance validation concerns.
 package validate
 
-import "github.com/jacoelho/xsd/xsderrors"
-
 const (
 	defaultMaxErrors                       = 100
 	defaultMaxIdentityScopes               = 10_000
@@ -86,14 +84,14 @@ func validateOptions(opts Options) error {
 		{"MaxSchemaLocationNamespaces", int64(opts.MaxSchemaLocationNamespaces)},
 		{"MaxSchemaLocationNamespaceBytes", opts.MaxSchemaLocationNamespaceBytes},
 		{"MaxInstanceDepth", int64(opts.MaxInstanceDepth)},
-		{"MaxInstanceAttributes", int64(opts.MaxInstanceAttributes)},
+		{optionMaxInstanceAttributes, int64(opts.MaxInstanceAttributes)},
 		{"MaxInstanceTextBytes", opts.MaxInstanceTextBytes},
-		{"MaxInstanceTokenBytes", opts.MaxInstanceTokenBytes},
-		{"MaxInstanceBytes", opts.MaxInstanceBytes},
+		{optionMaxInstanceTokenBytes, opts.MaxInstanceTokenBytes},
+		{optionMaxInstanceBytes, opts.MaxInstanceBytes},
 	}
 	for _, option := range values {
 		if option.value < 0 {
-			return optionError(option.name + " cannot be negative")
+			return optionError(optionNegativeMessage(option.name, option.value))
 		}
 	}
 	return nil
@@ -118,8 +116,4 @@ func uintLimitOrDefault(value, def uint64) uint64 {
 		return def
 	}
 	return value
-}
-
-func optionError(msg string) error {
-	return xsderrors.Validation(xsderrors.CodeValidationOption, msg, nil)
 }

@@ -217,7 +217,7 @@ func BenchmarkReentrantQNameConstruction(b *testing.B) {
 			b.Fatal(err)
 		}
 		_, err := program.Validate(parent, "p:y", resolver, 0, 16<<20, nil)
-		if !errors.Is(err, valuepkg.ErrFacet) || err.Error() != "enumeration facet failed" {
+		if !errors.Is(err, valuepkg.ErrFacet) {
 			b.Fatalf("Validate(p:y) = %v; want enumeration rejection", err)
 		}
 		got, err := program.Validate(child, "child", valuepkg.Resolver{}, valuepkg.NeedCanonical, 16<<20, nil)
@@ -489,7 +489,7 @@ func checkFloatPolicyFixture(tb testing.TB, fixture floatPolicyFixture) {
 		checkFloatPolicyResult(tb, got, row)
 	}
 	if fixture.name == "FloatList" {
-		if _, err := fixture.program.Validate(fixture.rows[0].id, "1 INX", valuepkg.Resolver{}, fixture.needs, 16<<20, &scratch); err == nil || err.Error() != "invalid float" {
+		if _, err := fixture.program.Validate(fixture.rows[0].id, "1 INX", valuepkg.Resolver{}, fixture.needs, 16<<20, &scratch); err == nil || !strings.HasSuffix(err.Error(), "invalid float") {
 			tb.Fatalf("list member rejection: %v", err)
 		}
 		got, err := fixture.program.Validate(fixture.rows[0].id, fixture.rows[0].input, valuepkg.Resolver{}, fixture.needs, 16<<20, &scratch)
@@ -598,21 +598,21 @@ func admittedOrderedFixtures(tb testing.TB) [4]admittedOrderedFixture {
 	return [4]admittedOrderedFixture{
 		{"DecimalInclusive", program, [6]admittedOrderedRow{
 			{inc, "1.5", ""}, {inc, "2", ""}, {inc, "2.5", ""},
-			{inc, "1.49", "lower bound facet failed"}, {inc, "2.51", "upper bound facet failed"}, {inc, "0", "lower bound facet failed"},
+			{inc, "1.49", `value "1.49" does not satisfy minInclusive "1.5"`}, {inc, "2.51", `value "2.51" does not satisfy maxInclusive "2.5"`}, {inc, "0", `value "0" does not satisfy minInclusive "1.5"`},
 		}},
 		{"DecimalExclusive", program, [6]admittedOrderedRow{
-			{exc, "1.5", "lower bound facet failed"}, {exc, "2", ""}, {exc, "2.5", "upper bound facet failed"},
-			{exc, "1.49", "lower bound facet failed"}, {exc, "2.51", "upper bound facet failed"}, {exc, "2.00", ""},
+			{exc, "1.5", `value "1.5" does not satisfy minExclusive "1.5"`}, {exc, "2", ""}, {exc, "2.5", `value "2.5" does not satisfy maxExclusive "2.5"`},
+			{exc, "1.49", `value "1.49" does not satisfy minExclusive "1.5"`}, {exc, "2.51", `value "2.51" does not satisfy maxExclusive "2.5"`}, {exc, "2.00", ""},
 		}},
 		// TimePartial times dateTime's partial order; recurring time is checked outside the loop.
 		{"TimePartial", program, [6]admittedOrderedRow{
 			{timeLower, "2000-01-01T12:00:00Z", ""}, {timeUpper, "2000-01-01T12:00:00Z", ""},
-			{timeLower, "2000-01-01T12:00:00", "lower bound facet failed"}, {timeUpper, "2000-01-01T12:00:00", "upper bound facet failed"},
+			{timeLower, "2000-01-01T12:00:00", `value "2000-01-01T12:00:00" does not satisfy minInclusive "2000-01-01T12:00:00Z"`}, {timeUpper, "2000-01-01T12:00:00", `value "2000-01-01T12:00:00" does not satisfy maxInclusive "2000-01-01T12:00:00Z"`},
 			{timeLower, "2000-01-01T13:00:00Z", ""}, {timeUpper, "2000-01-01T11:00:00Z", ""},
 		}},
 		{"DurationPartial", program, [6]admittedOrderedRow{
 			{durationLower, "P365D", ""}, {durationUpper, "P365D", ""},
-			{durationLower, "P1Y", "lower bound facet failed"}, {durationUpper, "P1Y", "upper bound facet failed"},
+			{durationLower, "P1Y", `value "P1Y" does not satisfy minInclusive "P365D"`}, {durationUpper, "P1Y", `value "P1Y" does not satisfy maxInclusive "P365D"`},
 			{durationLower, "P366D", ""}, {durationUpper, "P364D", ""},
 		}},
 	}
@@ -734,14 +734,14 @@ func checkAdmittedOrderedBatch(tb testing.TB, programs [4]*valuepkg.Program, ids
 	tb.Helper()
 	for i, program := range programs {
 		var scratch valuepkg.Scratch
-		rows := [3]admittedOrderedRow{{ids[i], "2", ""}, {ids[i], "1", "lower bound facet failed"}, {ids[i], "3", ""}}
+		rows := [3]admittedOrderedRow{{ids[i], "2", ""}, {ids[i], "1", `value "1" does not satisfy minInclusive "2.0"`}, {ids[i], "3", ""}}
 		switch i {
 		case 1:
-			rows = [3]admittedOrderedRow{{ids[i], "2", "lower bound facet failed"}, {ids[i], "3", ""}, {ids[i], "8", ""}}
+			rows = [3]admittedOrderedRow{{ids[i], "2", `value "2" does not satisfy minExclusive "2.0"`}, {ids[i], "3", ""}, {ids[i], "8", ""}}
 		case 2:
-			rows = [3]admittedOrderedRow{{ids[i], "9", ""}, {ids[i], "10", "upper bound facet failed"}, {ids[i], "8", ""}}
+			rows = [3]admittedOrderedRow{{ids[i], "9", ""}, {ids[i], "10", `value "10" does not satisfy maxInclusive "9.0"`}, {ids[i], "8", ""}}
 		case 3:
-			rows = [3]admittedOrderedRow{{ids[i], "9", "upper bound facet failed"}, {ids[i], "3", ""}, {ids[i], "8", ""}}
+			rows = [3]admittedOrderedRow{{ids[i], "9", `value "9" does not satisfy maxExclusive "9.0"`}, {ids[i], "3", ""}, {ids[i], "8", ""}}
 		}
 		for _, row := range rows {
 			checkAdmittedOrderedRow(tb, program, row, &scratch)

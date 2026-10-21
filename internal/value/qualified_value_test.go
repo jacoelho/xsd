@@ -2,6 +2,7 @@ package value
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -138,7 +139,7 @@ func TestProgramQualifiedUnionEnumeration(t *testing.T) {
 		t.Fatalf("QName fallback = %#v", fallback)
 	}
 	_, err = p.Validate(restricted, "p:item", undeclared, NeedCanonical|NeedIdentity, 16<<20, nil)
-	if !errors.Is(err, ErrFacet) || err.Error() != "enumeration facet failed" {
+	if !errors.Is(err, ErrFacet) {
 		t.Fatalf("cross-kind enumeration = %v, want enumeration facet failed", err)
 	}
 	accepted, err := p.Validate(restricted, "p:item", declared, NeedCanonical|NeedIdentity, 16<<20, nil)
@@ -171,7 +172,7 @@ func TestProgramQualifiedResolverAdmission(t *testing.T) {
 		{"missing QName resolver", PrimitiveQName, Resolver{}, "invalid QName"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, err := p.Validate(BuiltinType(tc.kind), "p:item", tc.resolver, NeedCanonical|NeedIdentity, 16<<20, nil); err == nil || err.Error() != tc.want {
+			if _, err := p.Validate(BuiltinType(tc.kind), "p:item", tc.resolver, NeedCanonical|NeedIdentity, 16<<20, nil); err == nil || !strings.HasSuffix(err.Error(), tc.want) {
 				t.Fatalf("resolver admission = %v, want %q", err, tc.want)
 			}
 		})

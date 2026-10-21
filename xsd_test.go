@@ -637,8 +637,8 @@ func TestIdentityConstraintValueSpaceRules(t *testing.T) {
 			t.Fatalf("Compile() error = %v", err)
 		}
 		for _, test := range []struct{ doc, diagnostic string }{
-			{`<root><row><code>present</code></row></root>`, "key field selects nillable element declaration"},
-			{`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><row><code xsi:nil="true"/></row></root>`, "key field is missing"},
+			{`<root><row><code>present</code></row></root>`, "a key field must not select a nillable element declaration"},
+			{`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><row><code xsi:nil="true"/></row></root>`, "a key requires a value, but the selected node is absent or nilled"},
 		} {
 			err = engine.Validate(strings.NewReader(test.doc))
 			expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationIdentity)
@@ -685,7 +685,7 @@ func TestIdentityConstraintValueSpaceRules(t *testing.T) {
 			if err == nil {
 				t.Fatalf("Validate(%s) succeeded", doc)
 			}
-			if errorTreeContains(err, "key field selects nillable element declaration") {
+			if errorTreeContains(err, "a key field must not select a nillable element declaration") {
 				t.Fatalf("Validate(%s) error = %v, want no secondary nillable-key error", doc, err)
 			}
 		}
@@ -705,7 +705,7 @@ func TestIdentityConstraintValueSpaceRules(t *testing.T) {
 		if err == nil {
 			t.Fatal("Validate(missing required attribute) succeeded")
 		}
-		if errorTreeContains(err, "key field selects nillable element declaration") {
+		if errorTreeContains(err, "a key field must not select a nillable element declaration") {
 			t.Fatalf("Validate(missing required attribute) error = %v, want no secondary nillable-key error", err)
 		}
 
@@ -726,10 +726,10 @@ func TestIdentityConstraintValueSpaceRules(t *testing.T) {
 			`<root><code><value>not-an-int</value></code></root>`,
 		} {
 			err = complexEngine.ValidateWithOptions(strings.NewReader(doc), xsd.ValidateOptions{MaxErrors: 0})
-			if err == nil || !errorTreeContains(err, "identity field has no simple value") {
+			if err == nil || !errorTreeContains(err, "without a simple value") {
 				t.Fatalf("Validate(%s) error = %v, want complex-field identity error", doc, err)
 			}
-			if errorTreeContains(err, "key field selects nillable element declaration") {
+			if errorTreeContains(err, "a key field must not select a nillable element declaration") {
 				t.Fatalf("Validate(%s) error = %v, want no nillable-key error for an unqualified sequence", doc, err)
 			}
 		}
@@ -748,10 +748,10 @@ func TestIdentityConstraintValueSpaceRules(t *testing.T) {
 			t.Fatalf("Compile(incomplete key schema) error = %v", err)
 		}
 		err = incompleteKeyEngine.ValidateWithOptions(strings.NewReader(`<root><row><code>present</code></row></root>`), xsd.ValidateOptions{MaxErrors: 0})
-		if err == nil || !errorTreeContains(err, "key field is missing") {
+		if err == nil || !errorTreeContains(err, "a key requires a value, but the selected node is absent or nilled") {
 			t.Fatalf("Validate(incomplete key) error = %v, want missing-field error", err)
 		}
-		if errorTreeContains(err, "key field selects nillable element declaration") {
+		if errorTreeContains(err, "a key field must not select a nillable element declaration") {
 			t.Fatalf("Validate(incomplete key) error = %v, want no nillable-key error for an unqualified sequence", err)
 		}
 	})
@@ -809,8 +809,8 @@ func TestIdentityCaptureDoesNotDuplicateXSIStartDiagnostics(t *testing.T) {
 		doc  string
 		text string
 	}{
-		{name: "selected nil", doc: `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="bogus"/>`, text: "invalid xsi:nil value"},
-		{name: "unselected nil", doc: `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><child xsi:nil="bogus"/></root>`, text: "invalid xsi:nil value"},
+		{name: "selected nil", doc: `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="bogus"/>`, text: `xsi:nil has value "bogus"; expected one of ["true", "false", "1", "0"]`},
+		{name: "unselected nil", doc: `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><child xsi:nil="bogus"/></root>`, text: `xsi:nil has value "bogus"; expected one of ["true", "false", "1", "0"]`},
 		{name: "selected type", doc: `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="p:Missing"/>`, text: "xsi:type"},
 		{name: "unselected type", doc: `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><child xsi:type="p:Missing"/></root>`, text: "xsi:type"},
 	}
@@ -893,12 +893,12 @@ func TestXSIHintIdentityKeysMatchOrdinaryAnyURIValues(t *testing.T) {
 		{
 			name: "invalid schemaLocation item",
 			doc:  `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><source xsi:noNamespaceSchemaLocation="one.xsd" xsi:schemaLocation="urn:a %zz"/></root>`,
-			text: "invalid xsi:schemaLocation URI %zz",
+			text: `invalid xsi:schemaLocation URI "%zz"`,
 		},
 		{
 			name: "invalid noNamespaceSchemaLocation",
 			doc:  `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><source xsi:noNamespaceSchemaLocation="http://[bad]/" xsi:schemaLocation="urn:a a.xsd"/></root>`,
-			text: "invalid xsi:noNamespaceSchemaLocation URI http://[bad]/",
+			text: `invalid xsi:noNamespaceSchemaLocation URI "http://[bad]/"`,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -927,7 +927,7 @@ func TestXSIStartAssessmentIsAttributeOrderIndependent(t *testing.T) {
 				`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true" xsi:type="p:Missing">value</root>`,
 				`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="p:Missing" xsi:nil="true">value</root>`,
 			},
-			diagnostics: []string{"xsi:type", "nilled element must be empty"},
+			diagnostics: []string{"xsi:type", `an element with xsi:nil="true" must have no text or child elements`},
 		},
 		{
 			name: "valid type survives invalid nil",
@@ -938,7 +938,7 @@ func TestXSIStartAssessmentIsAttributeOrderIndependent(t *testing.T) {
 				`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xs="http://www.w3.org/2001/XMLSchema" xsi:nil="bogus" xsi:type="xs:int">1.5</root>`,
 				`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xs="http://www.w3.org/2001/XMLSchema" xsi:type="xs:int" xsi:nil="bogus">1.5</root>`,
 			},
-			diagnostics: []string{"invalid xsi:nil value", "invalid simple content"},
+			diagnostics: []string{`xsi:nil has value "bogus"; expected one of ["true", "false", "1", "0"]`, "invalid simple content"},
 		},
 	}
 	for _, test := range tests {
@@ -981,8 +981,8 @@ func TestOwnedIdentityFailureSuppressesOuterNillableKeyError(t *testing.T) {
 		t.Fatalf("Compile(self-key schema) error = %v", compileErr)
 	}
 	for _, test := range []struct{ document, diagnostic string }{
-		{`<root>value</root>`, "key field selects nillable element declaration"},
-		{`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>`, "key field is missing"},
+		{`<root>value</root>`, "a key field must not select a nillable element declaration"},
+		{`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>`, "a key requires a value, but the selected node is absent or nilled"},
 	} {
 		validationErr := selfKeyEngine.Validate(strings.NewReader(test.document))
 		if !errorTreeContains(validationErr, test.diagnostic) {
@@ -1023,10 +1023,10 @@ func TestOwnedIdentityFailureSuppressesOuterNillableKeyError(t *testing.T) {
 			}
 
 			validationErr := session.Validate(strings.NewReader(`<root><code>value</code></root>`))
-			if !errorTreeContains(validationErr, "key field is missing") {
+			if !errorTreeContains(validationErr, "a key requires a value, but the selected node is absent or nilled") {
 				t.Fatalf("Validate(missing inner key) error = %v, want missing-field error", validationErr)
 			}
-			if errorTreeContains(validationErr, "key field selects nillable element declaration") {
+			if errorTreeContains(validationErr, "a key field must not select a nillable element declaration") {
 				t.Fatalf("Validate(missing inner key) error = %v, want no secondary nillable-key error", validationErr)
 			}
 			if count := errorTreeLeafCount(validationErr); count != 1 {
@@ -1034,10 +1034,10 @@ func TestOwnedIdentityFailureSuppressesOuterNillableKeyError(t *testing.T) {
 			}
 
 			validationErr = session.Validate(strings.NewReader(`<root><code id="present">value</code></root>`))
-			if !errorTreeContains(validationErr, "key field selects nillable element declaration") {
+			if !errorTreeContains(validationErr, "a key field must not select a nillable element declaration") {
 				t.Fatalf("Validate(valid inner key) error = %v, want nillable-key error", validationErr)
 			}
-			if errorTreeContains(validationErr, "key field is missing") {
+			if errorTreeContains(validationErr, "a key requires a value, but the selected node is absent or nilled") {
 				t.Fatalf("Validate(valid inner key) error = %v, stale missing-field state", validationErr)
 			}
 		})
@@ -1065,10 +1065,10 @@ func TestOwnedIdentityFailureSuppressesOuterNillableKeyError(t *testing.T) {
 	validationErr := engine.ValidateWithOptions(strings.NewReader(`<root><code id="one" ref="two">value</code></root>`),
 		xsd.ValidateOptions{MaxErrors: 2})
 
-	if !errorTreeContains(validationErr, "keyref does not resolve") {
+	if !errorTreeContains(validationErr, `keyref value does not match any value of referenced identity constraint "inner"`) {
 		t.Fatalf("Validate(unresolved inner keyref) error = %v, want keyref error", validationErr)
 	}
-	if errorTreeContains(validationErr, "key field selects nillable element declaration") {
+	if errorTreeContains(validationErr, "a key field must not select a nillable element declaration") {
 		t.Fatalf("Validate(unresolved inner keyref) error = %v, want no secondary nillable-key error", validationErr)
 	}
 }
@@ -1098,7 +1098,7 @@ func TestRecursiveIdentityLocalKeyShadowsPropagatedChildEntries(t *testing.T) {
 	invalid := `<root id="x" ref="missing"><root id="x"/><root id="x"/></root>`
 	err = engine.Validate(strings.NewReader(invalid))
 	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationIdentity)
-	if !errorTreeContains(err, "keyref does not resolve") {
+	if !errorTreeContains(err, `keyref value does not match any value of referenced identity constraint "ids"`) {
 		t.Fatalf("Validate(recursive unresolved keyref) error = %v, want keyref diagnostic", err)
 	}
 }
@@ -1256,7 +1256,7 @@ func TestIdentityFieldsIgnoreSkippedAttributesAndRejectUnassessedLax(t *testing.
 				return
 			}
 			expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationIdentity)
-			if !strings.Contains(err.Error(), "identity field has no simple value") {
+			if !strings.Contains(err.Error(), "without a simple value") {
 				t.Fatalf("Validate() error = %v, want no-simple-value identity error", err)
 			}
 		})
@@ -1303,7 +1303,7 @@ func TestIdentityRecoveryDoesNotReclassifyMatchedNodesAsMissing(t *testing.T) {
 	}
 	err = engine.ValidateWithOptions(strings.NewReader(`<root><row><bad/></row></root>`), xsd.ValidateOptions{MaxErrors: 10})
 	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationElement)
-	if strings.Contains(err.Error(), "key field is missing") {
+	if strings.Contains(err.Error(), "a key requires a value, but the selected node is absent or nilled") {
 		t.Fatalf("Validate() added missing-field cascade after recovery: %v", err)
 	}
 }
@@ -1342,7 +1342,7 @@ func TestInvalidTypedIdentityFieldsDoNotBecomeMissingFields(t *testing.T) {
 			}
 			err = engine.ValidateWithOptions(strings.NewReader(test.instance), xsd.ValidateOptions{MaxErrors: 10})
 			expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationFacet)
-			if strings.Contains(err.Error(), "key field is missing") {
+			if strings.Contains(err.Error(), "a key requires a value, but the selected node is absent or nilled") {
 				t.Fatalf("Validate() added missing-field cascade after invalid typed value: %v", err)
 			}
 		})
@@ -1784,7 +1784,7 @@ func TestIdentityDiagnosticsRetainDocumentPaths(t *testing.T) {
 		}
 		err = engine.Validate(strings.NewReader(`<root><ref id="missing"/></root>`))
 		xerr, ok := errors.AsType[*xsderrors.Error](err)
-		if !ok || xerr.Path() != "/root/ref" || !strings.Contains(xerr.Message(), "IDREF does not resolve") {
+		if !ok || xerr.Path() != "/root/ref" || !strings.Contains(xerr.Message(), `IDREF "missing" does not match any xs:ID value`) {
 			t.Fatalf("IDREF diagnostic = %v", err)
 		}
 	})
@@ -1805,7 +1805,7 @@ func TestIdentityDiagnosticsRetainDocumentPaths(t *testing.T) {
 		}
 		err = engine.Validate(strings.NewReader(`<root><ref id="missing"/></root>`))
 		xerr, ok := errors.AsType[*xsderrors.Error](err)
-		if !ok || xerr.Path() != "/root/ref" || !strings.Contains(xerr.Message(), "keyref does not resolve") {
+		if !ok || xerr.Path() != "/root/ref" || !strings.Contains(xerr.Message(), `keyref value does not match any value of referenced identity constraint "ids"`) {
 			t.Fatalf("keyref diagnostic = %v", err)
 		}
 	})

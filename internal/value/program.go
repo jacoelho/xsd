@@ -319,7 +319,7 @@ func (b *Builder) verifyComplete() error {
 	inProgress := false
 	for i, state := range b.program.complete {
 		if state == completionReserved {
-			return fmt.Errorf("type %d: %w", userTypeID(i), ErrMetadata)
+			return fmt.Errorf(msgTypeMetadata, userTypeID(i), ErrMetadata)
 		}
 		inProgress = inProgress || state == completionInProgress
 	}
@@ -668,10 +668,10 @@ func (p *Program) compileBound(id TypeID, t *typeDef, source BoundFacet, budget 
 		work:          budget,
 	}, &v)
 	if err != nil {
-		return boundValue{}, fmt.Errorf("bound %q: %w", source.Lexical, err)
+		return boundValue{}, fmt.Errorf(msgBoundValue, source.Lexical, err)
 	}
 	if t.variety != Atomic || v.isList || v.atom.kind != t.primitive {
-		return boundValue{}, fmt.Errorf("bound %q has an incompatible value type", source.Lexical)
+		return boundValue{}, fmt.Errorf(msgIncompatibleBound, source.Lexical)
 	}
 	offset, err := p.timeBoundDayOffset(t, literalType, source.Lexical, v.atom)
 	if err != nil {
@@ -711,20 +711,20 @@ func (p *Program) compileEnumeration(id TypeID, source FacetSpec, own *facetProg
 			literalType = id
 		}
 		// Enumeration literals retain typed list items for value-space
-		// comparison. Their canonical/identity projections are compile-time
-		// construction data and are not retained by validation results. The
+		// comparison and canonical text for failure diagnostics. Their
+		// projections are construction data, not validation results. The
 		// containing type's facets are skipped until its effective program is
 		// installed; evalUnion and evalListField still enforce child facets.
 		var v parsedValue
 		_, err := p.eval(literalType, entry.Lexical, evalOptions{
 			resolver:           entry.Resolver,
-			needs:              NeedIdentity,
+			needs:              NeedCanonical | NeedIdentity,
 			retainAllListItems: true,
 			enforceFacets:      false,
 			work:               budget,
 		}, &v)
 		if err != nil {
-			return fmt.Errorf("enumeration %q: %w", entry.Lexical, err)
+			return fmt.Errorf(msgEnumerationValue, entry.Lexical, err)
 		}
 		group = append(group, v)
 		if v.isList && v.count > own.enumItemLimit {
@@ -820,16 +820,16 @@ func validPatternGroups(groups [][]*Pattern) bool {
 
 func validateFacetShape(spec typeDef, f facetProgram) error {
 	if invalidBoundKinds(f) {
-		return errors.New("inclusive and exclusive bounds cannot both be present")
+		return errors.New(msgBoundKindsConflict)
 	}
 	if message := facetVarietyError(spec, f); message != "" {
 		return errors.New(message)
 	}
 	if f.totalDigits.Present && f.totalDigits.Value == 0 {
-		return errors.New("totalDigits must be positive")
+		return errors.New(msgTotalDigitsPositive)
 	}
 	if facetCardinalityViolation(f) != nil {
-		return errors.New("facet cardinality relationship is invalid")
+		return errors.New(msgFacetCardinality)
 	}
 	return nil
 }
@@ -841,16 +841,16 @@ func invalidBoundKinds(f facetProgram) bool {
 func facetVarietyError(spec typeDef, f facetProgram) string {
 	unsupported := f.present &^ allowedFacetMask(spec.variety, spec.primitive)
 	if unsupported&orderedFacetMask != 0 {
-		return "ordered facets require an ordered atomic type"
+		return msgOrderedAtomicRequired
 	}
 	if unsupported&(FacetTotalDigits|FacetFractionDigits) != 0 {
-		return "digit facets require atomic decimal type"
+		return msgAtomicDecimalRequired
 	}
 	if unsupported&lengthFacetMask != 0 && spec.variety == Atomic {
-		return "length facets require a length-capable type"
+		return msgLengthCapableRequired
 	}
 	if unsupported&lengthFacetMask != 0 && spec.variety == Union {
-		return "length facets are not valid on union types"
+		return msgUnionLengthForbidden
 	}
 	return ""
 }
@@ -859,7 +859,7 @@ func validateEffectiveFacetShape(primitive PrimitiveKind, f facetProgram) error 
 	for _, lower := range f.lower {
 		for _, upper := range f.upper {
 			if !validBoundPair(primitive, lower, upper) {
-				return errors.New("ordered facet bounds are invalid")
+				return errors.New(msgInvalidOrderedBounds)
 			}
 		}
 	}

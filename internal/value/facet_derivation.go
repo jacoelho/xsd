@@ -14,10 +14,10 @@ func validateFacetSource(spec typeDef, facets FacetSpec, own facetProgram, missi
 		return ErrMetadata
 	}
 	if own.present&^allowedFacetMask(spec.variety, spec.primitive) != 0 {
-		return facetFailure("facet is not allowed for simple type")
+		return errFacetNotAllowed
 	}
 	if facets.Fixed&(FacetPattern|FacetEnumeration) != 0 {
-		return facetFailure("pattern and enumeration facets cannot be fixed")
+		return errFixedPatternEnumeration
 	}
 	return nil
 }
@@ -110,7 +110,7 @@ func validateTypeDerivation(baseID TypeID, derived, base typeDef) error {
 		return nil
 	}
 	if derived.variety != base.variety || derived.primitive != base.primitive || derived.builtin != base.builtin || derived.identity != base.identity {
-		return facetFailure("simple type semantic fields do not match base restriction")
+		return errRestrictionSemantics
 	}
 	return validateTypeShape(derived, base)
 }
@@ -119,15 +119,15 @@ func validateTypeShape(derived, base typeDef) error {
 	switch base.variety {
 	case List:
 		if derived.listItem != base.listItem {
-			return facetFailure("simple type list item does not match base restriction")
+			return errRestrictionListItem
 		}
 	case Union:
 		if !slices.Equal(derived.union, base.union) {
-			return facetFailure("simple type union members do not match base restriction")
+			return errRestrictionUnionMembers
 		}
 	case Atomic:
 		if derived.listItem != NoType || len(derived.union) != 0 {
-			return facetFailure("atomic type shape does not match base restriction")
+			return errRestrictionAtomicShape
 		}
 	default:
 		return ErrMetadata
@@ -137,42 +137,42 @@ func validateTypeShape(derived, base typeDef) error {
 
 func validateWhitespaceDerivation(derived, base WhitespaceMode) error {
 	if derived < base {
-		return facetFailure("whiteSpace cannot loosen base restriction")
+		return errWhitespaceLoosensBase
 	}
 	return nil
 }
 
 func facetCardinalityViolation(f facetProgram) error {
 	if f.length.Present && f.minLength.Present && f.length.Value < f.minLength.Value {
-		return facetFailure("length cannot be less than minLength")
+		return errLengthBelowMinLength
 	}
 	if f.length.Present && f.maxLength.Present && f.length.Value > f.maxLength.Value {
-		return facetFailure("length cannot exceed maxLength")
+		return errLengthAboveMaxLength
 	}
 	if f.minLength.Present && f.maxLength.Present && f.minLength.Value > f.maxLength.Value {
-		return facetFailure("minLength cannot exceed maxLength")
+		return errMinLengthAboveMaxLength
 	}
 	if f.totalDigits.Present && f.fractionDigits.Present && f.fractionDigits.Value > f.totalDigits.Value {
-		return facetFailure("fractionDigits cannot exceed totalDigits")
+		return errFractionDigitsAboveTotalDigits
 	}
 	return nil
 }
 
 func validateDeclaredCardinalityRestriction(derived, base facetProgram) error {
 	if derived.length.Present && base.length.Present && derived.length.Value != base.length.Value {
-		return facetFailure("length must equal base length")
+		return errLengthChangesBase
 	}
 	if derived.minLength.Present && base.minLength.Present && derived.minLength.Value < base.minLength.Value {
-		return facetFailure("minLength cannot be less than base minLength")
+		return errMinLengthLoosensBase
 	}
 	if derived.maxLength.Present && base.maxLength.Present && derived.maxLength.Value > base.maxLength.Value {
-		return facetFailure("maxLength cannot exceed base maxLength")
+		return errMaxLengthLoosensBase
 	}
 	if derived.totalDigits.Present && base.totalDigits.Present && derived.totalDigits.Value > base.totalDigits.Value {
-		return facetFailure("totalDigits cannot exceed base totalDigits")
+		return errTotalDigitsLoosensBase
 	}
 	if derived.fractionDigits.Present && base.fractionDigits.Present && derived.fractionDigits.Value > base.fractionDigits.Value {
-		return facetFailure("fractionDigits cannot exceed base fractionDigits")
+		return errFractionDigitsLoosensBase
 	}
 	return nil
 }
@@ -182,10 +182,10 @@ func validateLengthAncestry(candidate, base facetProgram) error {
 		return nil
 	}
 	if candidate.minLength.Present && !sameCardinality(candidate.minLength, base.minLength) {
-		return facetFailure("length requires an inherited minLength with the same value")
+		return errLengthRequiresBaseMinLength
 	}
 	if candidate.maxLength.Present && !sameCardinality(candidate.maxLength, base.maxLength) {
-		return facetFailure("length requires an inherited maxLength with the same value")
+		return errLengthRequiresBaseMaxLength
 	}
 	return nil
 }
@@ -205,7 +205,7 @@ func validateLowerBoundRestrictions(derived, base []boundValue) error {
 	for _, bound := range derived {
 		for _, inherited := range base {
 			if !orderedLowerRestricts(bound, inherited) {
-				return facetFailure("lower ordered facet cannot loosen base restriction")
+				return errLowerBoundLoosensBase
 			}
 		}
 	}
@@ -216,7 +216,7 @@ func validateUpperBoundRestrictions(derived, base []boundValue) error {
 	for _, bound := range derived {
 		for _, inherited := range base {
 			if !orderedUpperRestricts(bound, inherited) {
-				return facetFailure("upper ordered facet cannot loosen base restriction")
+				return errUpperBoundLoosensBase
 			}
 		}
 	}
@@ -229,7 +229,7 @@ func validateEnumerationRestriction(derived, base facetProgram) error {
 	}
 	for _, literal := range derived.enumGroups[0] {
 		if !enumerationInGroups(literal, base.enumGroups) {
-			return facetFailure("enumeration facet cannot loosen base restriction")
+			return errEnumerationLoosensBase
 		}
 	}
 	return nil
@@ -288,7 +288,7 @@ func validateFixedFacetDerivation(derived typeDef, own, candidate facetProgram, 
 		return ErrMetadata
 	}
 	if fixed&FacetWhiteSpace != 0 && derived.whitespace != base.whitespace {
-		return facetFailure("fixed whiteSpace facet cannot change")
+		return errFixedWhitespaceChanges
 	}
 	if err := validateFixedCardinality(fixed, candidate, base.facets); err != nil {
 		return err
@@ -309,7 +309,7 @@ func validateFixedCardinality(fixed FacetMask, candidate, base facetProgram) err
 		{FacetFractionDigits, base.fractionDigits, candidate.fractionDigits},
 	} {
 		if fixed&entry.flag != 0 && !sameCardinality(entry.got, entry.base) {
-			return facetFailure("fixed cardinality facet cannot change")
+			return errFixedCardinalityChanges
 		}
 	}
 	return nil
@@ -344,7 +344,7 @@ func validateFixedBound(fixed FacetMask, flag FacetMask, own, base []boundValue)
 	}
 	declared, hasDeclared := findBound(own, exclusive)
 	if hasDeclared && !equalAtomic(&declared.value, &baseBound.value) {
-		return facetFailure("fixed ordered facet cannot change")
+		return errFixedOrderedChanges
 	}
 	return nil
 }

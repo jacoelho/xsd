@@ -33,7 +33,7 @@ func (s *session) acceptChild(parent *frame, rn xsdSchema.RuntimeName, flags xsi
 		return acceptedChild{}, xsderrors.InternalInvariant("content model state is invalid")
 	}
 	if status == xsdSchema.ContentTransitionNoMatch {
-		return s.recoverableChildIssue(line, col, unexpectedChildIssue(rn))
+		return s.recoverableChildIssue(line, col, s.unexpectedContentIssue(parent, rn))
 	}
 	return s.acceptMatchedChild(transition, rn, line, col)
 }
@@ -142,7 +142,7 @@ func (s *session) completeFrame(f *frame, line, col int) error {
 	if status == xsdSchema.ContentCompletionComplete {
 		return nil
 	}
-	return validationFromIssue(s.startContext(line, col), missingRequiredChildIssue())
+	return validationFromIssue(s.startContext(line, col), s.incompleteContentIssue(f))
 }
 
 func (s *session) contentScratch(f *frame) xsdSchema.ContentScratch {

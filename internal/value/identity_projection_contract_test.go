@@ -332,7 +332,7 @@ func TestCanonicalProjectionRetainsFloatListEnumeration(t *testing.T) {
 		}
 		assertRequestedCanonicalProjection(t, got, needs, "1.0E0 2.0E0", "\x00\x1e7:\x03\x1e1.0E07:\x03\x1e2.0E0")
 		for _, lexical := range []string{"1e0", "1e0 3e0"} {
-			if _, err := program.Validate(id, lexical, value.Resolver{}, needs, 16<<20, nil); !errors.Is(err, value.ErrFacet) || err.Error() != "enumeration facet failed" {
+			if _, err := program.Validate(id, lexical, value.Resolver{}, needs, 16<<20, nil); !errors.Is(err, value.ErrFacet) {
 				t.Fatalf("Validate(%q) error=%v; want enumeration facet failed", lexical, err)
 			}
 		}

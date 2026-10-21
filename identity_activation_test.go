@@ -29,7 +29,7 @@ func TestLazyDocumentIdentityThroughDynamicAnyType(t *testing.T) {
 	missing := `<root ` + namespaces + `><id xsi:type="xs:ID">one</id><ref xsi:type="xs:IDREF">missing</ref></root>`
 	err = engine.Validate(strings.NewReader(missing))
 	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationType)
-	if !strings.Contains(err.Error(), "IDREF does not resolve: missing") {
+	if !strings.Contains(err.Error(), `IDREF "missing" does not match any xs:ID value`) {
 		t.Fatalf("Validate(missing dynamic IDREF) error = %v, want unresolved IDREF", err)
 	}
 }
@@ -51,7 +51,7 @@ func TestLazyDocumentIdentityThroughLaxWildcardDeclarations(t *testing.T) {
 	}
 	err = engine.Validate(strings.NewReader(`<root><id>one</id><ref>missing</ref></root>`))
 	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationType)
-	if !strings.Contains(err.Error(), "IDREF does not resolve: missing") {
+	if !strings.Contains(err.Error(), `IDREF "missing" does not match any xs:ID value`) {
 		t.Fatalf("Validate(missing wildcard IDREF) error = %v, want unresolved IDREF", err)
 	}
 }
@@ -72,7 +72,7 @@ func TestLazyDocumentIdentityThroughCompositeType(t *testing.T) {
 	}
 	err = engine.Validate(strings.NewReader(`<root><item>7</item><item>+7</item><item>same</item><item>same</item></root>`))
 	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationType)
-	if !strings.Contains(err.Error(), "duplicate ID same") {
+	if !strings.Contains(err.Error(), `duplicate ID "same"`) {
 		t.Fatalf("Validate(duplicate composite ID) error = %v, want duplicate ID", err)
 	}
 }

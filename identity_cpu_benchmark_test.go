@@ -392,7 +392,7 @@ func checkRecursiveIdentityBenchmark(tb testing.TB, engine *xsd.Engine) {
 	}
 	for _, failure := range failures {
 		diagnostic, ok := errors.AsType[*xsderrors.Error](failure)
-		if !ok || diagnostic.Category() != xsderrors.CategoryValidation || diagnostic.Code() != xsderrors.CodeValidationIdentity || !strings.Contains(diagnostic.Message(), "keyref does not resolve") {
+		if !ok || diagnostic.Category() != xsderrors.CategoryValidation || diagnostic.Code() != xsderrors.CodeValidationIdentity || !strings.Contains(diagnostic.Message(), `keyref value does not match any value of referenced identity constraint "ids"`) {
 			tb.Fatalf("recursive keyref diagnostic = %v", failure)
 		}
 	}

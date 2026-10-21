@@ -25,18 +25,19 @@ type listedPackage struct {
 func TestInternalCapabilityImportAllowlist(t *testing.T) {
 	const module = "github.com/jacoelho/xsd"
 	allowed := map[string]map[string]bool{
+		module + "/internal/diagnostictext": {},
 		module + "/internal/schema": allowProjectImports(
-			"internal/lex", "internal/source", "internal/uriref", "internal/vocab",
+			"internal/diagnostictext", "internal/lex", "internal/source", "internal/uriref", "internal/vocab",
 			"internal/value", "internal/xmlstream", "internal/xsdregex", "xsderrors"),
 		module + "/internal/format": allowProjectImports(
 			"internal/lex", "internal/vocab", "internal/xmlstream", "xsderrors"),
 		module + "/internal/lex":        {},
 		module + "/internal/source":     allowProjectImports("internal/uriref", "xsderrors"),
-		module + "/internal/value":      allowProjectImports("internal/lex", "internal/uriref", "internal/vocab", "internal/xsdregex", "xsderrors"),
+		module + "/internal/value":      allowProjectImports("internal/diagnostictext", "internal/lex", "internal/uriref", "internal/vocab", "internal/xsdregex", "xsderrors"),
 		module + "/internal/valuebench": allowProjectImports("internal/value"),
 		module + "/internal/uriref":     {},
 		module + "/internal/validate": allowProjectImports(
-			"internal/lex", "internal/schema", "internal/uriref",
+			"internal/diagnostictext", "internal/lex", "internal/schema", "internal/uriref",
 			"internal/value", "internal/vocab", "internal/xmlstream", "xsderrors"),
 		module + "/internal/vocab":     {},
 		module + "/internal/xmlstream": allowProjectImports("internal/lex", "internal/vocab"),

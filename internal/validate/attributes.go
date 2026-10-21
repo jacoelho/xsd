@@ -5,12 +5,7 @@ import (
 
 	xsdSchema "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/vocab"
-	"github.com/jacoelho/xsd/xsderrors"
 )
-
-func attributeValidation(ctx StartContext, msg string) error {
-	return validation(ctx, xsderrors.CodeValidationAttribute, msg)
-}
 
 func isXSIAttributeName(name xml.Name) bool {
 	return name.Space == vocab.XSINamespaceURI &&

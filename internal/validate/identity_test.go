@@ -98,8 +98,8 @@ func TestIdentityStateLimitsBoundStaging(t *testing.T) {
 		message   string
 		maxStaged int
 	}{
-		{name: "entries", limits: identityLimits{Entries: 1}, refs: "a b c", message: "identity entry limit exceeded", maxStaged: 1},
-		{name: "tuple bytes", limits: identityLimits{TupleBytes: 1}, refs: "aa bb", message: "identity tuple byte limit exceeded", maxStaged: 0},
+		{name: "entries", limits: identityLimits{Entries: 1}, refs: "a b c", message: "identity entry limit exceeded: 2 exceeds MaxIdentityEntries=1", maxStaged: 1},
+		{name: "tuple bytes", limits: identityLimits{TupleBytes: 1}, refs: "aa bb", message: "identity tuple byte limit exceeded: 2 exceeds MaxIdentityTupleBytes=1", maxStaged: 0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -229,7 +229,7 @@ func TestIdentityStateRejectsDuplicateIDWithoutMutating(t *testing.T) {
 	}
 	err := evaluation.recordIdentityFields("a", "", identityTestContext("/second", 4, 5))
 	expectXSDCode(t, err, xsderrors.CodeValidationType)
-	expectXSDMessage(t, err, "duplicate ID a first seen at /first")
+	expectXSDMessage(t, err, `duplicate ID "a"; first seen at /first`)
 	if evaluation.entries != 1 {
 		t.Fatalf("entries = %d, want 1", evaluation.entries)
 	}
@@ -243,7 +243,7 @@ func TestIdentityStateRejectsDuplicateIDWithoutMutating(t *testing.T) {
 	batch := identityEvaluation{limits: identityLimits{Entries: 1}}
 	err = batch.recordIdentityFields("a a", "", identityTestContext("/batch", 6, 7))
 	expectXSDCode(t, err, xsderrors.CodeValidationType)
-	expectXSDMessage(t, err, "duplicate ID a first seen at /batch")
+	expectXSDMessage(t, err, `duplicate ID "a"; first seen at /batch`)
 	if len(batch.ids) != 0 || batch.entries != 0 {
 		t.Fatalf("duplicate ID batch mutated state: ids=%v entries=%d", batch.ids, batch.entries)
 	}
@@ -289,7 +289,7 @@ func TestIdentityStateReportsMissingIDREFAtOriginalLocation(t *testing.T) {
 		t.Fatalf("checkIDRefs() error = %v", err)
 	}
 	expectXSDCode(t, got, xsderrors.CodeValidationType)
-	expectXSDMessage(t, got, "IDREF does not resolve: missing")
+	expectXSDMessage(t, got, `IDREF "missing" does not match any xs:ID value in the document`)
 	expectXSDLocation(t, got, "/ref", 2, 3)
 }
 
@@ -313,7 +313,7 @@ func TestIdentityStateUsesXMLWhitespaceFields(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("checkIDRefs() error = %v", err)
 	}
-	expectXSDMessage(t, got, "IDREF does not resolve: a\u00a0b")
+	expectXSDMessage(t, got, `IDREF "a\u00a0b" does not match any xs:ID value in the document`)
 }
 
 func TestValueIdentityKey(t *testing.T) {
@@ -536,7 +536,7 @@ func TestIdentityStateStartScopeEnforcesLimit(t *testing.T) {
 	}
 	err := state.startScope(constraints, 2, 1, ctx)
 	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
-	expectXSDMessage(t, err, "identity scope limit exceeded")
+	expectXSDMessage(t, err, "identity scope limit exceeded: 2 exceeds MaxIdentityScopes=1")
 	if len(state.scopes) != 1 {
 		t.Fatalf("scopes = %d, want 1", len(state.scopes))
 	}
@@ -550,16 +550,16 @@ func TestIdentityStateCaptureFieldsRejectsInvalidAndDuplicateMatches(t *testing.
 	startIdentityScope(t, &state, []xsdSchema.IdentityConstraintID{id}, 1, "/root")
 	state.startSelectionForTest(0, 2, id, 1, identityTestContext("/row", 4, 5))
 
-	err := state.captureFields([]identityFieldMatch{{Selection: 1, Field: 0}}, identityFieldValue{value: "a", state: identityFieldPresent}, identityTestContext("/row/id", 6, 7))
+	err := state.captureFields(nil, []identityFieldMatch{{Selection: 1, Field: 0}}, identityFieldValue{value: "a", state: identityFieldPresent}, identityTestContext("/row/id", 6, 7))
 	expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
 
-	err = state.captureFields([]identityFieldMatch{{Selection: 0, Field: 0}}, identityFieldValue{value: "a", state: identityFieldPresent}, identityTestContext("/row/id", 6, 7))
+	err = state.captureFields(nil, []identityFieldMatch{{Selection: 0, Field: 0}}, identityFieldValue{value: "a", state: identityFieldPresent}, identityTestContext("/row/id", 6, 7))
 	if err != nil {
 		t.Fatalf("captureFields(first) error = %v", err)
 	}
-	err = state.captureFields([]identityFieldMatch{{Selection: 0, Field: 0}}, identityFieldValue{value: "b", state: identityFieldPresent}, identityTestContext("/row", 8, 9))
+	err = state.captureFields(nil, []identityFieldMatch{{Selection: 0, Field: 0}}, identityFieldValue{value: "b", state: identityFieldPresent}, identityTestContext("/row", 8, 9))
 	expectXSDCode(t, err, xsderrors.CodeValidationIdentity)
-	expectXSDMessage(t, err, "identity field selects multiple values")
+	expectXSDMessage(t, err, "identity constraint, field 1: selects multiple nodes; at most one is allowed")
 	expectXSDLocation(t, err, "/row", 8, 9)
 	if state.fieldValues[0].state != identityFieldInvalid {
 		t.Fatal("duplicate field match did not invalidate field")
@@ -567,7 +567,7 @@ func TestIdentityStateCaptureFieldsRejectsInvalidAndDuplicateMatches(t *testing.
 	if !state.scopes[0].invalid {
 		t.Fatal("duplicate field match did not invalidate its owning scope")
 	}
-	if err := state.finishSelectionWithConstraint(
+	if err := state.finishSelectionWithConstraint(nil,
 		xsdSchema.IdentityUnique,
 		xsdSchema.NoIdentityConstraint,
 		state.selections[0],
@@ -589,12 +589,12 @@ func TestIdentityStateRejectFieldsWithoutSimpleValueInvalidatesField(t *testing.
 	startIdentityScope(t, &state, []xsdSchema.IdentityConstraintID{id}, 1, "/root")
 	state.startSelectionForTest(0, 2, id, 1, identityTestContext("/root/item", 4, 5))
 
-	err := state.rejectFieldsWithoutSimpleValue(
+	err := state.rejectFieldsWithoutSimpleValue(nil,
 		[]identityFieldMatch{{Selection: 0, Field: 0}},
 		identityTestContext("/root/item", 6, 7),
 	)
 	expectXSDCode(t, err, xsderrors.CodeValidationIdentity)
-	expectXSDMessage(t, err, "identity field has no simple value")
+	expectXSDMessage(t, err, "identity constraint, field 1: selects a node without a simple value")
 	expectXSDLocation(t, err, "/root/item", 6, 7)
 	if state.fieldValues[0].state != identityFieldInvalid {
 		t.Fatal("field not invalid after rejected field node")
@@ -602,7 +602,7 @@ func TestIdentityStateRejectFieldsWithoutSimpleValueInvalidatesField(t *testing.
 	if !state.scopes[0].invalid {
 		t.Fatal("rejected field node did not invalidate its owning scope")
 	}
-	if err := state.finishSelectionWithConstraint(
+	if err := state.finishSelectionWithConstraint(nil,
 		xsdSchema.IdentityKey,
 		xsdSchema.NoIdentityConstraint,
 		state.selections[0],
@@ -685,7 +685,7 @@ func TestIdentityStateFinishSelectionsReportsMissingKeyField(t *testing.T) {
 		t.Fatalf("FinishSelections() error = %v", err)
 	}
 	expectXSDCode(t, got, xsderrors.CodeValidationIdentity)
-	expectXSDMessage(t, got, "key field is missing")
+	expectXSDMessage(t, got, "identity constraint, field 1: a key requires a value, but the selected node is absent or nilled")
 	expectXSDLocation(t, got, "/row", 6, 7)
 	if len(state.selections) != 0 || len(state.fieldValues) != 0 {
 		t.Fatalf("unfinished selection state: selections=%d fields=%d", len(state.selections), len(state.fieldValues))
@@ -719,7 +719,7 @@ func TestIdentityStateFinishSelectionsRejectsDuplicateKeyWithoutSecondReserve(t 
 		t.Fatalf("FinishSelections() error = %v", err)
 	}
 	expectXSDCode(t, got, xsderrors.CodeValidationIdentity)
-	expectXSDMessage(t, got, "duplicate identity value first seen at /first")
+	expectXSDMessage(t, got, "duplicate value for identity constraint; first seen at /first")
 	expectXSDLocation(t, got, "/second", 8, 9)
 	if state.entries != 1 {
 		t.Fatalf("entries = %d, want 1", state.entries)
@@ -784,7 +784,7 @@ func TestIdentityStateCloseScopesReportsUnresolvedKeyRef(t *testing.T) {
 		t.Fatal("closeScopes() invalid = false, want true")
 	}
 	expectXSDCode(t, got, xsderrors.CodeValidationIdentity)
-	expectXSDMessage(t, got, "keyref does not resolve")
+	expectXSDMessage(t, got, "keyref value does not match any value of referenced identity constraint")
 	expectXSDLocation(t, got, "/ref", 4, 5)
 }
 
@@ -836,7 +836,7 @@ func TestIdentityStateMergedChildKeyConflictKeepsParentKeyRefUnresolved(t *testi
 		t.Fatalf("closeScopes(parent) error = %v", err)
 	}
 	expectXSDCode(t, got, xsderrors.CodeValidationIdentity)
-	expectXSDMessage(t, got, "keyref does not resolve")
+	expectXSDMessage(t, got, "keyref value does not match any value of referenced identity constraint")
 	expectXSDLocation(t, got, "/root/ref", 12, 13)
 }
 
@@ -885,7 +885,7 @@ func TestIdentityTableLocalEntryWinsPropagatedChildInEitherCompletionOrder(t *te
 			t.Fatal(err)
 		}
 
-		err := state.publishIdentityKey(
+		err := state.publishIdentityKey(nil,
 			&state.scopes[0],
 			identitySelection{constraint: keyID, depth: 1, node: 1},
 			"x",
@@ -992,7 +992,7 @@ func TestIdentityStateMergedChildKeyConflictUsesSelectedNodeNotPath(t *testing.T
 		t.Fatalf("closeScopes(parent) error = %v", err)
 	}
 	expectXSDCode(t, got, xsderrors.CodeValidationIdentity)
-	expectXSDMessage(t, got, "keyref does not resolve")
+	expectXSDMessage(t, got, "keyref value does not match any value of referenced identity constraint")
 	expectXSDLocation(t, got, "/root/ref", 12, 13)
 }
 
@@ -1029,7 +1029,7 @@ func finishSelectionsForTest(
 		if !ok {
 			return xsderrors.InternalInvariant("identity constraint metadata is invalid")
 		}
-		if err := s.finishSelectionWithConstraint(info.Kind, info.Refer, sel, identityLimits{}, ctx); err != nil {
+		if err := s.finishSelectionWithConstraint(nil, info.Kind, info.Refer, sel, identityLimits{}, ctx); err != nil {
 			clear(s.selectionFields(sel))
 			if recoverErr := report(err); recoverErr != nil {
 				dst = append(dst, orig[i+1:]...)
@@ -1070,7 +1070,7 @@ func startIdentityScope(t *testing.T, state *identityState, constraints []xsdSch
 
 func captureIdentityField(t *testing.T, state *identityState, selection int, lexical string) {
 	t.Helper()
-	err := state.captureFields([]identityFieldMatch{{Selection: selection, Field: 0}}, identityFieldValue{value: lexical, state: identityFieldPresent}, identityTestContext("/field", 1, 1))
+	err := state.captureFields(nil, []identityFieldMatch{{Selection: selection, Field: 0}}, identityFieldValue{value: lexical, state: identityFieldPresent}, identityTestContext("/field", 1, 1))
 	if err != nil {
 		t.Fatalf("captureFields(selection=%d) error = %v", selection, err)
 	}

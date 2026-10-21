@@ -212,7 +212,7 @@ func (e *identityEvaluation) closeScopes(depth int, report func(error) error) (b
 	for len(e.scopes) > 0 && e.scopes[len(e.scopes)-1].depth == depth {
 		index := len(e.scopes) - 1
 		scope := &e.scopes[index]
-		if err := validateIdentityScopeRefs(scope, report); err != nil {
+		if err := validateIdentityScopeRefs(e.rt, scope, report); err != nil {
 			return true, err
 		}
 		invalid = invalid || scope.invalid
@@ -711,7 +711,7 @@ func (e *identityEvaluation) recordDocumentIdentityValue(target identityValueTar
 	if target.kind == identityAttributeValue && ids != "" {
 		current := &e.elements[len(e.elements)-1]
 		if current.seenID {
-			err := validation(ctx, xsderrors.CodeValidationType, "multiple ID attributes")
+			err := validation(ctx, xsderrors.CodeValidationType, msgMultipleIDAttributes)
 			return e.rejectAfterRecordFailure(target, err)
 		}
 		current.seenID = true
@@ -766,7 +766,7 @@ func (e *identityEvaluation) captureValue(target identityValueTarget, ctx StartC
 	if e.targetPhase != identityTargetRecorded {
 		return xsderrors.InternalInvariant("identity value target is not ready for capture")
 	}
-	if err := e.captureFields(e.matches, identityFieldValue{value: e.targetKey, state: identityFieldPresent}, ctx); err != nil {
+	if err := e.captureFields(e.rt, e.matches, identityFieldValue{value: e.targetKey, state: identityFieldPresent}, ctx); err != nil {
 		e.releaseTarget()
 		return err
 	}
@@ -800,7 +800,7 @@ func (e *identityEvaluation) rejectValue(target identityValueTarget, reason iden
 	case identityInvalidValue:
 		return e.invalidateFields(e.matches)
 	case identityMissingSimpleValue:
-		return e.rejectFieldsWithoutSimpleValue(e.matches, ctx)
+		return e.rejectFieldsWithoutSimpleValue(e.rt, e.matches, ctx)
 	default:
 		return xsderrors.InternalInvariant("identity value rejection is invalid")
 	}
@@ -840,7 +840,7 @@ func (e *identityEvaluation) captureXSIAttribute(
 	if !identity.present {
 		return nil
 	}
-	return e.captureFields(e.matches, identityFieldValue{value: identity.key, state: identityFieldPresent}, ctx)
+	return e.captureFields(e.rt, e.matches, identityFieldValue{value: identity.key, state: identityFieldPresent}, ctx)
 }
 
 func (e *identityEvaluation) validateTarget(target identityValueTarget) error {
@@ -906,10 +906,10 @@ func (e *identityEvaluation) recordIdentityFields(ids, idrefs string, ctx StartC
 func (e *identityEvaluation) stageIdentityIDs(ids string, ctx StartContext) (int, error) {
 	for canonical := range lex.XMLFieldsSeq(ids) {
 		if prev, exists := e.ids[canonical]; exists {
-			return 0, validation(ctx, xsderrors.CodeValidationType, "duplicate ID "+canonical+" first seen at "+prev.String())
+			return 0, validation(ctx, xsderrors.CodeValidationType, duplicateIDMessage(canonical, prev.String()))
 		}
 		if _, exists := e.fieldStaging.ids[canonical]; exists {
-			return 0, validation(ctx, xsderrors.CodeValidationType, "duplicate ID "+canonical+" first seen at "+ctx.PathString())
+			return 0, validation(ctx, xsderrors.CodeValidationType, duplicateIDMessage(canonical, ctx.PathString()))
 		}
 		if err := e.stageIdentityField(canonical, ctx); err != nil {
 			return 0, err
@@ -934,10 +934,10 @@ func (e *identityEvaluation) stageIdentityRefs(idrefs string, ctx StartContext) 
 func (e *identityEvaluation) stageIdentityField(value string, ctx StartContext) error {
 	staged := len(e.fieldStaging.values)
 	if e.limits.Entries > 0 && (e.entries >= e.limits.Entries || staged >= e.limits.Entries-e.entries) {
-		return validation(ctx, xsderrors.CodeValidationLimit, "identity entry limit exceeded")
+		return validation(ctx, xsderrors.CodeValidationLimit, limitMessage("identity entry", "MaxIdentityEntries", int64(e.entries)+int64(staged)+1, int64(e.limits.Entries)))
 	}
 	if e.limits.TupleBytes > 0 && int64(len(value)) > e.limits.TupleBytes {
-		return validation(ctx, xsderrors.CodeValidationLimit, "identity tuple byte limit exceeded")
+		return validation(ctx, xsderrors.CodeValidationLimit, limitMessage("identity tuple byte", "MaxIdentityTupleBytes", int64(len(value)), e.limits.TupleBytes))
 	}
 	e.fieldStaging.values = append(e.fieldStaging.values, value)
 	return nil
@@ -1057,7 +1057,7 @@ func (e *identityEvaluation) finishElementValue(
 	case endIdentityCaptureNone:
 		return nil
 	case endIdentityCaptureNilledElement:
-		return reportIdentityError(e.captureFields(e.dispatchElementFieldMatches(), identityFieldValue{state: identityFieldNilled}, in.Context), report)
+		return reportIdentityError(e.captureFields(e.rt, e.dispatchElementFieldMatches(), identityFieldValue{state: identityFieldNilled}, in.Context), report)
 	case endIdentityCaptureComplexElement:
 		return e.rejectCurrentElement(identityMissingSimpleValue, in.Context, report)
 	default:
@@ -1070,7 +1070,7 @@ func (e *identityEvaluation) rejectCurrentElement(reason identityRejection, ctx 
 	if reason == identityInvalidValue {
 		return e.invalidateFields(matches)
 	}
-	return reportIdentityError(e.rejectFieldsWithoutSimpleValue(matches, ctx), report)
+	return reportIdentityError(e.rejectFieldsWithoutSimpleValue(e.rt, matches, ctx), report)
 }
 
 func (e *identityEvaluation) finishNillableKeyFields(element identityElementState, assessment identityElementAssessment) error {
@@ -1157,7 +1157,7 @@ func (e *identityEvaluation) finishSelectionCandidate(sel identitySelection, dep
 	if !ok {
 		return identitySelectionFinishResult{consumed: true}, e.finishSelectionError(sel, xsderrors.InternalInvariant("identity constraint metadata is invalid"), report)
 	}
-	if err := e.finishSelectionWithConstraint(program.Kind(), program.Refer(), sel, e.limits, ctx); err != nil {
+	if err := e.finishSelectionWithConstraint(e.rt, program.Kind(), program.Refer(), sel, e.limits, ctx); err != nil {
 		return identitySelectionFinishResult{consumed: true}, e.finishSelectionError(sel, err, report)
 	}
 	clear(e.selectionFields(sel))

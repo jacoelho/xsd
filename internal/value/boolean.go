@@ -1,9 +1,5 @@
 package value
 
-import "errors"
-
-var errBoolean = errors.New("invalid boolean")
-
 const (
 	booleanCanonicalFalse = "false"
 	booleanCanonicalTrue  = "true"

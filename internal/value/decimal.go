@@ -53,11 +53,11 @@ func ParseDecimalValue(s string) (DecimalValue, error) {
 		totalDigits = 1
 	}
 
-	totalDigits32, err := checkedUint32(totalDigits, "decimal totalDigits exceeds uint32 limit")
+	totalDigits32, err := checkedUint32(totalDigits, msgTotalDigitsLimit)
 	if err != nil {
 		return DecimalValue{}, err
 	}
-	fracDigits32, err := checkedUint32(fracDigits, "decimal fractionDigits exceeds uint32 limit")
+	fracDigits32, err := checkedUint32(fracDigits, msgFractionDigitsLimit)
 	if err != nil {
 		return DecimalValue{}, err
 	}

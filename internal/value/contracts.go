@@ -1,11 +1,9 @@
 package value
 
 import (
-	"errors"
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/xsdregex"
-	"github.com/jacoelho/xsd/xsderrors"
 )
 
 // TypeID indexes a simple type in a Program. IDs are stable within one
@@ -223,28 +221,6 @@ func (s *Scratch) Reset(maxRetainedRunes int) {
 	}
 	s.pattern.Reset(maxRetainedRunes)
 }
-
-// ErrMetadata reports a malformed or incomplete sealed value program.
-var ErrMetadata = errors.New("value program metadata is invalid")
-
-// ErrLimit reports a bounded value-program construction or evaluation limit.
-var ErrLimit = errors.New("value program limit exceeded")
-
-// ErrFacet classifies a value that fails an effective facet. The concrete
-// error text remains available for diagnostics.
-var ErrFacet = errors.New("value facet failed")
-
-// IsUnsupported reports whether err is an unsupported datatype operation,
-// preserving the structured diagnostic supplied by the owning package.
-func IsUnsupported(err error) bool { return xsderrors.IsUnsupported(err) }
-
-type facetError string
-
-func (e facetError) Error() string { return string(e) }
-
-func (facetError) Unwrap() error { return ErrFacet }
-
-func facetFailure(message string) error { return facetError(message) }
 
 // OrderedFacetRelation compares one value against another. Incomparable is
 // required for the partial orders of duration and timezone-absent temporals.

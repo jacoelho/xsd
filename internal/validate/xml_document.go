@@ -139,10 +139,10 @@ func (d *xmlDocument[P]) PrepareStart(
 	handle, element, err := reader.Start()
 	if err != nil {
 		if errors.Is(err, xmlstream.ErrMultipleRoots) {
-			return preparedXMLStart{}, validation(d.context(line, col), xsderrors.CodeValidationXML, "multiple root elements")
+			return preparedXMLStart{}, validation(d.context(line, col), xsderrors.CodeValidationXML, msgMultipleRoots)
 		}
 		if boundary, ok := errors.AsType[*xmlstream.Error](err); ok && boundary != nil && boundary.Kind == xmlstream.ErrorDepth {
-			return preparedXMLStart{}, validation(d.context(line, col), xsderrors.CodeValidationLimit, "instance depth limit exceeded")
+			return preparedXMLStart{}, validation(d.context(line, col), xsderrors.CodeValidationLimit, depthLimitMessage(boundary.Cause))
 		}
 		return preparedXMLStart{}, validation(d.context(line, col), xsderrors.CodeValidationXML, err.Error())
 	}
@@ -176,7 +176,7 @@ func (*xmlDocument[P]) AbortStart(reader *xmlstream.Reader, start preparedXMLSta
 
 func (d *xmlDocument[P]) ValidateEnd(reader *xmlstream.Reader, line, col int) error {
 	if d.Depth() == 0 {
-		return validation(d.context(line, col), xsderrors.CodeValidationXML, "unexpected end element")
+		return validation(d.context(line, col), xsderrors.CodeValidationXML, msgUnexpectedEnd)
 	}
 
 	if err := reader.MatchEnd(d.elements[len(d.elements)-1].handle); err != nil {
@@ -213,10 +213,10 @@ func (d *xmlDocument[P]) CommitEnd(reader *xmlstream.Reader) error {
 func (d *xmlDocument[P]) Complete(reader *xmlstream.Reader) error {
 	if err := reader.Complete(); err != nil {
 		if errors.Is(err, xmlstream.ErrNoRoot) {
-			return validation(StartContext{}, xsderrors.CodeValidationXML, "instance document has no root element")
+			return validation(StartContext{}, xsderrors.CodeValidationXML, msgNoRoot)
 		}
 		if errors.Is(err, xmlstream.ErrUnclosedElements) {
-			return validation(d.context(0, 0), xsderrors.CodeValidationXML, "unclosed element")
+			return validation(d.context(0, 0), xsderrors.CodeValidationXML, msgUnclosedElement)
 		}
 		return validation(d.context(0, 0), xsderrors.CodeValidationXML, err.Error())
 	}

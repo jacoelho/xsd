@@ -51,7 +51,7 @@ func (s *Session) Validate(r io.Reader) error {
 		return (*session)(nil).validate(r)
 	}
 	if !s.inUse.CompareAndSwap(false, true) {
-		return xsderrors.Validation(xsderrors.CodeValidationSession, "validation session is already in use", nil)
+		return xsderrors.Validation(xsderrors.CodeValidationSession, msgSessionInUse, nil)
 	}
 	// Defers run in LIFO order: cleanup must finish before copies can enter.
 	defer s.inUse.Store(false)
@@ -144,6 +144,9 @@ func (s *session) resetParser(r io.Reader) error {
 		},
 		LazyAttrValues: true,
 	}); err != nil {
+		if limitErr := instanceLimitError(err, StartContext{}, s.limits); limitErr != nil {
+			return limitErr
+		}
 		return instanceReaderError(err)
 	}
 	return nil
@@ -210,6 +213,9 @@ func (s *session) validateCharacterToken(tok *xmlstream.Token, mode tokenValidat
 
 func (s *session) parseError(err error) error {
 	line, col := streamErrorPosition(&s.reader, err)
+	if limitErr := instanceLimitError(err, s.startContext(line, col), s.limits); limitErr != nil {
+		return limitErr
+	}
 	return StreamError(line, col, s.doc.PathString(), err)
 }
 
@@ -583,7 +589,7 @@ func (s *session) assessElementStart(
 		if !issue.valid() {
 			return false, nil
 		}
-		err := validationFromIssue(ctx, issue)
+		err := validationFromIssue(ctx, elementStartDiagnosticIssue(s.rt, start, issue))
 		return false, s.recoverElementStartAssessment(start, err)
 	}
 	state := elementEffectiveState{declaration: declaration, typeID: start.typ, typeInfo: info}
@@ -636,7 +642,7 @@ func (s *session) completeElementStartAssessment(start *schemaStart, state eleme
 	if !issue.valid() {
 		return state.nil.value, nil
 	}
-	err := validationFromIssue(ctx, issue)
+	err := validationFromIssue(ctx, elementStartDiagnosticIssue(s.rt, start, issue))
 	return state.nil.value, s.recoverElementStartAssessment(start, err)
 }
 
@@ -685,8 +691,9 @@ func (s *session) syntaxStart(line, col int) error {
 
 func (s *session) initialElementAssessment(start *schemaStart, declaration startDeclaration, ctx StartContext) (xsdSchema.TypeInfo, bool, error) {
 	if declaration.present && declaration.abstract {
+		message := abstractElementMessage(s.rt, start.element)
 		*start = recoverySchemaStart()
-		err := validation(ctx, xsderrors.CodeValidationElement, "abstract element cannot appear directly")
+		err := validation(ctx, xsderrors.CodeValidationElement, message)
 		return xsdSchema.TypeInfo{}, true, s.recoverElementStartAssessment(start, err)
 	}
 	info, known := s.rt.TypeInfo(start.typ)
@@ -694,8 +701,9 @@ func (s *session) initialElementAssessment(start *schemaStart, declaration start
 		return xsdSchema.TypeInfo{}, true, xsderrors.InternalInvariant("start type metadata is invalid")
 	}
 	if info.Unavailable {
+		message := unavailableElementTypeMessage(s.rt, start.typ)
 		*start = recoverySchemaStart()
-		err := validation(ctx, xsderrors.CodeValidationElement, "element type is unavailable")
+		err := validation(ctx, xsderrors.CodeValidationElement, message)
 		return xsdSchema.TypeInfo{}, true, s.recoverElementStartAssessment(start, err)
 	}
 	return info, false, nil
@@ -736,7 +744,7 @@ func (s *session) assessXSINil(start *schemaStart, attribute optionalStartValue,
 	if ok {
 		return nilled, nil
 	}
-	err := validation(ctx, xsderrors.CodeValidationNil, "invalid xsi:nil value")
+	err := validation(ctx, xsderrors.CodeValidationNil, invalidNilMessage(attribute.value))
 	return false, s.recoverElementStartAssessment(start, err)
 }
 
@@ -767,7 +775,7 @@ func (s *session) assessXSIType(start *schemaStart, assessment xsiTypeAssessment
 	}
 	if overrideInfo.Unavailable {
 		*start = recoverySchemaStart()
-		err := validation(assessment.ctx, xsderrors.CodeValidationElement, "element type is unavailable")
+		err := validation(assessment.ctx, xsderrors.CodeValidationElement, unavailableElementTypeMessage(s.rt, override))
 		return assessment.typeInfo, true, s.recoverElementStartAssessment(start, err)
 	}
 	if err := validateXSITypeOverride(s.rt, &s.derivationScratch, xsiTypeOverrideInput{
@@ -881,7 +889,7 @@ func (s *session) rootStartType(rn xsdSchema.RuntimeName, se preparedXMLStart, t
 		}
 		return rootXSITypeStart(typ), nil
 	}
-	err := validation(ctx, xsderrors.CodeValidationRoot, "root element is not declared: "+formatXMLName(se.name))
+	err := validation(ctx, xsderrors.CodeValidationRoot, undeclaredRootMessage(se.name))
 	if recoverErr := s.recover(err); recoverErr != nil {
 		return schemaStart{}, recoverErr
 	}
@@ -949,7 +957,7 @@ func (s *session) chars(line, col int, data []byte) error {
 		return nil
 	}
 	if f.Nilled {
-		return validation(s.startContext(line, col), xsderrors.CodeValidationNil, "nilled element must be empty")
+		return validation(s.startContext(line, col), xsderrors.CodeValidationNil, msgNilledContent)
 	}
 	return s.validateAssessedCharacterData(f, data, line, col)
 }
@@ -960,7 +968,7 @@ func (s *session) validateAssessedCharacterData(f *frame, data []byte, line, col
 	}
 	content := f.TextContent
 	if content.IsEmptyContent() {
-		return validation(s.startContext(line, col), xsderrors.CodeValidationText, "character data is not allowed")
+		return validation(s.startContext(line, col), xsderrors.CodeValidationText, msgEmptyText)
 	}
 	whitespace := lex.IsXMLWhitespaceBytes(data)
 	if !whitespace {
@@ -971,7 +979,7 @@ func (s *session) validateAssessedCharacterData(f *frame, data []byte, line, col
 	}
 	if !whitespace {
 		ctx := s.startContext(line, col)
-		return validation(ctx, xsderrors.CodeValidationText, "character data is not allowed")
+		return validation(ctx, xsderrors.CodeValidationText, msgElementOnlyText)
 	}
 	return nil
 }
@@ -985,7 +993,7 @@ func (s *session) captureMixedCharacterData(content xsdSchema.ElementTextContent
 
 func (s *session) appendText(data []byte, line, col int) error {
 	if s.limits.InstanceTextBytes > 0 && int64(len(s.doc.text)) > s.limits.InstanceTextBytes-int64(len(data)) {
-		return validation(s.startContext(line, col), xsderrors.CodeValidationLimit, "instance text byte limit exceeded")
+		return validation(s.startContext(line, col), xsderrors.CodeValidationLimit, limitMessage("instance text byte", "MaxInstanceTextBytes", int64(len(s.doc.text))+int64(len(data)), s.limits.InstanceTextBytes))
 	}
 	s.doc.text = append(s.doc.text, data...)
 	return nil

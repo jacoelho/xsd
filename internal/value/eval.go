@@ -210,7 +210,7 @@ func (p *Program) validateBorrowedBytes(id TypeID, lexical []byte, resolver Reso
 	}
 	selected, handled, err := p.evalBytes(id, lexical, scratch, budget, 0)
 	if err != nil {
-		return Value{}, err
+		return Value{}, describeValueFailure(p, id, lexical, nil, err)
 	}
 	if handled {
 		return Value{typeID: id, selected: selected}, nil
@@ -399,12 +399,12 @@ func validateTextLengthBytes(f *facetProgram, lexical []byte) error {
 			count++
 		}
 	}
-	length, err := checkedUint32(count, "string length exceeds uint32 limit")
+	length, err := checkedUint32(count, msgStringLengthLimit)
 	if err != nil {
 		return err
 	}
 	if lengthFacetViolation(f, length) {
-		return facetFailure("length facet failed")
+		return errLengthFacet
 	}
 	return nil
 }
@@ -416,7 +416,7 @@ func applyPatternFacetsBytes(patterns [][]*Pattern, lexical []byte, scratch *Scr
 			return normalizePatternError(err)
 		}
 		if !matched {
-			return facetFailure("pattern facet failed")
+			return errPatternFacet
 		}
 	}
 	return nil
@@ -596,7 +596,7 @@ func stringEnumerationLiteralSupported(literal *parsedValue) bool {
 func validateStringEnumBytes(f *facetProgram, lexical []byte) error {
 	for _, group := range f.enumGroups {
 		if !stringEnumGroupMatches(group, lexical) {
-			return facetFailure("enumeration facet failed")
+			return errEnumerationFacet
 		}
 	}
 	return nil
@@ -638,12 +638,12 @@ func (p *Program) scanNMTokensListBytes(t *typeDef, lexical []byte, budget *eval
 			return ErrLimit
 		}
 		if !lex.IsNMTOKENBytes(field) {
-			return errors.New("invalid NMTOKEN")
+			return errors.New(msgInvalidNMTOKEN)
 		}
 		start = next
 	}
 	if !nmtokensLengthAllowed(t, count) {
-		return facetFailure("length facet failed")
+		return errLengthFacet
 	}
 	return nil
 }
@@ -691,7 +691,7 @@ func (p *Program) validateValueWithBudget(id TypeID, lexical string, request *ev
 		admitted:      request.admitted,
 	}, &v)
 	if err != nil {
-		return Value{}, err
+		return Value{}, describeValueFailure(p, id, lexical, &v, err)
 	}
 	out := projectValue(&v, request.needs)
 	projectDocumentIdentity(&out, &v, t.identity)
@@ -1039,7 +1039,7 @@ func unionFailure(last, unsupported error) error {
 	if last != nil {
 		return last
 	}
-	return errors.New("value does not match any union member")
+	return errors.New(msgNoUnionMember)
 }
 
 func finalizeParsedValue(t *typeDef, value *parsedValue, normalized string, needs Needs) {
@@ -1065,11 +1065,11 @@ func finalizeParsedValue(t *typeDef, value *parsedValue, normalized string, need
 
 func validateXMLString(lexical string) error {
 	if !utf8.ValidString(lexical) {
-		return errors.New("invalid UTF-8 value")
+		return errors.New(msgInvalidUTF8)
 	}
 	for _, r := range lexical {
 		if !lex.IsXMLChar(r) {
-			return errors.New("invalid XML character")
+			return errors.New(msgInvalidXMLCharacter)
 		}
 	}
 	return nil
@@ -1187,19 +1187,19 @@ func parseNameAtomic(out *atomicValue, kind PrimitiveKind, normalized string, re
 	var name ExpandedName
 	if resolver.QName == nil {
 		if !lex.IsNCName(normalized) {
-			return errors.New("invalid QName")
+			return errors.New(msgInvalidQName)
 		}
 		name = ExpandedName{Local: normalized}
 	} else {
 		resolved, ok := resolver.QName(normalized)
 		if !ok || !utf8.ValidString(resolved.Namespace) || !utf8.ValidString(resolved.Local) || !lex.IsNCName(resolved.Local) {
-			return errors.New("unresolved QName")
+			return errors.New(msgUnresolvedQName)
 		}
 		name = resolved
 	}
 	if kind == PrimitiveNotation {
 		if resolver.Notation == nil || !resolver.Notation(name.Namespace, name.Local) {
-			return errors.New("undeclared notation")
+			return errors.New(msgUndeclaredNotation)
 		}
 	}
 	out.expandedName = name
@@ -1400,7 +1400,7 @@ func applyLengthFacet(f *facetProgram, value *parsedValue) error {
 		length = value.atom.lexical.Length
 	}
 	if lengthFacetViolation(f, length) {
-		return facetFailure("length facet failed")
+		return errLengthFacet
 	}
 	return nil
 }
@@ -1420,7 +1420,7 @@ func applyDigitFacets(f *facetProgram, value *parsedValue) error {
 	}
 	if f.totalDigits.Present && value.atom.decimal.TotalDigits > f.totalDigits.Value ||
 		f.fractionDigits.Present && value.atom.decimal.FractionDigits > f.fractionDigits.Value {
-		return facetFailure("digit facet failed")
+		return errDigitFacet
 	}
 	return nil
 }
@@ -1432,7 +1432,7 @@ func applyPatternFacets(patterns [][]*Pattern, normalized string, scratch *Scrat
 			return normalizePatternError(err)
 		}
 		if !matched {
-			return facetFailure("pattern facet failed")
+			return errPatternFacet
 		}
 	}
 	return nil
@@ -1478,7 +1478,7 @@ func applyEnumerationFacets(f *facetProgram, value *parsedValue) error {
 			}
 		}
 		if !matched {
-			return facetFailure("enumeration facet failed")
+			return errEnumerationFacet
 		}
 	}
 	return nil
@@ -1508,14 +1508,14 @@ func applyBounds(lowers, uppers []boundValue, value *parsedValue) error {
 		bound := &lowers[i]
 		relation, ok := compareAtomic(&value.atom, &bound.value)
 		if !ok || !OrderedFacetLowerBoundAccepts(bound.exclusive, relation) {
-			return facetFailure("lower bound facet failed")
+			return errLowerBoundFacet
 		}
 	}
 	for i := range uppers {
 		bound := &uppers[i]
 		relation, ok := compareAtomic(&value.atom, &bound.value)
 		if !ok || !OrderedFacetUpperBoundAccepts(bound.exclusive, relation) {
-			return facetFailure("upper bound facet failed")
+			return errUpperBoundFacet
 		}
 	}
 	return nil
