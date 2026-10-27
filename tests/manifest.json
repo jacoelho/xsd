@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16468,
-    "schemaCases": 16418,
-    "instanceRuns": 34947,
+    "cases": 16483,
+    "schemaCases": 16433,
+    "instanceRuns": 34984,
     "w3cCases": 14414,
-    "internalRuns": 2041,
+    "internalRuns": 2056,
     "xercesJCases": 13
   },
   "cases": [
@@ -313,7 +313,7 @@
         "description": "An xs:float minInclusive facet with bound NaN accepts only NaN. Zero and both infinities are incomparable with the bound.",
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float",
-          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive"
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-minInclusive"
         ]
       },
       "schema": {
@@ -404,7 +404,7 @@
         "description": "An xs:float maxInclusive facet with bound NaN accepts only NaN. Zero and both infinities are incomparable with the bound.",
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float",
-          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxInclusive"
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxInclusive"
         ]
       },
       "schema": {
@@ -510,7 +510,7 @@
         "description": "An xs:float minExclusive facet with bound NaN has an empty value space, including rejection of NaN. Zero and both infinities are incomparable with the bound.",
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float",
-          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive"
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-minExclusive"
         ]
       },
       "schema": {
@@ -609,7 +609,7 @@
         "description": "An xs:float maxExclusive facet with bound NaN has an empty value space, including rejection of NaN. Zero and both infinities are incomparable with the bound.",
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float",
-          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive"
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxExclusive"
         ]
       },
       "schema": {
@@ -723,7 +723,7 @@
         "description": "An xs:float minInclusive facet with bound zero rejects incomparable NaN. Zero and finite values on either side isolate the ordered comparison.",
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float",
-          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive"
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-minInclusive"
         ]
       },
       "schema": {
@@ -804,7 +804,7 @@
         "description": "An xs:float maxInclusive facet with bound zero rejects incomparable NaN. Zero and finite values on either side isolate the ordered comparison.",
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float",
-          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxInclusive"
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxInclusive"
         ]
       },
       "schema": {
@@ -880,7 +880,7 @@
         "description": "An xs:double minInclusive facet with bound NaN accepts only NaN. Zero and both infinities are incomparable with the bound.",
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double",
-          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive"
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-minInclusive"
         ]
       },
       "schema": {
@@ -971,7 +971,7 @@
         "description": "An xs:double maxInclusive facet with bound NaN accepts only NaN. Zero and both infinities are incomparable with the bound.",
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double",
-          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxInclusive"
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxInclusive"
         ]
       },
       "schema": {
@@ -1077,7 +1077,7 @@
         "description": "An xs:double minExclusive facet with bound NaN has an empty value space, including rejection of NaN. Zero and both infinities are incomparable with the bound.",
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double",
-          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive"
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-minExclusive"
         ]
       },
       "schema": {
@@ -1176,7 +1176,7 @@
         "description": "An xs:double maxExclusive facet with bound NaN has an empty value space, including rejection of NaN. Zero and both infinities are incomparable with the bound.",
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double",
-          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive"
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxExclusive"
         ]
       },
       "schema": {
@@ -1290,7 +1290,7 @@
         "description": "An xs:double minInclusive facet with bound zero rejects incomparable NaN. Zero and finite values on either side isolate the ordered comparison.",
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double",
-          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive"
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-minInclusive"
         ]
       },
       "schema": {
@@ -1371,7 +1371,7 @@
         "description": "An xs:double maxInclusive facet with bound zero rejects incomparable NaN. Zero and finite values on either side isolate the ordered comparison.",
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double",
-          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxInclusive"
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxInclusive"
         ]
       },
       "schema": {
@@ -1447,7 +1447,7 @@
         "description": "The minInclusive bound is with a timezone; the opposite-zone operand at exactly 14 hours is incomparable and rejected. One millisecond outside is ordered, while the same-zone endpoint is equal.",
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order",
-          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive"
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-minInclusive"
         ]
       },
       "schema": {
@@ -1567,7 +1567,7 @@
         "description": "The maxInclusive bound is with a timezone; the opposite-zone operand at exactly 14 hours is incomparable and rejected. One millisecond outside is ordered, while the same-zone endpoint is equal.",
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order",
-          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxInclusive"
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxInclusive"
         ]
       },
       "schema": {
@@ -1687,7 +1687,7 @@
         "description": "The minInclusive bound is without a timezone; the opposite-zone operand at exactly 14 hours is incomparable and rejected. One millisecond outside is ordered, while the same-zone endpoint is equal.",
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order",
-          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive"
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-minInclusive"
         ]
       },
       "schema": {
@@ -1807,7 +1807,7 @@
         "description": "The maxInclusive bound is without a timezone; the opposite-zone operand at exactly 14 hours is incomparable and rejected. One millisecond outside is ordered, while the same-zone endpoint is equal.",
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order",
-          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxInclusive"
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxInclusive"
         ]
       },
       "schema": {
@@ -15409,23 +15409,101 @@
       "source": {
         "kind": "project",
         "package": "schema",
-        "sourceFile": "tests/corpus/project/datatypes/numeric/double-bounds-nan-lower"
+        "sourceFile": "tests/corpus/project/datatypes/numeric/double-bounds-nan-lower",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-minInclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxInclusive"
+        ],
+        "conditions": "Selected operative-prose reading of unordered bound consistency; see docs/spec/INTERPRETATIONS.md I-015. A caption expressed as <= does not independently settle incomparable operands."
       },
       "schema": {
-        "expected": "invalid",
+        "expected": "valid",
         "documents": [
           {
             "file": "corpus/project/datatypes/numeric/double-bounds-nan-lower/schema.xsd",
             "role": "principal"
           }
         ],
-        "errorCode": "schema.facet"
+        "oracle": {
+          "project": {
+            "expected": "invalid",
+            "reason": "Original expectation incorrectly rejected incomparable endpoints. The operative facet-consistency prose prohibits lower greater than upper; caption notation is qualified by I-015. Instance bound predicates remain independent.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+          },
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Xerces-J 2.12.2 on OpenJDK 26.0.1 reports invalid in the fresh offline comparison. I-015 follows the operative prohibited-order consistency prose; instance bounds independently require their ordered/equal predicates. A mixed finite/NaN range admits neither witness, while an inclusive NaN/NaN range admits only NaN. The single-bound and equal-pair controls distinguish schema consistency from instance comparison.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "libxml2 2.9.13 reports invalid in the fresh offline comparison. I-015 follows the operative prohibited-order consistency prose; instance bounds independently require their ordered/equal predicates. A mixed finite/NaN range admits neither witness, while an inclusive NaN/NaN range admits only NaN. The single-bound and equal-pair controls distinguish schema consistency from instance comparison.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+          }
+        }
       },
-      "instances": [],
+      "instances": [
+        {
+          "testName": "nan",
+          "file": "corpus/project/datatypes/numeric/double-bounds-nan-lower/nan.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "status": "blocked",
+              "reason": "Xerces-J 2.12.2 on OpenJDK 26.0.1 did not assess this instance because schema compilation failed. No instance validity was observed.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": ".NET 10.0.9 reports valid in the fresh offline comparison. I-015 follows the operative prohibited-order consistency prose; instance bounds independently require their ordered/equal predicates. A mixed finite/NaN range admits neither witness, while an inclusive NaN/NaN range admits only NaN. The single-bound and equal-pair controls distinguish schema consistency from instance comparison.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+            },
+            "libxml2": {
+              "status": "blocked",
+              "reason": "libxml2 2.9.13 did not assess this instance because schema compilation failed. No instance validity was observed.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+            }
+          }
+        },
+        {
+          "testName": "zero",
+          "file": "corpus/project/datatypes/numeric/double-bounds-nan-lower/zero.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "status": "blocked",
+              "reason": "Xerces-J 2.12.2 on OpenJDK 26.0.1 did not assess this instance because schema compilation failed. No instance validity was observed.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": ".NET 10.0.9 reports valid in the fresh offline comparison. I-015 follows the operative prohibited-order consistency prose; instance bounds independently require their ordered/equal predicates. A mixed finite/NaN range admits neither witness, while an inclusive NaN/NaN range admits only NaN. The single-bound and equal-pair controls distinguish schema consistency from instance comparison.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+            },
+            "libxml2": {
+              "status": "blocked",
+              "reason": "libxml2 2.9.13 did not assess this instance because schema compilation failed. No instance validity was observed.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+            }
+          }
+        }
+      ],
       "files": [
         {
           "file": "corpus/project/datatypes/numeric/double-bounds-nan-lower/schema.xsd",
           "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/double-bounds-nan-lower/nan.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/double-bounds-nan-lower/zero.xml",
+          "role": "instance"
         }
       ]
     },
@@ -15435,23 +15513,101 @@
       "source": {
         "kind": "project",
         "package": "schema",
-        "sourceFile": "tests/corpus/project/datatypes/numeric/double-bounds-nan-upper"
+        "sourceFile": "tests/corpus/project/datatypes/numeric/double-bounds-nan-upper",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-minInclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxInclusive"
+        ],
+        "conditions": "Selected operative-prose reading of unordered bound consistency; see docs/spec/INTERPRETATIONS.md I-015. A caption expressed as <= does not independently settle incomparable operands."
       },
       "schema": {
-        "expected": "invalid",
+        "expected": "valid",
         "documents": [
           {
             "file": "corpus/project/datatypes/numeric/double-bounds-nan-upper/schema.xsd",
             "role": "principal"
           }
         ],
-        "errorCode": "schema.facet"
+        "oracle": {
+          "project": {
+            "expected": "invalid",
+            "reason": "Original expectation incorrectly rejected incomparable endpoints. The operative facet-consistency prose prohibits lower greater than upper; caption notation is qualified by I-015. Instance bound predicates remain independent.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+          },
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Xerces-J 2.12.2 on OpenJDK 26.0.1 reports invalid in the fresh offline comparison. I-015 follows the operative prohibited-order consistency prose; instance bounds independently require their ordered/equal predicates. A mixed finite/NaN range admits neither witness, while an inclusive NaN/NaN range admits only NaN. The single-bound and equal-pair controls distinguish schema consistency from instance comparison.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": ".NET 10.0.9 reports invalid in the fresh offline comparison. I-015 follows the operative prohibited-order consistency prose; instance bounds independently require their ordered/equal predicates. A mixed finite/NaN range admits neither witness, while an inclusive NaN/NaN range admits only NaN. The single-bound and equal-pair controls distinguish schema consistency from instance comparison.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+          }
+        }
       },
-      "instances": [],
+      "instances": [
+        {
+          "testName": "nan",
+          "file": "corpus/project/datatypes/numeric/double-bounds-nan-upper/nan.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "status": "blocked",
+              "reason": "Xerces-J 2.12.2 on OpenJDK 26.0.1 did not assess this instance because schema compilation failed. No instance validity was observed.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+            },
+            "dotnet": {
+              "status": "blocked",
+              "reason": ".NET 10.0.9 did not assess this instance because schema compilation failed. No instance validity was observed.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "libxml2 2.9.13 reports valid in the fresh offline comparison. I-015 follows the operative prohibited-order consistency prose; instance bounds independently require their ordered/equal predicates. A mixed finite/NaN range admits neither witness, while an inclusive NaN/NaN range admits only NaN. The single-bound and equal-pair controls distinguish schema consistency from instance comparison.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+            }
+          }
+        },
+        {
+          "testName": "zero",
+          "file": "corpus/project/datatypes/numeric/double-bounds-nan-upper/zero.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "status": "blocked",
+              "reason": "Xerces-J 2.12.2 on OpenJDK 26.0.1 did not assess this instance because schema compilation failed. No instance validity was observed.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+            },
+            "dotnet": {
+              "status": "blocked",
+              "reason": ".NET 10.0.9 did not assess this instance because schema compilation failed. No instance validity was observed.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "libxml2 2.9.13 reports valid in the fresh offline comparison. I-015 follows the operative prohibited-order consistency prose; instance bounds independently require their ordered/equal predicates. A mixed finite/NaN range admits neither witness, while an inclusive NaN/NaN range admits only NaN. The single-bound and equal-pair controls distinguish schema consistency from instance comparison.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+            }
+          }
+        }
+      ],
       "files": [
         {
           "file": "corpus/project/datatypes/numeric/double-bounds-nan-upper/schema.xsd",
           "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/double-bounds-nan-upper/nan.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/double-bounds-nan-upper/zero.xml",
+          "role": "instance"
         }
       ]
     },
@@ -15461,7 +15617,14 @@
       "source": {
         "kind": "project",
         "package": "schema",
-        "sourceFile": "tests/corpus/project/datatypes/numeric/double-bounds-nan-equal"
+        "sourceFile": "tests/corpus/project/datatypes/numeric/double-bounds-nan-equal",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-minInclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxInclusive"
+        ],
+        "conditions": "Selected operative-prose reading of unordered bound consistency; see docs/spec/INTERPRETATIONS.md I-015. A caption expressed as <= does not independently settle incomparable operands."
       },
       "schema": {
         "expected": "valid",
@@ -15472,11 +15635,38 @@
           }
         ]
       },
-      "instances": [],
+      "instances": [
+        {
+          "testName": "nan",
+          "file": "corpus/project/datatypes/numeric/double-bounds-nan-equal/nan.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "zero",
+          "file": "corpus/project/datatypes/numeric/double-bounds-nan-equal/zero.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": ".NET 10.0.9 reports valid in the fresh offline comparison. I-015 follows the operative prohibited-order consistency prose; instance bounds independently require their ordered/equal predicates. A mixed finite/NaN range admits neither witness, while an inclusive NaN/NaN range admits only NaN. The single-bound and equal-pair controls distinguish schema consistency from instance comparison.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+            }
+          }
+        }
+      ],
       "files": [
         {
           "file": "corpus/project/datatypes/numeric/double-bounds-nan-equal/schema.xsd",
           "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/double-bounds-nan-equal/nan.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/double-bounds-nan-equal/zero.xml",
+          "role": "instance"
         }
       ]
     },
@@ -18474,9 +18664,9 @@
           "internalExpected": "valid",
           "oracle": {
             "xerces": {
-              "expected": "invalid",
-              "reason": "Xerces-J rejects XSD 1.0 leap-second lexical value 23:59:60+02:00",
-              "specRef": "https://www.w3.org/TR/xmlschema-2/#isoformats"
+              "reason": "Instance assessment was blocked because Xerces-J rejected the schema leap-second literal; this is not an observed invalid instance result.",
+              "specRef": "https://www.w3.org/TR/xmlschema-2/#isoformats",
+              "status": "blocked"
             }
           }
         }
@@ -18529,9 +18719,9 @@
           "internalExpected": "valid",
           "oracle": {
             "xerces": {
-              "expected": "invalid",
-              "reason": "Xerces-J rejects XSD 1.0 leap-second lexical value 23:59:60+02:00",
-              "specRef": "https://www.w3.org/TR/xmlschema-2/#isoformats"
+              "reason": "Instance assessment was blocked because Xerces-J rejected the schema leap-second literal; this is not an observed invalid instance result.",
+              "specRef": "https://www.w3.org/TR/xmlschema-2/#isoformats",
+              "status": "blocked"
             }
           }
         }
@@ -18584,9 +18774,9 @@
           "internalExpected": "valid",
           "oracle": {
             "xerces": {
-              "expected": "invalid",
-              "reason": "Xerces-J rejects XSD 1.0 leap-second lexical value 23:59:60+02:00",
-              "specRef": "https://www.w3.org/TR/xmlschema-2/#isoformats"
+              "reason": "Instance assessment was blocked because Xerces-J rejected the schema leap-second literal; this is not an observed invalid instance result.",
+              "specRef": "https://www.w3.org/TR/xmlschema-2/#isoformats",
+              "status": "blocked"
             }
           }
         }
@@ -19495,7 +19685,12 @@
         "package": "validator",
         "function": "TestTimeFacetComparisonIgnoresDateShift",
         "sourceFile": "project/runtime_issues_test.go",
-        "sourceLine": 778
+        "sourceLine": 778,
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#time",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-minInclusive"
+        ],
+        "conditions": "Selected recurring-clock comparison interpretation: timezone normalization ignores date shift for time-only bounds. Historical test expectation is qualified by the time/date integration boundary, not treated as independent normative evidence."
       },
       "schema": {
         "expected": "valid",
@@ -19511,7 +19706,25 @@
           "testName": "TestTimeFacetComparisonIgnoresDateShift",
           "file": "corpus/project/datatypes/temporal/time-facet-comparison-ignores-date-shift/instance.xml",
           "expected": "valid",
-          "internalExpected": "valid"
+          "internalExpected": "valid",
+          "oracle": {
+            "dotnet": {
+              "expected": "invalid",
+              "reason": ".NET 10.0.9 reports invalid in the fresh offline comparison. The selected recurring-clock interpretation ignores a timezone-induced date shift for time-only bounds; source notes qualify this ordering boundary. The direct-clock witness passes and a distinct clock value fails. This observation does not resolve the source interpretation.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#time"
+            }
+          }
+        },
+        {
+          "testName": "direct-clock",
+          "file": "corpus/project/datatypes/temporal/time-facet-comparison-ignores-date-shift/direct-clock.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "different-clock",
+          "file": "corpus/project/datatypes/temporal/time-facet-comparison-ignores-date-shift/different-clock.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
         }
       ],
       "files": [
@@ -19522,6 +19735,14 @@
         {
           "file": "corpus/project/datatypes/temporal/time-facet-comparison-ignores-date-shift/schema.xsd",
           "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/time-facet-comparison-ignores-date-shift/direct-clock.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/time-facet-comparison-ignores-date-shift/different-clock.xml",
+          "role": "instance"
         }
       ],
       "internal": {
@@ -20953,7 +21174,11 @@
         "kind": "project",
         "package": "namespace",
         "function": "TestSchemaNamespaceDeclarationsAreValidated",
-        "sourceFile": "tests/corpus/project/namespaces/namespace-schema-import-namespace-cannot-be-empty"
+        "sourceFile": "tests/corpus/project/namespaces/namespace-schema-import-namespace-cannot-be-empty",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import"
+        ],
+        "conditions": "CMP-Q001: selected library admission policy for an empty import namespace, including an unused import. Published anyURI representation and namespace-name integration leave this boundary qualified; effective rejection is not a settled processor-conformance judgment."
       },
       "schema": {
         "expected": "invalid",
@@ -27562,7 +27787,14 @@
           {
             "file": "corpus/w3c/msData/additional/addB099.xsd"
           }
-        ]
+        ],
+        "oracle": {
+          "w3c": {
+            "expected": "valid",
+            "reason": "Original W3C expectation is valid. The effective rejection records the library's finite compilation resource limit, not normative XSD invalidity.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance"
+          }
+        }
       },
       "files": [
         {
@@ -29972,7 +30204,14 @@
           {
             "file": "corpus/w3c/msData/additional/addB194.xsd"
           }
-        ]
+        ],
+        "oracle": {
+          "w3c": {
+            "expected": "valid",
+            "reason": "Original W3C expectation is valid. Overlapping ##other wildcards in group THDMVV violate Unique Particle Attribution.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig"
+          }
+        }
       },
       "files": [
         {
@@ -156446,7 +156685,14 @@
           {
             "file": "corpus/w3c/msData/group/groupF009.xsd"
           }
-        ]
+        ],
+        "oracle": {
+          "w3c": {
+            "expected": "valid",
+            "reason": "Original W3C expectation is valid. The effective rejection records the library's finite compilation resource limit, not normative XSD invalidity.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance"
+          }
+        }
       },
       "instances": [
         {
@@ -157552,7 +157798,14 @@
           {
             "file": "corpus/w3c/msData/group/groupH009.xsd"
           }
-        ]
+        ],
+        "oracle": {
+          "w3c": {
+            "expected": "valid",
+            "reason": "Original W3C expectation is valid. The effective rejection records the library's finite compilation resource limit, not normative XSD invalidity.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance"
+          }
+        }
       },
       "instances": [
         {
@@ -158659,7 +158912,14 @@
           {
             "file": "corpus/w3c/msData/group/groupJ009.xsd"
           }
-        ]
+        ],
+        "oracle": {
+          "w3c": {
+            "expected": "valid",
+            "reason": "Original W3C expectation is valid. The effective rejection records the library's finite compilation resource limit, not normative XSD invalidity.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance"
+          }
+        }
       },
       "instances": [
         {
@@ -159777,7 +160037,14 @@
           {
             "file": "corpus/w3c/msData/group/groupL009.xsd"
           }
-        ]
+        ],
+        "oracle": {
+          "w3c": {
+            "expected": "valid",
+            "reason": "Original W3C expectation is valid. The effective rejection records the library's finite compilation resource limit, not normative XSD invalidity.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance"
+          }
+        }
       },
       "instances": [
         {
@@ -160895,7 +161162,14 @@
           {
             "file": "corpus/w3c/msData/group/groupN009.xsd"
           }
-        ]
+        ],
+        "oracle": {
+          "w3c": {
+            "expected": "valid",
+            "reason": "Original W3C expectation is valid. The effective rejection records the library's finite compilation resource limit, not normative XSD invalidity.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance"
+          }
+        }
       },
       "instances": [
         {
@@ -241865,7 +242139,14 @@
           {
             "file": "corpus/w3c/msData/particles/particlesZ033_a.xsd"
           }
-        ]
+        ],
+        "oracle": {
+          "w3c": {
+            "expected": "valid",
+            "reason": "Original W3C expectation is valid. The effective rejection records the library's finite compilation resource limit, not normative XSD invalidity.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance"
+          }
+        }
       },
       "files": [
         {
@@ -241924,7 +242205,14 @@
           {
             "file": "corpus/w3c/msData/particles/particlesZ033_d.xsd"
           }
-        ]
+        ],
+        "oracle": {
+          "w3c": {
+            "expected": "valid",
+            "reason": "Original W3C expectation is valid. The effective rejection records the library's finite compilation resource limit, not normative XSD invalidity.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance"
+          }
+        }
       },
       "files": [
         {
@@ -242205,7 +242493,14 @@
           {
             "file": "corpus/w3c/msData/particles/particlesZ035_a.xsd"
           }
-        ]
+        ],
+        "oracle": {
+          "w3c": {
+            "expected": "valid",
+            "reason": "Original W3C expectation is valid. The effective rejection records the library's finite compilation resource limit, not normative XSD invalidity.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance"
+          }
+        }
       },
       "instances": [
         {
@@ -242288,7 +242583,14 @@
           {
             "file": "corpus/w3c/msData/particles/particlesZ036_b.xsd"
           }
-        ]
+        ],
+        "oracle": {
+          "w3c": {
+            "expected": "valid",
+            "reason": "Original W3C expectation is valid. The effective rejection records the library's finite compilation resource limit, not normative XSD invalidity.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance"
+          }
+        }
       },
       "instances": [
         {
@@ -242330,7 +242632,14 @@
           {
             "file": "corpus/w3c/msData/particles/particlesZ036_b.xsd"
           }
-        ]
+        ],
+        "oracle": {
+          "w3c": {
+            "expected": "valid",
+            "reason": "Original W3C expectation is valid. The effective rejection records the library's finite compilation resource limit, not normative XSD invalidity.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance"
+          }
+        }
       },
       "instances": [
         {
@@ -242372,7 +242681,14 @@
           {
             "file": "corpus/w3c/msData/particles/particlesZ036_c.xsd"
           }
-        ]
+        ],
+        "oracle": {
+          "w3c": {
+            "expected": "valid",
+            "reason": "Original W3C expectation is valid. The effective rejection records the library's finite compilation resource limit, not normative XSD invalidity.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance"
+          }
+        }
       },
       "instances": [
         {
@@ -342477,6 +342793,11 @@
             "expected": "valid",
             "reason": "W3C metadata and Xerces-J accept direct xs:NOTATION as a union member; XSD 1.0 requires NOTATION use through a derived type with enumeration",
             "specRef": "https://www.w3.org/TR/xmlschema-2/#NOTATION"
+          },
+          "w3c": {
+            "expected": "valid",
+            "reason": "Original W3C expectation is valid. A direct NOTATION union member lacks the required enumeration restriction.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#enumeration-required-notation"
           }
         },
         "documents": [
@@ -342525,6 +342846,11 @@
             "expected": "valid",
             "reason": "W3C metadata and Xerces-J accept direct xs:NOTATION as a union member; XSD 1.0 requires NOTATION use through a derived type with enumeration",
             "specRef": "https://www.w3.org/TR/xmlschema-2/#NOTATION"
+          },
+          "w3c": {
+            "expected": "valid",
+            "reason": "Original W3C expectation is valid. A direct NOTATION union member lacks the required enumeration restriction.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#enumeration-required-notation"
           }
         },
         "documents": [
@@ -342573,6 +342899,11 @@
             "expected": "valid",
             "reason": "W3C metadata and Xerces-J accept direct xs:NOTATION as a union member; XSD 1.0 requires NOTATION use through a derived type with enumeration",
             "specRef": "https://www.w3.org/TR/xmlschema-2/#NOTATION"
+          },
+          "w3c": {
+            "expected": "valid",
+            "reason": "Original W3C expectation is valid. A direct NOTATION union member lacks the required enumeration restriction.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#enumeration-required-notation"
           }
         },
         "documents": [
@@ -342621,6 +342952,11 @@
             "expected": "valid",
             "reason": "W3C metadata and Xerces-J accept direct xs:NOTATION as a union member; XSD 1.0 requires NOTATION use through a derived type with enumeration",
             "specRef": "https://www.w3.org/TR/xmlschema-2/#NOTATION"
+          },
+          "w3c": {
+            "expected": "valid",
+            "reason": "Original W3C expectation is valid. A direct NOTATION union member lacks the required enumeration restriction.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#enumeration-required-notation"
           }
         },
         "documents": [
@@ -342669,6 +343005,11 @@
             "expected": "valid",
             "reason": "W3C metadata and Xerces-J accept direct xs:NOTATION as a union member; XSD 1.0 requires NOTATION use through a derived type with enumeration",
             "specRef": "https://www.w3.org/TR/xmlschema-2/#NOTATION"
+          },
+          "w3c": {
+            "expected": "valid",
+            "reason": "Original W3C expectation is valid. A direct NOTATION union member lacks the required enumeration restriction.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#enumeration-required-notation"
           }
         },
         "documents": [
@@ -342717,6 +343058,11 @@
             "expected": "valid",
             "reason": "W3C metadata and Xerces-J accept direct xs:NOTATION as a union member; XSD 1.0 requires NOTATION use through a derived type with enumeration",
             "specRef": "https://www.w3.org/TR/xmlschema-2/#NOTATION"
+          },
+          "w3c": {
+            "expected": "valid",
+            "reason": "Original W3C expectation is valid. A direct NOTATION union member lacks the required enumeration restriction.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#enumeration-required-notation"
           }
         },
         "documents": [
@@ -342765,6 +343111,11 @@
             "expected": "valid",
             "reason": "W3C metadata and Xerces-J accept direct xs:NOTATION as a union member; XSD 1.0 requires NOTATION use through a derived type with enumeration",
             "specRef": "https://www.w3.org/TR/xmlschema-2/#NOTATION"
+          },
+          "w3c": {
+            "expected": "valid",
+            "reason": "Original W3C expectation is valid. A direct NOTATION union member lacks the required enumeration restriction.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#enumeration-required-notation"
           }
         },
         "documents": [
@@ -342813,6 +343164,11 @@
             "expected": "valid",
             "reason": "W3C metadata and Xerces-J accept direct xs:NOTATION as a union member; XSD 1.0 requires NOTATION use through a derived type with enumeration",
             "specRef": "https://www.w3.org/TR/xmlschema-2/#NOTATION"
+          },
+          "w3c": {
+            "expected": "valid",
+            "reason": "Original W3C expectation is valid. A direct NOTATION union member lacks the required enumeration restriction.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#enumeration-required-notation"
           }
         },
         "documents": [
@@ -342861,6 +343217,11 @@
             "expected": "valid",
             "reason": "W3C metadata and Xerces-J accept direct xs:NOTATION as a union member; XSD 1.0 requires NOTATION use through a derived type with enumeration",
             "specRef": "https://www.w3.org/TR/xmlschema-2/#NOTATION"
+          },
+          "w3c": {
+            "expected": "valid",
+            "reason": "Original W3C expectation is valid. A direct NOTATION union member lacks the required enumeration restriction.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#enumeration-required-notation"
           }
         },
         "documents": [
@@ -342909,6 +343270,11 @@
             "expected": "valid",
             "reason": "W3C metadata and Xerces-J accept direct xs:NOTATION as a union member; XSD 1.0 requires NOTATION use through a derived type with enumeration",
             "specRef": "https://www.w3.org/TR/xmlschema-2/#NOTATION"
+          },
+          "w3c": {
+            "expected": "valid",
+            "reason": "Original W3C expectation is valid. A direct NOTATION union member lacks the required enumeration restriction.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#enumeration-required-notation"
           }
         },
         "documents": [
@@ -715782,7 +716148,7 @@
         ],
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-attribute",
-          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#whiteSpace"
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-whiteSpace"
         ]
       },
       "schema": {
@@ -715855,7 +716221,7 @@
         ],
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-attribute",
-          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#whiteSpace"
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-whiteSpace"
         ]
       },
       "schema": {
@@ -715927,7 +716293,7 @@
         ],
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-attribute",
-          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#whiteSpace"
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-whiteSpace"
         ]
       },
       "schema": {
@@ -718777,7 +719143,7 @@
         ],
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#sch-props-correct",
-          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#concepts-name"
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#concepts-nameSymbolSpaces"
         ]
       },
       "schema": {
@@ -718811,7 +719177,7 @@
         ],
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#sch-props-correct",
-          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#concepts-name"
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#concepts-nameSymbolSpaces"
         ]
       },
       "schema": {
@@ -718845,7 +719211,7 @@
         ],
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#sch-props-correct",
-          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#concepts-name"
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#concepts-nameSymbolSpaces"
         ]
       },
       "schema": {
@@ -864596,6 +864962,811 @@
         },
         {
           "file": "corpus/project/elements/xsi-type-boundaries/type-qname-default-namespace-reset-facet-after-reset.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/equal-exclusive-empty",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-less-than-equal-to-maxExclusive"
+        ],
+        "description": "Same-step equal exclusive endpoints describe a valid empty value space; decimal aliases denote equal values.",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/equal-exclusive-empty/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/equal-exclusive-empty/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "below",
+          "file": "corpus/project/datatypes/bounds/equal-exclusive-empty/below.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "endpoint",
+          "file": "corpus/project/datatypes/bounds/equal-exclusive-empty/endpoint.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "above",
+          "file": "corpus/project/datatypes/bounds/equal-exclusive-empty/above.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/equal-exclusive-empty/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/equal-exclusive-empty/below.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/equal-exclusive-empty/endpoint.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/equal-exclusive-empty/above.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/inherited-opposing-exclusive-equality",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#xr-maxExclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction"
+        ],
+        "description": "A newly declared facet literal must belong to the base value space even when a same-step opposing-bound pair could be consistent.",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/inherited-opposing-exclusive-equality/schema.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/inherited-opposing-exclusive-equality/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet",
+        "oracle": {
+          "dotnet": {
+            "expected": "valid",
+            "reason": ".NET 10.0.9 reports valid in the fresh offline comparison. The newly declared upper bound must first belong to the base value space (XML facet representation). The base lower bound excludes this literal; same-step pair consistency cannot waive inherited admission.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#xr-maxExclusive"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/inherited-opposing-exclusive-equality/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/inherited-opposing-unordered-nan",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#xr-maxInclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxInclusive-valid-restriction"
+        ],
+        "description": "A newly declared facet literal must belong to the base value space even when a same-step opposing-bound pair could be consistent.",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/inherited-opposing-unordered-nan/schema.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/inherited-opposing-unordered-nan/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet",
+        "oracle": {
+          "libxml2": {
+            "expected": "valid",
+            "reason": "libxml2 2.9.13 reports valid in the fresh offline comparison. The newly declared upper bound must first belong to the base value space (XML facet representation). The base lower bound excludes this literal; same-step pair consistency cannot waive inherited admission.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#xr-maxInclusive"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/inherited-opposing-unordered-nan/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/dual-lower-equal",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-minExclusive"
+        ],
+        "description": "A restriction cannot declare both lower-bound facet kinds, independent of their values.",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/dual-lower-equal/schema.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/dual-lower-equal/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/dual-lower-equal/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/dual-lower-distinct",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-minExclusive"
+        ],
+        "description": "A restriction cannot declare both lower-bound facet kinds, independent of their values.",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/dual-lower-distinct/schema.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/dual-lower-distinct/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/dual-lower-distinct/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/single-lower-minInclusive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-minInclusive"
+        ],
+        "description": "Single lower-bound control for dual-lower facet exclusion.",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/single-lower-minInclusive/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/single-lower-minInclusive/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "below",
+          "file": "corpus/project/datatypes/bounds/single-lower-minInclusive/below.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "endpoint",
+          "file": "corpus/project/datatypes/bounds/single-lower-minInclusive/endpoint.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "above",
+          "file": "corpus/project/datatypes/bounds/single-lower-minInclusive/above.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/single-lower-minInclusive/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/single-lower-minInclusive/below.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/single-lower-minInclusive/endpoint.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/single-lower-minInclusive/above.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/single-lower-minExclusive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-minExclusive"
+        ],
+        "description": "Single lower-bound control for dual-lower facet exclusion.",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/single-lower-minExclusive/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/single-lower-minExclusive/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "below",
+          "file": "corpus/project/datatypes/bounds/single-lower-minExclusive/below.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "endpoint",
+          "file": "corpus/project/datatypes/bounds/single-lower-minExclusive/endpoint.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "above",
+          "file": "corpus/project/datatypes/bounds/single-lower-minExclusive/above.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/single-lower-minExclusive/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/single-lower-minExclusive/below.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/single-lower-minExclusive/endpoint.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/single-lower-minExclusive/above.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/nested-empty-choice-required",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle"
+        ],
+        "description": "Project-owned particlesZ016 shape isolates required empty-choice matching from an unrelated invalid integer value; optional empty choices provide the opposing control.",
+        "sourceFile": "tests/corpus/project/content-models/nested-empty-choice-required/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/nested-empty-choice-required/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/nested-empty-choice-required/empty.xml",
+          "expected": "invalid",
+          "errorCode": "validation.content",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Xerces-J 2.12.2 on OpenJDK 26.0.1 reports valid in the fresh offline comparison. Required empty choices have no branch that can match. Empty and well-typed-child witnesses isolate particle failure; corresponding optional empty choices accept both.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": ".NET 10.0.9 reports valid in the fresh offline comparison. Required empty choices have no branch that can match. Empty and well-typed-child witnesses isolate particle failure; corresponding optional empty choices accept both.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+            }
+          }
+        },
+        {
+          "testName": "typed-child",
+          "file": "corpus/project/content-models/nested-empty-choice-required/typed-child.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Xerces-J 2.12.2 on OpenJDK 26.0.1 reports valid in the fresh offline comparison. Required empty choices have no branch that can match. Empty and well-typed-child witnesses isolate particle failure; corresponding optional empty choices accept both.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": ".NET 10.0.9 reports valid in the fresh offline comparison. Required empty choices have no branch that can match. Empty and well-typed-child witnesses isolate particle failure; corresponding optional empty choices accept both.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/nested-empty-choice-required/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/nested-empty-choice-required/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/nested-empty-choice-required/typed-child.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/nested-empty-choice-optional",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle"
+        ],
+        "description": "Project-owned particlesZ016 shape isolates required empty-choice matching from an unrelated invalid integer value; optional empty choices provide the opposing control.",
+        "sourceFile": "tests/corpus/project/content-models/nested-empty-choice-optional/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/nested-empty-choice-optional/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/nested-empty-choice-optional/empty.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "typed-child",
+          "file": "corpus/project/content-models/nested-empty-choice-optional/typed-child.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/nested-empty-choice-optional/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/nested-empty-choice-optional/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/nested-empty-choice-optional/typed-child.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/wildcard-id-declared-strict",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+        ],
+        "description": "A known ID wildcard attribute conflicts with any effective ID use, even an absent optional use (clause 5.2).",
+        "sourceFile": "tests/corpus/project/attributes/wildcard-id-declared-strict/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/wildcard-id-declared-strict/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "absent-declared",
+          "file": "corpus/project/attributes/wildcard-id-declared-strict/absent-declared.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute",
+          "oracle": {
+            "libxml2": {
+              "expected": "valid",
+              "reason": "libxml2 2.9.13 reports valid in the fresh offline comparison. cvc-complex-type 5.2 forbids a known ID wildcard declaration when the effective use set has an ID-derived use, even absent. Controls omit the use, skip assessment, or leave lax declarations unresolved.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+            }
+          }
+        },
+        {
+          "testName": "both",
+          "file": "corpus/project/attributes/wildcard-id-declared-strict/both.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute",
+          "oracle": {
+            "libxml2": {
+              "expected": "valid",
+              "reason": "libxml2 2.9.13 reports valid in the fresh offline comparison. cvc-complex-type 5.2 forbids a known ID wildcard declaration when the effective use set has an ID-derived use, even absent. Controls omit the use, skip assessment, or leave lax declarations unresolved.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+            }
+          }
+        },
+        {
+          "testName": "declared-only",
+          "file": "corpus/project/attributes/wildcard-id-declared-strict/declared-only.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "neither",
+          "file": "corpus/project/attributes/wildcard-id-declared-strict/neither.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/attributes/wildcard-id-declared-strict/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-id-declared-strict/absent-declared.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-id-declared-strict/both.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-id-declared-strict/declared-only.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-id-declared-strict/neither.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/wildcard-id-declared-lax",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+        ],
+        "description": "A known ID wildcard attribute conflicts with any effective ID use, even an absent optional use (clause 5.2).",
+        "sourceFile": "tests/corpus/project/attributes/wildcard-id-declared-lax/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/wildcard-id-declared-lax/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "absent-declared",
+          "file": "corpus/project/attributes/wildcard-id-declared-lax/absent-declared.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute",
+          "oracle": {
+            "libxml2": {
+              "expected": "valid",
+              "reason": "libxml2 2.9.13 reports valid in the fresh offline comparison. cvc-complex-type 5.2 forbids a known ID wildcard declaration when the effective use set has an ID-derived use, even absent. Controls omit the use, skip assessment, or leave lax declarations unresolved.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+            }
+          }
+        },
+        {
+          "testName": "both",
+          "file": "corpus/project/attributes/wildcard-id-declared-lax/both.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute",
+          "oracle": {
+            "libxml2": {
+              "expected": "valid",
+              "reason": "libxml2 2.9.13 reports valid in the fresh offline comparison. cvc-complex-type 5.2 forbids a known ID wildcard declaration when the effective use set has an ID-derived use, even absent. Controls omit the use, skip assessment, or leave lax declarations unresolved.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+            }
+          }
+        },
+        {
+          "testName": "declared-only",
+          "file": "corpus/project/attributes/wildcard-id-declared-lax/declared-only.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "neither",
+          "file": "corpus/project/attributes/wildcard-id-declared-lax/neither.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/attributes/wildcard-id-declared-lax/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-id-declared-lax/absent-declared.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-id-declared-lax/both.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-id-declared-lax/declared-only.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-id-declared-lax/neither.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/wildcard-id-control-no-use",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-assess-attr"
+        ],
+        "description": "Opposing control: the wildcard-ID exclusion needs both a known assessed ID declaration and an effective ID use.",
+        "sourceFile": "tests/corpus/project/attributes/wildcard-id-control-no-use/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/wildcard-id-control-no-use/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "control",
+          "file": "corpus/project/attributes/wildcard-id-control-no-use/control.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/attributes/wildcard-id-control-no-use/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-id-control-no-use/control.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/wildcard-id-control-skip",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-assess-attr"
+        ],
+        "description": "Opposing control: the wildcard-ID exclusion needs both a known assessed ID declaration and an effective ID use.",
+        "sourceFile": "tests/corpus/project/attributes/wildcard-id-control-skip/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/wildcard-id-control-skip/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "control",
+          "file": "corpus/project/attributes/wildcard-id-control-skip/control.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/attributes/wildcard-id-control-skip/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-id-control-skip/control.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/wildcard-id-control-unresolved-lax",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-assess-attr"
+        ],
+        "description": "Opposing control: the wildcard-ID exclusion needs both a known assessed ID declaration and an effective ID use.",
+        "sourceFile": "tests/corpus/project/attributes/wildcard-id-control-unresolved-lax/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/wildcard-id-control-unresolved-lax/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "control",
+          "file": "corpus/project/attributes/wildcard-id-control-unresolved-lax/control.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/attributes/wildcard-id-control-unresolved-lax/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-id-control-unresolved-lax/control.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/wildcard-id-use-order",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+        ],
+        "description": "A known wildcard ID attribute conflicts with any effective ID use, regardless of its position among other optional uses. All declared uses are absent in the rejecting instances, isolating clause 5.2 from the count of physically present ID attributes. Non-ID uses and a declared ID without a wildcard attribute supply valid controls.",
+        "sourceFile": "tests/corpus/project/attributes/wildcard-id-use-order/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/wildcard-id-use-order/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "id-first",
+          "file": "corpus/project/attributes/wildcard-id-use-order/id-first.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute",
+          "oracle": {
+            "libxml2": {
+              "expected": "valid",
+              "reason": "libxml2 2.9.13 accepts the known wildcard ID attribute despite an absent declared ID use. XSD 1.0 cvc-complex-type clause 5.2 forbids an ID-derived use anywhere in the effective use set, independent of declaration order or physical presence. Xerces-J 2.12.2 and .NET 10.0.9 reject all three positions; all three processors accept the no-ID-use and declared-only controls.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+            }
+          }
+        },
+        {
+          "testName": "id-middle",
+          "file": "corpus/project/attributes/wildcard-id-use-order/id-middle.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute",
+          "oracle": {
+            "libxml2": {
+              "expected": "valid",
+              "reason": "libxml2 2.9.13 accepts the known wildcard ID attribute despite an absent declared ID use. XSD 1.0 cvc-complex-type clause 5.2 forbids an ID-derived use anywhere in the effective use set, independent of declaration order or physical presence. Xerces-J 2.12.2 and .NET 10.0.9 reject all three positions; all three processors accept the no-ID-use and declared-only controls.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+            }
+          }
+        },
+        {
+          "testName": "id-last",
+          "file": "corpus/project/attributes/wildcard-id-use-order/id-last.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute",
+          "oracle": {
+            "libxml2": {
+              "expected": "valid",
+              "reason": "libxml2 2.9.13 accepts the known wildcard ID attribute despite an absent declared ID use. XSD 1.0 cvc-complex-type clause 5.2 forbids an ID-derived use anywhere in the effective use set, independent of declaration order or physical presence. Xerces-J 2.12.2 and .NET 10.0.9 reject all three positions; all three processors accept the no-ID-use and declared-only controls.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+            }
+          }
+        },
+        {
+          "testName": "no-id-use",
+          "file": "corpus/project/attributes/wildcard-id-use-order/no-id-use.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "declared-only",
+          "file": "corpus/project/attributes/wildcard-id-use-order/declared-only.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/attributes/wildcard-id-use-order/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-id-use-order/id-first.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-id-use-order/id-middle.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-id-use-order/id-last.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-id-use-order/no-id-use.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-id-use-order/declared-only.xml",
           "role": "instance"
         }
       ]

@@ -215,8 +215,8 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   facet masks, and builtin kinds. Schema retains source facet-name mapping,
   facet admission and ordering, whiteSpace restriction, and final constraints.
   Schema occurrence admission retains checked counts and a finite/unbounded tag.
-  Occurrence and size-facet wrappers share bounded integer scanning while
-  preserving their distinct lexical and diagnostic policies.
+  Occurrence and size-facet admission share bounded nonNegativeInteger scanning,
+  including signed zero. Each owner applies its own value bounds and diagnostics.
   Schema facet-source admission uses one ordered child dispatch. The build's
   unavailable-type fact defers bound and enumeration literal evaluation while
   preserving source checks and decidable facets. Available grouped facets apply
@@ -453,7 +453,10 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   The compiler checks identity exhaustion before allocation. Publication drops
   component identities with the construction records and derives
   immutable required and applicable value-constraint slot lists from those uses,
-  preserving order. Under adopted WG correction 4363, validation-read projection
+  preserving order. The same projection derives `HasIDUse` from completed
+  value-builder input requirements for the effective uses, after inheritance and
+  restriction. Missing metadata is an internal invariant error before builder
+  sealing; no raw type specification or ancestry scan substitutes for it. Under adopted WG correction 4363, validation-read projection
   omits XSI value constraints; construction and derivation retain them.
   `AbsentValueConstraint` supplies synthesis eligibility to slot construction,
   while required slots remain independent. Publication guarantees that XSI
@@ -643,7 +646,11 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   then removes the table. Type construction validates dependencies and facets before
   publication. Source bound presence owns omission. Retained ordered-bound
   entries are present and use their existing exclusive flag for acceptance,
-  restriction and fixed-kind lookup. Restriction derivation returns its validated effective facet
+  restriction and fixed-kind lookup. One value-owned pair predicate checks
+  same-step consistency: equality permits matching bound kinds, and incomparable
+  endpoints do not violate the prohibited-order comparison. Schema literal
+  admission, instance acceptance, and inherited-bound narrowing remain separate
+  checks. Restriction derivation returns its validated effective facet
   program for publication; the compiler does not reconstruct that merge.
   Facet applicability has one value-owned mask shared by schema admission and
   value construction: atomic Boolean admits pattern and whiteSpace; list and
@@ -802,6 +809,13 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   schema has neither required slots nor value-constraint slots. An unused
   wildcard adds no work; explicit, required, default, and fixed assessment
   otherwise follows the existing schema-owned slots.
+  Known wildcard attributes use their declaration's static identity requirement.
+  An ID declaration conflicts with a published effective ID use even when that
+  use is absent from the instance. Validation rejects the prepared identity
+  target before value recording or capture; the separate count of actual ID
+  attributes still applies. Unavailable types fail first, while skip and
+  unresolved lax attributes remain unassessed. Selected union members do not
+  redefine the declaration's static identity category.
   Exactly the four intrinsic XSI names use dedicated value/start assessment,
   bypassing ordinary attribute-use and fixed-value assessment. Physical presence
   still marks a matching required slot, including when the supplied value is

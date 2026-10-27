@@ -56,17 +56,6 @@ func allowedFacetMask(variety Variety, primitive PrimitiveKind) FacetMask {
 	}
 }
 
-func primitiveHasPartialOrder(kind PrimitiveKind) bool {
-	//nolint:exhaustive // Only temporal primitives have partial orders.
-	switch kind {
-	case PrimitiveDuration, PrimitiveDateTime, PrimitiveTime, PrimitiveDate,
-		PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth:
-		return true
-	default:
-		return false
-	}
-}
-
 // deriveFacetProgram owns the restriction contract between a type and
 // its direct base. Source shape has already been validated before typed facet
 // values are compiled; keeping this step focused on inheritance avoids

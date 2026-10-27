@@ -150,7 +150,7 @@ or a stated unresolved boundary. Report remaining coverage limits to the user.
   `schema.oracle.w3c` or `instance.oracle.w3c` records the original expectation,
   reason, and specification reference. Oracle metadata is explanatory; consumers do not
   merge it into the effective expectation or infer a Xerces-J result.
-  An instance's `oracle.project` likewise records a corrected original project
+  A schema or instance's `oracle.project` likewise records a corrected original project
   expectation. Existing `internalExpected` values remain historical extraction
   metadata. A legacy test name containing `valid` or `invalid` is not an oracle;
   preserve its identity when correcting `expected`.
@@ -178,8 +178,10 @@ A runner SHOULD read `manifest.json`, compile each case schema document set,
 then validate each listed instance against that schema. Expected values are
 `valid` or `invalid`. For provider comparisons, use the phase's
 `oracle.<implementation>.expected` when present; otherwise compare the measured
-result against the project expectation. Provider expectations remain separate
-from the effective project result.
+result against the project expectation. A provider phase recorded with
+`status: "blocked"` and no `expected` is an execution limitation, not a validity
+expectation. In particular, schema rejection blocks its instance phases.
+Provider expectations remain separate from the effective project result.
 
 The Go runner rejects internal diagnostics anywhere in a compilation or
 validation error tree, including wrapped causes and aggregate branches. An

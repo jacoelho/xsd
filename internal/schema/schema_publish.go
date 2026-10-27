@@ -106,8 +106,8 @@ func newSchemaProgram(build *schemaBuild, work ContentModelWork) (schemaProgram,
 		return schemaProgram{}, err
 	}
 	for _, count := range []int{len(build.Names.locals), len(build.Identities), len(build.SimpleTypes), len(build.ComplexTypes)} {
-		if err := spendContentModelWorkN(work, count); err != nil {
-			return schemaProgram{}, err
+		if workErr := spendContentModelWorkN(work, count); workErr != nil {
+			return schemaProgram{}, workErr
 		}
 	}
 	if mayHaveDenseRows {
@@ -132,6 +132,9 @@ func newSchemaProgram(build *schemaBuild, work ContentModelWork) (schemaProgram,
 		Elements:              newElementReadTable(build.Elements, build.ComplexTypes),
 		IdentityDispatch:      newIdentityDispatchRead(build.Identities, names),
 	}
-	reads.AttributeUseSets = newAttributeUseSetReads(&build.Names, build.AttributeUseSets, build.SimpleTypes)
+	reads.AttributeUseSets, err = newAttributeUseSetReads(&build.Names, build.AttributeUseSets, build.SimpleTypes, build.valueBuilder)
+	if err != nil {
+		return schemaProgram{}, err
+	}
 	return reads, nil
 }

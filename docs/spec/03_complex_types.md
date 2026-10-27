@@ -151,7 +151,7 @@ Setting `mixed="true"` allows character data alongside child elements:
 
 - Character data between elements is ignored for content model validation (only element order/count matters)
 - In element-only content (`mixed="false"`), only whitespace text is allowed between elements
-- Non-whitespace text in element-only content causes validation error `cvc-complex-type.2.2`
+- Non-whitespace text in element-only content violates `cvc-complex-type.2.3`
 
 **Mixed Content Inheritance:**
 

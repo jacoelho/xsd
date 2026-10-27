@@ -213,6 +213,7 @@ const (
 	msgIdentityNoSimpleValue = "selects a node without a simple value"
 	msgIdentityNillableKey   = "a key field must not select a nillable element declaration"
 	msgMultipleIDAttributes  = "an element must not have more than one attribute of type xs:ID"
+	msgWildcardIDDeclaredUse = "wildcard ID attribute conflicts with a declared ID attribute use"
 	msgInstanceDepthLimit    = "instance depth limit exceeded"
 )
 

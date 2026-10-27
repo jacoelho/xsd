@@ -695,7 +695,7 @@ func TestFacetContractUsesValueSpaceForFixedAndPartialOrderedBounds(t *testing.T
 	_ = derived
 }
 
-func TestFacetContractAllowsIncomparablePartialOrderedBounds(t *testing.T) {
+func TestFacetContractAllowsIncomparableOrderedBounds(t *testing.T) {
 	t.Parallel()
 
 	for _, test := range []struct {
@@ -703,72 +703,150 @@ func TestFacetContractAllowsIncomparablePartialOrderedBounds(t *testing.T) {
 		primitive value.PrimitiveKind
 		lower     string
 		upper     string
+		rejected  []string
 	}{
 		{name: "duration", primitive: value.PrimitiveDuration, lower: "P1M", upper: "P30D"},
 		{name: "dateTime", primitive: value.PrimitiveDateTime, lower: "2020-01-01T00:00:00", upper: "2020-01-01T00:00:00Z"},
+		{name: "float NaN lower", primitive: value.PrimitiveFloat, lower: "NaN", upper: "0", rejected: []string{"NaN", "0"}},
+		{name: "float NaN upper", primitive: value.PrimitiveFloat, lower: "0", upper: "NaN", rejected: []string{"NaN", "0"}},
+		{name: "double NaN lower", primitive: value.PrimitiveDouble, lower: "NaN", upper: "0", rejected: []string{"NaN", "0"}},
+		{name: "double NaN upper", primitive: value.PrimitiveDouble, lower: "0", upper: "NaN", rejected: []string{"NaN", "0"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			builder := value.NewBuilder(value.BuilderOptions{})
-			spec := atomicFacetType(test.primitive, value.FacetSpec{
-				MinInclusive: value.BoundFacet{Lexical: test.lower, Type: value.NoType, Present: true},
-				MaxInclusive: value.BoundFacet{Lexical: test.upper, Type: value.NoType, Present: true},
-			})
-			reservedID, reserveErr := builder.Reserve()
-			if reserveErr != nil {
-				t.Fatalf("Reserve() error = %v", reserveErr)
-			}
-			if err := builder.Complete(reservedID, spec); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := builder.Seal(); err != nil {
-				t.Fatalf("incomparable partial-order bounds rejected: %v", err)
+			lower := value.BoundFacet{Lexical: test.lower, Type: value.NoType, Present: true}
+			upper := value.BoundFacet{Lexical: test.upper, Type: value.NoType, Present: true}
+			for _, bounds := range []struct {
+				name   string
+				facets value.FacetSpec
+			}{
+				{"both inclusive", value.FacetSpec{MinInclusive: lower, MaxInclusive: upper}},
+				{"inclusive exclusive", value.FacetSpec{MinInclusive: lower, MaxExclusive: upper}},
+				{"exclusive inclusive", value.FacetSpec{MinExclusive: lower, MaxInclusive: upper}},
+				{"both exclusive", value.FacetSpec{MinExclusive: lower, MaxExclusive: upper}},
+			} {
+				t.Run(bounds.name, func(t *testing.T) {
+					builder := value.NewBuilder(value.BuilderOptions{})
+					id, err := builder.Reserve()
+					if err != nil {
+						t.Fatal(err)
+					}
+					if completeErr := builder.Complete(id, atomicFacetType(test.primitive, bounds.facets)); completeErr != nil {
+						t.Fatalf("Complete() rejected incomparable bounds: %v", completeErr)
+					}
+					program, err := builder.Seal()
+					if err != nil {
+						t.Fatal(err)
+					}
+					assertOrderedFacetValues(t, program, id, nil, test.rejected)
+				})
 			}
 		})
 	}
 }
 
-func TestFacetContractRejectsEmptyEqualOrderedIntervals(t *testing.T) {
+func TestFacetContractEqualOrderedBounds(t *testing.T) {
 	t.Parallel()
 
+	lower := value.BoundFacet{Lexical: "10", Type: value.NoType, Present: true}
+	upper := value.BoundFacet{Lexical: "10.0", Type: value.NoType, Present: true}
 	for _, test := range []struct {
-		name       string
-		lowerBound value.BoundFacet
-		upperBound value.BoundFacet
+		name     string
+		facets   value.FacetSpec
+		wantErr  bool
+		accepted []string
+		rejected []string
 	}{
 		{
-			name:       "exclusive upper",
-			lowerBound: value.BoundFacet{Lexical: "1", Type: value.NoType, Present: true},
-			upperBound: value.BoundFacet{Lexical: "1", Type: value.NoType, Present: true},
+			name: "both inclusive", facets: value.FacetSpec{MinInclusive: lower, MaxInclusive: upper},
+			accepted: []string{"10", "10.0"}, rejected: []string{"9", "11"},
 		},
 		{
-			name:       "exclusive lower",
-			lowerBound: value.BoundFacet{Lexical: "1", Type: value.NoType, Present: true},
-			upperBound: value.BoundFacet{Lexical: "1", Type: value.NoType, Present: true},
+			name: "both exclusive", facets: value.FacetSpec{MinExclusive: lower, MaxExclusive: upper},
+			rejected: []string{"9", "10", "10.0", "11"},
 		},
+		{name: "inclusive exclusive", facets: value.FacetSpec{MinInclusive: lower, MaxExclusive: upper}, wantErr: true},
+		{name: "exclusive inclusive", facets: value.FacetSpec{MinExclusive: lower, MaxInclusive: upper}, wantErr: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			if test.name == "exclusive upper" {
-				test.upperBound = value.BoundFacet{Lexical: "1", Type: value.NoType, Present: true}
-			}
-			facets := value.FacetSpec{MinInclusive: test.lowerBound, MaxInclusive: test.upperBound}
-			if test.name == "exclusive upper" {
-				facets.MaxInclusive = value.BoundFacet{}
-				facets.MaxExclusive = test.upperBound
-			} else {
-				facets.MinInclusive = value.BoundFacet{}
-				facets.MinExclusive = test.lowerBound
-			}
 			builder := value.NewBuilder(value.BuilderOptions{})
-			reservedID, reserveErr := builder.Reserve()
-			if reserveErr != nil {
-				t.Fatalf("Reserve() error = %v", reserveErr)
+			id, err := builder.Reserve()
+			if err != nil {
+				t.Fatal(err)
 			}
-			if err := builder.Complete(reservedID, atomicFacetType(value.PrimitiveDecimal, facets)); err == nil {
-				t.Fatal("empty equal ordered interval was accepted")
+			err = builder.Complete(id, atomicFacetType(value.PrimitiveDecimal, test.facets))
+			if test.wantErr {
+				if !errors.Is(err, value.ErrFacet) {
+					t.Fatalf("Complete() = %v; want ErrFacet", err)
+				}
+				return
 			}
+			if err != nil {
+				t.Fatalf("Complete() rejected consistent equal bounds: %v", err)
+			}
+			program, err := builder.Seal()
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertOrderedFacetValues(t, program, id, test.accepted, test.rejected)
 		})
+	}
+}
+
+func TestFacetContractEqualNaNBounds(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name      string
+		primitive value.PrimitiveKind
+	}{
+		{"float", value.PrimitiveFloat},
+		{"double", value.PrimitiveDouble},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			builder := value.NewBuilder(value.BuilderOptions{})
+			id, err := builder.Reserve()
+			if err != nil {
+				t.Fatal(err)
+			}
+			bound := value.BoundFacet{Lexical: "NaN", Type: value.NoType, Present: true}
+			if completeErr := builder.Complete(id, atomicFacetType(test.primitive, value.FacetSpec{
+				MinInclusive: bound, MaxInclusive: bound,
+			})); completeErr != nil {
+				t.Fatal(completeErr)
+			}
+			program, err := builder.Seal()
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertOrderedFacetValues(t, program, id, []string{"NaN"}, []string{"0"})
+		})
+	}
+}
+
+func assertOrderedFacetValues(t *testing.T, program *value.Program, id value.TypeID, accepted, rejected []string) {
+	t.Helper()
+	for _, form := range []string{"typed", "bytes"} {
+		validate := func(input string) error {
+			if form == "bytes" {
+				_, err := program.ValidateBytes(id, []byte(input), value.Resolver{}, 0, 16<<20, nil)
+				return err
+			}
+			_, err := program.Validate(id, input, value.Resolver{}, value.NeedCanonical, 16<<20, nil)
+			return err
+		}
+		for _, input := range accepted {
+			if err := validate(input); err != nil {
+				t.Errorf("%s input=%q: %v; want acceptance", form, input, err)
+			}
+		}
+		for _, input := range rejected {
+			if err := validate(input); !errors.Is(err, value.ErrFacet) {
+				t.Errorf("%s input=%q: %v; want ErrFacet", form, input, err)
+			}
+		}
 	}
 }
 

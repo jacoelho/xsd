@@ -299,6 +299,8 @@ the research notes. Unresolved does not mean arbitrary processor choice.
 | Canonical zero and union overlap | Generic one-to-one canonical representation needs integration with decimal/integer minus-zero wording and overlapping integer/decimal union members. Conventional outputs are not disproved; two policies are not thereby permitted. Explicit nonPositiveInteger and float/double zero rules remain determined. Acceptance/member metadata cannot prove an ambiguous canonical output. |
 | Unsigned aliases / single-member union / gMonth | Complete Appendix A unsigned definitions supply signed integer aliases with bounds; preserve the prose seam. Concrete component/representation rules allow one union member despite informal “greater than 1”. Published gMonth form is `--MM`; historical deleted `--MM--` is excluded. |
 | Temporal boundaries | Preserve leap-second lexical/body/Appendix D premises; Appendix E treats an admitted leap second as arithmetic overflow but does not settle all lexical admission. BCE/CE arithmetic needs explicit historical-year mapping. Cross-reference time/g* rollover identity needs a source interpretation, not clock-only equality or an invented canonical g* algorithm. Mixed-zone dateTime separation exactly 14 hours is incomparable under the explicit opening rule. Date example sign/direction discrepancies do not override operative offset/interval definitions. |
+| Time midnight — R-127 | [Issue 2116](https://www.w3.org/Bugs/Public/show_bug.cgi?id=2116) identifies the conflict between §3.2.8's arbitrary-date ordering of `00:00:00` and `24:00:00` and §3.2.8.2's midnight canonical form. Its recorded clarification resolution is not a published correction in the selected baseline. Keep time-bound derivation probes source-qualified; neither day-preserving ordering nor recurring-clock equality alone settles this oracle. The explicit next-day mapping of `dateTime` in §3.2.7.1 remains determined. |
+| Duration equality and order | §3.2.6 describes six coordinates, while §3.2.6.2 defines strict order using four reference dates. Equal endpoints for `P400Y` and `P146097D` do not independently establish duration identity. [XSD 1.1 §I.4](https://www.w3.org/TR/2012/REC-xmlschema11-2-20120405/datatypes.html#changes) explicitly changes the value space to two coordinates; no such correction is selected here. Integrate identity, equality and partial order before assigning this pair an unqualified XSD 1.0 enumeration or bound expectation. |
 | Duration / truncation prose | Duration's total-order paragraph refers to a timezone that its grammar lacks; invent no feasible timezone branch. Appendix D's right-truncation list omits gYearMonth despite its explicit type definition; specific grammars still govern. |
 | Fundamental facets — FFP004/006/008, FM13 | Preserve printed property formulas separately from mathematical value-set cardinality: fixed-length integer lists classify finite; enumeration/pattern alone do not trigger atomic finite classification; Appendix C labels gMonth countably infinite. Union ordered explicitly excludes anySimpleType as common ancestor while bounded does not; add no unprinted common-primitive exclusion. Boolean validity cannot expose these component properties. |
 | Bounds | Repeated equal exclusive endpoints have explicit allowance; do not substitute generic instance validity. Incomparable restriction endpoints need their actual prohibited-comparison wording. Inherited opposite lower-bound kinds retain the same-datatype versus same-step scope question; no blanket rewrite/rejection follows. |
@@ -390,3 +392,28 @@ routes waives wildcard namespace matching or loads schemas from instance hints
 or network URLs. The library reports assessment failures without exposing a
 PSVI validity property; failure is not a claim that every enclosing laxly
 assessed item has the PSVI value `invalid`.
+
+## I-015 — ordered-bound consistency and unordered values
+
+**Status:** selected reading of the operative XSD 1.0 facet-consistency prose;
+processor disagreements remain corpus provenance.
+
+The same-step consistency rules for [minInclusive/maxInclusive](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive)
+and [minExclusive/maxExclusive](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-less-than-equal-to-maxExclusive)
+prohibit a lower value greater than the upper value. Equal endpoints therefore
+permit both-inclusive and both-exclusive pairs; the latter describes an empty
+value space. Mixed inclusive/exclusive pairs prohibit equality as well.
+
+The rule captions use less-than-or-equal notation, but the operative prose
+prohibits the opposite comparison. For unordered values these formulations are
+not equivalent. The library follows the prose: incomparable endpoints do not
+violate the pair-consistency rule, including finite/NaN pairs for float and
+double, just as with partial temporal orders. This does not make unordered
+instance comparisons succeed. Each bound still tests its own value-space
+predicate, so a mixed finite/NaN pair admits no instance, while a NaN/NaN
+inclusive pair admits NaN through equality.
+
+Facet-literal admission against the base type, fixed facets, and restriction
+narrowing remain separate obligations. In particular, a bound declared in a
+later restriction cannot bypass a base bound merely because the resulting pair
+would be allowed when declared together.
