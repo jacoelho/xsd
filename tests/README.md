@@ -181,6 +181,13 @@ then validate each listed instance against that schema. Expected values are
 result against the project expectation. Provider expectations remain separate
 from the effective project result.
 
+The Go runner rejects internal diagnostics anywhere in a compilation or
+validation error tree, including wrapped causes and aggregate branches. An
+expected-invalid result, a matching `errorCode` (even `internal.invariant`), or
+an allowlisted unsupported diagnostic cannot make an internal failure pass or
+skip. Other rejection expectations retain their existing meaning, including
+malformed XML and explicit resource-limit cases.
+
 Every entry in `schema.documents` is a compilation root, in manifest order.
 Entries listed only in `files` with role `dependency` are copied dependencies
 used through relative schema locations and are never promoted to roots.

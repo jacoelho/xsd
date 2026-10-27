@@ -275,12 +275,10 @@ func runCase(t *testing.T, dir string, unsupported unsupportedAllowlist, tc mani
 			t.Fatalf("Compile() error = %v", err)
 		}
 	case "invalid":
-		if err == nil {
-			t.Fatalf("Compile() expected invalid schema")
+		if checkErr := checkExpectedFailure(err, tc.Schema.ErrorCode); checkErr != nil {
+			t.Fatalf("Compile(): %v", checkErr)
 		}
-		if tc.Schema.ErrorCode != "" {
-			expectErrorCode(t, err, tc.Schema.ErrorCode)
-		} else {
+		if tc.Schema.ErrorCode == "" {
 			if xsderrors.IsUnsupported(err) {
 				run.blockedInstanceRuns += len(tc.Instances)
 			}
@@ -322,32 +320,64 @@ func validateInstance(t *testing.T, dir string, engine *xsd.Engine, unsupported 
 			t.Fatalf("Validate() error = %v", err)
 		}
 	case "invalid":
-		if err == nil {
-			t.Fatalf("Validate() expected invalid")
+		if checkErr := checkExpectedFailure(err, inst.ErrorCode); checkErr != nil {
+			t.Fatalf("Validate(): %v", checkErr)
 		}
-		if inst.ErrorCode != "" {
-			expectErrorCode(t, err, inst.ErrorCode)
-			return
+		if inst.ErrorCode == "" {
+			skipUnsupported(t, unsupported, unsupportedInstanceKey(tc, inst), err)
 		}
-		skipUnsupported(t, unsupported, unsupportedInstanceKey(tc, inst), err)
 	default:
 		t.Fatalf("unknown instance expected value %q", inst.Expected)
 	}
 }
 
-func expectErrorCode(t *testing.T, err error, code string) {
-	t.Helper()
+func checkExpectedFailure(err error, code string) error {
+	if err == nil {
+		return errors.New("expected failure, got success")
+	}
+	if internal := internalHarnessError(err); internal != nil {
+		return fmt.Errorf("unexpected internal error: %w", internal)
+	}
+	if code == "" {
+		return nil
+	}
 	xerr, ok := errors.AsType[*xsderrors.Error](err)
 	if !ok {
-		t.Fatalf("error %v is not *xsderrors.Error", err)
+		return fmt.Errorf("error is not *xsderrors.Error: %w", err)
 	}
 	if string(xerr.Code()) != code {
-		t.Fatalf("error code = %s, want %s; err=%v", xerr.Code(), code, err)
+		return fmt.Errorf("error code = %s, want %s: %w", xerr.Code(), code, err)
 	}
+	return nil
+}
+
+func internalHarnessError(err error) error {
+	pending := []error{err}
+	for len(pending) != 0 {
+		current := pending[len(pending)-1]
+		pending = pending[:len(pending)-1]
+		if diagnostic, ok := current.(*xsderrors.Error); ok && diagnostic.Category() == xsderrors.CategoryInternal { //nolint:errorlint // Inspect each node rather than only the first matching diagnostic.
+			return diagnostic
+		}
+		switch wrapped := current.(type) { //nolint:errorlint // Traverse every unwrap branch, including causes of structured diagnostics.
+		case *xsderrors.Errors:
+			if wrapped != nil {
+				pending = append(pending, wrapped.Unwrap()...)
+			}
+		case interface{ Unwrap() []error }:
+			pending = append(pending, wrapped.Unwrap()...)
+		case interface{ Unwrap() error }:
+			pending = append(pending, wrapped.Unwrap())
+		}
+	}
+	return nil
 }
 
 func skipUnsupported(t *testing.T, unsupported unsupportedAllowlist, key unsupportedKey, err error) {
 	t.Helper()
+	if internal := internalHarnessError(err); internal != nil {
+		t.Fatalf("unexpected internal error: %v", internal)
+	}
 	if !xsderrors.IsUnsupported(err) {
 		return
 	}

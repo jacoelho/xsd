@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Members"><xs:union memberTypes="xs:string xs:token"/></xs:simpleType>
+  <xs:simpleType name="Patterned">
+    <xs:restriction base="Members"><xs:pattern value="\S+(\s{2}\S+)?"/></xs:restriction>
+  </xs:simpleType>
+  <xs:element name="element" type="Patterned"/>
+  <xs:element name="attribute">
+    <xs:complexType>
+      <xs:attribute name="value" type="Patterned" use="required"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

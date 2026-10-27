@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:scope:inner" elementFormDefault="qualified">
+  <xs:element name="inside"><xs:complexType><xs:sequence><xs:element name="leaf" type="xs:string"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>

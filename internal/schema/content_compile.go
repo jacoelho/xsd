@@ -211,11 +211,11 @@ func newElementDeclarationConsistencyChecker(
 	}
 }
 
-func (c *elementDeclarationConsistencyChecker) spend(steps int) error {
+func (c *elementDeclarationConsistencyChecker) spend() error {
 	if c.work == nil {
 		return xsderrors.InternalInvariant("element declaration consistency work budget is missing")
 	}
-	return c.work(steps)
+	return c.work(1)
 }
 
 func (c *elementDeclarationConsistencyChecker) checkModel(id ContentModelID) error {
@@ -226,7 +226,7 @@ func (c *elementDeclarationConsistencyChecker) checkModel(id ContentModelID) err
 func (c *elementDeclarationConsistencyChecker) collectModel(
 	id ContentModelID,
 ) (map[QName]TypeID, error) {
-	if err := c.spend(1); err != nil {
+	if err := c.spend(); err != nil {
 		return nil, err
 	}
 	switch c.states[id] {
@@ -255,7 +255,7 @@ func (c *elementDeclarationConsistencyChecker) collectParticles(
 ) (map[QName]TypeID, error) {
 	types := make(map[QName]TypeID)
 	for _, p := range particles {
-		if err := c.spend(1); err != nil {
+		if err := c.spend(); err != nil {
 			return nil, err
 		}
 		if err := c.collectParticle(types, p); err != nil {
@@ -279,6 +279,34 @@ func (c *elementDeclarationConsistencyChecker) collectParticle(types map[QName]T
 }
 
 func (c *elementDeclarationConsistencyChecker) collectElementParticle(types map[QName]TypeID, element ElementID) error {
+	if err := c.collectElementDeclaration(types, element); err != nil {
+		return err
+	}
+	var err error
+	c.rt.Substitutions.ForEachMember(element, func(member ElementID) bool {
+		err = c.collectSubstitutionMember(types, element, member)
+		return err == nil
+	})
+	return err
+}
+
+func (c *elementDeclarationConsistencyChecker) collectSubstitutionMember(types map[QName]TypeID, head, member ElementID) error {
+	// EDC includes the actual substitution group, but every raw member scan
+	// consumes work even when abstractness or blocking excludes that member.
+	if err := c.spend(); err != nil {
+		return err
+	}
+	name, ok := c.rt.ElementName(member)
+	if !ok {
+		return xsderrors.InternalInvariant("element declaration consistency references missing substitution member")
+	}
+	if accepted, ok := c.rt.Substitutions.MemberByName(head, name); !ok || accepted != member {
+		return nil
+	}
+	return c.collectElementDeclaration(types, member)
+}
+
+func (c *elementDeclarationConsistencyChecker) collectElementDeclaration(types map[QName]TypeID, element ElementID) error {
 	name, ok := c.rt.ElementName(element)
 	if !ok {
 		return xsderrors.InternalInvariant("element declaration consistency check references missing element name")
@@ -296,7 +324,7 @@ func (c *elementDeclarationConsistencyChecker) collectModelParticle(types map[QN
 		return err
 	}
 	for name, typ := range nested {
-		if err := c.spend(1); err != nil {
+		if err := c.spend(); err != nil {
 			return err
 		}
 		if err := c.addElementDeclarationType(types, name, typ); err != nil {

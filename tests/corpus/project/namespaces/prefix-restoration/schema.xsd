@@ -1,0 +1,11 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:o="urn:scope:outer" xmlns:i="urn:scope:inner" targetNamespace="urn:scope:outer" elementFormDefault="qualified">
+  <xs:import namespace="urn:scope:inner" schemaLocation="inner.xsd"/>
+  <xs:complexType name="After"><xs:attribute name="flag" type="xs:string" form="qualified" use="required"/></xs:complexType>
+  <xs:element name="root"><xs:complexType><xs:sequence>
+    <xs:element name="before" type="xs:string"/>
+    <xs:element ref="i:inside"/>
+    <xs:choice><xs:element name="after" type="o:After"/>
+      <xs:element name="wrapper"><xs:complexType><xs:sequence><xs:element name="after" type="o:After"/></xs:sequence></xs:complexType></xs:element>
+    </xs:choice>
+  </xs:sequence></xs:complexType></xs:element>
+</xs:schema>

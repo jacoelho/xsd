@@ -1,0 +1,5 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root"><xs:simpleType><xs:restriction base="xs:dateTime">
+    <xs:enumeration value="2001-01-01T00:00:00Z"/>
+  </xs:restriction></xs:simpleType></xs:element>
+</xs:schema>

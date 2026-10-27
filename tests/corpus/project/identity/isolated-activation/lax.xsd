@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="id" type="xs:ID"/><xs:element name="ref" type="xs:IDREF"/>
+  <xs:element name="root"><xs:complexType><xs:sequence>
+    <xs:any processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+  </xs:sequence></xs:complexType></xs:element>
+</xs:schema>

@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include xml:base="sub/nested/" schemaLocation="child.xsd"/>
+  <xs:element name="root" type="Selected"/>
+</xs:schema>

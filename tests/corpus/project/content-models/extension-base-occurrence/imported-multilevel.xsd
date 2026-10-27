@@ -1,0 +1,14 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:b="urn:extension-base">
+  <xs:import namespace="urn:extension-base" schemaLocation="imported-base.xsd"/>
+  <xs:complexType name="Middle">
+    <xs:complexContent><xs:extension base="b:Base">
+      <xs:sequence><xs:element name="b"/></xs:sequence>
+    </xs:extension></xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="Final">
+    <xs:complexContent><xs:extension base="Middle">
+      <xs:sequence><xs:element name="c"/></xs:sequence>
+    </xs:extension></xs:complexContent>
+  </xs:complexType>
+  <xs:element name="root" type="Final"/>
+</xs:schema>

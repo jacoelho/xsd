@@ -304,7 +304,21 @@ func ComplexContentExtendsBase(rt *schemaBuild, baseID, derivedID ContentModelID
 			slices.Equal(derived.Particles[:len(base.Particles)], base.Particles)
 	}
 	return len(derived.Particles) != 0 &&
-		derived.Particles[0] == ModelParticle(baseID, Occurrence{Min: 1, Max: 1})
+		modelParticlePreservesBase(rt.Models, derived.Particles[0], baseID, base)
+}
+
+func modelParticlePreservesBase(models []ContentModel, particle Particle, baseID ContentModelID, base ContentModel) bool {
+	if base.Occurs.IsExactlyOne() {
+		return particle == ModelParticle(baseID, base.Occurs)
+	}
+	if particle.Kind != ParticleModel || particle.Occurs != base.Occurs || !ValidContentModelID(particle.Model, len(models)) {
+		return false
+	}
+	// CompileModelParticle moves the base occurrence onto the reference and
+	// retains its term in an exactly-one clone. Compare that term, not its ID.
+	normalized := models[particle.Model]
+	return normalized.Occurs.IsExactlyOne() && normalized.Kind == base.Kind &&
+		normalized.Mixed == base.Mixed && slices.Equal(normalized.Particles, base.Particles)
 }
 
 func spendContentModelWork(work ContentModelWork) error {
