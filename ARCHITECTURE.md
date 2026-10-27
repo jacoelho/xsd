@@ -215,8 +215,8 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   facet masks, and builtin kinds. Schema retains source facet-name mapping,
   facet admission and ordering, whiteSpace restriction, and final constraints.
   Schema occurrence admission retains checked counts and a finite/unbounded tag.
-  Occurrence and size-facet wrappers share bounded integer scanning while
-  preserving their distinct lexical and diagnostic policies.
+  Occurrence and size-facet admission share bounded nonNegativeInteger scanning,
+  including signed zero. Each owner applies its own value bounds and diagnostics.
   Schema facet-source admission uses one ordered child dispatch. The build's
   unavailable-type fact defers bound and enumeration literal evaluation while
   preserving source checks and decidable facets. Available grouped facets apply
