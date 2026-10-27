@@ -9,14 +9,71 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16442,
-    "schemaCases": 16392,
-    "instanceRuns": 34825,
+    "cases": 16443,
+    "schemaCases": 16393,
+    "instanceRuns": 34830,
     "w3cCases": 14414,
-    "internalRuns": 2015,
+    "internalRuns": 2016,
     "xercesJCases": 13
   },
   "cases": [
+    {
+      "id": "project/negative-zero-max-occurrence",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/negative-zero-max-occurrence",
+        "description": "A signed-zero maximum admits only empty content when the minimum is explicitly zero.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nonNegativeInteger"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/negative-zero-max-occurrence/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed with libxml2 2.9.13: schema compilation rejects the signed-zero occurrence literal. The normative nonNegativeInteger lexical space permits a negative sign for zero; the instance phase is blocked by this provider rejection.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nonNegativeInteger"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/negative-zero-max-occurrence/empty.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "one",
+          "file": "corpus/project/content-models/negative-zero-max-occurrence/one.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/negative-zero-max-occurrence/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/negative-zero-max-occurrence/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/negative-zero-max-occurrence/one.xml",
+          "role": "instance"
+        }
+      ]
+    },
     {
       "id": "project/identity/selected-default-idref/default",
       "expectedSource": "project",
@@ -14065,23 +14122,68 @@
       "source": {
         "kind": "project",
         "package": "schema",
-        "sourceFile": "tests/corpus/project/content-models/negative-zero-occurrence"
+        "sourceFile": "tests/corpus/project/content-models/negative-zero-occurrence",
+        "description": "The nonNegativeInteger lexical space admits signed zero for minOccurs; the omitted maximum remains one.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nonNegativeInteger"
+        ]
       },
       "schema": {
-        "expected": "invalid",
+        "expected": "valid",
         "documents": [
           {
             "file": "corpus/project/content-models/negative-zero-occurrence/schema.xsd",
             "role": "principal"
           }
         ],
-        "errorCode": "schema.occurrence"
+        "oracle": {
+          "project": {
+            "expected": "invalid",
+            "reason": "The original project expectation rejected the minus sign lexically. XSD nonNegativeInteger permits a negative sign when the value is zero. The default maximum is one and does not invalidate a zero minimum.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nonNegativeInteger"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed with libxml2 2.9.13: schema compilation rejects the signed-zero occurrence literal. The normative nonNegativeInteger lexical space permits a negative sign for zero; the instance phase is blocked by this provider rejection.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nonNegativeInteger"
+          }
+        }
       },
-      "instances": [],
+      "instances": [
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/negative-zero-occurrence/empty.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "one",
+          "file": "corpus/project/content-models/negative-zero-occurrence/one.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "two",
+          "file": "corpus/project/content-models/negative-zero-occurrence/two.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element"
+        }
+      ],
       "files": [
         {
           "file": "corpus/project/content-models/negative-zero-occurrence/schema.xsd",
           "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/negative-zero-occurrence/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/negative-zero-occurrence/one.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/negative-zero-occurrence/two.xml",
+          "role": "instance"
         }
       ]
     },

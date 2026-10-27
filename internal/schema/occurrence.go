@@ -1,9 +1,6 @@
 package schema
 
 import (
-	"strconv"
-	"strings"
-
 	"github.com/jacoelho/xsd/internal/lex"
 
 	"github.com/jacoelho/xsd/xsderrors"
@@ -58,7 +55,7 @@ func parseMinOccurrence(attrs OccurrenceAttrs) (uint32, error) {
 	if !attrs.HasMinOccurs {
 		return 1, nil
 	}
-	number, err := parseOccurrenceInteger(attrs.MinOccurs)
+	number, err := parseSchemaNonNegativeInteger(lex.TrimXMLWhitespaceString(attrs.MinOccurs))
 	if err != nil {
 		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, "invalid minOccurs "+attrs.MinOccurs)
 	}
@@ -88,7 +85,7 @@ func parseMaxOccurrence(attrs OccurrenceAttrs, limit uint64) (maxOccurrence, err
 	if lex.TrimXMLWhitespaceString(attrs.MaxOccurs) == occurrenceUnboundedLexical {
 		return maxOccurrence{kind: maxOccurrenceUnbounded}, nil
 	}
-	number, err := parseOccurrenceInteger(attrs.MaxOccurs)
+	number, err := parseSchemaNonNegativeInteger(lex.TrimXMLWhitespaceString(attrs.MaxOccurs))
 	if err != nil {
 		return maxOccurrence{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, "invalid maxOccurs "+attrs.MaxOccurs)
 	}
@@ -119,12 +116,4 @@ func maxOccursLimitMessage(limit uint64) string {
 		return "maxOccurs exceeds configured limit"
 	}
 	return "maxOccurs exceeds uint32 limit"
-}
-
-func parseOccurrenceInteger(v string) (uint64, error) {
-	v = lex.TrimXMLWhitespaceString(v)
-	if strings.HasPrefix(v, "-") {
-		return 0, strconv.ErrSyntax
-	}
-	return parseSchemaNonNegativeInteger(v)
 }
