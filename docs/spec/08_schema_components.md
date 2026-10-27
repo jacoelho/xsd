@@ -46,14 +46,14 @@ XML Schema defines special built-in types that serve as the foundation of the ty
 
 - All complex types derive from `anyType` (directly or transitively)
 - Can contain any content: elements, attributes, mixed content, or simple content
-- Elements declared with `type="xs:anyType"` accept any well-formed XML content
+- Its lax element and attribute wildcards admit unknown content but assess content whose declarations are available
 - Serves as the implicit base type when no base is specified in a complex type definition
 
 ```xml
-<!-- Element accepts any content -->
+<!-- Permissive content with lax assessment -->
 <xs:element name="data" type="xs:anyType"/>
 
-<!-- Equivalent: complexType with no explicit base derives from anyType -->
+<!-- A type without an explicit base implicitly restricts anyType -->
 <xs:complexType name="MyType">
   <xs:sequence>
     <xs:element name="child" type="xs:string"/>
@@ -64,10 +64,11 @@ XML Schema defines special built-in types that serve as the foundation of the ty
 Spec refs: docs/spec/xml/structures.xml#key-urType, docs/spec/xml/datatypes.xml#dt-anySimpleType.
 **Validation:**
 
-- Content model: allows any elements in any order
-- Attributes: allows any attributes
+- Content model: permits elements in any order, with lax wildcard assessment
+- Attributes: permits attributes through a lax wildcard
 - Mixed content: allowed
-- `xsi:type` can specify any type (since all types derive from anyType)
+- Available declarations and actual types still enforce value and identity constraints
+- `xsi:type` still requires a suitable nonabstract type and must respect applicable block constraints
 
 ### anySimpleType
 
@@ -373,9 +374,11 @@ Within a target namespace, certain components must have unique names:
 | Model groups | All groups in same namespace |
 | Attribute groups | All attribute groups in same namespace |
 | Notations | All notations in same namespace |
-| Identity constraints | Within containing element declaration |
+| Identity constraints | Name plus target namespace throughout the schema, irrespective of the owning element |
 
-Spec refs: docs/spec/xml/structures.xml#composition-schemaImport.
+Identity-component naming is separate from the element-local scope of runtime
+key tuples. See [Names and Symbol Spaces](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#concepts-nameSymbolSpaces)
+and [Identity-constraint Definition](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#Identity-constraint_Definition_details).
 
 ### Name Conflicts
 

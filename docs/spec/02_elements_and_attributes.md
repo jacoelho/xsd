@@ -26,7 +26,11 @@ Declarations can be **global** (top-level, under `<xs:schema>`) or **local** (ne
 
 ## Element Declarations
 
-Every element in an instance document must be matched by an element declaration or accepted by a wildcard (with `processContents="lax"` or `processContents="skip"` allowing undeclared elements).
+Element assessment can use an element declaration or a known type, including
+a resolvable physical `xsi:type` on an undeclared validation root. Content
+particles and wildcards separately govern child admission; lax and skip
+wildcards can admit undeclared children. See
+[Schema-Validity Assessment (Element)](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-assess-elt).
 
 ### Element Declaration Properties
 
@@ -198,15 +202,17 @@ Attributes carry additional information on elements. Each attribute to be valida
 
 - `use="optional"` (default) — attribute may be omitted
 - `use="required"` — attribute must appear
-- `use="prohibited"` — attribute must not appear (for restriction)
-- `fixed="value"` — if present, must equal value; if absent, value is assumed
+- `use="prohibited"` — contributes no attribute use; a restriction removes the matching inherited use, while other uses and wildcard admission remain independent
+- `fixed="value"` — an admitted attribute use requires typed value equality; an absent optional attribute can receive the value, but a required attribute must still be physically present
 - `default="value"` — if absent, value is supplied; can be overridden
 
 **Notes:**
 
-- This implementation follows the W3C XSD 1.0 test suite: `use="prohibited"`
-  rejects `default` but allows `fixed`. If the attribute appears, it must match
-  the fixed value. XSD 1.1 rejects this schema form.
+- XSD 1.0 source representation permits `fixed` with `use="prohibited"`,
+  but the representation contributes no use or declaration component. Its
+  fixed value cannot constrain an attribute admitted independently by a
+  wildcard. Source grammar still excludes `default` here. See
+  [I-008](INTERPRETATIONS.md#i-008--prohibited-attribute-use-with-fixed).
 
 ### Attribute Groups
 
@@ -286,7 +292,10 @@ For an attribute to be valid:
 
 **Schema Constraints:**
 
-- No duplicate element declarations with same name and namespace in the same scope
+- Same-name element declarations in a content model must satisfy
+  [Element Declarations Consistent](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent),
+  including the shared top-level named-type condition. Distinct local sites
+  can therefore be legal; Unique Particle Attribution remains independent.
 - No duplicate attribute declarations with same name and namespace in the same type
 - Default/fixed values must be valid for the declared type
 - Substitution group members must have compatible types with the head

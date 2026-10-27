@@ -157,7 +157,9 @@ Specifies that field values must correspond to existing values of a referenced `
 
 - Each selected element's field values must match some tuple in the referenced key
 - The number of fields must match the referenced key's field count
-- Values of differing types can compare equal only if one type derives from the other and the value is in both value spaces
+- Compare type-determined values using Datatypes equality. Independent
+  restrictions of a shared value space can compare equal; neither type need
+  derive from the other. See the [corrected equality reading](corrected-reading.md).
 
 **Missing Fields in Keyref:**
 

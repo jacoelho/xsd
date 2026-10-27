@@ -283,11 +283,11 @@ Validation augments each element and attribute with additional properties:
 | `[schema information]` | Present on the validation root element; set of namespace schema information items |
 | `[element declaration]` | Optional; item isomorphic to the declaration component |
 | `[type definition]` | The type used; either a component item or a name/namespace/anonymous summary |
-| `[member type definition]` | When a schema-normalized value is present for a union simple/simple-content type, the member that validated that value |
+| `[member type definition]` | Union member contribution is subject to the E1-56 source qualification below |
 | `[nil]` | Whether the element was nilled |
 | `[schema normalized value]` | For nonnilled simple/simple-content cases: the constraint's lexical form when clause 5.1 applied; otherwise the normalized instance value if type-valid; otherwise absent. See the ordered E1-56 cases below. |
 | `[schema default]` | Canonical lexical representation of the value constraint, if present; otherwise absent |
-| `[schema specified]` | `schema` exactly when Element Locally Valid (Element) clause 5.1 applied; otherwise `infoset` |
+| `[schema specified]` | Within declaration-local assessment, `schema` when Element Locally Valid (Element) clause 5.1 applied; otherwise `infoset` |
 
 **Attribute Contributions:**
 
@@ -296,12 +296,14 @@ Validation augments each element and attribute with additional properties:
 | `[validation context]` | Nearest ancestor element with `[schema information]` |
 | `[validity]` | `valid`, `invalid`, or `notKnown` |
 | `[type definition]` | The simple type used; either a component item or a name/namespace/anonymous summary |
-| `[member type definition]` | For a successfully validated union attribute value, the member type that validated it; absent on failed type validation |
+| `[member type definition]` | Union member contribution is subject to the E1-56 source qualification below |
 | `[schema normalized value]` | Normalized value if valid against the governing type; otherwise absent |
 | `[schema default]` | Canonical lexical representation of the value constraint, if present; otherwise absent |
 | `[schema specified]` | `schema` if the attribute was supplied by a value constraint due to absence; otherwise `infoset` |
 | `[schema error code]` | List of error codes if invalid; otherwise absent |
 | `[attribute declaration]` | Optional; item isomorphic to the declaration component |
+
+Approved E1-56 changes the lightweight union-member contribution paragraphs, but leaves the earlier full member-component contribution unchanged. A member accepting a value while a governing union facet fails remains the PSVI-Q001 integration boundary; do not infer universal member-property absence from failed overall validation. See the [corrected reading](corrected-reading.md) and [interpretation boundary](INTERPRETATIONS.md#remaining-source-integration-boundaries).
 
 Default application affects PSVI properties only; it does not add character children to the element. Defaulted attributes are added to the attribute set with `[schema specified] = schema`.
 
@@ -315,115 +317,71 @@ Spec refs: docs/spec/xml/structures.xml#sic-eltType, docs/spec/xml/structures.xm
 
 ## Error Codes
 
-XML Schema defines `cvc-*` error codes for specific validation failures:
+The identifiers below name normative validity clauses, not a required processor
+message catalog. This library exposes its own `schema.*` and `validation.*`
+diagnostic codes. Use the linked rule for its complete premises and subclauses.
 
-### Element Errors
+### Element and Type Validity
 
-| Code | Description |
-|------|-------------|
-| `cvc-elt.1` | Cannot find declaration for element |
-| `cvc-elt.2` | Element matches abstract declaration |
-| `cvc-elt.3.1` | xsi:nil on non-nillable element |
-| `cvc-elt.3.2` | Nilled element has content |
-| `cvc-elt.4.1` | No declaration resolvable for element |
-| `cvc-elt.4.2` | Type not validly derived for xsi:type |
-| `cvc-elt.4.3` | Type is abstract |
-| `cvc-elt.5.1` | Element type is not simple (for simple content) |
-| `cvc-elt.5.2.1` | Fixed value mismatch |
-| `cvc-elt.5.2.2` | Element content invalid for type |
+| Clause | Requirement |
+|--------|-------------|
+| `cvc-elt.1`, `.2` | The declaration exists and is not abstract |
+| `cvc-elt.3.1` | `xsi:nil` requires a nillable declaration |
+| `cvc-elt.3.2.1`, `.3.2.2` | A nilled element has no character or element children and no fixed value constraint |
+| `cvc-elt.4.1`, `.4.2`, `.4.3` | `xsi:type` is a QName, resolves to a type, and satisfies derivation and blocking constraints |
+| `cvc-elt.5.1` | The empty-content value-constraint assessment path applies |
+| `cvc-elt.5.2.1`, `.5.2.2` | Otherwise, the actual type validates the element and fixed-content conditions hold |
+| `cvc-elt.6`, `.7` | Identity constraints and validation-root ID/IDREF bindings hold |
+| `cvc-type.1`, `.2` | The type exists and is not abstract |
+| `cvc-type.3.1.1` | An element assessed against a simple type has only the four permitted XSI attributes |
+| `cvc-type.3.1.2`, `.3.1.3` | It has no element children, and its value is valid unless nilled |
+| `cvc-type.3.2` | An element assessed against a complex type is locally valid against that type |
 
-### Complex Type Errors
+Sources: [Element Locally Valid (Element)](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt),
+[Element Locally Valid (Type)](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-type).
 
-| Code | Description |
-|------|-------------|
-| `cvc-complex-type.2.1` | Empty content required but found |
-| `cvc-complex-type.2.2` | Element-only has non-whitespace text |
-| `cvc-complex-type.2.3` | Simple content has element children |
-| `cvc-complex-type.2.4` | Content model not satisfied |
-| `cvc-complex-type.3.1` | Unexpected attribute |
-| `cvc-complex-type.3.2` | Attribute wildcard validation failure |
-| `cvc-complex-type.4` | Required attribute missing |
+### Complex Types and Attributes
 
-### Attribute Errors
+| Clause | Requirement |
+|--------|-------------|
+| `cvc-complex-type.1` | The complex type is not abstract |
+| `cvc-complex-type.2.1` | Empty content has no element or character children |
+| `cvc-complex-type.2.2` | Simple content has no element children and its text satisfies the simple type |
+| `cvc-complex-type.2.3` | Element-only content has no non-whitespace character children |
+| `cvc-complex-type.2.4` | Element-only or mixed content satisfies its particle |
+| `cvc-complex-type.3.1`, `.3.2` | Each ordinary attribute satisfies a matching use or the attribute wildcard |
+| `cvc-complex-type.4` | Every required attribute is physically present |
+| `cvc-complex-type.5.1` | At most one wildcard-assessed attribute has an ID-derived declaration type |
+| `cvc-complex-type.5.2` | If such an attribute exists, the effective attribute-use set has no ID-derived use |
+| `cvc-attribute.1`, `.2` | The attribute declaration and its type exist |
+| `cvc-attribute.3`, `.4` | The normalized value satisfies its type and any fixed value agrees by typed equality |
 
-| Code | Description |
-|------|-------------|
-| `cvc-attribute.1` | Attribute not declared |
-| `cvc-attribute.3` | Attribute value invalid for type |
-| `cvc-attribute.4` | Fixed value mismatch |
+Sources: [Element Locally Valid (Complex Type)](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type),
+[Attribute Locally Valid](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-attribute).
 
-### Type Errors
+### Identity and Datatypes
 
-| Code | Description |
-|------|-------------|
-| `cvc-type.1` | Type definition is abstract |
-| `cvc-type.2` | Type is simple but element has element content |
-| `cvc-type.3.1` | Content not valid for simple type |
+| Clause | Requirement |
+|--------|-------------|
+| `cvc-identity-constraint.3` | Each field selects zero or one node with a simple type |
+| `cvc-identity-constraint.4.1` | Qualified unique tuples are distinct |
+| `cvc-identity-constraint.4.2.1`, `.4.2.2`, `.4.2.3` | Key tuples are complete and distinct; key element declarations are not nillable |
+| `cvc-identity-constraint.4.3` | Qualified keyref tuples have corresponding referenced key tuples |
+| `cvc-id.1`, `.2` | IDREF bindings are not empty and ID bindings are not multiply defined |
+| `cvc-datatype-valid.1.1` | The lexical representation satisfies applicable patterns |
+| `cvc-datatype-valid.1.2.1` | An atomic value is in the base lexical space |
+| `cvc-datatype-valid.1.2.2` | List tokens satisfy the item lexical space |
+| `cvc-datatype-valid.1.2.3` | A union value is in a member lexical space |
+| `cvc-datatype-valid.2` | The value satisfies applicable facets other than pattern |
 
-### Identity Constraint Errors
+Sources: [Identity-constraint Satisfied](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint),
+[Validation Root Valid (ID/IDREF)](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id),
+[Datatype Valid](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-datatype-valid).
 
-| Code | Description |
-|------|-------------|
-| `cvc-identity-constraint.1` | Keyref refers to unknown key |
-| `cvc-identity-constraint.2` | Duplicate key value |
-| `cvc-identity-constraint.3` | Key field has no value |
-| `cvc-identity-constraint.4.1` | Duplicate unique value |
-| `cvc-identity-constraint.4.2` | Keyref value not found in referenced key |
-| `cvc-identity-constraint.4.3` | Keyref field count mismatch |
-
-### ID/IDREF Errors
-
-| Code | Description |
-|------|-------------|
-| `cvc-id.1` | Duplicate ID value |
-| `cvc-id.2` | IDREF value has no matching ID |
-| `cvc-id.3` | Multiple ID attributes on element |
-
-### Datatype Errors
-
-| Code | Description |
-|------|-------------|
-| `cvc-datatype-valid.1.1` | Value not in lexical space |
-| `cvc-datatype-valid.1.2.1` | Pattern facet not satisfied |
-| `cvc-datatype-valid.1.2.2` | Enumeration facet not satisfied |
-| `cvc-datatype-valid.1.2.3` | Numeric bounds not satisfied |
-| `cvc-length-valid` | Length constraint not satisfied |
-| `cvc-minLength-valid` | Minimum length not satisfied |
-| `cvc-maxLength-valid` | Maximum length not satisfied |
-| `cvc-totalDigits-valid` | Total digits exceeded |
-| `cvc-fractionDigits-valid` | Fraction digits exceeded |
-
-### Assessment Errors
-
-| Code | Description |
-|------|-------------|
-| `cvc-assess-elt.1.1.1` | No matching global element declaration |
-| `cvc-assess-elt.1.1.2` | Element cannot be assessed (no schema) |
-| `cvc-assess-elt.1.1.3` | No global declaration available through name resolution |
-| `cvc-assess-attr.1.1` | No matching attribute declaration |
-
-### Particle and Model Group Errors
-
-| Code | Description |
-|------|-------------|
-| `cvc-particle.1.1` | Element does not match particle |
-| `cvc-particle.1.2` | Too few occurrences |
-| `cvc-particle.1.3` | Too many occurrences |
-| `cvc-model-group.1` | Content does not match model group |
-| `cvc-au.1` | Attribute use not satisfied |
-
-### Wildcard Errors
-
-| Code | Description |
-|------|-------------|
-| `cvc-wildcard-namespace.1` | Element namespace not allowed by wildcard |
-| `cvc-wildcard-namespace.2` | Attribute namespace not allowed by wildcard |
-
-### Derivation Errors
-
-| Code | Description |
-|------|-------------|
-| `cvc-type-derivation-ok.1` | Type not derived from base |
-| `cvc-type-derivation-ok.2` | Derivation blocked by final |
-
-Spec refs: docs/spec/xml/structures.xml#outcomes.
+Assessment and content matching have separate rules:
+[Schema-Validity Assessment (Element)](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-assess-elt),
+[Schema-Validity Assessment (Attribute)](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-assess-attr),
+[Element Sequence Locally Valid (Particle)](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle),
+[Element Sequence Locally Valid (Model Group)](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group),
+[Attribute Locally Valid (Use)](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-au),
+and [Wildcard Allows Namespace Name](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-wildcard-namespace).

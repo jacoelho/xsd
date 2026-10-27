@@ -163,7 +163,7 @@ Spec refs: docs/spec/xml/datatypes.xml#built-in-derived.
 |------|-------------|------------|
 | `normalizedString` | No CR, LF, TAB | replace |
 | `token` | Collapsed, no leading/trailing spaces | collapse |
-| `language` | Language code (BCP 47) | collapse |
+| `language` | Historical XSD language-tag syntax; not modern BCP 47 registry validation | collapse |
 | `Name` | XML Name | collapse |
 | `NCName` | Non-colonized name | collapse |
 | `NMTOKEN` | Name token | collapse |
@@ -262,16 +262,21 @@ Spec refs: docs/spec/xml/datatypes.xml#dt-constraining-facet.
 
 | Facet | Applies To | Description |
 |-------|------------|-------------|
-| `length` | string, binary, list | Exact length required |
-| `minLength` | string, binary, list | Minimum length |
-| `maxLength` | string, binary, list | Maximum length |
+| `length` | string, anyURI, binary, list; QName/NOTATION qualification below | Exact length required |
+| `minLength` | string, anyURI, binary, list; QName/NOTATION qualification below | Minimum length |
+| `maxLength` | string, anyURI, binary, list; QName/NOTATION qualification below | Maximum length |
 
 **Length Measurement:**
 
-- For strings: number of characters
+- For strings and anyURI: number of characters
 - For hexBinary: number of bytes (= hex digits / 2)
 - For base64Binary: number of decoded bytes
 - For lists: number of items
+
+For QName and NOTATION, these facets are legal but deprecated and do not
+restrict instance values: every value satisfies their length checks. Schema
+facet consistency constraints still apply. See
+[Length Valid](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-length-valid).
 
 ```xml
 <xs:simpleType name="ZipCode">
@@ -353,7 +358,7 @@ Regular expression constraint on lexical form:
 
 **XSD-specific character classes:**
 
-- `\i` — initial XML name character (letter or `_`)
+- `\i` — initial XML name character (letter, `_`, or `:`); this is not the NCName start class
 - `\I` — non-initial name character
 - `\c` — XML name character (letter, digit, `.`, `-`, `_`, `:`)
 - `\C` — non-name character
