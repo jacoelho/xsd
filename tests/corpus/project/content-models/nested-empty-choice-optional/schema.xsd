@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:element name="root"><xs:complexType><xs:sequence maxOccurs="unbounded"><xs:choice minOccurs="0"/><xs:choice><xs:element name="E1" type="xs:int" minOccurs="0" maxOccurs="20"/><xs:choice minOccurs="0"/></xs:choice><xs:choice minOccurs="0"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>

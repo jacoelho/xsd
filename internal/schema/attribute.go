@@ -8,6 +8,7 @@ import (
 
 	valuepkg "github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 // AttributeWildcardDerivation identifies how an attribute wildcard was derived.
@@ -64,6 +65,7 @@ type AttributeUseSetRead struct {
 	valueConstraints []uint32
 	wildcard         WildcardID
 	singleUse        bool
+	hasIDUse         bool
 }
 
 // AttributeUseSlots is an immutable ordered view of attribute-use slots.
@@ -93,31 +95,51 @@ func attributeUseSetReadHasSingleUse(s AttributeUseSetRead) bool {
 	return ok && slot == 0
 }
 
-func newAttributeUseSetReads(names *NameTable, sets []AttributeUseSet, simpleTypes []SimpleType) []AttributeUseSetRead {
+func newAttributeUseSetReads(names *NameTable, sets []AttributeUseSet, simpleTypes []SimpleType, values *valuepkg.Builder) ([]AttributeUseSetRead, error) {
 	out := make([]AttributeUseSetRead, len(sets))
 	for i := range sets {
-		set := &sets[i]
-		uses := make([]AttributeUseRead, len(set.Uses))
-		var required, valueConstraints []uint32
-		for j := range set.Uses {
-			uses[j] = newAttributeUseReadForSimpleTypes(names, set.Uses[j], simpleTypes)
-			if set.Uses[j].Required {
-				required = append(required, uint32(j))
-			}
-			if _, applies := uses[j].AbsentValueConstraint(); applies {
-				valueConstraints = append(valueConstraints, uint32(j))
-			}
+		read, err := newAttributeUseSetRead(names, &sets[i], simpleTypes, values)
+		if err != nil {
+			return nil, err
 		}
-		out[i] = AttributeUseSetRead{
-			index:            maps.Clone(set.Index),
-			uses:             uses,
-			required:         slices.Clone(required),
-			valueConstraints: slices.Clone(valueConstraints),
-			wildcard:         set.Wildcard,
-		}
-		out[i].singleUse = attributeUseSetReadHasSingleUse(out[i])
+		out[i] = read
 	}
-	return out
+	return out, nil
+}
+
+func newAttributeUseSetRead(names *NameTable, set *AttributeUseSet, simpleTypes []SimpleType, values *valuepkg.Builder) (AttributeUseSetRead, error) {
+	uses := make([]AttributeUseRead, len(set.Uses))
+	var required, valueConstraints []uint32
+	var hasIDUse bool
+	for j := range set.Uses {
+		uses[j] = newAttributeUseReadForSimpleTypes(names, set.Uses[j], simpleTypes)
+		input, ok := values.InputRequirements(set.Uses[j].Type)
+		if !ok {
+			return AttributeUseSetRead{}, xsderrors.InternalInvariant("attribute use input metadata is invalid")
+		}
+		hasIDUse = hasIDUse || input.Identity == valuepkg.IdentityID
+		if set.Uses[j].Required {
+			required = append(required, uint32(j))
+		}
+		if _, applies := uses[j].AbsentValueConstraint(); applies {
+			valueConstraints = append(valueConstraints, uint32(j))
+		}
+	}
+	read := AttributeUseSetRead{
+		index:            maps.Clone(set.Index),
+		uses:             uses,
+		required:         slices.Clone(required),
+		valueConstraints: slices.Clone(valueConstraints),
+		wildcard:         set.Wildcard,
+		hasIDUse:         hasIDUse,
+	}
+	read.singleUse = attributeUseSetReadHasSingleUse(read)
+	return read, nil
+}
+
+// HasIDUse reports whether an effective declared use has an ID-derived type.
+func (s AttributeUseSetRead) HasIDUse() bool {
+	return s.hasIDUse
 }
 
 // UseCount returns the number of declared uses in the set.

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	valuepkg "github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 func TestAttributeWildcardDerivationValidity(t *testing.T) {
@@ -181,6 +182,29 @@ func testAttributeSimpleTypes() []SimpleType {
 	return types
 }
 
+func testAttributeUseSetReads(t *testing.T, names *NameTable, sets []AttributeUseSet) []AttributeUseSetRead {
+	t.Helper()
+	reads, err := newAttributeUseSetReads(names, sets, testAttributeSimpleTypes(), valuepkg.NewBuilder(valuepkg.BuilderOptions{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return reads
+}
+
+func TestAttributeUseSetReadRejectsUnavailableInputMetadata(t *testing.T) {
+	t.Parallel()
+
+	names, name, _ := attributeUseNameTable(t)
+	values := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+	reads, err := newAttributeUseSetReads(&names, []AttributeUseSet{{
+		Uses: []AttributeUse{{Name: name, Type: valuepkg.BuiltinTypeCount}},
+	}}, testAttributeSimpleTypes(), values)
+	expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+	if reads != nil {
+		t.Fatal("unavailable input metadata produced attribute-use reads")
+	}
+}
+
 func TestAttributeUseSetRead(t *testing.T) {
 	t.Parallel()
 
@@ -193,11 +217,11 @@ func TestAttributeUseSetRead(t *testing.T) {
 	}
 	uses := []AttributeUse{firstUse, secondUse}
 
-	set := newAttributeUseSetReads(&names, []AttributeUseSet{{
+	set := testAttributeUseSetReads(t, &names, []AttributeUseSet{{
 		Index:    index,
 		Uses:     uses,
 		Wildcard: 7,
-	}}, testAttributeSimpleTypes())[0]
+	}})[0]
 
 	index[firstName] = 99
 	uses[0] = AttributeUse{}
@@ -291,7 +315,7 @@ func TestAttributeUseSetReadDerivesOrderedSlots(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			read := newAttributeUseSetReads(&names, []AttributeUseSet{{Uses: test.uses}}, testAttributeSimpleTypes())[0]
+			read := testAttributeUseSetReads(t, &names, []AttributeUseSet{{Uses: test.uses}})[0]
 			for _, slots := range []struct {
 				name string
 				got  AttributeUseSlots
@@ -315,21 +339,21 @@ func TestAttributeUseSetReadRejectsInvalidDeclaredUseLookup(t *testing.T) {
 
 	names, name, _ := attributeUseNameTable(t)
 	use := AttributeUse{Name: name}
-	if got, slot, ok := newAttributeUseSetReads(&names, []AttributeUseSet{{
+	if got, slot, ok := testAttributeUseSetReads(t, &names, []AttributeUseSet{{
 		Uses: []AttributeUse{use},
-	}}, testAttributeSimpleTypes())[0].DeclaredUse(name); ok || slot != -1 || got != (AttributeUseRead{}) {
+	}})[0].DeclaredUse(name); ok || slot != -1 || got != (AttributeUseRead{}) {
 		t.Fatal("DeclaredUse() succeeded without index entry")
 	}
-	if got, slot, ok := newAttributeUseSetReads(&names, []AttributeUseSet{{
+	if got, slot, ok := testAttributeUseSetReads(t, &names, []AttributeUseSet{{
 		Index: map[QName]uint32{name: 99},
 		Uses:  []AttributeUse{use},
-	}}, testAttributeSimpleTypes())[0].DeclaredUse(name); ok || slot != -1 || got != (AttributeUseRead{}) {
+	}})[0].DeclaredUse(name); ok || slot != -1 || got != (AttributeUseRead{}) {
 		t.Fatal("DeclaredUse() succeeded with invalid index slot")
 	}
-	if got, slot, ok := newAttributeUseSetReads(&names, []AttributeUseSet{{
+	if got, slot, ok := testAttributeUseSetReads(t, &names, []AttributeUseSet{{
 		Index: map[QName]uint32{name: 0},
 		Uses:  []AttributeUse{{Name: NoQName()}},
-	}}, testAttributeSimpleTypes())[0].DeclaredUse(name); ok || slot != -1 || got != (AttributeUseRead{}) {
+	}})[0].DeclaredUse(name); ok || slot != -1 || got != (AttributeUseRead{}) {
 		t.Fatal("DeclaredUse() succeeded with stale index name")
 	}
 }
@@ -338,10 +362,10 @@ func TestAttributeUseSetReadReturnsUsesByValue(t *testing.T) {
 	t.Parallel()
 
 	names, name, _ := attributeUseNameTable(t)
-	set := newAttributeUseSetReads(&names, []AttributeUseSet{{
+	set := testAttributeUseSetReads(t, &names, []AttributeUseSet{{
 		Index: map[QName]uint32{name: 0},
 		Uses:  []AttributeUse{{Name: name}},
-	}}, testAttributeSimpleTypes())[0]
+	}})[0]
 
 	declared, _, ok := set.DeclaredUse(name)
 	if !ok {

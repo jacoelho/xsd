@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:simpleType name="Bounded"><xs:restriction base="xs:decimal"><xs:minExclusive value="10"/><xs:maxExclusive value="10.0"/></xs:restriction></xs:simpleType>
+<xs:element name="root" type="Bounded"/>
+</xs:schema>

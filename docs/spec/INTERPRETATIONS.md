@@ -390,3 +390,28 @@ routes waives wildcard namespace matching or loads schemas from instance hints
 or network URLs. The library reports assessment failures without exposing a
 PSVI validity property; failure is not a claim that every enclosing laxly
 assessed item has the PSVI value `invalid`.
+
+## I-015 — ordered-bound consistency and unordered values
+
+**Status:** selected reading of the operative XSD 1.0 facet-consistency prose;
+processor disagreements remain corpus provenance.
+
+The same-step consistency rules for [minInclusive/maxInclusive](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive)
+and [minExclusive/maxExclusive](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-less-than-equal-to-maxExclusive)
+prohibit a lower value greater than the upper value. Equal endpoints therefore
+permit both-inclusive and both-exclusive pairs; the latter describes an empty
+value space. Mixed inclusive/exclusive pairs prohibit equality as well.
+
+The rule captions use less-than-or-equal notation, but the operative prose
+prohibits the opposite comparison. For unordered values these formulations are
+not equivalent. The library follows the prose: incomparable endpoints do not
+violate the pair-consistency rule, including finite/NaN pairs for float and
+double, just as with partial temporal orders. This does not make unordered
+instance comparisons succeed. Each bound still tests its own value-space
+predicate, so a mixed finite/NaN pair admits no instance, while a NaN/NaN
+inclusive pair admits NaN through equality.
+
+Facet-literal admission against the base type, fixed facets, and restriction
+narrowing remain separate obligations. In particular, a bound declared in a
+later restriction cannot bypass a base bound merely because the resulting pair
+would be allowed when declared together.

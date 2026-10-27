@@ -1,0 +1,5 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:simpleType name="Base"><xs:restriction base="xs:double"><xs:minInclusive value="0"/></xs:restriction></xs:simpleType>
+<xs:simpleType name="Bounded"><xs:restriction base="Base"><xs:maxInclusive value="NaN"/></xs:restriction></xs:simpleType>
+<xs:element name="root" type="Bounded"/>
+</xs:schema>

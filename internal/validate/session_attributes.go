@@ -311,7 +311,7 @@ func (s *session) validateWildcardAttribute(
 		if !ok {
 			return true, xsderrors.InternalInvariant("attribute wildcard matched invalid declaration")
 		}
-		return true, s.validateKnownWildcardAttribute(decl, rn, s.attributeValue(attr), ctx)
+		return true, s.validateKnownWildcardAttribute(set, decl, rn, s.attributeValue(attr), ctx)
 	}
 	return true, xsderrors.InternalInvariant("attribute wildcard match disposition is invalid")
 }
@@ -363,6 +363,7 @@ func (s *session) recoverUnassessedIdentityAttribute(rn xsdSchema.RuntimeName, c
 }
 
 func (s *session) validateKnownWildcardAttribute(
+	set xsdSchema.AttributeUseSetRead,
 	decl xsdSchema.AttributeDeclRead,
 	rn xsdSchema.RuntimeName,
 	lexical string,
@@ -384,6 +385,9 @@ func (s *session) validateKnownWildcardAttribute(
 	input, ok := s.rt.ValueProgram().InputRequirements(typeID)
 	if !ok {
 		return s.rejectAttributeIdentityValue(identityTarget, ctx, xsderrors.InternalInvariant("attribute input metadata is invalid"))
+	}
+	if set.HasIDUse() && input.Identity == xsdValue.IdentityID {
+		return s.rejectAttributeIdentityValue(identityTarget, ctx, attributeValidation(ctx, msgWildcardIDDeclaredUse))
 	}
 	value, err := s.validateAdmittedSimpleValue(typeID, lexical, input, needs)
 	if err != nil {

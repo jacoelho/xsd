@@ -597,7 +597,7 @@ func (p *Program) compileFacets(id TypeID, source FacetSpec, workLimit uint64) e
 		}
 	}
 	t.facets = facets
-	if err := validateEffectiveFacetShape(t.primitive, t.facets); err != nil {
+	if err := validateEffectiveFacetShape(t.facets); err != nil {
 		return facetFailure(err.Error())
 	}
 	t.facets.raw = rawEvaluationPlan{}
@@ -855,10 +855,10 @@ func facetVarietyError(spec typeDef, f facetProgram) string {
 	return ""
 }
 
-func validateEffectiveFacetShape(primitive PrimitiveKind, f facetProgram) error {
+func validateEffectiveFacetShape(f facetProgram) error {
 	for _, lower := range f.lower {
 		for _, upper := range f.upper {
-			if !validBoundPair(primitive, lower, upper) {
+			if !validBoundPair(lower, upper) {
 				return errors.New(msgInvalidOrderedBounds)
 			}
 		}
@@ -866,12 +866,14 @@ func validateEffectiveFacetShape(primitive PrimitiveKind, f facetProgram) error 
 	return nil
 }
 
-func validBoundPair(primitive PrimitiveKind, lower, upper boundValue) bool {
+func validBoundPair(lower, upper boundValue) bool {
 	relation, ok := compareAtomic(&lower.value, &upper.value)
-	if !ok || relation == OrderedFacetGreater || relation == OrderedFacetEqual && (lower.exclusive || upper.exclusive) {
+	if !ok || relation == OrderedFacetGreater || relation == OrderedFacetEqual && lower.exclusive != upper.exclusive {
 		return false
 	}
-	return relation != OrderedFacetIncomparable || primitiveHasPartialOrder(primitive)
+	// Schema consistency permits empty value spaces and does not prohibit
+	// incomparable endpoints; instance acceptance still checks each bound.
+	return true
 }
 
 func validateTypeSpecShape(spec TypeSpec) error {
