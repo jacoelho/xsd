@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:attribute name="v" type="xs:integer" fixed="1"/>
+  <xs:element name="strict"><xs:complexType><xs:anyAttribute processContents="strict"/></xs:complexType></xs:element>
+  <xs:element name="lax"><xs:complexType><xs:anyAttribute processContents="lax"/></xs:complexType></xs:element>
+  <xs:element name="skip"><xs:complexType><xs:anyAttribute processContents="skip"/></xs:complexType></xs:element>
+</xs:schema>

@@ -8,3 +8,6 @@ tests/corpus/w3c/sunData/SType/ST_targetNS/ST_targetNS00101m/ST_targetNS00101ma.
 
 # Trailing whitespace is the instance content under test.
 tests/corpus/project/elements/structures-empty-and-element-only-character-items/eo-xml-space.xml -text whitespace=-blank-at-eol
+
+# Literal line endings distinguish source normalization from character references.
+tests/corpus/project/xml/reference-eol-order/*.xml -text whitespace=cr-at-eol

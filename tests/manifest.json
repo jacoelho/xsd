@@ -9,14 +9,243 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16443,
-    "schemaCases": 16393,
-    "instanceRuns": 34830,
+    "cases": 16468,
+    "schemaCases": 16418,
+    "instanceRuns": 34947,
     "w3cCases": 14414,
-    "internalRuns": 2016,
+    "internalRuns": 2041,
     "xercesJCases": 13
   },
   "cases": [
+    {
+      "id": "project/datatypes/temporal/midnight-year-rollover",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-lexical-representation",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-canonical-representation",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-enumeration"
+        ],
+        "description": "dateTime midnight at the end of December advances into the next year before enumeration value comparison; midnight at the start of the previous day remains distinct.",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/temporal/midnight-year-rollover/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/temporal/midnight-year-rollover/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "first-instant",
+          "file": "corpus/project/datatypes/temporal/midnight-year-rollover/first-instant.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "midnight-alias",
+          "file": "corpus/project/datatypes/temporal/midnight-year-rollover/midnight-alias.xml",
+          "expected": "valid",
+          "oracle": {
+            "dotnet": {
+              "expected": "invalid",
+              "reason": ".NET 10.0.9 rejects the valid dateTime midnight spelling 2000-12-31T24:00:00.000Z. The direct first-instant control is accepted and the previous-day control rejected; Xerces-J 2.12.2 accepts this next-year alias. Datatypes 3.2.7.1 explicitly maps hour 24 with zero minutes and seconds to the first instant of the next day.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-lexical-representation"
+            },
+            "libxml2": {
+              "expected": "invalid",
+              "reason": "libxml2 2.9.13 rejects this next-year midnight alias at enumeration comparison, while accepting the direct first instant and rejecting the previous-day control. Xerces-J 2.12.2 accepts the alias. Datatypes 3.2.7.1 maps hour 24 with zero minutes and seconds to the first instant of the next day.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-lexical-representation"
+            }
+          }
+        },
+        {
+          "testName": "previous-day",
+          "file": "corpus/project/datatypes/temporal/midnight-year-rollover/previous-day.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/temporal/midnight-year-rollover/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/midnight-year-rollover/first-instant.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/midnight-year-rollover/midnight-alias.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/midnight-year-rollover/previous-day.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/xml/reference-eol-order",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "description": "Source CR and CRLF normalize before reference expansion. Referenced CR followed by literal LF remains CRLF; literal CR followed by referenced LF becomes two LFs.",
+        "specification": [
+          "https://www.w3.org/TR/2000/REC-xml-20001006#sec-line-ends",
+          "https://www.w3.org/TR/2000/REC-xml-20001006#sec-references",
+          "https://www.w3.org/TR/2000/REC-xml-20001006#AVNormalize"
+        ],
+        "package": "xmlstream",
+        "sourceFile": "tests/corpus/project/xml/reference-eol-order/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/xml/reference-eol-order/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "references-crlf",
+          "file": "corpus/project/xml/reference-eol-order/references-crlf.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "reference-cr-literal-lf",
+          "file": "corpus/project/xml/reference-eol-order/reference-cr-literal-lf.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "literal-crlf-not-crlf",
+          "file": "corpus/project/xml/reference-eol-order/literal-crlf-not-crlf.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "literal-cr-reference-lf",
+          "file": "corpus/project/xml/reference-eol-order/literal-cr-reference-lf.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "literal-crlf-not-lflf",
+          "file": "corpus/project/xml/reference-eol-order/literal-crlf-not-lflf.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/xml/reference-eol-order/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/xml/reference-eol-order/references-crlf.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/reference-eol-order/reference-cr-literal-lf.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/reference-eol-order/literal-crlf-not-crlf.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/reference-eol-order/literal-cr-reference-lf.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/reference-eol-order/literal-crlf-not-lflf.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/elements/default-ignored-markup",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "description": "Comments, processing instructions and empty CDATA supply no character children, so an element default participates in uniqueness; a literal space suppresses that default.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+          "https://www.w3.org/2004/03/xmlschema-errata.html#e1-56",
+          "https://www.w3.org/TR/2000/REC-xml-20001006#sec-cdata-sect"
+        ],
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/elements/default-ignored-markup/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/elements/default-ignored-markup/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "comment-pi-default-duplicate",
+          "file": "corpus/project/elements/default-ignored-markup/comment-pi-default-duplicate.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        },
+        {
+          "testName": "comment-pi-default-distinct",
+          "file": "corpus/project/elements/default-ignored-markup/comment-pi-default-distinct.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "empty-cdata-default-duplicate",
+          "file": "corpus/project/elements/default-ignored-markup/empty-cdata-default-duplicate.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity",
+          "oracle": {
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed with libxml2 2.9.13: accepts an empty CDATA item followed by the explicit default value, while rejecting both an ordinary empty item and a nonempty CDATA item containing that value as duplicates. Empty CDATA contributes no character children, so the default must participate in uniqueness. Xerces-J 2.12.2 and .NET System.Xml 10.0.9 reject the duplicate.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt"
+            }
+          }
+        },
+        {
+          "testName": "space-suppresses-default",
+          "file": "corpus/project/elements/default-ignored-markup/space-suppresses-default.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/elements/default-ignored-markup/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/elements/default-ignored-markup/comment-pi-default-duplicate.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/elements/default-ignored-markup/comment-pi-default-distinct.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/elements/default-ignored-markup/empty-cdata-default-duplicate.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/elements/default-ignored-markup/space-suppresses-default.xml",
+          "role": "instance"
+        }
+      ]
+    },
     {
       "id": "project/negative-zero-max-occurrence",
       "expectedSource": "project",
@@ -70,6 +299,2115 @@
         },
         {
           "file": "corpus/project/content-models/negative-zero-max-occurrence/one.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/numeric/nan-ordered-bounds/float-nan-min-inclusive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-min-inclusive/schema.xsd",
+        "description": "An xs:float minInclusive facet with bound NaN accepts only NaN. Zero and both infinities are incomparable with the bound.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-min-inclusive/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "nan",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-min-inclusive/nan.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "zero",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-min-inclusive/zero.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. An inclusive NaN bound admits only NaN itself; every non-NaN value is incomparable with that bound.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float"
+            }
+          }
+        },
+        {
+          "testName": "positive-infinity",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-min-inclusive/positive-infinity.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. An inclusive NaN bound admits only NaN itself; every non-NaN value is incomparable with that bound.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float"
+            }
+          }
+        },
+        {
+          "testName": "negative-infinity",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-min-inclusive/negative-infinity.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. An inclusive NaN bound admits only NaN itself; every non-NaN value is incomparable with that bound.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-min-inclusive/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-min-inclusive/nan.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-min-inclusive/zero.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-min-inclusive/positive-infinity.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-min-inclusive/negative-infinity.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/numeric/nan-ordered-bounds/float-nan-max-inclusive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-max-inclusive/schema.xsd",
+        "description": "An xs:float maxInclusive facet with bound NaN accepts only NaN. Zero and both infinities are incomparable with the bound.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxInclusive"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-max-inclusive/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "nan",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-max-inclusive/nan.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "zero",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-max-inclusive/zero.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. An inclusive NaN bound admits only NaN itself; every non-NaN value is incomparable with that bound.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed valid with libxml2 2.9.13 on the exact audited XSD 1.0 schema and instance bytes. An inclusive NaN bound admits only NaN itself; every non-NaN value is incomparable with that bound.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float"
+            }
+          }
+        },
+        {
+          "testName": "positive-infinity",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-max-inclusive/positive-infinity.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. An inclusive NaN bound admits only NaN itself; every non-NaN value is incomparable with that bound.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed valid with libxml2 2.9.13 on the exact audited XSD 1.0 schema and instance bytes. An inclusive NaN bound admits only NaN itself; every non-NaN value is incomparable with that bound.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float"
+            }
+          }
+        },
+        {
+          "testName": "negative-infinity",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-max-inclusive/negative-infinity.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. An inclusive NaN bound admits only NaN itself; every non-NaN value is incomparable with that bound.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed valid with libxml2 2.9.13 on the exact audited XSD 1.0 schema and instance bytes. An inclusive NaN bound admits only NaN itself; every non-NaN value is incomparable with that bound.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-max-inclusive/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-max-inclusive/nan.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-max-inclusive/zero.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-max-inclusive/positive-infinity.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-max-inclusive/negative-infinity.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/numeric/nan-ordered-bounds/float-nan-min-exclusive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-min-exclusive/schema.xsd",
+        "description": "An xs:float minExclusive facet with bound NaN has an empty value space, including rejection of NaN. Zero and both infinities are incomparable with the bound.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-min-exclusive/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "nan",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-min-exclusive/nan.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. No value is strictly ordered relative to NaN, so an exclusive NaN bound admits no value.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float"
+            }
+          }
+        },
+        {
+          "testName": "zero",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-min-exclusive/zero.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. No value is strictly ordered relative to NaN, so an exclusive NaN bound admits no value.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float"
+            }
+          }
+        },
+        {
+          "testName": "positive-infinity",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-min-exclusive/positive-infinity.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. No value is strictly ordered relative to NaN, so an exclusive NaN bound admits no value.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float"
+            }
+          }
+        },
+        {
+          "testName": "negative-infinity",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-min-exclusive/negative-infinity.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. No value is strictly ordered relative to NaN, so an exclusive NaN bound admits no value.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-min-exclusive/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-min-exclusive/nan.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-min-exclusive/zero.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-min-exclusive/positive-infinity.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-min-exclusive/negative-infinity.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/numeric/nan-ordered-bounds/float-nan-max-exclusive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-max-exclusive/schema.xsd",
+        "description": "An xs:float maxExclusive facet with bound NaN has an empty value space, including rejection of NaN. Zero and both infinities are incomparable with the bound.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-max-exclusive/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "nan",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-max-exclusive/nan.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. No value is strictly ordered relative to NaN, so an exclusive NaN bound admits no value.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float"
+            }
+          }
+        },
+        {
+          "testName": "zero",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-max-exclusive/zero.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. No value is strictly ordered relative to NaN, so an exclusive NaN bound admits no value.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed valid with libxml2 2.9.13 on the exact audited XSD 1.0 schema and instance bytes. No value is strictly ordered relative to NaN, so an exclusive NaN bound admits no value.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float"
+            }
+          }
+        },
+        {
+          "testName": "positive-infinity",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-max-exclusive/positive-infinity.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. No value is strictly ordered relative to NaN, so an exclusive NaN bound admits no value.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed valid with libxml2 2.9.13 on the exact audited XSD 1.0 schema and instance bytes. No value is strictly ordered relative to NaN, so an exclusive NaN bound admits no value.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float"
+            }
+          }
+        },
+        {
+          "testName": "negative-infinity",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-max-exclusive/negative-infinity.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. No value is strictly ordered relative to NaN, so an exclusive NaN bound admits no value.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed valid with libxml2 2.9.13 on the exact audited XSD 1.0 schema and instance bytes. No value is strictly ordered relative to NaN, so an exclusive NaN bound admits no value.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-max-exclusive/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-max-exclusive/nan.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-max-exclusive/zero.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-max-exclusive/positive-infinity.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-nan-max-exclusive/negative-infinity.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/numeric/nan-ordered-bounds/float-finite-min-inclusive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/numeric/nan-ordered-bounds/float-finite-min-inclusive/schema.xsd",
+        "description": "An xs:float minInclusive facet with bound zero rejects incomparable NaN. Zero and finite values on either side isolate the ordered comparison.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-finite-min-inclusive/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "nan",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-finite-min-inclusive/nan.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. NaN is incomparable with the finite bound and cannot satisfy the ordered inclusive comparison.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed valid with libxml2 2.9.13 on the exact audited XSD 1.0 schema and instance bytes. NaN is incomparable with the finite bound and cannot satisfy the ordered inclusive comparison.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float"
+            }
+          }
+        },
+        {
+          "testName": "zero",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-finite-min-inclusive/zero.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "positive",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-finite-min-inclusive/positive.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "negative",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-finite-min-inclusive/negative.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-finite-min-inclusive/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-finite-min-inclusive/nan.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-finite-min-inclusive/zero.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-finite-min-inclusive/positive.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-finite-min-inclusive/negative.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/numeric/nan-ordered-bounds/float-finite-max-inclusive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/numeric/nan-ordered-bounds/float-finite-max-inclusive/schema.xsd",
+        "description": "An xs:float maxInclusive facet with bound zero rejects incomparable NaN. Zero and finite values on either side isolate the ordered comparison.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxInclusive"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-finite-max-inclusive/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "nan",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-finite-max-inclusive/nan.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. NaN is incomparable with the finite bound and cannot satisfy the ordered inclusive comparison.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#float"
+            }
+          }
+        },
+        {
+          "testName": "zero",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-finite-max-inclusive/zero.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "positive",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-finite-max-inclusive/positive.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "negative",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-finite-max-inclusive/negative.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-finite-max-inclusive/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-finite-max-inclusive/nan.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-finite-max-inclusive/zero.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-finite-max-inclusive/positive.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/float-finite-max-inclusive/negative.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/numeric/nan-ordered-bounds/double-nan-min-inclusive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-min-inclusive/schema.xsd",
+        "description": "An xs:double minInclusive facet with bound NaN accepts only NaN. Zero and both infinities are incomparable with the bound.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-min-inclusive/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "nan",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-min-inclusive/nan.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "zero",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-min-inclusive/zero.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. An inclusive NaN bound admits only NaN itself; every non-NaN value is incomparable with that bound.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double"
+            }
+          }
+        },
+        {
+          "testName": "positive-infinity",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-min-inclusive/positive-infinity.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. An inclusive NaN bound admits only NaN itself; every non-NaN value is incomparable with that bound.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double"
+            }
+          }
+        },
+        {
+          "testName": "negative-infinity",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-min-inclusive/negative-infinity.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. An inclusive NaN bound admits only NaN itself; every non-NaN value is incomparable with that bound.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-min-inclusive/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-min-inclusive/nan.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-min-inclusive/zero.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-min-inclusive/positive-infinity.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-min-inclusive/negative-infinity.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/numeric/nan-ordered-bounds/double-nan-max-inclusive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-max-inclusive/schema.xsd",
+        "description": "An xs:double maxInclusive facet with bound NaN accepts only NaN. Zero and both infinities are incomparable with the bound.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxInclusive"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-max-inclusive/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "nan",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-max-inclusive/nan.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "zero",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-max-inclusive/zero.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. An inclusive NaN bound admits only NaN itself; every non-NaN value is incomparable with that bound.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed valid with libxml2 2.9.13 on the exact audited XSD 1.0 schema and instance bytes. An inclusive NaN bound admits only NaN itself; every non-NaN value is incomparable with that bound.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double"
+            }
+          }
+        },
+        {
+          "testName": "positive-infinity",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-max-inclusive/positive-infinity.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. An inclusive NaN bound admits only NaN itself; every non-NaN value is incomparable with that bound.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed valid with libxml2 2.9.13 on the exact audited XSD 1.0 schema and instance bytes. An inclusive NaN bound admits only NaN itself; every non-NaN value is incomparable with that bound.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double"
+            }
+          }
+        },
+        {
+          "testName": "negative-infinity",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-max-inclusive/negative-infinity.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. An inclusive NaN bound admits only NaN itself; every non-NaN value is incomparable with that bound.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed valid with libxml2 2.9.13 on the exact audited XSD 1.0 schema and instance bytes. An inclusive NaN bound admits only NaN itself; every non-NaN value is incomparable with that bound.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-max-inclusive/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-max-inclusive/nan.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-max-inclusive/zero.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-max-inclusive/positive-infinity.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-max-inclusive/negative-infinity.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/numeric/nan-ordered-bounds/double-nan-min-exclusive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-min-exclusive/schema.xsd",
+        "description": "An xs:double minExclusive facet with bound NaN has an empty value space, including rejection of NaN. Zero and both infinities are incomparable with the bound.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-min-exclusive/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "nan",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-min-exclusive/nan.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. No value is strictly ordered relative to NaN, so an exclusive NaN bound admits no value.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double"
+            }
+          }
+        },
+        {
+          "testName": "zero",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-min-exclusive/zero.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. No value is strictly ordered relative to NaN, so an exclusive NaN bound admits no value.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double"
+            }
+          }
+        },
+        {
+          "testName": "positive-infinity",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-min-exclusive/positive-infinity.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. No value is strictly ordered relative to NaN, so an exclusive NaN bound admits no value.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double"
+            }
+          }
+        },
+        {
+          "testName": "negative-infinity",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-min-exclusive/negative-infinity.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. No value is strictly ordered relative to NaN, so an exclusive NaN bound admits no value.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-min-exclusive/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-min-exclusive/nan.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-min-exclusive/zero.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-min-exclusive/positive-infinity.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-min-exclusive/negative-infinity.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/numeric/nan-ordered-bounds/double-nan-max-exclusive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-max-exclusive/schema.xsd",
+        "description": "An xs:double maxExclusive facet with bound NaN has an empty value space, including rejection of NaN. Zero and both infinities are incomparable with the bound.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-max-exclusive/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "nan",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-max-exclusive/nan.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. No value is strictly ordered relative to NaN, so an exclusive NaN bound admits no value.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double"
+            }
+          }
+        },
+        {
+          "testName": "zero",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-max-exclusive/zero.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. No value is strictly ordered relative to NaN, so an exclusive NaN bound admits no value.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed valid with libxml2 2.9.13 on the exact audited XSD 1.0 schema and instance bytes. No value is strictly ordered relative to NaN, so an exclusive NaN bound admits no value.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double"
+            }
+          }
+        },
+        {
+          "testName": "positive-infinity",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-max-exclusive/positive-infinity.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. No value is strictly ordered relative to NaN, so an exclusive NaN bound admits no value.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed valid with libxml2 2.9.13 on the exact audited XSD 1.0 schema and instance bytes. No value is strictly ordered relative to NaN, so an exclusive NaN bound admits no value.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double"
+            }
+          }
+        },
+        {
+          "testName": "negative-infinity",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-max-exclusive/negative-infinity.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. No value is strictly ordered relative to NaN, so an exclusive NaN bound admits no value.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed valid with libxml2 2.9.13 on the exact audited XSD 1.0 schema and instance bytes. No value is strictly ordered relative to NaN, so an exclusive NaN bound admits no value.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-max-exclusive/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-max-exclusive/nan.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-max-exclusive/zero.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-max-exclusive/positive-infinity.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-nan-max-exclusive/negative-infinity.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/numeric/nan-ordered-bounds/double-finite-min-inclusive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/numeric/nan-ordered-bounds/double-finite-min-inclusive/schema.xsd",
+        "description": "An xs:double minInclusive facet with bound zero rejects incomparable NaN. Zero and finite values on either side isolate the ordered comparison.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-finite-min-inclusive/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "nan",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-finite-min-inclusive/nan.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. NaN is incomparable with the finite bound and cannot satisfy the ordered inclusive comparison.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed valid with libxml2 2.9.13 on the exact audited XSD 1.0 schema and instance bytes. NaN is incomparable with the finite bound and cannot satisfy the ordered inclusive comparison.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double"
+            }
+          }
+        },
+        {
+          "testName": "zero",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-finite-min-inclusive/zero.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "positive",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-finite-min-inclusive/positive.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "negative",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-finite-min-inclusive/negative.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-finite-min-inclusive/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-finite-min-inclusive/nan.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-finite-min-inclusive/zero.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-finite-min-inclusive/positive.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-finite-min-inclusive/negative.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/numeric/nan-ordered-bounds/double-finite-max-inclusive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/numeric/nan-ordered-bounds/double-finite-max-inclusive/schema.xsd",
+        "description": "An xs:double maxInclusive facet with bound zero rejects incomparable NaN. Zero and finite values on either side isolate the ordered comparison.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxInclusive"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-finite-max-inclusive/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "nan",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-finite-max-inclusive/nan.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. NaN is incomparable with the finite bound and cannot satisfy the ordered inclusive comparison.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#double"
+            }
+          }
+        },
+        {
+          "testName": "zero",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-finite-max-inclusive/zero.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "positive",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-finite-max-inclusive/positive.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "negative",
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-finite-max-inclusive/negative.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-finite-max-inclusive/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-finite-max-inclusive/nan.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-finite-max-inclusive/zero.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-finite-max-inclusive/positive.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/numeric/nan-ordered-bounds/double-finite-max-inclusive/negative.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/temporal/mixed-zone-boundary/zoned-min-inclusive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-min-inclusive/schema.xsd",
+        "description": "The minInclusive bound is with a timezone; the opposite-zone operand at exactly 14 hours is incomparable and rejected. One millisecond outside is ordered, while the same-zone endpoint is equal.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-min-inclusive/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "outside",
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-min-inclusive/outside.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "endpoint",
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-min-inclusive/endpoint.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. The mixed-timezone value is incomparable under the dateTime ordering algorithm and cannot satisfy the ordered inclusive facet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed valid with libxml2 2.9.13 on the exact audited XSD 1.0 schema and instance bytes. The mixed-timezone value is incomparable under the dateTime ordering algorithm and cannot satisfy the ordered inclusive facet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order"
+            }
+          }
+        },
+        {
+          "testName": "inside",
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-min-inclusive/inside.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. The mixed-timezone value is incomparable under the dateTime ordering algorithm and cannot satisfy the ordered inclusive facet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed valid with libxml2 2.9.13 on the exact audited XSD 1.0 schema and instance bytes. The mixed-timezone value is incomparable under the dateTime ordering algorithm and cannot satisfy the ordered inclusive facet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order"
+            }
+          }
+        },
+        {
+          "testName": "overlap",
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-min-inclusive/overlap.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. The mixed-timezone value is incomparable under the dateTime ordering algorithm and cannot satisfy the ordered inclusive facet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order"
+            }
+          }
+        },
+        {
+          "testName": "wrong-side",
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-min-inclusive/wrong-side.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "same-zone-endpoint",
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-min-inclusive/same-zone-endpoint.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-min-inclusive/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-min-inclusive/outside.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-min-inclusive/endpoint.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-min-inclusive/inside.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-min-inclusive/overlap.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-min-inclusive/wrong-side.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-min-inclusive/same-zone-endpoint.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/temporal/mixed-zone-boundary/zoned-max-inclusive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-max-inclusive/schema.xsd",
+        "description": "The maxInclusive bound is with a timezone; the opposite-zone operand at exactly 14 hours is incomparable and rejected. One millisecond outside is ordered, while the same-zone endpoint is equal.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxInclusive"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-max-inclusive/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "outside",
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-max-inclusive/outside.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "endpoint",
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-max-inclusive/endpoint.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. The mixed-timezone value is incomparable under the dateTime ordering algorithm and cannot satisfy the ordered inclusive facet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed valid with libxml2 2.9.13 on the exact audited XSD 1.0 schema and instance bytes. The mixed-timezone value is incomparable under the dateTime ordering algorithm and cannot satisfy the ordered inclusive facet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order"
+            }
+          }
+        },
+        {
+          "testName": "inside",
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-max-inclusive/inside.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. The mixed-timezone value is incomparable under the dateTime ordering algorithm and cannot satisfy the ordered inclusive facet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed valid with libxml2 2.9.13 on the exact audited XSD 1.0 schema and instance bytes. The mixed-timezone value is incomparable under the dateTime ordering algorithm and cannot satisfy the ordered inclusive facet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order"
+            }
+          }
+        },
+        {
+          "testName": "overlap",
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-max-inclusive/overlap.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. The mixed-timezone value is incomparable under the dateTime ordering algorithm and cannot satisfy the ordered inclusive facet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order"
+            }
+          }
+        },
+        {
+          "testName": "wrong-side",
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-max-inclusive/wrong-side.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "same-zone-endpoint",
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-max-inclusive/same-zone-endpoint.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-max-inclusive/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-max-inclusive/outside.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-max-inclusive/endpoint.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-max-inclusive/inside.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-max-inclusive/overlap.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-max-inclusive/wrong-side.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/zoned-max-inclusive/same-zone-endpoint.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/temporal/mixed-zone-boundary/unzoned-min-inclusive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-min-inclusive/schema.xsd",
+        "description": "The minInclusive bound is without a timezone; the opposite-zone operand at exactly 14 hours is incomparable and rejected. One millisecond outside is ordered, while the same-zone endpoint is equal.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-min-inclusive/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "outside",
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-min-inclusive/outside.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "endpoint",
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-min-inclusive/endpoint.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. The mixed-timezone value is incomparable under the dateTime ordering algorithm and cannot satisfy the ordered inclusive facet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed valid with libxml2 2.9.13 on the exact audited XSD 1.0 schema and instance bytes. The mixed-timezone value is incomparable under the dateTime ordering algorithm and cannot satisfy the ordered inclusive facet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order"
+            }
+          }
+        },
+        {
+          "testName": "inside",
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-min-inclusive/inside.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. The mixed-timezone value is incomparable under the dateTime ordering algorithm and cannot satisfy the ordered inclusive facet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed valid with libxml2 2.9.13 on the exact audited XSD 1.0 schema and instance bytes. The mixed-timezone value is incomparable under the dateTime ordering algorithm and cannot satisfy the ordered inclusive facet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order"
+            }
+          }
+        },
+        {
+          "testName": "overlap",
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-min-inclusive/overlap.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. The mixed-timezone value is incomparable under the dateTime ordering algorithm and cannot satisfy the ordered inclusive facet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order"
+            }
+          }
+        },
+        {
+          "testName": "wrong-side",
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-min-inclusive/wrong-side.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "same-zone-endpoint",
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-min-inclusive/same-zone-endpoint.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-min-inclusive/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-min-inclusive/outside.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-min-inclusive/endpoint.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-min-inclusive/inside.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-min-inclusive/overlap.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-min-inclusive/wrong-side.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-min-inclusive/same-zone-endpoint.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/temporal/mixed-zone-boundary/unzoned-max-inclusive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-max-inclusive/schema.xsd",
+        "description": "The maxInclusive bound is without a timezone; the opposite-zone operand at exactly 14 hours is incomparable and rejected. One millisecond outside is ordered, while the same-zone endpoint is equal.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxInclusive"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-max-inclusive/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "outside",
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-max-inclusive/outside.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "endpoint",
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-max-inclusive/endpoint.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. The mixed-timezone value is incomparable under the dateTime ordering algorithm and cannot satisfy the ordered inclusive facet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed valid with libxml2 2.9.13 on the exact audited XSD 1.0 schema and instance bytes. The mixed-timezone value is incomparable under the dateTime ordering algorithm and cannot satisfy the ordered inclusive facet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order"
+            }
+          }
+        },
+        {
+          "testName": "inside",
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-max-inclusive/inside.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. The mixed-timezone value is incomparable under the dateTime ordering algorithm and cannot satisfy the ordered inclusive facet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed valid with libxml2 2.9.13 on the exact audited XSD 1.0 schema and instance bytes. The mixed-timezone value is incomparable under the dateTime ordering algorithm and cannot satisfy the ordered inclusive facet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order"
+            }
+          }
+        },
+        {
+          "testName": "overlap",
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-max-inclusive/overlap.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed valid with .NET System.Xml 10.0.9 on the exact audited XSD 1.0 schema and instance bytes. The mixed-timezone value is incomparable under the dateTime ordering algorithm and cannot satisfy the ordered inclusive facet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order"
+            }
+          }
+        },
+        {
+          "testName": "wrong-side",
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-max-inclusive/wrong-side.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "same-zone-endpoint",
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-max-inclusive/same-zone-endpoint.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-max-inclusive/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-max-inclusive/outside.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-max-inclusive/endpoint.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-max-inclusive/inside.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-max-inclusive/overlap.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-max-inclusive/wrong-side.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/mixed-zone-boundary/unzoned-max-inclusive/same-zone-endpoint.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/substitution-member-constraints/fixed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/content-models/substitution-member-constraints/fixed/schema.xsd",
+        "description": "A substituting member uses its own fixed value, not the head declaration's fixed value. Head and member each accept their own value and reject the other declaration's value.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/substitution-member-constraints/fixed/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "head-own",
+          "file": "corpus/project/content-models/substitution-member-constraints/fixed/head-own.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "head-other",
+          "file": "corpus/project/content-models/substitution-member-constraints/fixed/head-other.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element"
+        },
+        {
+          "testName": "member-own",
+          "file": "corpus/project/content-models/substitution-member-constraints/fixed/member-own.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "member-head-value",
+          "file": "corpus/project/content-models/substitution-member-constraints/fixed/member-head-value.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/substitution-member-constraints/fixed/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-member-constraints/fixed/head-own.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-member-constraints/fixed/head-other.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-member-constraints/fixed/member-own.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-member-constraints/fixed/member-head-value.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/substitution-member-constraints/default",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/content-models/substitution-member-constraints/default/schema.xsd",
+        "description": "An empty substitution member receives its own default, not the head default. A uniqueness constraint exposes duplicate values after defaulting for each selected declaration.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/substitution-member-constraints/default/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "head-own-duplicate",
+          "file": "corpus/project/content-models/substitution-member-constraints/default/head-own-duplicate.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        },
+        {
+          "testName": "head-other-distinct",
+          "file": "corpus/project/content-models/substitution-member-constraints/default/head-other-distinct.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "member-own-duplicate",
+          "file": "corpus/project/content-models/substitution-member-constraints/default/member-own-duplicate.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        },
+        {
+          "testName": "member-head-distinct",
+          "file": "corpus/project/content-models/substitution-member-constraints/default/member-head-distinct.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/substitution-member-constraints/default/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-member-constraints/default/head-own-duplicate.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-member-constraints/default/head-other-distinct.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-member-constraints/default/member-own-duplicate.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-member-constraints/default/member-head-distinct.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/substitution-member-constraints/nillable",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/content-models/substitution-member-constraints/nillable/schema.xsd",
+        "description": "The selected substitution declaration owns nillability: a nilled member is valid while the non-nillable head is invalid; a nilled member still rejects text content.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/substitution-member-constraints/nillable/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "head-nil",
+          "file": "corpus/project/content-models/substitution-member-constraints/nillable/head-nil.xml",
+          "expected": "invalid",
+          "errorCode": "validation.nil"
+        },
+        {
+          "testName": "member-nil",
+          "file": "corpus/project/content-models/substitution-member-constraints/nillable/member-nil.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "head-value",
+          "file": "corpus/project/content-models/substitution-member-constraints/nillable/head-value.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "member-value",
+          "file": "corpus/project/content-models/substitution-member-constraints/nillable/member-value.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "member-nil-text",
+          "file": "corpus/project/content-models/substitution-member-constraints/nillable/member-nil-text.xml",
+          "expected": "invalid",
+          "errorCode": "validation.nil"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/substitution-member-constraints/nillable/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-member-constraints/nillable/head-nil.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-member-constraints/nillable/member-nil.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-member-constraints/nillable/head-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-member-constraints/nillable/member-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-member-constraints/nillable/member-nil-text.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/substitution-member-constraints/identity",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/content-models/substitution-member-constraints/identity/schema.xsd",
+        "description": "The selected substitution declaration owns its identity constraints. The head enforces uniqueness of row/@a; the member enforces row/@b without inheriting the head's constraint.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/substitution-member-constraints/identity/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "head-duplicate-a",
+          "file": "corpus/project/content-models/substitution-member-constraints/identity/head-duplicate-a.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        },
+        {
+          "testName": "head-distinct-a",
+          "file": "corpus/project/content-models/substitution-member-constraints/identity/head-distinct-a.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "member-duplicate-b",
+          "file": "corpus/project/content-models/substitution-member-constraints/identity/member-duplicate-b.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        },
+        {
+          "testName": "member-distinct-b",
+          "file": "corpus/project/content-models/substitution-member-constraints/identity/member-distinct-b.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "member-distinct-both",
+          "file": "corpus/project/content-models/substitution-member-constraints/identity/member-distinct-both.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/substitution-member-constraints/identity/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-member-constraints/identity/head-duplicate-a.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-member-constraints/identity/head-distinct-a.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-member-constraints/identity/member-duplicate-b.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-member-constraints/identity/member-distinct-b.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-member-constraints/identity/member-distinct-both.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/wildcard-fixed-values",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/attributes/wildcard-fixed-values/schema.xsd",
+        "description": "Strict and lax attribute wildcards resolve the global integer declaration and enforce its fixed value in value space: 1 and +01 match, while 2 and malformed integers fail. Skip leaves both type and fixed-value constraints unassessed.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-attribute"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/wildcard-fixed-values/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "lax-alias",
+          "file": "corpus/project/attributes/wildcard-fixed-values/lax-alias.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "lax-bad-type",
+          "file": "corpus/project/attributes/wildcard-fixed-values/lax-bad-type.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "lax-equal",
+          "file": "corpus/project/attributes/wildcard-fixed-values/lax-equal.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "lax-unequal",
+          "file": "corpus/project/attributes/wildcard-fixed-values/lax-unequal.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        },
+        {
+          "testName": "skip-alias",
+          "file": "corpus/project/attributes/wildcard-fixed-values/skip-alias.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "skip-bad-type",
+          "file": "corpus/project/attributes/wildcard-fixed-values/skip-bad-type.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "skip-equal",
+          "file": "corpus/project/attributes/wildcard-fixed-values/skip-equal.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "skip-unequal",
+          "file": "corpus/project/attributes/wildcard-fixed-values/skip-unequal.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "strict-alias",
+          "file": "corpus/project/attributes/wildcard-fixed-values/strict-alias.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "strict-bad-type",
+          "file": "corpus/project/attributes/wildcard-fixed-values/strict-bad-type.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "strict-equal",
+          "file": "corpus/project/attributes/wildcard-fixed-values/strict-equal.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "strict-unequal",
+          "file": "corpus/project/attributes/wildcard-fixed-values/strict-unequal.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/attributes/wildcard-fixed-values/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-fixed-values/lax-alias.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-fixed-values/lax-bad-type.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-fixed-values/lax-equal.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-fixed-values/lax-unequal.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-fixed-values/skip-alias.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-fixed-values/skip-bad-type.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-fixed-values/skip-equal.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-fixed-values/skip-unequal.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-fixed-values/strict-alias.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-fixed-values/strict-bad-type.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-fixed-values/strict-equal.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-fixed-values/strict-unequal.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/xml/lexical-end-name",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "xmlstream",
+        "sourceFile": "tests/corpus/project/xml/lexical-end-name/schema.xsd",
+        "description": "XML end-tag names must lexically match their start-tag names. Prefix aliases bound to the same namespace do not permit p:root to close as q:root; either consistently used prefix is valid.",
+        "specification": [
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#GIMatch"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/xml/lexical-end-name/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "alias-closing",
+          "file": "corpus/project/xml/lexical-end-name/alias-closing.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "prefix-p",
+          "file": "corpus/project/xml/lexical-end-name/prefix-p.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "prefix-q",
+          "file": "corpus/project/xml/lexical-end-name/prefix-q.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/xml/lexical-end-name/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/xml/lexical-end-name/alias-closing.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/lexical-end-name/prefix-p.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/lexical-end-name/prefix-q.xml",
           "role": "instance"
         }
       ]
