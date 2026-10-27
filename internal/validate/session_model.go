@@ -13,16 +13,19 @@ type acceptedChild struct {
 	invalidatesParent bool
 }
 
-func (s *session) acceptChild(parent *frame, rn xsdSchema.RuntimeName, flags xsiStartAttributeFlags, line, col int) (acceptedChild, error) {
+// accepted is caller-owned and borrowed for this call. Successful and
+// recoverable branches replace the complete result; fatal errors leave it unused.
+func (s *session) acceptChild(parent *frame, rn xsdSchema.RuntimeName, flags xsiStartAttributeFlags, line, col int, accepted *acceptedChild) error {
 	if parent.Mode != elementAssessed {
-		return acceptedChild{start: schemaStart{element: xsdSchema.NoElement, mode: parent.Mode}}, nil
+		*accepted = acceptedChild{start: schemaStart{element: xsdSchema.NoElement, mode: parent.Mode}}
+		return nil
 	}
 	policy := childFramePolicy(parent)
 	if policy.issue.valid() {
-		return s.recoverableChildIssue(line, col, policy.issue)
+		return s.recoverableChildIssue(line, col, policy.issue, accepted)
 	}
 	if issue := childContentPolicy(parent.Type, parent.SimpleContent, parent.Content, rn); issue.valid() {
-		return s.recoverableChildIssue(line, col, issue)
+		return s.recoverableChildIssue(line, col, issue, accepted)
 	}
 	scratch := s.contentScratch(parent)
 	transition, status := s.rt.NextContent(parent.Content, xsdSchema.ContentInput{
@@ -30,44 +33,48 @@ func (s *session) acceptChild(parent *frame, rn xsdSchema.RuntimeName, flags xsi
 		HasXSIType: flags.Type,
 	}, &scratch)
 	if status == xsdSchema.ContentTransitionInvalid {
-		return acceptedChild{}, xsderrors.InternalInvariant("content model state is invalid")
+		return xsderrors.InternalInvariant("content model state is invalid")
 	}
 	if status == xsdSchema.ContentTransitionNoMatch {
-		return s.recoverableChildIssue(line, col, s.unexpectedContentIssue(parent, rn))
+		return s.recoverableChildIssue(line, col, s.unexpectedContentIssue(parent, rn), accepted)
 	}
-	return s.acceptMatchedChild(transition, rn, line, col)
+	return s.acceptMatchedChild(transition, rn, line, col, accepted)
 }
 
-func (s *session) acceptMatchedChild(transition xsdSchema.ContentTransition, rn xsdSchema.RuntimeName, line, col int) (acceptedChild, error) {
+func (s *session) acceptMatchedChild(transition xsdSchema.ContentTransition, rn xsdSchema.RuntimeName, line, col int, accepted *acceptedChild) error {
 	kind, element := transition.Match()
 	switch kind {
 	case xsdSchema.ContentMatchStrictMissing:
-		return s.acceptStrictMissingChild(transition, rn, line, col)
+		return s.acceptStrictMissingChild(transition, rn, line, col, accepted)
 	case xsdSchema.ContentMatchSkip:
-		return acceptedChild{start: wildcardSkippedSchemaStart(), transition: transition}, nil
+		*accepted = acceptedChild{start: wildcardSkippedSchemaStart(), transition: transition}
+		return nil
 	case xsdSchema.ContentMatchAssessUndeclared:
-		return acceptedChild{start: undeclaredSchemaStart(s.rt.AnyType()), transition: transition}, nil
+		*accepted = acceptedChild{start: undeclaredSchemaStart(s.rt.AnyType()), transition: transition}
+		return nil
 	case xsdSchema.ContentMatchDeclared:
 		decl, declared := s.rt.Element(element)
 		if !declared {
-			return acceptedChild{}, xsderrors.InternalInvariant("content model matched invalid element declaration")
+			return xsderrors.InternalInvariant("content model matched invalid element declaration")
 		}
-		return acceptedChild{start: declaredSchemaStart(element, decl), transition: transition}, nil
+		*accepted = acceptedChild{start: declaredSchemaStart(element, decl), transition: transition}
+		return nil
 	case xsdSchema.ContentMatchInvalid:
-		return acceptedChild{}, xsderrors.InternalInvariant("planned content transition has invalid match kind")
+		return xsderrors.InternalInvariant("planned content transition has invalid match kind")
 	default:
 	}
-	return acceptedChild{}, xsderrors.InternalInvariant("planned content transition has invalid match kind")
+	return xsderrors.InternalInvariant("planned content transition has invalid match kind")
 }
 
-func (s *session) acceptStrictMissingChild(transition xsdSchema.ContentTransition, rn xsdSchema.RuntimeName, line, col int) (acceptedChild, error) {
-	accepted, err := s.recoverableChildIssue(line, col, strictMissingChildIssue(rn))
+func (s *session) acceptStrictMissingChild(transition xsdSchema.ContentTransition, rn xsdSchema.RuntimeName, line, col int, accepted *acceptedChild) error {
+	err := s.recoverableChildIssue(line, col, strictMissingChildIssue(rn), accepted)
 	accepted.transition = transition
-	return accepted, err
+	return err
 }
 
-func (s *session) recoverableChildIssue(line, col int, issue validationIssue) (acceptedChild, error) {
-	return acceptedChild{start: recoverySchemaStart()}, validationFromIssue(s.startContext(line, col), issue)
+func (s *session) recoverableChildIssue(line, col int, issue validationIssue, accepted *acceptedChild) error {
+	*accepted = acceptedChild{start: recoverySchemaStart()}
+	return validationFromIssue(s.startContext(line, col), issue)
 }
 
 func (s *session) end(line, col int) error {

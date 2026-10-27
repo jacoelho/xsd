@@ -71,6 +71,31 @@ type Token struct {
 	TextKind    CharacterDataKind
 }
 
+// begin retires only the previous active payload. t must be zero or a produced
+// token with zero inactive fields. Clear headers, never their borrowed backing:
+// a publisher may already have prepared its next payload in that same storage.
+func (t *Token) begin(kind TokenKind, line, column int) {
+	switch t.Kind {
+	case KindStart:
+		t.Start = StartElement{}
+	case KindEnd:
+		t.End = EndElement{}
+	case KindCharData:
+		t.Data = nil
+		t.TextKind = CharacterDataInvalid
+	case KindPI:
+		t.Data = nil
+		t.Directive = nil
+	case KindComment, KindDirective:
+		t.Directive = nil
+	}
+	t.StartOffset = 0
+	t.EndOffset = 0
+	t.Kind = kind
+	t.Line = line
+	t.Column = column
+}
+
 var (
 	errUnsupportedEntityReference = errors.New("unsupported entity reference")
 	errXMLAttributeLimit          = errors.New("XML attribute count limit exceeded")
@@ -279,7 +304,8 @@ func (p *parser) next(dst *Token) error {
 		p.pendingEnd = EndElement{}
 		p.pendingEndOffset = 0
 		line, col := p.br.pos()
-		*dst = Token{Kind: KindEnd, End: end, Line: line, Column: col}
+		dst.begin(KindEnd, line, col)
+		dst.End = end
 		p.withTokenSpan(dst, start)
 		return nil
 	}
@@ -310,7 +336,8 @@ func (p *parser) next(dst *Token) error {
 				return err
 			}
 			p.atStart = false
-			*dst = Token{Kind: KindEnd, End: end, Line: line, Column: col}
+			dst.begin(KindEnd, line, col)
+			dst.End = end
 			p.withTokenSpan(dst, tokenStart)
 			return nil
 		case '!':
@@ -340,16 +367,17 @@ func (p *parser) next(dst *Token) error {
 			p.withTokenSpan(dst, tokenStart)
 			return nil
 		default:
-			start, selfClosing, err := p.readStartElement(next)
+			name, selfClosing, err := p.readStartElement(next)
 			if err != nil {
 				return err
 			}
 			p.atStart = false
 			if selfClosing {
-				p.pendingEnd = EndElement{Name: start.Name}
+				p.pendingEnd = EndElement{Name: name}
 				p.pendingEndOffset = tokenStart
 			}
-			*dst = Token{Kind: KindStart, Start: start, Line: line, Column: col}
+			dst.begin(KindStart, line, col)
+			dst.Start = StartElement{Name: name, Attr: p.attrs}
 			p.withTokenSpan(dst, tokenStart)
 			return nil
 		}
@@ -459,7 +487,9 @@ func (p *parser) readCharData(dst *Token, first byte) error {
 					return borrowErr
 				}
 			}
-			*dst = Token{Kind: KindCharData, TextKind: kind, Data: p.textBuf, Line: line, Column: col}
+			dst.begin(KindCharData, line, col)
+			dst.TextKind = kind
+			dst.Data = p.textBuf
 			return nil
 		}
 		if err != nil {
@@ -501,7 +531,9 @@ func (p *parser) readCharData(dst *Token, first byte) error {
 			return err
 		}
 		if b == '<' {
-			*dst = Token{Kind: KindCharData, TextKind: kind, Data: p.textBuf, Line: line, Column: col}
+			dst.begin(KindCharData, line, col)
+			dst.TextKind = kind
+			dst.Data = p.textBuf
 			return nil
 		}
 		b, err = p.br.readByte()
@@ -561,7 +593,9 @@ func (p *parser) borrowCharData(dst *Token, chunk []byte, n, line, col int) (boo
 	}
 	data := p.br.buf[start : start+length]
 	p.br.consumeBuffered(n)
-	*dst = Token{Kind: KindCharData, TextKind: CharacterDataText, Data: data, Line: line, Column: col}
+	dst.begin(KindCharData, line, col)
+	dst.TextKind = CharacterDataText
+	dst.Data = data
 	return true, nil
 }
 
@@ -699,7 +733,8 @@ func (p *parser) readCommentMarkup(dst *Token, line, col int) (bool, error) {
 	p.directive = p.directive[:0]
 	data, err := p.readComment(p.directive)
 	p.directive = data
-	*dst = Token{Kind: KindComment, Directive: data, Line: line, Column: col}
+	dst.begin(KindComment, line, col)
+	dst.Directive = data
 	return false, err
 }
 
@@ -729,7 +764,8 @@ func (p *parser) readDirectiveMarkup(dst *Token, first byte, line, col int) (boo
 	if !IsDOCTYPEDeclaration(p.directive) {
 		return false, fmt.Errorf("invalid markup declaration")
 	}
-	*dst = Token{Kind: KindDirective, Directive: p.directive, Line: line, Column: col}
+	dst.begin(KindDirective, line, col)
+	dst.Directive = p.directive
 	return false, nil
 }
 
@@ -774,7 +810,11 @@ func (p *parser) readCDATAChunk(dst *Token, line, col int) error {
 }
 
 func (p *parser) cdataToken(dst *Token, line, col, chunkOffset int) {
-	*dst = Token{Kind: KindCharData, Data: p.textBuf, TextKind: CharacterDataCDATA, StartOffset: chunkOffset, EndOffset: p.br.offset(), Line: line, Column: col}
+	dst.begin(KindCharData, line, col)
+	dst.Data = p.textBuf
+	dst.TextKind = CharacterDataCDATA
+	dst.StartOffset = chunkOffset
+	dst.EndOffset = p.br.offset()
 }
 
 func (p *parser) readCDATAByte(matched *int) (bool, error) {
@@ -836,10 +876,10 @@ func (p *parser) appendPendingCDATA(matched *int) error {
 	return nil
 }
 
-func (p *parser) readStartElement(first byte) (StartElement, bool, error) {
+func (p *parser) readStartElement(first byte) (xml.Name, bool, error) {
 	name, err := p.readName(first)
 	if err != nil {
-		return StartElement{}, false, err
+		return xml.Name{}, false, err
 	}
 	p.attrValueBuf = p.attrValueBuf[:0]
 	p.attrValueEnds = p.attrValueEnds[:0]
@@ -847,7 +887,7 @@ func (p *parser) readStartElement(first byte) (StartElement, bool, error) {
 	for {
 		b, hadSpace, err := p.readPastSpace()
 		if err != nil {
-			return StartElement{}, false, err
+			return xml.Name{}, false, err
 		}
 		switch b {
 		case '>':
@@ -856,7 +896,7 @@ func (p *parser) readStartElement(first byte) (StartElement, bool, error) {
 			return p.completeEmptyElement(name)
 		default:
 			if err := p.readStartAttributeLead(startAttributeLead{first: b, spaceBefore: hadSpace}); err != nil {
-				return StartElement{}, false, err
+				return xml.Name{}, false, err
 			}
 		}
 	}
@@ -874,18 +914,18 @@ func (p *parser) readStartAttributeLead(lead startAttributeLead) error {
 	return p.readStartAttribute(lead.first)
 }
 
-func (p *parser) completedStartElement(name xml.Name, selfClosing bool) (StartElement, bool, error) {
+func (p *parser) completedStartElement(name xml.Name, selfClosing bool) (xml.Name, bool, error) {
 	p.finishLazyAttrValues()
-	return StartElement{Name: name, Attr: p.attrs}, selfClosing, nil
+	return name, selfClosing, nil
 }
 
-func (p *parser) completeEmptyElement(name xml.Name) (StartElement, bool, error) {
+func (p *parser) completeEmptyElement(name xml.Name) (xml.Name, bool, error) {
 	next, err := p.br.readByte()
 	if err != nil {
-		return StartElement{}, false, streamSyntaxError("unexpected EOF in empty element tag", err)
+		return xml.Name{}, false, streamSyntaxError("unexpected EOF in empty element tag", err)
 	}
 	if next != '>' {
-		return StartElement{}, false, fmt.Errorf("expected > after / in empty element tag")
+		return xml.Name{}, false, fmt.Errorf("expected > after / in empty element tag")
 	}
 	return p.completedStartElement(name, true)
 }
@@ -1032,31 +1072,21 @@ func (p *parser) readName(first byte) (xml.Name, error) {
 	if err := p.appendTokenByte(&p.nameBuf, first); err != nil {
 		return xml.Name{}, err
 	}
-	for {
-		done, err := p.appendBufferedName()
-		if err != nil {
-			return xml.Name{}, err
-		}
-		if done {
-			break
-		}
-	}
-	return p.internQName(p.nameBuf)
-}
-
-func (p *parser) appendBufferedName() (bool, error) {
 	chunk, err := p.br.buffered()
-	if err != nil {
-		return false, xmlNameReadError(err)
-	}
-	n := nameChunkLen(chunk)
-	if n > 0 {
-		if err := p.appendTokenBytes(&p.nameBuf, chunk[:n]); err != nil {
-			return false, err
+	for err == nil {
+		n := nameChunkLen(chunk)
+		if n > 0 {
+			if appendErr := p.appendTokenBytes(&p.nameBuf, chunk[:n]); appendErr != nil {
+				return xml.Name{}, appendErr
+			}
+			p.br.consumeBuffered(n)
 		}
-		p.br.consumeBuffered(n)
+		if n < len(chunk) {
+			return p.internQName(p.nameBuf)
+		}
+		chunk, err = p.br.buffered()
 	}
-	return n < len(chunk), nil
+	return xml.Name{}, xmlNameReadError(err)
 }
 
 func xmlNameReadError(err error) error {
@@ -1329,7 +1359,8 @@ func (p *parser) finishPIWithoutContent(dst *Token, position processingInstructi
 	if !p.emitPI {
 		return true, nil
 	}
-	*dst = Token{Kind: KindPI, Data: p.nameBuf, Line: line, Column: col}
+	dst.begin(KindPI, line, col)
+	dst.Data = p.nameBuf
 	return false, nil
 }
 
@@ -1350,7 +1381,9 @@ func (p *parser) finishPIWithContent(dst *Token, position processingInstructionP
 		return false, err
 	}
 	p.directive = data
-	*dst = Token{Kind: KindPI, Data: p.nameBuf, Directive: data, Line: line, Column: col}
+	dst.begin(KindPI, line, col)
+	dst.Data = p.nameBuf
+	dst.Directive = data
 	return false, nil
 }
 

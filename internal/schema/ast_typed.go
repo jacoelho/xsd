@@ -185,11 +185,11 @@ func (s *typedSchemaParseState) admitTypedFrame(initial typedSchemaParseFrame, l
 	return nil
 }
 
-func prepareTypedStart(start *xmlstream.StartElement, element xmlstream.Element, limits Limits, line, col int) error {
+func prepareTypedStart(start *xmlstream.StartElement, element xml.Name, limits Limits, line, col int) error {
 	// start is a by-value semantic view of the current token. Reader.Start has
 	// already expanded the shared attribute slice in place; only the copied
 	// element name is normalized here, and no borrowed token data is retained.
-	start.Name = element.Name
+	start.Name = element
 	return checkSchemaStartElementLimitStream(*start, limits, line, col)
 }
 

@@ -3,6 +3,7 @@ package xmlstream
 import (
 	"encoding/xml"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -82,6 +83,59 @@ func benchmarkParserDerivedDocument(b *testing.B, text string) {
 func BenchmarkParserMixedSmallTokens(b *testing.B) {
 	text := `<root>` + strings.Repeat(`<e a="v">x</e>`, 4_000) + `</root>`
 	benchmarkParserDocument(b, text, newParserBenchmarkOracle(12_002, 12_004, 0xf020b93837f5e1c), Config{LazyAttrValues: true}, parserBenchmarkRawAttributes)
+}
+
+func BenchmarkParserTinySelfClosing(b *testing.B) {
+	digest := parserBenchmarkDigest{hash: parserBenchmarkDigestOffset}
+	digest.addToken(Token{Kind: KindStart, Start: StartElement{Name: xml.Name{Local: "r"}}}, nil, parserBenchmarkRawAttributes)
+	for range 4_000 {
+		digest.addToken(Token{Kind: KindStart, Start: StartElement{Name: xml.Name{Local: "e"}}}, nil, parserBenchmarkRawAttributes)
+		digest.addToken(Token{Kind: KindEnd, End: EndElement{Name: xml.Name{Local: "e"}}}, nil, parserBenchmarkRawAttributes)
+	}
+	digest.addToken(Token{Kind: KindEnd, End: EndElement{Name: xml.Name{Local: "r"}}}, nil, parserBenchmarkRawAttributes)
+	benchmarkParserDocument(b, "<r>"+strings.Repeat("<e/>", 4_000)+"</r>",
+		newParserBenchmarkOracle(8_002, 4_001, digest.hash), Config{}, parserBenchmarkRawAttributes)
+}
+
+func BenchmarkParserNameVocabulary(b *testing.B) {
+	for _, shape := range []string{"ascii", "prefixed", "unicode", "unseen", "long-parts", "combinations"} {
+		b.Run(shape, func(b *testing.B) {
+			var doc strings.Builder
+			digest := parserBenchmarkDigest{hash: parserBenchmarkDigestOffset}
+			doc.WriteString("<r>")
+			digest.addToken(Token{Kind: KindStart, Start: StartElement{Name: xml.Name{Local: "r"}}}, nil, parserBenchmarkRawAttributes)
+			payload := 1
+			for i := range 4096 {
+				name := xml.Name{Local: fmt.Sprintf("n%d", i%32)}
+				switch shape {
+				case "prefixed":
+					name.Space = "p"
+				case "unicode":
+					name.Local = fmt.Sprintf("名%d", i%32)
+				case "unseen":
+					name.Local = fmt.Sprintf("n%d", i%1024)
+				case "long-parts":
+					name.Space = "p" + strings.Repeat("a", 159)
+					name.Local = "n" + strings.Repeat("b", 158) + string(rune('a'+i%8))
+				case "combinations":
+					name.Space = fmt.Sprintf("p%d", i/32%32)
+				}
+				doc.WriteByte('<')
+				if name.Space != "" {
+					doc.WriteString(name.Space)
+					doc.WriteByte(':')
+				}
+				doc.WriteString(name.Local)
+				doc.WriteString("/>")
+				digest.addToken(Token{Kind: KindStart, Start: StartElement{Name: name}}, nil, parserBenchmarkRawAttributes)
+				digest.addToken(Token{Kind: KindEnd, End: EndElement{Name: name}}, nil, parserBenchmarkRawAttributes)
+				payload += len(name.Space) + len(name.Local)
+			}
+			doc.WriteString("</r>")
+			digest.addToken(Token{Kind: KindEnd, End: EndElement{Name: xml.Name{Local: "r"}}}, nil, parserBenchmarkRawAttributes)
+			benchmarkParserDocument(b, doc.String(), newParserBenchmarkOracle(8194, payload, digest.hash), Config{}, parserBenchmarkRawAttributes)
+		})
+	}
 }
 
 func BenchmarkParserCDATABufferBoundary(b *testing.B) {
@@ -259,5 +313,49 @@ func consumeParserBenchmarkDocument(parser *parserTestHarness, text string, conf
 			return parserBenchmarkSample{}, err
 		}
 		got.addToken(token, reader, attributeMode)
+	}
+}
+
+func BenchmarkParserSaturatedNameMisses(b *testing.B) {
+	var parser parserTestHarness
+	var seed strings.Builder
+	seed.WriteString("<seedroot>")
+	for i := range 512 {
+		fmt.Fprintf(&seed, "<seed%d/>", i)
+	}
+	seed.WriteString("</seedroot>")
+	if _, err := digestParserBenchmarkDocument(&parser, seed.String(), Config{}, parserBenchmarkRawAttributes); err != nil {
+		b.Fatal(err)
+	}
+	var document strings.Builder
+	document.WriteString("<coldroot>")
+	want := parserBenchmarkDigest{hash: parserBenchmarkDigestOffset}
+	want.addToken(Token{Kind: KindStart, Start: StartElement{Name: xml.Name{Local: "coldroot"}}}, nil, parserBenchmarkRawAttributes)
+	payload := len("coldroot")
+	for i := range 4096 {
+		name := "cold" + strconv.Itoa(i%1024)
+		document.WriteByte('<')
+		document.WriteString(name)
+		document.WriteString("/>")
+		want.addToken(Token{Kind: KindStart, Start: StartElement{Name: xml.Name{Local: name}}}, nil, parserBenchmarkRawAttributes)
+		want.addToken(Token{Kind: KindEnd, End: EndElement{Name: xml.Name{Local: name}}}, nil, parserBenchmarkRawAttributes)
+		payload += len(name)
+	}
+	document.WriteString("</coldroot>")
+	want.addToken(Token{Kind: KindEnd, End: EndElement{Name: xml.Name{Local: "coldroot"}}}, nil, parserBenchmarkRawAttributes)
+	text := document.String()
+	got, err := digestParserBenchmarkDocument(&parser, text, Config{}, parserBenchmarkRawAttributes)
+	if err != nil || got != want {
+		b.Fatalf("cold-name digest = %+v, %v; want %+v", got, err, want)
+	}
+	wantSample := parserBenchmarkSample{tokens: 8194, payload: payload}
+	b.SetBytes(int64(len(text)))
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		got, err := consumeParserBenchmarkDocument(&parser, text, Config{}, parserBenchmarkRawAttributes)
+		if err != nil || got != wantSample {
+			b.Fatalf("cold-name sample = %+v, %v; want %+v", got, err, wantSample)
+		}
 	}
 }

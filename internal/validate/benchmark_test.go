@@ -31,6 +31,22 @@ func BenchmarkRecordIdentityValueIDREFS(b *testing.B) {
 			if path := recorder.PathString(); path != "/root/refs" {
 				b.Fatalf("PathString() = %q, want /root/refs", path)
 			}
+			if activateErr := recorder.session.doc.identity.activateDocumentIdentity(recorder.session.doc.Depth()); activateErr != nil {
+				b.Fatal(activateErr)
+			}
+			if recordErr := recorder.RecordIdentityValue(validated, 1, 1); recordErr != nil {
+				b.Fatal(recordErr)
+			}
+			identity := &recorder.session.doc.identity
+			if identity.entries != refs || len(identity.idrefs) != refs {
+				b.Fatalf("recorded entries/refs = %d/%d, want %d/%d", identity.entries, len(identity.idrefs), refs, refs)
+			}
+			for i, ref := range identity.idrefs {
+				if ref.Value != "id"+strconv.Itoa(i) || ref.Path.String() != "/root/refs" || ref.Line != 1 || ref.Col != 1 {
+					b.Fatalf("reference %d = %q at %s:%d:%d", i, ref.Value, ref.Path.String(), ref.Line, ref.Col)
+				}
+			}
+			recorder.ResetIdentity()
 			b.ReportAllocs()
 			for b.Loop() {
 				recorder.ResetIdentity()

@@ -172,8 +172,16 @@ func TestProgramQualifiedResolverAdmission(t *testing.T) {
 		{"missing QName resolver", PrimitiveQName, Resolver{}, "invalid QName"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, err := p.Validate(BuiltinType(tc.kind), "p:item", tc.resolver, NeedCanonical|NeedIdentity, 16<<20, nil); err == nil || !strings.HasSuffix(err.Error(), tc.want) {
-				t.Fatalf("resolver admission = %v, want %q", err, tc.want)
+			for _, api := range qualifiedValueAPIs(p) {
+				for _, needs := range []Needs{0, NeedCanonical | NeedIdentity} {
+					_, err := api.validate(BuiltinType(tc.kind), "p:item", tc.resolver, needs, 16<<20)
+					if err == nil || !strings.HasSuffix(err.Error(), tc.want) {
+						t.Fatalf("%s needs %d resolver admission = %v, want %q", api.name, needs, err, tc.want)
+					}
+					if cause := errors.Unwrap(err); cause == nil || cause.Error() != tc.want {
+						t.Fatalf("%s needs %d underlying cause = %v, want %q", api.name, needs, cause, tc.want)
+					}
+				}
 			}
 		})
 	}

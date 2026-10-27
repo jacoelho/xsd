@@ -58,6 +58,8 @@ func simpleValueIdentityKey(v xsdValue.Value) (string, bool) {
 type identityState struct {
 	ids          map[string]retainedPath
 	idrefs       []identityRef
+	idleRefs     []identityTupleRef
+	idleTable    map[string]identityTableEntry
 	fieldStaging identityFieldStaging
 	scopes       []identityScope
 	selections   []identitySelection // Ordered by nondecreasing selection depth.
@@ -138,6 +140,7 @@ type identityScope struct {
 	// declared-scope allowance. Truncation restores it on pop or start abort.
 	declaredScopes   int
 	mayHaveConflicts bool
+	tablesMerged     bool
 	invalid          bool
 }
 
@@ -219,6 +222,18 @@ func (s *identityState) reset(maxRetainedIDs, maxRetainedSlices int) {
 		s.idrefs = s.idrefs[:0]
 	}
 	s.fieldStaging.reset(maxRetainedIDs, maxRetainedSlices)
+	if cap(s.idleRefs) > maxRetainedSlices {
+		s.idleRefs = nil
+	}
+	if maxRetainedIDs < maxRetainedMapLen {
+		s.idleTable = nil
+	}
+	for _, scope := range s.scopes {
+		s.retainScopeRefs(scope.refs, maxRetainedSlices)
+		if maxRetainedIDs >= maxRetainedMapLen {
+			s.retainRootTable(&scope)
+		}
+	}
 	s.scopes = resetRetainedReferences(s.scopes, maxRetainedSlices)
 	s.selections = resetRetainedReferences(s.selections, maxRetainedSlices)
 	s.fieldValues = resetRetainedReferences(s.fieldValues, maxRetainedSlices)
@@ -588,30 +603,25 @@ func (s *identityState) publishIdentityTuple(rt *xsdSchema.Schema, publication i
 }
 
 func (s *identityState) publishIdentityKey(rt *xsdSchema.Schema, scope *identityScope, sel identitySelection, key string, limits identityLimits, ctx StartContext) error {
-	if scope.tables == nil {
-		scope.tables = make(map[xsdSchema.IdentityConstraintID]map[string]identityTableEntry)
-	}
 	table := scope.tables[sel.constraint]
-	if table == nil {
-		table = make(map[string]identityTableEntry)
-		scope.tables[sel.constraint] = table
+	if prev, exists := table[key]; exists && prev.originDepth == scope.depth {
+		return validation(StartContext{Path: sel.pathString(ctx), Line: ctx.Line, Column: ctx.Column}, xsderrors.CodeValidationIdentity, identityDuplicateMessage(rt, sel.constraint, prev.path.String()))
 	}
-	if prev, exists := table[key]; exists {
-		if prev.originDepth == scope.depth {
-			return validation(StartContext{Path: sel.pathString(ctx), Line: ctx.Line, Column: ctx.Column}, xsderrors.CodeValidationIdentity, identityDuplicateMessage(rt, sel.constraint, prev.path.String()))
-		}
-		// A local entry takes precedence over an entry propagated from a
-		// descendant. The descendant entry has already consumed its own
-		// identity-entry budget; this publication is a distinct identity fact
-		// and must consume another entry before replacing the table slot.
-		if err := s.reserveEntry(key, limits, ctx); err != nil {
-			return err
-		}
-		table[key] = identityTableEntry{path: sel.retainedPath(ctx), node: sel.node, originDepth: scope.depth}
-		return nil
-	}
+	// Replacing a descendant slot publishes a distinct local identity fact.
 	if err := s.reserveEntry(key, limits, ctx); err != nil {
 		return err
+	}
+	if table == nil {
+		if s.idleTable == nil {
+			table = make(map[string]identityTableEntry)
+		} else {
+			table = s.idleTable
+			s.idleTable = nil
+		}
+		if scope.tables == nil {
+			scope.tables = make(map[xsdSchema.IdentityConstraintID]map[string]identityTableEntry)
+		}
+		scope.tables[sel.constraint] = table
 	}
 	table[key] = identityTableEntry{path: sel.retainedPath(ctx), node: sel.node, originDepth: scope.depth}
 	return nil
@@ -621,6 +631,10 @@ func (s *identityState) publishIdentityKeyRef(scope *identityScope, refer xsdSch
 	if err := s.reserveEntry(key, limits, ctx); err != nil {
 		return err
 	}
+	if scope.refs == nil {
+		scope.refs = s.idleRefs
+		s.idleRefs = nil
+	}
 	scope.refs = append(scope.refs, identityTupleRef{
 		refer: refer,
 		key:   key,
@@ -629,6 +643,29 @@ func (s *identityState) publishIdentityKeyRef(scope *identityScope, refer xsdSch
 		col:   sel.col,
 	})
 	return nil
+}
+
+// An idle slice has no live tuple/path references and one future scope owner.
+func (s *identityState) retainScopeRefs(refs []identityTupleRef, maxRetained int) {
+	if cap(refs) > maxRetained || cap(refs) <= cap(s.idleRefs) {
+		return
+	}
+	clear(refs)
+	s.idleRefs = refs[:0]
+}
+
+// Unmerged root tables have never deleted entries. Their current cardinality
+// admits reuse; merged tables may have pruned a much larger conflict set.
+func (s *identityState) retainRootTable(scope *identityScope) {
+	if scope.depth != 1 || scope.tablesMerged || len(scope.tables) != 1 {
+		return
+	}
+	for _, table := range scope.tables {
+		if len(table) > 0 && len(table) <= maxRetainedMapLen {
+			clear(table)
+			s.idleTable = table
+		}
+	}
 }
 
 func (s *identityState) selectionFields(sel identitySelection) []identityFieldValue {
@@ -715,6 +752,8 @@ func (s *identityState) propagateClosedIdentityScope() {
 	closed := s.scopes[index]
 	s.scopes[index] = identityScope{}
 	s.scopes = s.scopes[:index]
+	s.retainScopeRefs(closed.refs, maxRetainedSliceCap)
+	s.retainRootTable(&closed)
 	parentDepth := closed.depth - 1
 	if parentDepth == 0 || len(closed.tables) == 0 {
 		return
@@ -730,6 +769,7 @@ func mergeIdentityTables(dst, src *identityScope) {
 	if len(src.tables) == 0 {
 		return
 	}
+	dst.tablesMerged = true
 	if dst.tables == nil {
 		dst.tables = src.tables
 		return

@@ -358,19 +358,18 @@ make browser-test
 
 ## Benchmarks
 
-Go results were measured on 2026-10-20 using Go 1.27.0
-on an Apple M2 Max with 32 GiB RAM. Libxml2 2.9.13
-results are unchanged from the 2026-09-06 run on the same machine; libxml2 was
-not rerun.
+Results were measured on 2026-10-26 using Go 1.27.0 and libxml2 2.9.13
+on an Apple M2 Max with 32 GiB RAM. Both validators used the same generated
+files; Go ran first, followed by libxml2 with `--stream`.
 
-| Workload | Go time | libxml2 time | Go peak RSS | libxml2 peak RSS |
+| Workload | Go time | libxml2 `--stream` time | Go peak RSS | libxml2 peak RSS |
 | --- | ---: | ---: | ---: | ---: |
-| Streaming, 20 MiB | 499.797 ms | 377.093 ms | 6.594 MiB | 243.08 MiB |
-| Streaming, 100 MiB | 2.422 s | 1.789 s | 6.766 MiB | 1.17 GiB |
-| Streaming, 500 MiB | 11.978 s | 8.859 s | 6.938 MiB | 5.81 GiB |
-| Streaming, 1 GiB | 24.435 s | 21.209 s | 6.891 MiB | 10.29 GiB |
-| Streaming, 2 GiB | 48.796 s | 51.485 s | 6.812 MiB | 13.33 GiB |
-| Identity constraints, 100,000 rows | 312.665 ms | 605.858 ms | 89.219 MiB | 186.66 MiB |
+| Streaming, 20 MiB | 451.831 ms | 0.35 s | 6.812 MiB | 1.703 MiB |
+| Streaming, 100 MiB | 2.193 s | 1.67 s | 6.781 MiB | 1.703 MiB |
+| Streaming, 500 MiB | 10.830 s | 8.35 s | 6.875 MiB | 1.703 MiB |
+| Streaming, 1 GiB | 21.954 s | 17.30 s | 6.938 MiB | 1.703 MiB |
+| Streaming, 2 GiB | 43.507 s | 34.69 s | 6.906 MiB | 1.734 MiB |
+| Identity constraints, 100,000 rows | 333.627 ms | 0.43 s | 89.047 MiB | 74.344 MiB |
 
 Each result is the upper median (sixth sorted value) of 10 runs after one
 warm-up per workload and validator. Time and peak RSS are summarized
@@ -378,8 +377,9 @@ independently. Measurements include process startup and schema compilation.
 Peak RSS is process memory reported by
 `/usr/bin/time`, not cumulative Go allocations.
 
-Go streams input; libxml2 uses tree mode with `--huge --noout --schema`.
-The workloads are synthetic and do not compare libxml2's streaming mode.
+Go streams input; libxml2 uses `--stream --huge --noout --schema`.
+Libxml2 times are reported to the timer's 0.01 s resolution. These synthetic
+workloads do not represent a production traffic mix.
 
 See [benchmark methodology and reproduction](BENCHMARKS.md) for timing
 variation, commands, and session-reuse guidance.

@@ -25,6 +25,28 @@ func BenchmarkCompileRepeatedCategoryTerms(b *testing.B) {
 	}
 }
 
+func BenchmarkCompileBitsetWhitespace(b *testing.B) {
+	const source = `(\s*[^\s]\s*)+`
+	pattern := benchmarkPattern(b, source)
+	if !pattern.bitset || pattern.deterministic || pattern.linear != nil {
+		b.Fatal("benchmark requires the general bitset NFA")
+	}
+	if matched, err := pattern.MatchStringWithScratch(" a ", MatchOptions{}, nil); err != nil || !matched {
+		b.Fatalf("fixture match = %v, %v", matched, err)
+	}
+	b.ReportAllocs()
+	for b.Loop() {
+		var err error
+		pattern, err = Compile(source, CompileOptions{})
+		if err != nil || pattern == nil {
+			b.Fatalf("compile = %v, %v", pattern, err)
+		}
+	}
+	if matched, err := pattern.MatchStringWithScratch(" a ", MatchOptions{}, nil); err != nil || !matched {
+		b.Fatalf("compiled match = %v, %v", matched, err)
+	}
+}
+
 func BenchmarkParseNodeAdmissionPrebuilt(b *testing.B) {
 	options := normalizeCompileOptions(CompileOptions{MaxNodes: 8})
 	for _, test := range []struct {

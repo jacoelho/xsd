@@ -187,13 +187,39 @@ type compiledModelRead struct {
 
 type compiledModelRowRead struct {
 	Edges         []compiledModelEdgeRead
-	index         dfaRowIndex
+	index         publishedDFAIndex
 	CountParticle compiledParticleRead
 	Min           uint32
 	Max           uint32
 	Accept        bool
 	Counted       bool
 	Unbounded     bool
+	indexKind     publishedDFAIndexKind
+}
+
+type publishedDFAIndexKind uint8
+
+const (
+	publishedDFALinear publishedDFAIndexKind = iota
+	publishedDFAMap
+	publishedDFADense
+)
+
+// Map data is ordered wildcard positions; dense data is metadata and slots.
+// The row kind owns interpretation, so metadata never enters wildcard iteration.
+type publishedDFAIndex struct {
+	nameToEdge map[QName]uint32
+	data       []uint32
+}
+
+func newPublishedDFAMapIndex(source dfaRowIndex) (publishedDFAIndex, publishedDFAIndexKind) {
+	if !source.enabled() {
+		return publishedDFAIndex{}, publishedDFALinear
+	}
+	return publishedDFAIndex{
+		nameToEdge: maps.Clone(source.nameToEdge),
+		data:       slices.Clone(source.wildcardEdges),
+	}, publishedDFAMap
 }
 
 type compiledModelEdgeRead struct {
@@ -216,19 +242,22 @@ func newCompiledParticleRead(p Particle) compiledParticleRead {
 	return compiledParticleRead{Element: p.Element, Wildcard: p.Wildcard, Kind: p.Kind}
 }
 
-func newCompiledModelReads(models []CompiledModel, work ContentModelWork) ([]compiledModelRead, error) {
+func newCompiledModelReads(models []CompiledModel, work ContentModelWork) ([]compiledModelRead, bool, error) {
 	if err := requireContentModelWork(work); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if err := chargeCompiledModelProjectionWork(models, work); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	builder := newCompiledModelReadBuilder(models)
 	reads := make([]compiledModelRead, len(models))
+	var mayHaveDenseRows bool
 	for i, model := range models {
-		reads[i] = builder.readModel(model)
+		read, mayHaveDense := builder.readModel(model)
+		reads[i] = read
+		mayHaveDenseRows = mayHaveDenseRows || mayHaveDense
 	}
-	return reads, nil
+	return reads, mayHaveDenseRows, nil
 }
 
 // Large all-groups dispatch by expanded name. The index uses the same
@@ -292,37 +321,39 @@ func newCompiledModelReadBuilder(models []CompiledModel) compiledModelReadBuilde
 	}
 }
 
-func (b *compiledModelReadBuilder) readModel(model CompiledModel) compiledModelRead {
+func (b *compiledModelReadBuilder) readModel(model CompiledModel) (compiledModelRead, bool) {
+	rows, mayHaveDenseRows := b.readRows(model.Rows)
 	return compiledModelRead{
-		Rows:      b.readRows(model.Rows),
+		Rows:      rows,
 		All:       b.readAll(model.All),
 		Start:     model.Start,
 		AllBitLen: model.AllBitLen,
 		Kind:      model.Kind,
 		Empty:     model.Empty,
-	}
+	}, model.Kind == CompiledModelDFA && mayHaveDenseRows
 }
 
-func (b *compiledModelReadBuilder) readRows(source []CompiledModelRow) []compiledModelRowRead {
+func (b *compiledModelReadBuilder) readRows(source []CompiledModelRow) ([]compiledModelRowRead, bool) {
 	if len(source) == 0 {
-		return nil
+		return nil, false
 	}
 	end := b.rowOffset + len(source)
 	rows := b.rows[b.rowOffset:end:end]
 	b.rowOffset = end
+	var mayHaveDenseRows bool
 	for i, row := range source {
 		rows[i] = b.readRow(row)
+		mayHaveDenseRows = mayHaveDenseRows || mayUseDenseDFA(&rows[i])
 	}
-	return rows
+	return rows, mayHaveDenseRows
 }
 
 func (b *compiledModelReadBuilder) readRow(row CompiledModelRow) compiledModelRowRead {
+	index, kind := newPublishedDFAMapIndex(row.index)
 	return compiledModelRowRead{
-		Edges: b.readEdges(row.Edges),
-		index: dfaRowIndex{
-			nameToEdge:    maps.Clone(row.index.nameToEdge),
-			wildcardEdges: slices.Clone(row.index.wildcardEdges),
-		},
+		Edges:         b.readEdges(row.Edges),
+		index:         index,
+		indexKind:     kind,
 		CountParticle: newCompiledParticleRead(row.CountParticle),
 		Min:           row.Min,
 		Max:           row.Max,
@@ -607,8 +638,11 @@ func (rt *Schema) nextPublishedDFAContent(st ContentState, model *compiledModelR
 		return ContentTransition{}, ContentTransitionInvalid
 	}
 	row := &model.Rows[st.state]
-	if row.index.enabled() {
+	if row.indexKind == publishedDFAMap {
 		return rt.nextPublishedIndexedDFAContent(st, model, row, row.index, in)
+	}
+	if row.indexKind == publishedDFADense {
+		return rt.nextPublishedDenseDFAContent(st, model, row, in)
 	}
 	for _, edge := range row.Edges {
 		match, valid := rt.matchPublishedDirectParticle(edge.Particle, in)
@@ -627,6 +661,29 @@ func (rt *Schema) nextPublishedDFAContent(st ContentState, model *compiledModelR
 	return ContentTransition{}, ContentTransitionNoMatch
 }
 
+func (rt *Schema) nextPublishedDenseDFAContent(st ContentState, model *compiledModelRead, row *compiledModelRowRead, in ContentInput) (ContentTransition, ContentTransitionStatus) {
+	if !in.Name.Known {
+		return ContentTransition{}, ContentTransitionNoMatch
+	}
+	pos := row.index.denseEdge(in.Name.Name)
+	if pos < 0 {
+		return ContentTransition{}, ContentTransitionNoMatch
+	}
+	edge := row.Edges[pos]
+	match, valid := rt.matchPublishedDirectParticle(edge.Particle, in)
+	if !valid {
+		return ContentTransition{}, ContentTransitionInvalid
+	}
+	if match.kind == ContentMatchInvalid {
+		return ContentTransition{}, ContentTransitionNoMatch
+	}
+	next, ok := nextPublishedDFAState(st, model, edge)
+	if !ok {
+		return ContentTransition{}, ContentTransitionNoMatch
+	}
+	return newContentTransition(st, next, match), ContentTransitionMatched
+}
+
 func completePublishedDFAContent(st ContentState, model *compiledModelRead) ContentCompletionStatus {
 	if !ValidUint32Index(st.state, len(model.Rows)) {
 		return ContentCompletionInvalid
@@ -638,7 +695,7 @@ func completePublishedDFAContent(st ContentState, model *compiledModelRead) Cont
 	return ContentCompletionIncomplete
 }
 
-func (rt *Schema) nextPublishedIndexedDFAContent(st ContentState, model *compiledModelRead, row *compiledModelRowRead, idx dfaRowIndex, in ContentInput) (ContentTransition, ContentTransitionStatus) {
+func (rt *Schema) nextPublishedIndexedDFAContent(st ContentState, model *compiledModelRead, row *compiledModelRowRead, idx publishedDFAIndex, in ContentInput) (ContentTransition, ContentTransitionStatus) {
 	candidates := newPublishedDFACandidates(idx, in)
 	for {
 		pos, ok := candidates.next()
@@ -667,14 +724,14 @@ type publishedDFACandidates struct {
 	nextWild  int
 }
 
-func newPublishedDFACandidates(idx dfaRowIndex, in ContentInput) *publishedDFACandidates {
+func newPublishedDFACandidates(idx publishedDFAIndex, in ContentInput) *publishedDFACandidates {
 	element := -1
 	if in.Name.Known {
 		if pos, ok := idx.nameToEdge[in.Name.Name]; ok {
 			element = int(pos)
 		}
 	}
-	return &publishedDFACandidates{wildcards: idx.wildcardEdges, element: element}
+	return &publishedDFACandidates{wildcards: idx.data, element: element}
 }
 
 func (c *publishedDFACandidates) next() (int, bool) {

@@ -7,21 +7,25 @@ Each result is the upper median (sixth sorted value) of 10 runs after one
 warm-up per workload and validator. Time and peak RSS are summarized
 independently.
 
-In the 2026-10-20 Go run, elapsed times ranged from 24.315–25.739 s for
-1 GiB and 48.620–49.584 s for 2 GiB. The 100,000-row identity workload ranged
-from 300.193–329.040 ms. Streaming peak RSS upper medians stayed between
-6.594 MiB and 6.938 MiB; the identity upper median was 89.219 MiB.
+In the 2026-10-26 Go run, displayed elapsed times ranged from 21.741–22.505 s
+for 1 GiB and 42.987–46.535 s for 2 GiB. The 100,000-row identity workload
+ranged from 329.757–340.116 ms. Streaming peak RSS upper medians stayed between
+6.781 MiB and 6.938 MiB; the identity upper median was 89.047 MiB.
+The 20 MiB samples ranged from 448.366–800.711 ms; all ten samples were retained.
 
-Libxml2 was not rerun. Its 2026-09-06 timings varied on the larger files:
-20.86–37.68 s for 1 GiB and 51.08–52.20 s for 2 GiB across the 10 samples.
-The Go and libxml2 columns therefore come from separate measurement dates,
-rather than a paired comparison.
+Libxml2 was rerun with `--stream` on the same files after the Go suite. Its
+elapsed times ranged from 16.92–17.67 s for 1 GiB, 33.42–35.41 s for 2 GiB,
+and 0.42–0.69 s for identity constraints. Streaming peak RSS upper medians were
+1.703–1.734 MiB; the identity upper median was 74.344 MiB. These sequential
+cohorts are not paired measurements. Earlier tree-mode figures use a different
+execution mode and should not be compared as evidence of a code speedup.
 
 Timings include process startup, schema compilation, and validation. Go streams
-input; libxml2 runs in tree mode with `--huge --noout --schema`. Peak RSS is
-process memory reported by `/usr/bin/time`, not cumulative Go allocations.
-These synthetic workloads are not a production traffic mix or a comparison of
-libxml2's streaming mode.
+input; libxml2 uses `--stream --huge --noout --schema`. The Go harness measures
+elapsed time around the timed child process; libxml2 elapsed time is the
+`/usr/bin/time -l` real value, at 0.01 s resolution. Peak RSS is process memory
+reported by `/usr/bin/time`, not cumulative Go allocations. These synthetic
+workloads are not a production traffic mix.
 
 The [benchmark harness](tests/large_benchmark_test.go) generates documents from
 20 MiB through 2 GiB, plus 100,000 rows with ID/IDREF, key, unique, and keyref
@@ -51,9 +55,9 @@ for xml in "$benchmark_dir"/streaming/*/document.xml "$benchmark_dir"/identity/d
     */streaming/*) schema="$benchmark_dir/streaming/schema.xsd" ;;
     *) schema="$benchmark_dir/identity/schema.xsd" ;;
   esac
-  "$libxml2" --huge --noout --schema "$schema" "$xml" # warm-up
+  "$libxml2" --stream --huge --noout --schema "$schema" "$xml" # warm-up
   for sample in 1 2 3 4 5 6 7 8 9 10; do
-    /usr/bin/time -l "$libxml2" --huge --noout --schema "$schema" "$xml"
+    /usr/bin/time -l "$libxml2" --stream --huge --noout --schema "$schema" "$xml"
   done
 done
 ```

@@ -2,8 +2,20 @@ package lex
 
 import (
 	"slices"
+	"strings"
 	"testing"
 )
+
+func TestNameTerminatorsAcrossByteRange(t *testing.T) {
+	t.Parallel()
+	for i := range 256 {
+		b := byte(i)
+		want := strings.IndexByte(" \t\n\r/>=", b) >= 0
+		if got := IsNameTerminator(b); got != want {
+			t.Errorf("IsNameTerminator(0x%02x) = %v, want %v", b, got, want)
+		}
+	}
+}
 
 func TestStringNameValidatorsRejectMalformedUTF8(t *testing.T) {
 	t.Parallel()

@@ -107,6 +107,7 @@ type identityEvaluation struct {
 	path               []xsdSchema.RuntimeName
 	elements           []identityElementState
 	attributeScratch   []identityFieldMatch
+	fieldDispatch      identityFieldDispatchScratch
 	limits             identityLimits
 	maxScopes          int
 	generation         uint64
@@ -330,13 +331,6 @@ func (e *identityEvaluation) appendSelectorBranchHits(
 	return hits
 }
 
-func appendIdentityMatchUnique(matches []identityFieldMatch, match identityFieldMatch) []identityFieldMatch {
-	if identityMatchExists(matches, match.Selection, match.Field) {
-		return matches
-	}
-	return append(matches, match)
-}
-
 func sortIdentityFieldMatches(matches []identityFieldMatch) {
 	slices.SortStableFunc(matches, func(a, b identityFieldMatch) int {
 		if a.Selection < b.Selection {
@@ -361,21 +355,35 @@ func (e *identityEvaluation) dispatchElementFieldMatches() []identityFieldMatch 
 	}
 	depth := len(e.path)
 	name := e.path[depth-1]
-	// The returned slice is consumed before the next identity value is
-	// prepared. Reusing the evaluator scratch avoids one allocation per
-	// element while keeping selections as the sole source of active state.
-	matches := e.matches[:0]
-	matches = e.appendElementDispatchMatches(matches, e.dispatch.index.ElementSelf(), depth)
+	self := e.dispatch.index.ElementSelf()
+	exact := xsdSchema.IdentityFieldDispatchReads{}
 	if name.Known {
-		matches = e.appendElementDispatchMatches(matches, e.dispatch.index.ElementExact(name.Name), depth)
+		exact = e.dispatch.index.ElementExact(name.Name)
 	}
 	namespace := name.NS
 	if name.Known {
 		namespace = e.rt.Namespace(name.Name.Namespace)
 	}
-	matches = e.appendElementDispatchMatches(matches, e.dispatch.index.ElementNamespace(namespace), depth)
-	matches = e.appendElementDispatchMatches(matches, e.dispatch.index.ElementAny(), depth)
+	ns := e.dispatch.index.ElementNamespace(namespace)
+	anyName := e.dispatch.index.ElementAny()
+	matches := e.matches[:0]
+	if self.Len()+exact.Len()+ns.Len()+anyName.Len() == 0 || len(e.selections) == 0 {
+		e.matches = matches
+		return matches
+	}
+	// A single candidate or selection needs only a linear join. Building an
+	// index there adds work without reducing cross-constraint comparisons.
+	if len(e.selections) > 1 && self.Len()+exact.Len()+ns.Len()+anyName.Len() > 1 {
+		e.fieldDispatch.prepare(e.selections)
+	} else {
+		e.fieldDispatch.selections = e.fieldDispatch.selections[:0]
+	}
+	matches = e.appendElementDispatchMatches(matches, self, depth)
+	matches = e.appendElementDispatchMatches(matches, exact, depth)
+	matches = e.appendElementDispatchMatches(matches, ns, depth)
+	matches = e.appendElementDispatchMatches(matches, anyName, depth)
 	sortIdentityFieldMatches(matches)
+	e.clearIdentityFieldMatches(matches)
 	e.matches = matches
 	return matches
 }
@@ -402,12 +410,22 @@ func (e *identityEvaluation) appendElementDispatchEntry(
 ) []identityFieldMatch {
 	constraint := entry.Constraint()
 	path := entry.Path()
-	for index := range e.selections {
-		sel := e.selections[index]
-		if sel.constraint != constraint || !path.Matches(e.rt, e.path, sel.depth, depth) {
-			continue
+	indexed := len(e.fieldDispatch.selections) != 0
+	var candidates []identitySelectionCandidate
+	count := len(e.selections)
+	if indexed {
+		candidates = e.fieldDispatch.forConstraint(constraint)
+		count = len(candidates)
+	}
+	for position := range count {
+		index := position //nolint:copyloopvar // Separate candidate position from selection index, preserving measured compiler spill layout.
+		if indexed {
+			index = candidates[position].selection
 		}
-		matches = appendIdentityMatchUnique(matches, identityFieldMatch{Selection: index, Field: entry.Field()})
+		sel := e.selections[index]
+		if sel.constraint == constraint && path.Matches(e.rt, e.path, sel.depth, depth) {
+			matches = e.appendIdentityFieldMatch(matches, index, entry.Field())
+		}
 	}
 	return matches
 }
@@ -421,6 +439,7 @@ func (e *identityEvaluation) dispatchAttributeFieldMatches(name xsdSchema.Runtim
 		sel := e.selections[index]
 		program, ok := e.dispatch.index.Program(sel.constraint)
 		if !ok {
+			e.clearIdentityFieldMatches(matches)
 			return nil, internalIdentityMetadataError("identity attribute dispatch metadata is invalid")
 		}
 		var exact xsdSchema.IdentityCompiledFieldProgramReads
@@ -431,6 +450,7 @@ func (e *identityEvaluation) dispatchAttributeFieldMatches(name xsdSchema.Runtim
 		matches = e.appendAttributeProgramFieldMatches(matches, index, sel.depth, name, program.AttributeWildcardFields())
 	}
 	sortIdentityFieldMatches(matches)
+	e.clearIdentityFieldMatches(matches)
 	e.attributeScratch = matches
 	return matches, nil
 }
@@ -451,7 +471,7 @@ func (e *identityEvaluation) appendAttributeProgramFieldMatches(
 			if !ok || !path.AttributeMatches(e.rt, name) || !path.Matches(e.rt, e.path, depth, len(e.path)) {
 				continue
 			}
-			matches = appendIdentityMatchUnique(matches, identityFieldMatch{Selection: selection, Field: field.Field()})
+			matches = e.appendIdentityFieldMatch(matches, selection, field.Field())
 			break
 		}
 	}
@@ -1212,6 +1232,7 @@ func (e *identityEvaluation) reset(maxRetainedIDs, maxRetainedSlices int) {
 	e.path = resetRetainedReferences(e.path, maxRetainedSlices)
 	e.elements = resetRetainedValues(e.elements, maxRetainedSlices)
 	e.attributeScratch = resetRetainedValues(e.attributeScratch, maxRetainedSlices)
+	e.fieldDispatch.reset(maxRetainedSlices)
 	e.releaseTarget()
 	e.documentIdentityActive = false
 	e.resetIdentityDispatch(maxRetainedIDs, maxRetainedSlices)
@@ -1223,6 +1244,7 @@ func (e *identityEvaluation) discard() {
 	e.path = nil
 	e.elements = nil
 	e.attributeScratch = nil
+	e.fieldDispatch = identityFieldDispatchScratch{}
 	e.releaseTarget()
 	e.documentIdentityActive = false
 	e.resetIdentityDispatch(maxRetainedMapLen, maxRetainedSliceCap)

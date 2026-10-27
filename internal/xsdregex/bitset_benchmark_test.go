@@ -47,3 +47,34 @@ func BenchmarkBitsetMatch(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkBitsetMatchUnicode(b *testing.B) {
+	pattern := benchmarkPattern(b, `(a|aa|é)*b`)
+	if !pattern.bitset || pattern.deterministic || pattern.linear != nil {
+		b.Fatal("benchmark requires the general bitset NFA")
+	}
+	input := strings.Repeat("éa", 512) + "b"
+	raw := []byte(input)
+	b.Run("string", func(b *testing.B) {
+		var scratch Scratch
+		b.ReportAllocs()
+		b.SetBytes(int64(len(input)))
+		for b.Loop() {
+			matched, err := pattern.MatchStringWithScratch(input, MatchOptions{}, &scratch)
+			if err != nil || !matched {
+				b.Fatalf("match = %v, %v", matched, err)
+			}
+		}
+	})
+	b.Run("bytes", func(b *testing.B) {
+		var scratch Scratch
+		b.ReportAllocs()
+		b.SetBytes(int64(len(raw)))
+		for b.Loop() {
+			matched, err := pattern.MatchBytesWithScratch(raw, MatchOptions{}, &scratch)
+			if err != nil || !matched {
+				b.Fatalf("match = %v, %v", matched, err)
+			}
+		}
+	})
+}

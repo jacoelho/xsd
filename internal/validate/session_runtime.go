@@ -188,7 +188,7 @@ const (
 func (s *session) validateToken(tok *xmlstream.Token, mode tokenValidationMode) error {
 	switch tok.Kind { //nolint:exhaustive // Reader.Next rejects directives before consumers see them.
 	case xmlstream.KindStart:
-		return s.start(tok.Line, tok.Column, tok.Start)
+		return s.start(tok.Line, tok.Column, tok.Start.Attr)
 	case xmlstream.KindEnd:
 		return s.end(tok.Line, tok.Column)
 	case xmlstream.KindCharData:
@@ -360,8 +360,8 @@ type sessionStartTransaction struct {
 	phase             startTransactionPhase
 }
 
-func (s *session) beginStartTransaction(xmlCheckpoint xmlDocumentCheckpoint, handle xmlstream.Handle) (sessionStartTransaction, error) {
-	transaction := sessionStartTransaction{
+func (t *sessionStartTransaction) begin(s *session, xmlCheckpoint xmlDocumentCheckpoint, handle xmlstream.Handle) error {
+	*t = sessionStartTransaction{
 		s:           s,
 		xml:         xmlCheckpoint,
 		hints:       s.doc.schemaLocationHints,
@@ -371,13 +371,10 @@ func (s *session) beginStartTransaction(xmlCheckpoint xmlDocumentCheckpoint, han
 		handle:      handle,
 		syntaxOnly:  s.doc.syntaxOnly,
 	}
-	if err := s.doc.identity.beginStart(); err != nil {
-		return sessionStartTransaction{}, err
-	}
-	return transaction, nil
+	return s.doc.identity.beginStart()
 }
 
-func (t *sessionStartTransaction) stageContent(accepted acceptedChild) {
+func (t *sessionStartTransaction) stageContent(accepted *acceptedChild) {
 	t.transition = accepted.transition
 	t.invalidatesParent = accepted.invalidatesParent
 }
@@ -501,7 +498,7 @@ func (t *sessionStartTransaction) restoreRecoveryState() {
 	t.s.doc.syntaxOnly = t.syntaxOnly
 }
 
-func (s *session) start(line, col int, token xmlstream.StartElement) error {
+func (s *session) start(line, col int, attrs []xmlstream.Attr) error {
 	if s.doc.syntaxOnly {
 		return s.syntaxStart(line, col)
 	}
@@ -510,14 +507,14 @@ func (s *session) start(line, col int, token xmlstream.StartElement) error {
 	if err != nil {
 		return err
 	}
-	transaction, err := s.beginStartTransaction(xmlCheckpoint, se.handle)
-	if err != nil {
+	var transaction sessionStartTransaction
+	if err := transaction.begin(s, xmlCheckpoint, se.handle); err != nil {
 		if abortErr := s.doc.AbortStart(&s.reader, se); abortErr != nil {
 			return errors.Join(err, abortErr)
 		}
 		return err
 	}
-	resultErr := s.runStartTransaction(&transaction, se, token, line, col)
+	resultErr := s.runStartTransaction(&transaction, se, attrs, line, col)
 	if abortErr := transaction.abort(); abortErr != nil {
 		return errors.Join(resultErr, abortErr)
 	}
@@ -527,23 +524,24 @@ func (s *session) start(line, col int, token xmlstream.StartElement) error {
 func (s *session) runStartTransaction(
 	transaction *sessionStartTransaction,
 	se preparedXMLStart,
-	token xmlstream.StartElement,
+	attrs []xmlstream.Attr,
 	line, col int,
 ) error {
-	xsiFlags := xsiStartAttributeFlagsFor(token.Attr)
+	xsiFlags := xsiStartAttributeFlagsFor(attrs)
 	if xsiFlags.SchemaLocation {
-		if err := s.recover(s.recordSchemaLocationHints(token.Attr, line, col)); err != nil {
+		if err := s.recover(s.recordSchemaLocationHints(attrs, line, col)); err != nil {
 			return handleStartTransactionError(transaction, se, err)
 		}
 	}
 	rn := s.runtimeName(se.name)
-	accepted, err := s.startType(rn, se, token, xsiFlags, line, col)
+	var accepted acceptedChild
+	err := s.startType(rn, attrs, xsiFlags, line, col, &accepted)
 	if err != nil {
 		return handleStartTransactionError(transaction, se, err)
 	}
-	transaction.stageContent(accepted)
+	transaction.stageContent(&accepted)
 	start := accepted.start
-	nilled, err := s.assessElementStart(&start, token.Attr, xsiFlags)
+	nilled, err := s.assessElementStart(&start, attrs, xsiFlags)
 	if err != nil {
 		return handleStartTransactionError(transaction, se, err)
 	}
@@ -554,10 +552,10 @@ func (s *session) runStartTransaction(
 	if err := transaction.commitXMLStart(se, expandedInstancePath(start.mode, rn), schemaFrame); err != nil {
 		return err
 	}
-	if identityErr := s.startFrameIdentity(start, rn, schemaFrame, line, col); identityErr != nil {
+	if identityErr := s.startFrameIdentity(rn, &schemaFrame, line, col); identityErr != nil {
 		return handleStartTransactionError(transaction, se, identityErr)
 	}
-	if attrErr := s.validateStartAttributes(start, token.Attr, line, col); attrErr != nil {
+	if attrErr := s.validateStartAttributes(start, attrs, line, col); attrErr != nil {
 		return handleStartTransactionError(transaction, se, attrErr)
 	}
 	return transaction.commit()
@@ -655,14 +653,14 @@ func expandedInstancePath(mode elementMode, rn xsdSchema.RuntimeName) xmlPathMod
 	return xmlPathLexical
 }
 
-func (s *session) startFrameIdentity(start schemaStart, rn xsdSchema.RuntimeName, f frame, line, col int) error {
+func (s *session) startFrameIdentity(rn xsdSchema.RuntimeName, f *frame, line, col int) error {
 	if !s.doc.identity.active() {
 		return nil
 	}
 	return s.doc.identity.startElement(identityElementStart{
 		Name:          rn,
 		Element:       f.Element,
-		Mode:          start.mode,
+		Mode:          f.Mode,
 		Context:       s.startContext(line, col),
 		Nilled:        f.Nilled,
 		SimpleContent: f.SimpleContent != xsdSchema.NoSimpleType,
@@ -832,34 +830,40 @@ func recoverySchemaStart() schemaStart {
 	return schemaStart{element: xsdSchema.NoElement, mode: elementRecovery}
 }
 
-func (s *session) startType(rn xsdSchema.RuntimeName, se preparedXMLStart, token xmlstream.StartElement, flags xsiStartAttributeFlags, line, col int) (acceptedChild, error) {
+// accepted is caller-owned and is consumed only after this method succeeds.
+// Child recovery may fill a complete recovery result before returning an error.
+func (s *session) startType(rn xsdSchema.RuntimeName, attrs []xmlstream.Attr, flags xsiStartAttributeFlags, line, col int, accepted *acceptedChild) error {
 	if s.doc.Depth() == 0 {
-		start, err := s.rootStartType(rn, se, token, line, col)
-		return acceptedChild{start: start}, err
+		start, err := s.rootStartType(rn, attrs, line, col)
+		if err != nil {
+			return err
+		}
+		*accepted = acceptedChild{start: start}
+		return nil
 	}
 	parent, ok := s.doc.Current()
 	if !ok {
-		return acceptedChild{}, xsderrors.InternalInvariant("child start has no parent frame")
+		return xsderrors.InternalInvariant("child start has no parent frame")
 	}
-	accepted, err := s.acceptChild(parent, rn, flags, line, col)
+	err := s.acceptChild(parent, rn, flags, line, col, accepted)
 	if err == nil {
-		return accepted, nil
+		return nil
 	}
-	accepted.invalidatesParent = assessmentFailure(err)
-	recoverErr := s.recover(err)
-	if recoverErr != nil {
-		return acceptedChild{}, recoverErr
+	invalidatesParent := assessmentFailure(err)
+	if recoverErr := s.recover(err); recoverErr != nil {
+		return recoverErr
 	}
-	return accepted, nil
+	accepted.invalidatesParent = invalidatesParent
+	return nil
 }
 
-func (s *session) rootStartType(rn xsdSchema.RuntimeName, se preparedXMLStart, token xmlstream.StartElement, line, col int) (schemaStart, error) {
+func (s *session) rootStartType(rn xsdSchema.RuntimeName, attrs []xmlstream.Attr, line, col int) (schemaStart, error) {
 	if id, decl, ok := s.rt.RootElement(rn); ok {
 		return declaredSchemaStart(id, decl), nil
 	}
 	ctx := s.startContext(line, col)
-	for i := range token.Attr {
-		a := &token.Attr[i]
+	for i := range attrs {
+		a := &attrs[i]
 		if !IsXSITypeName(a.Name) {
 			continue
 		}
@@ -870,7 +874,7 @@ func (s *session) rootStartType(rn xsdSchema.RuntimeName, se preparedXMLStart, t
 		}
 		return rootXSITypeStart(typ), nil
 	}
-	err := validation(ctx, xsderrors.CodeValidationRoot, undeclaredRootMessage(se.name))
+	err := validation(ctx, xsderrors.CodeValidationRoot, undeclaredRootMessage(xml.Name{Space: rn.NS, Local: rn.Local}))
 	if recoverErr := s.recover(err); recoverErr != nil {
 		return schemaStart{}, recoverErr
 	}

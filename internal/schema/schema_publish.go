@@ -90,7 +90,7 @@ func validateSchemaBuildIDDomain(build *schemaBuild) error {
 }
 
 func newSchemaProgram(build *schemaBuild, work ContentModelWork) (schemaProgram, error) {
-	compiledModels, err := newCompiledModelReads(build.CompiledModels, work)
+	compiledModels, mayHaveDenseRows, err := newCompiledModelReads(build.CompiledModels, work)
 	if err != nil {
 		return schemaProgram{}, err
 	}
@@ -109,6 +109,10 @@ func newSchemaProgram(build *schemaBuild, work ContentModelWork) (schemaProgram,
 		if err := spendContentModelWorkN(work, count); err != nil {
 			return schemaProgram{}, err
 		}
+	}
+	if mayHaveDenseRows {
+		optional := defaultDenseIndexBudget()
+		addDenseDFAIndexes(compiledModels, &optional)
 	}
 	names := newNameReadView(&build.Names)
 	reads := schemaProgram{

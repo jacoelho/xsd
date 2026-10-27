@@ -290,25 +290,25 @@ func positionedParserError(err error, line, column int) error {
 // and adds one frame to the namespace stack. The returned frame can be
 // aborted immediately if a consumer's semantic admission fails. After the
 // next call to Next the syntax frame remains committed for recovery.
-func (r *Reader) Start() (Handle, Element, error) {
+func (r *Reader) Start() (Handle, xml.Name, error) {
 	if !r.active {
-		return Handle{}, Element{}, &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrReaderState}
+		return Handle{}, xml.Name{}, &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrReaderState}
 	}
 	if r.pending.kind != pendingStart {
-		return Handle{}, Element{}, &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrPendingStart}
+		return Handle{}, xml.Name{}, &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrPendingStart}
 	}
 	if r.root == rootClosed && r.ns.depth() == 0 {
 		r.pending = pendingEvent{}
-		return Handle{}, Element{}, &Error{Kind: ErrorRoot, Line: r.lastLine, Column: r.lastColumn, Cause: ErrMultipleRoots}
+		return Handle{}, xml.Name{}, &Error{Kind: ErrorRoot, Line: r.lastLine, Column: r.lastColumn, Cause: ErrMultipleRoots}
 	}
 	if r.limits.MaxDepth > 0 && r.ns.depth()+1 > r.limits.MaxDepth {
 		r.pending = pendingEvent{}
-		return Handle{}, Element{}, &Error{Kind: ErrorDepth, Line: r.lastLine, Column: r.lastColumn, Cause: fmt.Errorf("XML nesting exceeds %d element limit", r.limits.MaxDepth)}
+		return Handle{}, xml.Name{}, &Error{Kind: ErrorDepth, Line: r.lastLine, Column: r.lastColumn, Cause: fmt.Errorf("XML nesting exceeds %d element limit", r.limits.MaxDepth)}
 	}
 	namespace, element, err := r.ns.StartStream(&r.token.Start, &r.values)
 	if err != nil {
 		r.pending = pendingEvent{}
-		return Handle{}, Element{}, &Error{Kind: ErrorNamespace, Line: r.lastLine, Column: r.lastColumn, Cause: err}
+		return Handle{}, xml.Name{}, &Error{Kind: ErrorNamespace, Line: r.lastLine, Column: r.lastColumn, Cause: err}
 	}
 	r.pending = pendingEvent{}
 	r.lastStartSerial = namespace.serial
@@ -340,7 +340,7 @@ func (r *Reader) StartLocation() (StartLocation, error) {
 	if err != nil {
 		return StartLocation{}, &Error{Kind: ErrorNamespace, Line: r.lastLine, Column: r.lastColumn, Cause: err}
 	}
-	return StartLocation{Name: element.Name, Line: r.token.Line, Column: r.token.Column}, nil
+	return StartLocation{Name: element, Line: r.token.Line, Column: r.token.Column}, nil
 }
 
 // MatchEnd validates the current borrowed end token without changing document
