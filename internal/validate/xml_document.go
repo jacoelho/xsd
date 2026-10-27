@@ -146,7 +146,7 @@ func (d *xmlDocument[P]) PrepareStart(
 		}
 		return preparedXMLStart{}, validation(d.context(line, col), xsderrors.CodeValidationXML, err.Error())
 	}
-	return preparedXMLStart{name: element.Name, handle: handle}, nil
+	return preparedXMLStart{name: element, handle: handle}, nil
 }
 
 func (d *xmlDocument[P]) CommitStart(start preparedXMLStart, payload P) {

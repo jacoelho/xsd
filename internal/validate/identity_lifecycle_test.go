@@ -125,6 +125,10 @@ func TestIdentityScopeDispatchIndexUnregistersNestedReuseAndPartialAbort(t *test
 	if _, err := evaluation.closeScopes(2, func(error) error { return stop }); !errors.Is(err, stop) {
 		t.Fatalf("close unresolved-ref scope = %v, want %v", err, stop)
 	}
+	refs := evaluation.scopes[1].refs
+	if len(refs) != 1 || refs[0].key != "conflict" || refs[0].path.String() != "/root/ref" || refs[0].line != 1 || refs[0].col != 1 {
+		t.Fatalf("failed close changed pending reference: %+v", refs)
+	}
 	hits = evaluation.appendIdentitySelectorHits(nil, evaluation.dispatch.index.SelfSelectors(), 2)
 	if !hasScopeHit(hits, 1) {
 		t.Fatalf("selector hits after failed close = %+v, want still-dispatchable child", hits)
@@ -137,7 +141,11 @@ func TestIdentityScopeDispatchIndexUnregistersNestedReuseAndPartialAbort(t *test
 		t.Fatal("failed close propagated child entries")
 	}
 	reported := 0
-	if _, err := evaluation.closeScopes(2, func(error) error { reported++; return nil }); err != nil {
+	if _, err := evaluation.closeScopes(2, func(err error) error {
+		expectXSDLocation(t, err, "/root/ref", 1, 1)
+		reported++
+		return nil
+	}); err != nil {
 		t.Fatalf("close unresolved-ref scope after recovery: %v", err)
 	}
 	if reported != 1 || evaluation.entries != entriesBeforeClose {

@@ -543,6 +543,31 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   Large `xs:all` models use a bounded QName-to-term index; small models scan
   directly. Both preserve occurrence bits, substitution matching, and atomic
   transition failure. The index is derived once during sealing.
+  Shared published content-model rows have storage ceilings of 80 bytes on
+  arm64 and 52 bytes with the gc compiler on 386. Optional dispatch metadata
+  must not enlarge those row records.
+  Published DFA rows own one linear, QName-map, or dense index variant. The
+  discriminator occupies existing row padding; map and dense variants share
+  one map/slice record. Map data holds ordered wildcard positions. Dense data
+  holds namespace and minimum-local IDs followed by edge-plus-one slots, with
+  no retained QName map. Mutable construction indexes remain separate.
+  Dense conversion admits only already-indexed, wildcard-free rows with at least
+  16 source edges, 2–256 expanded names in one namespace, and a local-ID span
+  at most 256 and at most twice the name count. Ambiguous counted rows retain
+  their original linear path. Dense lookup checks namespace and bounds, then uses the
+  same particle/substitution match and occurrence/state admission as other rows.
+  Required flat projection and map cloning retain their mandatory charging
+  order. An ephemeral marker collected during that traversal skips optional
+  conversion entirely when no row can qualify. After mandatory publication
+  charges, a private stable-order pass may replace complete cloned maps with
+  dense arrays. Source indexes, cloned maps and new arrays may overlap during
+  construction; the final schema retains only its selected immutable variant.
+  Optional conversion has independent limits of 4 MiB requested array backing,
+  including both metadata cells, and 16 million work units. Each model/row visit
+  costs one unit before visiting. A candidate prepays N units for its N-name
+  bounds scan; an eligible span S then admits `4*(S+2)` bytes and `2*N+S+4` work
+  before allocation/fill. Exhaustion stops the pass with remaining complete map
+  indexes; spent work is not refunded.
   One `ElementFrame` read combines effective-type simple content, text policy,
   and initial child content state. The original element declaration remains the
   owner of default/fixed constraints after `xsi:type` changes the actual type.
@@ -746,6 +771,11 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   expression selects literal, linear, or NFA execution based on its structure.
   Compilation and matching have explicit work/state limits. XML input admission
   belongs to `internal/xmlstream`; match callers provide valid UTF-8 XML text.
+  Finite concatenations whose atoms all have equal minimum and maximum counts
+  use one exact-count cursor over the canonical character sets. Literal matching
+  retains priority. This cursor preserves the general linear matcher's state
+  admission and complete per-atom work charge before returning a mismatch;
+  repetition counts never expand into retained per-position instructions.
   The parser admits each AST constructor before allocating its node, including
   constructors later removed by normalization. A failed admission stops parsing
   at the current rune offset. Pattern byte admission and UTF-8 validation precede
@@ -837,7 +867,12 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   schema parsing, instance validation, and formatting. Its parser owns prolog
   preflight, the sole input buffer, XML 1.0 line-ending normalization and byte
   positions, and reader detachment for each stream. `Reader.Next` returns one
-  reader-owned, read-only token pointer. Advancing, `Reset`, and `Detach`
+  reader-owned, read-only token pointer. Its publisher retires only the previous
+  active payload header before installing the next event; inactive fields stay
+  zero. Borrowed backing is never cleared by token publication because the next
+  event may already share it. A zero token is a legal initial Start-kind header.
+  Error, EOF, reset, and detach retain complete token clearing. Advancing,
+  `Reset`, and `Detach`
   invalidate it; a rejected advance while admission is pending preserves it for
   retry. Start and end admission consume that current token without accepting
   caller-supplied copies. Attribute values share lexical admission and token
@@ -869,7 +904,13 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   bindings and document depth. Relative namespace names remain an admitted
   extension and retain their exact spelling; an ordinary attribute bound to
   the relative name `xmlns` remains an ordinary attribute.
-  an active-prefix index and scalar default-namespace head are reproducible
+  Attribute admission owns one workspace that is clean between calls. Its
+  prepared length is the only active-range marker. After successful name
+  publication or failed-admission rollback, cleanup resets duplicate-name
+  tracking, clears every prepared name slot, then truncates the range. The next
+  preparation only resizes clean storage. Reset and detach independently clear
+  interrupted scratch and enforce the existing retention bounds.
+  An active-prefix index and scalar default-namespace head are reproducible
   frame-local projections. Retained contexts capture the default head alongside
   the binding-chain head, so later shadowing cannot change their resolution. Retained
   namespace frames keep only the lexical closing name and a nonzero serial;
@@ -877,8 +918,10 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   serial is checked. Admission, rollback, end, and reset update these together.
   Oversized maps and buffers are dropped at reset and detach; bounded caches may
   remain for session reuse. Each name/value cache admits at most 512 owned spellings of at
-  most 256 bytes. A string map owns those spellings, and an eight-entry recent
-  ring projects its values. Map keys and values share the same string storage;
+  most 256 bytes. Name entries are validated prefix or local NCName components;
+  start admission resolves namespace bindings anew. A string map owns those
+  spellings, and an eight-entry recent ring projects its values. Map keys and
+  values share the same string storage;
   borrowed-byte lookups return that owned value without copying. Spellings
   beyond either bound are returned as owned strings without entering the cache.
   Comment mode
@@ -984,13 +1027,40 @@ Validation flow:
 4. `internal/validate` reads immutable schema facts through methods on the
    sealed `*schema.Schema`, then applies validation policy to those facts.
    Identity evaluation reads immutable schema-owned selector/field programs and
-   their precomputed dispatch indexes. One concrete evaluator owns the element identity stack, matching
+   their precomputed dispatch indexes. Element-field dispatch first filters by
+   terminal name, then joins candidates to current selections by constraint ID.
+   A single candidate or selection uses a direct scan; larger joins rebuild a
+   scratch projection sorted by constraint ID, skipping sorting when the copied
+   selection order already satisfies it. Selection membership remains
+   authoritative. One
+   evaluator-owned bitset deduplicates element and attribute matches by their
+   admitted field-value slot before appending, bounding output by the active
+   field storage. Bitmap storage is admitted only for an actual match and grows
+   geometrically; no-match collections allocate no bitmap. Match words are zero
+   outside a collection. Every ordinary
+   return clears words identified by its completed or partial match output before
+   selections can change; separate attributes cannot reuse match bits. Reset
+   clears retained words once per document, including after an interrupted
+   collection. Cleanup follows matched output rather than scanning every admitted
+   field slot for each sparse value. Final selection/field ordering preserves
+   diagnostic precedence.
+   One concrete evaluator owns the element identity stack, matching
    path, per-element ID state, document IDs and IDREFs, key/unique/keyref scopes,
    pending selections, resource accounting, and reset/discard behavior.
    Scope closure checks keyrefs before completing its tables, unregistering only
    that scope's declarations, and popping it; reverse tail removal also unwinds
    partial registration. A failed close leaves the unpopped scope registered and
-   its tables uncompleted. Value targets carry depth
+   its tables uncompleted. The evaluator may reuse one cleared keyref slice
+   with capacity at most 4096, transferred to one scope only after entry
+   admission succeeds. Successful scope consumption returns eligible storage;
+   reset also reclaims eligible live scopes and clears all tuple/path references.
+   One cleared inner key table may likewise be retained from a depth-one scope
+   with exactly one table, no inherited table merge, and at most 4096 entries.
+   Every nonempty binding transfer or merge permanently marks the destination
+   scope ineligible, so conflict pruning cannot hide prior table growth. This is
+   a cardinality retention policy, not a bound on Go map backing bytes. Lower
+   reset retention limits drop the idle table; discard releases both idle slots.
+   Failed scope closure preserves its live storage until reset. Value targets carry depth
    from the authoritative XML document stack. Without key/unique/keyref constraints,
    identity stays dormant until a validated value produces an ID or IDREF,
    including a selected union member or dynamic type.
@@ -1092,7 +1162,11 @@ Validation flow:
    capacity only within the validation high-water bound. Identity dispatch resets
    and semantic discard apply that same bound to active-scope slices, selector
    hits, and the active-constraint map; the immutable schema dispatch index remains
-   reusable. Empty scope-dispatch buckets remain reusable and preserve the map's
+   reusable. Field dispatch uses pointer-free scratch proportional to admitted
+   selections plus one bit per admitted field slot, including storage holes.
+   Reset retains at most the session high-water count of selection records and
+   its corresponding rounded-up bitset words; semantic discard drops both.
+   Empty scope-dispatch buckets remain reusable and preserve the map's
    high-water signal without requiring a scan on element close. Their keys are
    bounded by schema constraint IDs.
    `MaxIdentityEntries` independently bounds stored identity entries, pending
@@ -1389,9 +1463,12 @@ separately after those groups, so benchmarks do not compete with other checks.
   reuses the common sequential path without blocking concurrent validations or
   introducing a new memory budget. Splitting the parser's inline buffer alone
   would leave per-call allocation of the remaining reusable session state.
-- A validator name cache and larger spelling caches were deferred because the
-  profile did not isolate schema QName lookup from parser interning. They would
-  add retained strings and invalidation policy without demonstrated benefit.
+- A separate validator cache of resolved schema names and larger spelling
+  caches remain deferred: no qualified CPU result justifies their retained
+  strings, lookup probes, or invalidation policy. Replacing component caching
+  with complete lexical QNames was rejected because independently cacheable
+  prefix/local pairs can form whole names exceeding the length or entry limit,
+  introducing repeated allocations.
 
 - Keeping source buffers for exact byte equality was rejected because it retains
   complete input streams. Reopening the earlier source cannot recover its exact
@@ -1422,6 +1499,16 @@ separately after those groups, so benchmarks do not compete with other checks.
   unrelated constraints multiply lifecycle work. Closure callbacks and a second
   registration journal were rejected because the concrete evaluator can unwind its existing
   scope declarations directly.
+- Replacing terminal-filtered identity field dispatch with a scan of every
+  active selection's field paths was rejected after unrelated field names
+  regressed. A maintained selection index would add membership updates to
+  rollback and compaction. Per-collection sorted scratch preserves terminal
+  filtering without another membership owner; field-slot deduplication rejects
+  overlapping branches before they can amplify temporary match storage.
+- Clearing every identity match word for each value was rejected because sparse
+  matches multiplied work by all admitted field slots. The existing unique match
+  output identifies dirty words without a touched-word list or generation tags;
+  reset alone performs defensive full clearing for interrupted collections.
 - Propagating identity conflict markers to the nearest declared ancestor was
   rejected because every intervening XML element completes its own inherited
   tables. A completed child's excluded tuple cannot poison a later sibling's
@@ -1446,6 +1533,12 @@ separately after those groups, so benchmarks do not compete with other checks.
   single-particle occurrence normalization prevents that expansion; the
   separately bounded scalar-work default is calibrated to the retained-state
   cap so valid counted models can reach it.
+- Per-row pointers for optional content dispatch are rejected because they
+  enlarge every published row, including models unable to use acceleration.
+  Wide-row dispatch instead uses existing row padding and map/slice storage.
+  Deferring all map cloning was rejected to preserve the original projection
+  lifecycle and small-schema construction path; eligible rows accept temporary
+  clone overlap before their bounded conversion.
 - Interleaving resolution, graph validation, and component compilation was
   rejected because partially known namespaces made ownership and failure state
   ambiguous. The loaded-graph-to-plan boundary is the only route into indexing.

@@ -69,12 +69,6 @@ type LexicalName struct {
 	Local  string
 }
 
-// Element identifies one admitted element by lexical and expanded name.
-type Element struct {
-	Lexical LexicalName
-	Name    xml.Name
-}
-
 // Context is an immutable namespace projection retained beyond stack mutation.
 type Context struct {
 	store       *contextStore
@@ -92,9 +86,9 @@ func Lexical(name xml.Name) LexicalName {
 // declaration attributes use the reserved XMLNS namespace URI in that
 // expanded representation; their lexical xmlns sentinel is used only during
 // admission.
-func (s *stack) StartStream(start *StartElement, values *cache) (frame, Element, error) {
+func (s *stack) StartStream(start *StartElement, values *cache) (frame, xml.Name, error) {
 	if start == nil {
-		return frame{}, Element{}, errors.New("nil XML start element")
+		return frame{}, xml.Name{}, errors.New("nil XML start element")
 	}
 	lexical := Lexical(start.Name)
 	mark, previous := s.beginAdmission()
@@ -119,7 +113,7 @@ func (s *stack) StartStream(start *StartElement, values *cache) (frame, Element,
 		}
 		resolved[i] = name
 	}
-	admitted := s.commitAdmission(mark, previous, element.Lexical)
+	admitted := s.commitAdmission(mark, previous, lexical)
 	replaceStreamAttributeNames(start, resolved)
 	s.clearAttributeAdmission()
 	return admitted, element, nil
@@ -150,9 +144,9 @@ func (s *stack) resolveStreamAttribute(lexical xml.Name) (xml.Name, error) {
 	return name, nil
 }
 
-func (s *stack) abortAdmission(mark int, previous uint32, err error) (frame, Element, error) {
+func (s *stack) abortAdmission(mark int, previous uint32, err error) (frame, xml.Name, error) {
 	s.rollbackAdmission(mark, previous)
-	return frame{}, Element{}, err
+	return frame{}, xml.Name{}, err
 }
 
 // End validates a lexical closing name and releases the identified top frame.
@@ -279,27 +273,32 @@ func (s *stack) restoreActiveBindings(start, end int) {
 	}
 }
 
+// Attribute workspaces are empty between admissions. Cleanup clears every
+// prepared slot before releasing the range, including partially written ranges.
 func (s *stack) prepareAttributeAdmission(n int) []xml.Name {
-	s.seen.reset()
 	if cap(s.resolvedAttrs) < n {
 		s.resolvedAttrs = make([]xml.Name, n)
 	} else {
 		s.resolvedAttrs = s.resolvedAttrs[:n]
-		clear(s.resolvedAttrs)
 	}
 	return s.resolvedAttrs
 }
 
 func (s *stack) clearAttributeAdmission() {
+	if len(s.resolvedAttrs) == 0 {
+		return
+	}
+	s.seen.reset()
 	clear(s.resolvedAttrs)
+	s.resolvedAttrs = s.resolvedAttrs[:0]
 }
 
-func (s *stack) resolveElement(lexical LexicalName) (Element, error) {
+func (s *stack) resolveElement(lexical LexicalName) (xml.Name, error) {
 	name, ok := s.resolveName(xml.Name{Space: lexical.Prefix, Local: lexical.Local}, elementName)
 	if !ok {
-		return Element{}, fmt.Errorf("unbound namespace prefix %s", lexical.Prefix)
+		return xml.Name{}, fmt.Errorf("unbound namespace prefix %s", lexical.Prefix)
 	}
-	return Element{Lexical: lexical, Name: name}, nil
+	return name, nil
 }
 
 func (s *stack) resolveAttribute(name xml.Name) (xml.Name, error) {

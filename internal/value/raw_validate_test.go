@@ -1075,3 +1075,54 @@ func TestRawPrimitiveTokenValidationReuse(t *testing.T) {
 		}
 	}
 }
+
+func TestUnprojectedStringByteResultAndWorkContract(t *testing.T) {
+	p, err := NewBuilder(BuilderOptions{}).Seal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, typ := range []struct {
+		name string
+		id   TypeID
+	}{
+		{"anySimpleType", AnySimpleTypeID}, {"string", builtinString},
+	} {
+		t.Run(typ.name, func(t *testing.T) {
+			var scratch Scratch
+			for _, test := range []struct {
+				name           string
+				raw            []byte
+				work           uint64
+				needs          Needs
+				limit          bool
+				canonical, key string
+				identity       bool
+			}{
+				{name: "empty", work: 1},
+				{name: "multibyte below work", raw: []byte("é"), work: 2, limit: true},
+				{name: "multibyte at work", raw: []byte("é"), work: 3},
+				{name: "requested projections", raw: []byte("é"), work: 3, needs: NeedCanonical | NeedIdentity, canonical: "é", key: "\x00\x1eé", identity: true},
+			} {
+				got, err := p.ValidateBytes(typ.id, test.raw, Resolver{}, test.needs, test.work, &scratch)
+				if test.limit {
+					if !errors.Is(err, ErrLimit) || got != (Value{}) {
+						t.Fatalf("%s: got %+v, %v; want empty result and ErrLimit", test.name, got, err)
+					}
+					continue
+				}
+				if err != nil {
+					t.Fatalf("%s: %v", test.name, err)
+				}
+				if got.Type() != typ.id || got.SelectedType() != NoType {
+					t.Fatalf("%s: type=%d selected=%d; want %d/%d", test.name, got.Type(), got.SelectedType(), typ.id, NoType)
+				}
+				if got.CanonicalText() != test.canonical || got.IdentityKey() != test.key || got.HasIdentity() != test.identity {
+					t.Fatalf("%s: canonical=%q identity=%q present=%v; want %q/%q/%v", test.name, got.CanonicalText(), got.IdentityKey(), got.HasIdentity(), test.canonical, test.key, test.identity)
+				}
+				if got.IDs() != "" || got.IDRefs() != "" || got.HasQualifiedNames() {
+					t.Fatalf("%s: unexpected document or qualified-name projection", test.name)
+				}
+			}
+		})
+	}
+}

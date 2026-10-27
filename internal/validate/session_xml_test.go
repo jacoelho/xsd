@@ -39,7 +39,7 @@ func startForTest(t *testing.T, s *session, line, col int, start xmlstream.Start
 	if err != nil {
 		return err
 	}
-	return s.start(line, col, tok.Start)
+	return s.start(line, col, tok.Start.Attr)
 }
 
 func nextStartForTest(t *testing.T, s *session, start xmlstream.StartElement) (*xmlstream.Token, error) {

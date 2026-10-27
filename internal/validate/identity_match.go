@@ -14,12 +14,3 @@ type identityConstraintProgram = xsdSchema.IdentityConstraintProgramRead
 func internalIdentityMetadataError(message string) error {
 	return xsderrors.InternalInvariant(message)
 }
-
-func identityMatchExists(matches []identityFieldMatch, selection, field int) bool {
-	for _, match := range matches {
-		if match.Selection == selection && match.Field == field {
-			return true
-		}
-	}
-	return false
-}

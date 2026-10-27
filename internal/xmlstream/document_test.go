@@ -23,8 +23,8 @@ func TestReaderAdmitsNamespacesAndCompletesDocument(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if root.Name != (xml.Name{Local: "r"}) {
-		t.Fatalf("root expanded name = %+v", root.Name)
+	if root != (xml.Name{Local: "r"}) {
+		t.Fatalf("root expanded name = %+v", root)
 	}
 	if uri, ok := reader.Lookup("p"); !ok || uri != "urn:test" {
 		t.Fatalf("Lookup(p) = %q, %v", uri, ok)
@@ -39,8 +39,8 @@ func TestReaderAdmitsNamespacesAndCompletesDocument(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if child.Name != (xml.Name{Space: "urn:test", Local: "child"}) {
-		t.Fatalf("child expanded name = %+v", child.Name)
+	if child != (xml.Name{Space: "urn:test", Local: "child"}) {
+		t.Fatalf("child expanded name = %+v", child)
 	}
 	if got := childToken.Start.Attr[0].Name; got != (xml.Name{Space: "urn:test", Local: "id"}) {
 		t.Fatalf("expanded attribute = %+v", got)
@@ -90,8 +90,8 @@ func TestReaderDefaultNamespaceShadowRestoresAfterChild(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if root.Name != (xml.Name{Space: "urn:root", Local: "root"}) {
-		t.Fatalf("root expanded name = %+v", root.Name)
+	if root != (xml.Name{Space: "urn:root", Local: "root"}) {
+		t.Fatalf("root expanded name = %+v", root)
 	}
 
 	childToken := mustNextToken(t, &reader)
@@ -102,8 +102,8 @@ func TestReaderDefaultNamespaceShadowRestoresAfterChild(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if child.Name != (xml.Name{Space: "urn:child", Local: "child"}) {
-		t.Fatalf("child expanded name = %+v", child.Name)
+	if child != (xml.Name{Space: "urn:child", Local: "child"}) {
+		t.Fatalf("child expanded name = %+v", child)
 	}
 	_ = mustNextToken(t, &reader)
 	err = reader.End(childFrame)
@@ -119,8 +119,8 @@ func TestReaderDefaultNamespaceShadowRestoresAfterChild(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if sibling.Name != (xml.Name{Space: "urn:root", Local: "sibling"}) {
-		t.Fatalf("sibling expanded name = %+v", sibling.Name)
+	if sibling != (xml.Name{Space: "urn:root", Local: "sibling"}) {
+		t.Fatalf("sibling expanded name = %+v", sibling)
 	}
 	_ = mustNextToken(t, &reader)
 	err = reader.End(siblingFrame)
@@ -162,6 +162,8 @@ func TestReaderOwnsAndInvalidatesBorrowedToken(t *testing.T) {
 		t.Fatalf("Next after document = %v, want EOF", err)
 	}
 
+	assertPublicationTokenZero(t, end)
+
 	if err := reader.Reset(strings.NewReader(`<fresh/>`), Config{}); err != nil {
 		t.Fatal(err)
 	}
@@ -169,9 +171,7 @@ func TestReaderOwnsAndInvalidatesBorrowedToken(t *testing.T) {
 	if err := reader.Reset(strings.NewReader(`<new/>`), Config{}); err != nil {
 		t.Fatal(err)
 	}
-	if old.Start.Name != (xml.Name{}) || old.End.Name != (xml.Name{}) || old.Data != nil || old.Directive != nil || old.Line != 0 || old.Column != 0 {
-		t.Fatalf("borrowed token survived Reset: %+v", *old)
-	}
+	assertPublicationTokenZero(t, old)
 }
 
 func TestReaderRejectsDocumentTopologyAndOutsideRootData(t *testing.T) {
@@ -354,8 +354,8 @@ func TestReaderNamespaceDeclarationIdentityDoesNotCollideWithRelativeAttribute(t
 	if err != nil {
 		t.Fatal(err)
 	}
-	if element.Name != (xml.Name{Space: "xmlns", Local: "r"}) {
-		t.Fatalf("relative default element namespace = %+v", element.Name)
+	if element != (xml.Name{Space: "xmlns", Local: "r"}) {
+		t.Fatalf("relative default element namespace = %+v", element)
 	}
 	want := []xml.Name{
 		{Space: vocab.XMLNSNamespaceURI, Local: vocab.XMLNSPrefix},
@@ -516,8 +516,8 @@ func TestReaderDepthAndParserLimitsAreTyped(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if element.Name.Local != "r" {
-		t.Fatalf("root expanded name = %+v", element.Name)
+	if element.Local != "r" {
+		t.Fatalf("root expanded name = %+v", element)
 	}
 	_ = mustNextToken(t, &reader)
 	if _, _, err := reader.Start(); err == nil {
@@ -617,8 +617,8 @@ func TestReaderSkipsOrdinaryAttributeValuesWhileRetainingNamespaceValues(t *test
 			if err != nil {
 				t.Fatal(err)
 			}
-			if element.Name != (xml.Name{Space: "urn:p", Local: "c"}) {
-				t.Fatalf("child = %+v, want {urn:p}c", element.Name)
+			if element != (xml.Name{Space: "urn:p", Local: "c"}) {
+				t.Fatalf("child = %+v, want {urn:p}c", element)
 			}
 			for _, handle := range [2]Handle{child, root} {
 				if token := mustNextToken(t, &reader); token.Kind != KindEnd {
@@ -765,8 +765,8 @@ func TestReaderSkipOrdinaryAttrValuesRetainsNamespaceInputs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if childElement.Name != (xml.Name{Space: "urn:&test", Local: "c"}) {
-		t.Fatalf("child expanded name = %+v", childElement.Name)
+	if childElement != (xml.Name{Space: "urn:&test", Local: "c"}) {
+		t.Fatalf("child expanded name = %+v", childElement)
 	}
 	_ = mustNextToken(t, &reader)
 	if err := reader.End(childHandle); err != nil {
@@ -839,9 +839,9 @@ func TestReaderInternBytesOwnsInput(t *testing.T) {
 	}
 }
 
-func TestReaderInternBytesMapLookupAfterRecentEviction(t *testing.T) {
+func TestReaderInternBytesRotatingVocabulary(t *testing.T) {
 	var reader Reader
-	spellings := make([][]byte, recentCacheEntries+2)
+	spellings := make([][]byte, 10)
 	for i := range spellings {
 		spellings[i] = []byte("spelling-" + strconv.Itoa(i))
 		if got := reader.InternBytes(spellings[i]); got != string(spellings[i]) {
@@ -851,18 +851,15 @@ func TestReaderInternBytesMapLookupAfterRecentEviction(t *testing.T) {
 
 	var got string
 	allocs := testing.AllocsPerRun(100, func() {
-		// Eight intervening values evict spelling-0 from the recent ring, so
-		// every measured lookup must use the bounded map.
-		got = reader.InternBytes(spellings[0])
-		for i := 1; i <= recentCacheEntries; i++ {
-			reader.InternBytes(spellings[i])
+		for _, spelling := range spellings {
+			got = reader.InternBytes(spelling)
 		}
 	})
 	if allocs != 0 {
 		t.Fatalf("warmed map lookup allocations = %v, want 0", allocs)
 	}
-	if got != "spelling-0" {
-		t.Fatalf("warmed map lookup = %q, want spelling-0", got)
+	if got != "spelling-9" {
+		t.Fatalf("warmed rotating lookup = %q, want spelling-9", got)
 	}
 }
 
@@ -898,10 +895,12 @@ func TestReaderRequiresExplicitTokenTransitions(t *testing.T) {
 	if _, _, err := reader.Start(); !errors.Is(err, ErrPendingStart) {
 		t.Fatalf("Start without token = %v, want %v", err, ErrPendingStart)
 	}
-	_ = mustNextToken(t, &reader)
+	startToken := mustNextToken(t, &reader)
+	wantStart := snapshotPublicationToken(startToken)
 	if _, err := reader.Next(); !errors.Is(err, ErrPendingStart) {
 		t.Fatalf("Next before Start = %v, want %v", err, ErrPendingStart)
 	}
+	assertPublicationSnapshot(t, startToken, wantStart)
 	rootFrame, _, err := reader.Start()
 	if err != nil {
 		t.Fatal(err)
@@ -914,10 +913,12 @@ func TestReaderRequiresExplicitTokenTransitions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = mustNextToken(t, &reader)
+	endToken := mustNextToken(t, &reader)
+	wantEnd := snapshotPublicationToken(endToken)
 	if _, err := reader.Next(); !errors.Is(err, ErrPendingEnd) {
 		t.Fatalf("Next before MatchEnd = %v, want %v", err, ErrPendingEnd)
 	}
+	assertPublicationSnapshot(t, endToken, wantEnd)
 	if err := reader.CommitEnd(childFrame); !errors.Is(err, ErrPendingEnd) {
 		t.Fatalf("CommitEnd before MatchEnd = %v, want %v", err, ErrPendingEnd)
 	}

@@ -200,8 +200,11 @@ func (b *Builder) Validate(id TypeID, lexical string, resolver Resolver, needs N
 // validateBorrowedBytes admits raw bytes and retains the accumulated work when
 // an unsupported raw shape falls through to normalized evaluation.
 func (p *Program) validateBorrowedBytes(id TypeID, lexical []byte, resolver Resolver, needs Needs, scratch *Scratch, budget *evaluationBudget) (Value, error) {
-	if value, handled, err := validateUnprojectedBytes(id, lexical, needs, budget); handled {
-		return value, err
+	if needs == 0 && (id == AnySimpleTypeID || id == builtinString) {
+		if err := budget.charge(lexicalLength(len(lexical))); err != nil {
+			return Value{}, err
+		}
+		return Value{typeID: id, selected: NoType}, nil
 	}
 	if id == NoType || needs != 0 {
 		return p.validateValueWithBudget(id, string(lexical), &evaluationRequest{
@@ -218,16 +221,6 @@ func (p *Program) validateBorrowedBytes(id TypeID, lexical []byte, resolver Reso
 	return p.validateValueWithBudget(id, string(lexical), &evaluationRequest{
 		resolver: resolver, needs: needs, scratch: scratch, budget: budget, admitted: true,
 	})
-}
-
-func validateUnprojectedBytes(id TypeID, lexical []byte, needs Needs, budget *evaluationBudget) (Value, bool, error) {
-	if needs != 0 || (id != AnySimpleTypeID && id != builtinString) {
-		return Value{}, false, nil
-	}
-	if err := budget.charge(lexicalLength(len(lexical))); err != nil {
-		return Value{}, true, err
-	}
-	return Value{typeID: id, selected: NoType}, true, nil
 }
 
 func (p *Program) evalBytes(id TypeID, lexical []byte, scratch *Scratch, budget *evaluationBudget, depth int) (TypeID, bool, error) {
@@ -675,6 +668,9 @@ func (p *Program) validateValueWithBudget(id TypeID, lexical string, request *ev
 		}
 		return out, nil
 	}
+	if canValidateUnprojectedName(t, request.needs) {
+		return p.validateUnprojectedName(id, t, lexical, request)
+	}
 	evalNeeds := request.needs
 	// ID/IDREF projections are required by the type contract even when the
 	// caller does not request canonical or identity text explicitly.
@@ -740,6 +736,25 @@ func validatePlainString(id TypeID, t *typeDef, lexical string, request *evaluat
 		out.flags |= valueHasIdentity
 	}
 	return out, true, nil
+}
+
+func canValidateUnprojectedName(t *typeDef, needs Needs) bool {
+	return needs == 0 && t.variety == Atomic && t.builtin == BuiltinNone &&
+		t.identity == IdentityNone && t.facets.present == 0 &&
+		(t.primitive == PrimitiveQName || t.primitive == PrimitiveNotation)
+}
+
+func (p *Program) validateUnprojectedName(id TypeID, t *typeDef, lexical string, request *evaluationRequest) (Value, error) {
+	if err := p.admitEvaluation(id, lexical, evalOptions{
+		work: request.budget, admitted: request.admitted,
+	}); err != nil {
+		return Value{}, describeValueFailure(p, id, lexical, nil, err)
+	}
+	var name ExpandedName
+	if err := parseNameAtomic(&name, t.primitive, normalize(lexical, t.whitespace), request.resolver); err != nil {
+		return Value{}, describeValueFailure(p, id, lexical, nil, err)
+	}
+	return Value{typeID: id, selected: NoType, flags: valueQualifiedNames}, nil
 }
 
 func projectValue(v *parsedValue, needs Needs) Value {
@@ -1102,7 +1117,7 @@ func parseAtomic(out *parsedValue, t *typeDef, normalized string, resolver Resol
 	case PrimitiveHexBinary, PrimitiveBase64Binary:
 		return parseBinaryAtomic(&out.atom, t.primitive, normalized, needs)
 	case PrimitiveQName, PrimitiveNotation:
-		return parseNameAtomic(&out.atom, t.primitive, normalized, resolver)
+		return parseNameAtomic(&out.atom.expandedName, t.primitive, normalized, resolver)
 	default:
 		return ErrMetadata
 	}
@@ -1183,7 +1198,7 @@ func parseBinaryAtomic(out *atomicValue, kind PrimitiveKind, normalized string, 
 	return err
 }
 
-func parseNameAtomic(out *atomicValue, kind PrimitiveKind, normalized string, resolver Resolver) error {
+func parseNameAtomic(out *ExpandedName, kind PrimitiveKind, normalized string, resolver Resolver) error {
 	var name ExpandedName
 	if resolver.QName == nil {
 		if !lex.IsNCName(normalized) {
@@ -1192,7 +1207,7 @@ func parseNameAtomic(out *atomicValue, kind PrimitiveKind, normalized string, re
 		name = ExpandedName{Local: normalized}
 	} else {
 		resolved, ok := resolver.QName(normalized)
-		if !ok || !utf8.ValidString(resolved.Namespace) || !utf8.ValidString(resolved.Local) || !lex.IsNCName(resolved.Local) {
+		if !ok || !utf8.ValidString(resolved.Namespace) || !lex.IsNCName(resolved.Local) {
 			return errors.New(msgUnresolvedQName)
 		}
 		name = resolved
@@ -1202,7 +1217,7 @@ func parseNameAtomic(out *atomicValue, kind PrimitiveKind, normalized string, re
 			return errors.New(msgUndeclaredNotation)
 		}
 	}
-	out.expandedName = name
+	*out = name
 	return nil
 }
 

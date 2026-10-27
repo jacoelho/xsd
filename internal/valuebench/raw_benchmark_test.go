@@ -1,6 +1,7 @@
 package valuebench
 
 import (
+	"bytes"
 	"errors"
 	"strings"
 	"testing"
@@ -399,5 +400,84 @@ func checkRawPlanResult(tb testing.TB, got valuepkg.Value, id valuepkg.TypeID) {
 	tb.Helper()
 	if got.Type() != id || got.SelectedType() != valuepkg.NoType || got.CanonicalText() != "" || got.IdentityKey() != "" || got.IDs() != "" || got.IDRefs() != "" || got.HasQualifiedNames() {
 		tb.Fatalf("unprojected decimal result = %#v", got)
+	}
+}
+
+type probeOppExpected struct {
+	canonical string
+	key       string
+	identity  bool
+}
+
+func BenchmarkUnprojectedProbeOpposing(b *testing.B) {
+	program, err := valuepkg.NewBuilder(valuepkg.BuilderOptions{}).Seal()
+	if err != nil {
+		b.Fatal(err)
+	}
+	stringID := valuepkg.BuiltinType(valuepkg.PrimitiveString)
+	for _, tc := range []struct {
+		name  string
+		id    valuepkg.TypeID
+		raw   []byte
+		work  uint64
+		needs valuepkg.Needs
+		want  probeOppExpected
+	}{
+		{name: "string_empty", id: stringID, work: 1},
+		{name: "string_short", id: stringID, raw: []byte("ready"), work: 6},
+		{name: "string_32KiB", id: stringID, raw: bytes.Repeat([]byte{'x'}, 32768), work: 32769},
+		{name: "anysimple_multibyte", id: valuepkg.AnySimpleTypeID, raw: []byte("é"), work: 3},
+		{name: "string_projected", id: stringID, raw: []byte("é"), work: 3, needs: valuepkg.NeedCanonical | valuepkg.NeedIdentity,
+			want: probeOppExpected{canonical: "é", key: "\x00\x1eé", identity: true}},
+	} {
+		b.Run(tc.name, func(b *testing.B) {
+			var scratch valuepkg.Scratch
+			last, validationErr := program.ValidateBytes(tc.id, tc.raw, valuepkg.Resolver{}, tc.needs, tc.work, &scratch)
+			checkProbeOppSuccess(b, last, validationErr, tc.id, tc.want)
+			b.ReportAllocs()
+			for b.Loop() {
+				last, validationErr = program.ValidateBytes(tc.id, tc.raw, valuepkg.Resolver{}, tc.needs, tc.work, &scratch)
+			}
+			checkProbeOppSuccess(b, last, validationErr, tc.id, tc.want)
+		})
+	}
+	b.Run("limit_then_reuse_pair", func(b *testing.B) {
+		var scratch valuepkg.Scratch
+		raw := []byte("é")
+		failed, failedErr := program.ValidateBytes(stringID, raw, valuepkg.Resolver{}, 0, 2, &scratch)
+		passed, passedErr := program.ValidateBytes(stringID, raw, valuepkg.Resolver{}, 0, 3, &scratch)
+		checkProbeOppFailure(b, failed, failedErr)
+		checkProbeOppSuccess(b, passed, passedErr, stringID, probeOppExpected{})
+		b.ReportAllocs()
+		// One operation is the full failure/success pair, each with a fresh call budget.
+		for b.Loop() {
+			failed, failedErr = program.ValidateBytes(stringID, raw, valuepkg.Resolver{}, 0, 2, &scratch)
+			passed, passedErr = program.ValidateBytes(stringID, raw, valuepkg.Resolver{}, 0, 3, &scratch)
+		}
+		checkProbeOppFailure(b, failed, failedErr)
+		checkProbeOppSuccess(b, passed, passedErr, stringID, probeOppExpected{})
+	})
+}
+
+func checkProbeOppSuccess(b *testing.B, got valuepkg.Value, err error, typ valuepkg.TypeID, want probeOppExpected) {
+	b.Helper()
+	if err != nil {
+		b.Fatal(err)
+	}
+	if got.Type() != typ || got.SelectedType() != valuepkg.NoType {
+		b.Fatalf("type/selection = %d/%d, want %d/%d", got.Type(), got.SelectedType(), typ, valuepkg.NoType)
+	}
+	if got.CanonicalText() != want.canonical || got.IdentityKey() != want.key || got.HasIdentity() != want.identity {
+		b.Fatalf("canonical/key/identity = %q/%q/%v, want %q/%q/%v", got.CanonicalText(), got.IdentityKey(), got.HasIdentity(), want.canonical, want.key, want.identity)
+	}
+	if got.IDs() != "" || got.IDRefs() != "" || got.HasQualifiedNames() {
+		b.Fatalf("unexpected document or qualified-name projection: %+v", got)
+	}
+}
+
+func checkProbeOppFailure(b *testing.B, got valuepkg.Value, err error) {
+	b.Helper()
+	if !errors.Is(err, valuepkg.ErrLimit) || got != (valuepkg.Value{}) {
+		b.Fatalf("failed leg = %+v/%v, want zero result and ErrLimit", got, err)
 	}
 }

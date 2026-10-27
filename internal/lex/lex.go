@@ -270,17 +270,7 @@ const (
 )
 
 func isName(s string, kind nameKind) bool {
-	if s == "" || !utf8.ValidString(s) {
-		return false
-	}
-	position := nameFirstPosition
-	for _, r := range s {
-		if !kind.acceptsRune(r, position) {
-			return false
-		}
-		position = nameSubsequentPosition
-	}
-	return true
+	return isNameBytes([]byte(s), kind)
 }
 
 type namePosition uint8

@@ -17,8 +17,8 @@ func TestNamespaceMatchEndRestoresShadowedBinding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if root.Name != (xml.Name{Space: "urn:root", Local: "root"}) {
-		t.Fatalf("root expanded name = %+v", root.Name)
+	if root != (xml.Name{Space: "urn:root", Local: "root"}) {
+		t.Fatalf("root expanded name = %+v", root)
 	}
 
 	childStart := StartElement{
@@ -29,8 +29,8 @@ func TestNamespaceMatchEndRestoresShadowedBinding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if child.Name != (xml.Name{Space: "urn:child", Local: "child"}) {
-		t.Fatalf("child expanded name = %+v", child.Name)
+	if child != (xml.Name{Space: "urn:child", Local: "child"}) {
+		t.Fatalf("child expanded name = %+v", child)
 	}
 	if err := namespaceStack.End(childFrame, Lexical(childStart.Name)); err != nil {
 		t.Fatal(err)
@@ -78,8 +78,8 @@ func TestNamespaceDefaultLookupUsesShadowAndRollback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if root.Name != (xml.Name{Space: "urn:root", Local: "root"}) {
-		t.Fatalf("root expanded name = %+v", root.Name)
+	if root != (xml.Name{Space: "urn:root", Local: "root"}) {
+		t.Fatalf("root expanded name = %+v", root)
 	}
 	if uri, ok := namespaceStack.Lookup(""); !ok || uri != "urn:root" {
 		t.Fatalf("root default namespace = %q, %v", uri, ok)
@@ -93,8 +93,8 @@ func TestNamespaceDefaultLookupUsesShadowAndRollback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if child.Name != (xml.Name{Space: "urn:child", Local: "child"}) {
-		t.Fatalf("child expanded name = %+v", child.Name)
+	if child != (xml.Name{Space: "urn:child", Local: "child"}) {
+		t.Fatalf("child expanded name = %+v", child)
 	}
 	if uri, ok := namespaceStack.Lookup(""); !ok || uri != "urn:child" {
 		t.Fatalf("child default namespace = %q, %v", uri, ok)

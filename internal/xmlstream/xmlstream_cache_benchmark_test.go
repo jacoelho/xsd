@@ -11,7 +11,7 @@ func benchmarkSaturatedCache() (*cache, [][]byte) {
 	for i := range maxByteStringCacheEntries {
 		c.Intern([]byte("map-" + strconv.Itoa(i)))
 	}
-	misses := make([][]byte, recentCacheEntries+1)
+	misses := make([][]byte, 9)
 	for i := range misses {
 		misses[i] = []byte("miss-" + strconv.Itoa(i))
 	}
@@ -67,4 +67,23 @@ func BenchmarkCacheSaturation(b *testing.B) {
 			c.Intern(input)
 		}
 	})
+}
+
+func BenchmarkCacheRotatingVocabulary(b *testing.B) {
+	for _, width := range []int{2, 9, 60} {
+		b.Run(strconv.Itoa(width), func(b *testing.B) {
+			var c cache
+			spellings := make([][]byte, width)
+			for i := range spellings {
+				spellings[i] = []byte("name-" + strconv.Itoa(i))
+				if got := c.Intern(spellings[i]); got != string(spellings[i]) {
+					b.Fatalf("cached spelling = %q, want %q", got, spellings[i])
+				}
+			}
+			b.ReportAllocs()
+			for i := 0; b.Loop(); i++ {
+				c.Intern(spellings[i%len(spellings)])
+			}
+		})
+	}
 }

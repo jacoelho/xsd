@@ -11,9 +11,13 @@ func unlimitedContentModelAnalysis(rt *schemaBuild) *ContentModelAnalysis {
 }
 
 func testCompiledModelReads(models []CompiledModel) []compiledModelRead {
-	reads, err := newCompiledModelReads(models, unlimitedContentModelWork)
+	reads, mayHaveDenseRows, err := newCompiledModelReads(models, unlimitedContentModelWork)
 	if err != nil {
 		panic(err)
+	}
+	if mayHaveDenseRows {
+		budget := defaultDenseIndexBudget()
+		addDenseDFAIndexes(reads, &budget)
 	}
 	return reads
 }

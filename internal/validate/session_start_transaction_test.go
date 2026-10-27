@@ -181,11 +181,11 @@ func TestSessionStartStagesParentInvalidationUntilCommit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	transaction, err := s.beginStartTransaction(checkpoint, prepared.handle)
-	if err != nil {
+	var transaction sessionStartTransaction
+	if err := transaction.begin(&s, checkpoint, prepared.handle); err != nil {
 		t.Fatal(err)
 	}
-	transaction.stageContent(acceptedChild{invalidatesParent: true})
+	transaction.stageContent(&acceptedChild{invalidatesParent: true})
 	if abortErr := transaction.abort(); abortErr != nil {
 		t.Fatal(abortErr)
 	}

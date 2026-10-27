@@ -58,6 +58,23 @@ func TestBuildSubstitutionTableBuildsSortedRawAndEffectiveEntries(t *testing.T) 
 	if _, ok := table.MemberByName(1, qnames["child"]); ok {
 		t.Fatal("MemberByName() ignored the original head's substitution block")
 	}
+	published := publishedContentSchema(contentSchemaFixture{
+		elementNames: map[ElementID]QName{0: qnames["head"], 1: qnames["member"], 2: qnames["child"]},
+		models: map[ContentModelID]CompiledModel{
+			0: {Kind: CompiledModelDFA, Rows: []CompiledModelRow{{Edges: []CompiledModelEdge{{Particle: ElementParticle(0, Occurrence{Min: 1, Max: 1}), To: 1}}}, {Accept: true}}},
+			1: {Kind: CompiledModelDFA, Rows: []CompiledModelRow{{Edges: []CompiledModelEdge{{Particle: ElementParticle(1, Occurrence{Min: 1, Max: 1}), To: 1}}}, {Accept: true}}},
+		},
+	})
+	published.program.Substitutions = table
+	for _, excluded := range []struct {
+		model ContentModelID
+		name  QName
+	}{{0, qnames["member"]}, {1, qnames["child"]}} {
+		transition, status := published.NextContent(ContentState{model: excluded.model, present: true}, ContentInput{Name: RuntimeName{Known: true, Name: excluded.name}}, &ContentScratch{})
+		if status != ContentTransitionNoMatch || transition.IsPlanned() {
+			t.Fatalf("NextContent admitted an excluded substitution: %+v/%v", transition, status)
+		}
+	}
 }
 
 func TestBuildSubstitutionTableTreatsEqualTypeEdgesAsNeutral(t *testing.T) {

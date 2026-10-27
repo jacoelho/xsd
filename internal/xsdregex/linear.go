@@ -15,6 +15,7 @@ type linearPattern struct {
 	atoms        []linearAtom
 	literalBytes []byte
 	literal      bool
+	fixed        bool
 }
 
 type linearAtom struct {
@@ -43,12 +44,22 @@ func compileLinear(root *node, options CompileOptions) (*linearPattern, bool) {
 		return nil, false
 	}
 	linear := collector.pattern
+	linear.fixed = linearFixed(linear.atoms)
 	if literal, ok := linearLiteral(linear.atoms); ok {
 		linear.literal = true
 		linear.literalText = literal
 		linear.literalBytes = []byte(literal)
 	}
 	return linear, true
+}
+
+func linearFixed(atoms []linearAtom) bool {
+	for _, atom := range atoms {
+		if atom.unbounded || atom.min != atom.max {
+			return false
+		}
+	}
+	return true
 }
 
 type linearCollector struct {
@@ -280,13 +291,24 @@ func (p *linearPattern) matchRunes(runes []rune, options MatchOptions, states []
 
 func (p *linearPattern) matchPreparedRunes(runes []rune, options MatchOptions, states []bool) (bool, error) {
 	rowSize := len(runes) + 1
-	prev, next := states[:rowSize], states[rowSize:]
-	clear(prev)
-	prev[0] = true
 	budget := matchBudget{limit: options.MaxWork}
 	if err := budget.step(uint64(len(runes))); err != nil {
 		return false, err
 	}
+	if p.fixed {
+		state := linearMatchState{budget: budget}
+		// Preserve the general linear quota even when an exact-count mismatch
+		// could finish without visiting every atom.
+		for range p.atoms {
+			if err := state.chargeLinearAtom(rowSize); err != nil {
+				return false, err
+			}
+		}
+		return p.matchFixedRunes(runes), nil
+	}
+	prev, next := states[:rowSize], states[rowSize:]
+	clear(prev)
+	prev[0] = true
 	state := linearMatchState{prev: prev, next: next, budget: budget}
 	for _, atom := range p.atoms {
 		if err := state.advance(atom, runes, rowSize); err != nil {
@@ -294,6 +316,23 @@ func (p *linearPattern) matchPreparedRunes(runes []rune, options MatchOptions, s
 		}
 	}
 	return state.prev[len(runes)], nil
+}
+
+func (p *linearPattern) matchFixedRunes(runes []rune) bool {
+	offset := 0
+	for _, atom := range p.atoms {
+		if atom.min > uint64(len(runes)-offset) {
+			return false
+		}
+		end := offset + int(atom.min) //nolint:gosec // The comparison bounds min by the remaining int-sized slice.
+		for _, value := range runes[offset:end] {
+			if !atom.set.contains(value) {
+				return false
+			}
+		}
+		offset = end
+	}
+	return offset == len(runes)
 }
 
 type linearMatchState struct {
