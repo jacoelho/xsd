@@ -479,12 +479,10 @@ Whitespace handling occurs before facet validation:
 | All date/time types | collapse |
 | `boolean` | collapse |
 
-**Processing Order:**
-
-1. Apply whitespace normalization per type
-2. Check pattern facets
-3. Check other facets (length, bounds, enumeration)
-4. Parse into value space
+Whitespace normalization supplies the lexical input for pattern facets.
+Value-space facets, including bounds and enumeration, use the typed value after
+lexical mapping. Union normalization follows the selected member as described
+below.
 
 Spec refs: docs/spec/xml/datatypes.xml#dt-whiteSpace.
 
@@ -509,11 +507,20 @@ Spec refs: docs/spec/xml/datatypes.xml#dt-whiteSpace.
 
 ### Union Type Validation
 
-1. Check union-level pattern (if any)
-2. Check union-level enumeration (if any)
-3. Validate against member types in the order listed until one succeeds
-4. Valid if any member type accepts the value
-5. PSVI records the member type that validated the value
+1. Assess member types in declaration order until the first match.
+2. Apply union-level patterns to that member's normalized lexical spelling.
+3. Compare union-level enumeration against that member's typed value.
+4. Reject if an outer facet fails; do not retry a later member.
+
+For `token|string`, the input `a  b` selects `token`, so an outer pattern sees
+`a b`. Reversing the members selects `string` and preserves both spaces. A
+matching member alone does not establish validity of the governing union.
+PSVI contributions also depend on governing-type validity; see
+[E1-56](corrected-reading.md).
+
+Spec refs: [ordered union assessment](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#union-datatypes),
+[member-controlled whitespace](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-whiteSpace),
+and [normalized value](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#key-nv).
 
 ### QName Validation
 

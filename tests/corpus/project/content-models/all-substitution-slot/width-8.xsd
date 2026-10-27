@@ -1,0 +1,16 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="head" type="xs:string"/>
+  <xs:element name="first" type="xs:string" substitutionGroup="head"/>
+  <xs:element name="second" type="xs:string" substitutionGroup="head"/>
+  <xs:element name="root"><xs:complexType><xs:all>
+    <xs:element name="f0" type="xs:string" minOccurs="0"/>
+    <xs:element name="f1" type="xs:string" minOccurs="0"/>
+    <xs:element name="f2" type="xs:string" minOccurs="0"/>
+    <xs:element name="f3" type="xs:string" minOccurs="0"/>
+    <xs:element name="f4" type="xs:string" minOccurs="0"/>
+    <xs:element name="f5" type="xs:string" minOccurs="0"/>
+    <xs:element name="f6" type="xs:string" minOccurs="0"/>
+    <xs:element name="f7" type="xs:string" minOccurs="0"/>
+    <xs:element ref="head" minOccurs="0"/>
+  </xs:all></xs:complexType></xs:element>
+</xs:schema>

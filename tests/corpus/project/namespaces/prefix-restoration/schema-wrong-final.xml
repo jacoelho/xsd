@@ -1,0 +1,1 @@
+<p:root xmlns:p="urn:scope:outer"><p:before/><p:inside xmlns:p="urn:scope:inner"><p:leaf/></p:inside><p:after xmlns:p="urn:scope:inner" p:flag="x"/></p:root>

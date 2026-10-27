@@ -1,0 +1,5 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root"><xs:complexType><xs:sequence>
+    <xs:element name="ref" type="xs:anySimpleType" fixed="target"/>
+  </xs:sequence><xs:attribute name="id" type="xs:ID"/></xs:complexType></xs:element>
+</xs:schema>

@@ -1,0 +1,9 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root"><xs:complexType><xs:sequence>
+    <xs:element name="row" maxOccurs="unbounded"><xs:complexType><xs:sequence>
+      <xs:element name="v" type="xs:string" minOccurs="0"/>
+    </xs:sequence><xs:attribute name="a" type="xs:string"/></xs:complexType></xs:element>
+  </xs:sequence></xs:complexType>
+  <xs:unique name="one"><xs:selector xpath="row"/><xs:field xpath="@a | v"/></xs:unique>
+  </xs:element>
+</xs:schema>

@@ -9,14 +9,1138 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16420,
-    "schemaCases": 16370,
-    "instanceRuns": 34649,
+    "cases": 16442,
+    "schemaCases": 16392,
+    "instanceRuns": 34825,
     "w3cCases": 14414,
-    "internalRuns": 1993,
+    "internalRuns": 2015,
     "xercesJCases": 13
   },
   "cases": [
+    {
+      "id": "project/identity/selected-default-idref/default",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/identity/selected-default-idref/default.xsd",
+        "description": "A schema-supplied value assessed under xsi:type IDREF must enter document reference tracking; explicit text remains independently assessed.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/selected-default-idref/default.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "supplied-resolved",
+          "file": "corpus/project/identity/selected-default-idref/default-supplied-resolved.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "supplied-unresolved",
+          "file": "corpus/project/identity/selected-default-idref/default-supplied-unresolved.xml",
+          "expected": "invalid",
+          "errorCode": "validation.type",
+          "oracle": {
+            "libxml2": {
+              "reason": "Observed with libxml2 2.9.13. The provider accepts an unresolved IDREF or duplicate selected ID after otherwise successful assessment. cvc-id prohibits an empty or multi-member root ID/IDREF binding; sic-id collects bindings from actual selected types, including default/fixed values and dynamic or lax-selected declarations. Positive resolved controls and isolated unresolved-reference or duplicate-ID controls are in the same packet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id",
+              "expected": "valid"
+            }
+          }
+        },
+        {
+          "testName": "supplied-no-id",
+          "file": "corpus/project/identity/selected-default-idref/default-supplied-no-id.xml",
+          "expected": "invalid",
+          "errorCode": "validation.type",
+          "oracle": {
+            "libxml2": {
+              "reason": "Observed with libxml2 2.9.13. The provider accepts an unresolved IDREF or duplicate selected ID after otherwise successful assessment. cvc-id prohibits an empty or multi-member root ID/IDREF binding; sic-id collects bindings from actual selected types, including default/fixed values and dynamic or lax-selected declarations. Positive resolved controls and isolated unresolved-reference or duplicate-ID controls are in the same packet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id",
+              "expected": "valid"
+            }
+          }
+        },
+        {
+          "testName": "declared-untracked",
+          "file": "corpus/project/identity/selected-default-idref/default-declared-untracked.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "explicit-resolved",
+          "file": "corpus/project/identity/selected-default-idref/default-explicit-resolved.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "explicit-unresolved",
+          "file": "corpus/project/identity/selected-default-idref/default-explicit-unresolved.xml",
+          "expected": "invalid",
+          "errorCode": "validation.type",
+          "oracle": {
+            "libxml2": {
+              "reason": "Observed with libxml2 2.9.13. The provider accepts an unresolved IDREF or duplicate selected ID after otherwise successful assessment. cvc-id prohibits an empty or multi-member root ID/IDREF binding; sic-id collects bindings from actual selected types, including default/fixed values and dynamic or lax-selected declarations. Positive resolved controls and isolated unresolved-reference or duplicate-ID controls are in the same packet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id",
+              "expected": "valid"
+            }
+          }
+        },
+        {
+          "testName": "explicit-overrides-default",
+          "file": "corpus/project/identity/selected-default-idref/default-explicit-overrides-default.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/selected-default-idref/default.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/selected-default-idref/default-supplied-resolved.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/selected-default-idref/default-supplied-unresolved.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/selected-default-idref/default-supplied-no-id.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/selected-default-idref/default-declared-untracked.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/selected-default-idref/default-explicit-resolved.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/selected-default-idref/default-explicit-unresolved.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/selected-default-idref/default-explicit-overrides-default.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/identity/selected-default-idref/fixed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/identity/selected-default-idref/fixed.xsd",
+        "description": "A schema-supplied value assessed under xsi:type IDREF must enter document reference tracking; explicit text remains independently assessed.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/selected-default-idref/fixed.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "supplied-resolved",
+          "file": "corpus/project/identity/selected-default-idref/fixed-supplied-resolved.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "supplied-unresolved",
+          "file": "corpus/project/identity/selected-default-idref/fixed-supplied-unresolved.xml",
+          "expected": "invalid",
+          "errorCode": "validation.type",
+          "oracle": {
+            "libxml2": {
+              "reason": "Observed with libxml2 2.9.13. The provider accepts an unresolved IDREF or duplicate selected ID after otherwise successful assessment. cvc-id prohibits an empty or multi-member root ID/IDREF binding; sic-id collects bindings from actual selected types, including default/fixed values and dynamic or lax-selected declarations. Positive resolved controls and isolated unresolved-reference or duplicate-ID controls are in the same packet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id",
+              "expected": "valid"
+            }
+          }
+        },
+        {
+          "testName": "supplied-no-id",
+          "file": "corpus/project/identity/selected-default-idref/fixed-supplied-no-id.xml",
+          "expected": "invalid",
+          "errorCode": "validation.type",
+          "oracle": {
+            "libxml2": {
+              "reason": "Observed with libxml2 2.9.13. The provider accepts an unresolved IDREF or duplicate selected ID after otherwise successful assessment. cvc-id prohibits an empty or multi-member root ID/IDREF binding; sic-id collects bindings from actual selected types, including default/fixed values and dynamic or lax-selected declarations. Positive resolved controls and isolated unresolved-reference or duplicate-ID controls are in the same packet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id",
+              "expected": "valid"
+            }
+          }
+        },
+        {
+          "testName": "declared-untracked",
+          "file": "corpus/project/identity/selected-default-idref/fixed-declared-untracked.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "explicit-resolved",
+          "file": "corpus/project/identity/selected-default-idref/fixed-explicit-resolved.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "explicit-unresolved",
+          "file": "corpus/project/identity/selected-default-idref/fixed-explicit-unresolved.xml",
+          "expected": "invalid",
+          "errorCode": "validation.type",
+          "oracle": {
+            "libxml2": {
+              "reason": "Observed with libxml2 2.9.13. The provider accepts an unresolved IDREF or duplicate selected ID after otherwise successful assessment. cvc-id prohibits an empty or multi-member root ID/IDREF binding; sic-id collects bindings from actual selected types, including default/fixed values and dynamic or lax-selected declarations. Positive resolved controls and isolated unresolved-reference or duplicate-ID controls are in the same packet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id",
+              "expected": "valid"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/selected-default-idref/fixed.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/selected-default-idref/fixed-supplied-resolved.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/selected-default-idref/fixed-supplied-unresolved.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/selected-default-idref/fixed-supplied-no-id.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/selected-default-idref/fixed-declared-untracked.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/selected-default-idref/fixed-explicit-resolved.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/selected-default-idref/fixed-explicit-unresolved.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/identity/isolated-activation/dynamic",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/identity/isolated-activation/dynamic.xsd",
+        "description": "Actual ID/IDREF types activate document identity; each failure isolates one obligation.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/isolated-activation/dynamic.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "resolved",
+          "file": "corpus/project/identity/isolated-activation/dynamic-resolved.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "forward-reference",
+          "file": "corpus/project/identity/isolated-activation/dynamic-forward-reference.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "unresolved",
+          "file": "corpus/project/identity/isolated-activation/dynamic-unresolved.xml",
+          "expected": "invalid",
+          "errorCode": "validation.type",
+          "oracle": {
+            "libxml2": {
+              "reason": "Observed with libxml2 2.9.13. The provider accepts an unresolved IDREF or duplicate selected ID after otherwise successful assessment. cvc-id prohibits an empty or multi-member root ID/IDREF binding; sic-id collects bindings from actual selected types, including default/fixed values and dynamic or lax-selected declarations. Positive resolved controls and isolated unresolved-reference or duplicate-ID controls are in the same packet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id",
+              "expected": "valid"
+            }
+          }
+        },
+        {
+          "testName": "duplicate-id",
+          "file": "corpus/project/identity/isolated-activation/dynamic-duplicate-id.xml",
+          "expected": "invalid",
+          "errorCode": "validation.type",
+          "oracle": {
+            "libxml2": {
+              "reason": "Observed with libxml2 2.9.13. The provider accepts an unresolved IDREF or duplicate selected ID after otherwise successful assessment. cvc-id prohibits an empty or multi-member root ID/IDREF binding; sic-id collects bindings from actual selected types, including default/fixed values and dynamic or lax-selected declarations. Positive resolved controls and isolated unresolved-reference or duplicate-ID controls are in the same packet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id",
+              "expected": "valid"
+            }
+          }
+        },
+        {
+          "testName": "distinct-ids",
+          "file": "corpus/project/identity/isolated-activation/dynamic-distinct-ids.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "untyped-duplicates",
+          "file": "corpus/project/identity/isolated-activation/dynamic-untyped-duplicates.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "untyped-missing-reference",
+          "file": "corpus/project/identity/isolated-activation/dynamic-untyped-missing-reference.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/isolated-activation/dynamic.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/isolated-activation/dynamic-resolved.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/isolated-activation/dynamic-forward-reference.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/isolated-activation/dynamic-unresolved.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/isolated-activation/dynamic-duplicate-id.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/isolated-activation/dynamic-distinct-ids.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/isolated-activation/dynamic-untyped-duplicates.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/isolated-activation/dynamic-untyped-missing-reference.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/identity/isolated-activation/lax",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/identity/isolated-activation/lax.xsd",
+        "description": "Declaration-backed lax children retain ID/IDREF obligations while unknown untyped children do not acquire them.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-wildcard",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/isolated-activation/lax.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "resolved",
+          "file": "corpus/project/identity/isolated-activation/lax-resolved.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "forward-reference",
+          "file": "corpus/project/identity/isolated-activation/lax-forward-reference.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "unresolved",
+          "file": "corpus/project/identity/isolated-activation/lax-unresolved.xml",
+          "expected": "invalid",
+          "errorCode": "validation.type",
+          "oracle": {
+            "libxml2": {
+              "reason": "Observed with libxml2 2.9.13. The provider accepts an unresolved IDREF or duplicate selected ID after otherwise successful assessment. cvc-id prohibits an empty or multi-member root ID/IDREF binding; sic-id collects bindings from actual selected types, including default/fixed values and dynamic or lax-selected declarations. Positive resolved controls and isolated unresolved-reference or duplicate-ID controls are in the same packet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id",
+              "expected": "valid"
+            }
+          }
+        },
+        {
+          "testName": "duplicate-id",
+          "file": "corpus/project/identity/isolated-activation/lax-duplicate-id.xml",
+          "expected": "invalid",
+          "errorCode": "validation.type",
+          "oracle": {
+            "libxml2": {
+              "reason": "Observed with libxml2 2.9.13. The provider accepts an unresolved IDREF or duplicate selected ID after otherwise successful assessment. cvc-id prohibits an empty or multi-member root ID/IDREF binding; sic-id collects bindings from actual selected types, including default/fixed values and dynamic or lax-selected declarations. Positive resolved controls and isolated unresolved-reference or duplicate-ID controls are in the same packet.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id",
+              "expected": "valid"
+            }
+          }
+        },
+        {
+          "testName": "distinct-ids",
+          "file": "corpus/project/identity/isolated-activation/lax-distinct-ids.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "unknown-untracked",
+          "file": "corpus/project/identity/isolated-activation/lax-unknown-untracked.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/isolated-activation/lax.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/isolated-activation/lax-resolved.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/isolated-activation/lax-forward-reference.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/isolated-activation/lax-unresolved.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/isolated-activation/lax-duplicate-id.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/isolated-activation/lax-distinct-ids.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/isolated-activation/lax-unknown-untracked.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/identity/field-union-nodes/overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/identity/field-union-nodes/overlap.xsd",
+        "description": "Field union cardinality counts distinct nodes, independently of matching branches or equal values.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/field-union-nodes/overlap.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "one-node",
+          "file": "corpus/project/identity/field-union-nodes/overlap-one-node.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "reason": "Observed with Apache Xerces-J 2.12.2 on OpenJDK 26.0.1. Xerces reports cvc-identity-constraint.3 because overlapping alternatives in one field path match the same node repeatedly. cvc-identity-constraint defines a field result as an XPath node-set, so one physical node remains one member. Controls with two distinct nodes, including equal values, are invalid and were rejected.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+              "expected": "invalid"
+            }
+          }
+        },
+        {
+          "testName": "no-node",
+          "file": "corpus/project/identity/field-union-nodes/overlap-no-node.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "two-distinct-values",
+          "file": "corpus/project/identity/field-union-nodes/overlap-two-distinct-values.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        },
+        {
+          "testName": "two-equal-values",
+          "file": "corpus/project/identity/field-union-nodes/overlap-two-equal-values.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/field-union-nodes/overlap.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/field-union-nodes/overlap-one-node.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/field-union-nodes/overlap-no-node.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/field-union-nodes/overlap-two-distinct-values.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/field-union-nodes/overlap-two-equal-values.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/identity/field-union-nodes/mixed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/identity/field-union-nodes/mixed.xsd",
+        "description": "Attribute and element alternatives populate one field, sharing cardinality and typed uniqueness.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/field-union-nodes/mixed.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attribute-only",
+          "file": "corpus/project/identity/field-union-nodes/mixed-attribute-only.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "element-only",
+          "file": "corpus/project/identity/field-union-nodes/mixed-element-only.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "distinct-across-branches",
+          "file": "corpus/project/identity/field-union-nodes/mixed-distinct-across-branches.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "equal-across-branches",
+          "file": "corpus/project/identity/field-union-nodes/mixed-equal-across-branches.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        },
+        {
+          "testName": "two-nodes-distinct-values",
+          "file": "corpus/project/identity/field-union-nodes/mixed-two-nodes-distinct-values.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        },
+        {
+          "testName": "two-nodes-equal-values",
+          "file": "corpus/project/identity/field-union-nodes/mixed-two-nodes-equal-values.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/field-union-nodes/mixed.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/field-union-nodes/mixed-attribute-only.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/field-union-nodes/mixed-element-only.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/field-union-nodes/mixed-distinct-across-branches.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/field-union-nodes/mixed-equal-across-branches.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/field-union-nodes/mixed-two-nodes-distinct-values.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/field-union-nodes/mixed-two-nodes-equal-values.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/namespaces/exact-uri-identity/declaration",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/namespaces/exact-uri-identity/declaration.xsd",
+        "description": "Namespace identity preserves URI spelling, including case, percent escapes and a terminal slash.",
+        "specification": [
+          "https://www.w3.org/TR/1999/REC-xml-names-19990114/"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/namespaces/exact-uri-identity/declaration.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "exact",
+          "file": "corpus/project/namespaces/exact-uri-identity/declaration-exact.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "prefix-alias",
+          "file": "corpus/project/namespaces/exact-uri-identity/declaration-prefix-alias.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "host-case",
+          "file": "corpus/project/namespaces/exact-uri-identity/declaration-host-case.xml",
+          "expected": "invalid",
+          "errorCode": "validation.root",
+          "oracle": {
+            "dotnet": {
+              "reason": "Observed with .NET System.Xml 10.0.9. Schema-validating XmlReader completed without a validity error, but ReportValidationWarnings reports absent schema information and the root SchemaInfo.SchemaElement is absent. This is an unassessed unknown-root namespace, not a valid instance or URI-equality observation.",
+              "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/",
+              "status": "unassessed"
+            }
+          }
+        },
+        {
+          "testName": "percent-decoded",
+          "file": "corpus/project/namespaces/exact-uri-identity/declaration-percent-decoded.xml",
+          "expected": "invalid",
+          "errorCode": "validation.root",
+          "oracle": {
+            "dotnet": {
+              "reason": "Observed with .NET System.Xml 10.0.9. Schema-validating XmlReader completed without a validity error, but ReportValidationWarnings reports absent schema information and the root SchemaInfo.SchemaElement is absent. This is an unassessed unknown-root namespace, not a valid instance or URI-equality observation.",
+              "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/",
+              "status": "unassessed"
+            }
+          }
+        },
+        {
+          "testName": "percent-case",
+          "file": "corpus/project/namespaces/exact-uri-identity/declaration-percent-case.xml",
+          "expected": "invalid",
+          "errorCode": "validation.root",
+          "oracle": {
+            "dotnet": {
+              "reason": "Observed with .NET System.Xml 10.0.9. Schema-validating XmlReader completed without a validity error, but ReportValidationWarnings reports absent schema information and the root SchemaInfo.SchemaElement is absent. This is an unassessed unknown-root namespace, not a valid instance or URI-equality observation.",
+              "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/",
+              "status": "unassessed"
+            }
+          }
+        },
+        {
+          "testName": "trailing-slash",
+          "file": "corpus/project/namespaces/exact-uri-identity/declaration-trailing-slash.xml",
+          "expected": "invalid",
+          "errorCode": "validation.root",
+          "oracle": {
+            "dotnet": {
+              "reason": "Observed with .NET System.Xml 10.0.9. Schema-validating XmlReader completed without a validity error, but ReportValidationWarnings reports absent schema information and the root SchemaInfo.SchemaElement is absent. This is an unassessed unknown-root namespace, not a valid instance or URI-equality observation.",
+              "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/",
+              "status": "unassessed"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/declaration.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/declaration-exact.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/declaration-prefix-alias.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/declaration-host-case.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/declaration-percent-decoded.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/declaration-percent-case.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/declaration-trailing-slash.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/namespaces/exact-uri-identity/attributes",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/namespaces/exact-uri-identity/attributes.xsd",
+        "description": "Near-alias namespace URIs keep same-local-name attributes distinct; identical URIs make them duplicates.",
+        "specification": [
+          "https://www.w3.org/TR/1999/REC-xml-names-19990114/"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/namespaces/exact-uri-identity/attributes.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "host-case",
+          "file": "corpus/project/namespaces/exact-uri-identity/attributes-host-case.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "percent-decoded",
+          "file": "corpus/project/namespaces/exact-uri-identity/attributes-percent-decoded.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "percent-case",
+          "file": "corpus/project/namespaces/exact-uri-identity/attributes-percent-case.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "trailing-slash",
+          "file": "corpus/project/namespaces/exact-uri-identity/attributes-trailing-slash.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "identical-alias-duplicate",
+          "file": "corpus/project/namespaces/exact-uri-identity/attributes-identical-alias-duplicate.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/attributes.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/attributes-host-case.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/attributes-percent-decoded.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/attributes-percent-case.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/attributes-trailing-slash.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/attributes-identical-alias-duplicate.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/namespaces/prefix-restoration/schema",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/namespaces/prefix-restoration/schema.xsd",
+        "description": "A nested prefix rebind applies to its declared subtree, then the original binding resolves subsequent element and attribute names.",
+        "specification": [
+          "https://www.w3.org/TR/1999/REC-xml-names-19990114/"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/namespaces/prefix-restoration/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "restored-sibling",
+          "file": "corpus/project/namespaces/prefix-restoration/schema-restored-sibling.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "restored-descendant",
+          "file": "corpus/project/namespaces/prefix-restoration/schema-restored-descendant.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "wrong-inner",
+          "file": "corpus/project/namespaces/prefix-restoration/schema-wrong-inner.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element"
+        },
+        {
+          "testName": "wrong-final",
+          "file": "corpus/project/namespaces/prefix-restoration/schema-wrong-final.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element"
+        },
+        {
+          "testName": "wrong-deep-final",
+          "file": "corpus/project/namespaces/prefix-restoration/schema-wrong-deep-final.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element"
+        },
+        {
+          "testName": "wrong-final-attribute",
+          "file": "corpus/project/namespaces/prefix-restoration/schema-wrong-final-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/namespaces/prefix-restoration/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/namespaces/prefix-restoration/inner.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/namespaces/prefix-restoration/schema-restored-sibling.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/prefix-restoration/schema-restored-descendant.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/prefix-restoration/schema-wrong-inner.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/prefix-restoration/schema-wrong-final.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/prefix-restoration/schema-wrong-deep-final.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/prefix-restoration/schema-wrong-final-attribute.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/xml-base-acquisition/root-base",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/xml-base-acquisition/root-base.xsd",
+        "description": "Schema and include xml:base compose before acquisition; the included document supplies the base for its own relative include.",
+        "specification": [
+          "https://www.w3.org/TR/2001/REC-xmlbase-20010627/",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/xml-base-acquisition/root-base.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "reason": "Observed with Apache Xerces-J 2.12.2 on OpenJDK 26.0.1. Resolver logs show this provider supplied the principal document URI as the base for child.xsd, ignoring the effective xml:base. The resulting sibling child.xsd is outside the explicit closure, so the adapter blocked acquisition instead of substituting the intended file. Schema assessment is blocked; instances have no validity result. libxml2 selected the intended sub/nested/child.xsd and its sibling types.xsd.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include",
+            "status": "blocked"
+          },
+          "dotnet": {
+            "reason": "Observed with .NET System.Xml 10.0.9. Resolver logs show this provider supplied the principal document URI as the base for child.xsd, ignoring the effective xml:base. The resulting sibling child.xsd is outside the explicit closure, so the adapter blocked acquisition instead of substituting the intended file. Schema assessment is blocked; instances have no validity result. libxml2 selected the intended sub/nested/child.xsd and its sibling types.xsd.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include",
+            "status": "blocked"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "selected-value",
+          "file": "corpus/project/composition/xml-base-acquisition/root-base-selected-value.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "wrong-value",
+          "file": "corpus/project/composition/xml-base-acquisition/root-base-wrong-value.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "empty-value",
+          "file": "corpus/project/composition/xml-base-acquisition/root-base-empty-value.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/root-base.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/sub/nested/child.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/sub/nested/types.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/root-base-selected-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/root-base-wrong-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/root-base-empty-value.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/xml-base-acquisition/edge-base",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/xml-base-acquisition/edge-base.xsd",
+        "description": "Schema and include xml:base compose before acquisition; the included document supplies the base for its own relative include.",
+        "specification": [
+          "https://www.w3.org/TR/2001/REC-xmlbase-20010627/",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/xml-base-acquisition/edge-base.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "reason": "Observed with Apache Xerces-J 2.12.2 on OpenJDK 26.0.1. Resolver logs show this provider supplied the principal document URI as the base for child.xsd, ignoring the effective xml:base. The resulting sibling child.xsd is outside the explicit closure, so the adapter blocked acquisition instead of substituting the intended file. Schema assessment is blocked; instances have no validity result. libxml2 selected the intended sub/nested/child.xsd and its sibling types.xsd.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include",
+            "status": "blocked"
+          },
+          "dotnet": {
+            "reason": "Observed with .NET System.Xml 10.0.9. Resolver logs show this provider supplied the principal document URI as the base for child.xsd, ignoring the effective xml:base. The resulting sibling child.xsd is outside the explicit closure, so the adapter blocked acquisition instead of substituting the intended file. Schema assessment is blocked; instances have no validity result. libxml2 selected the intended sub/nested/child.xsd and its sibling types.xsd.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include",
+            "status": "blocked"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "selected-value",
+          "file": "corpus/project/composition/xml-base-acquisition/edge-base-selected-value.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "wrong-value",
+          "file": "corpus/project/composition/xml-base-acquisition/edge-base-wrong-value.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "empty-value",
+          "file": "corpus/project/composition/xml-base-acquisition/edge-base-empty-value.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/edge-base.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/sub/nested/child.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/sub/nested/types.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/edge-base-selected-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/edge-base-wrong-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/edge-base-empty-value.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/xml-base-acquisition/nested-base",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/xml-base-acquisition/nested-base.xsd",
+        "description": "Schema and include xml:base compose before acquisition; the included document supplies the base for its own relative include.",
+        "specification": [
+          "https://www.w3.org/TR/2001/REC-xmlbase-20010627/",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/xml-base-acquisition/nested-base.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "reason": "Observed with Apache Xerces-J 2.12.2 on OpenJDK 26.0.1. Resolver logs show this provider supplied the principal document URI as the base for child.xsd, ignoring the effective xml:base. The resulting sibling child.xsd is outside the explicit closure, so the adapter blocked acquisition instead of substituting the intended file. Schema assessment is blocked; instances have no validity result. libxml2 selected the intended sub/nested/child.xsd and its sibling types.xsd.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include",
+            "status": "blocked"
+          },
+          "dotnet": {
+            "reason": "Observed with .NET System.Xml 10.0.9. Resolver logs show this provider supplied the principal document URI as the base for child.xsd, ignoring the effective xml:base. The resulting sibling child.xsd is outside the explicit closure, so the adapter blocked acquisition instead of substituting the intended file. Schema assessment is blocked; instances have no validity result. libxml2 selected the intended sub/nested/child.xsd and its sibling types.xsd.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include",
+            "status": "blocked"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "selected-value",
+          "file": "corpus/project/composition/xml-base-acquisition/nested-base-selected-value.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "wrong-value",
+          "file": "corpus/project/composition/xml-base-acquisition/nested-base-wrong-value.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "empty-value",
+          "file": "corpus/project/composition/xml-base-acquisition/nested-base-empty-value.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/nested-base.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/sub/nested/child.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/sub/nested/types.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/nested-base-selected-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/nested-base-wrong-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/nested-base-empty-value.xml",
+          "role": "instance"
+        }
+      ]
+    },
     {
       "id": "project/content-models/implicit-substitution-consistency/same-type",
       "expectedSource": "project",
@@ -428,6 +1552,1418 @@
         },
         {
           "file": "corpus/project/content-models/implicit-substitution-consistency/bad-local-integer.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/all-substitution-slot/width-0",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/all-substitution-slot/width-0.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited"
+        ],
+        "description": "All substitution names share one optional particle slot, with 0 unrelated optional particles; distinct-name repetition cannot consume a new slot."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/all-substitution-slot/width-0.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/all-substitution-slot/empty.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "head",
+          "file": "corpus/project/content-models/all-substitution-slot/head.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "first",
+          "file": "corpus/project/content-models/all-substitution-slot/first.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "second",
+          "file": "corpus/project/content-models/all-substitution-slot/second.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "head-first",
+          "file": "corpus/project/content-models/all-substitution-slot/head-first.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "first-head",
+          "file": "corpus/project/content-models/all-substitution-slot/first-head.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "head-second",
+          "file": "corpus/project/content-models/all-substitution-slot/head-second.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "second-head",
+          "file": "corpus/project/content-models/all-substitution-slot/second-head.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "first-second",
+          "file": "corpus/project/content-models/all-substitution-slot/first-second.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "second-first",
+          "file": "corpus/project/content-models/all-substitution-slot/second-first.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "first-first",
+          "file": "corpus/project/content-models/all-substitution-slot/first-first.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "head-head",
+          "file": "corpus/project/content-models/all-substitution-slot/head-head.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/width-0.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/head.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/first.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/second.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/head-first.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/first-head.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/head-second.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/second-head.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/first-second.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/second-first.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/first-first.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/head-head.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/all-substitution-slot/width-8",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/all-substitution-slot/width-8.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited"
+        ],
+        "description": "All substitution names share one optional particle slot, with 8 unrelated optional particles; distinct-name repetition cannot consume a new slot."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/all-substitution-slot/width-8.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/all-substitution-slot/empty.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "head",
+          "file": "corpus/project/content-models/all-substitution-slot/head.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "first",
+          "file": "corpus/project/content-models/all-substitution-slot/first.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "second",
+          "file": "corpus/project/content-models/all-substitution-slot/second.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "head-first",
+          "file": "corpus/project/content-models/all-substitution-slot/head-first.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "first-head",
+          "file": "corpus/project/content-models/all-substitution-slot/first-head.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "head-second",
+          "file": "corpus/project/content-models/all-substitution-slot/head-second.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "second-head",
+          "file": "corpus/project/content-models/all-substitution-slot/second-head.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "first-second",
+          "file": "corpus/project/content-models/all-substitution-slot/first-second.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "second-first",
+          "file": "corpus/project/content-models/all-substitution-slot/second-first.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "first-first",
+          "file": "corpus/project/content-models/all-substitution-slot/first-first.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "head-head",
+          "file": "corpus/project/content-models/all-substitution-slot/head-head.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "width-8-one",
+          "file": "corpus/project/content-models/all-substitution-slot/width-8-one.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "width-8-two",
+          "file": "corpus/project/content-models/all-substitution-slot/width-8-two.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "width-8-head-member",
+          "file": "corpus/project/content-models/all-substitution-slot/width-8-head-member.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/width-8.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/head.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/first.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/second.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/head-first.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/first-head.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/head-second.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/second-head.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/first-second.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/second-first.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/first-first.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/head-head.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/width-8-one.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/width-8-two.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/width-8-head-member.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/all-substitution-slot/width-65",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/all-substitution-slot/width-65.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited"
+        ],
+        "description": "All substitution names share one optional particle slot, with 65 unrelated optional particles; distinct-name repetition cannot consume a new slot."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/all-substitution-slot/width-65.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/all-substitution-slot/empty.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "head",
+          "file": "corpus/project/content-models/all-substitution-slot/head.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "first",
+          "file": "corpus/project/content-models/all-substitution-slot/first.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "second",
+          "file": "corpus/project/content-models/all-substitution-slot/second.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "head-first",
+          "file": "corpus/project/content-models/all-substitution-slot/head-first.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "first-head",
+          "file": "corpus/project/content-models/all-substitution-slot/first-head.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "head-second",
+          "file": "corpus/project/content-models/all-substitution-slot/head-second.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "second-head",
+          "file": "corpus/project/content-models/all-substitution-slot/second-head.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "first-second",
+          "file": "corpus/project/content-models/all-substitution-slot/first-second.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "second-first",
+          "file": "corpus/project/content-models/all-substitution-slot/second-first.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "first-first",
+          "file": "corpus/project/content-models/all-substitution-slot/first-first.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "head-head",
+          "file": "corpus/project/content-models/all-substitution-slot/head-head.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "width-65-one",
+          "file": "corpus/project/content-models/all-substitution-slot/width-65-one.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "width-65-two",
+          "file": "corpus/project/content-models/all-substitution-slot/width-65-two.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "width-65-head-member",
+          "file": "corpus/project/content-models/all-substitution-slot/width-65-head-member.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/width-65.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/head.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/first.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/second.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/head-first.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/first-head.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/head-second.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/second-head.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/first-second.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/second-first.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/first-first.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/head-head.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/width-65-one.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/width-65-two.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/all-substitution-slot/width-65-head-member.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/qname/lexical-value-interaction/same-step",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/qname/lexical-value-interaction/same-step.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#QName",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-pattern-valid",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-enumeration-valid"
+        ],
+        "description": "QName enumeration compares expanded names while pattern compares normalized lexical spelling. An alias fails only the pattern; rebinding the accepted spelling fails only enumeration. Element and attribute consumers exercise same-step facets."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/qname/lexical-value-interaction/same-step.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "element-matching",
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/element-matching.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "element-normalized",
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/element-normalized.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "element-alias-pattern",
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/element-alias-pattern.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "element-rebound-enumeration",
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/element-rebound-enumeration.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "attribute-matching",
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/attribute-matching.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "attribute-normalized",
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/attribute-normalized.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "attribute-alias-pattern",
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/attribute-alias-pattern.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "attribute-rebound-enumeration",
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/attribute-rebound-enumeration.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/same-step.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/element-matching.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/element-normalized.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/element-alias-pattern.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/element-rebound-enumeration.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/attribute-matching.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/attribute-normalized.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/attribute-alias-pattern.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/attribute-rebound-enumeration.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/qname/lexical-value-interaction/inherited-enumeration",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/qname/lexical-value-interaction/inherited-enumeration.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#QName",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-pattern-valid",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-enumeration-valid"
+        ],
+        "description": "QName enumeration compares expanded names while pattern compares normalized lexical spelling. An alias fails only the pattern; rebinding the accepted spelling fails only enumeration. Element and attribute consumers exercise inherited-enumeration facets."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/qname/lexical-value-interaction/inherited-enumeration.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "element-matching",
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/element-matching.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "element-normalized",
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/element-normalized.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "element-alias-pattern",
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/element-alias-pattern.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "element-rebound-enumeration",
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/element-rebound-enumeration.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "attribute-matching",
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/attribute-matching.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "attribute-normalized",
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/attribute-normalized.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "attribute-alias-pattern",
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/attribute-alias-pattern.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "attribute-rebound-enumeration",
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/attribute-rebound-enumeration.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/inherited-enumeration.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/element-matching.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/element-normalized.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/element-alias-pattern.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/element-rebound-enumeration.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/attribute-matching.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/attribute-normalized.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/attribute-alias-pattern.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/attribute-rebound-enumeration.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/qname/lexical-value-interaction/inherited-pattern",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/qname/lexical-value-interaction/inherited-pattern.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#QName",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-pattern-valid",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-enumeration-valid"
+        ],
+        "description": "QName enumeration compares expanded names while pattern compares normalized lexical spelling. An alias fails only the pattern; rebinding the accepted spelling fails only enumeration. Element and attribute consumers exercise inherited-pattern facets."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/qname/lexical-value-interaction/inherited-pattern.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "element-matching",
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/element-matching.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "element-normalized",
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/element-normalized.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "element-alias-pattern",
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/element-alias-pattern.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "element-rebound-enumeration",
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/element-rebound-enumeration.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "attribute-matching",
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/attribute-matching.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "attribute-normalized",
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/attribute-normalized.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "attribute-alias-pattern",
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/attribute-alias-pattern.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "attribute-rebound-enumeration",
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/attribute-rebound-enumeration.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/inherited-pattern.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/element-matching.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/element-normalized.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/element-alias-pattern.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/element-rebound-enumeration.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/attribute-matching.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/attribute-normalized.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/attribute-alias-pattern.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/lexical-value-interaction/attribute-rebound-enumeration.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/lists/xml10-whitespace-boundaries/length-1",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/lists/xml10-whitespace-boundaries/length-1.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#list-datatypes",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-length-valid",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#key-nv"
+        ],
+        "description": "An XML 1.0 string list requires 1 items. NEL and LINE SEPARATOR remain inside one item, whether literal or referenced; XML S characters divide two items. Element and attribute values share the same cardinality rule."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/length-1.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "element-single",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-single.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "element-space",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-space.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "element-tab-reference",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-tab-reference.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "element-lf-reference",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-lf-reference.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "element-cr-reference",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-cr-reference.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "element-nel-reference",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-nel-reference.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "element-line-separator-reference",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-line-separator-reference.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "element-nel-literal",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-nel-literal.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "element-line-separator-literal",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-line-separator-literal.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "attribute-single",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-single.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "attribute-space",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-space.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "attribute-tab-reference",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-tab-reference.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "attribute-lf-reference",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-lf-reference.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "attribute-cr-reference",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-cr-reference.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "attribute-nel-reference",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-nel-reference.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "attribute-line-separator-reference",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-line-separator-reference.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "attribute-nel-literal",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-nel-literal.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "attribute-line-separator-literal",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-line-separator-literal.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/length-1.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-single.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-space.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-tab-reference.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-lf-reference.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-cr-reference.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-nel-reference.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-line-separator-reference.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-nel-literal.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-line-separator-literal.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-single.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-space.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-tab-reference.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-lf-reference.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-cr-reference.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-nel-reference.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-line-separator-reference.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-nel-literal.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-line-separator-literal.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/lists/xml10-whitespace-boundaries/length-2",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/lists/xml10-whitespace-boundaries/length-2.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#list-datatypes",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-length-valid",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#key-nv"
+        ],
+        "description": "An XML 1.0 string list requires 2 items. NEL and LINE SEPARATOR remain inside one item, whether literal or referenced; XML S characters divide two items. Element and attribute values share the same cardinality rule."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/length-2.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "element-single",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-single.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "element-space",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-space.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "element-tab-reference",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-tab-reference.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "element-lf-reference",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-lf-reference.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "element-cr-reference",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-cr-reference.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "element-nel-reference",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-nel-reference.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "element-line-separator-reference",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-line-separator-reference.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "element-nel-literal",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-nel-literal.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "element-line-separator-literal",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-line-separator-literal.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "attribute-single",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-single.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "attribute-space",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-space.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "attribute-tab-reference",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-tab-reference.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "attribute-lf-reference",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-lf-reference.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "attribute-cr-reference",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-cr-reference.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "attribute-nel-reference",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-nel-reference.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "attribute-line-separator-reference",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-line-separator-reference.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "attribute-nel-literal",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-nel-literal.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "attribute-line-separator-literal",
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-line-separator-literal.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/length-2.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-single.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-space.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-tab-reference.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-lf-reference.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-cr-reference.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-nel-reference.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-line-separator-reference.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-nel-literal.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/element-line-separator-literal.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-single.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-space.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-tab-reference.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-lf-reference.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-cr-reference.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-nel-reference.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-line-separator-reference.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-nel-literal.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/lists/xml10-whitespace-boundaries/attribute-line-separator-literal.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/unions/outer-pattern-member-order/token-first",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/unions/outer-pattern-member-order/token-first.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#union-datatypes",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-pattern-valid",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#key-nv",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-whiteSpace"
+        ],
+        "description": "The first matching union member determines normalized lexical text before the outer pattern. Two spaces fail after token selection and cannot retry string; reversed member order preserves two spaces and succeeds. A single token remains valid in both orders, and one space fails in both."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/unions/outer-pattern-member-order/token-first.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "element-single",
+          "file": "corpus/project/datatypes/unions/outer-pattern-member-order/element-single.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "element-two-spaces",
+          "file": "corpus/project/datatypes/unions/outer-pattern-member-order/element-two-spaces.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "reason": "Observed with .NET System.Xml 10.0.9. Ordered union assessment chooses the first matching member; rf-whiteSpace makes its whitespace rule control union normalization. The outer pattern therefore sees collapsed text for token-first and preserved text for string-first. An outer facet failure does not retry a later member. This measured result differs from the source-grounded project expectation; the provider algorithm is not inferred.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-whiteSpace",
+              "expected": "valid"
+            }
+          }
+        },
+        {
+          "testName": "element-one-space",
+          "file": "corpus/project/datatypes/unions/outer-pattern-member-order/element-one-space.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "attribute-single",
+          "file": "corpus/project/datatypes/unions/outer-pattern-member-order/attribute-single.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "attribute-two-spaces",
+          "file": "corpus/project/datatypes/unions/outer-pattern-member-order/attribute-two-spaces.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "reason": "Observed with .NET System.Xml 10.0.9. Ordered union assessment chooses the first matching member; rf-whiteSpace makes its whitespace rule control union normalization. The outer pattern therefore sees collapsed text for token-first and preserved text for string-first. An outer facet failure does not retry a later member. This measured result differs from the source-grounded project expectation; the provider algorithm is not inferred.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-whiteSpace",
+              "expected": "valid"
+            }
+          }
+        },
+        {
+          "testName": "attribute-one-space",
+          "file": "corpus/project/datatypes/unions/outer-pattern-member-order/attribute-one-space.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/unions/outer-pattern-member-order/token-first.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/unions/outer-pattern-member-order/element-single.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/unions/outer-pattern-member-order/element-two-spaces.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/unions/outer-pattern-member-order/element-one-space.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/unions/outer-pattern-member-order/attribute-single.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/unions/outer-pattern-member-order/attribute-two-spaces.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/unions/outer-pattern-member-order/attribute-one-space.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/unions/outer-pattern-member-order/string-first",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/unions/outer-pattern-member-order/string-first.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#union-datatypes",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-pattern-valid",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#key-nv",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-whiteSpace"
+        ],
+        "description": "The first matching union member determines normalized lexical text before the outer pattern. Two spaces fail after token selection and cannot retry string; reversed member order preserves two spaces and succeeds. A single token remains valid in both orders, and one space fails in both."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/unions/outer-pattern-member-order/string-first.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "element-single",
+          "file": "corpus/project/datatypes/unions/outer-pattern-member-order/element-single.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "element-two-spaces",
+          "file": "corpus/project/datatypes/unions/outer-pattern-member-order/element-two-spaces.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "reason": "Observed with Apache Xerces-J 2.12.2 on OpenJDK 26.0.1. Ordered union assessment chooses the first matching member; rf-whiteSpace makes its whitespace rule control union normalization. The outer pattern therefore sees collapsed text for token-first and preserved text for string-first. An outer facet failure does not retry a later member. This measured result differs from the source-grounded project expectation; the provider algorithm is not inferred.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-whiteSpace",
+              "expected": "invalid"
+            }
+          }
+        },
+        {
+          "testName": "element-one-space",
+          "file": "corpus/project/datatypes/unions/outer-pattern-member-order/element-one-space.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "attribute-single",
+          "file": "corpus/project/datatypes/unions/outer-pattern-member-order/attribute-single.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "attribute-two-spaces",
+          "file": "corpus/project/datatypes/unions/outer-pattern-member-order/attribute-two-spaces.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "reason": "Observed with Apache Xerces-J 2.12.2 on OpenJDK 26.0.1. Ordered union assessment chooses the first matching member; rf-whiteSpace makes its whitespace rule control union normalization. The outer pattern therefore sees collapsed text for token-first and preserved text for string-first. An outer facet failure does not retry a later member. This measured result differs from the source-grounded project expectation; the provider algorithm is not inferred.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-whiteSpace",
+              "expected": "invalid"
+            }
+          }
+        },
+        {
+          "testName": "attribute-one-space",
+          "file": "corpus/project/datatypes/unions/outer-pattern-member-order/attribute-one-space.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/unions/outer-pattern-member-order/string-first.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/unions/outer-pattern-member-order/element-single.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/unions/outer-pattern-member-order/element-two-spaces.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/unions/outer-pattern-member-order/element-one-space.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/unions/outer-pattern-member-order/attribute-single.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/unions/outer-pattern-member-order/attribute-two-spaces.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/unions/outer-pattern-member-order/attribute-one-space.xml",
           "role": "instance"
         }
       ]

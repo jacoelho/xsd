@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:qname-value">
+  <xs:simpleType name="Patterned">
+    <xs:restriction base="xs:QName">
+      <xs:pattern value="p:name"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Q">
+    <xs:restriction base="Patterned">
+      <xs:enumeration value="p:name"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="element" type="Q"/>
+  <xs:element name="attribute">
+    <xs:complexType>
+      <xs:attribute name="value" type="Q" use="required"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

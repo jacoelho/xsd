@@ -1,0 +1,73 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="head" type="xs:string"/>
+  <xs:element name="first" type="xs:string" substitutionGroup="head"/>
+  <xs:element name="second" type="xs:string" substitutionGroup="head"/>
+  <xs:element name="root"><xs:complexType><xs:all>
+    <xs:element name="f0" type="xs:string" minOccurs="0"/>
+    <xs:element name="f1" type="xs:string" minOccurs="0"/>
+    <xs:element name="f2" type="xs:string" minOccurs="0"/>
+    <xs:element name="f3" type="xs:string" minOccurs="0"/>
+    <xs:element name="f4" type="xs:string" minOccurs="0"/>
+    <xs:element name="f5" type="xs:string" minOccurs="0"/>
+    <xs:element name="f6" type="xs:string" minOccurs="0"/>
+    <xs:element name="f7" type="xs:string" minOccurs="0"/>
+    <xs:element name="f8" type="xs:string" minOccurs="0"/>
+    <xs:element name="f9" type="xs:string" minOccurs="0"/>
+    <xs:element name="f10" type="xs:string" minOccurs="0"/>
+    <xs:element name="f11" type="xs:string" minOccurs="0"/>
+    <xs:element name="f12" type="xs:string" minOccurs="0"/>
+    <xs:element name="f13" type="xs:string" minOccurs="0"/>
+    <xs:element name="f14" type="xs:string" minOccurs="0"/>
+    <xs:element name="f15" type="xs:string" minOccurs="0"/>
+    <xs:element name="f16" type="xs:string" minOccurs="0"/>
+    <xs:element name="f17" type="xs:string" minOccurs="0"/>
+    <xs:element name="f18" type="xs:string" minOccurs="0"/>
+    <xs:element name="f19" type="xs:string" minOccurs="0"/>
+    <xs:element name="f20" type="xs:string" minOccurs="0"/>
+    <xs:element name="f21" type="xs:string" minOccurs="0"/>
+    <xs:element name="f22" type="xs:string" minOccurs="0"/>
+    <xs:element name="f23" type="xs:string" minOccurs="0"/>
+    <xs:element name="f24" type="xs:string" minOccurs="0"/>
+    <xs:element name="f25" type="xs:string" minOccurs="0"/>
+    <xs:element name="f26" type="xs:string" minOccurs="0"/>
+    <xs:element name="f27" type="xs:string" minOccurs="0"/>
+    <xs:element name="f28" type="xs:string" minOccurs="0"/>
+    <xs:element name="f29" type="xs:string" minOccurs="0"/>
+    <xs:element name="f30" type="xs:string" minOccurs="0"/>
+    <xs:element name="f31" type="xs:string" minOccurs="0"/>
+    <xs:element name="f32" type="xs:string" minOccurs="0"/>
+    <xs:element name="f33" type="xs:string" minOccurs="0"/>
+    <xs:element name="f34" type="xs:string" minOccurs="0"/>
+    <xs:element name="f35" type="xs:string" minOccurs="0"/>
+    <xs:element name="f36" type="xs:string" minOccurs="0"/>
+    <xs:element name="f37" type="xs:string" minOccurs="0"/>
+    <xs:element name="f38" type="xs:string" minOccurs="0"/>
+    <xs:element name="f39" type="xs:string" minOccurs="0"/>
+    <xs:element name="f40" type="xs:string" minOccurs="0"/>
+    <xs:element name="f41" type="xs:string" minOccurs="0"/>
+    <xs:element name="f42" type="xs:string" minOccurs="0"/>
+    <xs:element name="f43" type="xs:string" minOccurs="0"/>
+    <xs:element name="f44" type="xs:string" minOccurs="0"/>
+    <xs:element name="f45" type="xs:string" minOccurs="0"/>
+    <xs:element name="f46" type="xs:string" minOccurs="0"/>
+    <xs:element name="f47" type="xs:string" minOccurs="0"/>
+    <xs:element name="f48" type="xs:string" minOccurs="0"/>
+    <xs:element name="f49" type="xs:string" minOccurs="0"/>
+    <xs:element name="f50" type="xs:string" minOccurs="0"/>
+    <xs:element name="f51" type="xs:string" minOccurs="0"/>
+    <xs:element name="f52" type="xs:string" minOccurs="0"/>
+    <xs:element name="f53" type="xs:string" minOccurs="0"/>
+    <xs:element name="f54" type="xs:string" minOccurs="0"/>
+    <xs:element name="f55" type="xs:string" minOccurs="0"/>
+    <xs:element name="f56" type="xs:string" minOccurs="0"/>
+    <xs:element name="f57" type="xs:string" minOccurs="0"/>
+    <xs:element name="f58" type="xs:string" minOccurs="0"/>
+    <xs:element name="f59" type="xs:string" minOccurs="0"/>
+    <xs:element name="f60" type="xs:string" minOccurs="0"/>
+    <xs:element name="f61" type="xs:string" minOccurs="0"/>
+    <xs:element name="f62" type="xs:string" minOccurs="0"/>
+    <xs:element name="f63" type="xs:string" minOccurs="0"/>
+    <xs:element name="f64" type="xs:string" minOccurs="0"/>
+    <xs:element ref="head" minOccurs="0"/>
+  </xs:all></xs:complexType></xs:element>
+</xs:schema>
