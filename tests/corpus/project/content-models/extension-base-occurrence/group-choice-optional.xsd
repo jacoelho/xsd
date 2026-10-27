@@ -1,0 +1,12 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:group name="BaseGroup"><xs:choice><xs:element name="a"/><xs:element name="c"/></xs:choice></xs:group>
+  <xs:complexType name="Base">
+    <xs:group ref="BaseGroup" minOccurs="0"/>
+  </xs:complexType>
+  <xs:complexType name="Derived">
+    <xs:complexContent><xs:extension base="Base">
+      <xs:sequence><xs:element name="b"/></xs:sequence>
+    </xs:extension></xs:complexContent>
+  </xs:complexType>
+  <xs:element name="root" type="Derived"/>
+</xs:schema>

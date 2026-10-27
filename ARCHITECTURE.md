@@ -283,8 +283,15 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   Simple content has one canonical content kind. An enclosing syntactic mixed
   flag is checked at admission but cannot survive simple-content construction
   or authorize later mixed derivation. Effective-empty extensions retain the
-  inherited base content type. Extension admission and publication share a
-  bounded, dependency-charged check of matching attribute uses against the
+  inherited base content type. When both base and extension contribute
+  particles, extension lowers to a unit sequence with inherited content first.
+  A nonunit base group carries its original occurrence on a particle
+  referencing a unit clone; publication verifies that
+  occurrence and the clone's compositor, text policy, and ordered particles.
+  It does not require the clone to retain the original model ID or replace the
+  structural preservation check with language equivalence.
+  Extension admission and publication share a bounded, dependency-charged
+  check of matching attribute uses against the
   original complex ancestor whose base is builtin anyType. It reuses attribute
   restriction for type, requiredness and fixed-value obligations, without a
   retained lineage cache. Intermediate restrictions are not independent anchors;

@@ -1,0 +1,5 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:extension-base">
+  <xs:complexType name="Base">
+    <xs:sequence maxOccurs="2"><xs:element name="a"/></xs:sequence>
+  </xs:complexType>
+</xs:schema>

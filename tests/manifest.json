@@ -9,14 +9,1597 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16398,
-    "schemaCases": 16348,
-    "instanceRuns": 34509,
+    "cases": 16413,
+    "schemaCases": 16363,
+    "instanceRuns": 34631,
     "w3cCases": 14414,
-    "internalRuns": 1971,
+    "internalRuns": 1986,
     "xercesJCases": 13
   },
   "cases": [
+    {
+      "id": "project/content-models/extension-base-occurrence/choice-unit",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/extension-base-occurrence/choice-unit.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#Complex_Type_Definition_details",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-extend",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle"
+        ],
+        "description": "The inherited outer choice is unit; extension appends required b. The base occurrence applies before b, retaining omission, finite bounds, and order independently of the derived outer sequence."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/extension-base-occurrence/choice-unit.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "ab",
+          "file": "corpus/project/content-models/extension-base-occurrence/ab.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "b",
+          "file": "corpus/project/content-models/extension-base-occurrence/b.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "aab",
+          "file": "corpus/project/content-models/extension-base-occurrence/aab.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "aaab",
+          "file": "corpus/project/content-models/extension-base-occurrence/aaab.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "ba",
+          "file": "corpus/project/content-models/extension-base-occurrence/ba.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "a",
+          "file": "corpus/project/content-models/extension-base-occurrence/a.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/extension-base-occurrence/empty.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "abb",
+          "file": "corpus/project/content-models/extension-base-occurrence/abb.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/choice-unit.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/ab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/b.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/aab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/aaab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/ba.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/a.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/abb.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/extension-base-occurrence/choice-optional",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/extension-base-occurrence/choice-optional.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#Complex_Type_Definition_details",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-extend",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle"
+        ],
+        "description": "The inherited outer choice is optional; extension appends required b. The base occurrence applies before b, retaining omission, finite bounds, and order independently of the derived outer sequence."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/extension-base-occurrence/choice-optional.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "ab",
+          "file": "corpus/project/content-models/extension-base-occurrence/ab.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "b",
+          "file": "corpus/project/content-models/extension-base-occurrence/b.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "aab",
+          "file": "corpus/project/content-models/extension-base-occurrence/aab.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "aaab",
+          "file": "corpus/project/content-models/extension-base-occurrence/aaab.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "ba",
+          "file": "corpus/project/content-models/extension-base-occurrence/ba.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "a",
+          "file": "corpus/project/content-models/extension-base-occurrence/a.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/extension-base-occurrence/empty.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "abb",
+          "file": "corpus/project/content-models/extension-base-occurrence/abb.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/choice-optional.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/ab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/b.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/aab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/aaab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/ba.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/a.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/abb.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/extension-base-occurrence/choice-bounded",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/extension-base-occurrence/choice-bounded.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#Complex_Type_Definition_details",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-extend",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle"
+        ],
+        "description": "The inherited outer choice is bounded; extension appends required b. The base occurrence applies before b, retaining omission, finite bounds, and order independently of the derived outer sequence."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/extension-base-occurrence/choice-bounded.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "ab",
+          "file": "corpus/project/content-models/extension-base-occurrence/ab.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "b",
+          "file": "corpus/project/content-models/extension-base-occurrence/b.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "aab",
+          "file": "corpus/project/content-models/extension-base-occurrence/aab.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "aaab",
+          "file": "corpus/project/content-models/extension-base-occurrence/aaab.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "ba",
+          "file": "corpus/project/content-models/extension-base-occurrence/ba.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "a",
+          "file": "corpus/project/content-models/extension-base-occurrence/a.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/extension-base-occurrence/empty.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "abb",
+          "file": "corpus/project/content-models/extension-base-occurrence/abb.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/choice-bounded.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/ab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/b.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/aab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/aaab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/ba.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/a.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/abb.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/extension-base-occurrence/choice-unbounded",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/extension-base-occurrence/choice-unbounded.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#Complex_Type_Definition_details",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-extend",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle"
+        ],
+        "description": "The inherited outer choice is unbounded; extension appends required b. The base occurrence applies before b, retaining omission, finite bounds, and order independently of the derived outer sequence."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/extension-base-occurrence/choice-unbounded.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "ab",
+          "file": "corpus/project/content-models/extension-base-occurrence/ab.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "b",
+          "file": "corpus/project/content-models/extension-base-occurrence/b.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "aab",
+          "file": "corpus/project/content-models/extension-base-occurrence/aab.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "aaab",
+          "file": "corpus/project/content-models/extension-base-occurrence/aaab.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "ba",
+          "file": "corpus/project/content-models/extension-base-occurrence/ba.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "a",
+          "file": "corpus/project/content-models/extension-base-occurrence/a.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/extension-base-occurrence/empty.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "abb",
+          "file": "corpus/project/content-models/extension-base-occurrence/abb.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/choice-unbounded.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/ab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/b.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/aab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/aaab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/ba.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/a.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/abb.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/extension-base-occurrence/sequence-unit",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/extension-base-occurrence/sequence-unit.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#Complex_Type_Definition_details",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-extend",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle"
+        ],
+        "description": "The inherited outer sequence is unit; extension appends required b. The base occurrence applies before b, retaining omission, finite bounds, and order independently of the derived outer sequence."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/extension-base-occurrence/sequence-unit.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "ab",
+          "file": "corpus/project/content-models/extension-base-occurrence/ab.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "b",
+          "file": "corpus/project/content-models/extension-base-occurrence/b.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "aab",
+          "file": "corpus/project/content-models/extension-base-occurrence/aab.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "aaab",
+          "file": "corpus/project/content-models/extension-base-occurrence/aaab.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "ba",
+          "file": "corpus/project/content-models/extension-base-occurrence/ba.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "a",
+          "file": "corpus/project/content-models/extension-base-occurrence/a.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/extension-base-occurrence/empty.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "abb",
+          "file": "corpus/project/content-models/extension-base-occurrence/abb.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/sequence-unit.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/ab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/b.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/aab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/aaab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/ba.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/a.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/abb.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/extension-base-occurrence/sequence-optional",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/extension-base-occurrence/sequence-optional.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#Complex_Type_Definition_details",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-extend",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle"
+        ],
+        "description": "The inherited outer sequence is optional; extension appends required b. The base occurrence applies before b, retaining omission, finite bounds, and order independently of the derived outer sequence."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/extension-base-occurrence/sequence-optional.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "ab",
+          "file": "corpus/project/content-models/extension-base-occurrence/ab.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "b",
+          "file": "corpus/project/content-models/extension-base-occurrence/b.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "aab",
+          "file": "corpus/project/content-models/extension-base-occurrence/aab.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "aaab",
+          "file": "corpus/project/content-models/extension-base-occurrence/aaab.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "ba",
+          "file": "corpus/project/content-models/extension-base-occurrence/ba.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "a",
+          "file": "corpus/project/content-models/extension-base-occurrence/a.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/extension-base-occurrence/empty.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "abb",
+          "file": "corpus/project/content-models/extension-base-occurrence/abb.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/sequence-optional.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/ab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/b.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/aab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/aaab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/ba.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/a.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/abb.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/extension-base-occurrence/sequence-bounded",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/extension-base-occurrence/sequence-bounded.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#Complex_Type_Definition_details",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-extend",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle"
+        ],
+        "description": "The inherited outer sequence is bounded; extension appends required b. The base occurrence applies before b, retaining omission, finite bounds, and order independently of the derived outer sequence."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/extension-base-occurrence/sequence-bounded.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "ab",
+          "file": "corpus/project/content-models/extension-base-occurrence/ab.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "b",
+          "file": "corpus/project/content-models/extension-base-occurrence/b.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "aab",
+          "file": "corpus/project/content-models/extension-base-occurrence/aab.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "aaab",
+          "file": "corpus/project/content-models/extension-base-occurrence/aaab.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "ba",
+          "file": "corpus/project/content-models/extension-base-occurrence/ba.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "a",
+          "file": "corpus/project/content-models/extension-base-occurrence/a.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/extension-base-occurrence/empty.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "abb",
+          "file": "corpus/project/content-models/extension-base-occurrence/abb.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/sequence-bounded.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/ab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/b.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/aab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/aaab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/ba.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/a.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/abb.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/extension-base-occurrence/sequence-unbounded",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/extension-base-occurrence/sequence-unbounded.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#Complex_Type_Definition_details",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-extend",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle"
+        ],
+        "description": "The inherited outer sequence is unbounded; extension appends required b. The base occurrence applies before b, retaining omission, finite bounds, and order independently of the derived outer sequence."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/extension-base-occurrence/sequence-unbounded.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "ab",
+          "file": "corpus/project/content-models/extension-base-occurrence/ab.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "b",
+          "file": "corpus/project/content-models/extension-base-occurrence/b.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "aab",
+          "file": "corpus/project/content-models/extension-base-occurrence/aab.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "aaab",
+          "file": "corpus/project/content-models/extension-base-occurrence/aaab.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "ba",
+          "file": "corpus/project/content-models/extension-base-occurrence/ba.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "a",
+          "file": "corpus/project/content-models/extension-base-occurrence/a.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/extension-base-occurrence/empty.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "abb",
+          "file": "corpus/project/content-models/extension-base-occurrence/abb.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/sequence-unbounded.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/ab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/b.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/aab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/aaab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/ba.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/a.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/abb.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/extension-base-occurrence/sequence-whole-group",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/extension-base-occurrence/sequence-whole-group.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#Complex_Type_Definition_details",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-extend",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle"
+        ],
+        "description": "The base sequence (a,c) repeats one or two times as a whole before required b. Split repetitions, partial groups, overrun, omission, and reordered suffix are invalid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/extension-base-occurrence/sequence-whole-group.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "acb",
+          "file": "corpus/project/content-models/extension-base-occurrence/acb.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "acacb",
+          "file": "corpus/project/content-models/extension-base-occurrence/acacb.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "aaccb",
+          "file": "corpus/project/content-models/extension-base-occurrence/aaccb.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "acacacb",
+          "file": "corpus/project/content-models/extension-base-occurrence/acacacb.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "b",
+          "file": "corpus/project/content-models/extension-base-occurrence/b.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "ab",
+          "file": "corpus/project/content-models/extension-base-occurrence/ab.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "ac",
+          "file": "corpus/project/content-models/extension-base-occurrence/ac.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "bac",
+          "file": "corpus/project/content-models/extension-base-occurrence/bac.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/sequence-whole-group.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/acb.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/acacb.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/aaccb.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/acacacb.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/b.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/ab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/ac.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/bac.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/extension-base-occurrence/group-sequence-bounded",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/extension-base-occurrence/group-sequence-bounded.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#Complex_Type_Definition_details",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-extend",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle"
+        ],
+        "description": "A named-group reference carries the inherited sequence occurrence 1..2. Extension preserves complete (a,c) group repetitions and the required b suffix."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/extension-base-occurrence/group-sequence-bounded.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "acb",
+          "file": "corpus/project/content-models/extension-base-occurrence/acb.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "acacb",
+          "file": "corpus/project/content-models/extension-base-occurrence/acacb.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "aaccb",
+          "file": "corpus/project/content-models/extension-base-occurrence/aaccb.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "acacacb",
+          "file": "corpus/project/content-models/extension-base-occurrence/acacacb.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "b",
+          "file": "corpus/project/content-models/extension-base-occurrence/b.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "ab",
+          "file": "corpus/project/content-models/extension-base-occurrence/ab.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "ac",
+          "file": "corpus/project/content-models/extension-base-occurrence/ac.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "bac",
+          "file": "corpus/project/content-models/extension-base-occurrence/bac.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/group-sequence-bounded.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/acb.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/acacb.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/aaccb.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/acacacb.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/b.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/ab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/ac.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/bac.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/extension-base-occurrence/group-choice-optional",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/extension-base-occurrence/group-choice-optional.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#Complex_Type_Definition_details",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-extend",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle"
+        ],
+        "description": "A named-group reference makes inherited choice (a|c) optional. Either branch or omission is valid before b; two branches exceed the base maximum."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/extension-base-occurrence/group-choice-optional.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "ab",
+          "file": "corpus/project/content-models/extension-base-occurrence/ab.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "cb",
+          "file": "corpus/project/content-models/extension-base-occurrence/cb.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "b",
+          "file": "corpus/project/content-models/extension-base-occurrence/b.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "aab",
+          "file": "corpus/project/content-models/extension-base-occurrence/aab.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "acb",
+          "file": "corpus/project/content-models/extension-base-occurrence/acb.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "ba",
+          "file": "corpus/project/content-models/extension-base-occurrence/ba.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "a",
+          "file": "corpus/project/content-models/extension-base-occurrence/a.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/extension-base-occurrence/empty.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/group-choice-optional.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/ab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/cb.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/b.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/aab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/acb.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/ba.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/a.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/empty.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/extension-base-occurrence/both-groups-bounded",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/extension-base-occurrence/both-groups-bounded.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#Complex_Type_Definition_details",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-extend",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle"
+        ],
+        "description": "Both inherited (a,c) and added (b,d) groups repeat independently within 1..2; all base repetitions must finish before the added group starts."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/extension-base-occurrence/both-groups-bounded.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "acbd",
+          "file": "corpus/project/content-models/extension-base-occurrence/acbd.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "acacbdbd",
+          "file": "corpus/project/content-models/extension-base-occurrence/acacbdbd.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "acbdbd",
+          "file": "corpus/project/content-models/extension-base-occurrence/acbdbd.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "acacbd",
+          "file": "corpus/project/content-models/extension-base-occurrence/acacbd.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "aaccbd",
+          "file": "corpus/project/content-models/extension-base-occurrence/aaccbd.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "acbbdd",
+          "file": "corpus/project/content-models/extension-base-occurrence/acbbdd.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "bdac",
+          "file": "corpus/project/content-models/extension-base-occurrence/bdac.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "acbdacbd",
+          "file": "corpus/project/content-models/extension-base-occurrence/acbdacbd.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "acacacbd",
+          "file": "corpus/project/content-models/extension-base-occurrence/acacacbd.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "acbdbdbd",
+          "file": "corpus/project/content-models/extension-base-occurrence/acbdbdbd.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "bd",
+          "file": "corpus/project/content-models/extension-base-occurrence/bd.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "ac",
+          "file": "corpus/project/content-models/extension-base-occurrence/ac.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/both-groups-bounded.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/acbd.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/acacbdbd.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/acbdbd.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/acacbd.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/aaccbd.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/acbbdd.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/bdac.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/acbdacbd.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/acacacbd.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/acbdbdbd.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/bd.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/ac.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/extension-base-occurrence/mixed-sequence-bounded",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/extension-base-occurrence/mixed-sequence-bounded.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#Complex_Type_Definition_details",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-extend",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle"
+        ],
+        "description": "Both base and derived content are mixed. Interstitial text does not alter the 1..2 whole-group repetition of inherited (a,c) or remove required suffix b."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/extension-base-occurrence/mixed-sequence-bounded.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "mixed-acb",
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-acb.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "mixed-acacb",
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-acacb.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "mixed-aaccb",
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-aaccb.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "mixed-acacacb",
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-acacacb.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "mixed-b",
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-b.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "mixed-ac",
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-ac.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "mixed-bac",
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-bac.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-sequence-bounded.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-acb.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-acacb.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-aaccb.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-acacacb.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-b.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-ac.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-bac.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/extension-base-occurrence/mixed-choice-unbounded",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/extension-base-occurrence/mixed-choice-unbounded.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#Complex_Type_Definition_details",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-extend",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle"
+        ],
+        "description": "Mixed extension preserves every repetition of optional unbounded inherited choice (a|c) before b. Text and base omission are valid; a base element after b or missing b is invalid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/extension-base-occurrence/mixed-choice-unbounded.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "mixed-ab",
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-ab.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "mixed-b",
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-b.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "mixed-acacb",
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-acacb.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "mixed-ba",
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-ba.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "mixed-ac",
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-ac.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "mixed-text",
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-text.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "mixed-abb",
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-abb.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-choice-unbounded.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-ab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-b.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-acacb.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-ba.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-ac.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-text.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/mixed-abb.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/extension-base-occurrence/imported-multilevel",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/extension-base-occurrence/imported-multilevel.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#Complex_Type_Definition_details",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-extend",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import"
+        ],
+        "description": "An imported base a{1,2} is extended by required b and then required c. Both derivation steps preserve base cardinality and the ordered required suffixes; the import resolves only the explicit local dependency."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/extension-base-occurrence/imported-multilevel.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "abc",
+          "file": "corpus/project/content-models/extension-base-occurrence/abc.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "aabc",
+          "file": "corpus/project/content-models/extension-base-occurrence/aabc.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "bc",
+          "file": "corpus/project/content-models/extension-base-occurrence/bc.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "ac",
+          "file": "corpus/project/content-models/extension-base-occurrence/ac.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "ab",
+          "file": "corpus/project/content-models/extension-base-occurrence/ab.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "bac",
+          "file": "corpus/project/content-models/extension-base-occurrence/bac.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "aaabc",
+          "file": "corpus/project/content-models/extension-base-occurrence/aaabc.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "acb",
+          "file": "corpus/project/content-models/extension-base-occurrence/acb.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/imported-multilevel.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/imported-base.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/abc.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/aabc.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/bc.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/ac.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/ab.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/bac.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/aaabc.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/extension-base-occurrence/acb.xml",
+          "role": "instance"
+        }
+      ]
+    },
     {
       "id": "project/content-models/type-derivation/simple-base-mixed-extension-true",
       "expectedSource": "project",
