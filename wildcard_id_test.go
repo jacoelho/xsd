@@ -34,6 +34,22 @@ func TestWildcardIDUsesEffectiveDeclaredTypes(t *testing.T) {
 			rootType: `<xs:attribute name="a" type="xs:ID"/><xs:anyAttribute processContents="lax"/>`,
 		},
 		{
+			name: "declared ID before other uses", wildType: "xs:ID", attribute: `b="B"`, wantError: true,
+			rootType: `<xs:attribute name="a" type="xs:ID"/><xs:attribute name="x" type="xs:string"/><xs:attribute name="z" type="xs:string"/><xs:anyAttribute processContents="strict"/>`,
+		},
+		{
+			name: "declared ID between other uses", wildType: "xs:ID", attribute: `b="B"`, wantError: true,
+			rootType: `<xs:attribute name="x" type="xs:string"/><xs:attribute name="a" type="xs:ID"/><xs:attribute name="z" type="xs:string"/><xs:anyAttribute processContents="strict"/>`,
+		},
+		{
+			name: "declared ID after other uses", wildType: "xs:ID", attribute: `b="B"`, wantError: true,
+			rootType: `<xs:attribute name="x" type="xs:string"/><xs:attribute name="z" type="xs:string"/><xs:attribute name="a" type="xs:ID"/><xs:anyAttribute processContents="strict"/>`,
+		},
+		{
+			name: "multiple non-ID declared uses", wildType: "xs:ID", attribute: `b="B"`,
+			rootType: `<xs:attribute name="a" type="xs:string"/><xs:attribute name="x" type="xs:string"/><xs:attribute name="z" type="xs:string"/><xs:anyAttribute processContents="strict"/>`,
+		},
+		{
 			name: "derived declared ID", wildType: "xs:ID", attribute: `b="B"`, wantError: true,
 			rootType: `<xs:attribute name="a" type="DerivedID"/><xs:anyAttribute processContents="strict"/>`,
 		},

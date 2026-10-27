@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16482,
-    "schemaCases": 16432,
-    "instanceRuns": 34979,
+    "cases": 16483,
+    "schemaCases": 16433,
+    "instanceRuns": 34984,
     "w3cCases": 14414,
-    "internalRuns": 2055,
+    "internalRuns": 2056,
     "xercesJCases": 13
   },
   "cases": [
@@ -865669,6 +865669,104 @@
         },
         {
           "file": "corpus/project/attributes/wildcard-id-control-unresolved-lax/control.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/wildcard-id-use-order",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+        ],
+        "description": "A known wildcard ID attribute conflicts with any effective ID use, regardless of its position among other optional uses. All declared uses are absent in the rejecting instances, isolating clause 5.2 from the count of physically present ID attributes. Non-ID uses and a declared ID without a wildcard attribute supply valid controls.",
+        "sourceFile": "tests/corpus/project/attributes/wildcard-id-use-order/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/wildcard-id-use-order/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "id-first",
+          "file": "corpus/project/attributes/wildcard-id-use-order/id-first.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute",
+          "oracle": {
+            "libxml2": {
+              "expected": "valid",
+              "reason": "libxml2 2.9.13 accepts the known wildcard ID attribute despite an absent declared ID use. XSD 1.0 cvc-complex-type clause 5.2 forbids an ID-derived use anywhere in the effective use set, independent of declaration order or physical presence. Xerces-J 2.12.2 and .NET 10.0.9 reject all three positions; all three processors accept the no-ID-use and declared-only controls.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+            }
+          }
+        },
+        {
+          "testName": "id-middle",
+          "file": "corpus/project/attributes/wildcard-id-use-order/id-middle.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute",
+          "oracle": {
+            "libxml2": {
+              "expected": "valid",
+              "reason": "libxml2 2.9.13 accepts the known wildcard ID attribute despite an absent declared ID use. XSD 1.0 cvc-complex-type clause 5.2 forbids an ID-derived use anywhere in the effective use set, independent of declaration order or physical presence. Xerces-J 2.12.2 and .NET 10.0.9 reject all three positions; all three processors accept the no-ID-use and declared-only controls.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+            }
+          }
+        },
+        {
+          "testName": "id-last",
+          "file": "corpus/project/attributes/wildcard-id-use-order/id-last.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute",
+          "oracle": {
+            "libxml2": {
+              "expected": "valid",
+              "reason": "libxml2 2.9.13 accepts the known wildcard ID attribute despite an absent declared ID use. XSD 1.0 cvc-complex-type clause 5.2 forbids an ID-derived use anywhere in the effective use set, independent of declaration order or physical presence. Xerces-J 2.12.2 and .NET 10.0.9 reject all three positions; all three processors accept the no-ID-use and declared-only controls.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+            }
+          }
+        },
+        {
+          "testName": "no-id-use",
+          "file": "corpus/project/attributes/wildcard-id-use-order/no-id-use.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "declared-only",
+          "file": "corpus/project/attributes/wildcard-id-use-order/declared-only.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/attributes/wildcard-id-use-order/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-id-use-order/id-first.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-id-use-order/id-middle.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-id-use-order/id-last.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-id-use-order/no-id-use.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/wildcard-id-use-order/declared-only.xml",
           "role": "instance"
         }
       ]
