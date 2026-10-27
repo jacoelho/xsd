@@ -399,6 +399,9 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   compilation and publication. Distinct particles with the same element name
   require the same named global type, established by declaration scope and the
   exact global binding; generated internal names do not name anonymous types.
+  It includes effective transitive substitution members for each element
+  particle. Blocked and abstract members are excluded from consistency, but
+  every raw membership scan still consumes content-model work.
   The checker borrows canonical models during exclusive build access without
   cloning their particle slices. One repeated particle is not two declaration
   particles. Unavailable simple

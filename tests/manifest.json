@@ -9,14 +9,429 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16413,
-    "schemaCases": 16363,
-    "instanceRuns": 34631,
+    "cases": 16420,
+    "schemaCases": 16370,
+    "instanceRuns": 34649,
     "w3cCases": 14414,
-    "internalRuns": 1986,
+    "internalRuns": 1993,
     "xercesJCases": 13
   },
   "cases": [
+    {
+      "id": "project/content-models/implicit-substitution-consistency/same-type",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/implicit-substitution-consistency/same-type.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-class",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
+        ],
+        "description": "An implicit substitution member and a following same-QName local declaration use the same named type; exact-one sequence positions remain deterministic."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/implicit-substitution-consistency/same-type.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "head-then-member",
+          "file": "corpus/project/content-models/implicit-substitution-consistency/head-then-member.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "member-twice",
+          "file": "corpus/project/content-models/implicit-substitution-consistency/member-twice.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "missing-tail",
+          "file": "corpus/project/content-models/implicit-substitution-consistency/missing-tail.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "reversed",
+          "file": "corpus/project/content-models/implicit-substitution-consistency/reversed.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/implicit-substitution-consistency/same-type.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/implicit-substitution-consistency/head-then-member.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/implicit-substitution-consistency/member-twice.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/implicit-substitution-consistency/missing-tail.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/implicit-substitution-consistency/reversed.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/implicit-substitution-consistency/conflicting-type",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/implicit-substitution-consistency/conflicting-type.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-class",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
+        ],
+        "description": "The implicit member has type string but the following qualified local member has type int; EDC rejects the deterministic sequence before instance assessment."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/implicit-substitution-consistency/conflicting-type.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "dotnet": {
+            "reason": "Observed with .NET System.Xml 10.0.9. The provider compiles a deterministic model whose implicit actual substitution member and explicit same-expanded-name local declaration have different named types. cos-element-consistent includes implicit substitution members, including transitive membership; the project expectation is schema rejection independent of UPA.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent",
+            "expected": "valid"
+          },
+          "libxml2": {
+            "reason": "Observed with libxml2 2.9.13. The provider compiles a deterministic model whose implicit actual substitution member and explicit same-expanded-name local declaration have different named types. cos-element-consistent includes implicit substitution members, including transitive membership; the project expectation is schema rejection independent of UPA.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent",
+            "expected": "valid"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/implicit-substitution-consistency/conflicting-type.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/implicit-substitution-consistency/transitive-same-type",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/implicit-substitution-consistency/transitive-same-type.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-class",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
+        ],
+        "description": "Transitive implicit substitution members obey EDC across a named model group."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/implicit-substitution-consistency/transitive-same-type.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "head-then-member",
+          "file": "corpus/project/content-models/implicit-substitution-consistency/head-then-member.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "member-twice",
+          "file": "corpus/project/content-models/implicit-substitution-consistency/member-twice.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "missing-tail",
+          "file": "corpus/project/content-models/implicit-substitution-consistency/missing-tail.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "reversed",
+          "file": "corpus/project/content-models/implicit-substitution-consistency/reversed.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "middle-then-member",
+          "file": "corpus/project/content-models/implicit-substitution-consistency/middle-then-member.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/implicit-substitution-consistency/transitive-same-type.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/implicit-substitution-consistency/head-then-member.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/implicit-substitution-consistency/member-twice.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/implicit-substitution-consistency/missing-tail.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/implicit-substitution-consistency/reversed.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/implicit-substitution-consistency/middle-then-member.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/implicit-substitution-consistency/transitive-conflicting-type",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/implicit-substitution-consistency/transitive-conflicting-type.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-class",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
+        ],
+        "description": "EDC sees a transitive implicit member even when the matching local declaration is nested in a named group."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/implicit-substitution-consistency/transitive-conflicting-type.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "dotnet": {
+            "reason": "Observed with .NET System.Xml 10.0.9. The provider compiles a deterministic model whose implicit actual substitution member and explicit same-expanded-name local declaration have different named types. cos-element-consistent includes implicit substitution members, including transitive membership; the project expectation is schema rejection independent of UPA.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent",
+            "expected": "valid"
+          },
+          "libxml2": {
+            "reason": "Observed with libxml2 2.9.13. The provider compiles a deterministic model whose implicit actual substitution member and explicit same-expanded-name local declaration have different named types. cos-element-consistent includes implicit substitution members, including transitive membership; the project expectation is schema rejection independent of UPA.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent",
+            "expected": "valid"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/implicit-substitution-consistency/transitive-conflicting-type.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/implicit-substitution-consistency/different-namespace",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/implicit-substitution-consistency/different-namespace.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-class",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
+        ],
+        "description": "Same local names in distinct namespaces do not collide under EDC; the local int declaration remains independently assessed."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/implicit-substitution-consistency/different-namespace.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "unqualified-local",
+          "file": "corpus/project/content-models/implicit-substitution-consistency/unqualified-local.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "qualified-local",
+          "file": "corpus/project/content-models/implicit-substitution-consistency/qualified-local.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "unqualified-local-bad-value",
+          "file": "corpus/project/content-models/implicit-substitution-consistency/unqualified-local-bad-value.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/implicit-substitution-consistency/different-namespace.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/implicit-substitution-consistency/unqualified-local.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/implicit-substitution-consistency/qualified-local.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/implicit-substitution-consistency/unqualified-local-bad-value.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/implicit-substitution-consistency/blocked-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/implicit-substitution-consistency/blocked-member.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-class",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
+        ],
+        "description": "EDC expands only the actual substitution group: blocked or abstract raw members are excluded; explicit local declarations remain assessed."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/implicit-substitution-consistency/blocked-member.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "head-then-integer",
+          "file": "corpus/project/content-models/implicit-substitution-consistency/head-then-integer.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "excluded-first",
+          "file": "corpus/project/content-models/implicit-substitution-consistency/excluded-first.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "bad-local-integer",
+          "file": "corpus/project/content-models/implicit-substitution-consistency/bad-local-integer.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/implicit-substitution-consistency/blocked-member.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/implicit-substitution-consistency/head-then-integer.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/implicit-substitution-consistency/excluded-first.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/implicit-substitution-consistency/bad-local-integer.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/implicit-substitution-consistency/abstract-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/implicit-substitution-consistency/abstract-member.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-class",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
+        ],
+        "description": "EDC expands only the actual substitution group: blocked or abstract raw members are excluded; explicit local declarations remain assessed."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/implicit-substitution-consistency/abstract-member.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "reason": "Observed with Apache Xerces-J 2.12.2 on OpenJDK 26.0.1. Xerces reports cos-element-consistent for the abstract raw substitution member versus the local int declaration. cos-equiv-class defines the actual substitution group by excluding abstract members; cos-element-consistent expands that actual group. The declared element remains excluded from substitution, so the project expects this schema to compile.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-class",
+            "expected": "invalid"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "head-then-integer",
+          "file": "corpus/project/content-models/implicit-substitution-consistency/head-then-integer.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "excluded-first",
+          "file": "corpus/project/content-models/implicit-substitution-consistency/excluded-first.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "bad-local-integer",
+          "file": "corpus/project/content-models/implicit-substitution-consistency/bad-local-integer.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/implicit-substitution-consistency/abstract-member.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/implicit-substitution-consistency/head-then-integer.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/implicit-substitution-consistency/excluded-first.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/implicit-substitution-consistency/bad-local-integer.xml",
+          "role": "instance"
+        }
+      ]
+    },
     {
       "id": "project/content-models/extension-base-occurrence/choice-unit",
       "expectedSource": "project",

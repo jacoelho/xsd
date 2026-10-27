@@ -1,0 +1,8 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:edc" targetNamespace="urn:edc" elementFormDefault="qualified">
+  <xs:element name="head" type="xs:string"/>
+  <xs:element name="member" type="xs:string" substitutionGroup="t:head" abstract="true"/>
+  <xs:group name="Tail"><xs:sequence><xs:element name="member" type="xs:int"/></xs:sequence></xs:group>
+  <xs:element name="root"><xs:complexType><xs:sequence>
+    <xs:element ref="t:head"/><xs:group ref="t:Tail"/>
+  </xs:sequence></xs:complexType></xs:element>
+</xs:schema>
