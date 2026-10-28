@@ -2,6 +2,7 @@ package value_test
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -10,9 +11,19 @@ import (
 )
 
 func TestEnumerationDiagnostic(t *testing.T) {
+	tokenType, _ := value.BuiltinTypeID("token")
+	// descending declares v<n-1> twice, then down to v0.
+	descending := func(n int) []string {
+		literals := []string{fmt.Sprintf("v%d", n-1)}
+		for i := n - 1; i >= 0; i-- {
+			literals = append(literals, fmt.Sprintf("v%d", i))
+		}
+		return literals
+	}
 	for _, test := range []struct {
 		name      string
 		primitive value.PrimitiveKind
+		token     bool
 		literals  []string
 		input     string
 		want      string
@@ -30,13 +41,19 @@ func TestEnumerationDiagnostic(t *testing.T) {
 		{name: "long literal", literals: []string{strings.Repeat("z", 129)}, input: "bad", want: `value "bad" is not one of ["` + strings.Repeat("z", 128) + `"...]`},
 		{name: "eight alternatives", literals: []string{"a", "b", "c", "d", "e", "f", "g", "h"}, input: "bad", want: `value "bad" is not one of ["a", "b", "c", "d", "e", "f", "g", "h"]`},
 		{name: "nine alternatives", literals: []string{"a", "b", "c", "d", "e", "f", "g", "h", "i"}, input: "bad", want: `value "bad" is not one of ["a", "b", "c", "d", "e", "f", "g", "h", ...]`},
+		{name: "declaration order 32", literals: descending(32), input: "bad", want: `value "bad" is not one of ["v31", "v31", "v30", "v29", "v28", "v27", "v26", "v25", ...]`},
+		{name: "declaration order 1024", literals: descending(1024), input: "bad", want: `value "bad" is not one of ["v1023", "v1023", "v1022", "v1021", "v1020", "v1019", "v1018", "v1017", ...]`},
+		{name: "token declaration order 32", token: true, literals: descending(32), input: "bad", want: `value "bad" is not one of ["v31", "v31", "v30", "v29", "v28", "v27", "v26", "v25", ...]`},
+		{name: "token declaration order 1024", token: true, literals: descending(1024), input: "bad", want: `value "bad" is not one of ["v1023", "v1023", "v1022", "v1021", "v1020", "v1019", "v1018", "v1017", ...]`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			resolver := value.Resolver{QName: func(lexical string) (value.ExpandedName, bool) {
 				return value.ExpandedName{Namespace: "urn:test", Local: strings.TrimPrefix(lexical, "p:")}, true
 			}}
 			spec := atomicFacetType(test.primitive, value.FacetSpec{})
-			if test.primitive == value.PrimitiveString {
+			if test.token {
+				spec.Base, spec.WhitespacePresent = tokenType, false
+			} else if test.primitive == value.PrimitiveString {
 				spec.Whitespace = value.WhitespacePreserve
 			}
 			if test.list {

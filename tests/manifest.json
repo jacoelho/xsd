@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16520,
-    "schemaCases": 16470,
-    "instanceRuns": 35074,
+    "cases": 16524,
+    "schemaCases": 16474,
+    "instanceRuns": 35112,
     "w3cCases": 14414,
-    "internalRuns": 2093,
+    "internalRuns": 2097,
     "xercesJCases": 13
   },
   "cases": [
@@ -870424,6 +870424,492 @@
         },
         {
           "file": "corpus/project/content-models/substitution-intermediate-type-block-whole-chain/member-type-own-block.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/enumeration/large-group-whitespace-and-case",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-enumeration",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-whiteSpace"
+        ],
+        "description": "Enumerations of 8 literals of xs:string, xs:token, xs:normalizedString and xs:anyURI match after the base type's whiteSpace normalization of both literal and instance, and are case- and prefix-exact; a 7-literal token group is the small-group control.",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/datatypes/enumeration/large-group-whitespace-and-case/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "str-member",
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/str-member.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "str-internal-spaces-member",
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/str-internal-spaces-member.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "str-collapsed-spaces",
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/str-collapsed-spaces.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "str-leading-space",
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/str-leading-space.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "str-trailing-space",
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/str-trailing-space.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "str-case",
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/str-case.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "str-prefix",
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/str-prefix.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "token-member",
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/token-member.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "token-padded-member",
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/token-padded-member.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "token-collapsed-literal",
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/token-collapsed-literal.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "token-collapsed-instance",
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/token-collapsed-instance.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "token-nonmember",
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/token-nonmember.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "token-padded-nonmember",
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/token-padded-nonmember.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "token7-padded-member",
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/token7-padded-member.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "token7-eighth-literal",
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/token7-eighth-literal.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "normalized-member",
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/normalized-member.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "normalized-tab-replaced",
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/normalized-tab-replaced.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "normalized-leading-space",
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/normalized-leading-space.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "normalized-doubled-space",
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/normalized-doubled-space.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "uri-member",
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/uri-member.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "uri-padded-member",
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/uri-padded-member.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "uri-case",
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/uri-case.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "uri-nonmember",
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/uri-nonmember.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/str-member.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/str-internal-spaces-member.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/str-collapsed-spaces.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/str-leading-space.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/str-trailing-space.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/str-case.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/str-prefix.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/token-member.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/token-padded-member.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/token-collapsed-literal.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/token-collapsed-instance.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/token-nonmember.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/token-padded-nonmember.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/token7-padded-member.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/token7-eighth-literal.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/normalized-member.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/normalized-tab-replaced.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/normalized-leading-space.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/normalized-doubled-space.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/uri-member.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/uri-padded-member.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/uri-case.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-whitespace-and-case/uri-nonmember.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/enumeration/large-group-derivation-chain",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-enumeration",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#enumeration-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-whiteSpace"
+        ],
+        "description": "A token restriction chain of 10, 8 and 3 literals, one written with padding: an instance must be in the narrowest enumeration of the chain after whitespace collapse.",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/datatypes/enumeration/large-group-derivation-chain/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/enumeration/large-group-derivation-chain/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "mid-member",
+          "file": "corpus/project/datatypes/enumeration/large-group-derivation-chain/mid-member.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "mid-collapsed-member",
+          "file": "corpus/project/datatypes/enumeration/large-group-derivation-chain/mid-collapsed-member.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "leaf-member",
+          "file": "corpus/project/datatypes/enumeration/large-group-derivation-chain/leaf-member.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "leaf-collapsed-member",
+          "file": "corpus/project/datatypes/enumeration/large-group-derivation-chain/leaf-collapsed-member.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "mid-in-base-only",
+          "file": "corpus/project/datatypes/enumeration/large-group-derivation-chain/mid-in-base-only.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "mid-outside-base",
+          "file": "corpus/project/datatypes/enumeration/large-group-derivation-chain/mid-outside-base.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "leaf-in-mid-only",
+          "file": "corpus/project/datatypes/enumeration/large-group-derivation-chain/leaf-in-mid-only.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "leaf-in-base-only",
+          "file": "corpus/project/datatypes/enumeration/large-group-derivation-chain/leaf-in-base-only.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-derivation-chain/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-derivation-chain/mid-member.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-derivation-chain/mid-collapsed-member.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-derivation-chain/leaf-member.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-derivation-chain/leaf-collapsed-member.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-derivation-chain/mid-in-base-only.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-derivation-chain/mid-outside-base.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-derivation-chain/leaf-in-mid-only.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-derivation-chain/leaf-in-base-only.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/enumeration/large-group-loosens-base",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#enumeration-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-enumeration"
+        ],
+        "description": "A restriction of an 8-literal token enumeration cannot add a literal outside the base type's value space.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/datatypes/enumeration/large-group-loosens-base/schema.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/enumeration/large-group-loosens-base/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-loosens-base/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/enumeration/large-group-union-members",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-enumeration",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#union-datatypes"
+        ],
+        "description": "Enumerations of 8 literals over unions match by member value: string-family members by normalized text, xs:decimal by value.",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/datatypes/enumeration/large-group-union-members/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/enumeration/large-group-union-members/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "strings-ncname-member",
+          "file": "corpus/project/datatypes/enumeration/large-group-union-members/strings-ncname-member.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "strings-token-member-padded",
+          "file": "corpus/project/datatypes/enumeration/large-group-union-members/strings-token-member-padded.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "mixed-string-member",
+          "file": "corpus/project/datatypes/enumeration/large-group-union-members/mixed-string-member.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "mixed-decimal-equal-other-lexical",
+          "file": "corpus/project/datatypes/enumeration/large-group-union-members/mixed-decimal-equal-other-lexical.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "strings-nonmember",
+          "file": "corpus/project/datatypes/enumeration/large-group-union-members/strings-nonmember.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "mixed-decimal-nonmember",
+          "file": "corpus/project/datatypes/enumeration/large-group-union-members/mixed-decimal-nonmember.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        },
+        {
+          "testName": "mixed-string-nonmember",
+          "file": "corpus/project/datatypes/enumeration/large-group-union-members/mixed-string-nonmember.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-union-members/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-union-members/strings-ncname-member.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-union-members/strings-token-member-padded.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-union-members/mixed-string-member.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-union-members/mixed-decimal-equal-other-lexical.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-union-members/strings-nonmember.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-union-members/mixed-decimal-nonmember.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/enumeration/large-group-union-members/mixed-string-nonmember.xml",
           "role": "instance"
         }
       ]

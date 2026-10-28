@@ -568,13 +568,14 @@ func rawFacetlessAtomicPlan(t *typeDef) rawEvaluationKind {
 	return rawPlanNone
 }
 
-func stringEnumerationBytesSupported(groups [][]parsedValue) bool {
-	for _, group := range groups {
-		if len(group) == 0 {
+func stringEnumerationBytesSupported(groups []enumerationGroup) bool {
+	for i := range groups {
+		literals := groups[i].literals
+		if len(literals) == 0 {
 			return false
 		}
-		for i := range group {
-			literal := &group[i]
+		for j := range literals {
+			literal := &literals[j]
 			if !stringEnumerationLiteralSupported(literal) {
 				return false
 			}
@@ -591,26 +592,12 @@ func stringEnumerationLiteralSupported(literal *parsedValue) bool {
 }
 
 func validateStringEnumBytes(f *facetProgram, lexical []byte) error {
-	for _, group := range f.enumGroups {
-		if !stringEnumGroupMatches(group, lexical) {
+	for i := range f.enumGroups {
+		if !f.enumGroups[i].matchesBytes(lexical) {
 			return errEnumerationFacet
 		}
 	}
 	return nil
-}
-
-func stringEnumGroupMatches(group []parsedValue, lexical []byte) bool {
-	for i := range group {
-		literal := &group[i]
-		canonical := literal.atom.lexical.Canonical
-		if canonical == "" && literal.canonical != "" {
-			canonical = literal.canonical
-		}
-		if string(lexical) == canonical {
-			return true
-		}
-	}
-	return false
 }
 
 //nolint:gocognit // One scanner keeps item discovery, work and depth admission, and lexical validation in evaluation order.
@@ -1490,15 +1477,8 @@ func applyEnumerationFacets(f *facetProgram, value *parsedValue) error {
 	if f.enumBase64 {
 		prepareBase64EnumerationValue(value)
 	}
-	for _, group := range f.enumGroups {
-		matched := false
-		for i := range group {
-			if equalParsed(value, &group[i]) {
-				matched = true
-				break
-			}
-		}
-		if !matched {
+	for i := range f.enumGroups {
+		if !f.enumGroups[i].matches(value) {
 			return errEnumerationFacet
 		}
 	}

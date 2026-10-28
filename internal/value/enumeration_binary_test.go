@@ -286,7 +286,7 @@ func TestBase64EnumerationPreparationOwnsDocumentValue(t *testing.T) {
 		lexical: lexicalValue{Canonical: "YQ==", canonicalReady: true},
 	}}
 	facets := facetProgram{
-		enumGroups: [][]parsedValue{{literal}},
+		enumGroups: []enumerationGroup{newEnumerationGroup([]parsedValue{literal})},
 		enumBase64: true,
 	}
 	if err := applyEnumerationFacets(&facets, &value); err != nil {
@@ -414,7 +414,7 @@ func TestBase64EnumerationPreparesSelectedNestedUnionListLeaves(t *testing.T) {
 	if !ok || !typ.facets.enumBase64 {
 		t.Fatalf("outer enum base64 marker = (%v, %t), want present", ok, ok && typ.facets.enumBase64)
 	}
-	literal := &typ.facets.enumGroups[0][0]
+	literal := &typ.facets.enumGroups[0].literals[0]
 	if !literal.isList || len(literal.items) != 2 {
 		t.Fatalf("literal shape = (list=%t, items=%d), want two-item list", literal.isList, len(literal.items))
 	}
@@ -513,10 +513,10 @@ func TestInheritedBase64EnumerationKeepsLiteralsImmutable(t *testing.T) {
 	}
 	literals := make([]string, 0, 2)
 	for groupIndex, group := range typ.facets.enumGroups {
-		if len(group) != 1 || !group[0].atom.lexical.canonicalReady {
-			t.Fatalf("group %d literal = %#v, want one ready base64 literal", groupIndex, group)
+		if len(group.literals) != 1 || !group.literals[0].atom.lexical.canonicalReady {
+			t.Fatalf("group %d literal = %#v, want one ready base64 literal", groupIndex, group.literals)
 		}
-		literals = append(literals, group[0].atom.lexical.Canonical)
+		literals = append(literals, group.literals[0].atom.lexical.Canonical)
 	}
 	for _, input := range []string{"YQ==", " Y\n Q == "} {
 		got, err := program.Validate(derivedID, input, Resolver{}, NeedCanonical, 16<<20, nil)
@@ -528,8 +528,8 @@ func TestInheritedBase64EnumerationKeepsLiteralsImmutable(t *testing.T) {
 		}
 	}
 	for groupIndex, group := range typ.facets.enumGroups {
-		if group[0].atom.lexical.Canonical != literals[groupIndex] || !group[0].atom.lexical.canonicalReady {
-			t.Fatalf("schema literal group %d changed: %#v", groupIndex, group[0])
+		if group.literals[0].atom.lexical.Canonical != literals[groupIndex] || !group.literals[0].atom.lexical.canonicalReady {
+			t.Fatalf("schema literal group %d changed: %#v", groupIndex, group.literals[0])
 		}
 	}
 }

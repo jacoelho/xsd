@@ -216,24 +216,18 @@ func validateEnumerationRestriction(derived, base facetProgram) error {
 	if len(derived.enumGroups) == 0 || len(base.enumGroups) == 0 {
 		return nil
 	}
-	for _, literal := range derived.enumGroups[0] {
-		if !enumerationInGroups(literal, base.enumGroups) {
+	literals := derived.enumGroups[0].literals
+	for i := range literals {
+		if !enumerationInGroups(&literals[i], base.enumGroups) {
 			return errEnumerationLoosensBase
 		}
 	}
 	return nil
 }
 
-func enumerationInGroups(literal parsedValue, groups [][]parsedValue) bool {
-	for _, group := range groups {
-		matched := false
-		for _, candidate := range group {
-			if equalParsed(&literal, &candidate) {
-				matched = true
-				break
-			}
-		}
-		if !matched {
+func enumerationInGroups(literal *parsedValue, groups []enumerationGroup) bool {
+	for i := range groups {
+		if !groups[i].matches(literal) {
 			return false
 		}
 	}

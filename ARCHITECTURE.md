@@ -721,7 +721,13 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   evaluation returns that spelling explicitly to its caller, without mutable
   output pointers in options or enlarging each retained list item. A failed
   union pattern does not try a later member. Union enumeration compares the
-  selected member's value. Compiled enumeration groups retain their maximum
+  selected member's value. An enumeration group of at least eight literals,
+  each a non-list value of one string-family primitive (string types after
+  whitespace normalization, or anyURI), also maps each literal's canonical text
+  to its first declaration position. Those primitives compare by canonical text,
+  so a lookup leaves at most one candidate and equality still decides; other
+  groups scan in declaration order. Diagnostics read the declared literals, and
+  work charging is unchanged. Compiled enumeration groups retain their maximum
   list-literal item count. Evaluation propagates the maximum applicable count
   through nested unions and combines it with each list's own groups. An input
   with N items retains all items only when N is within that bound K; otherwise

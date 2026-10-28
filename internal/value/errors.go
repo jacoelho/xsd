@@ -299,25 +299,21 @@ func facetDiagnostic[T byteText](t *typeDef, lexical T, parsed *parsedValue, cau
 	return ""
 }
 
-func failedEnumerationDiagnostic[T byteText](groups [][]parsedValue, lexical T, parsed *parsedValue) string {
-	for _, group := range groups {
+func failedEnumerationDiagnostic[T byteText](groups []enumerationGroup, lexical T, parsed *parsedValue) string {
+	for i := range groups {
+		group := &groups[i]
 		if !diagnosticEnumerationMatches(group, lexical, parsed) {
-			return enumerationDiagnostic(lexical, group)
+			return enumerationDiagnostic(lexical, group.literals)
 		}
 	}
 	return ""
 }
 
-func diagnosticEnumerationMatches[T byteText](group []parsedValue, lexical T, parsed *parsedValue) bool {
+func diagnosticEnumerationMatches[T byteText](group *enumerationGroup, lexical T, parsed *parsedValue) bool {
 	if parsed == nil {
-		return stringEnumGroupMatches(group, []byte(lexical))
+		return group.matchesBytes([]byte(lexical))
 	}
-	for i := range group {
-		if equalParsed(parsed, &group[i]) {
-			return true
-		}
-	}
-	return false
+	return group.matches(parsed)
 }
 
 func digitDiagnostic[T byteText](f *facetProgram, lexical T, parsed *parsedValue) string {
@@ -488,7 +484,7 @@ func appendDiagnosticBounds(rules []string, builtin BuiltinKind, prefix string, 
 	return rules, false
 }
 
-func diagnosticEnumerationGroups(groups [][]parsedValue) string {
+func diagnosticEnumerationGroups(groups []enumerationGroup) string {
 	var text strings.Builder
 	remaining := diagnostictext.MaxAlternatives
 	for i, group := range groups {
@@ -499,7 +495,7 @@ func diagnosticEnumerationGroups(groups [][]parsedValue) string {
 		if i != 0 {
 			text.WriteString(" and ")
 		}
-		remaining = appendDiagnosticEnumerationGroup(&text, group, remaining)
+		remaining = appendDiagnosticEnumerationGroup(&text, group.literals, remaining)
 	}
 	return text.String()
 }

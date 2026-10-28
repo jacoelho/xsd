@@ -1,0 +1,66 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Str8">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="alpha"/>
+      <xs:enumeration value="beta"/>
+      <xs:enumeration value="gamma"/>
+      <xs:enumeration value="delta"/>
+      <xs:enumeration value="epsilon"/>
+      <xs:enumeration value="zeta"/>
+      <xs:enumeration value="eta"/>
+      <xs:enumeration value="two  words"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Token8">
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="alpha"/>
+      <xs:enumeration value="beta"/>
+      <xs:enumeration value="gamma"/>
+      <xs:enumeration value="delta"/>
+      <xs:enumeration value="epsilon"/>
+      <xs:enumeration value="zeta"/>
+      <xs:enumeration value="eta"/>
+      <xs:enumeration value="  two   words "/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Token7">
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="alpha"/>
+      <xs:enumeration value="beta"/>
+      <xs:enumeration value="gamma"/>
+      <xs:enumeration value="delta"/>
+      <xs:enumeration value="epsilon"/>
+      <xs:enumeration value="zeta"/>
+      <xs:enumeration value="  two   words "/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Normalized8">
+    <xs:restriction base="xs:normalizedString">
+      <xs:enumeration value="alpha"/>
+      <xs:enumeration value="beta"/>
+      <xs:enumeration value="gamma"/>
+      <xs:enumeration value="delta"/>
+      <xs:enumeration value="epsilon"/>
+      <xs:enumeration value="zeta"/>
+      <xs:enumeration value="eta"/>
+      <xs:enumeration value="two words"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Uri8">
+    <xs:restriction base="xs:anyURI">
+      <xs:enumeration value="http://example.org/a"/>
+      <xs:enumeration value="http://example.org/b"/>
+      <xs:enumeration value="http://example.org/c"/>
+      <xs:enumeration value="http://example.org/d"/>
+      <xs:enumeration value="urn:x:e"/>
+      <xs:enumeration value="urn:x:f"/>
+      <xs:enumeration value="relative/g"/>
+      <xs:enumeration value="http://example.org/h"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="str" type="Str8"/>
+  <xs:element name="token" type="Token8"/>
+  <xs:element name="token7" type="Token7"/>
+  <xs:element name="normalized" type="Normalized8"/>
+  <xs:element name="uri" type="Uri8"/>
+</xs:schema>

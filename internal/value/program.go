@@ -496,7 +496,7 @@ type typeDef struct {
 type facetProgram struct {
 	lower          []boundValue
 	patterns       [][]*Pattern
-	enumGroups     [][]parsedValue
+	enumGroups     []enumerationGroup
 	upper          []boundValue
 	raw            rawEvaluationPlan
 	minLength      CardinalityFacet
@@ -749,7 +749,7 @@ func (p *Program) compileEnumeration(id TypeID, source FacetSpec, own *facetProg
 		}
 		own.enumBase64 = own.enumBase64 || parsedValueContainsBase64(&v)
 	}
-	own.enumGroups = append(own.enumGroups, group)
+	own.enumGroups = append(own.enumGroups, newEnumerationGroup(group))
 	return nil
 }
 
@@ -767,7 +767,7 @@ func mergeFacetPrograms(base, own facetProgram) facetProgram {
 	out.fixed |= own.fixed
 	out.lower = append(append([]boundValue(nil), base.lower...), own.lower...)
 	out.upper = append(append([]boundValue(nil), base.upper...), own.upper...)
-	out.enumGroups = append(append([][]parsedValue(nil), base.enumGroups...), own.enumGroups...)
+	out.enumGroups = append(append([]enumerationGroup(nil), base.enumGroups...), own.enumGroups...)
 	out.enumItemLimit = max(base.enumItemLimit, own.enumItemLimit)
 	out.enumBase64 = base.enumBase64 || own.enumBase64
 	out.patterns = append(clonePatterns(base.patterns), own.patterns...)
