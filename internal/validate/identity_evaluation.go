@@ -246,13 +246,64 @@ func (e *identityEvaluation) advanceIdentitySelectors(ctx StartContext) error {
 	}
 	hits = e.appendIdentitySelectorHits(hits, e.dispatch.index.SelectorNamespace(namespace), depth)
 	hits = e.appendIdentitySelectorHits(hits, e.dispatch.index.SelectorAny(), depth)
-	hits = e.appendIdentitySelectorHits(hits, e.dispatch.index.SelfSelectors(), depth)
+	hits, err := e.appendSelfSelectorHits(hits, depth)
+	if err != nil {
+		e.dispatch.selectorHits = hits[:0]
+		return err
+	}
 	if err := e.startSelectorHits(hits, depth, ctx); err != nil {
 		e.dispatch.selectorHits = hits[:0]
 		return err
 	}
 	e.dispatch.selectorHits = hits[:0]
 	return nil
+}
+
+// appendSelfSelectorHits adds a hit for each constraint whose selector union
+// has a bare "." branch. That branch matches only at its scope's depth, so
+// only scopes opened at this element are visited; the schema dispatch index
+// carries no self branches. Scopes are stacked by non-decreasing depth, so the
+// scan stops at the first shallower scope. A deeper scope remains only after a
+// failed close, which ends identity evaluation; it is skipped.
+func (e *identityEvaluation) appendSelfSelectorHits(hits []identitySelectorHit, depth int) ([]identitySelectorHit, error) {
+	for index := len(e.scopes) - 1; index >= 0 && e.scopes[index].depth >= depth; index-- {
+		if e.scopes[index].depth != depth {
+			continue
+		}
+		var err error
+		if hits, err = e.appendScopeSelfSelectorHits(hits, index); err != nil {
+			return hits, err
+		}
+	}
+	return hits, nil
+}
+
+func (e *identityEvaluation) appendScopeSelfSelectorHits(hits []identitySelectorHit, scope int) ([]identitySelectorHit, error) {
+	constraints := e.scopes[scope].constraints
+	for order := range constraints.Len() {
+		id, ok := constraints.At(order)
+		if !ok {
+			return hits, xsderrors.InternalInvariant("identity scope metadata is invalid")
+		}
+		program, ok := e.dispatch.index.Program(id)
+		if !ok {
+			return hits, internalIdentityMetadataError("identity constraint metadata is invalid")
+		}
+		if identitySelectorUnionSelectsSelf(program) {
+			hits = append(hits, identitySelectorHit{scope: scope, order: order, constraint: id})
+		}
+	}
+	return hits, nil
+}
+
+func identitySelectorUnionSelectsSelf(program identityConstraintProgram) bool {
+	paths := program.Selectors()
+	for index := range paths.Len() {
+		if path, ok := paths.At(index); ok && path.Self() {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *identityEvaluation) startSelectorHits(hits []identitySelectorHit, depth int, ctx StartContext) error {

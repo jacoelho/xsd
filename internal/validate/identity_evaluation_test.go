@@ -377,8 +377,15 @@ type startedIdentityEvaluationFixture struct {
 
 func startedIdentityEvaluationForTest(t *testing.T) startedIdentityEvaluationFixture {
 	t.Helper()
+	return startedIdentityEvaluationWithSelectorForTest(t, ".")
+}
 
-	fixture := compiledIdentityRuntimeForTest(t)
+// startedIdentityEvaluationWithSelectorForTest starts the root element of
+// compiledIdentityRuntimeWithSelectorForTest(t, selector).
+func startedIdentityEvaluationWithSelectorForTest(t *testing.T, selector string) startedIdentityEvaluationFixture {
+	t.Helper()
+
+	fixture := compiledIdentityRuntimeWithSelectorForTest(t, selector)
 	evaluation := newIdentityEvaluation(fixture.rt, identityLimits{}, 0)
 	if err := evaluation.startElement(identityElementStart{
 		Context: identityTestContext("/root", 1, 1),

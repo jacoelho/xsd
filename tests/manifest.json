@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16524,
-    "schemaCases": 16474,
-    "instanceRuns": 35112,
+    "cases": 16529,
+    "schemaCases": 16479,
+    "instanceRuns": 35130,
     "w3cCases": 14414,
-    "internalRuns": 2097,
+    "internalRuns": 2102,
     "xercesJCases": 13
   },
   "cases": [
@@ -870910,6 +870910,373 @@
         },
         {
           "file": "corpus/project/datatypes/enumeration/large-group-union-members/mixed-string-nonmember.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/identity/selector-self-descendant-scopes",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-selector-xpath",
+          "https://www.w3.org/TR/1999/REC-xpath-19991116/#path-abbrev"
+        ],
+        "description": "Selector .//. selects the scope element and every descendant, so the scope's own attribute competes with descendants at every depth.",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/identity/selector-self-descendant-scopes/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/selector-self-descendant-scopes/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "distinct",
+          "file": "corpus/project/identity/selector-self-descendant-scopes/distinct.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "no-ids",
+          "file": "corpus/project/identity/selector-self-descendant-scopes/no-ids.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "scope-equals-child",
+          "file": "corpus/project/identity/selector-self-descendant-scopes/scope-equals-child.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Xerces-J 2.12.2 (Java 27.0.1): instance accepted. Opposing controls on the same schema show its .//. selector selects no node: a key with selector .//. accepts a missing field on the scope element and on a child, while a key with selector . rejects it. XPath 1.0 abbreviated syntax defines // as /descendant-or-self::node()/ and . as self::node(), so .//. selects the scope element and every descendant; .NET 10.0.14 agrees. Explicit text decides, so the processor tie-break does not apply.",
+              "specRef": "https://www.w3.org/TR/1999/REC-xpath-19991116/#path-abbrev"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13: instance accepted. Opposing controls show its .//. selector selects the descendants but not the scope element: a key with selector .//. rejects a missing field on a child and accepts one on the scope element. XPath 1.0 abbreviated syntax defines // as /descendant-or-self::node()/ and . as self::node(), so .//. also selects the scope element; .NET 10.0.14 agrees.",
+              "specRef": "https://www.w3.org/TR/1999/REC-xpath-19991116/#path-abbrev"
+            }
+          }
+        },
+        {
+          "testName": "scope-equals-grandchild",
+          "file": "corpus/project/identity/selector-self-descendant-scopes/scope-equals-grandchild.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Xerces-J 2.12.2 (Java 27.0.1): instance accepted. Opposing controls on the same schema show its .//. selector selects no node: a key with selector .//. accepts a missing field on the scope element and on a child, while a key with selector . rejects it. XPath 1.0 abbreviated syntax defines // as /descendant-or-self::node()/ and . as self::node(), so .//. selects the scope element and every descendant; .NET 10.0.14 agrees. Explicit text decides, so the processor tie-break does not apply.",
+              "specRef": "https://www.w3.org/TR/1999/REC-xpath-19991116/#path-abbrev"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13: instance accepted. Opposing controls show its .//. selector selects the descendants but not the scope element: a key with selector .//. rejects a missing field on a child and accepts one on the scope element. XPath 1.0 abbreviated syntax defines // as /descendant-or-self::node()/ and . as self::node(), so .//. also selects the scope element; .NET 10.0.14 agrees.",
+              "specRef": "https://www.w3.org/TR/1999/REC-xpath-19991116/#path-abbrev"
+            }
+          }
+        },
+        {
+          "testName": "child-equals-grandchild",
+          "file": "corpus/project/identity/selector-self-descendant-scopes/child-equals-grandchild.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Xerces-J 2.12.2 (Java 27.0.1): instance accepted. Opposing controls on the same schema show its .//. selector selects no node: a key with selector .//. accepts a missing field on the scope element and on a child, while a key with selector . rejects it. XPath 1.0 abbreviated syntax defines // as /descendant-or-self::node()/ and . as self::node(), so .//. selects the scope element and every descendant; .NET 10.0.14 agrees. Explicit text decides, so the processor tie-break does not apply.",
+              "specRef": "https://www.w3.org/TR/1999/REC-xpath-19991116/#path-abbrev"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/selector-self-descendant-scopes/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/selector-self-descendant-scopes/distinct.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/selector-self-descendant-scopes/no-ids.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/selector-self-descendant-scopes/scope-equals-child.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/selector-self-descendant-scopes/scope-equals-grandchild.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/selector-self-descendant-scopes/child-equals-grandchild.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/identity/selector-self-union-sibling-scopes",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-selector-xpath"
+        ],
+        "description": "A unique on a repeating local element with selector .|c: each s element owns its table, so values repeat across siblings but the scope's own attribute collides with its child's.",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/identity/selector-self-union-sibling-scopes/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/selector-self-union-sibling-scopes/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "siblings-reuse-values",
+          "file": "corpus/project/identity/selector-self-union-sibling-scopes/siblings-reuse-values.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "self-equals-child",
+          "file": "corpus/project/identity/selector-self-union-sibling-scopes/self-equals-child.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        },
+        {
+          "testName": "later-sibling-self-equals-child",
+          "file": "corpus/project/identity/selector-self-union-sibling-scopes/later-sibling-self-equals-child.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/selector-self-union-sibling-scopes/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/selector-self-union-sibling-scopes/siblings-reuse-values.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/selector-self-union-sibling-scopes/self-equals-child.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/selector-self-union-sibling-scopes/later-sibling-self-equals-child.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/identity/selector-self-key-recursive-scopes",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-selector-xpath"
+        ],
+        "description": "A key with selector . on a recursive element opens a scope at every depth; nested and sibling scopes each require the field and may reuse values.",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/identity/selector-self-key-recursive-scopes/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/selector-self-key-recursive-scopes/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "scopes-reuse-values",
+          "file": "corpus/project/identity/selector-self-key-recursive-scopes/scopes-reuse-values.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "sibling-scope-missing-id",
+          "file": "corpus/project/identity/selector-self-key-recursive-scopes/sibling-scope-missing-id.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        },
+        {
+          "testName": "middle-scope-missing-id",
+          "file": "corpus/project/identity/selector-self-key-recursive-scopes/middle-scope-missing-id.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        },
+        {
+          "testName": "outer-scope-missing-id",
+          "file": "corpus/project/identity/selector-self-key-recursive-scopes/outer-scope-missing-id.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/selector-self-key-recursive-scopes/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/selector-self-key-recursive-scopes/scopes-reuse-values.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/selector-self-key-recursive-scopes/sibling-scope-missing-id.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/selector-self-key-recursive-scopes/middle-scope-missing-id.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/selector-self-key-recursive-scopes/outer-scope-missing-id.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/identity/selector-self-descendant-union-single-selection",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-selector-xpath",
+          "https://www.w3.org/TR/1999/REC-xpath-19991116/#path-abbrev"
+        ],
+        "description": "A node selected by both branches of .|.//. is one node of the selector's node-set, so it contributes one key-sequence.",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/identity/selector-self-descendant-union-single-selection/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/selector-self-descendant-union-single-selection/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "single-node",
+          "file": "corpus/project/identity/selector-self-descendant-union-single-selection/single-node.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "distinct-child",
+          "file": "corpus/project/identity/selector-self-descendant-union-single-selection/distinct-child.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "child-equals-root",
+          "file": "corpus/project/identity/selector-self-descendant-union-single-selection/child-equals-root.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Xerces-J 2.12.2 (Java 27.0.1): instance accepted. Opposing controls on the same schema show its .//. selector selects no node: a key with selector .//. accepts a missing field on the scope element and on a child, while a key with selector . rejects it. XPath 1.0 abbreviated syntax defines // as /descendant-or-self::node()/ and . as self::node(), so .//. selects the scope element and every descendant; .NET 10.0.14 agrees. Explicit text decides, so the processor tie-break does not apply.",
+              "specRef": "https://www.w3.org/TR/1999/REC-xpath-19991116/#path-abbrev"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/selector-self-descendant-union-single-selection/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/selector-self-descendant-union-single-selection/single-node.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/selector-self-descendant-union-single-selection/distinct-child.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/selector-self-descendant-union-single-selection/child-equals-root.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/identity/selector-self-keyref-sibling-scopes",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint"
+        ],
+        "description": "A key and keyref with selector . on a repeating local element: each element instance owns its key table, so a keyref resolves only to its own element's key, never a sibling's.",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/identity/selector-self-keyref-sibling-scopes/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/selector-self-keyref-sibling-scopes/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "each-scope-resolves-own-key",
+          "file": "corpus/project/identity/selector-self-keyref-sibling-scopes/each-scope-resolves-own-key.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "reference-to-sibling-scope-key",
+          "file": "corpus/project/identity/selector-self-keyref-sibling-scopes/reference-to-sibling-scope-key.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        },
+        {
+          "testName": "reference-to-earlier-sibling-key",
+          "file": "corpus/project/identity/selector-self-keyref-sibling-scopes/reference-to-earlier-sibling-key.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/selector-self-keyref-sibling-scopes/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/selector-self-keyref-sibling-scopes/each-scope-resolves-own-key.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/selector-self-keyref-sibling-scopes/reference-to-sibling-scope-key.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/selector-self-keyref-sibling-scopes/reference-to-earlier-sibling-key.xml",
           "role": "instance"
         }
       ]

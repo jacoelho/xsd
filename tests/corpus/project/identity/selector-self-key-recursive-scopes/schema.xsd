@@ -1,0 +1,9 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="node">
+    <xs:complexType>
+      <xs:sequence><xs:element ref="node" minOccurs="0" maxOccurs="unbounded"/></xs:sequence>
+      <xs:attribute name="id" type="xs:string"/>
+    </xs:complexType>
+    <xs:key name="k"><xs:selector xpath="."/><xs:field xpath="@id"/></xs:key>
+  </xs:element>
+</xs:schema>

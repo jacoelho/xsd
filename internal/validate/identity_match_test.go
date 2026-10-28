@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"strings"
 	"testing"
 
 	xsdSchema "github.com/jacoelho/xsd/internal/schema"
@@ -122,17 +123,25 @@ type compiledIdentityFixture struct {
 
 func compiledIdentityRuntimeForTest(tb testing.TB) compiledIdentityFixture {
 	tb.Helper()
+	return compiledIdentityRuntimeWithSelectorForTest(tb, ".")
+}
 
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:a" targetNamespace="urn:a" elementFormDefault="qualified">
+// compiledIdentityRuntimeWithSelectorForTest compiles the shared root key with
+// selector in place of ".".
+func compiledIdentityRuntimeWithSelectorForTest(tb testing.TB, selector string) compiledIdentityFixture {
+	tb.Helper()
+
+	const schemaTemplate = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:a" targetNamespace="urn:a" elementFormDefault="qualified">
 	<xs:attribute name="id" type="xs:string"/>
   <xs:element name="root">
 	<xs:complexType mixed="true"><xs:attribute ref="t:id"/></xs:complexType>
 	<xs:key name="k">
-	  <xs:selector xpath="."/>
+	  <xs:selector xpath="SELECTOR"/>
 	  <xs:field xpath=". | @t:id | @t:*"/>
 	</xs:key>
   </xs:element>
 </xs:schema>`
+	schema := strings.Replace(schemaTemplate, "SELECTOR", selector, 1)
 	rt, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("identity.xsd", []byte(schema))})
 	if err != nil {
 		tb.Fatalf("Compile() error = %v", err)

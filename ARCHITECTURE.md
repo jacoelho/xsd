@@ -1065,7 +1065,10 @@ Validation flow:
 4. `internal/validate` reads immutable schema facts through methods on the
    sealed `*schema.Schema`, then applies validation policy to those facts.
    Identity evaluation reads immutable schema-owned selector/field programs and
-   their precomputed dispatch indexes. Element-field dispatch first filters by
+   their precomputed dispatch indexes. A self selector branch (`.`) matches only
+   at the element that opened its scope, so the dispatch index carries no self
+   branches; selector dispatch tests the constraints of scopes opened at the
+   current element instead. Element-field dispatch first filters by
    terminal name, then joins candidates to current selections by constraint ID.
    A single candidate or selection uses a direct scan; larger joins rebuild a
    scratch projection sorted by constraint ID, skipping sorting when the copied
@@ -1552,6 +1555,9 @@ separately after those groups, so benchmarks do not compete with other checks.
   unrelated constraints multiply lifecycle work. Closure callbacks and a second
   registration journal were rejected because the concrete evaluator can unwind its existing
   scope declarations directly.
+- A schema-wide list of self selector branches was rejected because every
+  element start then joined each self constraint against its active scopes,
+  although a self branch can only match where its scope opened.
 - Replacing terminal-filtered identity field dispatch with a scan of every
   active selection's field paths was rejected after unrelated field names
   regressed. A maintained selection index would add membership updates to

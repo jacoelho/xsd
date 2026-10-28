@@ -373,11 +373,10 @@ type identityFieldDispatchIndex struct {
 // derived while publishing a schema. Validation sessions retain only their
 // active scope membership and scratch slices.
 type IdentityDispatchRead struct {
-	programs      []IdentityConstraintProgramRead
-	selectors     identitySelectorDispatchIndex
-	selfSelectors []IdentitySelectorDispatchRead
-	elements      identityFieldDispatchIndex
-	elementSelf   []IdentityFieldDispatchRead
+	programs    []IdentityConstraintProgramRead
+	selectors   identitySelectorDispatchIndex
+	elements    identityFieldDispatchIndex
+	elementSelf []IdentityFieldDispatchRead
 }
 
 // ConstraintCount returns the number of published identity constraints.
@@ -404,11 +403,6 @@ func (d IdentityDispatchRead) SelectorNamespace(namespace string) IdentitySelect
 // SelectorAny returns selectors without a terminal name test.
 func (d IdentityDispatchRead) SelectorAny() IdentitySelectorDispatchReads {
 	return IdentitySelectorDispatchReads{values: d.selectors.any}
-}
-
-// SelfSelectors returns selectors matching the current node.
-func (d IdentityDispatchRead) SelfSelectors() IdentitySelectorDispatchReads {
-	return IdentitySelectorDispatchReads{values: d.selfSelectors}
 }
 
 // ElementExact returns element field candidates keyed by an interned name.
@@ -448,12 +442,17 @@ func addIdentityConstraintDispatch(d *IdentityDispatchRead, constraint IdentityC
 	addIdentityFieldDispatchBranches(d, constraint, program.elementFields, names)
 }
 
+// addIdentitySelectorDispatchBranches indexes selector branches by their
+// terminal step. A self branch matches only at its scope element, so it is
+// not indexed: validation reads it from the constraint program of a scope
+// opened at the current element.
 func addIdentitySelectorDispatchBranches(d *IdentityDispatchRead, constraint IdentityConstraintID, paths []IdentityPathProgramRead, names nameReadView) {
 	for _, path := range paths {
-		branch := IdentitySelectorDispatchRead{path: path, constraint: constraint}
 		if path.Self() {
-			d.selfSelectors = append(d.selfSelectors, branch)
-		} else if step, ok := path.FinalStep(); ok {
+			continue
+		}
+		branch := IdentitySelectorDispatchRead{path: path, constraint: constraint}
+		if step, ok := path.FinalStep(); ok {
 			addIdentitySelectorDispatch(&d.selectors, step, branch, names)
 		} else {
 			d.selectors.any = append(d.selectors.any, branch)

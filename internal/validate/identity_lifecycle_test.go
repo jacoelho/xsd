@@ -1,7 +1,9 @@
 package validate
 
 import (
+	"cmp"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -12,18 +14,34 @@ import (
 func TestIdentityScopeDispatchIndexUnregistersNestedReuseAndPartialAbort(t *testing.T) {
 	t.Parallel()
 
-	fixture := startedIdentityEvaluationForTest(t)
+	// ".//." is dispatched through activeByConstraint and matches the scope
+	// element and every descendant, so each registered scope on the path hits.
+	fixture := startedIdentityEvaluationWithSelectorForTest(t, ".//.")
 	evaluation := fixture.evaluation
 	constraint := evaluation.selections[0].constraint
 	constraints := evaluation.scopes[0].constraints
 	rootName := xsdSchema.RuntimeName{Known: true, Name: fixture.elemName}
-	hasScopeHit := func(hits []identitySelectorHit, scope int) bool {
-		for _, hit := range hits {
-			if hit.scope == scope && hit.constraint == constraint {
-				return true
-			}
+	// Hits are sorted by scope, not deduplicated, so a leaked registration
+	// shows as an extra hit. The raw append order is not contractual.
+	requireHits := func(step string, depth int, scopes ...int) {
+		t.Helper()
+		hits := evaluation.appendIdentitySelectorHits(nil, evaluation.dispatch.index.SelectorAny(), depth)
+		slices.SortFunc(hits, func(a, b identitySelectorHit) int { return cmp.Compare(a.scope, b.scope) })
+		want := make([]identitySelectorHit, 0, len(scopes))
+		for _, scope := range scopes {
+			want = append(want, identitySelectorHit{scope: scope, constraint: constraint})
 		}
-		return false
+		if !slices.Equal(hits, want) {
+			t.Fatalf("%s: selector hits = %+v, want %+v", step, hits, want)
+		}
+	}
+	// Dispatch skips entries for popped scope indexes, so a leaked entry is
+	// visible only in the registration count.
+	requireRegistrations := func(step string, want int) {
+		t.Helper()
+		if got := len(evaluation.dispatch.activeByConstraint[constraint]); got != want {
+			t.Fatalf("%s: registrations = %d, want %d", step, got, want)
+		}
 	}
 
 	evaluation.scopes = append(evaluation.scopes, identityScope{depth: 2, constraints: constraints})
@@ -31,18 +49,13 @@ func TestIdentityScopeDispatchIndexUnregistersNestedReuseAndPartialAbort(t *test
 		t.Fatalf("register nested scope: %v", err)
 	}
 	evaluation.path = []xsdSchema.RuntimeName{rootName, rootName}
-	hits := evaluation.appendIdentitySelectorHits(nil, evaluation.dispatch.index.SelfSelectors(), 2)
-	if !hasScopeHit(hits, 1) {
-		t.Fatalf("nested selector hits = %+v, want child scope", hits)
-	}
+	requireHits("nested register", 2, 0, 1)
 	if _, err := evaluation.closeScopes(2, nil); err != nil {
 		t.Fatalf("close nested scope: %v", err)
 	}
 	evaluation.path = evaluation.path[:1]
-	hits = evaluation.appendIdentitySelectorHits(nil, evaluation.dispatch.index.SelfSelectors(), 1)
-	if !hasScopeHit(hits, 0) {
-		t.Fatalf("selector hits after nested close = %+v, want parent scope", hits)
-	}
+	requireHits("after nested close", 1, 0)
+	requireRegistrations("after nested close", 1)
 
 	// The popped index is reused by the next nested scope; cleanup must remove
 	// only that new membership and leave the parent entry live.
@@ -51,18 +64,13 @@ func TestIdentityScopeDispatchIndexUnregistersNestedReuseAndPartialAbort(t *test
 		t.Fatalf("register reused nested scope: %v", err)
 	}
 	evaluation.path = []xsdSchema.RuntimeName{rootName, rootName}
-	hits = evaluation.appendIdentitySelectorHits(nil, evaluation.dispatch.index.SelfSelectors(), 2)
-	if !hasScopeHit(hits, 1) {
-		t.Fatalf("reused nested selector hits = %+v, want child scope", hits)
-	}
+	requireHits("reused nested register", 2, 0, 1)
 	if _, err := evaluation.closeScopes(2, nil); err != nil {
 		t.Fatalf("close reused nested scope: %v", err)
 	}
 	evaluation.path = evaluation.path[:1]
-	hits = evaluation.appendIdentitySelectorHits(nil, evaluation.dispatch.index.SelfSelectors(), 1)
-	if !hasScopeHit(hits, 0) {
-		t.Fatalf("selector hits after reused close = %+v, want parent scope", hits)
-	}
+	requireHits("after reused close", 1, 0)
+	requireRegistrations("after reused close", 1)
 
 	if err := evaluation.beginStart(); err != nil {
 		t.Fatalf("beginStart(partial scope): %v", err)
@@ -76,18 +84,13 @@ func TestIdentityScopeDispatchIndexUnregistersNestedReuseAndPartialAbort(t *test
 		t.Fatal("register partial scope succeeded, want metadata error")
 	}
 	evaluation.path = []xsdSchema.RuntimeName{rootName, rootName}
-	hits = evaluation.appendIdentitySelectorHits(nil, evaluation.dispatch.index.SelfSelectors(), 2)
-	if !hasScopeHit(hits, 1) {
-		t.Fatalf("partial-registration selector hits = %+v, want child scope", hits)
-	}
+	requireHits("partial registration", 2, 0, 1)
 	evaluation.abortStart()
 	if len(evaluation.scopes) != 1 {
 		t.Fatalf("scopes after partial abort = %d, want parent only", len(evaluation.scopes))
 	}
-	hits = evaluation.appendIdentitySelectorHits(nil, evaluation.dispatch.index.SelfSelectors(), 1)
-	if !hasScopeHit(hits, 0) {
-		t.Fatalf("selector hits after partial abort = %+v, want parent scope", hits)
-	}
+	requireHits("after partial abort", 1, 0)
+	requireRegistrations("after partial abort", 1)
 
 	// A failed keyref report leaves the scope registered and dispatchable. The
 	// next close, after recovery accepts the report, removes that scope.
@@ -129,10 +132,7 @@ func TestIdentityScopeDispatchIndexUnregistersNestedReuseAndPartialAbort(t *test
 	if len(refs) != 1 || refs[0].key != "conflict" || refs[0].path.String() != "/root/ref" || refs[0].line != 1 || refs[0].col != 1 {
 		t.Fatalf("failed close changed pending reference: %+v", refs)
 	}
-	hits = evaluation.appendIdentitySelectorHits(nil, evaluation.dispatch.index.SelfSelectors(), 2)
-	if !hasScopeHit(hits, 1) {
-		t.Fatalf("selector hits after failed close = %+v, want still-dispatchable child", hits)
-	}
+	requireHits("after failed close", 2, 0, 1)
 	entry, exists := evaluation.scopes[1].tables[constraint]["conflict"]
 	if !exists || !entry.conflict {
 		t.Fatal("failed close completed the still-open conflict")
@@ -151,10 +151,8 @@ func TestIdentityScopeDispatchIndexUnregistersNestedReuseAndPartialAbort(t *test
 	if reported != 1 || evaluation.entries != entriesBeforeClose {
 		t.Fatalf("completed close reports = %d, entries = %d; want 1 and %d", reported, evaluation.entries, entriesBeforeClose)
 	}
-	hits = evaluation.appendIdentitySelectorHits(nil, evaluation.dispatch.index.SelfSelectors(), 2)
-	if hasScopeHit(hits, 1) {
-		t.Fatalf("selector hits after successful close = %+v, want child removed", hits)
-	}
+	requireHits("after successful close", 2, 0)
+	requireRegistrations("after successful close", 1)
 	other := identityScope{depth: 2}
 	if err := evaluation.publishIdentityKey(nil, &other, identitySelection{constraint: constraint, node: 30, depth: 3}, "conflict", identityLimits{}, identityTestContext("/root/other/row", 1, 1)); err != nil {
 		t.Fatal(err)
