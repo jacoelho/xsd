@@ -3,6 +3,7 @@ package xmlstream
 import (
 	"encoding/xml"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -139,7 +140,18 @@ func BenchmarkParserNameVocabulary(b *testing.B) {
 }
 
 func BenchmarkParserCDATABufferBoundary(b *testing.B) {
-	text := `<root><![CDATA[` + strings.Repeat("x", xmlInputBufferSize) + `]]></root>`
+	text := `<root><![CDATA[` + strings.Repeat("x", 65536) + `]]></root>`
+	tokens, err := recordReader(strings.NewReader(text), Config{}, 0)
+	if err != nil {
+		b.Fatal(err)
+	}
+	var chunks []int
+	for _, tok := range cdataTokens(tokens) {
+		chunks = append(chunks, len(tok.data))
+	}
+	if !slices.Equal(chunks, cdataBoundaryChunks) {
+		b.Fatalf("CDATA chunks = %v, want %v", chunks, cdataBoundaryChunks)
+	}
 	benchmarkParserDocument(b, text, newParserBenchmarkOracle(4, 65_540, 0xfd95ace67cb7de45), Config{}, parserBenchmarkRawAttributes)
 }
 

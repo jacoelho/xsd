@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"math"
+	"slices"
 	"strings"
 	"testing"
 
@@ -166,5 +167,41 @@ func TestValidationRejectsTruncatedTrailingMarkup(t *testing.T) {
 			err := engine.Validate(strings.NewReader(`<r/>` + suffix))
 			expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationXML)
 		})
+	}
+}
+
+type requestRecordingReader struct {
+	src      io.Reader
+	requests []int
+}
+
+func (r *requestRecordingReader) Read(p []byte) (int, error) {
+	r.requests = append(r.requests, len(p))
+	return r.src.Read(p)
+}
+
+// Validation reads the caller's reader in non-empty requests of at most 65536
+// bytes, reached by a larger document, and never asks for more than
+// MaxInstanceBytes+1.
+func TestValidateReadRequestsAreBounded(t *testing.T) {
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(validationReaderTestSchema)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := "<r>" + strings.Repeat("a", 70000) + "</r>"
+	for _, limit := range []int64{0, int64(len(doc)), 100} {
+		recorder := &requestRecordingReader{src: strings.NewReader(doc)}
+		validationErr := engine.ValidateWithOptions(recorder, xsd.ValidateOptions{MaxInstanceBytes: limit})
+		if (limit == 100) != (validationErr != nil) {
+			t.Fatalf("MaxInstanceBytes=%d error = %v", limit, validationErr)
+		}
+		for i, n := range recorder.requests {
+			if n <= 0 || n > 65536 || (limit > 0 && int64(n) > limit+1) {
+				t.Fatalf("MaxInstanceBytes=%d request %d length = %d", limit, i, n)
+			}
+		}
+		if got := slices.Max(recorder.requests); limit != 100 && got != 65536 {
+			t.Fatalf("MaxInstanceBytes=%d largest request = %d, want 65536", limit, got)
+		}
 	}
 }

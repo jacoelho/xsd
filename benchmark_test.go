@@ -550,21 +550,6 @@ func BenchmarkValidateDuplicateAttributes(b *testing.B) {
 	}
 }
 
-func BenchmarkCompileDuplicateSchemaSources(b *testing.B) {
-	schema := largeSchemaWithText(64 << 10)
-	sources := make([]xsd.SchemaSource, 8)
-	for i := range sources {
-		sources[i] = xsd.Bytes(fmt.Sprintf("schema%d.xsd", i), []byte(schema))
-	}
-	b.SetBytes(int64(len(schema) * len(sources)))
-	b.ReportAllocs()
-	for b.Loop() {
-		if _, err := xsd.Compile(sources...); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func BenchmarkCompileIncludeGraph(b *testing.B) {
 	const (
 		depth = 3

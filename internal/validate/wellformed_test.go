@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 	"testing"
 
@@ -104,4 +105,36 @@ func TestCheckXMLWellFormedRejectsInputLimitJoinedWithEOF(t *testing.T) {
 	doc := `<r/>`
 	err := CheckXMLWellFormed(&wellFormedEOFReader{data: doc + "X"}, Options{MaxInstanceBytes: int64(len(doc))})
 	requireCode(t, err, xsderrors.CodeValidationLimit)
+}
+
+type wellFormedRequestRecorder struct {
+	src      io.Reader
+	requests []int
+}
+
+func (r *wellFormedRequestRecorder) Read(p []byte) (int, error) {
+	r.requests = append(r.requests, len(p))
+	return r.src.Read(p)
+}
+
+// The well-formedness check passes the caller's reader to the tokenizer, so
+// its read requests keep the tokenizer's bound: at most 65536 bytes, reached
+// by an input larger than that.
+func TestCheckXMLWellFormedReadRequestsAreBounded(t *testing.T) {
+	t.Parallel()
+
+	for _, doc := range []string{"<r/>", "<r>" + strings.Repeat("a", 70000) + "</r>"} {
+		recorder := &wellFormedRequestRecorder{src: strings.NewReader(doc)}
+		if err := CheckXMLWellFormed(recorder, Options{}); err != nil {
+			t.Fatalf("CheckXMLWellFormed(%d bytes) error = %v", len(doc), err)
+		}
+		for i, n := range recorder.requests {
+			if n <= 0 || n > 65536 {
+				t.Fatalf("%d-byte document request %d length = %d, want (0, 65536]", len(doc), i, n)
+			}
+		}
+		if got := slices.Max(recorder.requests); len(doc) > 65536 && got != 65536 {
+			t.Fatalf("%d-byte document largest request = %d, want 65536", len(doc), got)
+		}
+	}
 }

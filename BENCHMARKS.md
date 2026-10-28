@@ -75,3 +75,11 @@ when calls compete for the engine's single idle slot. Each session retains its
 own bounded scratch; bound the worker count and compare retained heap, throughput,
 and allocations under both steady traffic and overlapping bursts. The
 `BenchmarkSessionOwnership` benchmarks cover these workloads.
+
+## Benchmark smoke
+
+`make bench-smoke` runs every benchmark for exactly two iterations
+(`-benchtime=2x`); its timings are not meaningful. It proves that each benchmark's
+correctness oracle still holds and that reuse oracles see a second document.
+A benchmark must therefore be correct at any `b.N`, including one or two
+iterations split across workers.

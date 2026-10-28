@@ -102,3 +102,46 @@ func readDocument(document string) error {
 	}
 	return drainReader(&reader)
 }
+
+// A non-UTF-8 declaration is rejected wherever its end falls. Which call
+// reports it, and where, characterizes the 64 KiB Reset preview window: a
+// declaration ending within the preview fails Reset at 1:0; one ending beyond
+// it passes Reset and fails the first Next after the declaration. Change these
+// rows only when deliberately changing the preview cap.
+func TestXMLDeclarationPreviewBoundary(t *testing.T) {
+	t.Parallel()
+
+	const prefix = `<?xml version="1.0" encoding="ISO-8859-1"`
+	for _, bom := range []string{"", "\uFEFF"} {
+		for _, test := range []struct {
+			end     int
+			atReset bool
+			column  int
+		}{
+			{end: 4096, atReset: true},
+			{end: 4097, atReset: true},
+			{end: 49152, atReset: true},
+			{end: 49153, atReset: true},
+			{end: 65535, atReset: true},
+			{end: 65536, atReset: true},
+			{end: 65537, column: 65537},
+		} {
+			document := bom + prefix + strings.Repeat(" ", test.end-len(prefix)-len("?>")) + "?><r/>"
+			for _, rc := range []readerCase{wholeInput, oneByteInput, dataErrInput} {
+				var reader Reader
+				err := reader.Reset(rc.open(document), Config{})
+				if !test.atReset {
+					if err != nil {
+						t.Fatalf("bom=%t end=%d %s: Reset() error = %v, want nil", bom != "", test.end, rc.name, err)
+					}
+					_, err = reader.Next()
+				}
+				xerr, ok := errors.AsType[*Error](err)
+				if !ok || !errors.Is(err, ErrUnsupportedNonUTF8) || xerr.Kind != ErrorUnsupported || xerr.Line != 1 || xerr.Column != test.column {
+					t.Fatalf("bom=%t end=%d %s: error = %#v, want unsupported encoding at 1:%d", bom != "", test.end, rc.name, err, test.column)
+				}
+				reader.Detach()
+			}
+		}
+	}
+}

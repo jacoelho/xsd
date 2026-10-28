@@ -311,6 +311,9 @@ func (s *session) recover(err error) error {
 }
 
 func (s *session) recoverAssessment(err error) error {
+	if err == nil {
+		return nil
+	}
 	if assessmentFailure(err) {
 		if current, ok := s.doc.Current(); ok && current.Mode == elementAssessed {
 			current.AssessmentInvalid = true

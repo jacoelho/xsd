@@ -1420,8 +1420,10 @@ graph preserves these ownership rules:
 - The web target builds assets before starting the bounded loopback server.
 - The CLI target builds `cmd/xmllint` directly; the Go build cache, not copied
   source prerequisites, decides when internal changes require rebuilding.
-- The benchmark smoke target spans every owning package selected by its bounded
-  pattern; the exhaustive benchmark target remains separate.
+- The benchmark smoke target runs every benchmark in every package for two
+  iterations, so a benchmark oracle that fails, or that breaks on a reused
+  second document, fails CI; the timed exhaustive benchmark target remains
+  separate.
 
 `.github/workflows/test.yml` owns CI ordering. Native CI runs the test suite
 once with race detection; `make test` remains the local uninstrumented entry
@@ -1509,6 +1511,11 @@ separately after those groups, so benchmarks do not compete with other checks.
   with complete lexical QNames was rejected because independently cacheable
   prefix/local pairs can form whole names exceeding the length or entry limit,
   introducing repeated allocations.
+- Shrinking or replacing the eight-entry recent ring (newest-1, ring sizes
+  below 8, role-split slots) was rejected: a ring that inserts on a miss gets
+  no hits on cyclic vocabularies wider than itself, and the newest-1 probe made
+  `CacheRotatingVocabulary/2` 89% slower. Reopening needs a structure that keeps
+  hits on widths up to 8 while cutting miss cost.
 
 - Keeping source buffers for exact byte equality was rejected because it retains
   complete input streams. Reopening the earlier source cannot recover its exact
