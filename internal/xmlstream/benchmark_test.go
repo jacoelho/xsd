@@ -139,6 +139,65 @@ func BenchmarkParserNameVocabulary(b *testing.B) {
 	}
 }
 
+// BenchmarkParserEndTagNames parses non-self-closing elements, so every end
+// tag is checked against its start name. The recent-name ring holds prefix and
+// local spellings: soap (2 prefixes, 6 locals), plain, and unicode fit in it;
+// soap_wide (4 prefixes, 24 locals) exceeds it.
+func BenchmarkParserEndTagNames(b *testing.B) {
+	const elements = 4096
+	const text = "ACME"
+	soapNames := []xml.Name{
+		{Space: "soap", Local: "Header"}, {Space: "soap", Local: "Body"},
+		{Space: "ns1", Local: "getQuote"}, {Space: "ns1", Local: "symbol"},
+		{Space: "ns1", Local: "price"}, {Space: "ns1", Local: "currency"},
+	}
+	prefixes := []string{"soap", "ns1", "ns2", "wsa"}
+	for _, shape := range []string{"soap", "soap_wide", "plain", "unicode"} {
+		b.Run(shape, func(b *testing.B) {
+			spellings := make(map[string]struct{})
+			var doc strings.Builder
+			digest := parserBenchmarkDigest{hash: parserBenchmarkDigestOffset}
+			doc.WriteString("<r>")
+			digest.addToken(Token{Kind: KindStart, Start: StartElement{Name: xml.Name{Local: "r"}}}, nil, parserBenchmarkRawAttributes)
+			payload := 1
+			for i := range elements {
+				name := soapNames[i%len(soapNames)]
+				switch shape {
+				case "soap_wide":
+					name = xml.Name{Space: prefixes[i%24%len(prefixes)], Local: fmt.Sprintf("op%d", i%24)}
+				case "plain":
+					name.Space = ""
+				case "unicode":
+					name = xml.Name{Space: "ns1", Local: fmt.Sprintf("名前%d", i%7)}
+				}
+				spellings[name.Local] = struct{}{}
+				if name.Space != "" {
+					spellings[name.Space] = struct{}{}
+				}
+				qname := name.Local
+				if name.Space != "" {
+					qname = name.Space + ":" + name.Local
+				}
+				fmt.Fprintf(&doc, "<%s>%s</%s>", qname, text, qname)
+				digest.addToken(Token{Kind: KindStart, Start: StartElement{Name: name}}, nil, parserBenchmarkRawAttributes)
+				digest.addToken(Token{Kind: KindCharData, Data: []byte(text)}, nil, parserBenchmarkRawAttributes)
+				digest.addToken(Token{Kind: KindEnd, End: EndElement{Name: name}}, nil, parserBenchmarkRawAttributes)
+				payload += len(name.Space) + len(name.Local) + len(text)
+			}
+			doc.WriteString("</r>")
+			digest.addToken(Token{Kind: KindEnd, End: EndElement{Name: xml.Name{Local: "r"}}}, nil, parserBenchmarkRawAttributes)
+			document := doc.String()
+			if shape != "plain" && !strings.Contains(document, "</soap:") && !strings.Contains(document, "</ns1:") {
+				b.Fatalf("%s document has no prefixed end tag", shape)
+			}
+			if fits := len(spellings) <= recentCacheEntries; fits != (shape != "soap_wide") {
+				b.Fatalf("%s uses %d distinct spellings; the recent ring holds %d", shape, len(spellings), recentCacheEntries)
+			}
+			benchmarkParserDocument(b, document, newParserBenchmarkOracle(2+3*elements, payload, digest.hash), Config{}, parserBenchmarkRawAttributes)
+		})
+	}
+}
+
 func BenchmarkParserCDATABufferBoundary(b *testing.B) {
 	text := `<root><![CDATA[` + strings.Repeat("x", 65536) + `]]></root>`
 	tokens, err := recordReader(strings.NewReader(text), Config{}, 0)

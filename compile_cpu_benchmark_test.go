@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -45,6 +46,162 @@ func independentContentModelsSchema(count int) []byte {
 	}
 	schema.WriteString(`</xs:schema>`)
 	return []byte(schema.String())
+}
+
+// BenchmarkCompileReachableContentModels is the all-reachable counterpart of
+// BenchmarkCompileIndependentContentModels: every content model belongs to a
+// global element, so every compiled model is entered at validation.
+func BenchmarkCompileReachableContentModels(b *testing.B) {
+	for _, count := range []int{5_000, reachableContentModelsLarge} {
+		b.Run(fmt.Sprintf("models_%d", count), func(b *testing.B) {
+			schema := reachableContentModelsSchema(count)
+			requireReachableContentModels(b, schema, count)
+			b.SetBytes(int64(len(schema)))
+			b.ReportAllocs()
+			for b.Loop() {
+				if _, err := xsd.CompileWithOptions(contentModelsCompileOptions, xsd.Bytes("reachable-models.xsd", schema)); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+// BenchmarkCompileRetainedContentModels reports the heap a compiled engine
+// keeps live: the HeapAlloc delta across Compile, each side settled by two
+// collections. The median over iterations is reported as retained-B/op;
+// ns/op includes the collections and is not a compile timing.
+func BenchmarkCompileRetainedContentModels(b *testing.B) {
+	for _, test := range []struct {
+		name   string
+		schema []byte
+		// reachable is the count of generated models validation can enter.
+		// The independent models belong to named groups no element uses, so
+		// no instance observes them and only the compile-error check applies.
+		reachable int
+	}{
+		{name: "models_100000", schema: independentContentModelsSchema(100_000)},
+		{name: fmt.Sprintf("reachable_%d", reachableContentModelsLarge), schema: reachableContentModelsSchema(reachableContentModelsLarge), reachable: reachableContentModelsLarge},
+	} {
+		b.Run(test.name, func(b *testing.B) {
+			if test.reachable > 0 {
+				requireReachableContentModels(b, test.schema, test.reachable)
+			}
+			var retained []float64
+			var before, after runtime.MemStats
+			b.ReportAllocs()
+			for b.Loop() {
+				runtime.GC()
+				runtime.GC()
+				runtime.ReadMemStats(&before)
+				engine, err := xsd.CompileWithOptions(contentModelsCompileOptions, xsd.Bytes("retained-models.xsd", test.schema))
+				if err != nil {
+					b.Fatal(err)
+				}
+				runtime.GC()
+				runtime.GC()
+				runtime.ReadMemStats(&after)
+				runtime.KeepAlive(engine)
+				retained = append(retained, float64(after.HeapAlloc)-float64(before.HeapAlloc))
+			}
+			slices.Sort(retained)
+			b.ReportMetric(retained[len(retained)/2], "retained-B/op")
+		})
+	}
+}
+
+// reachableContentModelsLarge stays within contentModelsCompileOptions: an
+// entered model costs analysis steps, and 100_000 of them exceed the limit.
+const reachableContentModelsLarge = 20_000
+
+var contentModelsCompileOptions = xsd.CompileOptions{
+	MaxSchemaTokenBytes:          8 << 20,
+	MaxContentModelAnalysisSteps: 2_000_000,
+}
+
+func reachableContentModelsSchema(count int) []byte {
+	var schema strings.Builder
+	schema.Grow(count * 160)
+	schema.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`)
+	for i := range count {
+		fmt.Fprintf(&schema, `<xs:element name="e%d"><xs:complexType><xs:sequence><xs:element name="c" type="xs:string" minOccurs="0"/></xs:sequence></xs:complexType></xs:element>`, i)
+	}
+	schema.WriteString(`</xs:schema>`)
+	return []byte(schema.String())
+}
+
+// requireReachableContentModels proves the first and last generated content
+// models are entered: each admits its declared child and rejects another.
+func requireReachableContentModels(b *testing.B, schema []byte, count int) {
+	b.Helper()
+	engine, err := xsd.CompileWithOptions(contentModelsCompileOptions, xsd.Bytes("reachable-models.xsd", schema))
+	if err != nil {
+		b.Fatal(err)
+	}
+	for _, i := range []int{0, count - 1} {
+		if err := engine.Validate(strings.NewReader(fmt.Sprintf("<e%d><c>x</c></e%d>", i, i))); err != nil {
+			b.Fatalf("e%d with declared child: %v", i, err)
+		}
+		err := engine.Validate(strings.NewReader(fmt.Sprintf("<e%d><d/></e%d>", i, i)))
+		if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Category() != xsderrors.CategoryValidation {
+			b.Fatalf("e%d with undeclared child = %v, want a validation error", i, err)
+		}
+	}
+}
+
+// BenchmarkCompileNestedGroups compiles one content model built from nested
+// optional sequences, each holding one element and the next sequence.
+func BenchmarkCompileNestedGroups(b *testing.B) {
+	for _, depth := range []int{8, 64, 120, 180} {
+		b.Run(fmt.Sprintf("depth_%d", depth), func(b *testing.B) {
+			schema := nestedGroupsSchema(depth)
+			requireNestedGroups(b, schema, depth)
+			b.SetBytes(int64(len(schema)))
+			b.ReportAllocs()
+			for b.Loop() {
+				if _, err := xsd.Compile(xsd.Bytes("nested-groups.xsd", schema)); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+func nestedGroupsSchema(depth int) []byte {
+	var schema strings.Builder
+	schema.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="r"><xs:complexType>`)
+	for i := range depth {
+		fmt.Fprintf(&schema, `<xs:sequence minOccurs="0"><xs:element name="e%d"/>`, i)
+	}
+	for range depth {
+		schema.WriteString(`</xs:sequence>`)
+	}
+	schema.WriteString(`</xs:complexType></xs:element></xs:schema>`)
+	return []byte(schema.String())
+}
+
+// requireNestedGroups checks the nesting semantics: every prefix e0…ek is
+// valid, and an element cannot appear without its enclosing sequence's
+// element before it.
+func requireNestedGroups(b *testing.B, schema []byte, depth int) {
+	b.Helper()
+	engine, err := xsd.Compile(xsd.Bytes("nested-groups.xsd", schema))
+	if err != nil {
+		b.Fatal(err)
+	}
+	var full strings.Builder
+	for i := range depth {
+		fmt.Fprintf(&full, "<e%d/>", i)
+	}
+	for _, doc := range []string{"<r/>", "<r><e0/></r>", "<r>" + full.String() + "</r>"} {
+		if err = engine.Validate(strings.NewReader(doc)); err != nil {
+			b.Fatalf("depth %d: %.60s… = %v", depth, doc, err)
+		}
+	}
+	err = engine.Validate(strings.NewReader("<r><e1/></r>"))
+	if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Category() != xsderrors.CategoryValidation {
+		b.Fatalf("depth %d: e1 without e0 = %v, want a validation error", depth, err)
+	}
 }
 
 func canonicalPlanFixtures() []declarationIndexFixture {

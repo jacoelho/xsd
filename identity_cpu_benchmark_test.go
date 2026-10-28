@@ -78,6 +78,84 @@ func BenchmarkIdentityCPUSiblingScopes(b *testing.B) {
 	}
 }
 
+// BenchmarkIdentityCPUManySmallScopes covers instance-level scope churn: one
+// declared key/keyref pair whose scope element repeats, so every scope opens,
+// fills and resolves its own small table. Key values repeat across scopes, so
+// a table leaking into the next scope would report duplicates.
+func BenchmarkIdentityCPUManySmallScopes(b *testing.B) {
+	for _, scopes := range []int{1_000, 100_000} {
+		b.Run(fmt.Sprintf("scopes_%d", scopes), func(b *testing.B) {
+			engine, err := xsd.Compile(xsd.Bytes("many-scopes.xsd", []byte(identityCPUManyScopesSchema)))
+			if err != nil {
+				b.Fatal(err)
+			}
+			valid := identityCPUManyScopesDocument(scopes, "")
+			unresolved := identityCPUManyScopesDocument(scopes, "missing")
+			// Identity entries accumulate across sibling scopes; each scope
+			// stores one key and one keyref entry.
+			session, err := engine.NewSession(xsd.ValidateOptions{
+				MaxInstanceBytes:   int64(max(len(valid), len(unresolved))),
+				MaxIdentityEntries: 5 * scopes,
+			})
+			if err != nil {
+				b.Fatal(err)
+			}
+			requireIdentityCPUManyScopes(b, session, valid, unresolved)
+			reader := strings.NewReader(valid)
+			b.SetBytes(int64(len(valid)))
+			b.ReportAllocs()
+			for b.Loop() {
+				reader.Reset(valid)
+				if err := session.Validate(reader); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+// requireIdentityCPUManyScopes proves the measured session enforces the
+// keyref in every scope: one unresolved reference in the last scope yields
+// exactly one identity diagnostic positioned in that scope, and the session
+// stays reusable after it.
+func requireIdentityCPUManyScopes(b *testing.B, session *xsd.Session, valid, unresolved string) {
+	b.Helper()
+	if err := session.Validate(strings.NewReader(valid)); err != nil {
+		b.Fatalf("valid document: %v", err)
+	}
+	err := session.Validate(strings.NewReader(unresolved))
+	diagnostics := xsderrors.Flatten(err)
+	if len(diagnostics) != 1 {
+		b.Fatalf("unresolved last-scope keyref diagnostics = %d (%v), want 1", len(diagnostics), err)
+	}
+	lastScope := strings.LastIndex(unresolved, "<scope>")
+	if xerr, ok := errors.AsType[*xsderrors.Error](diagnostics[0]); !ok || xerr.Code() != xsderrors.CodeValidationIdentity || xerr.Line() != 1 || xerr.Column() <= lastScope {
+		b.Fatalf("unresolved last-scope keyref = %v, want %s inside the last scope (after column %d)", err, xsderrors.CodeValidationIdentity, lastScope)
+	}
+	if err := session.Validate(strings.NewReader(valid)); err != nil {
+		b.Fatalf("valid document after failure: %v", err)
+	}
+}
+
+const identityCPUManyScopesSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType><xs:sequence><xs:element name="scope" maxOccurs="unbounded"><xs:complexType><xs:sequence><xs:element name="def"><xs:complexType><xs:attribute name="id" type="xs:string"/></xs:complexType></xs:element><xs:element name="use"><xs:complexType><xs:attribute name="ref" type="xs:string"/></xs:complexType></xs:element></xs:sequence></xs:complexType><xs:key name="k"><xs:selector xpath="def"/><xs:field xpath="@id"/></xs:key><xs:keyref name="r" refer="k"><xs:selector xpath="use"/><xs:field xpath="@ref"/></xs:keyref></xs:element></xs:sequence></xs:complexType></xs:element></xs:schema>`
+
+// identityCPUManyScopesDocument writes scopes that each define and reference
+// one key. A non-empty lastRef replaces the last scope's reference.
+func identityCPUManyScopesDocument(scopes int, lastRef string) string {
+	var document strings.Builder
+	document.Grow(13 + scopes*48)
+	document.WriteString(`<root>`)
+	for i := range scopes {
+		ref := fmt.Sprintf("k%d", i%16)
+		if i == scopes-1 && lastRef != "" {
+			ref = lastRef
+		}
+		fmt.Fprintf(&document, `<scope><def id="k%d"/><use ref="%s"/></scope>`, i%16, ref)
+	}
+	document.WriteString(`</root>`)
+	return document.String()
+}
+
 func BenchmarkIdentityCPUNestedSameConstraint(b *testing.B) {
 	for _, depth := range []int{16, 64, 256} {
 		b.Run(fmt.Sprintf("depth_%d", depth), func(b *testing.B) {

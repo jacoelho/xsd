@@ -76,6 +76,34 @@ own bounded scratch; bound the worker count and compare retained heap, throughpu
 and allocations under both steady traffic and overlapping bursts. The
 `BenchmarkSessionOwnership` benchmarks cover these workloads.
 
+## Commit comparisons
+
+These in-process benchmarks exclude process startup and compilation, so two
+commits can be compared on the same harness:
+
+| Workload | Benchmark |
+| --- | --- |
+| 20 MiB streaming validation | `BenchmarkLargeStreamingValidation` (`tests`) |
+| 100,000-row identity validation | `BenchmarkLargeIdentityValidation` (`tests`) |
+| Peak in-document heap, identity | `BenchmarkLargeIdentityPeakHeap` (`tests`) |
+| Retained compiled engine | `BenchmarkCompileRetainedContentModels` (root) |
+
+The streaming and identity inputs are generated, then checked against a recorded
+length and SHA-256 before timing. A generator change fails the run instead of
+silently changing the workload. Each harness also proves before timing that the
+measured work happens. Defects planted in the last streaming row that exercises
+each schema construct are reported once, in that row, for whole and 1 KiB reads.
+Defects in the first and last identity references are reported in their rows.
+
+`BenchmarkLargeIdentityPeakHeap` reports `peak-HeapInuse-delta-B` and
+`peak-HeapInuse-B` from a 1 ms `HeapInuse` sampler with GC percent pinned to 100.
+`BenchmarkCompileRetainedContentModels` reports `retained-B/op`, the live-heap
+delta across `Compile` after two collections on each side. Each metric is the
+median over iterations. Both benchmarks call `runtime.ReadMemStats` or
+`runtime.GC` inside the loop, so their `ns/op` is not a timing. The sampler is a
+lower bound on the true peak; run it at `-benchtime=1x` with several `-count`
+samples and `-cpu` of at least 2, so the sampler is not starved by validation.
+
 ## Benchmark smoke
 
 `make bench-smoke` runs every benchmark for exactly two iterations

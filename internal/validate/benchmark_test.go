@@ -2,6 +2,7 @@ package validate
 
 import (
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 	"testing"
@@ -72,6 +73,51 @@ func BenchmarkCheckXMLWellFormedNested(b *testing.B) {
 			}
 		})
 	}
+}
+
+// BenchmarkCheckXMLWellFormedLarge checks a flat document larger than the
+// 64 KiB input window, so one-shot checks pay for every buffer refill.
+func BenchmarkCheckXMLWellFormedLarge(b *testing.B) {
+	xml := "<r>" + strings.Repeat("<a>x</a>", 256<<10/len("<a>x</a>")) + "</r>"
+	opts := Options{MaxInstanceBytes: int64(len(xml))}
+	for _, chunk := range []int{len(xml), 1 << 10} {
+		r := &chunkCountingReader{s: xml, chunk: chunk}
+		if err := CheckXMLWellFormed(r, opts); err != nil {
+			b.Fatalf("%d-byte reads: %v", chunk, err)
+		}
+		if r.off != len(xml) {
+			b.Fatalf("%d-byte reads consumed %d bytes, want %d", chunk, r.off, len(xml))
+		}
+	}
+	if err := CheckXMLWellFormed(strings.NewReader(xml[:len(xml)-1]), opts); err == nil {
+		b.Fatal("truncated document is well-formed")
+	}
+	b.Run("256KiB", func(b *testing.B) {
+		b.ReportAllocs()
+		b.SetBytes(int64(len(xml)))
+		for b.Loop() {
+			if err := CheckXMLWellFormed(strings.NewReader(xml), opts); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+}
+
+// chunkCountingReader serves at most chunk bytes per Read and records how
+// many bytes it served.
+type chunkCountingReader struct {
+	s     string
+	off   int
+	chunk int
+}
+
+func (r *chunkCountingReader) Read(p []byte) (int, error) {
+	if r.off == len(r.s) {
+		return 0, io.EOF
+	}
+	n := copy(p[:min(len(p), r.chunk)], r.s[r.off:])
+	r.off += n
+	return n, nil
 }
 
 func BenchmarkNestedIdentityTablePropagation(b *testing.B) {
