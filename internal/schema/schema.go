@@ -43,7 +43,6 @@ type schemaProgram struct {
 	TypeDerivations  typeDerivationRead
 	GlobalAttributes map[QName]AttributeID
 	Value            *value.Program
-	IdentityDispatch IdentityDispatchRead
 	Elements         elementReadTable
 	Substitutions    SubstitutionTable
 	Names            nameReadView
@@ -55,6 +54,7 @@ type schemaProgram struct {
 	Attributes            []AttributeDeclRead
 	Wildcards             []WildcardView
 	ComplexTypes          []complexTypeRead
+	IdentityDispatch      IdentityDispatchRead
 }
 
 type complexTypeRead struct {

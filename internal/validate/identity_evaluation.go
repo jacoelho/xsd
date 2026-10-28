@@ -86,9 +86,9 @@ type identityActiveScope struct {
 }
 
 type identityDispatchState struct {
-	index              xsdSchema.IdentityDispatchRead
 	activeByConstraint map[xsdSchema.IdentityConstraintID][]identityActiveScope
 	selectorHits       []identitySelectorHit
+	index              xsdSchema.IdentityDispatchRead
 }
 
 func newIdentityDispatchState(index xsdSchema.IdentityDispatchRead) identityDispatchState {
@@ -102,12 +102,12 @@ type identityEvaluation struct {
 	identityState
 
 	rt                 *xsdSchema.Schema
-	dispatch           identityDispatchState
 	targetKey          string
 	path               []xsdSchema.RuntimeName
 	elements           []identityElementState
 	attributeScratch   []identityFieldMatch
 	fieldDispatch      identityFieldDispatchScratch
+	dispatch           identityDispatchState
 	limits             identityLimits
 	maxScopes          int
 	generation         uint64
@@ -482,11 +482,15 @@ func (e *identityEvaluation) appendElementDispatchEntry(
 }
 
 func (e *identityEvaluation) dispatchAttributeFieldMatches(name xsdSchema.RuntimeName) ([]identityFieldMatch, error) {
-	if len(e.path) == 0 || e.elements[len(e.elements)-1].mode == elementWildcardSkipped {
+	if len(e.path) == 0 || len(e.selections) == 0 || e.elements[len(e.elements)-1].mode == elementWildcardSkipped {
 		return nil, nil
 	}
+	// Selections are ordered by depth, so the schema-wide base-depth window is
+	// one contiguous run; selections outside it cannot match any attribute field.
+	from, to := e.dispatch.index.AttributeFieldBaseDepths(len(e.path))
+	start, _ := e.selectionStartAtDepth(from)
 	matches := e.attributeScratch[:0]
-	for index := range e.selections {
+	for index := start; index < len(e.selections) && e.selections[index].depth < to; index++ {
 		sel := e.selections[index]
 		program, ok := e.dispatch.index.Program(sel.constraint)
 		if !ok {

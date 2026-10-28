@@ -1,0 +1,31 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="s" minOccurs="0" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="a" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="b" minOccurs="0" maxOccurs="unbounded">
+                      <xs:complexType>
+                        <xs:attribute name="p" type="xs:string"/>
+                        <xs:attribute name="q" type="xs:string"/>
+                        <xs:attribute name="r" type="xs:string"/>
+                      </xs:complexType>
+                    </xs:element>
+                  </xs:sequence>
+                  <xs:attribute name="p" type="xs:string"/>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="deepQ"><xs:selector xpath=".//s"/><xs:field xpath="a/b/@q"/></xs:unique>
+    <xs:unique name="ownR"><xs:selector xpath=".//b"/><xs:field xpath="@r"/></xs:unique>
+    <xs:unique name="ownP"><xs:selector xpath=".//a"/><xs:field xpath="@p"/></xs:unique>
+  </xs:element>
+</xs:schema>

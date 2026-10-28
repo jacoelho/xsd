@@ -108,6 +108,7 @@ func TestIdentityFieldDispatchCleansPartialAttributeFailure(t *testing.T) {
 	}
 	evaluation.selections = append(evaluation.selections, identitySelection{
 		constraint: xsdSchema.NoIdentityConstraint,
+		depth:      evaluation.selections[0].depth,
 		fieldStart: len(evaluation.fieldValues),
 		fieldLen:   1,
 	})

@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16529,
-    "schemaCases": 16479,
-    "instanceRuns": 35130,
+    "cases": 16532,
+    "schemaCases": 16482,
+    "instanceRuns": 35141,
     "w3cCases": 14414,
-    "internalRuns": 2102,
+    "internalRuns": 2105,
     "xercesJCases": 13
   },
   "cases": [
@@ -871277,6 +871277,205 @@
         },
         {
           "file": "corpus/project/identity/selector-self-keyref-sibling-scopes/reference-to-earlier-sibling-key.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/identity/attribute-field-mixed-step-counts",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-fields-xpaths"
+        ],
+        "description": "Attribute fields with 0, 1 and 3 steps in one schema: each constraint matches only its own attribute depth, and an equal b/@p never enters the a/@p constraint.",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/identity/attribute-field-mixed-step-counts/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/attribute-field-mixed-step-counts/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "distinct",
+          "file": "corpus/project/identity/attribute-field-mixed-step-counts/distinct.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "no-attributes",
+          "file": "corpus/project/identity/attribute-field-mixed-step-counts/no-attributes.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "grandchild-attribute-repeats",
+          "file": "corpus/project/identity/attribute-field-mixed-step-counts/grandchild-attribute-repeats.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        },
+        {
+          "testName": "own-attribute-repeats",
+          "file": "corpus/project/identity/attribute-field-mixed-step-counts/own-attribute-repeats.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        },
+        {
+          "testName": "intermediate-attribute-repeats",
+          "file": "corpus/project/identity/attribute-field-mixed-step-counts/intermediate-attribute-repeats.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/attribute-field-mixed-step-counts/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/attribute-field-mixed-step-counts/distinct.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/attribute-field-mixed-step-counts/no-attributes.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/attribute-field-mixed-step-counts/grandchild-attribute-repeats.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/attribute-field-mixed-step-counts/own-attribute-repeats.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/attribute-field-mixed-step-counts/intermediate-attribute-repeats.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/identity/attribute-field-descendant",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-fields-xpaths"
+        ],
+        "description": "Field .//@x includes the selected element's own attribute and every descendant's; .//a/@x excludes the selected element's own attribute.",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/identity/attribute-field-descendant/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/attribute-field-descendant/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "distinct",
+          "file": "corpus/project/identity/attribute-field-descendant/distinct.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "s-deep-equals-s-shallow",
+          "file": "corpus/project/identity/attribute-field-descendant/s-deep-equals-s-shallow.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        },
+        {
+          "testName": "s-own-equals-s-deep",
+          "file": "corpus/project/identity/attribute-field-descendant/s-own-equals-s-deep.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        },
+        {
+          "testName": "t-deep-equals-t-shallow",
+          "file": "corpus/project/identity/attribute-field-descendant/t-deep-equals-t-shallow.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/attribute-field-descendant/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/attribute-field-descendant/distinct.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/attribute-field-descendant/s-deep-equals-s-shallow.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/attribute-field-descendant/s-own-equals-s-deep.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/attribute-field-descendant/t-deep-equals-t-shallow.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/identity/attribute-field-wildcard-deeper",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-fields-xpaths"
+        ],
+        "description": "Field a/@* on a child step selects the child's single attribute.",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/identity/attribute-field-wildcard-deeper/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/attribute-field-wildcard-deeper/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "distinct",
+          "file": "corpus/project/identity/attribute-field-wildcard-deeper/distinct.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "equal",
+          "file": "corpus/project/identity/attribute-field-wildcard-deeper/equal.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/attribute-field-wildcard-deeper/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/attribute-field-wildcard-deeper/distinct.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/attribute-field-wildcard-deeper/equal.xml",
           "role": "instance"
         }
       ]

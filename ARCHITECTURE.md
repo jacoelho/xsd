@@ -1073,7 +1073,13 @@ Validation flow:
    A single candidate or selection uses a direct scan; larger joins rebuild a
    scratch projection sorted by constraint ID, skipping sorting when the copied
    selection order already satisfies it. Selection membership remains
-   authoritative. One
+   authoritative. Attribute-field dispatch visits only the selections whose
+   depth lies in one schema-wide base-depth window. The schema derives it from
+   the fewest steps of every published attribute field path and the most steps
+   of any direct one; a descendant path widens it to the root. The window always
+   contains every base depth from which some path can match at the current
+   depth. Selections are ordered by depth, so the window is one contiguous run;
+   each selection inside it still tests its own paths. One
    evaluator-owned bitset deduplicates element and attribute matches by their
    admitted field-value slot before appending, bounding output by the active
    field storage. Bitmap storage is admitted only for an actual match and grows
@@ -1564,6 +1570,14 @@ separately after those groups, so benchmarks do not compete with other checks.
   rollback and compaction. Per-collection sorted scratch preserves terminal
   filtering without another membership owner; field-slot deduplication rejects
   overlapping branches before they can amplify temporary match storage.
+- Per-constraint attribute-field depth windows were rejected because
+  selections are ordered by depth, not constraint; skipping by constraint needs
+  a second membership index. Publishing raw step bounds for validation to
+  combine was rejected because validation would then duplicate the field path
+  matcher's depth rule. An exact window over every distinct direct step count
+  was rejected: it narrows only at elements shallower than the deepest direct
+  path or than every descendant path, and its search kept the per-attribute
+  window call from inlining.
 - Clearing every identity match word for each value was rejected because sparse
   matches multiplied work by all admitted field slots. The existing unique match
   output identifies dirty words without a touched-word list or generation tags;

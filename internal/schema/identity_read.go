@@ -373,10 +373,65 @@ type identityFieldDispatchIndex struct {
 // derived while publishing a schema. Validation sessions retain only their
 // active scope membership and scratch slices.
 type IdentityDispatchRead struct {
-	programs    []IdentityConstraintProgramRead
-	selectors   identitySelectorDispatchIndex
-	elements    identityFieldDispatchIndex
-	elementSelf []IdentityFieldDispatchRead
+	programs            []IdentityConstraintProgramRead
+	selectors           identitySelectorDispatchIndex
+	elements            identityFieldDispatchIndex
+	elementSelf         []IdentityFieldDispatchRead
+	attributeFieldSteps identityAttributeFieldSteps
+}
+
+// identityAttributeFieldSteps summarizes the element steps of every published
+// attribute field path across all constraints. The zero value describes a
+// schema without attribute field paths.
+type identityAttributeFieldSteps struct {
+	fewest     int  // fewest steps of any path
+	mostDirect int  // most steps of any non-descendant path
+	descendant bool // some path has a ".//" prefix
+	present    bool
+}
+
+func (s *identityAttributeFieldSteps) include(path IdentityPathProgramRead) {
+	steps := path.StepCount()
+	if !s.present || steps < s.fewest {
+		s.fewest = steps
+	}
+	s.present = true
+	if path.Descendant() {
+		s.descendant = true
+		return
+	}
+	s.mostDirect = max(s.mostDirect, steps)
+}
+
+func (s *identityAttributeFieldSteps) includeFields(fields []IdentityCompiledFieldProgramRead) {
+	for _, field := range fields {
+		for _, path := range field.paths {
+			s.include(path)
+		}
+	}
+}
+
+// AttributeFieldBaseDepths returns a half-open range [from, to) of base depths
+// that contains every base depth from which some published attribute field
+// path can match an attribute of an element at currentDepth. A base depth
+// outside the range matches no attribute field path of any constraint. The
+// range is schema-wide and ignores element names: a base depth inside it must
+// still be checked with [IdentityPathProgramRead.Matches].
+//
+// The result satisfies 0 <= from <= to <= currentDepth+1. It is empty
+// (from == to) when no attribute field path can match at currentDepth. to is
+// one past the highest base depth from which some path can match. from is the
+// lowest such base depth when no path has a ".//" prefix and currentDepth is at
+// least the most steps of any path; otherwise it may be lower.
+func (d IdentityDispatchRead) AttributeFieldBaseDepths(currentDepth int) (from, to int) {
+	s := d.attributeFieldSteps
+	if !s.present || currentDepth < s.fewest {
+		return 0, 0
+	}
+	if !s.descendant {
+		from = max(0, currentDepth-s.mostDirect)
+	}
+	return from, currentDepth - s.fewest + 1
 }
 
 // ConstraintCount returns the number of published identity constraints.
@@ -440,6 +495,10 @@ func newIdentityDispatchRead(identities []IdentityConstraint, names nameReadView
 func addIdentityConstraintDispatch(d *IdentityDispatchRead, constraint IdentityConstraintID, program IdentityConstraintProgramRead, names nameReadView) {
 	addIdentitySelectorDispatchBranches(d, constraint, program.selectors, names)
 	addIdentityFieldDispatchBranches(d, constraint, program.elementFields, names)
+	for _, fields := range program.attributeFields {
+		d.attributeFieldSteps.includeFields(fields)
+	}
+	d.attributeFieldSteps.includeFields(program.attributeWildcards)
 }
 
 // addIdentitySelectorDispatchBranches indexes selector branches by their
