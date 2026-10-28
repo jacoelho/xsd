@@ -9,33 +9,35 @@ import (
 func TestProgramInputRequirementsUnconstrainedString(t *testing.T) {
 	program, types := unconstrainedStringQueryProgram(t)
 	tests := []struct {
-		name string
-		id   TypeID
-		want bool
+		name                         string
+		id                           TypeID
+		wantLexical, wantUnconstrain bool
 	}{
-		{name: "anySimpleType", id: AnySimpleTypeID, want: true},
-		{name: "string", id: builtinString, want: true},
-		{name: "derived string", id: types["derived"], want: true},
+		{name: "anySimpleType", id: AnySimpleTypeID, wantLexical: true, wantUnconstrain: true},
+		{name: "string", id: builtinString, wantLexical: true, wantUnconstrain: true},
+		{name: "derived string", id: types["derived"], wantLexical: true, wantUnconstrain: true},
 		{name: "normalized string", id: builtinNormalizedString},
 		{name: "identity string", id: types["identity"]},
-		{name: "facet string", id: types["facet"]},
+		{name: "reference string", id: types["reference"]},
+		{name: "facet string", id: types["facet"], wantLexical: true},
+		{name: "inherited facet string", id: types["inherited facet"], wantLexical: true},
 		{name: "union", id: types["union"]},
 		{name: "list", id: types["list"]},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			requirements, valid := program.InputRequirements(test.id)
-			got := requirements.UnconstrainedString
 			if !valid {
 				t.Fatal("InputRequirements reported an invalid type")
 			}
-			if got != test.want {
-				t.Fatalf("InputRequirements() = %v, want %v", got, test.want)
+			if requirements.LexicalCanonical != test.wantLexical || requirements.UnconstrainedString != test.wantUnconstrain {
+				t.Fatalf("LexicalCanonical=%v UnconstrainedString=%v, want %v %v",
+					requirements.LexicalCanonical, requirements.UnconstrainedString, test.wantLexical, test.wantUnconstrain)
 			}
 		})
 	}
 
-	if got, valid := program.InputRequirements(NoType); valid || got.UnconstrainedString {
+	if got, valid := program.InputRequirements(NoType); valid || got.UnconstrainedString || got.LexicalCanonical {
 		t.Fatalf("InputRequirements(NoType) = %v, %v, want zero, false", got, valid)
 	}
 }
@@ -46,11 +48,14 @@ func TestProgramInputRequirementsOwnsScalarAdmissionPolicy(t *testing.T) {
 		name                string
 		id                  TypeID
 		needsQName          bool
-		identity            IdentityKind
+		documentIdentity    bool
+		carriesID           bool
 		unconstrainedString bool
 	}{
 		{name: "string", id: builtinString, unconstrainedString: true},
-		{name: "identity", id: types["identity"], identity: IdentityID},
+		{name: "identity", id: types["identity"], documentIdentity: true, carriesID: true},
+		{name: "reference", id: types["reference"], documentIdentity: true},
+		{name: "IDREFS", id: builtinIDREFS, documentIdentity: true},
 		{name: "list", id: types["list"]},
 		{name: "qname", id: builtinQName, needsQName: true},
 	} {
@@ -59,8 +64,8 @@ func TestProgramInputRequirementsOwnsScalarAdmissionPolicy(t *testing.T) {
 			if !valid {
 				t.Fatal("InputRequirements reported an invalid type")
 			}
-			if got.NeedsQName != test.needsQName || got.Identity != test.identity || got.UnconstrainedString != test.unconstrainedString {
-				t.Fatalf("InputRequirements() = %#v, want NeedsQName=%v Identity=%d UnconstrainedString=%v", got, test.needsQName, test.identity, test.unconstrainedString)
+			if got.NeedsQName != test.needsQName || got.CarriesID != test.carriesID || got.DocumentIdentity != test.documentIdentity || got.UnconstrainedString != test.unconstrainedString {
+				t.Fatalf("InputRequirements() = %#v, want NeedsQName=%v DocumentIdentity=%v CarriesID=%v UnconstrainedString=%v", got, test.needsQName, test.documentIdentity, test.carriesID, test.unconstrainedString)
 			}
 		})
 	}
@@ -253,13 +258,18 @@ func unconstrainedStringQueryProgram(tb testing.TB) (*Program, map[string]TypeID
 			WhitespacePresent: false,
 		},
 		"identity": {
-			Variety:           Atomic,
-			Primitive:         PrimitiveString,
-			Whitespace:        WhitespacePreserve,
-			WhitespacePresent: true,
-			Identity:          IdentityID,
-			Base:              NoType,
-			ListItem:          NoType,
+			Variety:   Atomic,
+			Primitive: PrimitiveString,
+			Builtin:   BuiltinNCName,
+			Base:      builtinID,
+			ListItem:  NoType,
+		},
+		"reference": {
+			Variety:   Atomic,
+			Primitive: PrimitiveString,
+			Builtin:   BuiltinNCName,
+			Base:      builtinIDREF,
+			ListItem:  NoType,
 		},
 		"facet": {
 			Variety:           Atomic,
@@ -299,6 +309,17 @@ func unconstrainedStringQueryProgram(tb testing.TB) (*Program, map[string]TypeID
 		}
 		types[name] = id
 	}
+	// Completed after the map loop because it derives from "facet".
+	inherited, err := builder.Reserve()
+	if err != nil {
+		tb.Fatalf("Reserve() error = %v", err)
+	}
+	if err = builder.Complete(inherited, TypeSpec{
+		Variety: Atomic, Primitive: PrimitiveString, Base: types["facet"], ListItem: NoType,
+	}); err != nil {
+		tb.Fatalf("Add(inherited facet) error = %v", err)
+	}
+	types["inherited facet"] = inherited
 	program, err := builder.Seal()
 	if err != nil {
 		tb.Fatalf("Seal() error = %v", err)

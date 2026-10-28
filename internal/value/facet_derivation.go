@@ -98,7 +98,7 @@ func validateTypeDerivation(baseID TypeID, derived, base typeDef) error {
 	if baseID == AnySimpleTypeID {
 		return nil
 	}
-	if derived.variety != base.variety || derived.primitive != base.primitive || derived.builtin != base.builtin || derived.identity != base.identity {
+	if derived.variety != base.variety || derived.primitive != base.primitive || derived.builtin != base.builtin {
 		return errRestrictionSemantics
 	}
 	return validateTypeShape(derived, base)

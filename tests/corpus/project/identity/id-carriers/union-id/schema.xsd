@@ -1,0 +1,19 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="IntOrID"><xs:union memberTypes="xs:int xs:ID"/></xs:simpleType>
+  <xs:simpleType name="IntOrIDList"><xs:list itemType="IntOrID"/></xs:simpleType>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" minOccurs="0" maxOccurs="unbounded">
+          <xs:complexType><xs:attribute name="key" type="IntOrID"/></xs:complexType>
+        </xs:element>
+        <xs:element name="items" minOccurs="0" maxOccurs="unbounded">
+          <xs:complexType><xs:attribute name="keys" type="IntOrIDList"/></xs:complexType>
+        </xs:element>
+        <xs:element name="ref" minOccurs="0" maxOccurs="unbounded">
+          <xs:complexType><xs:attribute name="to" type="xs:IDREF"/></xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

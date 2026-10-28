@@ -36,8 +36,8 @@ func TestTerminalFacetDiagnostics(t *testing.T) {
 		{name: "exclusive minimum", primitive: value.PrimitiveDecimal, input: "2", want: `value "2" does not satisfy minExclusive "2.0"`, facets: value.FacetSpec{MinExclusive: bound("2")}},
 		{name: "inclusive maximum", primitive: value.PrimitiveDecimal, input: "3", want: `value "3" does not satisfy maxInclusive "2.0"`, facets: value.FacetSpec{MaxInclusive: bound("2")}},
 		{name: "exclusive maximum", primitive: value.PrimitiveDecimal, input: "2", want: `value "2" does not satisfy maxExclusive "2.0"`, facets: value.FacetSpec{MaxExclusive: bound("2")}},
-		{name: "raw integer minimum", integer: true, primitive: value.PrimitiveDecimal, input: "9", want: `value "9" does not satisfy minInclusive "10.0"`, facets: value.FacetSpec{MinInclusive: bound("10")}},
-		{name: "raw integer maximum", integer: true, primitive: value.PrimitiveDecimal, input: "11", want: `value "11" does not satisfy maxInclusive "10.0"`, facets: value.FacetSpec{MaxInclusive: bound("10")}},
+		{name: "raw integer minimum", integer: true, primitive: value.PrimitiveDecimal, input: "9", want: `value "9" does not satisfy minInclusive "10"`, facets: value.FacetSpec{MinInclusive: bound("10")}},
+		{name: "raw integer maximum", integer: true, primitive: value.PrimitiveDecimal, input: "11", want: `value "11" does not satisfy maxInclusive "10"`, facets: value.FacetSpec{MaxInclusive: bound("10")}},
 		{name: "incomparable dateTime", primitive: value.PrimitiveDateTime, input: "2000-01-01T12:00:00", want: `value "2000-01-01T12:00:00" does not satisfy minInclusive "2000-01-01T12:00:00Z"`, facets: value.FacetSpec{MinInclusive: bound("2000-01-01T12:00:00Z")}},
 		{name: "incomparable duration", primitive: value.PrimitiveDuration, input: "P1Y", want: `value "P1Y" does not satisfy minInclusive "P365D"`, facets: value.FacetSpec{MinInclusive: bound("P365D")}},
 		{name: "duration components", primitive: value.PrimitiveDuration, input: "PT0S", want: `value "PT0S" does not satisfy minInclusive "P1Y2M3DT4H5M6.7S"`, facets: value.FacetSpec{MinInclusive: bound("P1Y2M3DT4H5M6.7S")}},
@@ -136,7 +136,7 @@ func TestTerminalLexicalAndUnionDiagnostics(t *testing.T) {
 	}{
 		{integer, "1.1", `value "1.1" is not valid for xs:integer: invalid integer`},
 		{union, "other", `value "other" does not match any union member; expected one of [xs:boolean, xs:integer]`},
-		{list, "1 other", `value "1 other" is not a valid list of xs:integer: invalid decimal`},
+		{list, "1 other", `value "1 other" is not a valid list of xs:integer: invalid integer`},
 	} {
 		for _, api := range []string{"string", "bytes", "admitted"} {
 			_, validationErr := diagnosticValidate(program, test.id, test.input, api, 0)

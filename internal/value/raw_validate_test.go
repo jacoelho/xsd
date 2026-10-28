@@ -727,14 +727,14 @@ func TestValidateBytesChecksCustomIntegerLexicalSpace(t *testing.T) {
 	}
 }
 
-func TestValidateBytesUnionRetainsExplicitIdentity(t *testing.T) {
+func TestValidateBytesUnionProjectsSelectedIDMember(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
 	id, err := b.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
 	}
 	err = b.Complete(id, TypeSpec{
-		Variety: Union, Union: []TypeID{builtinID}, Identity: IdentityID,
+		Variety: Union, Union: []TypeID{builtinID},
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
 		Base: NoType, ListItem: NoType,
 	})

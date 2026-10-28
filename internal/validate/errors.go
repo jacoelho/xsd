@@ -180,8 +180,11 @@ func typeDiagnosticLabel(rt *xsdSchema.Schema, id xsdSchema.TypeID) string {
 func xsiTypeDerivationMessage(rt *xsdSchema.Schema, actual, declared xsdSchema.TypeID) string {
 	return "xsi:type " + typeDiagnosticLabel(rt, actual) + " is not validly derived from declared type " + typeDiagnosticLabel(rt, declared)
 }
-func xsiTypeBlockedMessage(rt *xsdSchema.Schema, actual xsdSchema.TypeID, method string) string {
+func xsiTypeBlockedByDeclarationMessage(rt *xsdSchema.Schema, actual xsdSchema.TypeID, method string) string {
 	return "xsi:type " + typeDiagnosticLabel(rt, actual) + " uses " + method + ", which the element declaration blocks"
+}
+func xsiTypeBlockedByTypeMessage(rt *xsdSchema.Schema, actual, declared xsdSchema.TypeID, method string) string {
+	return "xsi:type " + typeDiagnosticLabel(rt, actual) + " uses " + method + ", which declared type " + typeDiagnosticLabel(rt, declared) + " blocks"
 }
 func identityConstraintLabel(rt *xsdSchema.Schema, id xsdSchema.IdentityConstraintID) string {
 	if name, ok := rt.DiagnosticIdentityName(id); ok {

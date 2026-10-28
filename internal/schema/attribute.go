@@ -95,10 +95,10 @@ func attributeUseSetReadHasSingleUse(s AttributeUseSetRead) bool {
 	return ok && slot == 0
 }
 
-func newAttributeUseSetReads(names *NameTable, sets []AttributeUseSet, simpleTypes []SimpleType, values *valuepkg.Builder) ([]AttributeUseSetRead, error) {
+func newAttributeUseSetReads(names *NameTable, sets []AttributeUseSet, values *valuepkg.Builder) ([]AttributeUseSetRead, error) {
 	out := make([]AttributeUseSetRead, len(sets))
 	for i := range sets {
-		read, err := newAttributeUseSetRead(names, &sets[i], simpleTypes, values)
+		read, err := newAttributeUseSetRead(names, &sets[i], values)
 		if err != nil {
 			return nil, err
 		}
@@ -107,17 +107,17 @@ func newAttributeUseSetReads(names *NameTable, sets []AttributeUseSet, simpleTyp
 	return out, nil
 }
 
-func newAttributeUseSetRead(names *NameTable, set *AttributeUseSet, simpleTypes []SimpleType, values *valuepkg.Builder) (AttributeUseSetRead, error) {
+func newAttributeUseSetRead(names *NameTable, set *AttributeUseSet, values *valuepkg.Builder) (AttributeUseSetRead, error) {
 	uses := make([]AttributeUseRead, len(set.Uses))
 	var required, valueConstraints []uint32
 	var hasIDUse bool
 	for j := range set.Uses {
-		uses[j] = newAttributeUseReadForSimpleTypes(names, set.Uses[j], simpleTypes)
+		uses[j] = newAttributeUseRead(names, set.Uses[j])
 		input, ok := values.InputRequirements(set.Uses[j].Type)
 		if !ok {
 			return AttributeUseSetRead{}, xsderrors.InternalInvariant("attribute use input metadata is invalid")
 		}
-		hasIDUse = hasIDUse || input.Identity == valuepkg.IdentityID
+		hasIDUse = hasIDUse || input.CarriesID
 		if set.Uses[j].Required {
 			required = append(required, uint32(j))
 		}
@@ -189,20 +189,19 @@ func (s AttributeUseSetRead) ValueConstraintSlots() AttributeUseSlots {
 // AttributeUseRead exposes validation-facing facts for one declared attribute
 // use without exposing compiler-owned storage.
 type AttributeUseRead struct {
-	label                      string
-	fixed                      ValueConstraintRead
-	defaultValue               ValueConstraintRead
-	name                       QName
-	typ                        SimpleTypeID
-	required                   bool
-	hasFixed                   bool
-	hasDefault                 bool
-	canValidateFixedStringFast bool
+	label        string
+	fixed        ValueConstraintRead
+	defaultValue ValueConstraintRead
+	name         QName
+	typ          SimpleTypeID
+	required     bool
+	hasFixed     bool
+	hasDefault   bool
 }
 
-// newAttributeUseReadForSimpleTypes returns an immutable validation read
-// projection for one attribute use using published simple types.
-func newAttributeUseReadForSimpleTypes(names *NameTable, use AttributeUse, simpleTypes []SimpleType) AttributeUseRead {
+// newAttributeUseRead returns an immutable validation read projection for one
+// attribute use.
+func newAttributeUseRead(names *NameTable, use AttributeUse) AttributeUseRead {
 	// Adopted WG correction 4363 makes XSI constraints inapplicable during
 	// validation. Keep them on construction records for schema correctness and
 	// derivation; publication permits only the four intrinsic XSI declarations.
@@ -213,37 +212,15 @@ func newAttributeUseReadForSimpleTypes(names *NameTable, use AttributeUse, simpl
 	fixed, hasFixed := newValueConstraintReadFromConstraint(use.Fixed)
 	def, hasDefault := newValueConstraintReadFromConstraint(use.Default)
 	return AttributeUseRead{
-		name:                       use.Name,
-		typ:                        use.Type,
-		label:                      names.Format(use.Name),
-		fixed:                      fixed,
-		defaultValue:               def,
-		required:                   use.Required,
-		hasFixed:                   hasFixed,
-		hasDefault:                 hasDefault,
-		canValidateFixedStringFast: attributeUseFixedStringFastForSimpleTypes(use, simpleTypes),
+		name:         use.Name,
+		typ:          use.Type,
+		label:        names.Format(use.Name),
+		fixed:        fixed,
+		defaultValue: def,
+		required:     use.Required,
+		hasFixed:     hasFixed,
+		hasDefault:   hasDefault,
 	}
-}
-
-func attributeUseFixedStringFastForSimpleTypes(use AttributeUse, simpleTypes []SimpleType) bool {
-	if use.Fixed == nil {
-		return false
-	}
-	st, ok := UsableSimpleType(simpleTypes, use.Type)
-	if !ok {
-		return false
-	}
-	// A raw lexical comparison is sound only when the type admits the source
-	// spelling unchanged and has no typed identity or constraining facets.
-	spec := st.ValueSpec
-	facets := st.ValueSpec.Facets
-	return spec.Variety == valuepkg.Atomic &&
-		spec.Primitive == valuepkg.PrimitiveString &&
-		spec.Builtin == valuepkg.BuiltinNone &&
-		spec.Identity == valuepkg.IdentityNone &&
-		spec.Whitespace == valuepkg.WhitespacePreserve &&
-		facets.Present == 0 && facets.Fixed == 0 &&
-		len(facets.Enumeration) == 0 && len(facets.Patterns) == 0
 }
 
 // Name returns the runtime QName for the use.
@@ -281,12 +258,6 @@ func (u AttributeUseRead) AbsentValueConstraint() (ValueConstraintRead, bool) {
 		return u.defaultValue, true
 	}
 	return ValueConstraintRead{}, false
-}
-
-// CanValidateFixedStringFast reports whether validation may compare the raw
-// string directly against the fixed value.
-func (u AttributeUseRead) CanValidateFixedStringFast() bool {
-	return u.canValidateFixedStringFast
 }
 
 // AttributeDeclRead exposes validation-facing facts for one global attribute
@@ -369,16 +340,9 @@ type attributeUseSetAudit struct {
 }
 
 func (a *attributeUseSetAudit) validateUse(index int, use AttributeUse) error {
-	identity, err := validateAttributeUseRuntime(a.names, a.rt, a.set.Index, index, use)
-	if err != nil {
+	carriesID, err := validateAttributeUseRuntime(a.names, a.rt, a.set.Index, index, use)
+	if err != nil || !carriesID {
 		return err
-	}
-	return a.validateIDUse(identity, use)
-}
-
-func (a *attributeUseSetAudit) validateIDUse(identity valuepkg.IdentityKind, use AttributeUse) error {
-	if identity != valuepkg.IdentityID {
-		return nil
 	}
 	if use.Default != nil || use.Fixed != nil {
 		return errors.New("ID-typed attribute use stores value constraint")
@@ -536,22 +500,22 @@ func validateAttributeUseRuntime(
 	index map[QName]uint32,
 	i int,
 	use AttributeUse,
-) (valuepkg.IdentityKind, error) {
-	identity, ok := rt.SimpleTypeIdentity(use.Type)
+) (carriesID bool, err error) {
+	carriesID, ok := rt.SimpleTypeCarriesID(use.Type)
 	if names == nil || !names.ValidQName(use.Name) || !ok {
-		return valuepkg.IdentityNone, errors.New("attribute use references invalid name or type")
+		return false, errors.New("attribute use references invalid name or type")
 	}
 	slot, ok := uint32Index(i)
 	if !ok {
-		return valuepkg.IdentityNone, errors.New("attribute use slot is invalid")
+		return false, errors.New("attribute use slot is invalid")
 	}
 	if indexed, ok := index[use.Name]; !ok || indexed != slot {
-		return valuepkg.IdentityNone, errors.New("attribute use index does not match use slice")
+		return false, errors.New("attribute use index does not match use slice")
 	}
 	if use.Default != nil && use.Fixed != nil {
-		return valuepkg.IdentityNone, errors.New("attribute use stores both default and fixed value constraints")
+		return false, errors.New("attribute use stores both default and fixed value constraints")
 	}
-	return identity, nil
+	return carriesID, nil
 }
 
 func uint32Index(i int) (uint32, bool) {

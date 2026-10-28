@@ -1,0 +1,10 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="urn:t" targetNamespace="urn:t" elementFormDefault="qualified">
+  <xs:simpleType name="U"><xs:union memberTypes="xs:int xs:date"/></xs:simpleType>
+  <xs:element name="h" type="U" block="restriction"/>
+  <xs:element name="m" type="xs:int" substitutionGroup="h"/>
+  <xs:element name="h2" type="U"/>
+  <xs:element name="m2" type="xs:int" substitutionGroup="h2"/>
+  <xs:element name="r">
+    <xs:complexType><xs:choice><xs:element ref="h"/><xs:element ref="h2"/></xs:choice></xs:complexType>
+  </xs:element>
+</xs:schema>

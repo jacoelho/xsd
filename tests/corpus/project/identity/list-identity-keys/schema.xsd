@@ -1,0 +1,18 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="StringList"><xs:list itemType="xs:string"/></xs:simpleType>
+  <xs:simpleType name="IntList"><xs:list itemType="xs:int"/></xs:simpleType>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:choice maxOccurs="unbounded">
+        <xs:element name="s"><xs:complexType><xs:attribute name="v" type="xs:string" use="required"/></xs:complexType></xs:element>
+        <xs:element name="l"><xs:complexType><xs:attribute name="v" type="StringList" use="required"/></xs:complexType></xs:element>
+        <xs:element name="n"><xs:complexType><xs:attribute name="v" type="IntList" use="required"/></xs:complexType></xs:element>
+        <xs:element name="r"><xs:complexType><xs:attribute name="ref" type="xs:string" use="required"/></xs:complexType></xs:element>
+        <xs:element name="rl"><xs:complexType><xs:attribute name="ref" type="StringList" use="required"/></xs:complexType></xs:element>
+      </xs:choice>
+    </xs:complexType>
+    <xs:unique name="values"><xs:selector xpath="s|l|n"/><xs:field xpath="@v"/></xs:unique>
+    <xs:key name="lists"><xs:selector xpath="l"/><xs:field xpath="@v"/></xs:key>
+    <xs:keyref name="refs" refer="lists"><xs:selector xpath="r|rl"/><xs:field xpath="@ref"/></xs:keyref>
+  </xs:element>
+</xs:schema>

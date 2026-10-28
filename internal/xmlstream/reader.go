@@ -3,7 +3,6 @@ package xmlstream
 import (
 	"bytes"
 	"errors"
-	"strings"
 )
 
 const maxXMLDeclarationPreviewBytes = xmlInputBufferSize
@@ -31,10 +30,25 @@ func (p *parser) prepareXMLProlog() error {
 	if startsUTF16(peek) {
 		return ErrUnsupportedNonUTF8
 	}
-	if StartsXMLDeclaration(peek) {
-		peek = p.peekXMLDeclaration()
+	if !StartsXMLDeclaration(peek) {
+		return nil
 	}
-	return validateXMLDeclarationMetadata(peek)
+	content, complete := bytes.CutSuffix(p.peekXMLDeclaration()[len("<?xml"):], []byte("?>"))
+	if !complete {
+		return nil
+	}
+	// Reset reports only version and encoding rejections early; grammar errors
+	// are left to the parser so they carry a position. Admission stops at the
+	// first defect in document order, so both paths classify a declaration alike.
+	err = ValidateXMLDeclContent(content)
+	if err == nil {
+		return nil
+	}
+	var version UnsupportedXMLVersionError
+	if errors.Is(err, ErrUnsupportedNonUTF8) || errors.As(err, &version) {
+		return err
+	}
+	return nil
 }
 
 func (p *parser) initialXMLBytes() ([]byte, error) {
@@ -56,16 +70,6 @@ func (p *parser) initialXMLBytes() ([]byte, error) {
 func startsUTF16(peek []byte) bool {
 	return len(peek) >= 2 &&
 		(peek[0] == 0xFE && peek[1] == 0xFF || peek[0] == 0xFF && peek[1] == 0xFE)
-}
-
-func validateXMLDeclarationMetadata(peek []byte) error {
-	if enc := DeclaredEncoding(peek); enc != "" && !strings.EqualFold(enc, "UTF-8") && !strings.EqualFold(enc, "UTF8") {
-		return ErrUnsupportedNonUTF8
-	}
-	if version := DeclaredXMLVersion(peek); version != "" && version != xmlVersion10 {
-		return UnsupportedXMLVersionError{Version: version}
-	}
-	return nil
 }
 
 func (p *parser) peekXMLDeclaration() []byte {

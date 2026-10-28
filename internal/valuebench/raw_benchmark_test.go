@@ -86,9 +86,9 @@ type admittedNumericFixture struct {
 func admittedNumericFixtures() [3]admittedNumericFixture {
 	return [3]admittedNumericFixture{
 		{name: "NegativePaddedInteger", min: "-0002", max: "-0001", input: "-1", builtin: valuepkg.BuiltinInteger,
-			opponents: []struct{ input, message string }{{"-3", `value "-3" does not satisfy minInclusive "-2.0"`}, {"0", `value "0" does not satisfy maxInclusive "-1.0"`}}},
+			opponents: []struct{ input, message string }{{"-3", `value "-3" does not satisfy minInclusive "-2"`}, {"0", `value "0" does not satisfy maxInclusive "-1"`}}},
 		{name: "SignedZeroInteger", min: "-0000", max: "+0001", input: "-0000", builtin: valuepkg.BuiltinInteger,
-			opponents: []struct{ input, message string }{{"+0001", ""}, {"-1", `value "-1" does not satisfy minInclusive "0.0"`}, {"2", `value "2" does not satisfy maxInclusive "1.0"`}, {"1.0", `value "1.0" is not valid for xs:integer: invalid integer`}}},
+			opponents: []struct{ input, message string }{{"+0001", ""}, {"-1", `value "-1" does not satisfy minInclusive "0"`}, {"2", `value "2" does not satisfy maxInclusive "1"`}, {"1.0", `value "1.0" is not valid for xs:integer: invalid integer`}}},
 		{name: "LongPaddedDecimal", min: "0", max: "+" + strings.Repeat("0", 1024) + "1.5000", input: "1.5",
 			opponents: []struct{ input, message string }{{"1.5001", `value "1.5001" does not satisfy maxInclusive "1.5"`}}},
 	}

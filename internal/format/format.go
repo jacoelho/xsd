@@ -125,7 +125,7 @@ func formatReaderErr(err error) error {
 		return formatLimitErr(0, 0, err)
 	default:
 		if versionErr, ok := errors.AsType[xmlstream.UnsupportedXMLVersionError](err); ok {
-			return xsderrors.Unsupported(xsderrors.CodeUnsupportedXML11, versionErr.Error(), nil)
+			return xsderrors.Unsupported(xsderrors.CodeUnsupportedXMLVersion, versionErr.Error(), nil)
 		}
 		return formatBoundaryErr(err)
 	}

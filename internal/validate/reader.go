@@ -17,7 +17,7 @@ func instanceReaderError(err error) error {
 		return validationReaderCause(xsderrors.CodeValidationLimit, 0, 0, "", err)
 	default:
 		if versionErr, ok := errors.AsType[xmlstream.UnsupportedXMLVersionError](err); ok {
-			return xsderrors.Unsupported(xsderrors.CodeUnsupportedXML11, versionErr.Error(), nil)
+			return xsderrors.Unsupported(xsderrors.CodeUnsupportedXMLVersion, versionErr.Error(), nil)
 		}
 		return validationReaderCause(xsderrors.CodeValidationXML, 0, 0, "", err)
 	}
@@ -29,7 +29,7 @@ func StreamError(line, col int, path string, err error) error {
 		return xsderrors.WithLocation(path, line, col, xsderrors.Unsupported(xsderrors.CodeUnsupportedNonUTF8, msgInstanceUTF8, err))
 	}
 	if versionErr, ok := errors.AsType[xmlstream.UnsupportedXMLVersionError](err); ok {
-		return xsderrors.WithLocation(path, line, col, xsderrors.Unsupported(xsderrors.CodeUnsupportedXML11, versionErr.Error(), nil))
+		return xsderrors.WithLocation(path, line, col, xsderrors.Unsupported(xsderrors.CodeUnsupportedXMLVersion, versionErr.Error(), nil))
 	}
 	if xmlstream.IsInputLimit(err) || xmlstream.IsTokenLimit(err) || xmlstream.IsAttributeLimit(err) {
 		return validationReaderCause(xsderrors.CodeValidationLimit, line, col, path, err)

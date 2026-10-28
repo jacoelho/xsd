@@ -1,17 +1,11 @@
 package schema
 
-import valuepkg "github.com/jacoelho/xsd/internal/value"
-
-// SimpleTypeIdentity returns compiler-owned identity metadata.
-func (rt *schemaBuild) SimpleTypeIdentity(id SimpleTypeID) (valuepkg.IdentityKind, bool) {
-	st, ok := SimpleTypeByID(rt.SimpleTypes, id)
-	if !ok {
-		return valuepkg.IdentityNone, false
+// SimpleTypeCarriesID reports the value program's single ID-ness predicate
+// (I-016) for a completed simple type.
+func (rt *schemaBuild) SimpleTypeCarriesID(id SimpleTypeID) (carries, ok bool) {
+	if _, found := SimpleTypeByID(rt.SimpleTypes, id); !found || rt.valueBuilder == nil {
+		return false, false
 	}
-	if rt.valueBuilder != nil {
-		if requirements, complete := rt.valueBuilder.InputRequirements(id); complete {
-			return requirements.Identity, true
-		}
-	}
-	return st.ValueSpec.Identity, true
+	requirements, ok := rt.valueBuilder.InputRequirements(id)
+	return requirements.CarriesID, ok
 }

@@ -1,0 +1,9 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <!-- I-011: a dash before `-[` is a literal last term, never a range start. -->
+  <xs:element name="root">
+    <xs:complexType><xs:sequence>
+      <xs:element name="single" minOccurs="0"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[a--[b]]"/></xs:restriction></xs:simpleType></xs:element>
+      <xs:element name="range" minOccurs="0"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[a-z--[b-z]]"/></xs:restriction></xs:simpleType></xs:element>
+    </xs:sequence></xs:complexType>
+  </xs:element>
+</xs:schema>

@@ -229,8 +229,8 @@ func TestUnprojectedQNameFailureKeepsOriginalSpelling(t *testing.T) {
 			if err == nil || err.Error() != want {
 				t.Fatalf("QName diagnostic = %v, want %s", err, want)
 			}
-			if cause := errors.Unwrap(err); cause == nil || cause.Error() != "unresolved QName" {
-				t.Fatalf("QName cause = %v, want unresolved QName", cause)
+			if cause := errors.Unwrap(err); cause == nil || cause.Error() != "invalid QName syntax; expected a local name or prefix:local name" {
+				t.Fatalf("QName cause = %v, want QName syntax error", cause)
 			}
 		})
 	}

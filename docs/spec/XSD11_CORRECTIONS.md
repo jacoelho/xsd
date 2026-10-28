@@ -33,6 +33,7 @@ owns executable expectations and provider observations.
 | Identity-component resolution | Already implemented; later `src-resolve` recognizes the omitted component kind. | Existing key/unique references and `idH035` keyref-to-keyref rejection. No new lookup algorithm or missing-target acceptance. |
 | Binary64 extrema | Already implemented; select corrected integer-exponent limits −1074…971. | Smallest subnormal and largest finite double, signed zero and rounding/overflow controls; no blanket new lexical forms. |
 | Composite document identity | Existing recursive propagation remains correct; close default-replay coverage. | User lists/unions retain IDREF projections through physical and defaulted values; resolved/missing targets and physical overrides distinguish the paths. Scalar/nonempty ENTITY assessment is unsupported; empty lists and lexical non-NCName string fallback are separate controls. |
+| Include document identity | Adopt 1.1 §4.2.3: includes at one resolved location are one document; distinct locations are distinct documents, [I-019](INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location). | Two includes of one location contribute once; byte-identical documents at two locations raise `schema.duplicate`. Import and explicit-root identity are a library choice, not this correction. |
 
 The existing XSD/XSI import and XSI no-synthesis adoptions remain in I-006 and
 I-007. None of these corrections selects declarations by namespace URL or
@@ -48,13 +49,13 @@ implementation.
 
 | Change-list family | Disposition in this audit |
 | --- | --- |
-| Structures G.1.1 dependencies | Keep XML 1.0. No automatic XPath tokenization, Unicode, URI or referenced-edition upgrade. |
+| Structures G.1.1 dependencies | Keep XML 1.0. No automatic XPath tokenization, Unicode, URI or referenced-edition upgrade, except name characters, which follow the XML 1.0 Fifth Edition ([I-020](INTERPRETATIONS.md#i-020--xml-name-characters-follow-the-fifth-edition)). |
 | G.1.2 schema versions | Exclude conditional inclusion and version-selection facilities. |
 | G.1.3 content models | Exclude relaxed UPA, expanded all groups and new wildcard facilities. |
 | G.1.4 assertions | Exclude assertions and XPath expression facilities. |
 | G.1.5 complex derivation | Keep the 1.0 structural algorithm; select only bounded R-122/R-240 repairs. |
 | G.1.6 complex types | No blanket mixed-content or consistency-rule relaxation. |
-| G.1.7 ID-related types | Confirm recursive IDREF/ENTITY handling; retain existing ID defaults, ID-attribute and DTD boundaries. |
+| G.1.7 ID-related types | Select recursive ID/IDREF carriage ([I-016](INTERPRETATIONS.md#i-016--recursive-id-ness)) at schema and run time; retain the 1.0 ID default, single-ID-attribute and DTD boundaries. |
 | G.1.8 simple types | Select union integrity and typed constraints; exclude new primitive/universal types and assertions. |
 | G.1.9 elements | No type alternatives, abstract-type or other blanket element-policy adoption. |
 | G.1.10 attributes | Select effective constraint fallback and existing XSI corrections; exclude inheritable attributes. |
@@ -62,7 +63,7 @@ implementation.
 | G.1.12 assessment | Select skip identity processing and physical `xsi:type` resolution (4299); no broader declaration/type fallback policy. |
 | G.1.13 PSVI | Preserve existing observation limits; add no PSVI export surface. |
 | G.1.14 conformance | No XSD 1.1 conformance claim or automatic error-classification replacement. |
-| G.1.15 composition | Retain selected import exception; exclude override and dynamic network acquisition. |
+| G.1.15 composition | Retain selected import exception; select §4.2.3 include document identity; exclude override and dynamic network acquisition. |
 | G.1.16 miscellaneous | Require individual evidence; no general adoption. |
 | G.1.17 clarifications | Select simple-content identity fields and the individually recorded corrections. |
 | Datatypes I.1 facets/types | Keep applicable clarifications separate from new assertions/types. |
@@ -73,7 +74,8 @@ implementation.
 For example, [9196](https://www.w3.org/Bugs/Public/show_bug.cgi?id=9196)
 addresses a NaN regression in 1.1; it does not justify replacing this library's
 existing 1.0 equality. [10662](https://www.w3.org/Bugs/Public/show_bug.cgi?id=10662)
-supports consistent handling through derived/composite types, but does not
+selects one recursive ID-ness predicate for derived/composite types
+([I-016](INTERPRETATIONS.md#i-016--recursive-id-ness)), but does not
 justify ID defaults, multiple ID attributes or DTD support. An unobservable
 PSVI property is not proven by an instance-validity result.
 

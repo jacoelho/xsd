@@ -103,15 +103,17 @@ func (state elementEffectiveState) issue() validationIssue {
 	if state.nil.specified && state.declaration.present && !state.declaration.nillable {
 		return validationIssue{code: xsderrors.CodeValidationNil, message: elementNotNillableMessage}
 	}
-	if state.nil.value {
-		if !state.declaration.present {
-			return validationIssue{code: xsderrors.CodeValidationNil, message: elementNotNillableMessage}
-		}
-		if state.declaration.fixed {
-			return validationIssue{code: xsderrors.CodeValidationNil, message: msgNilledFixed}
-		}
+	if state.nilled() && state.declaration.fixed {
+		return validationIssue{code: xsderrors.CodeValidationNil, message: msgNilledFixed}
 	}
 	return validationIssue{}
+}
+
+// nilled reports whether the element is nilled. Only a governing element
+// declaration can nil an element (cvc-elt 3.2); without one, xsi:nil is
+// checked as an xs:boolean and the element is assessed by its type alone.
+func (state elementEffectiveState) nilled() bool {
+	return state.nil.value && state.declaration.present
 }
 
 func elementEffectiveTypeIssue(typeID xsdSchema.TypeID, info xsdSchema.TypeInfo) validationIssue {
@@ -122,9 +124,12 @@ func elementEffectiveTypeIssue(typeID xsdSchema.TypeID, info xsdSchema.TypeInfo)
 }
 
 type xsiTypeOverrideInput struct {
-	declaration startDeclaration
 	declared    xsdSchema.TypeID
 	override    xsdSchema.TypeID
+	declaration startDeclaration
+	// declaredBlock is the declared type's {prohibited substitutions}; it is
+	// kept apart from the declaration's mask so a rejection names its owner.
+	declaredBlock xsdSchema.DerivationMask
 }
 
 func validateXSITypeOverride(
@@ -139,11 +144,21 @@ func validateXSITypeOverride(
 	if !input.declaration.present || input.override == input.declared {
 		return nil
 	}
-	if input.declaration.block&xsdSchema.DerivationExtension != 0 && derivation&xsdSchema.DerivationExtension != 0 {
-		return xsderrors.Validation(xsderrors.CodeValidationType, xsiTypeBlockedMessage(rt, input.override, "extension"), nil)
-	}
-	if input.declaration.block&xsdSchema.DerivationRestriction != 0 && derivation&xsdSchema.DerivationRestriction != 0 {
-		return xsderrors.Validation(xsderrors.CodeValidationType, xsiTypeBlockedMessage(rt, input.override, "restriction"), nil)
+	// cvc-elt 4.3 blocks the union of both masks; the declaration is named
+	// first when both block the same method.
+	for _, method := range [...]struct {
+		name string
+		mask xsdSchema.DerivationMask
+	}{{"extension", xsdSchema.DerivationExtension}, {"restriction", xsdSchema.DerivationRestriction}} {
+		if derivation&method.mask == 0 {
+			continue
+		}
+		if input.declaration.block&method.mask != 0 {
+			return xsderrors.Validation(xsderrors.CodeValidationType, xsiTypeBlockedByDeclarationMessage(rt, input.override, method.name), nil)
+		}
+		if input.declaredBlock&method.mask != 0 {
+			return xsderrors.Validation(xsderrors.CodeValidationType, xsiTypeBlockedByTypeMessage(rt, input.override, input.declared, method.name), nil)
+		}
 	}
 	return nil
 }

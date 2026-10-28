@@ -1,0 +1,16 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <!-- Substitution Group OK (Transitive) 2.3: every method in the member type's derivation
+       is checked against each intermediate type's block, not only the step it derives. -->
+  <xs:complexType name="T"><xs:sequence><xs:element name="a" minOccurs="0"/></xs:sequence></xs:complexType>
+  <xs:complexType name="U1" block="restriction"><xs:complexContent><xs:restriction base="T"><xs:sequence><xs:element name="a" minOccurs="0"/></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>
+  <xs:complexType name="V1"><xs:complexContent><xs:extension base="U1"/></xs:complexContent></xs:complexType>
+  <xs:complexType name="U2" block="extension"><xs:complexContent><xs:restriction base="T"><xs:sequence><xs:element name="a" minOccurs="0"/></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>
+  <xs:complexType name="V2"><xs:complexContent><xs:restriction base="U2"><xs:sequence><xs:element name="a" minOccurs="0"/></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>
+  <xs:complexType name="U3"><xs:complexContent><xs:restriction base="T"><xs:sequence><xs:element name="a" minOccurs="0"/></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>
+  <xs:complexType name="V3" block="restriction"><xs:complexContent><xs:extension base="U3"/></xs:complexContent></xs:complexType>
+  <xs:element name="h" type="T"/>
+  <xs:element name="m1" type="V1" substitutionGroup="h"/>
+  <xs:element name="m2" type="V2" substitutionGroup="h"/>
+  <xs:element name="m3" type="V3" substitutionGroup="h"/>
+  <xs:element name="r"><xs:complexType><xs:sequence><xs:element ref="h"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>

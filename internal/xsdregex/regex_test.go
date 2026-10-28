@@ -252,6 +252,9 @@ func TestSyntaxErrors(t *testing.T) {
 	t.Parallel()
 	for _, source := range []string{
 		`a{,2}`, `a{2,1}`, `a{2`, `a{2,x}`, `a\`, `(`, `a)`, `a]`, `[`, `[]`, `[^]`, `[a-z`, `[a-z-[ae]`, `[a-\d]`, `[\d-z]`, `\p{Nope}`, `\p{IsNope}`, `*a`, `a**`,
+		// I-011: an unescaped dash is a literal only first, last, or last before `-[`.
+		`[--a]`, `[^--a]`, `[--a-[b]]`, `[--\-]`, `[--\]]`, `[--a-]`, `[a--]`, `[a-\-]`, `[a-b-c]`, `[---]`,
+		`[a--b]`, `[!--]`, `[\d-a]`, `[-[a]]`, `[^-[a]]`,
 	} {
 		_, err := Compile(source, CompileOptions{})
 		diagnostic, ok := errors.AsType[*Error](err)
@@ -276,6 +279,51 @@ func TestCharacterClassLiteralCaretAndDashSubtraction(t *testing.T) {
 		{`[a-z--[b-z]]`, "a", true},
 		{`[a-z--[b-z]]`, "b", false},
 		{`[a-z--[b-z]]`, "-", true},
+		{`[a--[b]]`, "a", true},
+		{`[a--[b]]`, "-", true},
+		{`[a--[b]]`, "b", false},
+		{`[a--[b]]`, "c", false},
+		{`[^a--[b]]`, "z", true},
+		{`[^a--[b]]`, "a", false},
+		{`[^a--[b]]`, "-", false},
+		{`[^a--[b]]`, "b", false},
+		{`[\n--[b]]`, "\n", true},
+		{`[\n--[b]]`, "-", true},
+		{`[\n--[b]]`, "b", false},
+		{`[\---[b]]`, "-", true},
+		{`[\---[b]]`, "b", false},
+		{`[a-z-[b]]`, "a", true},
+		{`[a-z-[b]]`, "b", false},
+		{`[a-z-[b]]`, "-", false},
+		{`[a-z-]`, "-", true},
+		{`[a-z-]`, "m", true},
+		{`[a\--[b]]`, "a", true},
+		{`[a\--[b]]`, "-", true},
+		{`[a\--[b]]`, "b", false},
+		{`[ab-[b]]`, "a", true},
+		{`[ab-[b]]`, "b", false},
+		{`[--]`, "-", true},
+		{`[--]`, "a", false},
+		{`[-]`, "-", true},
+		{`[-a]`, "a", true},
+		{`[a-]`, "-", true},
+		{`[-a-]`, "-", true},
+		{`[-a-]`, "b", false},
+		{`[-a-z]`, "-", true},
+		{`[-a-z]`, "m", true},
+		{`[-a-z]`, "0", false},
+		{`[^-a]`, "b", true},
+		{`[^-a]`, "-", false},
+		{`[--[a]]`, "-", true},
+		{`[--[a]]`, "a", false},
+		{`[\--\-]`, "-", true},
+		{`[\--\-]`, ".", false},
+		{`[a-d\--[bc]]`, "a", true},
+		{`[a-d\--[bc]]`, "-", true},
+		{`[a-d\--[bc]]`, "b", false},
+		// An escaped dash still starts a range: `-` (U+002D) to `a`.
+		{`[\--a]`, "0", true},
+		{`[\--a]`, "b", false},
 	}
 	for _, test := range tests {
 		p := mustCompile(t, test.pattern)

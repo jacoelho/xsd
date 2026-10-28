@@ -476,7 +476,7 @@ func validateBuiltinSchemaLocationType(rt *schemaValidation) error {
 	if !ok || view.Variety != value.List || view.Primitive != value.PrimitiveString ||
 		view.Base != value.AnySimpleTypeID || view.ListItem != value.BuiltinType(value.PrimitiveAnyURI) ||
 		view.Whitespace != value.WhitespaceCollapse || view.Builtin != value.BuiltinNone ||
-		view.Identity != value.IdentityNone || len(view.Union) != 0 || view.HasEnumeration {
+		len(view.Union) != 0 || view.HasEnumeration {
 		return xsderrors.InternalInvariant("intrinsic schemaLocation value metadata differs from its definition")
 	}
 	return nil

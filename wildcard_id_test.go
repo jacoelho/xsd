@@ -86,11 +86,12 @@ func TestWildcardIDUsesEffectiveDeclaredTypes(t *testing.T) {
 			rootType: `<xs:attribute name="a" type="xs:ID"/><xs:anyAttribute processContents="lax"/>`,
 		},
 		{
-			name: "declared union is not ID derived", wildType: "xs:ID", attribute: `b="B"`,
+			// I-016: a union with an ID member carries ID regardless of the value.
+			name: "declared union carries ID", wildType: "xs:ID", attribute: `b="B"`, wantError: true,
 			rootType: `<xs:attribute name="a" type="IDOrInt"/><xs:anyAttribute processContents="strict"/>`,
 		},
 		{
-			name: "wildcard union is not ID derived", wildType: "IDOrInt", attribute: `b="B"`,
+			name: "wildcard union carries ID", wildType: "IDOrInt", attribute: `b="7"`, wantError: true,
 			rootType: `<xs:attribute name="a" type="xs:ID"/><xs:anyAttribute processContents="strict"/>`,
 		},
 		{

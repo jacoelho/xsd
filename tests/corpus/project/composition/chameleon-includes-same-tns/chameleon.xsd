@@ -1,0 +1,4 @@
+<!-- I-021: src-include 2.1 compares the effective urn:t adopted from schema.xsd, so including a urn:t document is allowed. -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="named.xsd"/>
+</xs:schema>

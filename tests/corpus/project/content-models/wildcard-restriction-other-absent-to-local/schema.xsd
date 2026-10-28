@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <!-- With no targetNamespace, ##other excludes only absent names (rcase-NSSubset). -->
+  <xs:complexType name="B"><xs:sequence><xs:any namespace="##other" processContents="skip"/></xs:sequence></xs:complexType>
+  <xs:complexType name="D"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:any namespace="##local" processContents="skip"/></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>
+  <xs:element name="r" type="D"/>
+</xs:schema>

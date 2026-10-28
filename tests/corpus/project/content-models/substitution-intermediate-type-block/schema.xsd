@@ -1,0 +1,17 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="urn:t" targetNamespace="urn:t" elementFormDefault="qualified">
+  <xs:complexType name="T"><xs:sequence/></xs:complexType>
+  <xs:complexType name="U" block="restriction">
+    <xs:complexContent><xs:extension base="T"><xs:attribute name="x"/></xs:extension></xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="V"><xs:complexContent><xs:restriction base="U"/></xs:complexContent></xs:complexType>
+  <xs:element name="h" type="T"/>
+  <xs:element name="m" type="V" substitutionGroup="h"/>
+  <xs:element name="r">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="e" type="T" minOccurs="0"/>
+        <xs:element ref="h" minOccurs="0"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

@@ -705,8 +705,7 @@ func (e *identityEvaluation) recordValue(target identityValueTarget, value xsdVa
 	if target.matched && e.targetPhase != identityTargetPrepared {
 		return xsderrors.InternalInvariant("identity value target recorded more than once")
 	}
-	ids, idrefs := value.IDs(), value.IDRefs()
-	if err := e.recordDocumentIdentityValue(target, ids, idrefs, ctx); err != nil {
+	if err := e.recordDocumentIdentityValue(target, value, ctx); err != nil {
 		return err
 	}
 	if !target.matched {
@@ -722,13 +721,17 @@ func (e *identityEvaluation) recordValue(target identityValueTarget, value xsdVa
 	return nil
 }
 
-func (e *identityEvaluation) recordDocumentIdentityValue(target identityValueTarget, ids, idrefs string, ctx StartContext) error {
-	if !e.constraintsEnabled && (ids != "" || idrefs != "") {
+func (e *identityEvaluation) recordDocumentIdentityValue(target identityValueTarget, value xsdValue.Value, ctx StartContext) error {
+	ids, idrefs := value.IDs(), value.IDRefs()
+	// cvc-complex-type 5.1 counts attributes by their ID-carrying type, not
+	// by the member a union value selected (I-016).
+	idAttribute := target.kind == identityAttributeValue && value.IDTyped()
+	if !e.constraintsEnabled && (ids != "" || idrefs != "" || idAttribute) {
 		if err := e.activateDocumentIdentity(target.depth); err != nil {
 			return err
 		}
 	}
-	if target.kind == identityAttributeValue && ids != "" {
+	if idAttribute {
 		current := &e.elements[len(e.elements)-1]
 		if current.seenID {
 			err := validation(ctx, xsderrors.CodeValidationType, msgMultipleIDAttributes)

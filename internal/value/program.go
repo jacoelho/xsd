@@ -63,7 +63,6 @@ type TypeSpec struct {
 	Whitespace        WhitespaceMode
 	WhitespacePresent bool
 	Builtin           BuiltinKind
-	Identity          IdentityKind
 }
 
 // BuilderOptions bounds construction. Zero fields use package defaults.
@@ -188,6 +187,9 @@ func (b *Builder) Complete(id TypeID, spec TypeSpec) error {
 		return err
 	}
 	d := b.program.normalize(spec)
+	if d.variety == Atomic && d.carriers == carriesID|carriesIDREF {
+		return ErrMetadata
+	}
 	d.dependencyDepth = b.program.types[i].dependencyDepth
 	b.program.types[i] = d
 	// Make the current record visible while compiling self-typed facet
@@ -485,7 +487,7 @@ type typeDef struct {
 	primitive       PrimitiveKind
 	whitespace      WhitespaceMode
 	builtin         BuiltinKind
-	identity        IdentityKind
+	carriers        identityCarriers
 	dependencyDepth uint16
 	needsQName      bool
 	needsQNameKnown bool
@@ -534,7 +536,6 @@ func (p *Program) normalize(spec TypeSpec) typeDef {
 		primitive:  spec.Primitive,
 		whitespace: spec.Whitespace,
 		builtin:    spec.Builtin,
-		identity:   spec.Identity,
 		base:       spec.Base,
 		listItem:   spec.ListItem,
 		union:      append([]TypeID(nil), spec.Union...),
@@ -542,27 +543,43 @@ func (p *Program) normalize(spec TypeSpec) typeDef {
 	if !spec.WhitespacePresent {
 		d.whitespace = p.inheritedWhitespace(spec.Base, d.whitespace)
 	}
-	if d.identity == IdentityNone {
-		d.identity = p.inheritedIdentity(spec, d.identity)
-	}
+	d.carriers = p.inheritedCarriers(&d)
 	return d
+}
+
+// identityCarriers is the single type-level ID-ness predicate (I-016): a type
+// carries ID or IDREF when it, its base, its list item, or any union member
+// does. Schema constraints and instance ID accounting both read it, so a
+// value constraint or second ID use cannot bypass the run-time ID table.
+type identityCarriers uint8
+
+const (
+	carriesID identityCarriers = 1 << iota
+	carriesIDREF
+)
+
+// inheritedCarriers reads only direct dependencies: admission completes base,
+// item, and member types before their dependents, so each already holds its
+// own transitive result.
+func (p *Program) inheritedCarriers(d *typeDef) identityCarriers {
+	var c identityCarriers
+	if base, ok := p.typeDef(d.base); ok {
+		c |= base.carriers
+	}
+	if item, ok := p.typeDef(d.listItem); ok {
+		c |= item.carriers
+	}
+	for _, member := range d.union {
+		if m, ok := p.typeDef(member); ok {
+			c |= m.carriers
+		}
+	}
+	return c
 }
 
 func (p *Program) inheritedWhitespace(base TypeID, fallback WhitespaceMode) WhitespaceMode {
 	if parent, ok := p.typeDef(base); ok {
 		return parent.whitespace
-	}
-	return fallback
-}
-
-func (p *Program) inheritedIdentity(spec TypeSpec, fallback IdentityKind) IdentityKind {
-	if parent, ok := p.typeDef(spec.Base); ok && parent.identity != IdentityNone {
-		return parent.identity
-	}
-	if spec.Variety == List {
-		if item, ok := p.typeDef(spec.ListItem); ok && item.identity == IdentityIDREF {
-			return IdentityIDREFList
-		}
 	}
 	return fallback
 }
@@ -877,7 +894,7 @@ func validBoundPair(lower, upper boundValue) bool {
 }
 
 func validateTypeSpecShape(spec TypeSpec) error {
-	if !spec.Whitespace.valid() || spec.Variety > Union || spec.Identity > IdentityIDREFList || spec.Builtin > BuiltinEntity {
+	if !spec.Whitespace.valid() || spec.Variety > Union || spec.Builtin > BuiltinEntity {
 		return ErrMetadata
 	}
 	if spec.Variety == Atomic && !ValidPrimitiveKind(spec.Primitive) {

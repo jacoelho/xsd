@@ -52,25 +52,27 @@ const (
 	CodeUnsupportedRedefine    Code = "unsupported.xs_redefine"
 	CodeUnsupportedRegex       Code = "unsupported.regex"
 	CodeUnsupportedSchemaHint  Code = "unsupported.xsi_schema_location"
-	CodeUnsupportedXML11       Code = "unsupported.xml_1_1"
-	CodeUnsupportedXSD11       Code = "unsupported.xsd_1_1"
-	CodeValidationXML          Code = "validation.xml"
-	CodeValidationRoot         Code = "validation.root"
-	CodeValidationElement      Code = "validation.element"
-	CodeValidationAttribute    Code = "validation.attribute"
-	CodeValidationText         Code = "validation.text"
-	CodeValidationType         Code = "validation.type"
-	CodeValidationFacet        Code = "validation.facet"
-	CodeValidationContent      Code = "validation.content"
-	CodeValidationNil          Code = "validation.nil"
-	CodeValidationIdentity     Code = "validation.identity"
-	CodeValidationOption       Code = "validation.option"
-	CodeValidationSession      Code = "validation.session"
-	CodeValidationLimit        Code = "validation.limit"
-	CodeFormatXML              Code = "format.xml"
-	CodeFormatOption           Code = "format.option"
-	CodeFormatLimit            Code = "format.limit"
-	CodeInternalInvariant      Code = "internal.invariant"
+	// CodeUnsupportedXMLVersion reports an XML declaration whose well-formed
+	// version is not "1.0". A malformed version is an XML well-formedness error.
+	CodeUnsupportedXMLVersion Code = "unsupported.xml_version"
+	CodeUnsupportedXSD11      Code = "unsupported.xsd_1_1"
+	CodeValidationXML         Code = "validation.xml"
+	CodeValidationRoot        Code = "validation.root"
+	CodeValidationElement     Code = "validation.element"
+	CodeValidationAttribute   Code = "validation.attribute"
+	CodeValidationText        Code = "validation.text"
+	CodeValidationType        Code = "validation.type"
+	CodeValidationFacet       Code = "validation.facet"
+	CodeValidationContent     Code = "validation.content"
+	CodeValidationNil         Code = "validation.nil"
+	CodeValidationIdentity    Code = "validation.identity"
+	CodeValidationOption      Code = "validation.option"
+	CodeValidationSession     Code = "validation.session"
+	CodeValidationLimit       Code = "validation.limit"
+	CodeFormatXML             Code = "format.xml"
+	CodeFormatOption          Code = "format.option"
+	CodeFormatLimit           Code = "format.limit"
+	CodeInternalInvariant     Code = "internal.invariant"
 )
 
 // Error is an immutable structured diagnostic returned by compile, validation,
@@ -505,7 +507,7 @@ func validSchemaCompileCode(code Code) bool {
 func validUnsupportedCode(code Code) bool {
 	return code == CodeUnsupportedDTD || code == CodeUnsupportedExternal || code == CodeUnsupportedEntity ||
 		code == CodeUnsupportedNonUTF8 || code == CodeUnsupportedRedefine || code == CodeUnsupportedRegex ||
-		code == CodeUnsupportedSchemaHint || code == CodeUnsupportedXML11 || code == CodeUnsupportedXSD11
+		code == CodeUnsupportedSchemaHint || code == CodeUnsupportedXMLVersion || code == CodeUnsupportedXSD11
 }
 
 func validValidationCode(code Code) bool {

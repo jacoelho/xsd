@@ -88,21 +88,6 @@ const (
 
 func (m WhitespaceMode) valid() bool { return m <= WhitespaceCollapse }
 
-// IdentityKind identifies document-level ID/IDREF behavior inherited by a
-// simple type. The validator owns uniqueness and reference resolution.
-type IdentityKind uint8
-
-const (
-	// IdentityNone indicates that the type has no document-level identity projection.
-	IdentityNone IdentityKind = iota
-	// IdentityID marks a value as an xs:ID projection.
-	IdentityID
-	// IdentityIDREF marks a value as an xs:IDREF projection.
-	IdentityIDREF
-	// IdentityIDREFList marks a list as an xs:IDREFS projection.
-	IdentityIDREFList
-)
-
 // BuiltinKind identifies lexical rules attached to XSD-derived built-ins.
 type BuiltinKind uint8
 

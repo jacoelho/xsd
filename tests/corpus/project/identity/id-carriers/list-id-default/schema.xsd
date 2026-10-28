@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="IDList"><xs:list itemType="xs:ID"/></xs:simpleType>
+  <xs:element name="root">
+    <xs:complexType><xs:attribute name="ids" type="IDList" fixed="a"/></xs:complexType>
+  </xs:element>
+</xs:schema>

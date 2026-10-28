@@ -3,7 +3,6 @@ package schema
 import (
 	"errors"
 
-	valuepkg "github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
 )
 
@@ -196,11 +195,11 @@ func validateDeclValueConstraintIdentity(rt *schemaBuild, typ SimpleTypeID, cons
 	if rt == nil {
 		return errors.New("declaration value constraint references invalid type")
 	}
-	identity, ok := rt.SimpleTypeIdentity(typ)
+	carriesID, ok := rt.SimpleTypeCarriesID(typ)
 	if !ok {
 		return errors.New("declaration value constraint references invalid type")
 	}
-	if identity == valuepkg.IdentityID {
+	if carriesID {
 		return errors.New(msg)
 	}
 	return nil

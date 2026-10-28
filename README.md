@@ -4,7 +4,7 @@ A pure Go XML Schema 1.0 validator. Compile a schema once, then validate XML
 from an `io.Reader` without building a document tree or storing the full XML.
 
 Requires Go 1.27 or newer. Accepts UTF-8 XSD 1.0 and XML 1.0. DTDs, external
-entities, XML 1.1, and `xs:redefine` are unsupported. Schema sources are explicit:
+entities, XML versions other than 1.0, and `xs:redefine` are unsupported. Schema sources are explicit:
 the library does not fetch schemas over the network, and instance
 `xsi:schemaLocation` hints never supply components. Validation uses the compiled
 component set and reports missing required declarations or types as validation
@@ -149,7 +149,11 @@ func compileSchemas(root, types []byte) (*xsd.Engine, error) {
 ```
 
 For example, `root` can include `types.xsd` with
-`<xs:include schemaLocation="types.xsd"/>`. Source names identify documents.
+`<xs:include schemaLocation="types.xsd"/>`. Source names identify documents:
+byte-identical copies reached under different names are distinct documents, so
+two copies that declare the same components fail with `schema.duplicate`. A
+resolver that returns one canonical name for equivalent locations (for example
+a bundled `xml.xsd`) avoids this.
 `Bytes` and `Open` resolve references from explicitly supplied sources unless
 you attach a resolver.
 

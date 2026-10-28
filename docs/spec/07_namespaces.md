@@ -160,7 +160,7 @@ Incorporates another schema with the **same** target namespace:
 
 - Included schema must have same target namespace (or no target namespace)
 - `schemaLocation` is required and specifies the schema document to include
-- Multiple includes of the same schema document are allowed; component identity rules still apply and processors may avoid reprocessing identical includes
+- Multiple includes of the same resolved location are one schema document. Distinct locations are distinct documents even with identical bytes, so their global components are duplicates ([I-019](INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location))
 
 ### Chameleon Include
 
@@ -191,6 +191,7 @@ When an included schema has **no target namespace**, its components adopt the in
 - All global components from the included schema adopt the target namespace
 - Type references within the included schema are resolved in the new namespace
 - The same chameleon schema can be included into multiple schemas with different target namespaces
+- Its own `xs:include` and `xs:import` edges are checked against the adopted namespace in each view: it may include a document declaring that namespace, may import without `namespace`, and cannot import the adopted namespace ([I-021](INTERPRETATIONS.md#i-021--chameleon-reference-checks-use-the-effective-target-namespace))
 
 ### xs:import
 

@@ -250,8 +250,8 @@ func TestFormatXMLRejectsXML11WithoutInternalCause(t *testing.T) {
 	var out strings.Builder
 	err := XML(&out, `<?xml version="1.1"?><root/>`)
 	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
-	if !ok || diagnostic.Code() != xsderrors.CodeUnsupportedXML11 {
-		t.Fatalf("XML() error = %v, want %q", err, xsderrors.CodeUnsupportedXML11)
+	if !ok || diagnostic.Code() != xsderrors.CodeUnsupportedXMLVersion {
+		t.Fatalf("XML() error = %v, want %q", err, xsderrors.CodeUnsupportedXMLVersion)
 	}
 	if diagnostic.Cause() != nil {
 		t.Fatalf("XML() XML 1.1 cause = %T, want nil", diagnostic.Cause())

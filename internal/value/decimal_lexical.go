@@ -46,7 +46,7 @@ func prepareRawDecimalFastPath(t *typeDef) {
 }
 
 func prepareRawIntegerFastPath(t *typeDef) {
-	if t.variety != Atomic || t.primitive != PrimitiveDecimal || t.builtin != BuiltinInteger || t.identity != IdentityNone {
+	if t.variety != Atomic || t.primitive != PrimitiveDecimal || t.builtin != BuiltinInteger || t.carriers != 0 {
 		return
 	}
 	// Every BuiltinInteger inherits fractionDigits=0. That metadata is the
@@ -89,12 +89,9 @@ type integerSign bool
 
 func validateRawIntegerBytes(f *facetProgram, whitespace WhitespaceMode, raw []byte) error {
 	input := trimIntegerWhitespace(raw, whitespace)
-	scan, err := scanDecimalText(input)
+	scan, err := scanIntegerText(input)
 	if err != nil {
 		return err
-	}
-	if scan.dot {
-		return errors.New(msgInvalidInteger)
 	}
 	digitsStart := skipLeadingZeros(input, scan.start, scan.intEnd)
 	negative := integerSign(scan.negative && digitsStart != scan.intEnd)
@@ -139,17 +136,20 @@ func compareIntegerBytesToBound(raw []byte, digitsStart, digitsEnd int, negative
 	return comparison
 }
 
-// ValidateIntegerLexical validates raw as an xs:integer lexical value while
-// preserving xs:decimal lexical diagnostics for non-decimal text.
+// ValidateIntegerLexical validates raw as an xs:integer lexical value.
 func ValidateIntegerLexical[T byteText](raw T) error {
+	_, err := scanIntegerText(raw)
+	return err
+}
+
+// scanIntegerText owns the integer-family syntax reason: every lexical
+// failure, including a decimal point, is "invalid integer".
+func scanIntegerText[T byteText](raw T) (decimalTextScan, error) {
 	scan, err := scanDecimalText(raw)
-	if err != nil {
-		return err
+	if err != nil || scan.dot {
+		return decimalTextScan{}, errors.New(msgInvalidInteger)
 	}
-	if scan.dot {
-		return errors.New(msgInvalidInteger)
-	}
-	return nil
+	return scan, nil
 }
 
 func validateFastDecimalLexical[T byteText](f *facetProgram, raw T) (bool, error) {

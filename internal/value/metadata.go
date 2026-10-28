@@ -10,7 +10,6 @@ type TypeView struct {
 	Primitive      PrimitiveKind
 	Whitespace     WhitespaceMode
 	Builtin        BuiltinKind
-	Identity       IdentityKind
 	HasEnumeration bool
 }
 
@@ -18,9 +17,23 @@ type TypeView struct {
 // type. It is deliberately scalar: validation can query the completed plan
 // without copying facet, union, or dependency records.
 type InputRequirements struct {
-	NeedsQName          bool
-	Identity            IdentityKind
+	NeedsQName bool
+	// DocumentIdentity reports that values can project xs:ID or xs:IDREF
+	// through the type, a list item, or a union member.
+	DocumentIdentity bool
+	// CarriesID is the single ID-ness predicate for schema value-constraint
+	// and ID-use rules and for instance ID-attribute accounting (I-016).
+	CarriesID bool
+	// UnconstrainedString reports an atomic xs:string value space with
+	// preserved whitespace, no ID/IDREF carriers, and no effective facets,
+	// including inherited ones: every lexical form is valid and equals its
+	// canonical value, so callers may compare raw text directly.
 	UnconstrainedString bool
+	// LexicalCanonical reports an atomic xs:string value space with preserved
+	// whitespace and no ID/IDREF carriers: an accepted lexical form is its own
+	// canonical value, so after validation callers may compare raw text with a
+	// canonical constraint. Facets may still reject values.
+	LexicalCanonical bool
 }
 
 // InputRequirements returns the scalar value-admission requirements for a
@@ -50,14 +63,16 @@ func (b *Builder) InputRequirements(id TypeID) (InputRequirements, bool) {
 }
 
 func inputRequirements(t *typeDef) InputRequirements {
+	lexicalCanonical := t.variety == Atomic &&
+		t.primitive == PrimitiveString &&
+		t.whitespace == WhitespacePreserve &&
+		t.carriers == 0
 	return InputRequirements{
-		NeedsQName: t.needsQName,
-		Identity:   t.identity,
-		UnconstrainedString: t.variety == Atomic &&
-			t.primitive == PrimitiveString &&
-			t.whitespace == WhitespacePreserve &&
-			t.identity == IdentityNone &&
-			t.facets.present == 0,
+		NeedsQName:          t.needsQName,
+		DocumentIdentity:    t.carriers != 0,
+		CarriesID:           t.carriers&carriesID != 0,
+		LexicalCanonical:    lexicalCanonical,
+		UnconstrainedString: lexicalCanonical && t.facets.present == 0,
 	}
 }
 
@@ -76,7 +91,6 @@ func (b *Builder) TypeView(id TypeID) (TypeView, bool) {
 		Primitive:      t.primitive,
 		Whitespace:     t.whitespace,
 		Builtin:        t.builtin,
-		Identity:       t.identity,
 		Base:           t.base,
 		ListItem:       t.listItem,
 		Union:          append([]TypeID(nil), t.union...),
