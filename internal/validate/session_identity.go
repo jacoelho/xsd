@@ -43,7 +43,7 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 	if !ok {
 		return false, xsderrors.InternalInvariant("simple content input metadata is invalid")
 	}
-	if !needsIdentity && !hasValueConstraint && input.Identity == xsdValue.IdentityNone {
+	if !needsIdentity && !hasValueConstraint && !input.DocumentIdentity {
 		value, err := s.validateSimpleValueBytes(typeID, rawText, input, 0)
 		if err != nil {
 			return false, simpleValueError(ctx, xsderrors.CodeValidationFacet, msgInvalidSimpleContent, err, s.limits.InstanceValueWork)
@@ -82,7 +82,7 @@ func (s *session) applyElementValueConstraint(typeID xsdSchema.SimpleTypeID, con
 		resolver.QName = constraint.ResolveQName
 		resolver.Notation = s.rt.NotationDeclared
 	}
-	result, err := s.validateSimpleValue(typeID, constraint.ApplicationText(), resolver, simpleContentNeeds(target, input.Identity))
+	result, err := s.validateSimpleValue(typeID, constraint.ApplicationText(), resolver, simpleContentNeeds(target, input))
 	if err != nil {
 		return false, s.elementSimpleContentValueError(target, err, ctx)
 	}
@@ -92,7 +92,7 @@ func (s *session) applyElementValueConstraint(typeID xsdSchema.SimpleTypeID, con
 }
 
 func (s *session) validateElementSimpleContentValue(typeID xsdSchema.SimpleTypeID, rawText []byte, constraints xsdSchema.ElementValueConstraints, target identityValueTarget, input xsdValue.InputRequirements, ctx StartContext) (bool, error) {
-	needs := simpleContentNeeds(target, input.Identity)
+	needs := simpleContentNeeds(target, input)
 	if _, fixed := constraints.FixedValue(); fixed {
 		needs |= xsdValue.NeedCanonical | xsdValue.NeedIdentity
 	}
@@ -131,15 +131,14 @@ func (s *session) commitElementSimpleContentValue(result xsdValue.Value, constra
 
 func simpleContentNeeds(
 	target identityValueTarget,
-	typeIdentity xsdValue.IdentityKind,
+	input xsdValue.InputRequirements,
 ) xsdValue.Needs {
 	var needs xsdValue.Needs
 	if target.needsIdentity() {
 		needs |= xsdValue.NeedIdentity
 	}
-	if target.needsIdentity() || typeIdentity != xsdValue.IdentityNone {
+	if target.needsIdentity() || input.DocumentIdentity {
 		needs |= xsdValue.NeedCanonical
-		return needs
 	}
 	return needs
 }

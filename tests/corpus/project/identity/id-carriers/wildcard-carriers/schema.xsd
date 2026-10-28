@@ -1,0 +1,23 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="IDList"><xs:list itemType="xs:ID"/></xs:simpleType>
+  <xs:simpleType name="IntOrID"><xs:union memberTypes="xs:int xs:ID"/></xs:simpleType>
+  <xs:attribute name="ids" type="IDList"/>
+  <xs:attribute name="k1" type="IntOrID"/>
+  <xs:attribute name="k2" type="IntOrID"/>
+  <xs:attribute name="note" type="xs:string"/>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="declared" minOccurs="0">
+          <xs:complexType>
+            <xs:attribute name="id" type="xs:ID"/>
+            <xs:anyAttribute processContents="strict"/>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="open" minOccurs="0">
+          <xs:complexType><xs:anyAttribute processContents="strict"/></xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

@@ -629,7 +629,7 @@ func (s *session) assessXSIElementStart(
 			typeInfo:    state.typeInfo,
 		})
 		if complete {
-			return state.nil.value, err
+			return state.nilled(), err
 		}
 		state.typeID = start.typ
 		state.typeInfo = info
@@ -640,10 +640,10 @@ func (s *session) assessXSIElementStart(
 func (s *session) completeElementStartAssessment(start *schemaStart, state elementEffectiveState) (bool, error) {
 	issue := state.issue()
 	if !issue.valid() {
-		return state.nil.value, nil
+		return state.nilled(), nil
 	}
 	err := validationFromIssue(StartContext{}, elementStartDiagnosticIssue(s.rt, start, issue))
-	return state.nil.value, s.recoverElementStartAssessment(start, err)
+	return state.nilled(), s.recoverElementStartAssessment(start, err)
 }
 
 func expandedInstancePath(mode elementMode, rn xsdSchema.RuntimeName) xmlPathMode {
@@ -758,9 +758,10 @@ func (s *session) assessXSIType(start *schemaStart, assessment xsiTypeAssessment
 		return assessment.typeInfo, true, s.recoverElementStartAssessment(start, err)
 	}
 	if err := validateXSITypeOverride(s.rt, &s.derivationScratch, xsiTypeOverrideInput{
-		declaration: assessment.declaration,
-		declared:    start.typ,
-		override:    override,
+		declaration:   assessment.declaration,
+		declared:      start.typ,
+		declaredBlock: assessment.typeInfo.Block,
+		override:      override,
 	}); err != nil {
 		return s.recoverXSITypeError(start, assessment.typeInfo, err)
 	}

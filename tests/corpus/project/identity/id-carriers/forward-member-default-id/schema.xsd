@@ -1,0 +1,7 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <!-- The member type deriving from xs:ID is declared after the attribute and union that use it. -->
+  <xs:element name="r"><xs:complexType><xs:attribute name="a" type="U" default="1"/></xs:complexType></xs:element>
+  <xs:simpleType name="U"><xs:union memberTypes="A xs:int"/></xs:simpleType>
+  <xs:simpleType name="A"><xs:restriction base="B"/></xs:simpleType>
+  <xs:simpleType name="B"><xs:restriction base="xs:ID"/></xs:simpleType>
+</xs:schema>

@@ -1,0 +1,12 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:t" elementFormDefault="qualified">
+  <!-- I-020: name classes follow XML 1.0 Fifth Edition productions [4], [4a] and [5]. -->
+  <xs:element name="name" type="xs:Name"/>
+  <xs:element name="ncname" type="xs:NCName"/>
+  <xs:element name="nmtoken" type="xs:NMTOKEN"/>
+  <xs:element name="initial">
+    <xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="\i"/></xs:restriction></xs:simpleType>
+  </xs:element>
+  <xs:element name="namechar">
+    <xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="\c"/></xs:restriction></xs:simpleType>
+  </xs:element>
+</xs:schema>

@@ -121,6 +121,9 @@ independent Python xmlschema result.
    not a majority-vote replacement for those sources. Preserve measured provider
    disagreements as implementation-specific oracle metadata without overwriting
    the project expectation or fabricating results for blocked phases.
+   Where specification text, adopted corrections and accepted W3C expectations
+   leave a reading doubtful, the interpretation record applies the
+   [processor tie-break](../docs/spec/INTERPRETATIONS.md#processor-tie-break).
 
 Historical releases and modified provider copies are separate diagnostic
 profiles. Record their selection reason, versions, source changes and hashes;

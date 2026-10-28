@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:t" xmlns="urn:t">
+  <!-- XSD 1.1 §4.2.3: distinct include locations are distinct documents even with identical bytes. -->
+  <xs:include schemaLocation="a.xsd"/>
+  <xs:include schemaLocation="b.xsd"/>
+  <xs:element name="doc" type="T"/>
+</xs:schema>

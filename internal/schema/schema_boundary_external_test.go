@@ -41,6 +41,10 @@ func TestSchemaXMLNamespaceWellFormedness(t *testing.T) {
 			name:   "mismatched opaque lexical end name",
 			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:annotation><xs:appinfo><a:p xmlns:a="urn:e" xmlns:b="urn:e"></b:p></xs:appinfo></xs:annotation></xs:schema>`,
 		},
+		{
+			name:   "colon processing instruction target in appinfo",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:annotation><xs:appinfo><?a:b data?></xs:appinfo></xs:annotation></xs:schema>`,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -89,14 +93,16 @@ func TestSchemaXMLUsesBufferedCharacterFailurePosition(t *testing.T) {
 	}
 }
 
-func TestSchemaUnsupportedXMLDeclarationClassificationDoesNotDependOnPreviewLength(t *testing.T) {
+func TestSchemaXMLDeclarationClassificationDoesNotDependOnPreviewLength(t *testing.T) {
 	tests := []struct {
 		name    string
 		content string
 		code    xsderrors.Code
 	}{
-		{name: "version", content: `version="1.1"`, code: xsderrors.CodeUnsupportedXML11},
+		{name: "version", content: `version="1.1"`, code: xsderrors.CodeUnsupportedXMLVersion},
 		{name: "encoding", content: `version="1.0" encoding="ISO-8859-1"`, code: xsderrors.CodeUnsupportedNonUTF8},
+		{name: "malformed version", content: `version="1,0"`, code: xsderrors.CodeSchemaXML},
+		{name: "malformed encoding", content: `version="1.0" encoding="UTF-8 "`, code: xsderrors.CodeSchemaXML},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -106,8 +112,8 @@ func TestSchemaUnsupportedXMLDeclarationClassificationDoesNotDependOnPreviewLeng
 			if !errors.As(err, &schemaErr) || schemaErr.Code() != test.code {
 				t.Fatalf("Compile() error = %v, want %q", err, test.code)
 			}
-			if test.code == xsderrors.CodeUnsupportedXML11 && schemaErr.Cause() != nil {
-				t.Fatalf("Compile() XML 1.1 cause = %T, want nil", schemaErr.Cause())
+			if test.code == xsderrors.CodeUnsupportedXMLVersion && schemaErr.Cause() != nil {
+				t.Fatalf("Compile() unsupported version cause = %T, want nil", schemaErr.Cause())
 			}
 		})
 	}
@@ -356,44 +362,142 @@ func TestSchemaGraphAllowsUnavailableXMLBaseWithoutReferences(t *testing.T) {
 	}
 }
 
-func TestChameleonStructuralChecksUseDeclaredTargetNamespace(t *testing.T) {
+// I-021: a targetless document's src-include 2.1 and src-import 1.1-1.2
+// checks use the namespace adopted by each target-context view.
+func TestChameleonReferenceChecksUseEachTargetContext(t *testing.T) {
+	const (
+		xs       = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"`
+		includeA = xs + ` targetNamespace="urn:a"><xs:include schemaLocation="child.xsd"/></xs:schema>`
+		includeB = xs + ` targetNamespace="urn:b"><xs:include schemaLocation="child.xsd"/></xs:schema>`
+		namedA   = xs + ` targetNamespace="urn:a"><xs:element name="e" type="xs:int"/></xs:schema>`
+	)
+	child := func(body string) string { return xs + ">" + body + "</xs:schema>" }
 	tests := []struct {
-		name  string
-		child string
-		docs  map[string]string
+		name     string
+		roots    []string
+		names    []string // root source names; default root<i>.xsd
+		docs     map[string]string
+		failsAt  string
+		instance string
 	}{
 		{
-			name:  "targetless child cannot include named schema",
-			child: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="named.xsd"/></xs:schema>`,
-			docs: map[string]string{
-				"named.xsd": `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:a"/>`,
-			},
+			name:     "include of adopted namespace",
+			roots:    []string{includeA},
+			docs:     map[string]string{"child.xsd": child(`<xs:include schemaLocation="named.xsd"/>`), "named.xsd": namedA},
+			instance: `<e xmlns="urn:a">1</e>`,
 		},
 		{
-			name:  "targetless child cannot import without namespace",
-			child: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:import/></xs:schema>`,
+			name:    "include of other namespace",
+			roots:   []string{includeA},
+			docs:    map[string]string{"child.xsd": child(`<xs:include schemaLocation="named.xsd"/>`), "named.xsd": xs + ` targetNamespace="urn:b"/>`},
+			failsAt: "child.xsd",
+		},
+		{
+			name:  "import without namespace in adopted view",
+			roots: []string{includeA},
+			docs:  map[string]string{"child.xsd": child(`<xs:import/>`)},
+		},
+		{
+			name:    "import of adopted namespace",
+			roots:   []string{includeA},
+			docs:    map[string]string{"child.xsd": child(`<xs:import namespace="urn:a"/>`)},
+			failsAt: "child.xsd",
+		},
+		{
+			name:  "import of other namespace",
+			roots: []string{includeA},
+			docs:  map[string]string{"child.xsd": child(`<xs:import namespace="urn:b"/>`)},
+		},
+		{
+			name:    "import of second view namespace",
+			roots:   []string{includeA, includeB},
+			docs:    map[string]string{"child.xsd": child(`<xs:import namespace="urn:b"/>`)},
+			failsAt: "child.xsd",
+		},
+		{
+			name:    "import of second view namespace reversed roots",
+			roots:   []string{includeB, includeA},
+			docs:    map[string]string{"child.xsd": child(`<xs:import namespace="urn:b"/>`)},
+			failsAt: "child.xsd",
+		},
+		{
+			name:    "include of first view namespace",
+			roots:   []string{includeA, includeB},
+			docs:    map[string]string{"child.xsd": child(`<xs:include schemaLocation="named.xsd"/>`), "named.xsd": namedA},
+			failsAt: "child.xsd",
+		},
+		{
+			name:  "import of namespace outside both views",
+			roots: []string{includeA, includeB},
+			docs:  map[string]string{"child.xsd": child(`<xs:import namespace="urn:c"/>`)},
+		},
+		{
+			name:    "import without namespace in targetless view",
+			roots:   []string{xs + `><xs:include schemaLocation="child.xsd"/></xs:schema>`},
+			docs:    map[string]string{"child.xsd": child(`<xs:import/>`)},
+			failsAt: "child.xsd",
+		},
+		{
+			name:    "import without namespace in targetless root",
+			roots:   []string{child(`<xs:import/>`)},
+			failsAt: "root0.xsd",
+		},
+		{
+			name:  "targetless root imports a namespace",
+			roots: []string{child(`<xs:import namespace="urn:t"/>`)},
+		},
+		{
+			name:    "chameleon target also named as targetless root",
+			roots:   []string{includeA, child(`<xs:import/>`)},
+			names:   []string{"root0.xsd", "child.xsd"},
+			docs:    map[string]string{"child.xsd": child(`<xs:import/>`)},
+			failsAt: "child.xsd",
+		},
+		{
+			name:    "targetless root also included as chameleon",
+			roots:   []string{child(`<xs:import/>`), includeA},
+			names:   []string{"child.xsd", "root1.xsd"},
+			docs:    map[string]string{"child.xsd": child(`<xs:import/>`)},
+			failsAt: "child.xsd",
+		},
+		{
+			name:  "chameleon target also named as root imports a namespace",
+			roots: []string{includeA, child(`<xs:import namespace="urn:t"/>`)},
+			names: []string{"root0.xsd", "child.xsd"},
+			docs:  map[string]string{"child.xsd": child(`<xs:import namespace="urn:t"/>`)},
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			docs := test.docs
-			if docs == nil {
-				docs = make(map[string]string)
-			}
-			docs["child.xsd"] = test.child
 			var resolver source.Resolver
 			resolver = func(_, location string) (source.Source, error) {
-				doc, ok := docs[location]
+				doc, ok := test.docs[location]
 				if !ok {
 					return source.Source{}, fmt.Errorf("missing %s", location)
 				}
 				return source.Bytes(location, []byte(doc)).WithResolver(resolver), nil
 			}
-			root := source.Bytes("root.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:a"><xs:include schemaLocation="child.xsd"/></xs:schema>`)).WithResolver(resolver)
-			_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{root})
-			var schemaErr *xsderrors.Error
-			if !errors.As(err, &schemaErr) || schemaErr.Code() != xsderrors.CodeSchemaReference {
-				t.Fatalf("Compile() error = %v, want %q", err, xsderrors.CodeSchemaReference)
+			roots := make([]source.Source, len(test.roots))
+			for i, root := range test.roots {
+				name := fmt.Sprintf("root%d.xsd", i)
+				if test.names != nil {
+					name = test.names[i]
+				}
+				roots[i] = source.Bytes(name, []byte(root)).WithResolver(resolver)
+			}
+			rt, err := xsdSchema.Compile(xsdSchema.Options{}, roots)
+			if test.failsAt == "" {
+				if err != nil {
+					t.Fatalf("Compile() error = %v", err)
+				}
+				if test.instance != "" {
+					mustValidate(t, rt, test.instance)
+				}
+				return
+			}
+			expectCode(t, err, xsderrors.CodeSchemaReference)
+			if !strings.Contains(err.Error(), test.failsAt) {
+				t.Fatalf("Compile() error = %v, want failure in %s", err, test.failsAt)
 			}
 		})
 	}

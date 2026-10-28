@@ -104,12 +104,19 @@ func predefinedEntityLength(entity []byte) int {
 	return 0
 }
 
+// namedEntityError classifies a non-character entity reference. Entity names
+// follow Namespaces in XML §7 and contain no colon. A well-formed general
+// entity name is reported as unsupported; anything else is malformed.
+func namedEntityError(entity []byte) error {
+	if lex.IsNCNameBytes(entity) {
+		return errUnsupportedEntityReference
+	}
+	return fmt.Errorf("invalid character entity")
+}
+
 func validateCharacterEntity(entity []byte) (int, error) {
 	if len(entity) == 0 || entity[0] != '#' {
-		if lex.IsXMLNameBytes(entity) {
-			return 0, errUnsupportedEntityReference
-		}
-		return 0, fmt.Errorf("invalid character entity")
+		return 0, namedEntityError(entity)
 	}
 	r, ok := parseCharRef(entity[1:])
 	if !ok {
@@ -131,10 +138,8 @@ func DecodeEntityReferenceString(entity string) (rune, error) {
 		return rune(value), nil
 	}
 	if entity == "" || entity[0] != '#' {
-		if lex.IsXMLName(entity) {
-			return 0, errUnsupportedEntityReference
-		}
-		return 0, fmt.Errorf("invalid character entity")
+		// Error path only; the conversion cost is irrelevant.
+		return 0, namedEntityError([]byte(entity))
 	}
 	r, ok := parseCharRefString(entity[1:])
 	if !ok {
@@ -197,10 +202,7 @@ func predefinedEntityKey(key uint32) (byte, bool) {
 
 func (p *parser) appendOtherEntityReference(dst *[]byte) error {
 	if len(p.entityBuf) == 0 || p.entityBuf[0] != '#' {
-		if lex.IsXMLNameBytes(p.entityBuf) {
-			return errUnsupportedEntityReference
-		}
-		return fmt.Errorf("invalid character entity")
+		return namedEntityError(p.entityBuf)
 	}
 	r, ok := parseCharRef(p.entityBuf[1:])
 	if !ok {

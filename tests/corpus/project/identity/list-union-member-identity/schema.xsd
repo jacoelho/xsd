@@ -1,0 +1,17 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <!-- A union value takes its first matching member, so member order decides list item equality. -->
+  <xs:simpleType name="StringList"><xs:list itemType="xs:string"/></xs:simpleType>
+  <xs:simpleType name="IntList"><xs:list itemType="xs:int"/></xs:simpleType>
+  <xs:simpleType name="StringFirst"><xs:union memberTypes="StringList IntList"/></xs:simpleType>
+  <xs:simpleType name="IntFirst"><xs:union memberTypes="IntList StringList"/></xs:simpleType>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:choice maxOccurs="unbounded">
+        <xs:element name="s"><xs:complexType><xs:attribute name="v" type="StringFirst" use="required"/></xs:complexType></xs:element>
+        <xs:element name="i"><xs:complexType><xs:attribute name="v" type="IntFirst" use="required"/></xs:complexType></xs:element>
+      </xs:choice>
+    </xs:complexType>
+    <xs:unique name="strings"><xs:selector xpath="s"/><xs:field xpath="@v"/></xs:unique>
+    <xs:unique name="ints"><xs:selector xpath="i"/><xs:field xpath="@v"/></xs:unique>
+  </xs:element>
+</xs:schema>

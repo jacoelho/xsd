@@ -60,7 +60,7 @@ func (s *session) validateSimpleValueBytes(
 	// QName/NOTATION resolution and document identity projections consume
 	// lexical strings. Reuse the reader's bounded owned spellings; resolve them
 	// again against the current namespace bindings on every evaluation.
-	if input.NeedsQName || input.Identity != xsdValue.IdentityNone || needs != 0 && input.UnconstrainedString {
+	if input.NeedsQName || input.DocumentIdentity || needs != 0 && input.UnconstrainedString {
 		lexicalString := s.reader.InternBytes(lexical)
 		return program.ValidateAdmitted(id, lexicalString, resolve, needs, s.limits.InstanceValueWork, &s.valueScratch)
 	}
@@ -215,7 +215,7 @@ func newDeclaredAttributePlan(use xsdSchema.AttributeUseRead, target identityVal
 }
 
 func (p declaredAttributePlan) canValidateFixedString() bool {
-	return !p.target.needsIdentity() && p.hasFixed && p.use.CanValidateFixedStringFast()
+	return !p.target.needsIdentity() && p.hasFixed && p.input.LexicalCanonical
 }
 
 func (p declaredAttributePlan) canValidateRaw() bool {
@@ -230,9 +230,8 @@ func (s *session) validateDeclaredAttributeFast(plan declaredAttributePlan, attr
 		}
 		return true, validateFixedAttributeString(lexical, plan.fixed, rn, ctx)
 	}
-	// Statically known ID/IDREF types use the owned lexical path below.
-	// Union members can still produce document-identity projections here.
-	if !plan.canValidateRaw() || plan.input.Identity != xsdValue.IdentityNone {
+	// ID/IDREF-carrying types use the owned lexical path below.
+	if !plan.canValidateRaw() || plan.input.DocumentIdentity {
 		return false, nil
 	}
 	if raw, ok := attr.RawValue(); ok {
@@ -386,7 +385,7 @@ func (s *session) validateKnownWildcardAttribute(
 	if !ok {
 		return s.rejectAttributeIdentityValue(identityTarget, ctx, xsderrors.InternalInvariant("attribute input metadata is invalid"))
 	}
-	if set.HasIDUse() && input.Identity == xsdValue.IdentityID {
+	if set.HasIDUse() && input.CarriesID {
 		return s.rejectAttributeIdentityValue(identityTarget, ctx, attributeValidation(ctx, msgWildcardIDDeclaredUse))
 	}
 	value, err := s.validateAdmittedSimpleValue(typeID, lexical, input, needs)

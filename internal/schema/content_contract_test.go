@@ -136,7 +136,7 @@ func contentContractBuild(t *testing.T, names []QName) *schemaBuild {
 }
 
 func contentContractSchema(build *schemaBuild, reads []compiledModelRead) *Schema {
-	return &Schema{program: schemaProgram{CompiledModels: reads, Elements: newElementReadTable(build.Elements, nil), Substitutions: build.Substitutions}}
+	return &Schema{program: schemaProgram{CompiledModels: reads, Elements: newElementReadTable(build.Elements), Substitutions: build.Substitutions}}
 }
 
 func TestNextContentWarmNamedDispatchAllocatesNothing(t *testing.T) {

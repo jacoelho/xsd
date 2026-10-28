@@ -31,7 +31,7 @@ type elementReadTable struct {
 	constraints []elementConstraintRead
 }
 
-func newElementReadTable(decls []ElementDecl, complexTypes []ComplexType) elementReadTable {
+func newElementReadTable(decls []ElementDecl) elementReadTable {
 	identityCount, constraintCount := elementReadStorageCounts(decls)
 	table := elementReadTable{
 		names:       make([]QName, len(decls)),
@@ -40,7 +40,7 @@ func newElementReadTable(decls []ElementDecl, complexTypes []ComplexType) elemen
 		constraints: make([]elementConstraintRead, 0, constraintCount),
 	}
 	for i := range decls {
-		table.addDeclaration(i, decls[i], complexTypes)
+		table.addDeclaration(i, decls[i])
 	}
 	return table
 }
@@ -55,11 +55,11 @@ func elementReadStorageCounts(decls []ElementDecl) (identityCount, constraintCou
 	return identityCount, constraintCount
 }
 
-func (t *elementReadTable) addDeclaration(index int, decl ElementDecl, complexTypes []ComplexType) {
+func (t *elementReadTable) addDeclaration(index int, decl ElementDecl) {
 	t.names[index] = decl.Name
 	meta := elementReadMeta{
 		typ:           decl.Type,
-		block:         effectiveElementBlock(decl, complexTypes),
+		block:         decl.Block,
 		identityStart: len(t.identities),
 		identityCount: len(decl.Identity),
 		constraint:    -1,
@@ -173,12 +173,4 @@ func (t *elementReadTable) constraintFlags(id ElementID) (fixed, present, valid 
 		return false, false, valid
 	}
 	return constraint.kind == DeclarationValueConstraintFixed, true, true
-}
-
-func effectiveElementBlock(decl ElementDecl, complexTypes []ComplexType) DerivationMask {
-	block := decl.Block
-	if id, ok := decl.Type.Complex(); ok && ValidComplexTypeID(id, len(complexTypes)) {
-		block |= complexTypes[id].Block
-	}
-	return block
 }

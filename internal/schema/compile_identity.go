@@ -19,9 +19,6 @@ func identityConstraintNodes(n *schemaNode) []*schemaNode {
 func (c *compiler) declareAllIdentityConstraints() error {
 	for i := range c.plan.documents {
 		ctx := &c.plan.documents[i]
-		if !ctx.indexDeclarations {
-			continue
-		}
 		doc := ctx.doc
 		if err := c.declareIdentityConstraintsInTree(doc.root, ctx); err != nil {
 			return err

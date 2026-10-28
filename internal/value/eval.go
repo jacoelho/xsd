@@ -17,10 +17,13 @@ import (
 type Value struct {
 	canonical string
 	// The immutable identity payload excludes framing until IdentityKey is used.
-	identity     string
+	identity string
+	// projection holds the xs:ID projection followed by the xs:IDREF
+	// projection; idsLength splits them. A list or union value can carry both.
 	projection   string
 	typeID       TypeID
 	selected     TypeID
+	idsLength    uint32
 	identityKind PrimitiveKind
 	flags        valueFlags
 }
@@ -36,9 +39,8 @@ func NewUntypedValue(lexical string) Value {
 type valueFlags uint8
 
 const (
-	valueIDs valueFlags = 1 << iota
-	valueIDRefs
-	valueList
+	valueList valueFlags = 1 << iota
+	valueIDTyped
 	valueQualifiedNames
 	valueHasIdentity
 )
@@ -103,24 +105,21 @@ func (v Value) IdentityKey() string {
 	if !v.HasIdentity() {
 		return ""
 	}
+	if v.flags&valueList != 0 {
+		return framedListIdentityKey(v.identity)
+	}
 	return PrimitiveIdentityKey(v.identityKind, v.identity)
 }
 
-// IDs returns an xs:ID document-identity projection, when requested.
-func (v Value) IDs() string {
-	if v.flags&valueIDs == 0 {
-		return ""
-	}
-	return v.projection
-}
+// IDs returns the space-separated xs:ID document-identity projection.
+func (v Value) IDs() string { return v.projection[:v.idsLength] }
 
-// IDRefs returns a space-separated xs:IDREF projection, when requested.
-func (v Value) IDRefs() string {
-	if v.flags&valueIDRefs == 0 {
-		return ""
-	}
-	return v.projection
-}
+// IDRefs returns the space-separated xs:IDREF document-identity projection.
+func (v Value) IDRefs() string { return v.projection[v.idsLength:] }
+
+// IDTyped reports whether the validating type carries xs:ID (I-016),
+// independently of whether this value selected an ID member or item.
+func (v Value) IDTyped() bool { return v.flags&valueIDTyped != 0 }
 
 // Equal compares values in their typed value space. It does not compare source
 // lexical or canonical spellings.
@@ -128,7 +127,12 @@ func (v Value) Equal(other Value) bool {
 	if !v.HasIdentity() || !other.HasIdentity() {
 		return false
 	}
-	if v.identityKind != other.identityKind || v.flags&valueList != other.flags&valueList {
+	if v.flags&valueList != other.flags&valueList {
+		return false
+	}
+	// List identities frame each item with its own primitive kind, so empty
+	// lists of any item type are equal (I-017).
+	if v.flags&valueList == 0 && v.identityKind != other.identityKind {
 		return false
 	}
 	return v.identity == other.identity
@@ -254,7 +258,7 @@ func (p *Program) evalListBytes(t *typeDef, lexical []byte, budget *evaluationBu
 }
 
 func (p *Program) evalUnionBytes(t *typeDef, lexical []byte, scratch *Scratch, budget *evaluationBudget, depth int) (TypeID, bool, error) {
-	if t.identity != IdentityNone || t.facets.present != 0 || hasXMLWhitespaceBytes(lexical) {
+	if t.carriers != 0 || t.facets.present != 0 || hasXMLWhitespaceBytes(lexical) {
 		return NoType, false, nil
 	}
 	var last, unsupported error
@@ -315,7 +319,7 @@ func validateAtomicBytesFast(t *typeDef, lexical []byte, scratch *Scratch) (Type
 	// document's UTF-8 and XML 1.0 character set. Rechecking every byte here
 	// would turn the borrowed fast path into a second XML scanner, especially
 	// for long string attributes.
-	if t.identity != IdentityNone {
+	if t.carriers != 0 {
 		return NoType, false, nil
 	}
 	switch t.facets.raw.kind {
@@ -501,7 +505,7 @@ func prepareRawValuePlan(t, item *typeDef) {
 }
 
 func rawTextFacetsPlan(t *typeDef) bool {
-	if t.variety != Atomic || t.primitive != PrimitiveString || t.builtin != BuiltinNone || t.identity != IdentityNone {
+	if t.variety != Atomic || t.primitive != PrimitiveString || t.builtin != BuiltinNone || t.carriers != 0 {
 		return false
 	}
 	allowed := FacetWhiteSpace | FacetPattern | FacetLength | FacetMinLength | FacetMaxLength
@@ -514,7 +518,7 @@ func rawTextFacetsPlan(t *typeDef) bool {
 
 func rawStringEnumerationPlan(t *typeDef) bool {
 	if t.variety != Atomic || t.primitive != PrimitiveString || t.builtin != BuiltinNone ||
-		t.identity != IdentityNone || t.whitespace != WhitespacePreserve ||
+		t.carriers != 0 || t.whitespace != WhitespacePreserve ||
 		t.facets.present != FacetEnumeration || len(t.facets.enumGroups) == 0 {
 		return false
 	}
@@ -526,12 +530,12 @@ func rawStringEnumerationPlan(t *typeDef) bool {
 }
 
 func rawNMTokensPlan(t, item *typeDef) bool {
-	if t.variety != List || t.identity != IdentityNone || t.whitespace != WhitespaceCollapse ||
+	if t.variety != List || t.carriers != 0 || t.whitespace != WhitespaceCollapse ||
 		t.facets.present&^FacetMinLength != 0 || item == nil {
 		return false
 	}
 	if item.variety != Atomic || item.primitive != PrimitiveString || item.builtin != BuiltinNMTOKEN ||
-		item.identity != IdentityNone || item.whitespace != WhitespaceCollapse || item.facets.present != 0 {
+		item.carriers != 0 || item.whitespace != WhitespaceCollapse || item.facets.present != 0 {
 		return false
 	}
 	t.facets.raw.kind = rawPlanNMTokens
@@ -539,7 +543,7 @@ func rawNMTokensPlan(t, item *typeDef) bool {
 }
 
 func rawFacetlessAtomicPlan(t *typeDef) rawEvaluationKind {
-	if t.variety != Atomic || t.identity != IdentityNone || t.facets.present != 0 {
+	if t.variety != Atomic || t.carriers != 0 || t.facets.present != 0 {
 		return rawPlanNone
 	}
 	switch t.primitive {
@@ -655,7 +659,7 @@ type evaluationRequest struct {
 }
 
 func (p *Program) validateValueWithBudget(id TypeID, lexical string, request *evaluationRequest) (Value, error) {
-	if p == nil || id == NoType || id >= BuiltinTypeCount && uint64(id-BuiltinTypeCount) >= uint64(len(p.types)) {
+	if p == nil || id == NoType {
 		return Value{}, ErrMetadata
 	}
 	t, ok := p.typeDef(id)
@@ -663,24 +667,15 @@ func (p *Program) validateValueWithBudget(id TypeID, lexical string, request *ev
 		return Value{}, ErrMetadata
 	}
 	if out, handled, err := validatePlainString(id, t, lexical, request); handled {
-		if err != nil {
-			return Value{}, err
-		}
-		return out, nil
+		return out, err
 	}
 	if canValidateUnprojectedName(t, request.needs) {
 		return p.validateUnprojectedName(id, t, lexical, request)
 	}
-	evalNeeds := request.needs
-	// ID/IDREF projections are required by the type contract even when the
-	// caller does not request canonical or identity text explicitly.
-	if t.identity != IdentityNone {
-		evalNeeds |= NeedCanonical
-	}
 	var v parsedValue
 	_, err := p.eval(id, lexical, evalOptions{
 		resolver:      request.resolver,
-		needs:         evalNeeds,
+		needs:         request.needs,
 		enforceFacets: true,
 		scratch:       request.scratch,
 		work:          request.budget,
@@ -690,32 +685,35 @@ func (p *Program) validateValueWithBudget(id TypeID, lexical string, request *ev
 		return Value{}, describeValueFailure(p, id, lexical, &v, err)
 	}
 	out := projectValue(&v, request.needs)
-	projectDocumentIdentity(&out, &v, t.identity)
+	// A carrier-free type has no document-identity projection; skipping it
+	// keeps the common path cheap.
+	if t.carriers == 0 {
+		return out, nil
+	}
+	if err := projectDocumentIdentity(&out, &v, t); err != nil {
+		return Value{}, err
+	}
 	return out, nil
 }
 
-func projectDocumentIdentity(out *Value, value *parsedValue, identity IdentityKind) {
-	switch identity {
-	case IdentityNone:
-		// No document-level projection.
-	case IdentityID:
-		out.flags |= valueIDs
-		out.projection = value.ids
-		if out.projection == "" {
-			out.projection = value.canonical
-		}
-	case IdentityIDREF, IdentityIDREFList:
-		out.flags |= valueIDRefs
-		out.projection = value.idrefs
-		if out.projection == "" {
-			out.projection = value.canonical
-		}
+func projectDocumentIdentity(out *Value, value *parsedValue, t *typeDef) error {
+	if t.carriers&carriesID != 0 {
+		out.flags |= valueIDTyped
 	}
+	ids, idrefs := value.ids, value.idrefs
+	idsLength, err := checkedUint32(len(ids), "identity projection exceeds limit")
+	if err != nil {
+		return ErrLimit
+	}
+	// Concatenation returns the non-empty operand without allocating.
+	out.projection = ids + idrefs
+	out.idsLength = idsLength
+	return nil
 }
 
 func validatePlainString(id TypeID, t *typeDef, lexical string, request *evaluationRequest) (Value, bool, error) {
 	if t.variety != Atomic || t.primitive != PrimitiveString || t.builtin != BuiltinNone ||
-		t.whitespace != WhitespacePreserve || t.identity != IdentityNone || t.facets.present != 0 {
+		t.whitespace != WhitespacePreserve || t.carriers != 0 || t.facets.present != 0 {
 		return Value{}, false, nil
 	}
 	if err := request.budget.charge(lexicalLength(len(lexical))); err != nil {
@@ -740,7 +738,7 @@ func validatePlainString(id TypeID, t *typeDef, lexical string, request *evaluat
 
 func canValidateUnprojectedName(t *typeDef, needs Needs) bool {
 	return needs == 0 && t.variety == Atomic && t.builtin == BuiltinNone &&
-		t.identity == IdentityNone && t.facets.present == 0 &&
+		t.carriers == 0 && t.facets.present == 0 &&
 		(t.primitive == PrimitiveQName || t.primitive == PrimitiveNotation)
 }
 
@@ -772,14 +770,6 @@ func projectValue(v *parsedValue, needs Needs) Value {
 	}
 	if v.hasQualifiedNames() {
 		out.flags |= valueQualifiedNames
-	}
-	if v.ids != "" {
-		out.flags |= valueIDs
-		out.projection = v.ids
-	}
-	if v.idrefs != "" {
-		out.flags |= valueIDRefs
-		out.projection = v.idrefs
 	}
 	return out
 }
@@ -877,7 +867,7 @@ func evalAtomic(id TypeID, t *typeDef, normalized string, options evalOptions, v
 }
 
 func (p *Program) evalList(id TypeID, t *typeDef, normalized string, options evalOptions) (parsedValue, error) {
-	builder, err := newListValueBuilder(id, t, normalized, options)
+	builder, err := p.newListValueBuilder(id, t, normalized, options)
 	if err != nil {
 		return parsedValue{}, err
 	}
@@ -893,28 +883,36 @@ func (p *Program) evalList(id TypeID, t *typeDef, normalized string, options eva
 		builder.append(item)
 		start = next
 	}
-	return builder.finish(t.identity), nil
+	return builder.finish(), nil
 }
 
 type listValueBuilder struct {
 	canonical      strings.Builder
 	identity       strings.Builder
+	ids            strings.Builder
 	idrefs         strings.Builder
 	value          parsedValue
 	identityLength [20]byte
 	needs          Needs
 	keepItems      bool
-	forceCanonical bool
-	collectIDRefs  bool
+	// canonicalProjection is the carrier of an atomic item type: each item
+	// projects its canonical text, so the canonical list is the projection.
+	canonicalProjection identityCarriers
+	// collectItemIDs concatenates the ID/IDREF projection of each item when
+	// the projection depends on the union member that accepted it.
+	collectItemIDs bool
 }
 
-func newListValueBuilder(id TypeID, t *typeDef, normalized string, options evalOptions) (listValueBuilder, error) {
+func (p *Program) newListValueBuilder(id TypeID, t *typeDef, normalized string, options evalOptions) (listValueBuilder, error) {
 	itemLimit := max(options.listItemLimit, t.facets.enumItemLimit)
 	b := listValueBuilder{
-		value:          parsedValue{typeID: id, selected: NoType, isList: true},
-		needs:          options.needs,
-		forceCanonical: t.identity == IdentityIDREFList,
-		collectIDRefs:  t.listItem != builtinIDREF,
+		value: parsedValue{typeID: id, selected: NoType, isList: true},
+		needs: options.needs,
+	}
+	if item, ok := p.typeDef(t.listItem); ok && item.variety == Atomic {
+		b.canonicalProjection = item.carriers
+	} else {
+		b.collectItemIDs = t.carriers != 0
 	}
 	if !options.retainAllListItems && itemLimit == 0 {
 		return b, nil
@@ -939,11 +937,6 @@ func (p *Program) evalListField(value *parsedValue, t *typeDef, field string, op
 		return parsedValue{}, ErrLimit
 	}
 	value.count++
-	itemNeeds := options.needs
-	if t.identity == IdentityIDREFList {
-		itemNeeds |= NeedCanonical | NeedIdentity
-	}
-	options.needs = itemNeeds
 	// Literal construction may skip the containing list's own facets, but an
 	// item is a value of its declared item type and must always satisfy that
 	// type's facets.
@@ -958,14 +951,15 @@ func (b *listValueBuilder) append(item parsedValue) {
 	if b.keepItems {
 		b.value.items = append(b.value.items, item)
 	}
-	if b.needs.Has(NeedCanonical) || b.forceCanonical {
+	if b.needs.Has(NeedCanonical) || b.canonicalProjection != 0 {
 		b.appendCanonical(item.canonical)
 	}
 	if b.needs.Has(NeedIdentity) {
 		b.appendIdentity(item)
 	}
-	if b.collectIDRefs && item.idrefs != "" {
-		b.appendIDRefs(item.idrefs)
+	if b.collectItemIDs {
+		appendProjection(&b.ids, item.ids)
+		appendProjection(&b.idrefs, item.idrefs)
 	}
 }
 
@@ -980,26 +974,29 @@ func (b *listValueBuilder) appendIdentity(item parsedValue) {
 	appendPrimitiveIdentityItem(&b.identity, item.atom.kind, item.identity, &b.identityLength)
 }
 
-func (b *listValueBuilder) appendIDRefs(text string) {
-	if b.idrefs.Len() != 0 {
-		b.idrefs.WriteByte(' ')
+func appendProjection(out *strings.Builder, text string) {
+	if text == "" {
+		return
 	}
-	b.idrefs.WriteString(text)
+	if out.Len() != 0 {
+		out.WriteByte(' ')
+	}
+	out.WriteString(text)
 }
 
-func (b *listValueBuilder) finish(identity IdentityKind) parsedValue {
+func (b *listValueBuilder) finish() parsedValue {
 	b.value.canonical = b.canonical.String()
 	if b.needs.Has(NeedIdentity) {
 		b.value.identity = b.identity.String()
 		b.value.identityReady = true
 	}
-	if b.collectIDRefs {
-		// Union items carry the identity of the member that accepted each
-		// token, independently of the list's static identity kind.
+	switch {
+	case b.collectItemIDs:
+		b.value.ids = b.ids.String()
 		b.value.idrefs = b.idrefs.String()
-	} else if identity == IdentityIDREFList {
-		// The built-in IDREFS item type is an IDREF by construction, so
-		// its canonical list is already the IDREF projection.
+	case b.canonicalProjection&carriesID != 0:
+		b.value.ids = b.value.canonical
+	case b.canonicalProjection != 0:
 		b.value.idrefs = b.value.canonical
 	}
 	return b.value
@@ -1062,18 +1059,18 @@ func finalizeParsedValue(t *typeDef, value *parsedValue, normalized string, need
 		value.identity = valueIdentityCanonical(value)
 		value.identityReady = true
 	}
-	if t.identity == IdentityNone {
+	// Lists and unions project what their items and selected members carry.
+	if t.variety != Atomic || t.carriers == 0 {
 		return
 	}
 	if value.canonical == "" {
 		value.canonical = atomicCanonical(t.builtin, &value.atom, normalized)
 	}
-	switch t.identity {
-	case IdentityNone, IdentityIDREFList:
-		// The outer projection handles IDREFS; scalar values have no IDs here.
-	case IdentityID:
+	// An atomic type carries exactly one kind, inherited from xs:ID or
+	// xs:IDREF through its base chain (enforced by Builder.Complete).
+	if t.carriers&carriesID != 0 {
 		value.ids = value.canonical
-	case IdentityIDREF:
+	} else {
 		value.idrefs = value.canonical
 	}
 }
@@ -1092,7 +1089,7 @@ func validateXMLString(lexical string) error {
 
 func primitiveNeeds(t *typeDef, needs Needs) PrimitiveValueNeed {
 	var out PrimitiveValueNeed
-	if needs.Has(NeedCanonical) || needs.Has(NeedIdentity) || t.identity != IdentityNone {
+	if needs.Has(NeedCanonical) || needs.Has(NeedIdentity) || t.carriers != 0 {
 		out |= PrimitiveNeedCanonical
 	}
 	if needs.Has(NeedIdentity) {
@@ -1202,13 +1199,13 @@ func parseNameAtomic(out *ExpandedName, kind PrimitiveKind, normalized string, r
 	var name ExpandedName
 	if resolver.QName == nil {
 		if !lex.IsNCName(normalized) {
-			return errors.New(msgInvalidQName)
+			return qnameFailure(normalized)
 		}
 		name = ExpandedName{Local: normalized}
 	} else {
 		resolved, ok := resolver.QName(normalized)
 		if !ok || !utf8.ValidString(resolved.Namespace) || !lex.IsNCName(resolved.Local) {
-			return errors.New(msgUnresolvedQName)
+			return qnameFailure(normalized)
 		}
 		name = resolved
 	}
@@ -1219,6 +1216,15 @@ func parseNameAtomic(out *ExpandedName, kind PrimitiveKind, normalized string, r
 	}
 	*out = name
 	return nil
+}
+
+// qnameFailure separates a lexical QName syntax error from a well-formed name
+// whose prefix has no binding. It runs only after admission has failed.
+func qnameFailure(normalized string) error {
+	if !lex.SplitQName(normalized).Valid {
+		return errors.New(msgInvalidQName)
+	}
+	return errors.New(msgUnresolvedQName)
 }
 
 func atomicCanonical(builtin BuiltinKind, atom *atomicValue, source string) string {

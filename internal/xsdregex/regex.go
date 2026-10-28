@@ -613,21 +613,8 @@ func (p *parser) parseClassBodyStep(polarity classPolarity, terms []classTerm) (
 		result, err := p.finishClass(polarity, terms)
 		return classBodyStep{result: result, done: true}, err
 	}
-	if p.isClassSubtractionStart(terms) {
-		result, err := p.parseClassSubtraction(polarity, terms)
-		return classBodyStep{result: result, done: true}, err
-	}
-	if p.isLiteralDashBeforeSubtraction(terms) {
-		// A final literal dash in the positive group can precede a
-		// subtraction operator. The `--[` spelling is the unescaped form of
-		// `[...\--[...]]`; consume the first dash as data and let the next
-		// iteration parse the subtraction.
-		terms = append(terms, classTerm{set: singletonSet('-'), single: true})
-		p.pos++
-		return classBodyStep{terms: terms}, nil
-	}
-	if p.invalidClassDash(terms) {
-		return classBodyStep{}, p.syntax("dash after character-class escape must end the group or subtract a class")
+	if p.source[p.pos] == '-' {
+		return p.parseClassDash(polarity, terms)
 	}
 	position := classTermSubsequent
 	if len(terms) == 0 {
@@ -638,6 +625,21 @@ func (p *parser) parseClassBodyStep(polarity classPolarity, terms []classTerm) (
 		return classBodyStep{}, err
 	}
 	return classBodyStep{terms: append(terms, term)}, nil
+}
+
+func (p *parser) parseClassDash(polarity classPolarity, terms []classTerm) (classBodyStep, error) {
+	if len(terms) != 0 && p.peek(1) == '[' {
+		result, err := p.parseClassSubtraction(polarity, terms)
+		return classBodyStep{result: result, done: true}, err
+	}
+	// I-011: an unescaped dash is a literal only as the first term of the
+	// positive group, its last term, or its last term before `-[`. It never
+	// starts a range, so `[--a]` is rejected rather than read as `-` to `a`.
+	if len(terms) != 0 && p.peek(1) != ']' && !p.dashBeforeSubtraction(1) {
+		return classBodyStep{}, p.syntax("unescaped dash must begin or end a character group")
+	}
+	p.pos++
+	return classBodyStep{terms: append(terms, classTerm{set: singletonSet('-'), single: true})}, nil
 }
 
 func (p *parser) finishClass(polarity classPolarity, terms []classTerm) (rangeSet, error) {
@@ -654,10 +656,6 @@ func (p *parser) finishClass(polarity classPolarity, terms []classTerm) (rangeSe
 		return rangeSet{}, p.limit("character-class range count exceeds limit")
 	}
 	return base, nil
-}
-
-func (p *parser) isClassSubtractionStart(terms []classTerm) bool {
-	return len(terms) != 0 && p.source[p.pos] == '-' && p.pos+1 < len(p.source) && p.source[p.pos+1] == '['
 }
 
 func (p *parser) parseClassSubtraction(polarity classPolarity, terms []classTerm) (rangeSet, error) {
@@ -682,16 +680,18 @@ func (p *parser) parseClassSubtraction(polarity classPolarity, terms []classTerm
 	return base, nil
 }
 
-func (p *parser) isLiteralDashBeforeSubtraction(terms []classTerm) bool {
-	return len(terms) != 0 && p.source[p.pos] == '-' && p.pos+2 < len(p.source) &&
-		p.source[p.pos+1] == '-' && p.source[p.pos+2] == '['
+// peek returns the rune offset positions past the cursor, or 0 past the end.
+// A pattern rune is never 0 because 0 is not an XML character.
+func (p *parser) peek(offset int) rune {
+	if p.pos+offset >= len(p.source) {
+		return 0
+	}
+	return p.source[p.pos+offset]
 }
 
-func (p *parser) invalidClassDash(terms []classTerm) bool {
-	if len(terms) == 0 || p.source[p.pos] != '-' {
-		return false
-	}
-	return p.pos+1 < len(p.source) && p.source[p.pos+1] != ']' && p.source[p.pos+1] != '[' && !terms[len(terms)-1].single
+// dashBeforeSubtraction reports whether the runes at offset spell `-[`.
+func (p *parser) dashBeforeSubtraction(offset int) bool {
+	return p.peek(offset) == '-' && p.peek(offset+1) == '['
 }
 
 func (p *parser) parseClassTermAndRange(position classTermPosition) (classTerm, error) {
@@ -699,7 +699,11 @@ func (p *parser) parseClassTermAndRange(position classTermPosition) (classTerm, 
 	if err != nil {
 		return classTerm{}, err
 	}
-	if !term.single || p.pos >= len(p.source) || p.source[p.pos] != '-' || p.pos+1 >= len(p.source) || p.source[p.pos+1] == ']' || p.source[p.pos+1] == '[' {
+	// A dash followed by `]`, `[` or `-[` belongs to the group, not a range.
+	if !term.single || p.peek(0) != '-' {
+		return term, nil
+	}
+	if next := p.peek(1); next == 0 || next == ']' || next == '[' || p.dashBeforeSubtraction(1) {
 		return term, nil
 	}
 	p.pos++
@@ -740,10 +744,6 @@ func (p *parser) parseClassTerm(position classTermPosition) (classTerm, error) {
 	}
 	r := p.source[p.pos]
 	switch r {
-	case '-':
-		// A dash is a literal only at the beginning or end of a positive group.
-		p.pos++
-		return classTerm{set: singletonSet('-'), single: true}, nil
 	case '^':
 		if position == classTermFirst {
 			return classTerm{}, p.syntax("invalid character-class negation")

@@ -152,7 +152,7 @@ func TestValidationAdapterFatalAssessmentFailuresRetainCache(t *testing.T) {
 		code string
 	}{
 		{name: "malformed XML", xml: `<root><v>1</root>`, code: "validation.xml"},
-		{name: "unsupported XML 1.1", xml: `<?xml version="1.1"?><root><v>1</v></root>`, code: "unsupported.xml_1_1"},
+		{name: "unsupported XML 1.1", xml: `<?xml version="1.1"?><root><v>1</v></root>`, code: "unsupported.xml_version"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			response := adapter.validateXMLData(test.xml, testSchema)
@@ -187,7 +187,7 @@ func TestValidationAdapterClassifiesAssessmentFailures(t *testing.T) {
 		{name: "undeclared root", xml: `<other/>`, status: statusInvalid, code: "validation.root"},
 		{name: "no root", xml: "   ", status: statusError, code: "validation.xml"},
 		{name: "text outside root", xml: `tail<root><v>1</v></root>`, status: statusError, code: "validation.xml"},
-		{name: "unsupported XML version", xml: `<?xml version="1.1"?><root><v>1</v></root>`, status: statusError, code: "unsupported.xml_1_1"},
+		{name: "unsupported XML version", xml: `<?xml version="1.1"?><root><v>1</v></root>`, status: statusError, code: "unsupported.xml_version"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			response := (&validationAdapter{}).validateXMLData(test.xml, testSchema)

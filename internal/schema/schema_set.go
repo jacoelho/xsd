@@ -30,10 +30,8 @@ type schemaSetDocument struct {
 	viewKey           string
 	imports           map[string]bool
 	effectiveTargetNS string
-	contentIdentity   int
 	adoptedTarget     bool
 	explicitRoot      bool
-	indexDeclarations bool
 }
 
 type schemaSetLoader struct {
@@ -250,13 +248,12 @@ func loadSchemaGraphOwned(
 }
 
 func (g *loadedSchemaGraph) plan() (schemaPlan, error) {
-	if err := g.validateReferenceTargets(); err != nil {
-		return schemaPlan{}, err
-	}
 	if err := g.instantiateTargetContexts(); err != nil {
 		return schemaPlan{}, err
 	}
-	g.selectDeclarationDocuments()
+	if err := g.validateReferenceTargets(); err != nil {
+		return schemaPlan{}, err
+	}
 	return schemaPlan{documents: g.documents}, nil
 }
 
@@ -291,7 +288,7 @@ func (l *schemaSetLoader) loadOwned(ordered []source.Source) error {
 			return err
 		}
 	}
-	l.appendIdentifiedDocuments()
+	l.appendDocuments()
 	return nil
 }
 
@@ -318,16 +315,17 @@ func (l *schemaSetLoader) processLoadRequest(item schemaLoadRequest, queue *[]sc
 	return l.read(item, queue)
 }
 
-func (l *schemaSetLoader) appendIdentifiedDocuments() {
-	identifiedSources := l.identifySchemaDocumentContents()
-	for _, identified := range identifiedSources {
-		loaded := l.byKey[identified.doc.key]
+// appendDocuments admits one schema document per resolved source key. Distinct
+// keys are distinct documents even when their bytes are identical (Structures
+// 1.1 §4.2.3), so their global components conflict under sch-props-correct.2.
+func (l *schemaSetLoader) appendDocuments() {
+	for _, sourceKey := range slices.Sorted(maps.Keys(l.byKey)) {
+		loaded := l.byKey[sourceKey]
 		l.documents = append(l.documents, schemaSetDocument{
-			doc:             identified.doc,
-			viewKey:         identified.doc.key,
-			imports:         schemaDocumentImports(identified.doc.references),
-			explicitRoot:    loaded.explicitRoot,
-			contentIdentity: identified.identity,
+			doc:          loaded.doc,
+			viewKey:      loaded.doc.key,
+			imports:      schemaDocumentImports(loaded.doc.references),
+			explicitRoot: loaded.explicitRoot,
 		})
 	}
 }
@@ -419,7 +417,7 @@ func (l *schemaSetLoader) registerDocument(item schemaLoadRequest, key string, d
 	var err error
 	l.parsedNodes += doc.nodes
 	if item.ref != nil {
-		if targetErr := validateSchemaReferenceTarget(item.ref, doc); targetErr != nil {
+		if targetErr := l.validateLoadedReference(item.ref, doc); targetErr != nil {
 			return targetErr
 		}
 	}
@@ -436,6 +434,11 @@ func (l *schemaSetLoader) registerDocument(item schemaLoadRequest, key string, d
 		content:      content,
 		explicitRoot: item.ref == nil,
 	}
+	for i := range doc.references {
+		if err := l.validateLoadedImportNamespace(&doc.references[i]); err != nil {
+			return err
+		}
+	}
 	return l.enqueueReferences(src, doc.references, queue)
 }
 
@@ -451,7 +454,7 @@ func (l *schemaSetLoader) readLoaded(
 		return err
 	}
 	if item.ref != nil {
-		if err := validateSchemaReferenceTarget(item.ref, loaded.doc); err != nil {
+		if err := l.validateLoadedReference(item.ref, loaded.doc); err != nil {
 			return err
 		}
 	}
@@ -594,7 +597,7 @@ func (l *schemaSetLoader) bindUnopenedReference(request schemaLoadRequest, targe
 		if request.ref.target != "" {
 			return schemaReferenceIdentityError(request)
 		}
-		if err := validateSchemaReferenceTarget(request.ref, loaded.doc); err != nil {
+		if err := l.validateLoadedReference(request.ref, loaded.doc); err != nil {
 			return err
 		}
 		request.ref.target = target
@@ -621,7 +624,7 @@ func (l *schemaSetLoader) bindPendingReferences(target string, doc *schemaDocume
 		if ref.target != "" && ref.target != target {
 			return schemaCompileAt(ref.sourceNode(), xsderrors.CodeSchemaReference, "schema reference resolves to different document identities across resolver contexts")
 		}
-		if err := validateSchemaReferenceTarget(ref, doc); err != nil {
+		if err := l.validateLoadedReference(ref, doc); err != nil {
 			return err
 		}
 	}
@@ -651,7 +654,6 @@ func schemaDocumentReferences(doc *schemaDocument) ([]schemaReference, error) {
 }
 
 type schemaDocumentReferenceContext struct {
-	targetNS      string
 	validatedBase source.ReferenceBase
 	rootBase      uriref.Reference
 	hasRootBase   bool
@@ -660,7 +662,6 @@ type schemaDocumentReferenceContext struct {
 func newSchemaDocumentReferenceContext(doc *schemaDocument) (schemaDocumentReferenceContext, error) {
 	context := schemaDocumentReferenceContext{
 		validatedBase: source.NewReferenceBase(doc.name),
-		targetNS:      doc.defaults.TargetNamespace,
 	}
 	rootBaseRaw, hasRootBase := doc.root.attrNS(vocab.XMLNamespaceURI, vocab.XMLAttrBase)
 	context.hasRootBase = hasRootBase
@@ -697,9 +698,11 @@ func (c schemaDocumentReferenceContext) reference(child *schemaNode) (schemaRefe
 		rootBase: c.rootBase, localBase: localBase, hasRootBase: c.hasRootBase, hasLocalBase: hasLocalBase,
 	}
 	if kind == schemaReferenceImport {
-		if err := validateSchemaImportReference(child, c.targetNS, &ref); err != nil {
+		namespace, err := schemaImportNamespace(child)
+		if err != nil {
 			return schemaReference{}, false, err
 		}
+		ref.namespace = namespace
 	}
 	return ref, true, nil
 }
@@ -745,24 +748,18 @@ func (c schemaDocumentReferenceContext) parseLocalBase(child *schemaNode) (urire
 	return localBase, true, nil
 }
 
-func validateSchemaImportReference(child *schemaNode, target string, ref *schemaReference) error {
+// schemaImportNamespace returns the import namespace; "" means the attribute
+// is absent because an empty value is rejected here.
+func schemaImportNamespace(child *schemaNode) (string, error) {
 	referenceSource, ok := child.semantic.kind.(*schemaReferenceSource)
 	if !ok || referenceSource == nil {
-		return withSchemaCompileLocation(child, xsderrors.InternalInvariant("import node has no typed reference source"))
+		return "", withSchemaCompileLocation(child, xsderrors.InternalInvariant("import node has no typed reference source"))
 	}
 	attr := referenceSource.Namespace
-	namespace, hasNamespace := attr.Value, attr.Present
-	ref.namespace = namespace
-	switch {
-	case hasNamespace && namespace == "":
-		return schemaCompileAt(child, xsderrors.CodeSchemaInvalidAttribute, "import namespace cannot be empty")
-	case !hasNamespace && target == "":
-		return schemaCompileAt(child, xsderrors.CodeSchemaReference, "import without namespace requires enclosing schema targetNamespace")
-	case hasNamespace && namespace == target:
-		return schemaCompileAt(child, xsderrors.CodeSchemaReference, "import namespace cannot match enclosing schema targetNamespace")
-	default:
-		return nil
+	if attr.Present && attr.Value == "" {
+		return "", schemaCompileAt(child, xsderrors.CodeSchemaInvalidAttribute, "import namespace cannot be empty")
 	}
+	return attr.Value, nil
 }
 
 func schemaDocumentImports(refs []schemaReference) map[string]bool {
@@ -827,41 +824,98 @@ func schemaLocationAttr(n *schemaNode) (string, bool) {
 	return attr.Value, attr.Present
 }
 
+// validateReferenceTargets is the authoritative src-import and src-include
+// check, run per target-context view. I-021: a targetless document is checked
+// against the namespace each view adopts, so the pass follows target-context
+// instantiation. Views are bounded by MaxSchemaTargetContexts and their
+// references by MaxSchemaInstantiatedNodes.
 func (g *loadedSchemaGraph) validateReferenceTargets() error {
 	for i := range g.documents {
-		if err := g.validateDocumentReferenceTargets(g.documents[i].doc); err != nil {
-			return err
+		view := &g.documents[i]
+		for j := range view.doc.references {
+			if err := g.validateViewReference(view.effectiveTargetNS, &view.doc.references[j]); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
 }
 
-func (g *loadedSchemaGraph) validateDocumentReferenceTargets(doc *schemaDocument) error {
-	for i := range doc.references {
-		ref := &doc.references[i]
-		if ref.target == "" {
-			continue
-		}
-		loaded, ok := g.byKey[ref.target]
-		if !ok || loaded.doc == nil {
-			continue
-		}
-		if err := validateSchemaReferenceTarget(ref, loaded.doc); err != nil {
-			return err
-		}
+func (g *loadedSchemaGraph) validateViewReference(effectiveTarget string, ref *schemaReference) error {
+	if err := validateImportNamespace(effectiveTarget, ref); err != nil {
+		return err
 	}
-	return nil
+	if ref.target == "" {
+		return nil
+	}
+	loaded, ok := g.byKey[ref.target]
+	if !ok || loaded.doc == nil {
+		return nil
+	}
+	return validateReferenceTarget(effectiveTarget, ref, loaded.doc)
 }
 
-func validateSchemaReferenceTarget(ref *schemaReference, target *schemaDocument) error {
-	if ref == nil || target == nil {
-		return xsderrors.InternalInvariant("schema reference target validation requires an edge and target")
+// validateLoadedImportNamespace and validateLoadedReference reject an edge
+// during loading, before its target's descendants are resolved, when the
+// outcome cannot depend on target contexts: the referencing document declares
+// its targetNamespace or was registered as an explicit root (whose
+// no-namespace view always exists), or the check reads only the import's
+// namespace.
+func (l *schemaSetLoader) validateLoadedImportNamespace(ref *schemaReference) error {
+	effective, fixed := l.fixedTargetNamespace(ref.doc)
+	if !fixed {
+		return nil
 	}
+	return validateImportNamespace(effective, ref)
+}
+
+func (l *schemaSetLoader) validateLoadedReference(ref *schemaReference, target *schemaDocument) error {
+	if target == nil {
+		return xsderrors.InternalInvariant("schema reference target validation requires a target")
+	}
+	effective, fixed := l.fixedTargetNamespace(ref.doc)
+	if !fixed && ref.kind == schemaReferenceInclude {
+		return nil
+	}
+	return validateReferenceTarget(effective, ref, target)
+}
+
+func (l *schemaSetLoader) fixedTargetNamespace(doc *schemaDocument) (string, bool) {
+	loaded, ok := l.byKey[doc.key]
+	return guaranteedTargetNamespace(doc.defaults.TargetNamespace, ok && loaded.explicitRoot)
+}
+
+// guaranteedTargetNamespace owns which view a document has regardless of how
+// it is reached: its declared targetNamespace, or the no-namespace view of an
+// explicit root. Import targets gain a view too, but that is known only once
+// the whole graph is loaded.
+func guaranteedTargetNamespace(declared string, explicitRoot bool) (string, bool) {
+	return declared, declared != "" || explicitRoot
+}
+
+// validateImportNamespace applies src-import 1.1 and 1.2 for a view whose
+// targetNamespace is effectiveTarget.
+func validateImportNamespace(effectiveTarget string, ref *schemaReference) error {
+	if ref.kind != schemaReferenceImport {
+		return nil
+	}
+	switch {
+	case ref.namespace == "" && effectiveTarget == "":
+		return schemaCompileAt(ref.sourceNode(), xsderrors.CodeSchemaReference, "import without namespace requires enclosing schema targetNamespace")
+	case ref.namespace == effectiveTarget:
+		return schemaCompileAt(ref.sourceNode(), xsderrors.CodeSchemaReference, "import namespace cannot match enclosing schema targetNamespace")
+	default:
+		return nil
+	}
+}
+
+// validateReferenceTarget applies src-include 2.1 and src-import 3 for a view
+// whose targetNamespace is effectiveTarget.
+func validateReferenceTarget(effectiveTarget string, ref *schemaReference, target *schemaDocument) error {
 	referencedTarget := target.defaults.TargetNamespace
 	switch ref.kind {
 	case schemaReferenceInclude:
-		declaredTarget := ref.doc.defaults.TargetNamespace
-		if referencedTarget != "" && referencedTarget != declaredTarget {
+		if referencedTarget != "" && referencedTarget != effectiveTarget {
 			return schemaCompileAt(ref.sourceNode(), xsderrors.CodeSchemaReference, "included schema targetNamespace does not match including schema")
 		}
 	case schemaReferenceImport:
@@ -907,8 +961,8 @@ func (g *loadedSchemaGraph) applyDeclaredTargetContexts() error {
 
 func (g *loadedSchemaGraph) seedTargetContexts(contexts *schemaTargetContexts) error {
 	for i, document := range g.documents {
-		target := document.doc.defaults.TargetNamespace
-		if target == "" && !contexts.documents[i].importTarget && !document.explicitRoot {
+		target, guaranteed := guaranteedTargetNamespace(document.doc.defaults.TargetNamespace, document.explicitRoot)
+		if !guaranteed && !contexts.documents[i].importTarget {
 			continue
 		}
 		if err := contexts.add(i, target); err != nil {
@@ -1025,50 +1079,11 @@ func (g *loadedSchemaGraph) applyTargetContexts(contexts schemaTargetContexts) e
 			viewKey:           document.viewKey + "\x00" + context.target,
 			imports:           document.imports,
 			effectiveTargetNS: context.target,
-			contentIdentity:   document.contentIdentity,
 			adoptedTarget:     declaredTarget == "" && context.target != "",
 		})
 	}
 	g.documents = append(g.documents, views...)
 	return nil
-}
-
-type identifiedSchemaDocument struct {
-	doc      *schemaDocument
-	identity int
-}
-
-func (l *schemaSetLoader) identifySchemaDocumentContents() []identifiedSchemaDocument {
-	ordered := slices.Sorted(maps.Keys(l.byKey))
-	seen := make(map[schemaContent]int, len(ordered))
-	identified := make([]identifiedSchemaDocument, 0, len(ordered))
-	nextIdentity := 1
-	for _, sourceKey := range ordered {
-		src := l.byKey[sourceKey]
-		identity := seen[src.content]
-		if identity == 0 {
-			identity = nextIdentity
-			nextIdentity++
-			seen[src.content] = identity
-		}
-		identified = append(identified, identifiedSchemaDocument{doc: src.doc, identity: identity})
-	}
-	return identified
-}
-
-func (g *loadedSchemaGraph) selectDeclarationDocuments() {
-	type declarationKey struct {
-		target  string
-		content int
-	}
-	seen := make(map[declarationKey]struct{}, len(g.documents))
-	for i := range g.documents {
-		document := &g.documents[i]
-		key := declarationKey{target: document.effectiveTargetNS, content: document.contentIdentity}
-		_, duplicate := seen[key]
-		document.indexDeclarations = !duplicate
-		seen[key] = struct{}{}
-	}
 }
 
 func effectiveReferenceNamespace(ctx *schemaSetDocument, name xml.Name) string {

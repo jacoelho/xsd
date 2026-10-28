@@ -82,7 +82,7 @@ unowned follow-up remains.
 
 - `ARCHITECTURE.md` is the sole architecture source of truth. Plans and ledgers
   may reference it but cannot redefine current ownership or lifecycle.
-- Supported inputs are XSD 1.0, XML 1.0, and UTF-8. XML 1.1 is rejected.
+- Supported inputs are XSD 1.0, XML 1.0, and UTF-8. Other XML versions are rejected.
 - Schema sources are explicit. The library never dynamically loads schemas over
   HTTP, another network transport, or instance `xsi:schemaLocation` hints.
 - Compilation, source resolution/opening, and validation are synchronous and

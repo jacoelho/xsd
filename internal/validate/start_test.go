@@ -213,3 +213,91 @@ func compileRuntimeForTest(t *testing.T, schema string) *xsdSchema.Schema {
 	}
 	return rt
 }
+
+// Structures 3.3.4 Element Locally Valid (Element) 4.3 and Type Derivation OK
+// (Complex) 1 block xsi:type separately; the message names the declaration
+// when both block the same method.
+func TestXSITypeBlockNamesBlockingComponent(t *testing.T) {
+	t.Parallel()
+
+	const (
+		byDeclaration = `xsi:type "Ext" uses extension, which the element declaration blocks`
+		byType        = `xsi:type "Ext" uses extension, which declared type "Base" blocks`
+	)
+	for _, test := range []struct {
+		name, schemaAttr, elementAttr, typeAttr, want string
+	}{
+		{name: "neither", want: ""},
+		{name: "element", elementAttr: `block="extension"`, want: byDeclaration},
+		{name: "type", typeAttr: `block="extension"`, want: byType},
+		{name: "blockDefault on type", schemaAttr: `blockDefault="extension"`, elementAttr: `block=""`, want: byType},
+		{name: "blockDefault on element", schemaAttr: `blockDefault="extension"`, typeAttr: `block=""`, want: byDeclaration},
+		{name: "both", elementAttr: `block="extension"`, typeAttr: `block="extension"`, want: byDeclaration},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" `+test.schemaAttr+`>
+  <xs:complexType name="Base" `+test.typeAttr+`><xs:sequence/></xs:complexType>
+  <xs:complexType name="Ext"><xs:complexContent><xs:extension base="Base"/></xs:complexContent></xs:complexType>
+  <xs:element name="root" type="Base" `+test.elementAttr+`/>
+</xs:schema>`)
+			err := NewSessionPool(rt).Validate(strings.NewReader(`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="Ext"/>`), Options{})
+			if test.want == "" {
+				if err != nil {
+					t.Fatalf("Validate() = %v, want valid", err)
+				}
+				return
+			}
+			var x *xsderrors.Error
+			if !errors.As(err, &x) || x.Code() != xsderrors.CodeValidationType || x.Message() != test.want {
+				t.Fatalf("Validate() = %v, want %s %q", err, xsderrors.CodeValidationType, test.want)
+			}
+		})
+	}
+}
+
+// Simple-value diagnostics name the nearest built-in type (xs:int, not the
+// xs:integer lexical family), report integer-family syntax as integer, and
+// keep QName syntax errors distinct from unbound prefixes.
+func TestSimpleValueDiagnosticNamesNearestBuiltin(t *testing.T) {
+	t.Parallel()
+
+	const qnameList = `<xs:simpleType><xs:list itemType="xs:QName"/></xs:simpleType>`
+
+	for _, test := range []struct {
+		name, typeAttr, simpleType, input, want string
+	}{
+		{name: "int control", typeAttr: `type="xs:int"`, input: "1"},
+		{name: "anonymous int", simpleType: `<xs:simpleType><xs:restriction base="xs:int"/></xs:simpleType>`, input: "x", want: `value "x" is not valid for xs:int: invalid integer`},
+		{name: "anonymous ID", simpleType: `<xs:simpleType><xs:restriction base="xs:ID"/></xs:simpleType>`, input: "1x", want: `value "1x" is not valid for xs:ID: invalid NCName`},
+		{name: "int", typeAttr: `type="xs:int"`, input: "x", want: `value "x" is not valid for xs:int: invalid integer`},
+		{name: "byte", typeAttr: `type="xs:byte"`, input: "x", want: `value "x" is not valid for xs:byte: invalid integer`},
+		{name: "unsignedShort", typeAttr: `type="xs:unsignedShort"`, input: "x", want: `value "x" is not valid for xs:unsignedShort: invalid integer`},
+		{name: "nonNegativeInteger", typeAttr: `type="xs:nonNegativeInteger"`, input: "x", want: `value "x" is not valid for xs:nonNegativeInteger: invalid integer`},
+		{name: "long", typeAttr: `type="xs:long"`, input: "x", want: `value "x" is not valid for xs:long: invalid integer`},
+		{name: "integer", typeAttr: `type="xs:integer"`, input: "x", want: `value "x" is not valid for xs:integer: invalid integer`},
+		{name: "decimal", typeAttr: `type="xs:decimal"`, input: "x", want: `value "x" is not valid for xs:decimal: invalid decimal`},
+		{name: "QName list syntax", simpleType: qnameList, input: "a 1x", want: `value "a 1x" is not a valid list of xs:QName: invalid QName syntax; expected a local name or prefix:local name`},
+		{name: "QName list unbound prefix", simpleType: qnameList, input: "a p:b", want: `value "a p:b" is not a valid list of xs:QName: unresolved QName`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			element := `<xs:element name="root" ` + test.typeAttr + `/>`
+			if test.simpleType != "" {
+				element = `<xs:element name="root">` + test.simpleType + `</xs:element>`
+			}
+			rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+element+`</xs:schema>`)
+			err := NewSessionPool(rt).Validate(strings.NewReader(`<root>`+test.input+`</root>`), Options{})
+			if test.want == "" {
+				if err != nil {
+					t.Fatalf("Validate() = %v, want valid", err)
+				}
+				return
+			}
+			var x *xsderrors.Error
+			if !errors.As(err, &x) || x.Message() != "invalid simple content: "+test.want {
+				t.Fatalf("Validate() = %v, want %q", err, test.want)
+			}
+		})
+	}
+}

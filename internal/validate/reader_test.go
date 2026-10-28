@@ -35,13 +35,13 @@ func TestParserPreflightRejectsInvalidInputs(t *testing.T) {
 		{name: "utf16 be bom", in: string([]byte{0xFE, 0xFF}) + "<root/>", code: xsderrors.CodeUnsupportedNonUTF8},
 		{name: "utf16 le bom", in: string([]byte{0xFF, 0xFE}) + "<root/>", code: xsderrors.CodeUnsupportedNonUTF8},
 		{name: "non utf8 declaration", in: `<?xml version="1.0" encoding="ISO-8859-1"?><root/>`, code: xsderrors.CodeUnsupportedNonUTF8},
-		{name: "xml 11 declaration", in: `<?xml version="1.1"?><root/>`, code: xsderrors.CodeUnsupportedXML11},
+		{name: "xml 11 declaration", in: `<?xml version="1.1"?><root/>`, code: xsderrors.CodeUnsupportedXMLVersion},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var reader xmlstream.Reader
 			diagnostic := requireDiagnostic(t, instanceReaderError(reader.Reset(strings.NewReader(tt.in), xmlstream.Config{})), tt.code)
-			if tt.code == xsderrors.CodeUnsupportedXML11 && diagnostic.Cause() != nil {
+			if tt.code == xsderrors.CodeUnsupportedXMLVersion && diagnostic.Cause() != nil {
 				t.Fatalf("XML 1.1 cause = %T, want nil", diagnostic.Cause())
 			}
 		})
@@ -73,14 +73,16 @@ func TestStreamErrorClassifiesParserErrors(t *testing.T) {
 		{name: "token limit", err: parserErr(t, `<root>text</root>`, 1, 0), code: xsderrors.CodeValidationLimit},
 		{name: "attribute limit", err: parserErr(t, `<root a="1" b="2"/>`, 0, 1), code: xsderrors.CodeValidationLimit},
 		{name: "non utf8", err: xmlstream.ErrUnsupportedNonUTF8, code: xsderrors.CodeUnsupportedNonUTF8},
-		{name: "xml 11", err: xmlstream.UnsupportedXMLVersionError{Version: "1.1"}, code: xsderrors.CodeUnsupportedXML11},
+		{name: "xml 11", err: xmlstream.UnsupportedXMLVersionError{Version: "1.1"}, code: xsderrors.CodeUnsupportedXMLVersion},
 		{name: "entity", err: parserErr(t, `<root>&missing;</root>`, 0, 0), code: xsderrors.CodeUnsupportedExternal},
+		{name: "colon entity name", err: parserErr(t, `<root>&a:b;</root>`, 0, 0), code: xsderrors.CodeValidationXML},
+		{name: "colon PI target", err: parserErr(t, `<root><?a:b?></root>`, 0, 0), code: xsderrors.CodeValidationXML},
 		{name: "syntax", err: errors.New("bad xml"), code: xsderrors.CodeValidationXML},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			diagnostic := requireDiagnostic(t, StreamError(2, 3, "/root", tt.err), tt.code)
-			if tt.code == xsderrors.CodeUnsupportedXML11 && diagnostic.Cause() != nil {
+			if tt.code == xsderrors.CodeUnsupportedXMLVersion && diagnostic.Cause() != nil {
 				t.Fatalf("XML 1.1 cause = %T, want nil", diagnostic.Cause())
 			}
 		})

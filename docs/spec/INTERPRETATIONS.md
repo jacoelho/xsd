@@ -11,6 +11,14 @@ Selected corrections below follow the
 does not claim publication as Second Edition errata. The
 [correction audit](XSD11_CORRECTIONS.md) records scope and opposing witnesses.
 
+<a id="processor-tie-break"></a>
+**Processor tie-break.** Precedence is: explicit specification text, then
+adopted corrections, then accepted W3C test-suite expectations, then measured
+processor behaviour. Only when the earlier sources leave a reading doubtful does
+a record follow Xerces-J, then .NET, then libxml2, taking the first that has a
+result. libxml2 is permissive, so its agreement alone is weak evidence.
+xmlschema results are diagnostic only.
+
 ## I-001 — complex types with simple content as identity fields
 
 The published [identity rule](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint)
@@ -264,6 +272,29 @@ introduces alternation. The existing parser already implements this reading.
 This does not import XPath regex anchors: `^` and `$` remain literal XSD
 characters. Unicode versions and other XPath regex extensions are independent.
 
+Unescaped dash is a literal only as the first term of a positive group,
+immediately before `]`, or immediately before the `-[` that starts subtraction.
+It never starts a range (`[--a]` is rejected) and never ends one at `[`, `]` or
+end of input. `[a--[b]]` is `{a, -}` minus `{b}`, `[a-z--[b-z]]` is `{a, -}`,
+`[--[a]]` is a first-term dash minus `{a}`, and an escaped `\-` follows ordinary
+range rules.
+
+Datatypes F.1 allows a literal dash "only at the beginning or end of a positive
+character group"; this record treats the end of the `posCharGroup` operand of a
+subtraction as such an end. The accepted W3C test `msMeta/Regex_w3c.xml` reF56
+(`[a-z--[b-z]]` valid) decides it, and reF57 (`[a--b]` invalid) bounds it. The
+[processor tie-break](#processor-tie-break) was considered and does not apply:
+an accepted W3C expectation outranks processor behaviour. Xerces rejects both
+dash-before-subtraction shapes; following it would require recording reF56 as
+a project correction without specification grounding.
+
+| Fixture | Expected | Xerces | .NET | libxml2 | xmlschema |
+| --- | --- | --- | --- | --- | --- |
+| `w3c/msMeta/Regex_w3c.xml/reF56` (`[a-z--[b-z]]`) | valid | reject | accept | accept | accept |
+| `project/datatypes/regex-dash-subtraction-after-range-end` (`[a--[b]]`, `[a-z--[b-z]]`) | valid | reject | reject | reject | accept |
+| `w3c/msMeta/Regex_w3c.xml/reF57` (`[a--b]`) | invalid | not probed | not probed | not probed | not probed |
+| `project/datatypes/regex-dash-range-leading` (`[--a]`) | invalid | reject | accept | accept | reject |
+
 ## Remaining source-integration boundaries
 
 These are qualifications, not alternative permitted policies or approved
@@ -417,3 +448,189 @@ Facet-literal admission against the base type, fixed facets, and restriction
 narrowing remain separate obligations. In particular, a bound declared in a
 later restriction cannot bypass a base bound merely because the resulting pair
 would be allowed when declared together.
+
+## I-016 — recursive ID-ness
+
+**Status:** selected reading from [W3C bug 10662](https://www.w3.org/Bugs/Public/show_bug.cgi?id=10662)
+and the XSD 1.1 [ID-related types](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#sec-id-related)
+clarification; the XSD 1.0 ID prohibitions are retained.
+
+XSD 1.0 states its ID rules for types "derived from ID", which literally
+excludes lists and unions while [cvc-id](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id)
+still requires their values to be tracked. One predicate now decides ID-ness at
+schema and run time. A simple type carries ID when it is `xs:ID`, is derived from
+a type that carries ID, is a list whose item type carries ID, or is a union with
+a member that carries ID. IDREF carriage follows the same recursion.
+
+The type-level predicate drives every schema-time and static rule:
+
+- no default or fixed value on an ID-carrying element declaration
+  ([e-props-correct](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct)),
+  attribute declaration or attribute use
+  ([a-props-correct](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#a-props-correct));
+- at most one ID-carrying attribute use per attribute set
+  ([ct-props-correct](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#ct-props-correct));
+- wildcard attributes are counted by their declaration's type
+  ([cvc-complex-type](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type)
+  5.1 and 5.2), so two `union(int, ID)` wildcard attributes conflict even when
+  both values select `int`.
+
+The ID/IDREF table stays value-level: a union contributes the projections of its
+selected member, and a list contributes each item's. A `union(int, ID)` value `1`
+adds no ID; a `list(ID)` value `a b` adds two, so duplicates within one list are
+rejected and an IDREF may target a list item.
+
+Xerces-J and xmlschema mostly agree; .NET and libxml2 apply the literal
+"derived from ID" reading and accept defaults on ID unions and duplicate list
+items. The literal 1.0 reading was rejected because it leaves a default on an
+ID-carrying union able to create duplicate IDs and splits ID-ness between
+schema checks and the cvc-id table. Fixtures:
+`tests/corpus/project/identity/id-carriers/` and the corrected
+`w3c/msMeta/SimpleType_w3c.xml/stE072`.
+
+## I-017 — list identity and equality
+
+**Status:** selected reading of XSD 1.0 identity-constraint
+[value equality](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint),
+using the XSD 1.1 [list equality](https://www.w3.org/TR/2012/REC-xmlschema11-2-20120405/#value-equality)
+definition without its length-one identification.
+
+Two lists are equal when they have the same length and their items are
+pairwise equal. Empty lists are therefore equal whatever their item types. A
+list never equals an atomic value: the empty list differs from the empty string,
+and the one-item list `a` differs from the string `a`. The XSD 1.1 rule that
+treats an atomic value as a length-one list was rejected because XSD 1.0 has
+no such identification and it would make keys depend on whether a field's type
+is atomic or a list.
+
+Value equality and the comparable identity key are one contract: lists carry a
+reserved tag outside the primitive-kind range, and each item carries its own
+primitive kind. Xerces-J and .NET keep empty lists of different item types
+distinct; xmlschema equates them. Fixture:
+`tests/corpus/project/identity/list-identity-keys`.
+
+## I-018 — nilled requires a governing declaration
+
+**Status:** literal reading of XSD 1.0
+[cvc-elt](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt)
+clause 3 and
+[cvc-assess-elt](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-assess-elt).
+
+Clause 3 of Element Locally Valid (Element) applies only to an element with a
+governing element declaration. An element assessed by type alone (a lax
+wildcard match without a declaration, an `xs:anyType` child, or an undeclared
+root selected by `xsi:type`) is never nilled: `xsi:nil` is still checked as an
+`xs:boolean`, and the element's content is validated against its type. So
+`xsi:nil="true"` with content is valid there, and `xsi:nil="true"` on an empty
+`xs:int` element is invalid. A declared non-nillable element still rejects
+`xsi:nil="true"`.
+
+Xerces-J agrees on every fixture. .NET and libxml2 do not check `xsi:nil` as
+`xs:boolean` without a declaration; xmlschema treats such an element as a
+non-nillable declaration. Fixture:
+`tests/corpus/project/elements/xsi-nil-without-declaration`.
+
+## I-019 — schema document identity is the resolved location
+
+**Status:** include identity is the adopted XSD 1.1 Structures
+[§4.2.3](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/structures.html#compound-schema)
+correction ([selected corrections](SOURCES.md#selected-corrections)): "If two
+`<include>` elements specify the same schema location (after resolving relative
+URI references) then they refer to the same schema document. If they specify
+different schema locations, then they refer to different schema documents,
+unless the implementation is able to determine that the two URIs are references
+to the same resource".
+XSD 1.0 has no identity rule. Applying the same identity to imports and explicit
+roots is a library choice: 1.0 §4.2.3 and 1.1 §4.2.6 both leave applications free to
+"ignore all but the first `<import>` for a given namespace".
+
+A schema document is identified by its resolved source key. References that
+resolve to one key are one document, contributing its components once. Distinct
+keys are distinct documents even when their bytes are identical, so two copies
+declaring the same global component violate
+[sch-props-correct](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#sch-props-correct)
+clause 2 (`schema.duplicate`). Callers that need copies at several locations
+(for example two hints to `xml.xsd`) treated as one document map them to one key
+in their resolver.
+
+Rejected: content-fingerprint deduplication, because identical bytes do not
+imply an identical include/import closure (relative references resolve against
+each location); and keeping only the first document per namespace, because the
+result depends on load order and hides genuine conflicts.
+
+| Shape: byte-identical documents at two locations | Xerces-J | .NET | libxml2 | xmlschema |
+| --- | --- | --- | --- | --- |
+| Two includes | reject | reject | reject | reject |
+| Two imports of one namespace | accept | reject | accept | accept |
+| Two explicit roots | accept | reject | not observable | reject |
+
+Xerces-J, libxml2 and xmlschema keep the first import per namespace; that
+permitted alternative is rejected above. Because the spec permits both, the
+processor tie-break would favour Xerces here; retaining location identity for
+imports and roots awaits a maintainer decision. Fixtures:
+`tests/corpus/project/namespaces/namespace-duplicate-include-locations-conflict`,
+`tests/corpus/project/namespaces/namespace-shared-include-location-is-one-document`,
+`tests/corpus/project/namespaces/namespace-duplicate-import-locations-conflict`,
+`tests/corpus/project/namespaces/namespace-repeated-import-location-is-one-document`,
+`tests/corpus/project/namespaces/namespace-duplicate-identical-target-namespace-sources-conflict`.
+
+## I-020 — XML name characters follow the Fifth Edition
+
+**Status:** selected edition for name characters. XSD 1.0 cites
+[XML 1.0 Second Edition](https://www.w3.org/TR/2000/REC-xml-20001006/); the
+library uses the
+[Fifth Edition](https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameStartChar)
+`NameStartChar` and `NameChar` productions instead.
+
+One name grammar, owned by `internal/lex`, serves XML parsing, `xs:Name`,
+`xs:NCName`, `xs:NMTOKEN`, QName parts, schema component names and the regex
+`\i` and `\c` classes. Mixing editions would accept documents whose element
+names fail as `xs:Name` values. The Fifth Edition is the edition current XML
+parsers accept, and it accepts every Second Edition name used in practice.
+Only name characters change: the XML declaration grammar and every other
+dependency stay as described in [SOURCES.md](SOURCES.md). In particular
+`VersionNum` keeps the Second Edition production [26], so a well-formed version
+other than `1.0` (such as `1.1`, `1.5` or `1.0.0`) is `unsupported.xml_version`,
+while a malformed one (`""`, `1,0`) and a malformed `EncName` are XML
+well-formedness errors. The Fifth Edition `1.x`-as-1.0 rule is not adopted.
+
+Xerces-J, .NET and libxml2 use Second Edition classes and reject characters
+such as U+0132, U+2070 and U+10000. xmlschema uses Fifth Edition classes except
+for supplementary characters. U+00D7 is excluded in every edition. Fixture:
+`tests/corpus/project/datatypes/name-fifth-edition-chars`.
+
+Accepted W3C expectations decide the edition, so the
+[processor tie-break](#processor-tie-break) does not apply.
+`msMeta/Regex_w3c.xml` reZ006i expects its `\c` instance valid for XML 1.0,
+citing bug 13606 and the Fifth Edition name characters. Saxon
+`XmlVersions.testSet` xv100c and xv100i (whose metadata references the XSD 1.1
+drafts) support the same classes. A trial switch to Second Edition classes
+failed all three.
+
+## I-021 — chameleon reference checks use the effective target namespace
+
+**Status:** source-qualified reading of
+[src-include](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include)
+clause 2.1 and
+[src-import](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import)
+clauses 1.1–1.2, chosen by the [processor tie-break](#processor-tie-break).
+
+Both clauses name the `targetNamespace` [attribute] of the enclosing `<schema>`
+and predate the chameleon transformation, so the sources leave a chameleon's
+own references doubtful. A chameleon is checked as the document it becomes in
+each target context: in a view adopting `urn:t` it may include `urn:t` or
+no-namespace documents, may import without `namespace`, and may not import
+`urn:t`. In its no-namespace view the ordinary rules apply. A document included
+into several namespaces must satisfy the checks in every view.
+
+Rejected: checking the declared (absent) attribute literally. It makes the
+reference validity of a document independent of its includer, but every
+measured processor rejects it on at least one shape.
+
+| Fixture | Xerces | .NET | libxml2 | xmlschema |
+| --- | --- | --- | --- | --- |
+| `project/composition/chameleon-includes-same-tns` (valid) | accept | accept | accept | accept |
+| `project/composition/chameleon-imports-effective-ns` (invalid) | reject | reject | accept | reject |
+| `project/composition/chameleon-import-without-namespace` (valid) | accept | accept | reject | accept |
+
+libxml2 applies the effective namespace to include only.

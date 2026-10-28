@@ -66,7 +66,7 @@ type builtinMeta struct {
 	primitive  PrimitiveKind
 	whitespace WhitespaceMode
 	builtin    BuiltinKind
-	identity   IdentityKind
+	carriers   identityCarriers
 	fraction   bool
 }
 
@@ -111,9 +111,9 @@ var builtinMetadata = [...]builtinMeta{
 	{name: "base64Binary", base: AnySimpleTypeID, primitive: PrimitiveBase64Binary, whitespace: WhitespaceCollapse},
 	{name: "QName", base: AnySimpleTypeID, primitive: PrimitiveQName, whitespace: WhitespaceCollapse},
 	{name: "NOTATION", base: AnySimpleTypeID, primitive: PrimitiveNotation, whitespace: WhitespaceCollapse},
-	{name: "ID", base: builtinNCName, primitive: PrimitiveString, whitespace: WhitespaceCollapse, builtin: BuiltinNCName, identity: IdentityID},
-	{name: "IDREF", base: builtinNCName, primitive: PrimitiveString, whitespace: WhitespaceCollapse, builtin: BuiltinNCName, identity: IdentityIDREF},
-	{name: "IDREFS", base: AnySimpleTypeID, listItem: builtinIDREF, variety: List, primitive: PrimitiveString, whitespace: WhitespaceCollapse, identity: IdentityIDREFList, minLength: 1},
+	{name: "ID", base: builtinNCName, primitive: PrimitiveString, whitespace: WhitespaceCollapse, builtin: BuiltinNCName, carriers: carriesID},
+	{name: "IDREF", base: builtinNCName, primitive: PrimitiveString, whitespace: WhitespaceCollapse, builtin: BuiltinNCName, carriers: carriesIDREF},
+	{name: "IDREFS", base: AnySimpleTypeID, listItem: builtinIDREF, variety: List, primitive: PrimitiveString, whitespace: WhitespaceCollapse, carriers: carriesIDREF, minLength: 1},
 	{name: "NMTOKEN", base: builtinToken, primitive: PrimitiveString, whitespace: WhitespaceCollapse, builtin: BuiltinNMTOKEN},
 	{name: "NMTOKENS", base: AnySimpleTypeID, listItem: builtinNMTOKEN, variety: List, primitive: PrimitiveString, whitespace: WhitespaceCollapse, minLength: 1},
 	{name: "ENTITY", base: builtinNCName, primitive: PrimitiveString, whitespace: WhitespaceCollapse, builtin: BuiltinEntity},
@@ -130,7 +130,7 @@ func buildBuiltinDefinitions() [BuiltinTypeCount]typeDef {
 			primitive:       m.primitive,
 			whitespace:      m.whitespace,
 			builtin:         m.builtin,
-			identity:        m.identity,
+			carriers:        m.carriers,
 			needsQName:      m.primitive == PrimitiveQName || m.primitive == PrimitiveNotation,
 			needsQNameKnown: true,
 			base:            m.base,

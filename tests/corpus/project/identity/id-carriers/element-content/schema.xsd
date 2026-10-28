@@ -1,0 +1,8 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="L"><xs:list itemType="xs:ID"/></xs:simpleType>
+  <xs:simpleType name="U"><xs:union memberTypes="xs:int xs:ID"/></xs:simpleType>
+  <xs:complexType name="S"><xs:simpleContent><xs:extension base="L"/></xs:simpleContent></xs:complexType>
+  <xs:element name="r"><xs:complexType><xs:choice maxOccurs="unbounded">
+    <xs:element name="l" type="L"/><xs:element name="u" type="U"/><xs:element name="s" type="S"/>
+  </xs:choice></xs:complexType></xs:element>
+</xs:schema>

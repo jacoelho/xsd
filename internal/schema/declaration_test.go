@@ -255,13 +255,9 @@ func TestValidateElementDeclValueConstraintRuntime(t *testing.T) {
 
 func TestValidateAttributeDeclValueConstraintRuntime(t *testing.T) {
 	t.Parallel()
-	b := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
-	rt := &schemaBuild{valueBuilder: b, SimpleTypes: make([]SimpleType, valuepkg.BuiltinTypeCount)}
+	rt, idTypes := attributeUseSetIDFixture(t)
 	stringID := valuepkg.BuiltinType(valuepkg.PrimitiveString)
-	id, found := valuepkg.BuiltinTypeID("ID")
-	if !found {
-		t.Fatal("missing builtin ID")
-	}
+	id, list, union := idTypes[0].id, idTypes[1].id, idTypes[2].id
 	tests := []struct {
 		name       string
 		typ        SimpleTypeID
@@ -273,6 +269,8 @@ func TestValidateAttributeDeclValueConstraintRuntime(t *testing.T) {
 		{name: "non-ID default", typ: stringID, constraint: DeclarationValueConstraintDefault},
 		{name: "ID default", typ: id, constraint: DeclarationValueConstraintDefault, wantErr: "ID-typed attribute declaration stores value constraint"},
 		{name: "ID fixed", typ: id, constraint: DeclarationValueConstraintFixed, wantErr: "ID-typed attribute declaration stores value constraint"},
+		{name: "list of ID default", typ: list, constraint: DeclarationValueConstraintDefault, wantErr: "ID-typed attribute declaration stores value constraint"},
+		{name: "union with ID fixed", typ: union, constraint: DeclarationValueConstraintFixed, wantErr: "ID-typed attribute declaration stores value constraint"},
 		{name: "invalid value type", typ: 999, constraint: DeclarationValueConstraintDefault, wantErr: "declaration value constraint references invalid type"},
 		{name: "missing runtime", typ: stringID, constraint: DeclarationValueConstraintDefault, nilRuntime: true, wantErr: "declaration value constraint references invalid type"},
 		{name: "conflicting constraint", typ: stringID, constraint: DeclarationValueConstraintConflict, wantErr: "declaration stores conflicting value constraints"},

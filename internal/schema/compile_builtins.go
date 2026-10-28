@@ -78,7 +78,6 @@ func (c *compiler) addBuiltinSimpleType(builder *value.Builder, id SimpleTypeID)
 			Whitespace:        view.Whitespace,
 			WhitespacePresent: true,
 			Builtin:           view.Builtin,
-			Identity:          view.Identity,
 			Base:              view.Base,
 			ListItem:          view.ListItem,
 			Union:             append([]value.TypeID(nil), view.Union...),

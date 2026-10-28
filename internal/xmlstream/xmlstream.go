@@ -1423,7 +1423,8 @@ func (p *parser) skipPIContent() error {
 }
 
 func (p *parser) validatePITarget(position processingInstructionPosition) (bool, error) {
-	if !lex.IsXMLNameBytes(p.nameBuf) {
+	// Namespaces in XML §7: PI targets contain no colon.
+	if !lex.IsNCNameBytes(p.nameBuf) {
 		return false, fmt.Errorf("invalid processing instruction target")
 	}
 	if bytes.EqualFold(p.nameBuf, xmlPITarget) {
@@ -1512,6 +1513,9 @@ func validateXMLVersionAttribute(content []byte) ([]byte, error) {
 	if !attr.Valid || attr.Name != xsdAttrVersion {
 		return nil, fmt.Errorf("invalid XML declaration")
 	}
+	if !isVersionNum(attr.Value) {
+		return nil, fmt.Errorf("invalid XML declaration version %q", attr.Value)
+	}
 	if attr.Value != xmlVersion10 {
 		return nil, UnsupportedXMLVersionError{Version: attr.Value}
 	}
@@ -1523,10 +1527,42 @@ func validateOptionalXMLEncoding(content []byte) ([]byte, error) {
 	if !attr.Valid || attr.Name != "encoding" {
 		return content, nil
 	}
+	if !isEncName(attr.Value) {
+		return nil, fmt.Errorf("invalid XML declaration encoding %q", attr.Value)
+	}
 	if !strings.EqualFold(attr.Value, "UTF-8") && !strings.EqualFold(attr.Value, "UTF8") {
 		return nil, ErrUnsupportedNonUTF8
 	}
 	return attr.Rest, nil
+}
+
+// isVersionNum implements XML 1.0 Second Edition [26], whose character set is
+// the ASCII XML name characters; a well-formed version other than 1.0 is
+// unsupported rather than malformed.
+func isVersionNum(value string) bool {
+	if value == "" {
+		return false
+	}
+	for i := range len(value) {
+		if !lex.IsASCIIXMLNameChar(value[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// isEncName implements XML 1.0 [81]: an ASCII letter followed by ASCII NCName
+// characters.
+func isEncName(value string) bool {
+	if value == "" || value[0] == '_' || !lex.IsASCIINCNameStart(value[0]) {
+		return false
+	}
+	for i := 1; i < len(value); i++ {
+		if !lex.IsASCIINCNameChar(value[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 func validateOptionalXMLStandalone(content []byte) ([]byte, error) {

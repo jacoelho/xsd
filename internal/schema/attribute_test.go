@@ -49,10 +49,10 @@ func TestAttributeUseRead(t *testing.T) {
 		qnameContext:  &valueConstraintQNameContext{bindings: []valueConstraintQNameBinding{{prefix: "p", namespace: "urn:default", bound: true}}},
 	}
 	// Both pointers exercise read precedence; schema admission rejects that shape.
-	use := newAttributeUseReadForSimpleTypes(&names, AttributeUse{
+	use := newAttributeUseRead(&names, AttributeUse{
 		Name: name, Type: 7, Fixed: fixed, Default: def, Required: true,
-	}, testAttributeSimpleTypes())
-	defaulted := newAttributeUseReadForSimpleTypes(&names, AttributeUse{Name: name, Type: 7, Default: def}, testAttributeSimpleTypes())
+	})
+	defaulted := newAttributeUseRead(&names, AttributeUse{Name: name, Type: 7, Default: def})
 	fixed.qnameContext.bindings[0].namespace = "urn:changed"
 	def.qnameContext.bindings[0].bound = false
 	if use.Name() != name {
@@ -66,9 +66,6 @@ func TestAttributeUseRead(t *testing.T) {
 	}
 	if !use.Required() {
 		t.Fatal("Required() = false, want true")
-	}
-	if use.CanValidateFixedStringFast() {
-		t.Fatal("CanValidateFixedStringFast() = true for QName, want false")
 	}
 	for range 2 {
 		fixedRead, hasFixed := use.FixedValue()
@@ -89,26 +86,14 @@ func TestAttributeUseRead(t *testing.T) {
 			t.Fatalf("default QName = %v, %v; want {urn:default}item, true", resolved, ok)
 		}
 	}
-	stringUse := AttributeUse{Name: name, Type: 8, Fixed: &ValueConstraint{
-		Lexical: "fixed", Canonical: "fixed", Value: builtinValueForTest(t, "string", "fixed"),
-	}}
-	if !newAttributeUseReadForSimpleTypes(&names, stringUse, testAttributeSimpleTypes()).CanValidateFixedStringFast() {
-		t.Fatal("CanValidateFixedStringFast() = false, want true")
-	}
-	if newAttributeUseReadForSimpleTypes(&names, stringUse, nil).CanValidateFixedStringFast() {
-		t.Fatal("CanValidateFixedStringFast() = true without simple-value read, want false")
-	}
-	absent := newAttributeUseReadForSimpleTypes(&names, AttributeUse{Name: name, Type: 8}, testAttributeSimpleTypes())
-	if absent.CanValidateFixedStringFast() {
-		t.Fatal("CanValidateFixedStringFast() = true without fixed value, want false")
-	}
+	absent := newAttributeUseRead(&names, AttributeUse{Name: name, Type: 8})
 	if got, ok := absent.FixedValue(); ok || got != (ValueConstraintRead{}) {
 		t.Fatalf("absent FixedValue() = %+v, %v; want zero, false", got, ok)
 	}
 	if got, ok := absent.AbsentValueConstraint(); ok || got != (ValueConstraintRead{}) {
 		t.Fatalf("absent AbsentValueConstraint() = %+v, %v; want zero, false", got, ok)
 	}
-	empty := newAttributeUseReadForSimpleTypes(&names, AttributeUse{Fixed: &ValueConstraint{}}, nil)
+	empty := newAttributeUseRead(&names, AttributeUse{Fixed: &ValueConstraint{}})
 	if got, ok := empty.FixedValue(); !ok || got != (ValueConstraintRead{}) {
 		t.Fatalf("present-empty FixedValue() = %+v, %v; want zero, true", got, ok)
 	}
@@ -171,20 +156,9 @@ func TestAttributeDeclRead(t *testing.T) {
 	}
 }
 
-func testAttributeSimpleTypes() []SimpleType {
-	types := make([]SimpleType, 9)
-	types[7] = SimpleType{ValueSpec: valuepkg.TypeSpec{
-		Variety: valuepkg.Atomic, Primitive: valuepkg.PrimitiveQName, Whitespace: valuepkg.WhitespaceCollapse,
-	}}
-	types[8] = SimpleType{ValueSpec: valuepkg.TypeSpec{
-		Variety: valuepkg.Atomic, Primitive: valuepkg.PrimitiveString, Whitespace: valuepkg.WhitespacePreserve,
-	}}
-	return types
-}
-
 func testAttributeUseSetReads(t *testing.T, names *NameTable, sets []AttributeUseSet) []AttributeUseSetRead {
 	t.Helper()
-	reads, err := newAttributeUseSetReads(names, sets, testAttributeSimpleTypes(), valuepkg.NewBuilder(valuepkg.BuilderOptions{}))
+	reads, err := newAttributeUseSetReads(names, sets, valuepkg.NewBuilder(valuepkg.BuilderOptions{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,7 +172,7 @@ func TestAttributeUseSetReadRejectsUnavailableInputMetadata(t *testing.T) {
 	values := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
 	reads, err := newAttributeUseSetReads(&names, []AttributeUseSet{{
 		Uses: []AttributeUse{{Name: name, Type: valuepkg.BuiltinTypeCount}},
-	}}, testAttributeSimpleTypes(), values)
+	}}, values)
 	expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 	if reads != nil {
 		t.Fatal("unavailable input metadata produced attribute-use reads")
@@ -527,11 +501,13 @@ func TestValidateAttributeUseSetRecord(t *testing.T) {
 	t.Parallel()
 
 	names, first, second := attributeUseNameTable(t)
-	tests := []struct {
+	rt, idTypes := attributeUseSetIDFixture(t)
+	type attributeUseSetCase struct {
 		name    string
 		mutate  func(*AttributeUseSet)
 		wantErr string
-	}{
+	}
+	tests := []attributeUseSetCase{
 		{
 			name: "valid",
 		},
@@ -570,29 +546,25 @@ func TestValidateAttributeUseSetRecord(t *testing.T) {
 				set.Uses[0].Fixed = &ValueConstraint{}
 			},
 			wantErr: "attribute use stores both default and fixed value constraints",
-		}, {
-			name: "ID value constraint",
+		},
+	}
+	for _, carrier := range idTypes {
+		tests = append(tests, attributeUseSetCase{
+			name: carrier.name + " value constraint",
 			mutate: func(set *AttributeUseSet) {
-				set.Uses[0].Type = 1
+				set.Uses[0].Type = carrier.id
 				set.Uses[0].Default = &ValueConstraint{}
 			},
 			wantErr: "ID-typed attribute use stores value constraint",
-		},
-		{
-			name: "multiple ID attributes",
+		}, attributeUseSetCase{
+			name: "multiple " + carrier.name + " attributes",
 			mutate: func(set *AttributeUseSet) {
-				set.Uses[0].Type = 1
-				set.Uses[1].Type = 1
+				set.Uses[0].Type = idTypes[0].id
+				set.Uses[1].Type = carrier.id
 				set.Uses[1].Default = nil
 			},
 			wantErr: "attribute use set stores multiple ID attributes",
-		},
-	}
-	rt := attributeUseSetFixture{
-		identities: map[SimpleTypeID]valuepkg.IdentityKind{
-			0: valuepkg.IdentityNone,
-			1: valuepkg.IdentityID,
-		},
+		})
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -602,7 +574,7 @@ func TestValidateAttributeUseSetRecord(t *testing.T) {
 			if tt.mutate != nil {
 				tt.mutate(&set)
 			}
-			err := ValidateAttributeUseSetRecord(&names, rt.build(), set)
+			err := ValidateAttributeUseSetRecord(&names, rt, set)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateAttributeUseSetRecord() error = %v", err)
@@ -1008,9 +980,30 @@ func attributeUseConstraintForTest(tb testing.TB, typeName, lexical string) *Val
 
 type attributeWildcardFixture map[WildcardID]Wildcard
 
-type attributeUseSetFixture struct {
-	wildcards  map[WildcardID]Wildcard
-	identities map[SimpleTypeID]valuepkg.IdentityKind
+type namedSimpleType struct {
+	name string
+	id   SimpleTypeID
+}
+
+// attributeUseSetIDFixture returns a value-backed build whose ID carriers
+// cover I-016: xs:ID, a list of xs:ID, and a union with an xs:ID member.
+func attributeUseSetIDFixture(t *testing.T) (*schemaBuild, []namedSimpleType) {
+	t.Helper()
+	b := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+	id, found := valuepkg.BuiltinTypeID("ID")
+	if !found {
+		t.Fatal("missing builtin ID")
+	}
+	list := completeConstraintFixtureType(t, b, valuepkg.TypeSpec{
+		Base: valuepkg.AnySimpleTypeID, ListItem: id, Variety: valuepkg.List,
+		Whitespace: valuepkg.WhitespaceCollapse, WhitespacePresent: true,
+	})
+	union := completeConstraintFixtureType(t, b, valuepkg.TypeSpec{
+		Base: valuepkg.NoType, ListItem: valuepkg.NoType, Variety: valuepkg.Union,
+		Union: []valuepkg.TypeID{valuepkg.BuiltinType(valuepkg.PrimitiveDecimal), id},
+	})
+	build := &schemaBuild{valueBuilder: b, SimpleTypes: make([]SimpleType, int(max(list, union))+1)}
+	return build, []namedSimpleType{{name: "ID", id: id}, {name: "list of ID", id: list}, {name: "union with ID", id: union}}
 }
 
 func attributeWildcardUseSet(wildcard, base, declared WildcardID, derivation AttributeWildcardDerivation) AttributeUseSet {
@@ -1058,14 +1051,6 @@ func validAttributeUseSet(first, second QName) AttributeUseSet {
 
 func (f attributeWildcardFixture) build() *schemaBuild {
 	return &schemaBuild{Wildcards: fixtureMapSlice(f)}
-}
-
-func (f attributeUseSetFixture) build() *schemaBuild {
-	b := &schemaBuild{Wildcards: fixtureMapSlice(f.wildcards), SimpleTypes: make([]SimpleType, len(fixtureMapSlice(f.identities)))}
-	for id, identity := range f.identities {
-		b.SimpleTypes[id].ValueSpec.Identity = identity
-	}
-	return b
 }
 
 func (f attributeUseRestrictionFixture) build() *schemaBuild {

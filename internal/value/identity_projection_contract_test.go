@@ -69,47 +69,6 @@ func TestListIdentityUsesSharedFraming(t *testing.T) {
 	}
 }
 
-func TestListOfUnionCarriesSelectedIDREFs(t *testing.T) {
-	builder := value.NewBuilder(value.BuilderOptions{})
-	idref, _ := value.BuiltinTypeID("IDREF")
-	integer, _ := value.BuiltinTypeID("int")
-	member, err := builder.Reserve()
-	if err != nil {
-		t.Fatalf("Reserve() error = %v", err)
-	}
-	err = builder.Complete(member, value.TypeSpec{
-		Variety: value.Union,
-		Base:    value.NoType, ListItem: value.NoType,
-		Union: []value.TypeID{integer, idref},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	list, err := builder.Reserve()
-	if err != nil {
-		t.Fatalf("Reserve() error = %v", err)
-	}
-	err = builder.Complete(list, value.TypeSpec{
-		Variety: value.List, Base: value.NoType, ListItem: member,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	program, err := builder.Seal()
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, needs := range []value.Needs{0, value.NeedCanonical | value.NeedIdentity} {
-		got, err := program.Validate(list, "one 2 three", value.Resolver{}, needs, 16<<20, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got.IDRefs() != "one three" {
-			t.Fatalf("needs %d: IDRefs=%q, want %q", needs, got.IDRefs(), "one three")
-		}
-	}
-}
-
 func TestIdentityPayloadsSurviveLaterEvaluation(t *testing.T) {
 	pattern, err := xsdregex.Compile("[a-z]+", xsdregex.CompileOptions{})
 	if err != nil {
@@ -154,7 +113,7 @@ func TestIdentityPayloadsSurviveLaterEvaluation(t *testing.T) {
 		retained                value.Value
 	}{
 		{"primitive", "first", "\x00\x1efirst", item, primitive},
-		{"list", "first last", "\x00\x1e7:\x00\x1efirst6:\x00\x1elast", list, aggregate},
+		{"list", "first last", value.ListIdentityKey([]string{value.PrimitiveIdentityKey(value.PrimitiveString, "first"), value.PrimitiveIdentityKey(value.PrimitiveString, "last")}), list, aggregate},
 	} {
 		fresh, err := program.Validate(test.typ, test.lexical, value.Resolver{}, value.NeedIdentity, 16<<20, &scratch)
 		if err != nil {
@@ -218,7 +177,7 @@ func TestEmptyListIdentityThroughUnions(t *testing.T) {
 					if err != nil {
 						t.Fatalf("needs %d, bytes %t: %v", needs, bytes, err)
 					}
-					if !got.HasIdentity() || got.Type() != route.typeID || got.SelectedType() != route.selected || got.IdentityKey() != "\x00\x1e" || got.CanonicalText() != "" {
+					if !got.HasIdentity() || got.Type() != route.typeID || got.SelectedType() != route.selected || got.IdentityKey() != value.ListIdentityKey(nil) || got.CanonicalText() != "" {
 						t.Fatalf("needs %d, bytes %t: type=%d, selected=%d, identity=%q, canonical=%q", needs, bytes, got.Type(), got.SelectedType(), got.IdentityKey(), got.CanonicalText())
 					}
 					if got.Equal(atomic) {
@@ -330,7 +289,7 @@ func TestCanonicalProjectionRetainsFloatListEnumeration(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		assertRequestedCanonicalProjection(t, got, needs, "1.0E0 2.0E0", "\x00\x1e7:\x03\x1e1.0E07:\x03\x1e2.0E0")
+		assertRequestedCanonicalProjection(t, got, needs, "1.0E0 2.0E0", value.ListIdentityKey([]string{value.PrimitiveIdentityKey(value.PrimitiveFloat, "1.0E0"), value.PrimitiveIdentityKey(value.PrimitiveFloat, "2.0E0")}))
 		for _, lexical := range []string{"1e0", "1e0 3e0"} {
 			if _, err := program.Validate(id, lexical, value.Resolver{}, needs, 16<<20, nil); !errors.Is(err, value.ErrFacet) {
 				t.Fatalf("Validate(%q) error=%v; want enumeration facet failed", lexical, err)

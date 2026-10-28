@@ -8,9 +8,6 @@ import (
 func (c *compiler) index() error {
 	for i := range c.plan.documents {
 		document := &c.plan.documents[i]
-		if !document.indexDeclarations {
-			continue
-		}
 		if err := c.indexSchemaDocument(document); err != nil {
 			return err
 		}

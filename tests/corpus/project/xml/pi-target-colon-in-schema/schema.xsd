@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:annotation><xs:appinfo><?a:b data?></xs:appinfo></xs:annotation>
+  <xs:element name="root"/>
+</xs:schema>

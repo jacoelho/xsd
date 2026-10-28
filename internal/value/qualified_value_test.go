@@ -169,7 +169,7 @@ func TestProgramQualifiedResolverAdmission(t *testing.T) {
 		{"invalid local NCName", PrimitiveQName, Resolver{QName: func(string) (ExpandedName, bool) { return ExpandedName{Namespace: "urn:test", Local: "a:b"}, true }}, "unresolved QName"},
 		{"missing declaration resolver", PrimitiveNotation, Resolver{QName: func(string) (ExpandedName, bool) { return validName, true }}, "undeclared notation"},
 		{"undeclared", PrimitiveNotation, Resolver{QName: func(string) (ExpandedName, bool) { return validName, true }, Notation: func(string, string) bool { return false }}, "undeclared notation"},
-		{"missing QName resolver", PrimitiveQName, Resolver{}, "invalid QName"},
+		{"missing QName resolver", PrimitiveQName, Resolver{}, "unresolved QName"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			for _, api := range qualifiedValueAPIs(p) {

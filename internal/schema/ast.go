@@ -174,7 +174,7 @@ func schemaStreamError(line, col int, err error) error {
 		return xsderrors.Unsupported(xsderrors.CodeUnsupportedNonUTF8, "schema documents must be UTF-8", err)
 	}
 	if versionErr, ok := errors.AsType[xmlstream.UnsupportedXMLVersionError](err); ok {
-		return xsderrors.Unsupported(xsderrors.CodeUnsupportedXML11, versionErr.Error(), nil)
+		return xsderrors.Unsupported(xsderrors.CodeUnsupportedXMLVersion, versionErr.Error(), nil)
 	}
 	if errors.Is(err, xmlstream.ErrUnsupportedDTD) {
 		return xsderrors.Unsupported(xsderrors.CodeUnsupportedDTD, "", err)

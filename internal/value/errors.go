@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/diagnostictext"
-	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -65,7 +64,7 @@ const (
 	msgInvalidTime              = "invalid time"
 	msgInvalidUTF8              = "invalid UTF-8 value"
 	msgInvalidXMLCharacter      = "invalid XML character"
-	msgInvalidQName             = "invalid QName"
+	msgInvalidQName             = "invalid QName syntax; expected a local name or prefix:local name"
 	msgUnresolvedQName          = "unresolved QName"
 	msgUndeclaredNotation       = "undeclared notation"
 	msgNoUnionMember            = "value does not match any union member"
@@ -192,7 +191,7 @@ func describeValueFailure[T byteText](program *Program, id TypeID, lexical T, pa
 		message = facetDiagnostic(t, lexical, parsed, cause)
 	}
 	if message == "" {
-		message = lexicalValueDiagnostic(program, id, t, lexical, cause)
+		message = lexicalValueDiagnostic(program, id, lexical, cause)
 	}
 	return &valueDiagnosticError{message: message, cause: cause}
 }
@@ -204,14 +203,8 @@ func failedListItem(t *typeDef, parsed *parsedValue, cause error) bool {
 	return parsed != nil || t.facets.raw.kind != rawPlanNMTokens || !errors.Is(cause, errLengthFacet)
 }
 
-func lexicalValueDiagnostic[T byteText](program *Program, id TypeID, t *typeDef, lexical T, cause error) string {
-	reason := cause.Error()
-	if t.primitive == PrimitiveQName || t.primitive == PrimitiveNotation {
-		if !lex.SplitQName(normalize(string(lexical), t.whitespace)).Valid {
-			reason = "invalid QName syntax; expected a local name or prefix:local name"
-		}
-	}
-	return fmt.Sprintf("value %s is not valid for %s: %s", diagnostictext.Quote(lexical), diagnosticTypeName(program, id), reason)
+func lexicalValueDiagnostic[T byteText](program *Program, id TypeID, lexical T, cause error) string {
+	return fmt.Sprintf("value %s is not valid for %s: %s", diagnostictext.Quote(lexical), diagnosticTypeName(program, id), cause.Error())
 }
 
 func diagnosticTypeName(program *Program, id TypeID) string {
@@ -228,6 +221,20 @@ func diagnosticTypeName(program *Program, id TypeID) string {
 	if t.variety == List {
 		return "a list type"
 	}
+	// An atomic restriction names its nearest built-in ancestor (xs:int, not
+	// the xs:integer lexical family); user QNames are not program vocabulary.
+	// Admission completes bases first, so the walk ends within len(types).
+	for range len(program.types) + 1 {
+		if name, ok := BuiltinTypeName(t.base); ok {
+			return "xs:" + name
+		}
+		next, ok := program.typeDef(t.base)
+		if !ok {
+			break
+		}
+		t = next
+	}
+	// A base-less atomic type names its lexical family.
 	builtin := BuiltinType(t.primitive)
 	switch t.builtin {
 	case BuiltinInteger:
@@ -278,11 +285,11 @@ func facetDiagnostic[T byteText](t *typeDef, lexical T, parsed *parsedValue, cau
 		return "value " + diagnostictext.Quote(lexical) + " does not satisfy pattern groups " + diagnosticPatternGroups(t.facets.patterns)
 	case errors.Is(cause, errMinInclusiveFacet):
 		if len(t.facets.lower) != 0 {
-			return boundDiagnostic(lexical, "minInclusive", &t.facets.lower[0])
+			return boundDiagnostic(t, lexical, "minInclusive", &t.facets.lower[0])
 		}
 	case errors.Is(cause, errMaxInclusiveFacet):
 		if len(t.facets.upper) != 0 {
-			return boundDiagnostic(lexical, "maxInclusive", &t.facets.upper[0])
+			return boundDiagnostic(t, lexical, "maxInclusive", &t.facets.upper[0])
 		}
 	case errors.Is(cause, errLowerBoundFacet), errors.Is(cause, errUpperBoundFacet):
 		if parsed != nil {
@@ -415,7 +422,7 @@ func diagnosticTypeDescription(program *Program, id TypeID, depth int) string {
 	if t.variety == List {
 		name = "list of " + diagnosticTypeDescription(program, t.listItem, depth+1)
 	}
-	rules := diagnosticFacetRules(&t.facets)
+	rules := diagnosticFacetRules(t.builtin, &t.facets)
 	if len(rules) != 0 {
 		return name + " (" + strings.Join(rules, "; ") + ")"
 	}
@@ -442,7 +449,7 @@ func diagnosticCardinalityRules(f *facetProgram) []string {
 	return rules
 }
 
-func diagnosticFacetRules(f *facetProgram) []string {
+func diagnosticFacetRules(builtin BuiltinKind, f *facetProgram) []string {
 	rules := diagnosticCardinalityRules(f)
 	if len(f.enumGroups) != 0 {
 		rules = append(rules, "enumeration groups "+diagnosticEnumerationGroups(f.enumGroups))
@@ -455,7 +462,7 @@ func diagnosticFacetRules(f *facetProgram) []string {
 		bounds []boundValue
 	}{{"min", f.lower}, {"max", f.upper}} {
 		var truncated bool
-		rules, truncated = appendDiagnosticBounds(rules, side.prefix, side.bounds)
+		rules, truncated = appendDiagnosticBounds(rules, builtin, side.prefix, side.bounds)
 		if truncated {
 			return append(rules, "...")
 		}
@@ -470,13 +477,13 @@ func diagnosticBoundName(prefix string, bound *boundValue) string {
 	return prefix + "Inclusive"
 }
 
-func appendDiagnosticBounds(rules []string, prefix string, bounds []boundValue) ([]string, bool) {
+func appendDiagnosticBounds(rules []string, builtin BuiltinKind, prefix string, bounds []boundValue) ([]string, bool) {
 	for i := range bounds {
 		if len(rules) == diagnostictext.MaxAlternatives {
 			return rules, true
 		}
 		bound := &bounds[i]
-		rules = append(rules, diagnosticBoundName(prefix, bound)+" "+diagnosticBoundValue(&bound.value))
+		rules = append(rules, diagnosticBoundName(prefix, bound)+" "+diagnosticBoundValue(builtin, &bound.value))
 	}
 	return rules, false
 }
@@ -520,7 +527,7 @@ func failedLowerBoundDiagnostic[T byteText](t *typeDef, lexical T, parsed *parse
 		relation, ok := compareAtomic(&parsed.atom, &bound.value)
 		if !ok || !OrderedFacetLowerBoundAccepts(bound.exclusive, relation) {
 			name := diagnosticBoundName("min", bound)
-			return boundDiagnostic(lexical, name, bound)
+			return boundDiagnostic(t, lexical, name, bound)
 		}
 	}
 	return ""
@@ -535,17 +542,19 @@ func failedOrderedBoundDiagnostic[T byteText](t *typeDef, lexical T, parsed *par
 		relation, ok := compareAtomic(&parsed.atom, &bound.value)
 		if !ok || !OrderedFacetUpperBoundAccepts(bound.exclusive, relation) {
 			name := diagnosticBoundName("max", bound)
-			return boundDiagnostic(lexical, name, bound)
+			return boundDiagnostic(t, lexical, name, bound)
 		}
 	}
 	return ""
 }
 
-func boundDiagnostic[T byteText](lexical T, name string, bound *boundValue) string {
-	return fmt.Sprintf("value %s does not satisfy %s %s", diagnostictext.Quote(lexical), name, diagnosticBoundValue(&bound.value))
+func boundDiagnostic[T byteText](t *typeDef, lexical T, name string, bound *boundValue) string {
+	return fmt.Sprintf("value %s does not satisfy %s %s", diagnostictext.Quote(lexical), name, diagnosticBoundValue(t.builtin, &bound.value))
 }
 
-func diagnosticBoundValue(atom *atomicValue) string {
+// diagnosticBoundValue renders a bound in the canonical form of the
+// restricted type, so integer-family bounds carry no fractional part.
+func diagnosticBoundValue(builtin BuiltinKind, atom *atomicValue) string {
 	switch atom.kind {
 	case PrimitiveFloat, PrimitiveDouble:
 		bits, _ := floatBits(atom.kind)
@@ -560,7 +569,7 @@ func diagnosticBoundValue(atom *atomicValue) string {
 		PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay,
 		PrimitiveGMonth, PrimitiveHexBinary, PrimitiveBase64Binary,
 		PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
-		return diagnostictext.Quote(atomicCanonical(BuiltinNone, atom, ""))
+		return diagnostictext.Quote(atomicCanonical(builtin, atom, ""))
 	}
 	return "the declared bound"
 }

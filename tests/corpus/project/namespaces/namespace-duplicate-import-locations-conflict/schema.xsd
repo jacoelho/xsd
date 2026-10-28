@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:r" xmlns:t="urn:t">
+  <!-- I-019: distinct import locations are distinct documents; later imports of a namespace are not ignored. -->
+  <xs:import namespace="urn:t" schemaLocation="a.xsd"/>
+  <xs:import namespace="urn:t" schemaLocation="b.xsd"/>
+  <xs:element name="doc" type="t:T"/>
+</xs:schema>

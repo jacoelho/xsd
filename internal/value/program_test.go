@@ -77,7 +77,6 @@ func TestProgramListUnionAndPatternGroups(t *testing.T) {
 		ListItem:          item,
 		Whitespace:        WhitespaceCollapse,
 		WhitespacePresent: true,
-		Identity:          IdentityIDREFList,
 		Base:              NoType,
 	})
 	if err != nil {
@@ -107,8 +106,8 @@ func TestProgramListUnionAndPatternGroups(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v.CanonicalText() != "1.0 2.0" || v.IDRefs() != "1.0 2.0" {
-		t.Fatalf("unexpected list projections: canonical=%q refs=%q", v.CanonicalText(), v.IDRefs())
+	if v.CanonicalText() != "1.0 2.0" {
+		t.Fatalf("unexpected list canonical=%q", v.CanonicalText())
 	}
 	v, err = p.Validate(union, "2", Resolver{}, NeedCanonical, 16<<20, nil)
 	if err != nil || v.SelectedType() != item {
@@ -326,69 +325,62 @@ func TestProgramEqualRequiresExplicitIdentityProjection(t *testing.T) {
 	}
 }
 
-func TestProgramEqualityDistinguishesEmptyListFromEmptyString(t *testing.T) {
+// TestListIdentityKeysAgreeWithEquality pins I-017: a list never equals an
+// atomic value, and lists are equal when their items are, so empty lists of
+// any item type are equal.
+func TestListIdentityKeysAgreeWithEquality(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
-	item, err := b.Reserve()
-	if err != nil {
-		t.Fatalf("Reserve() error = %v", err)
+	complete := func(spec TypeSpec) TypeID {
+		t.Helper()
+		id, err := b.Reserve()
+		if err != nil {
+			t.Fatalf("Reserve() error = %v", err)
+		}
+		spec.Whitespace, spec.WhitespacePresent = WhitespaceCollapse, true
+		if err := b.Complete(id, spec); err != nil {
+			t.Fatal(err)
+		}
+		return id
 	}
-	err = b.Complete(item, TypeSpec{
-		Variety:           Atomic,
-		Primitive:         PrimitiveString,
-		Whitespace:        WhitespaceCollapse,
-		WhitespacePresent: true,
-		Base:              NoType,
-		ListItem:          NoType,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	list, err := b.Reserve()
-	if err != nil {
-		t.Fatalf("Reserve() error = %v", err)
-	}
-	err = b.Complete(list, TypeSpec{
-		Variety:           List,
-		Whitespace:        WhitespaceCollapse,
-		WhitespacePresent: true,
-		Base:              NoType,
-		ListItem:          item,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	stringType, err := b.Reserve()
-	if err != nil {
-		t.Fatalf("Reserve() error = %v", err)
-	}
-	err = b.Complete(stringType, TypeSpec{
-		Variety:           Atomic,
-		Primitive:         PrimitiveString,
-		Whitespace:        WhitespacePreserve,
-		WhitespacePresent: true,
-		Base:              NoType,
-		ListItem:          NoType,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	stringType := complete(TypeSpec{Variety: Atomic, Primitive: PrimitiveString, Base: NoType, ListItem: NoType})
+	stringList := complete(TypeSpec{Variety: List, Base: NoType, ListItem: stringType})
+	decimalList := complete(TypeSpec{Variety: List, Base: NoType, ListItem: BuiltinType(PrimitiveDecimal)})
 	p, err := b.Seal()
 	if err != nil {
 		t.Fatal(err)
 	}
-	left, err := p.Validate(list, "", Resolver{}, NeedIdentity, 16<<20, nil)
-	if err != nil {
-		t.Fatal(err)
+	validate := func(id TypeID, lexical string) Value {
+		t.Helper()
+		v, err := p.Validate(id, lexical, Resolver{}, NeedIdentity, 16<<20, nil)
+		if err != nil {
+			t.Fatalf("Validate(%q) error = %v", lexical, err)
+		}
+		return v
 	}
-	right, err := p.Validate(stringType, "", Resolver{}, NeedIdentity, 16<<20, nil)
-	if err != nil {
-		t.Fatal(err)
+	values := map[string]Value{
+		"empty string":       validate(stringType, ""),
+		"empty string list":  validate(stringList, ""),
+		"empty decimal list": validate(decimalList, ""),
+		"string a":           validate(stringType, "a"),
+		"string list a":      validate(stringList, "a"),
+		"string 1":           validate(stringType, "1"),
+		"decimal list 1":     validate(decimalList, "1"),
+		"decimal list 1.0":   validate(decimalList, "1.0"),
 	}
-	if left.IdentityKey() != right.IdentityKey() {
-		t.Fatalf("test setup identity keys differ: %q and %q", left.IdentityKey(), right.IdentityKey())
+	equal := map[[2]string]bool{
+		{"empty string list", "empty decimal list"}: true,
+		{"decimal list 1", "decimal list 1.0"}:      true,
 	}
-	if left.Equal(right) {
-		t.Fatal("empty list compared equal to empty string")
+	for leftName, left := range values {
+		for rightName, right := range values {
+			want := leftName == rightName || equal[[2]string{leftName, rightName}] || equal[[2]string{rightName, leftName}]
+			if got := left.Equal(right); got != want {
+				t.Errorf("%s.Equal(%s) = %t, want %t", leftName, rightName, got, want)
+			}
+			if got := left.IdentityKey() == right.IdentityKey(); got != want {
+				t.Errorf("identity keys of %s and %s equal = %t, want %t", leftName, rightName, got, want)
+			}
+		}
 	}
 }
 

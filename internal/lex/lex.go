@@ -213,7 +213,8 @@ func IsXMLChar(r rune) bool {
 		(r >= 0x10000 && r <= 0x10FFFF)
 }
 
-// IsXMLNameStartChar reports whether r can start an XML Name.
+// IsXMLNameStartChar reports whether r can start an XML Name. Name classes
+// follow XML 1.0 Fifth Edition production [4] for every consumer (I-020).
 func IsXMLNameStartChar(r rune) bool {
 	switch {
 	case r == ':', r == '_',

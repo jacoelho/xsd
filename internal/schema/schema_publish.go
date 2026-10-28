@@ -129,10 +129,10 @@ func newSchemaProgram(build *schemaBuild, work ContentModelWork) (schemaProgram,
 		ComplexTypes:          newComplexTypeReads(build.ComplexTypes),
 		Wildcards:             newWildcardViews(&build.Names, build.Wildcards),
 		CompiledModels:        compiledModels,
-		Elements:              newElementReadTable(build.Elements, build.ComplexTypes),
+		Elements:              newElementReadTable(build.Elements),
 		IdentityDispatch:      newIdentityDispatchRead(build.Identities, names),
 	}
-	reads.AttributeUseSets, err = newAttributeUseSetReads(&build.Names, build.AttributeUseSets, build.SimpleTypes, build.valueBuilder)
+	reads.AttributeUseSets, err = newAttributeUseSetReads(&build.Names, build.AttributeUseSets, build.valueBuilder)
 	if err != nil {
 		return schemaProgram{}, err
 	}

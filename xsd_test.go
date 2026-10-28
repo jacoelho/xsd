@@ -148,7 +148,7 @@ func TestCompileRejectsUnsupportedSchemaXML(t *testing.T) {
 		{
 			name:   "XML 1.1",
 			schema: `<?xml version="1.1"?><xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`,
-			code:   xsderrors.CodeUnsupportedXML11,
+			code:   xsderrors.CodeUnsupportedXMLVersion,
 		},
 		{
 			name:   "non-UTF-8",
@@ -465,24 +465,27 @@ func TestFileResolvesPercentEncodedSchemaLocation(t *testing.T) {
 	}
 }
 
-func TestValidateUnsupportedXMLDeclarationClassificationDoesNotDependOnPreviewLength(t *testing.T) {
+func TestValidateXMLDeclarationClassificationDoesNotDependOnPreviewLength(t *testing.T) {
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`
 	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
 	if err != nil {
 		t.Fatal(err)
 	}
 	tests := []struct {
-		name    string
-		content string
-		code    xsderrors.Code
+		name     string
+		content  string
+		category xsderrors.Category
+		code     xsderrors.Code
 	}{
-		{name: "version", content: `version="1.1"`, code: xsderrors.CodeUnsupportedXML11},
-		{name: "encoding", content: `version="1.0" encoding="ISO-8859-1"`, code: xsderrors.CodeUnsupportedNonUTF8},
+		{name: "version", content: `version="1.5"`, category: xsderrors.CategoryUnsupported, code: xsderrors.CodeUnsupportedXMLVersion},
+		{name: "encoding", content: `version="1.0" encoding="ISO-8859-1"`, category: xsderrors.CategoryUnsupported, code: xsderrors.CodeUnsupportedNonUTF8},
+		{name: "malformed version", content: `version=""`, category: xsderrors.CategoryValidation, code: xsderrors.CodeValidationXML},
+		{name: "malformed encoding", content: `version="1.0" encoding="8UTF"`, category: xsderrors.CategoryValidation, code: xsderrors.CodeValidationXML},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			doc := `<?xml` + strings.Repeat(" ", 70<<10) + test.content + `?><root/>`
-			expectCategoryCode(t, engine.Validate(strings.NewReader(doc)), xsderrors.CategoryUnsupported, test.code)
+			expectCategoryCode(t, engine.Validate(strings.NewReader(doc)), test.category, test.code)
 		})
 	}
 }
@@ -2278,7 +2281,9 @@ func TestUndeclaredRootXSISelectionOrder(t *testing.T) {
 		{name: "selected type and absent nil", element: "root", attrs: `xsi:type="xs:string"`},
 		{name: "selected type and false nil", element: "root", attrs: `xsi:type="xs:string" xsi:nil="false"`},
 		{name: "selected type and zero nil", element: "root", attrs: `xsi:type="xs:string" xsi:nil="0"`},
-		{name: "selected type and true nil", element: "root", attrs: `xsi:type="xs:string" xsi:nil="true"`, code: xsderrors.CodeValidationNil},
+		// Without a governing declaration xsi:nil cannot nil the element (cvc-elt 3.2);
+		// the selected type alone assesses its content.
+		{name: "selected type and true nil", element: "root", attrs: `xsi:type="xs:string" xsi:nil="true"`},
 		{name: "selected type and malformed nil", element: "root", attrs: `xsi:type="xs:string" xsi:nil="bad"`, code: xsderrors.CodeValidationNil},
 	} {
 		t.Run(test.name, func(t *testing.T) {

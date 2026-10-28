@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <!-- I-011: a leading unescaped dash never starts a range, and the second dash is mid-group. -->
+  <xs:element name="root">
+    <xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[--a]"/></xs:restriction></xs:simpleType>
+  </xs:element>
+</xs:schema>

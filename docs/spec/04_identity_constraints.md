@@ -375,8 +375,9 @@ The types `xs:ID` and `xs:IDREF` provide document-wide identity constraints inde
 
 **ID Constraints:**
 
-- All `xs:ID` values must be unique across the **entire document** (not just within a scope)
-- Each element can have **at most one** attribute of type `xs:ID`
+- All ID values must be unique across the **entire document** (not just within a scope)
+- A type carries ID when it is `xs:ID`, derives from an ID carrier, is a list of one, or is a union with one ([I-016](INTERPRETATIONS.md#i-016--recursive-id-ness)); each list item or selected union member that is an ID contributes to the table
+- Each element can have **at most one** ID-carrying attribute; ID carriers cannot have a default or fixed value
 - ID values must be valid NCNames (no colons, must start with letter or underscore)
 
 Note: The “at most one ID attribute per element” rule is enforced during

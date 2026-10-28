@@ -411,7 +411,7 @@ func floatPolicyFixtures(tb testing.TB) []floatPolicyFixture {
 		item := valuepkg.BuiltinType(entry.kind)
 		list := completeFloatPolicyType(tb, builder, valuepkg.TypeSpec{Variety: valuepkg.List, Base: valuepkg.NoType, ListItem: item, Whitespace: valuepkg.WhitespaceCollapse, WhitespacePresent: true})
 		union := completeFloatPolicyType(tb, builder, valuepkg.TypeSpec{Variety: valuepkg.Union, Base: valuepkg.NoType, ListItem: valuepkg.NoType, Union: []valuepkg.TypeID{decimal, item}, Whitespace: valuepkg.WhitespaceCollapse, WhitespacePresent: true})
-		lists = append(lists, floatPolicyRow{id: list, selected: valuepkg.NoType, input: "1 1.5", canonical: "1.0E0 1.5E0", identity: "\x00\x1e7:" + entry.prefix + "1.0E07:" + entry.prefix + "1.5E0"})
+		lists = append(lists, floatPolicyRow{id: list, selected: valuepkg.NoType, input: "1 1.5", canonical: "1.0E0 1.5E0", identity: valuepkg.ListIdentityKey([]string{entry.prefix + "1.0E0", entry.prefix + "1.5E0"})})
 		unions = append(unions, floatPolicyRow{id: union, selected: item, input: "1.5", canonical: "1.5E0", identity: entry.prefix + "1.5E0"})
 	}
 	composed, err := builder.Seal()

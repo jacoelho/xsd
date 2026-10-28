@@ -1,0 +1,4 @@
+<!-- I-021: src-import 1.1 compares the effective urn:t adopted from schema.xsd, so importing urn:t is the enclosing namespace. -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:import namespace="urn:t"/>
+</xs:schema>

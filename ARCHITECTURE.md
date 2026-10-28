@@ -211,8 +211,8 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   compilers consume admitted expanded QName names and typed lexical presence
   fields without generic attribute replay; reference namespace policy runs before
   name interning. Schema uses `internal/value`'s canonical scalar vocabulary
-  for simple varieties, primitive kinds, whitespace modes, value identity kinds,
-  facet masks, and builtin kinds. Schema retains source facet-name mapping,
+  for simple varieties, primitive kinds, whitespace modes, facet masks, and
+  builtin kinds. Schema retains source facet-name mapping,
   facet admission and ordering, whiteSpace restriction, and final constraints.
   Schema occurrence admission retains checked counts and a finite/unbounded tag.
   Occurrence and size-facet admission share bounded nonNegativeInteger scanning,
@@ -752,9 +752,16 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   Schema declarations retain only component metadata and value-program
   references; they do not
   implement a second simple-value parser, facet evaluator, or equality model.
-  Document identity is carried by each validated value: a union preserves the
-  selected member's ID/IDREF projections, and a list collects its selected items'
-  IDREFs. List evaluation constructs its complete framed identity while scanning
+  Document identity is carried by each validated value: an atomic type derived
+  from xs:ID or xs:IDREF projects its canonical value, a union preserves the
+  selected member's ID/IDREF projections, and a list (including xs:IDREFS)
+  collects its items' IDs and IDREFs. The value program's ID/IDREF carriers
+  are the only type-level identity metadata and the single ID-carrier
+  predicate ([I-016](docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness));
+  schema value-constraint and attribute-use checks, wildcard counting,
+  identity activation and the fixed-attribute raw-text comparison
+  (`InputRequirements.LexicalCanonical`, which still validates facets before
+  comparing) read it through input requirements. List evaluation constructs its complete framed identity while scanning
   items, independently of retained item storage; even an empty list has a
   nonempty identity prefix. Unions preserve that identity and the list value kind. Static type identity metadata cannot replace these dynamic projections.
   Validation records them even when no key/unique/keyref field requested a value.
@@ -996,23 +1003,34 @@ Compilation flow:
    The loader owns one reader reused sequentially across sources. Each parse
    detaches it before returning; source records own retained names, values, and
    namespace contexts, so resetting the reader cannot change earlier documents.
-   Content identification traverses its sorted keys, without a mirrored source
-   list. Component and identity-declaration contexts derive from the same immutable
+   Graph documents are admitted in sorted source-key order, without a mirrored
+   source list. Component and identity-declaration contexts derive from the same immutable
    plan document, without a separate context registry.
    The completed loader state becomes a closed loaded graph: planning may consume
-   and update graph-owned state but performs no further I/O. Planning validates
-   target namespaces and expands effective chameleon contexts without reopening
-   or resolving sources. Annotation payload is consumed as
+   and update graph-owned state but performs no further I/O. Planning expands
+   effective chameleon contexts, then applies src-include and src-import checks
+   to every target-context view against its effective target namespace
+   ([I-021](docs/spec/INTERPRETATIONS.md#i-021--chameleon-reference-checks-use-the-effective-target-namespace)),
+   without reopening or resolving sources. Loading applies the same checks
+   earlier, before resolving a target's descendants, only where no target
+   context can change the outcome: the referencing document declares its
+   targetNamespace or is already registered as an explicit root (whose
+   no-namespace view always exists), or the check reads only the import's
+   namespace. Annotation payload is consumed as
    namespace-well-formed opaque XML without entering retained source records.
    Source loading, graph planning, and component resolution consume one aggregate
    dependency-work budget. Component references also enter a bounded active
    expansion stack; cache hits remain charged, while cycles retain their specific
    schema diagnostics. Element type references bind identities without entering
    definition expansion; the component completion pass closes complex definitions
-   and deferred omitted-compositor descendants before finalization. Once every effective target namespace is known, the compiler indexes one
-   declaration representative for each content fingerprint and effective
-   namespace while retaining every source occurrence for resolver traversal and
-   graph validation. It compiles schema components and populates a compiler-owned
+   and deferred omitted-compositor descendants before finalization. Once every
+   effective target namespace is known, the compiler indexes the declarations of
+   every graph document view. Schema document identity is the resolved source key
+   (I-019): one key reached through several edges is one document, while
+   distinct keys are distinct documents even with identical bytes, so their
+   global components are `schema.duplicate`. Callers that want copies at several
+   locations treated as one document canonicalize them in their resolver. It
+   compiles schema components and populates a compiler-owned
    mutable `schemaBuild`. After all types and substitution affiliations are
    complete, element value constraints and effective substitution types are
    finalized atomically; the bounded transitive substitution table is the only
@@ -1154,7 +1172,9 @@ Validation flow:
    without resolving it again. No origin or second cached type reaches a frame.
    Ordinary declared starts extract `xsi:nil` and `xsi:type` before assessing nil
    then type, preserve successful results when the other fails, and own their
-   diagnostics. Identity capture separately validates the lexical QName: a bound
+   diagnostics. An element is nilled only when `xsi:nil` is true and a governing
+   element declaration exists (I-018); otherwise `xsi:nil` is only checked as
+   `xs:boolean`. Identity capture separately validates the lexical QName: a bound
    QName naming an unknown or non-derived type can still be an identity value,
    while malformed or unbound QNames invalidate the matched field. Identity
    capture cannot duplicate semantic XSI diagnostics.
@@ -1425,6 +1445,12 @@ separately after those groups, so benchmarks do not compete with other checks.
 - Reimplementing content matching in the diagnostic layer was rejected because
   it would duplicate occurrence, wildcard and substitution rules. Bounded
   schema-owned projection reuses the current compiled state's eligibility.
+
+- Deduplicating schema documents by content fingerprint, and ignoring later
+  documents for an already-loaded namespace (the XSD 1.0 note on `<import>`
+  hints), were rejected (I-019). Both hide real sch-props-correct.2 conflicts:
+  identical bytes do not imply an identical include/import closure, and the
+  verdict would depend on load order the loader does not define.
 
 - Implicit XML/XLink attribute declarations, including fallbacks used only when
   no source is supplied, were rejected because explicit sources own the schema

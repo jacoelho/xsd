@@ -25,7 +25,7 @@ func TestElementReadTableOwnsCanonicalFacts(t *testing.T) {
 			Default: def,
 		},
 	}
-	table := newElementReadTable(decls, nil)
+	table := newElementReadTable(decls)
 	if name, ok := table.name(0); !ok || name != decls[0].Name {
 		t.Fatalf("name(0) = %v, %v", name, ok)
 	}
@@ -70,16 +70,6 @@ func TestElementReadTableOwnsCanonicalFacts(t *testing.T) {
 	}
 }
 
-func TestElementReadTablePrecomputesEffectiveTypeBlock(t *testing.T) {
-	decls := []ElementDecl{{Type: ComplexRef(0), Block: DerivationRestriction}}
-	complexTypes := []ComplexType{{Block: DerivationExtension}}
-	table := newElementReadTable(decls, complexTypes)
-	start, ok := table.start(0)
-	if !ok || start.Block != DerivationRestriction|DerivationExtension {
-		t.Fatalf("start(0).Block = %08b, %v", start.Block, ok)
-	}
-}
-
 func TestElementReadTableOwnsConstraintNamespaceContexts(t *testing.T) {
 	t.Parallel()
 	fixed := &ValueConstraint{
@@ -90,7 +80,7 @@ func TestElementReadTableOwnsConstraintNamespaceContexts(t *testing.T) {
 		Lexical: "p:default", Canonical: "p:default", Value: builtinValueForTest(t, "string", "p:default"),
 		qnameContext: &valueConstraintQNameContext{bindings: []valueConstraintQNameBinding{{prefix: "p", namespace: "urn:default", bound: true}}},
 	}
-	table := newElementReadTable([]ElementDecl{{Type: SimpleRef(3), Fixed: fixed}, {Type: SimpleRef(4), Default: def}}, nil)
+	table := newElementReadTable([]ElementDecl{{Type: SimpleRef(3), Fixed: fixed}, {Type: SimpleRef(4), Default: def}})
 	fixed.qnameContext.bindings[0].namespace = "urn:changed"
 	def.qnameContext.bindings[0].bound = false
 	for range 2 {

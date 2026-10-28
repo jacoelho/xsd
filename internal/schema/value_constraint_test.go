@@ -54,32 +54,19 @@ func testQNameValue(t *testing.T, namespace string) valuepkg.Value {
 	}, valuepkg.NeedCanonical|valuepkg.NeedIdentity)
 }
 
-func testIdentityValue(t *testing.T, kind valuepkg.IdentityKind, lexical string) valuepkg.Value {
+func testIdentityValue(t *testing.T, builtin, lexical string) valuepkg.Value {
 	t.Helper()
-	b := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
-	id, err := b.Reserve()
-	if err != nil {
-		t.Fatalf("Reserve() error = %v", err)
+	id, ok := valuepkg.BuiltinTypeID(builtin)
+	if !ok {
+		t.Fatalf("builtin %s missing", builtin)
 	}
-	err = b.Complete(id, valuepkg.TypeSpec{
-		Variety:           valuepkg.Atomic,
-		Primitive:         valuepkg.PrimitiveString,
-		Whitespace:        valuepkg.WhitespaceCollapse,
-		WhitespacePresent: true,
-		Base:              valuepkg.NoType,
-		ListItem:          valuepkg.NoType,
-		Identity:          kind,
-	})
+	p, err := valuepkg.NewBuilder(valuepkg.BuilderOptions{}).Seal()
 	if err != nil {
-		t.Fatalf("Complete(identity type) error = %v", err)
-	}
-	p, err := b.Seal()
-	if err != nil {
-		t.Fatalf("Seal(identity type) error = %v", err)
+		t.Fatalf("Seal() error = %v", err)
 	}
 	v, err := p.Validate(id, lexical, valuepkg.Resolver{}, valuepkg.NeedCanonical|valuepkg.NeedIdentity, 16<<20, nil)
 	if err != nil {
-		t.Fatalf("Validate(identity type) error = %v", err)
+		t.Fatalf("Validate(%s) error = %v", builtin, err)
 	}
 	return v
 }
@@ -539,7 +526,7 @@ func TestValidateValueConstraintReplay(t *testing.T) {
 func TestValidateValueConstraintReplayResult(t *testing.T) {
 	t.Parallel()
 
-	validValue := testIdentityValue(t, valuepkg.IdentityID, "id")
+	validValue := testIdentityValue(t, "ID", "id")
 	valid := ValueConstraintValidation{
 		Value: validValue,
 	}
@@ -554,27 +541,27 @@ func TestValidateValueConstraintReplayResult(t *testing.T) {
 		},
 		{
 			name:     "canonical mismatch",
-			replayed: testIdentityValue(t, valuepkg.IdentityID, "other"),
+			replayed: testIdentityValue(t, "ID", "other"),
 			wantErr:  "cached value does not match replayed validation",
 		},
 		{
 			name:     "type mismatch",
-			replayed: testIdentityValue(t, valuepkg.IdentityID, "different"),
+			replayed: testIdentityValue(t, "ID", "different"),
 			wantErr:  "cached value does not match replayed validation",
 		},
 		{
 			name:     "identity mismatch",
-			replayed: testIdentityValue(t, valuepkg.IdentityIDREF, "id"),
+			replayed: testIdentityValue(t, "IDREF", "id"),
 			wantErr:  "cached value does not match replayed validation",
 		},
 		{
 			name:     "IDs mismatch",
-			replayed: testIdentityValue(t, valuepkg.IdentityID, "other"),
+			replayed: testIdentityValue(t, "ID", "other"),
 			wantErr:  "cached value does not match replayed validation",
 		},
 		{
 			name:     "IDRefs mismatch",
-			replayed: testIdentityValue(t, valuepkg.IdentityIDREF, "other"),
+			replayed: testIdentityValue(t, "IDREF", "other"),
 			wantErr:  "cached value does not match replayed validation",
 		},
 	}
