@@ -24,6 +24,16 @@ func FuzzReader(f *testing.F) {
 		f.Add(seed, []byte(nil))
 		f.Add(seed, []byte{1})
 	}
+	for _, seed := range []string{
+		`<a:b c:d="1"></a:b>`,
+		`<π:名 é="1"/>`,
+		`<a:b:c/>`,
+		`<1a/>`,
+	} {
+		for _, chunk := range []byte{1, 2, 3} {
+			f.Add(seed, []byte{chunk})
+		}
+	}
 	f.Fuzz(func(t *testing.T, input string, chunks []byte) {
 		if len(input) > 4096 {
 			t.Skip()

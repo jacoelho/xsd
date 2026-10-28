@@ -902,7 +902,12 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   `Reset`, and `Detach`
   invalidate it; a rejected advance while admission is pending preserves it for
   retry. Start and end admission consume that current token without accepting
-  caller-supplied copies. Attribute values share lexical admission and token
+  caller-supplied copies. Element and attribute names are admitted in one pass per
+  buffered chunk: a byte-class table derived from the `internal/lex` name
+  predicates finds the terminator and judges ASCII QName syntax while the name
+  is charged and copied. The verdict waits for the terminator, so token-limit
+  and read errors keep precedence over invalid syntax; names with non-ASCII
+  bytes are judged by the Unicode NCName rules. Attribute values share lexical admission and token
   charging; a nil output destination discards decoded payload while preserving
   validation and limits. Literal CR and CRLF each
   advance one logical line in every parser mode; emitted payloads contain LF.

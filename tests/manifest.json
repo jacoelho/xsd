@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16532,
-    "schemaCases": 16482,
-    "instanceRuns": 35141,
+    "cases": 16536,
+    "schemaCases": 16486,
+    "instanceRuns": 35174,
     "w3cCases": 14414,
-    "internalRuns": 2105,
+    "internalRuns": 2109,
     "xercesJCases": 13
   },
   "cases": [
@@ -871477,6 +871477,509 @@
         {
           "file": "corpus/project/identity/attribute-field-wildcard-deeper/equal.xml",
           "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/xml/qname-admission-non-ascii",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameStartChar",
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameChar",
+          "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName"
+        ],
+        "description": "Non-ASCII markup names start with a NameStartChar and continue with NameChars: U+00B7 and U+0300 continue but do not start a name, and U+00D7 is excluded everywhere, including after a colon and in a prefix.",
+        "package": "xmlstream",
+        "sourceFile": "tests/corpus/project/xml/qname-admission-non-ascii/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/xml/qname-admission-non-ascii/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "v-local",
+          "file": "corpus/project/xml/qname-admission-non-ascii/v-local.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "v-after-colon",
+          "file": "corpus/project/xml/qname-admission-non-ascii/v-after-colon.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "v-prefix",
+          "file": "corpus/project/xml/qname-admission-non-ascii/v-prefix.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "v-attribute",
+          "file": "corpus/project/xml/qname-admission-non-ascii/v-attribute.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "v-mid-name-chars",
+          "file": "corpus/project/xml/qname-admission-non-ascii/v-mid-name-chars.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "v-mid-name-chars-attribute",
+          "file": "corpus/project/xml/qname-admission-non-ascii/v-mid-name-chars-attribute.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "i-middle-dot-start",
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-middle-dot-start.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "i-combining-start",
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-combining-start.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "i-middle-dot-start-attribute",
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-middle-dot-start-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "i-multiplication-sign-start",
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-multiplication-sign-start.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "i-multiplication-sign-mid",
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-multiplication-sign-mid.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "i-multiplication-sign-attribute",
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-multiplication-sign-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "i-after-colon-middle-dot",
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-after-colon-middle-dot.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "i-prefix-multiplication",
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-prefix-multiplication.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/v-local.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/v-after-colon.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/v-prefix.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/v-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/v-mid-name-chars.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/v-mid-name-chars-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-middle-dot-start.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-combining-start.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-middle-dot-start-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-multiplication-sign-start.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-multiplication-sign-mid.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-multiplication-sign-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-after-colon-middle-dot.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-prefix-multiplication.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/xml/qname-admission-fifth-edition-ranges",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameStartChar",
+          "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName"
+        ],
+        "description": "XML 1.0 fifth-edition name-start ranges: characters up to U+EFFFF outside the excluded ranges start a markup name; U+0300, U+037E, U+E000 and characters above U+EFFFF do not.",
+        "package": "xmlstream",
+        "sourceFile": "tests/corpus/project/xml/qname-admission-fifth-edition-ranges/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "v-U+10000-element",
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/v-U+10000-element.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Xerces-J 2.12.2 (Java 27.0.1) rejects the document as not well-formed: it applies XML 1.0 Second Edition name classes, which exclude this name-start character. The project uses the Fifth Edition NameStartChar production for every name (docs/spec/INTERPRETATIONS.md I-020), where accepted W3C expectations decide the edition; libxml2 2.9.13 accepts the instance.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameStartChar"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET 10.0.14 rejects the document as not well-formed: it applies XML 1.0 Second Edition name classes, which exclude this name-start character. The project uses the Fifth Edition NameStartChar production for every name (docs/spec/INTERPRETATIONS.md I-020), where accepted W3C expectations decide the edition; libxml2 2.9.13 accepts the instance.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameStartChar"
+            }
+          }
+        },
+        {
+          "testName": "v-U+10000-attribute",
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/v-U+10000-attribute.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Xerces-J 2.12.2 (Java 27.0.1) rejects the document as not well-formed: it applies XML 1.0 Second Edition name classes, which exclude this name-start character. The project uses the Fifth Edition NameStartChar production for every name (docs/spec/INTERPRETATIONS.md I-020), where accepted W3C expectations decide the edition; libxml2 2.9.13 accepts the instance.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameStartChar"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET 10.0.14 rejects the document as not well-formed: it applies XML 1.0 Second Edition name classes, which exclude this name-start character. The project uses the Fifth Edition NameStartChar production for every name (docs/spec/INTERPRETATIONS.md I-020), where accepted W3C expectations decide the edition; libxml2 2.9.13 accepts the instance.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameStartChar"
+            }
+          }
+        },
+        {
+          "testName": "v-U+EFFF0-element",
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/v-U+EFFF0-element.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Xerces-J 2.12.2 (Java 27.0.1) rejects the document as not well-formed: it applies XML 1.0 Second Edition name classes, which exclude this name-start character. The project uses the Fifth Edition NameStartChar production for every name (docs/spec/INTERPRETATIONS.md I-020), where accepted W3C expectations decide the edition; libxml2 2.9.13 accepts the instance.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameStartChar"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET 10.0.14 rejects the document as not well-formed: it applies XML 1.0 Second Edition name classes, which exclude this name-start character. The project uses the Fifth Edition NameStartChar production for every name (docs/spec/INTERPRETATIONS.md I-020), where accepted W3C expectations decide the edition; libxml2 2.9.13 accepts the instance.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameStartChar"
+            }
+          }
+        },
+        {
+          "testName": "v-U+02FF-element",
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/v-U+02FF-element.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Xerces-J 2.12.2 (Java 27.0.1) rejects the document as not well-formed: it applies XML 1.0 Second Edition name classes, which exclude this name-start character. The project uses the Fifth Edition NameStartChar production for every name (docs/spec/INTERPRETATIONS.md I-020), where accepted W3C expectations decide the edition; libxml2 2.9.13 accepts the instance.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameStartChar"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET 10.0.14 rejects the document as not well-formed: it applies XML 1.0 Second Edition name classes, which exclude this name-start character. The project uses the Fifth Edition NameStartChar production for every name (docs/spec/INTERPRETATIONS.md I-020), where accepted W3C expectations decide the edition; libxml2 2.9.13 accepts the instance.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameStartChar"
+            }
+          }
+        },
+        {
+          "testName": "v-U+037F-element",
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/v-U+037F-element.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Xerces-J 2.12.2 (Java 27.0.1) rejects the document as not well-formed: it applies XML 1.0 Second Edition name classes, which exclude this name-start character. The project uses the Fifth Edition NameStartChar production for every name (docs/spec/INTERPRETATIONS.md I-020), where accepted W3C expectations decide the edition; libxml2 2.9.13 accepts the instance.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameStartChar"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET 10.0.14 rejects the document as not well-formed: it applies XML 1.0 Second Edition name classes, which exclude this name-start character. The project uses the Fifth Edition NameStartChar production for every name (docs/spec/INTERPRETATIONS.md I-020), where accepted W3C expectations decide the edition; libxml2 2.9.13 accepts the instance.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameStartChar"
+            }
+          }
+        },
+        {
+          "testName": "i-U+0300-element",
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/i-U+0300-element.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "i-U+037E-element",
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/i-U+037E-element.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "i-U+F0000-element",
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/i-U+F0000-element.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "i-U+F0000-attribute",
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/i-U+F0000-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "i-U+E000-element",
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/i-U+E000-element.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/v-U+10000-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/v-U+10000-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/v-U+EFFF0-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/v-U+02FF-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/v-U+037F-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/i-U+0300-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/i-U+037E-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/i-U+F0000-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/i-U+F0000-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/i-U+E000-element.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/xml/qname-admission-colon-forms",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameStartChar"
+        ],
+        "description": "A markup QName has at most one colon with a non-empty NCName on each side; leading, trailing and repeated colons, and a digit after the colon, are rejected for elements and attributes.",
+        "package": "xmlstream",
+        "sourceFile": "tests/corpus/project/xml/qname-admission-colon-forms/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/xml/qname-admission-colon-forms/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "v-prefixed",
+          "file": "corpus/project/xml/qname-admission-colon-forms/v-prefixed.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "i-multi-colon-element",
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-multi-colon-element.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "i-multi-colon-attribute",
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-multi-colon-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "i-leading-colon-element",
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-leading-colon-element.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "i-leading-colon-attribute",
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-leading-colon-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "i-trailing-colon-element",
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-trailing-colon-element.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "i-trailing-colon-attribute",
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-trailing-colon-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "i-digit-after-colon",
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-digit-after-colon.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "i-non-ascii-multi-colon",
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-non-ascii-multi-colon.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/xml/qname-admission-colon-forms/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-colon-forms/v-prefixed.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-multi-colon-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-multi-colon-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-leading-colon-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-leading-colon-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-trailing-colon-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-trailing-colon-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-digit-after-colon.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-non-ascii-multi-colon.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/xml/schema-document-invalid-non-ascii-qname",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameStartChar",
+          "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName"
+        ],
+        "description": "A schema document containing an element whose local name starts with U+00B7, a NameChar that cannot start a name, is rejected at the XML layer.",
+        "package": "xmlstream",
+        "sourceFile": "tests/corpus/project/xml/schema-document-invalid-non-ascii-qname/schema.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/xml/schema-document-invalid-non-ascii-qname/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.xml"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/xml/schema-document-invalid-non-ascii-qname/schema.xsd",
+          "role": "principal"
         }
       ]
     }

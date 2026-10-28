@@ -280,6 +280,22 @@ func TestParserQNameAdmissionAcrossRefills(t *testing.T) {
 		{"1π", xml.Name{}, false},
 		{"π:1", xml.Name{}, false},
 		{"p:\xff", xml.Name{}, false},
+		{"ab:cd", xml.Name{Space: "ab", Local: "cd"}, true},
+		{"a-b.c1:d-e.f2", xml.Name{Space: "a-b.c1", Local: "d-e.f2"}, true},
+		{":", xml.Name{}, false},
+		{"::", xml.Name{}, false},
+		{"a@b", xml.Name{}, false},
+		{"p:l@", xml.Name{}, false},
+		{"-a", xml.Name{}, false},
+		{".a", xml.Name{}, false},
+		{"p:-", xml.Name{}, false},
+		{"p:.", xml.Name{}, false},
+		{"p::l", xml.Name{}, false},
+		{"p:l:", xml.Name{}, false},
+		{"@é", xml.Name{}, false},
+		{"a@é", xml.Name{}, false},
+		{"é@", xml.Name{}, false},
+		{"p\xff", xml.Name{}, false},
 	} {
 		input := "<r>pad<" + test.name + "/>"
 		for cut := 7; cut <= 7+len(test.name); cut++ {
@@ -346,4 +362,76 @@ func TestParserInvalidQNameFailurePrecedence(t *testing.T) {
 		t.Fatalf("source failure: %v", err)
 	}
 	parser.detach()
+}
+
+// A name whose invalid byte follows valid ones still lets a token limit or a
+// read failure before its terminator win over the syntax error.
+func TestParserLaterInvalidQNameFailurePrecedence(t *testing.T) {
+	readErr := errors.New("invalid QName source failed")
+	for _, name := range []string{"ab@cd", "a:b:c", "p:l:", "a-:1", "ab\xffc"} {
+		document := "<r>pad<" + name + "/>"
+		truncated := "<r>pad<" + name
+		for _, cut := range []int{0, len("<r>pad<") + len(name)/2} {
+			split := func(input string, err error) io.Reader {
+				if cut == 0 {
+					return &scriptedReader{reads: []scriptedRead{{data: []byte(input), err: err}}}
+				}
+				return &scriptedReader{reads: []scriptedRead{{data: []byte(input[:cut])}, {data: []byte(input[cut:]), err: err}}}
+			}
+			for _, test := range []struct {
+				input  io.Reader
+				limit  int64
+				check  func(error) bool
+				expect string
+			}{
+				{input: split(document, nil), limit: int64(len(name) - 1), check: IsTokenLimit, expect: "token limit"},
+				{input: split(document, nil), limit: int64(len(name)), check: func(err error) bool {
+					return err != nil && err.Error() == "invalid XML qualified name"
+				}, expect: "invalid XML qualified name"},
+				{input: split(truncated, readErr), check: func(err error) bool { return errors.Is(err, readErr) }, expect: "read error"},
+				{input: split(truncated, io.EOF), check: func(err error) bool {
+					return err != nil && err.Error() == "unexpected EOF in XML name"
+				}, expect: "unexpected EOF in XML name"},
+			} {
+				var parser parserTestHarness
+				if err := parser.reset(test.input, Config{Limits: Limits{MaxTokenBytes: test.limit}}); err != nil {
+					t.Fatal(err)
+				}
+				for range 2 {
+					if _, err := parser.next(); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if _, err := parser.next(); !test.check(err) {
+					t.Fatalf("name %q cut %d: error = %v, want %s", name, cut, err, test.expect)
+				}
+				parser.detach()
+			}
+		}
+	}
+}
+
+// A name whose first byte would end any other name is still that name's only
+// byte, so it is rejected as a QName rather than read as an empty name.
+func TestParserRejectsTerminatorAsFirstNameByte(t *testing.T) {
+	for _, document := range []string{"<>/>", "<=/>", "< a/>", "<r =/>", `<r ="v"/>`, "<r></>/"} {
+		for cut := 0; cut <= len(document); cut++ {
+			var parser parserTestHarness
+			if err := parser.reset(&scriptedReader{reads: []scriptedRead{
+				{data: []byte(document[:cut])}, {data: []byte(document[cut:])},
+			}}, Config{}); err != nil {
+				t.Fatal(err)
+			}
+			var err error
+			for range 3 {
+				if _, err = parser.next(); err != nil {
+					break
+				}
+			}
+			if err == nil || err.Error() != "invalid XML qualified name" {
+				t.Fatalf("%q cut %d: error = %v, want invalid XML qualified name", document, cut, err)
+			}
+			parser.detach()
+		}
+	}
 }
