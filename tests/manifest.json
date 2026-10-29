@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16536,
-    "schemaCases": 16486,
-    "instanceRuns": 35174,
+    "cases": 16537,
+    "schemaCases": 16487,
+    "instanceRuns": 35194,
     "w3cCases": 14414,
-    "internalRuns": 2109,
+    "internalRuns": 2110,
     "xercesJCases": 13
   },
   "cases": [
@@ -871980,6 +871980,231 @@
         {
           "file": "corpus/project/xml/schema-document-invalid-non-ascii-qname/schema.xsd",
           "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/entered-model-publication",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited"
+        ],
+        "description": "Unreferenced groups and an unreferenced 8-element all-group precede the used types; two types share one group model, an xsi:type extension shares its base type's model, two 8-element all-groups coexist with a substitution member, and anyType and lax wildcards reach declared types.",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/content-models/entered-model-publication/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/entered-model-publication/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "nested-group-complete",
+          "file": "corpus/project/content-models/entered-model-publication/nested-group-complete.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "nested-group-child-missing",
+          "file": "corpus/project/content-models/entered-model-publication/nested-group-child-missing.xml",
+          "expected": "invalid",
+          "errorCode": "validation.content"
+        },
+        {
+          "testName": "shared-group-first-type",
+          "file": "corpus/project/content-models/entered-model-publication/shared-group-first-type.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "shared-group-second-type",
+          "file": "corpus/project/content-models/entered-model-publication/shared-group-second-type.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "shared-group-second-type-missing",
+          "file": "corpus/project/content-models/entered-model-publication/shared-group-second-type-missing.xml",
+          "expected": "invalid",
+          "errorCode": "validation.content"
+        },
+        {
+          "testName": "sequence-after-dropped-models",
+          "file": "corpus/project/content-models/entered-model-publication/sequence-after-dropped-models.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "sequence-orphan-group-child",
+          "file": "corpus/project/content-models/entered-model-publication/sequence-orphan-group-child.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element"
+        },
+        {
+          "testName": "all-substitution-member",
+          "file": "corpus/project/content-models/entered-model-publication/all-substitution-member.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "all-abstract-head",
+          "file": "corpus/project/content-models/entered-model-publication/all-abstract-head.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element"
+        },
+        {
+          "testName": "all-member-missing",
+          "file": "corpus/project/content-models/entered-model-publication/all-member-missing.xml",
+          "expected": "invalid",
+          "errorCode": "validation.content"
+        },
+        {
+          "testName": "all-second-complete",
+          "file": "corpus/project/content-models/entered-model-publication/all-second-complete.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "all-second-missing",
+          "file": "corpus/project/content-models/entered-model-publication/all-second-missing.xml",
+          "expected": "invalid",
+          "errorCode": "validation.content"
+        },
+        {
+          "testName": "all-second-foreign-name",
+          "file": "corpus/project/content-models/entered-model-publication/all-second-foreign-name.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element"
+        },
+        {
+          "testName": "all-orphan-group-names",
+          "file": "corpus/project/content-models/entered-model-publication/all-orphan-group-names.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element"
+        },
+        {
+          "testName": "xsi-type-extension",
+          "file": "corpus/project/content-models/entered-model-publication/xsi-type-extension.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "xsi-type-extension-child-missing",
+          "file": "corpus/project/content-models/entered-model-publication/xsi-type-extension-child-missing.xml",
+          "expected": "invalid",
+          "errorCode": "validation.content"
+        },
+        {
+          "testName": "anytype-declared-child",
+          "file": "corpus/project/content-models/entered-model-publication/anytype-declared-child.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "anytype-declared-child-invalid",
+          "file": "corpus/project/content-models/entered-model-publication/anytype-declared-child-invalid.xml",
+          "expected": "invalid",
+          "errorCode": "validation.content"
+        },
+        {
+          "testName": "lax-declared-child",
+          "file": "corpus/project/content-models/entered-model-publication/lax-declared-child.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "lax-declared-child-invalid",
+          "file": "corpus/project/content-models/entered-model-publication/lax-declared-child-invalid.xml",
+          "expected": "invalid",
+          "errorCode": "validation.content"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/entered-model-publication/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/entered-model-publication/nested-group-complete.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/entered-model-publication/nested-group-child-missing.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/entered-model-publication/shared-group-first-type.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/entered-model-publication/shared-group-second-type.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/entered-model-publication/shared-group-second-type-missing.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/entered-model-publication/sequence-after-dropped-models.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/entered-model-publication/sequence-orphan-group-child.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/entered-model-publication/all-substitution-member.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/entered-model-publication/all-abstract-head.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/entered-model-publication/all-member-missing.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/entered-model-publication/all-second-complete.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/entered-model-publication/all-second-missing.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/entered-model-publication/all-second-foreign-name.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/entered-model-publication/all-orphan-group-names.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/entered-model-publication/xsi-type-extension.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/entered-model-publication/xsi-type-extension-child-missing.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/entered-model-publication/anytype-declared-child.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/entered-model-publication/anytype-declared-child-invalid.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/entered-model-publication/lax-declared-child.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/entered-model-publication/lax-declared-child-invalid.xml",
+          "role": "instance"
         }
       ]
     }

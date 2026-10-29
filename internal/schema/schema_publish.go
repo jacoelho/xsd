@@ -86,15 +86,19 @@ func validateSchemaBuildIDDomain(build *schemaBuild) error {
 			return xsderrors.InternalInvariant("schema " + table.name + " table exceeds runtime ID domain")
 		}
 	}
+	if len(build.CompiledModels) != len(build.Models) {
+		return xsderrors.InternalInvariant("schema compiled content-model table does not match content models")
+	}
 	return nil
 }
 
 func newSchemaProgram(build *schemaBuild, work ContentModelWork) (schemaProgram, error) {
-	compiledModels, mayHaveDenseRows, err := newCompiledModelReads(build.CompiledModels, work)
+	entered := enteredContentModels(build.ComplexTypes)
+	compiledModels, mayHaveDenseRows, err := newCompiledModelReads(build.CompiledModels, entered, work)
 	if err != nil {
 		return schemaProgram{}, err
 	}
-	if err = indexAllContentModels(compiledModels, build, work); err != nil {
+	if err = indexAllContentModels(build.CompiledModels, entered, compiledModels, build, work); err != nil {
 		return schemaProgram{}, err
 	}
 	typeDerivations, err := newTypeDerivationReadForTypes(
@@ -126,7 +130,7 @@ func newSchemaProgram(build *schemaBuild, work ContentModelWork) (schemaProgram,
 		Attributes:            newAttributeDeclReadsForDecls(build.Attributes),
 		TypeDerivations:       typeDerivations,
 		SimpleTypeUnavailable: append([]bool(nil), build.simpleTypeUnavailable...),
-		ComplexTypes:          newComplexTypeReads(build.ComplexTypes),
+		ComplexTypes:          newComplexTypeReads(build.ComplexTypes, entered),
 		Wildcards:             newWildcardViews(&build.Names, build.Wildcards),
 		CompiledModels:        compiledModels,
 		Elements:              newElementReadTable(build.Elements),

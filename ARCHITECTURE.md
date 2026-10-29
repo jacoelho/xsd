@@ -546,6 +546,15 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   Large `xs:all` models use a bounded QName-to-term index; small models scan
   directly. Both preserve occurrence bits, substitution matching, and atomic
   transition failure. The index is derived once during sealing.
+  Publication retains only the content models validation can enter: complex-type
+  roots, deduplicated in source-ID order. Nested groups are compiled into their
+  ancestors' rows and no published particle names another model, so every other
+  compiled model is dropped and each complex-type read carries its root's
+  published index. Publication rejects a compiled-model table whose length
+  differs from the source models before any root indexes it. Projection and
+  all-group index work are charged, and index failures reported, for every
+  compiled model, so admission never depends on which models are entered;
+  optional dense conversion visits published models only.
   Shared published content-model rows have storage ceilings of 80 bytes on
   arm64 and 52 bytes with the gc compiler on 386. Optional dispatch metadata
   must not enlarge those row records.
@@ -1562,6 +1571,12 @@ separately after those groups, so benchmarks do not compete with other checks.
   work accounting. Root-local tags remove full-table clearing without changing
   those traversals. Eager DFA follow interning was rejected because it changes
   state discovery and limit-failure order; lazy position caching preserves both.
+- Publishing unentered content models through a sparse table was rejected
+  because a zero `CompiledModel` reads as Empty, and a per-access ID remap adds
+  a lookup to every content read. Rewriting each complex-type read once at
+  publication keeps one dense table. Skipping compilation of unentered models
+  was rejected because their compile errors and work charges belong to
+  admission.
 - Scanning all identity scope indexes on every close was rejected because
   unrelated constraints multiply lifecycle work. Closure callbacks and a second
   registration journal were rejected because the concrete evaluator can unwind its existing

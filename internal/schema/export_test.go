@@ -113,3 +113,9 @@ func (n *schemaNode) NamespaceLookupForTest(prefix string) (string, bool) {
 func FreezeCompilerRuntimeForTest(c *Compiler) (*Schema, error) {
 	return c.publishSchema()
 }
+
+// PublishedContentModelCountForTest reports how many content models
+// publication retained.
+func (rt *Schema) PublishedContentModelCountForTest() int {
+	return len(rt.program.CompiledModels)
+}

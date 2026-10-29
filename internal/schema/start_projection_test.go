@@ -12,7 +12,7 @@ func TestSchemaTypeInfoProjection(t *testing.T) {
 	rt := &Schema{program: schemaProgram{ComplexTypes: newComplexTypeReads([]ComplexType{
 		{Block: DerivationRestriction, Abstract: true},
 		{Block: DerivationRestriction},
-	})}}
+	}, nil)}}
 	info, ok := rt.TypeInfo(ComplexRef(0))
 	if !ok || info != (TypeInfo{Block: DerivationRestriction, Abstract: true}) {
 		t.Fatalf("TypeInfo(abstract) = %+v, %v, want restriction block and abstract", info, ok)

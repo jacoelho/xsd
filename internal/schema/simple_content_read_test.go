@@ -52,7 +52,7 @@ func TestSimpleContentTypeReadForComplexType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			read := newComplexTypeRead(tt.ct)
+			read := newComplexTypeRead(tt.ct, tt.ct.Content)
 			typ, present := read.simpleContent()
 			if typ != tt.want || present != tt.present {
 				t.Fatalf("simpleContent() = type %d present %v, want %d %v",

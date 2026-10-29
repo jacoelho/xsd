@@ -3,6 +3,7 @@ package schema_test
 import (
 	"errors"
 	"reflect"
+	"slices"
 	"testing"
 
 	xsdSchema "github.com/jacoelho/xsd/internal/schema"
@@ -283,6 +284,52 @@ func TestPublishSchemaRejectsForgedMissingSimpleTypeWithoutConsumingBuild(t *tes
 	}
 	if !reflect.DeepEqual(*build, *expected) {
 		t.Fatal("PublishSchema() changed build after failed missing-sentinel audit")
+	}
+}
+
+func TestPublishSchemaRejectsCompiledContentModelLengthMismatch(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="R"><xs:sequence><xs:element name="a"/></xs:sequence></xs:complexType>
+  <xs:group name="unused"><xs:sequence><xs:element name="u"/></xs:sequence></xs:group>
+  <xs:element name="root" type="R"/>
+</xs:schema>`
+	for _, test := range []struct {
+		name   string
+		resize func([]xsdSchema.CompiledModel) []xsdSchema.CompiledModel
+	}{
+		{name: "short", resize: func(models []xsdSchema.CompiledModel) []xsdSchema.CompiledModel { return models[:len(models)-1] }},
+		{name: "long", resize: func(models []xsdSchema.CompiledModel) []xsdSchema.CompiledModel {
+			return append(models, xsdSchema.CompiledModel{})
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			build := mutableSchemaBuild(t, schema)
+			// Dropping an unentered model leaves every root indexable, so
+			// only the length audit can reject the short table.
+			last := len(build.CompiledModels) - 1
+			for i := range build.ComplexTypes {
+				if int(build.ComplexTypes[i].Content) == last {
+					t.Fatalf("fixture: complex type %d enters the last compiled model %d", i, last)
+				}
+			}
+			valid := build.CompiledModels
+			build.CompiledModels = test.resize(slices.Clone(valid))
+			expected := mutableSchemaBuild(t, schema)
+			expected.CompiledModels = test.resize(slices.Clone(expected.CompiledModels))
+
+			published, err := publishSchema(build)
+			diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+			if published != nil || !ok || diagnostic.Category() != xsderrors.CategoryInternal || diagnostic.Code() != xsderrors.CodeInternalInvariant || diagnostic.Message() != "schema compiled content-model table does not match content models" {
+				t.Fatalf("PublishSchema() published %t, error %v; want the compiled-model table invariant", published != nil, err)
+			}
+			if !reflect.DeepEqual(*build, *expected) {
+				t.Fatal("PublishSchema() changed build after compiled-model table audit failure")
+			}
+			build.CompiledModels = valid
+			if _, err := publishSchema(build); err != nil {
+				t.Fatalf("PublishSchema() retry error = %v", err)
+			}
+		})
 	}
 }
 

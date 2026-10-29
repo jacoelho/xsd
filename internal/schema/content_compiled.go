@@ -242,18 +242,42 @@ func newCompiledParticleRead(p Particle) compiledParticleRead {
 	return compiledParticleRead{Element: p.Element, Wildcard: p.Wildcard, Kind: p.Kind}
 }
 
-func newCompiledModelReads(models []CompiledModel, work ContentModelWork) ([]compiledModelRead, bool, error) {
+// enteredContentModels returns the source IDs of the models validation can
+// enter, ascending and deduplicated. Complex-type roots are the only entry
+// points: nested groups are compiled into their ancestors' rows, so no
+// published particle references another model. Publication audits have
+// already proved that every root indexes the compiled table.
+func enteredContentModels(types []ComplexType) []ContentModelID {
+	entered := make([]ContentModelID, len(types))
+	for i := range types {
+		entered[i] = types[i].Content
+	}
+	slices.Sort(entered)
+	return slices.Compact(entered)
+}
+
+// publishedContentModel maps a root's source model ID, which entered contains,
+// to its index in the published table.
+func publishedContentModel(entered []ContentModelID, id ContentModelID) ContentModelID {
+	index, _ := slices.BinarySearch(entered, id)
+	return ContentModelID(index) // #nosec G115 -- entered holds at most one ID per complex type, and complex-type IDs are uint32.
+}
+
+// newCompiledModelReads publishes the entered models in entered order.
+// Projection work is still charged for every compiled model, so admission does
+// not depend on which models validation can enter.
+func newCompiledModelReads(models []CompiledModel, entered []ContentModelID, work ContentModelWork) ([]compiledModelRead, bool, error) {
 	if err := requireContentModelWork(work); err != nil {
 		return nil, false, err
 	}
 	if err := chargeCompiledModelProjectionWork(models, work); err != nil {
 		return nil, false, err
 	}
-	builder := newCompiledModelReadBuilder(models)
-	reads := make([]compiledModelRead, len(models))
+	builder := newCompiledModelReadBuilder(models, entered)
+	reads := make([]compiledModelRead, len(entered))
 	var mayHaveDenseRows bool
-	for i, model := range models {
-		read, mayHaveDense := builder.readModel(model)
+	for i, id := range entered {
+		read, mayHaveDense := builder.readModel(models[id])
 		reads[i] = read
 		mayHaveDenseRows = mayHaveDenseRows || mayHaveDense
 	}
@@ -262,28 +286,39 @@ func newCompiledModelReads(models []CompiledModel, work ContentModelWork) ([]com
 
 // Large all-groups dispatch by expanded name. The index uses the same
 // substitution expansion as DFA rows; occurrence bits remain document-owned.
-func indexAllContentModels(models []compiledModelRead, rt *schemaBuild, work ContentModelWork) error {
+// Every compiled model is indexed in source order, so work charges and
+// failures do not depend on which models are published; reads, parallel to
+// entered, keep only their own models' indexes.
+func indexAllContentModels(models []CompiledModel, entered []ContentModelID, reads []compiledModelRead, rt *schemaBuild, work ContentModelWork) error {
 	if err := requireContentModelWork(work); err != nil {
 		return err
 	}
 	analysis := newDFARowIndexAnalysis(rt, work)
+	next := 0
 	for i := range models {
-		model := &models[i]
-		if model.Kind != CompiledModelAll || len(model.All) < compiledDFARowIndexMinEdges {
-			continue
-		}
-		index, indexed, err := indexAllContentTerms(model.All, analysis)
+		index, indexed, err := indexAllContentModel(&models[i], analysis)
 		if err != nil {
 			return err
 		}
-		if indexed {
-			model.allNames = index
+		if next < len(entered) && entered[next] == ContentModelID(i) {
+			if indexed {
+				reads[next].allNames = index
+			}
+			next++
 		}
 	}
 	return nil
 }
 
-func indexAllContentTerms(terms []compiledAllTermRead, analysis *dfaRowIndexAnalysis) (map[QName]uint32, bool, error) {
+// indexAllContentModel indexes model's names when it is a large all-group.
+func indexAllContentModel(model *CompiledModel, analysis *dfaRowIndexAnalysis) (map[QName]uint32, bool, error) {
+	if model.Kind != CompiledModelAll || len(model.All) < compiledDFARowIndexMinEdges {
+		return nil, false, nil
+	}
+	return indexAllContentTerms(model.All, analysis)
+}
+
+func indexAllContentTerms(terms []CompiledAllTerm, analysis *dfaRowIndexAnalysis) (map[QName]uint32, bool, error) {
 	if err := spendContentModelWorkN(analysis.work, len(terms)); err != nil {
 		return nil, false, err
 	}
@@ -312,8 +347,8 @@ type compiledModelReadBuilder struct {
 	allOffset  int
 }
 
-func newCompiledModelReadBuilder(models []CompiledModel) compiledModelReadBuilder {
-	rowCount, edgeCount, allCount := compiledModelReadCounts(models)
+func newCompiledModelReadBuilder(models []CompiledModel, entered []ContentModelID) compiledModelReadBuilder {
+	rowCount, edgeCount, allCount := compiledModelReadCounts(models, entered)
 	return compiledModelReadBuilder{
 		rows:  make([]compiledModelRowRead, rowCount),
 		edges: make([]compiledModelEdgeRead, edgeCount),
@@ -428,12 +463,13 @@ func spendContentModelWorkN(work ContentModelWork, count int) error {
 	return nil
 }
 
-func compiledModelReadCounts(models []CompiledModel) (rows, edges, all int) {
-	for i := range models {
-		rows = addCompiledModelReadCount(rows, len(models[i].Rows))
-		all = addCompiledModelReadCount(all, len(models[i].All))
-		for j := range models[i].Rows {
-			edges = addCompiledModelReadCount(edges, len(models[i].Rows[j].Edges))
+func compiledModelReadCounts(models []CompiledModel, entered []ContentModelID) (rows, edges, all int) {
+	for _, id := range entered {
+		model := &models[id]
+		rows = addCompiledModelReadCount(rows, len(model.Rows))
+		all = addCompiledModelReadCount(all, len(model.All))
+		for j := range model.Rows {
+			edges = addCompiledModelReadCount(edges, len(model.Rows[j].Edges))
 		}
 	}
 	return rows, edges, all

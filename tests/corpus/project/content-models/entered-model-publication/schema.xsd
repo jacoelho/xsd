@@ -1,0 +1,36 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:group name="orphanSeq"><xs:sequence><xs:element name="orphanChild"/></xs:sequence></xs:group>
+  <xs:group name="orphanAll">
+    <xs:all><xs:element name="orphanAll0"/><xs:element name="orphanAll1"/><xs:element name="orphanAll2"/><xs:element name="orphanAll3"/><xs:element name="orphanAll4"/><xs:element name="orphanAll5"/><xs:element name="orphanAll6"/><xs:element name="orphanAll7"/></xs:all>
+  </xs:group>
+  <xs:group name="nested"><xs:sequence><xs:element name="nestedChild"/></xs:sequence></xs:group>
+  <xs:group name="whole"><xs:sequence><xs:element name="wholeChild"/></xs:sequence></xs:group>
+  <xs:element name="head" abstract="true"/>
+  <xs:element name="member" substitutionGroup="head"/>
+  <xs:complexType name="S1"><xs:group ref="whole"/></xs:complexType>
+  <xs:complexType name="U1"><xs:group ref="whole"/></xs:complexType>
+  <xs:complexType name="T1"><xs:sequence><xs:element name="a1"/><xs:group ref="nested"/></xs:sequence></xs:complexType>
+  <xs:complexType name="T2"><xs:sequence><xs:element name="a2"/></xs:sequence></xs:complexType>
+  <xs:complexType name="T3">
+    <xs:all><xs:element name="b0"/><xs:element name="b1"/><xs:element name="b2"/><xs:element name="b3"/><xs:element name="b4"/><xs:element name="b5"/><xs:element name="b6"/><xs:element name="b7"/><xs:element ref="head"/></xs:all>
+  </xs:complexType>
+  <xs:complexType name="T4">
+    <xs:all><xs:element name="c0"/><xs:element name="c1"/><xs:element name="c2"/><xs:element name="c3"/><xs:element name="c4"/><xs:element name="c5"/><xs:element name="c6"/><xs:element name="c7"/></xs:all>
+  </xs:complexType>
+  <xs:complexType name="Base"><xs:sequence><xs:element name="baseChild"/></xs:sequence></xs:complexType>
+  <xs:complexType name="Derived">
+    <xs:complexContent><xs:extension base="Base"><xs:attribute name="extra"/></xs:extension></xs:complexContent>
+  </xs:complexType>
+  <xs:element name="s1" type="S1"/>
+  <xs:element name="u1" type="U1"/>
+  <xs:element name="t1" type="T1"/>
+  <xs:element name="t2" type="T2"/>
+  <xs:element name="t3" type="T3"/>
+  <xs:element name="t4" type="T4"/>
+  <xs:element name="g" type="T2"/>
+  <xs:element name="e" type="Base"/>
+  <xs:element name="any" type="xs:anyType"/>
+  <xs:element name="lax">
+    <xs:complexType><xs:sequence><xs:any processContents="lax" maxOccurs="unbounded"/></xs:sequence></xs:complexType>
+  </xs:element>
+</xs:schema>
