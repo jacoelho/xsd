@@ -154,9 +154,9 @@ func compiledIdentityRuntimeWithSelectorForTest(tb testing.TB, selector string) 
 	if !ok {
 		tb.Fatal("LookupQName(id) failed")
 	}
-	elemID, _, ok := rt.RootElement(xsdSchema.RuntimeName{Known: true, Name: elemName})
+	elemID, _, ok := rt.GlobalElement(xsdSchema.RuntimeName{Known: true, Name: elemName})
 	if !ok {
-		tb.Fatal("RootElement(root) failed")
+		tb.Fatal("GlobalElement(root) failed")
 	}
 	constraints, ok := rt.ElementIdentityConstraints(elemID)
 	if !ok {

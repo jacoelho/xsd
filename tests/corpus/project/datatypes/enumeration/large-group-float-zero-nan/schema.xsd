@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Floats"><xs:restriction base="xs:float"><xs:enumeration value="0"/><xs:enumeration value="NaN"/><xs:enumeration value="INF"/><xs:enumeration value="1e0"/><xs:enumeration value="0.1"/><xs:enumeration value="2"/><xs:enumeration value="3"/><xs:enumeration value="4"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="Doubles"><xs:restriction base="xs:double"><xs:enumeration value="-0"/><xs:enumeration value="1E2"/><xs:enumeration value="NaN"/><xs:enumeration value="0.1"/><xs:enumeration value="5"/><xs:enumeration value="6"/><xs:enumeration value="7"/><xs:enumeration value="8"/></xs:restriction></xs:simpleType>
+  <xs:element name="f" type="Floats"/>
+  <xs:element name="g" type="Doubles"/>
+</xs:schema>

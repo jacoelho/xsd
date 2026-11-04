@@ -17,15 +17,15 @@ type acceptedChild struct {
 // recoverable branches replace the complete result; fatal errors leave it unused.
 func (s *session) acceptChild(parent *frame, rn xsdSchema.RuntimeName, flags xsiStartAttributeFlags, line, col int, accepted *acceptedChild) error {
 	if parent.Mode != elementAssessed {
-		*accepted = acceptedChild{start: schemaStart{element: xsdSchema.NoElement, mode: parent.Mode}}
+		*accepted = acceptedChild{start: wildcardSkippedSchemaStart()}
 		return nil
 	}
 	policy := childFramePolicy(parent)
 	if policy.issue.valid() {
-		return s.recoverableChildIssue(line, col, policy.issue, accepted)
+		return s.recoverableChildIssue(rn, line, col, policy.issue, accepted)
 	}
 	if issue := childContentPolicy(parent.Type, parent.SimpleContent, parent.Content, rn); issue.valid() {
-		return s.recoverableChildIssue(line, col, issue, accepted)
+		return s.recoverableChildIssue(rn, line, col, issue, accepted)
 	}
 	scratch := s.contentScratch(parent)
 	transition, status := s.rt.NextContent(parent.Content, xsdSchema.ContentInput{
@@ -36,7 +36,7 @@ func (s *session) acceptChild(parent *frame, rn xsdSchema.RuntimeName, flags xsi
 		return xsderrors.InternalInvariant("content model state is invalid")
 	}
 	if status == xsdSchema.ContentTransitionNoMatch {
-		return s.recoverableChildIssue(line, col, s.unexpectedContentIssue(parent, rn), accepted)
+		return s.recoverableChildIssue(rn, line, col, s.unexpectedContentIssue(parent, rn), accepted)
 	}
 	return s.acceptMatchedChild(transition, rn, line, col, accepted)
 }
@@ -67,14 +67,25 @@ func (s *session) acceptMatchedChild(transition xsdSchema.ContentTransition, rn 
 }
 
 func (s *session) acceptStrictMissingChild(transition xsdSchema.ContentTransition, rn xsdSchema.RuntimeName, line, col int, accepted *acceptedChild) error {
-	err := s.recoverableChildIssue(line, col, strictMissingChildIssue(rn), accepted)
+	err := s.recoverableChildIssue(rn, line, col, strictMissingChildIssue(rn), accepted)
 	accepted.transition = transition
 	return err
 }
 
-func (s *session) recoverableChildIssue(line, col int, issue validationIssue, accepted *acceptedChild) error {
-	*accepted = acceptedChild{start: recoverySchemaStart()}
+// recoverableChildIssue reports a parent content failure and assesses the
+// child laxly, so the child's own subtree still reports its diagnostics.
+func (s *session) recoverableChildIssue(rn xsdSchema.RuntimeName, line, col int, issue validationIssue, accepted *acceptedChild) error {
+	*accepted = acceptedChild{start: s.laxSchemaStart(rn)}
 	return validationFromIssue(s.startContext(line, col), issue)
+}
+
+// laxSchemaStart selects lax assessment (cvc-assess-elt) for an element no
+// particle governs: its global declaration when one exists, otherwise anyType.
+func (s *session) laxSchemaStart(rn xsdSchema.RuntimeName) schemaStart {
+	if id, decl, ok := s.rt.GlobalElement(rn); ok {
+		return declaredSchemaStart(id, decl)
+	}
+	return undeclaredSchemaStart(s.rt.AnyType())
 }
 
 func (s *session) end(line, col int) error {
@@ -113,7 +124,7 @@ func (s *session) end(line, col int) error {
 
 func (s *session) validateFrameEnd(f *frame, line, col int) (bool, error) {
 	switch f.Mode {
-	case elementWildcardSkipped, elementRecovery:
+	case elementWildcardSkipped:
 		return false, nil
 	case elementAssessed:
 	default:

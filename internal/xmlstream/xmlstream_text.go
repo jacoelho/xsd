@@ -393,6 +393,15 @@ func (p *parser) appendTokenBytes(dst *[]byte, data []byte) error {
 	return nil
 }
 
+// chargeTokenBytes charges n token bytes that the caller retains outside a
+// parser buffer, as appendTokenBytes would.
+func (p *parser) chargeTokenBytes(n int) error {
+	if p.maxTokenBytes <= 0 {
+		return nil
+	}
+	return p.reserveRetainedBytes(n)
+}
+
 func (p *parser) checkTokenBytes(n int64) error {
 	if p.maxTokenBytes > 0 && n > p.maxTokenBytes {
 		return errXMLTokenLimit

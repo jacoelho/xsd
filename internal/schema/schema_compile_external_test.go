@@ -2961,13 +2961,16 @@ func TestUnavailableElementRecoverySkipsBrokenValuePath(t *testing.T) {
       <xs:element name="good" type="xs:int"/>
     </xs:sequence></xs:complexType>
   </xs:element>
+  <xs:element name="num" type="xs:int"/>
 </xs:schema>`)
 	session, err := validate.NewSessionPool(engine).NewSession(validate.Options{MaxErrors: 10})
 	if err != nil {
 		t.Fatalf("NewSession() error = %v", err)
 	}
-	err = session.Validate(strings.NewReader(`<root><bad><ignored/></bad><good>1</good></root>`))
-	if got, want := validationErrorCodes(err), []xsderrors.Code{xsderrors.CodeValidationElement}; !slices.Equal(got, want) {
+	// The broken list type is never evaluated, but the anyType subtree is still
+	// assessed: num is a global xs:int declaration.
+	err = session.Validate(strings.NewReader(`<root><bad><num>x</num></bad><good>1</good></root>`))
+	if got, want := validationErrorCodes(err), []xsderrors.Code{xsderrors.CodeValidationElement, xsderrors.CodeValidationFacet}; !slices.Equal(got, want) {
 		t.Fatalf("validation codes = %v, want %v; err=%v", got, want, err)
 	}
 }
@@ -2983,23 +2986,42 @@ func TestUnavailableElementTypeDefersValueConstraintAssessment(t *testing.T) {
 	mustNotValidate(t, engine, `<transitive>value</transitive>`, xsderrors.CodeValidationElement)
 }
 
-func TestUnavailableElementTypePrecedesXSIProcessingAndContainsRecovery(t *testing.T) {
+func TestUnavailableElementTypePrecedesXSIProcessingAndAssessesLaxlyAsAnyType(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="bad" type="absent" nillable="true"/>
+  <xs:element name="good" type="xs:int"/>
+  <xs:element name="root">
+    <xs:complexType><xs:sequence><xs:element ref="bad"/><xs:element ref="good"/></xs:sequence></xs:complexType>
+  </xs:element>
 </xs:schema>`)
-	for _, doc := range []string{
-		`<bad xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="invalid"><ignored/></bad>`,
-		`<bad xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="unknown"><ignored/></bad>`,
-		`<bad xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xs="http://www.w3.org/2001/XMLSchema" xsi:type="xs:string"><ignored/></bad>`,
+	const ns = ` xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xs="http://www.w3.org/2001/XMLSchema"`
+	for _, test := range []struct {
+		doc  string
+		want []string
+	}{
+		{`<bad` + ns + ` xsi:nil="invalid"><ignored/></bad>`, []string{"validation.element@/bad", "validation.nil@/bad"}},
+		{`<bad` + ns + ` xsi:type="unknown"><ignored/></bad>`, []string{"validation.element@/bad", "validation.type@/bad"}},
+		// anyType governs, so a valid xsi:type override still applies.
+		{`<bad` + ns + ` xsi:type="xs:string"><ignored/></bad>`, []string{"validation.element@/bad", "validation.content@/bad"}},
+		{`<bad><good>x</good></bad>`, []string{"validation.element@/bad", "validation.facet@/bad/good"}},
+		{`<root><bad><good>x</good></bad><good>y</good></root>`, []string{"validation.element@/root/bad", "validation.facet@/root/bad/good", "validation.facet@/root/good"}},
 	} {
 		session, err := validate.NewSessionPool(engine).NewSession(validate.Options{MaxErrors: 10})
 		if err != nil {
 			t.Fatalf("NewSession() error = %v", err)
 		}
-		err = session.Validate(strings.NewReader(doc))
-		if got, want := validationErrorCodes(err), []xsderrors.Code{xsderrors.CodeValidationElement}; !slices.Equal(got, want) {
-			t.Fatalf("validation codes = %v, want %v; err=%v", got, want, err)
+		err = session.Validate(strings.NewReader(test.doc))
+		var got []string
+		for _, leaf := range xsderrors.Flatten(err) {
+			x, ok := errors.AsType[*xsderrors.Error](leaf)
+			if !ok {
+				t.Fatalf("diagnostic %T %v is not structured", leaf, leaf)
+			}
+			got = append(got, string(x.Code())+"@"+x.Path())
+		}
+		if !slices.Equal(got, test.want) {
+			t.Fatalf("%s: diagnostics = %v, want %v; err=%v", test.doc, got, test.want, err)
 		}
 	}
 }
@@ -3958,7 +3980,7 @@ func TestRuntimeElementAccessor(t *testing.T) {
 		t.Error("element(out of range) resolved, want miss")
 	}
 	rootName := mustQName(t, rt, "root")
-	_, rootInfo, ok := rt.RootElement(xsdSchema.RuntimeName{Known: true, Name: rootName})
+	_, rootInfo, ok := rt.GlobalElement(xsdSchema.RuntimeName{Known: true, Name: rootName})
 	if !ok || !rootInfo.Type.IsSimple() {
 		t.Fatal("root element is missing")
 	}

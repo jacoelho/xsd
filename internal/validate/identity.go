@@ -162,6 +162,9 @@ type identityTupleRef struct {
 	line  int
 	col   int
 	refer xsdSchema.IdentityConstraintID
+	// unmatched marks a row holding an unknown field value; it resolves to
+	// no key and has no key text.
+	unmatched bool
 }
 
 type identitySelection struct {
@@ -190,6 +193,11 @@ const (
 	identityFieldPresent
 	identityFieldNilled
 	identityFieldInvalid
+	// identityFieldUnknown records a selected attribute that lax assessment
+	// left without a declaration: the field is present but its value equals
+	// no other value. A selected node with a value supersedes it, and it adds
+	// no field cardinality.
+	identityFieldUnknown
 )
 
 type identityFieldValue struct {
@@ -366,7 +374,8 @@ func (s *identityState) selectionStartAtDepth(depth int) (int, bool) {
 }
 
 // captureFields records one selected node in all matched fields. Nilled nodes
-// still count toward field cardinality even though they supply no tuple value.
+// still count toward field cardinality even though they supply no tuple value;
+// unknown nodes do not.
 func (s *identityState) captureFields(rt *xsdSchema.Schema, matches []identityFieldMatch, captured identityFieldValue, ctx StartContext) error {
 	if err := s.validateFieldMatches(matches); err != nil {
 		return err
@@ -377,31 +386,57 @@ func (s *identityState) captureFields(rt *xsdSchema.Schema, matches []identityFi
 	for _, match := range matches {
 		sel := &s.selections[match.Selection]
 		fieldIndex := sel.fieldStart + match.Field
-		field := &s.fieldValues[fieldIndex]
-		switch field.state {
-		case identityFieldAbsent:
-			s.rememberField(fieldIndex)
-			field.value = captured.value
-			field.state = captured.state
-		case identityFieldPresent, identityFieldNilled:
-			s.rememberField(fieldIndex)
-			field.value = ""
-			field.state = identityFieldInvalid
-			s.markScopeInvalid(sel.scope)
-			if duplicatePath == "" {
-				duplicatePath = sel.pathString(ctx)
-				duplicateConstraint = sel.constraint
-				duplicateField = match.Field
-			}
-		case identityFieldInvalid:
-		default:
-			return xsderrors.InternalInvariant("identity field state is invalid")
+		multiple, err := s.captureField(fieldIndex, captured)
+		if err != nil {
+			return err
+		}
+		if !multiple {
+			continue
+		}
+		s.markScopeInvalid(sel.scope)
+		if duplicatePath == "" {
+			duplicatePath = sel.pathString(ctx)
+			duplicateConstraint = sel.constraint
+			duplicateField = match.Field
 		}
 	}
 	if duplicatePath != "" {
 		return validation(StartContext{Path: duplicatePath, Line: ctx.Line, Column: ctx.Column}, xsderrors.CodeValidationIdentity, identityFieldMessage(rt, duplicateConstraint, duplicateField, msgIdentityMultipleNodes))
 	}
 	return nil
+}
+
+// captureField applies one captured node to one field slot and reports whether
+// the slot now holds a second value. An unknown capture fills only an absent
+// slot; a value or nil capture replaces an unknown one.
+func (s *identityState) captureField(fieldIndex int, captured identityFieldValue) (bool, error) {
+	field := &s.fieldValues[fieldIndex]
+	switch field.state {
+	case identityFieldAbsent, identityFieldUnknown:
+		if captured.state == identityFieldUnknown {
+			if field.state == identityFieldAbsent {
+				s.rememberField(fieldIndex)
+				field.state = identityFieldUnknown
+			}
+			return false, nil
+		}
+		s.rememberField(fieldIndex)
+		field.value = captured.value
+		field.state = captured.state
+		return false, nil
+	case identityFieldPresent, identityFieldNilled:
+		if captured.state == identityFieldUnknown {
+			return false, nil
+		}
+		s.rememberField(fieldIndex)
+		field.value = ""
+		field.state = identityFieldInvalid
+		return true, nil
+	case identityFieldInvalid:
+		return false, nil
+	default:
+		return false, xsderrors.InternalInvariant("identity field state is invalid")
+	}
 }
 
 // markNillableKeyFields records successfully captured key fields selected from
@@ -509,8 +544,14 @@ func (s *identityState) finishSelectionWithConstraint(
 	if err != nil {
 		return err
 	}
-	if disposition == identityFieldsInvalid {
+	switch disposition {
+	case identityFieldsInvalid:
 		return nil
+	case identityFieldsUnknown:
+		return s.finishUnknownSelection(rt, kind, refer, sel, limits, ctx)
+	case identityFieldsComplete, identityFieldsAbsent:
+	default:
+		return xsderrors.InternalInvariant("identity fields disposition is invalid")
 	}
 	if disposition == identityFieldsAbsent {
 		if kind == xsdSchema.IdentityKey {
@@ -544,15 +585,24 @@ const (
 	identityFieldsComplete identityFieldsDisposition = iota
 	identityFieldsAbsent
 	identityFieldsInvalid
+	// identityFieldsUnknown is a complete row with at least one unknown field.
+	identityFieldsUnknown
 )
 
+// classifyIdentityFields ranks a row as invalid, then absent, then unknown,
+// then complete: an absent field leaves the row unqualified whatever the
+// other fields hold.
 func classifyIdentityFields(fields []identityFieldValue) (identityFieldsDisposition, error) {
 	disposition := identityFieldsComplete
 	for _, field := range fields {
 		switch field.state {
 		case identityFieldAbsent, identityFieldNilled:
-			if disposition == identityFieldsComplete {
+			if disposition == identityFieldsComplete || disposition == identityFieldsUnknown {
 				disposition = identityFieldsAbsent
+			}
+		case identityFieldUnknown:
+			if disposition == identityFieldsComplete {
+				disposition = identityFieldsUnknown
 			}
 		case identityFieldPresent:
 		case identityFieldInvalid:
@@ -562,6 +612,31 @@ func classifyIdentityFields(fields []identityFieldValue) (identityFieldsDisposit
 		}
 	}
 	return disposition, nil
+}
+
+// finishUnknownSelection completes a qualified row whose value equals no other
+// row: unique and key publish nothing, and a keyref records a reference that
+// resolves to no key.
+func (s *identityState) finishUnknownSelection(
+	rt *xsdSchema.Schema,
+	kind xsdSchema.IdentityKind,
+	refer xsdSchema.IdentityConstraintID,
+	sel identitySelection,
+	limits identityLimits,
+	ctx StartContext,
+) error {
+	fields := s.selectionFields(sel)
+	if err := validateIdentityKeyFields(rt, kind, fields, sel, ctx); err != nil {
+		return err
+	}
+	if kind != xsdSchema.IdentityKeyRef {
+		return nil
+	}
+	scope, err := s.selectionScope(sel)
+	if err != nil {
+		return err
+	}
+	return s.appendIdentityKeyRef(scope, identityTupleRef{refer: refer, unmatched: true}, sel, limits, ctx)
 }
 
 func validateIdentityKeyFields(rt *xsdSchema.Schema, kind xsdSchema.IdentityKind, fields []identityFieldValue, sel identitySelection, ctx StartContext) error {
@@ -628,20 +703,23 @@ func (s *identityState) publishIdentityKey(rt *xsdSchema.Schema, scope *identity
 }
 
 func (s *identityState) publishIdentityKeyRef(scope *identityScope, refer xsdSchema.IdentityConstraintID, sel identitySelection, key string, limits identityLimits, ctx StartContext) error {
-	if err := s.reserveEntry(key, limits, ctx); err != nil {
+	return s.appendIdentityKeyRef(scope, identityTupleRef{refer: refer, key: key}, sel, limits, ctx)
+}
+
+// appendIdentityKeyRef retains ref, located at sel, for resolution when its
+// scope closes.
+func (s *identityState) appendIdentityKeyRef(scope *identityScope, ref identityTupleRef, sel identitySelection, limits identityLimits, ctx StartContext) error {
+	if err := s.reserveEntry(ref.key, limits, ctx); err != nil {
 		return err
 	}
 	if scope.refs == nil {
 		scope.refs = s.idleRefs
 		s.idleRefs = nil
 	}
-	scope.refs = append(scope.refs, identityTupleRef{
-		refer: refer,
-		key:   key,
-		path:  sel.retainedPath(ctx),
-		line:  sel.line,
-		col:   sel.col,
-	})
+	ref.path = sel.retainedPath(ctx)
+	ref.line = sel.line
+	ref.col = sel.col
+	scope.refs = append(scope.refs, ref)
 	return nil
 }
 
@@ -711,9 +789,10 @@ func identityTupleKey(fields []identityFieldValue, limits identityLimits, ctx St
 
 func validateIdentityScopeRefs(rt *xsdSchema.Schema, scope *identityScope, report func(error) error) error {
 	for _, ref := range scope.refs {
-		entry, ok := scope.tables[ref.refer][ref.key]
-		if ok && !entry.conflict {
-			continue
+		if !ref.unmatched {
+			if entry, ok := scope.tables[ref.refer][ref.key]; ok && !entry.conflict {
+				continue
+			}
 		}
 		scope.invalid = true
 		unresolvedErr := validation(StartContext{Path: ref.path.String(), Line: ref.line, Column: ref.col}, xsderrors.CodeValidationIdentity, identityReferenceMessage(rt, ref.refer))

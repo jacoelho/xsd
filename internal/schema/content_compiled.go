@@ -242,16 +242,38 @@ func newCompiledParticleRead(p Particle) compiledParticleRead {
 	return compiledParticleRead{Element: p.Element, Wildcard: p.Wildcard, Kind: p.Kind}
 }
 
-// enteredContentModels returns the source IDs of the models validation can
-// enter, ascending and deduplicated. Complex-type roots are the only entry
-// points: nested groups are compiled into their ancestors' rows, so no
-// published particle references another model. Publication audits have
-// already proved that every root indexes the compiled table.
-func enteredContentModels(types []ComplexType) []ContentModelID {
-	entered := make([]ContentModelID, len(types))
+// contentRoots returns, parallel to types, the source ID of the model each
+// type enters. Every empty-kind model compiles to the same read, so empty
+// roots share the lowest such ID and publication keeps one row for them;
+// projection work is still charged per compiled model.
+func contentRoots(types []ComplexType, models []CompiledModel) []ContentModelID {
+	roots := make([]ContentModelID, len(types))
+	empty := NoContentModel
 	for i := range types {
-		entered[i] = types[i].Content
+		id := types[i].Content
+		roots[i] = id
+		if models[id].Kind == CompiledModelEmpty && id < empty {
+			empty = id
+		}
 	}
+	if empty == NoContentModel {
+		return roots
+	}
+	for i, id := range roots {
+		if models[id].Kind == CompiledModelEmpty {
+			roots[i] = empty
+		}
+	}
+	return roots
+}
+
+// enteredContentModels returns the source IDs of the models validation can
+// enter, ascending and deduplicated, from the type roots. Complex-type roots
+// are the only entry points: nested groups are compiled into their ancestors'
+// rows, so no published particle references another model. Publication audits
+// have already proved that every root indexes the compiled table.
+func enteredContentModels(roots []ContentModelID) []ContentModelID {
+	entered := slices.Clone(roots)
 	slices.Sort(entered)
 	return slices.Compact(entered)
 }
@@ -288,54 +310,69 @@ func newCompiledModelReads(models []CompiledModel, entered []ContentModelID, wor
 // substitution expansion as DFA rows; occurrence bits remain document-owned.
 // Every compiled model is indexed in source order, so work charges and
 // failures do not depend on which models are published; reads, parallel to
-// entered, keep only their own models' indexes.
+// entered, keep only their own models' indexes. Unentered models are indexed
+// into one cleared scratch map, which nothing retains.
+//
+//nolint:gocognit // Keep source-order charging, entered-slot pairing, and scratch reuse in one pass.
 func indexAllContentModels(models []CompiledModel, entered []ContentModelID, reads []compiledModelRead, rt *schemaBuild, work ContentModelWork) error {
 	if err := requireContentModelWork(work); err != nil {
 		return err
 	}
 	analysis := newDFARowIndexAnalysis(rt, work)
+	var scratch map[QName]uint32
 	next := 0
 	for i := range models {
-		index, indexed, err := indexAllContentModel(&models[i], analysis)
+		slot := -1
+		if next < len(entered) && entered[next] == ContentModelID(i) {
+			slot = next
+			next++
+		}
+		model := &models[i]
+		if model.Kind != CompiledModelAll || len(model.All) < compiledDFARowIndexMinEdges {
+			continue
+		}
+		if err := spendContentModelWorkN(analysis.work, len(model.All)); err != nil {
+			return err
+		}
+		var index map[QName]uint32
+		switch {
+		case slot >= 0:
+			index = make(map[QName]uint32, len(model.All))
+		case scratch == nil:
+			scratch = make(map[QName]uint32, len(model.All))
+			index = scratch
+		default:
+			clear(scratch)
+			index = scratch
+		}
+		indexed, err := indexAllContentTerms(index, model.All, analysis)
 		if err != nil {
 			return err
 		}
-		if next < len(entered) && entered[next] == ContentModelID(i) {
-			if indexed {
-				reads[next].allNames = index
-			}
-			next++
+		if slot >= 0 && indexed {
+			reads[slot].allNames = index
 		}
 	}
 	return nil
 }
 
-// indexAllContentModel indexes model's names when it is a large all-group.
-func indexAllContentModel(model *CompiledModel, analysis *dfaRowIndexAnalysis) (map[QName]uint32, bool, error) {
-	if model.Kind != CompiledModelAll || len(model.All) < compiledDFARowIndexMinEdges {
-		return nil, false, nil
-	}
-	return indexAllContentTerms(model.All, analysis)
-}
-
-func indexAllContentTerms(terms []CompiledAllTerm, analysis *dfaRowIndexAnalysis) (map[QName]uint32, bool, error) {
-	if err := spendContentModelWorkN(analysis.work, len(terms)); err != nil {
-		return nil, false, err
-	}
-	index := make(map[QName]uint32, len(terms))
+// indexAllContentTerms fills the empty map index with terms' names after the
+// caller has charged one unit per term. It reports false when a term cannot be
+// indexed, leaving index partly filled.
+func indexAllContentTerms(index map[QName]uint32, terms []CompiledAllTerm, analysis *dfaRowIndexAnalysis) (bool, error) {
 	for i, term := range terms {
 		if term.Particle.Kind != ParticleElement {
-			return nil, false, errors.New("all-group index requires element particles")
+			return false, errors.New("all-group index requires element particles")
 		}
 		indexed, err := analysis.indexElementEdge(index, uint32(i), term.Particle.Element)
 		if err != nil {
-			return nil, false, err
+			return false, err
 		}
 		if !indexed {
-			return nil, false, nil
+			return false, nil
 		}
 	}
-	return index, true, nil
+	return true, nil
 }
 
 type compiledModelReadBuilder struct {

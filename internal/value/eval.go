@@ -1196,10 +1196,8 @@ func parseNameAtomic(out *ExpandedName, kind PrimitiveKind, normalized string, r
 		}
 		name = resolved
 	}
-	if kind == PrimitiveNotation {
-		if resolver.Notation == nil || !resolver.Notation(name.Namespace, name.Local) {
-			return errors.New(msgUndeclaredNotation)
-		}
+	if kind == PrimitiveNotation && (resolver.Notation == nil || !resolver.Notation(name.Namespace, name.Local)) {
+		return errors.New(msgUndeclaredNotation)
 	}
 	*out = name
 	return nil
@@ -1477,10 +1475,8 @@ func applyEnumerationFacets(f *facetProgram, value *parsedValue) error {
 	if f.enumBase64 {
 		prepareBase64EnumerationValue(value)
 	}
-	for i := range f.enumGroups {
-		if !f.enumGroups[i].matches(value) {
-			return errEnumerationFacet
-		}
+	if matchEnumerationGroups(f.enumGroups, value) >= 0 {
+		return errEnumerationFacet
 	}
 	return nil
 }

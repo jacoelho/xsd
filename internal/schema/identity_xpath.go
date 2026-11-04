@@ -28,10 +28,6 @@ func ParseIdentityPaths(xpath string, resolver IdentityNameResolver) ([]Identity
 			desc = true
 			part = rest
 		}
-		if part == "." && !desc {
-			out = append(out, IdentityPath{Self: true})
-			continue
-		}
 		steps, err := parseIdentitySteps(part, resolver)
 		if err != nil {
 			return nil, err
@@ -66,9 +62,6 @@ func parseIdentityFieldPathBranch(part string, resolver IdentityNameResolver) (I
 	}
 	if part == "" {
 		return IdentityFieldPath{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "identity field XPath branch is empty")
-	}
-	if part == "." && !desc {
-		return IdentityFieldPath{Self: true, Attribute: NoQName()}, nil
 	}
 	attribute, err := parseIdentityFieldAttribute(part, resolver)
 	if err != nil {
@@ -123,11 +116,11 @@ func parseIdentityFieldAttribute(part string, resolver IdentityNameResolver) (id
 }
 
 func splitIdentityLastStep(path string) (elementPath, lastStep string) {
-	idx := strings.LastIndex(path, "/")
-	if idx < 0 {
+	elementPath, lastStep, found := strings.CutLast(path, "/")
+	if !found {
 		return "", path
 	}
-	return path[:idx], path[idx+1:]
+	return elementPath, lastStep
 }
 
 func parseIdentityDescendantPrefix(path string) (string, bool) {

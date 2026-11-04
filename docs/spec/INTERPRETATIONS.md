@@ -54,7 +54,8 @@ may accompany one assessed typed field, but two assessed nodes remain invalid.
 
 Skip already excludes descendant assessment, so the correction removes no
 valid typed descendants. XML syntax and namespace checks still apply. Lax
-missing declarations and recovery are distinct states and retain their rules.
+missing declarations are distinct from skip: their attributes hold unknown
+field values (I-022).
 The four intrinsic XSI attributes on an assessed element remain typed even
 with a skip attribute wildcard; attributes under a skipped element do not
 contribute identity values. Treating absent type information as an empty
@@ -634,3 +635,62 @@ measured processor rejects it on at least one shape.
 | `project/composition/chameleon-import-without-namespace` (valid) | accept | accept | reject | accept |
 
 libxml2 applies the effective namespace to include only.
+
+## I-022 — undeclared lax attributes are unknown field values
+
+**Status:** source-qualified reading of
+[cvc-identity-constraint](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint)
+clause 3 for attributes that
+[lax assessment](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-assess-attr)
+leaves without a declaration, chosen by the
+[processor tie-break](#processor-tie-break).
+
+Clause 3 requires a selected field node to have a simple type. An attribute
+admitted by a lax wildcard with no matching declaration has no type at all, so
+the sources leave its field value doubtful: an error, a string, or nothing.
+Such a field holds an *unknown* value:
+
+- it is a selected node, so `key` field presence holds and a key's nillable
+  rule still applies;
+- it equals no value, so a row holding one never takes part in `unique` or
+  `key` duplicates and a key row holding one can be referenced by nothing;
+- a `keyref` row holding one matches no key and reports the keyref failure;
+- it adds no field cardinality: a typed or nilled node selected by the same
+  field supersedes it, two unknown nodes stay unknown, and two typed nodes
+  remain multiple values;
+- an absent field outranks it, so the row is incomplete.
+
+This applies only to lax assessment without a declaration. Skip-admitted
+attributes follow I-002 and supply nothing. Strict wildcards without a
+declaration and disallowed attributes are invalid attributes, and the fields
+selecting them are invalid.
+
+Rejected:
+
+- the literal no-simple-value error. All four providers accept equal undeclared
+  lax values under `unique`.
+- string comparison. Xerces, .NET and libxml2 accept equal undeclared values.
+- treating the field as absent. Xerces and .NET accept a key whose only field is
+  an undeclared lax attribute.
+
+The project departs from Xerces twice:
+
+- Xerces accepts two typed attributes selected by one field on one node. The
+  clause 3 limit of one node is explicit, so the project reports multiple
+  values, as .NET, libxml2 and xmlschema do.
+- Xerces matches an unknown keyref value to an unknown key value (both `null`).
+  Under this reading an unknown value equals nothing. .NET and libxml2 also
+  reject that instance, though on the key.
+
+| Fixture | Xerces | .NET | libxml2 | xmlschema |
+| --- | --- | --- | --- | --- |
+| `project/identity/undeclared-attribute-field-unique` `v-lax-equal` (valid) | accept | accept | accept | accept |
+| `…-unique` `v-typed-and-unknown-same-node` (valid) | accept | accept | accept | reject |
+| `…-unique` `i-typed-beside-unknown-duplicate` (invalid) | reject | reject | reject | reject |
+| `project/identity/undeclared-attribute-field-key` `v-lax-equal` (valid) | accept | accept | reject | accept |
+| `…-key` `i-lax-missing` (invalid) | reject | accept | reject | accept |
+| `project/identity/undeclared-attribute-field-keyref` `i-unknown-ref-equals-key` (invalid) | reject | accept | accept | accept |
+| `…-keyref` `i-unknown-key-and-unknown-ref` (invalid) | accept | reject | reject | accept |
+
+Per-instance dissent is recorded as manifest `oracle` metadata. Raw output is
+in the ignored ledger `.codex/ledgers/identity-undeclared-attribute-fields/`.

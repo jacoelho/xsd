@@ -1195,12 +1195,14 @@ func TestIdentityFieldsIgnoreSkippedWildcardElements(t *testing.T) {
 	}
 }
 
-func TestIdentityFieldsIgnoreSkippedAttributesAndRejectUnassessedLax(t *testing.T) {
+// Skipped attributes supply no field value, and an attribute that lax
+// assessment leaves without a declaration supplies an unknown value that
+// satisfies key presence and never conflicts.
+func TestIdentityFieldsAcceptSkippedAndUndeclaredLaxAttributes(t *testing.T) {
 	for _, test := range []struct {
-		name          string
-		schema        string
-		instance      string
-		noSimpleValue bool
+		name     string
+		schema   string
+		instance string
 	}{
 		{
 			name: "attribute wildcard skip",
@@ -1235,12 +1237,21 @@ func TestIdentityFieldsIgnoreSkippedAttributesAndRejectUnassessedLax(t *testing.
 			instance: `<root><unknown code="value"/></root>`,
 		},
 		{
-			name:          "attribute wildcard lax missing",
-			noSimpleValue: true,
+			name: "attribute wildcard lax missing",
 			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">
     <xs:complexType><xs:anyAttribute processContents="lax"/></xs:complexType>
     <xs:unique name="u"><xs:selector xpath="."/><xs:field xpath="@*"/></xs:unique>
+  </xs:element>
+</xs:schema>`,
+			instance: `<root unknown="value"/>`,
+		},
+		{
+			name: "key over attribute wildcard lax missing",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType><xs:anyAttribute processContents="lax"/></xs:complexType>
+    <xs:key name="k"><xs:selector xpath="."/><xs:field xpath="@*"/></xs:key>
   </xs:element>
 </xs:schema>`,
 			instance: `<root unknown="value"/>`,
@@ -1251,16 +1262,8 @@ func TestIdentityFieldsIgnoreSkippedAttributesAndRejectUnassessedLax(t *testing.
 			if err != nil {
 				t.Fatalf("Compile() error = %v", err)
 			}
-			err = engine.Validate(strings.NewReader(test.instance))
-			if !test.noSimpleValue {
-				if err != nil {
-					t.Fatalf("Validate() error = %v, want skipped attributes ignored", err)
-				}
-				return
-			}
-			expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationIdentity)
-			if !strings.Contains(err.Error(), "without a simple value") {
-				t.Fatalf("Validate() error = %v, want no-simple-value identity error", err)
+			if err := engine.Validate(strings.NewReader(test.instance)); err != nil {
+				t.Fatalf("Validate() error = %v, want valid", err)
 			}
 		})
 	}
@@ -2115,6 +2118,10 @@ func TestValidationPathsPreserveNameSpelling(t *testing.T) {
   <xs:element name="strictRoot">
     <xs:complexType><xs:sequence><xs:any processContents="strict" maxOccurs="unbounded"/></xs:sequence></xs:complexType>
   </xs:element>
+  <xs:element name="skipRoot">
+    <xs:complexType><xs:sequence><xs:any processContents="skip" maxOccurs="unbounded"/></xs:sequence></xs:complexType>
+  </xs:element>
+  <xs:element name="emptyRoot"><xs:complexType/></xs:element>
 </xs:schema>`)))
 
 	if err != nil {
@@ -2128,7 +2135,10 @@ func TestValidationPathsPreserveNameSpelling(t *testing.T) {
 		{name: "known", doc: `<root><known>x</known></root>`, path: "/root/known"},
 		{name: "unknown local", doc: `<root><unknown></other></root>`, path: "/root/unknown"},
 		{name: "unknown namespaced lax", doc: `<root><o:unknown xmlns:o="urn:o"></o:other></root>`, path: "/root/{urn:o}unknown"},
-		{name: "skipped", doc: `<strictRoot><o:unknown xmlns:o="urn:o"></o:other></strictRoot>`, path: "/strictRoot/unknown"},
+		{name: "skipped (processContents=skip)", doc: `<skipRoot><o:unknown xmlns:o="urn:o"></o:other></skipRoot>`, path: "/skipRoot/unknown"},
+		// Elements no particle governs are assessed laxly, so their paths expand.
+		{name: "strict, no declaration", doc: `<strictRoot><o:unknown xmlns:o="urn:o"></o:other></strictRoot>`, path: "/strictRoot/{urn:o}unknown"},
+		{name: "unexpected child", doc: `<emptyRoot><o:unknown xmlns:o="urn:o"></o:other></emptyRoot>`, path: "/emptyRoot/{urn:o}unknown"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -2269,35 +2279,37 @@ func TestUndeclaredRootXSISelectionOrder(t *testing.T) {
 	const namespaces = ` xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:missing" `
 	for _, test := range []struct {
 		name, element, attrs string
-		code                 xsderrors.Code
+		codes                []xsderrors.Code
 	}{
-		{name: "missing declaration", element: "root", code: xsderrors.CodeValidationRoot},
-		{name: "matching root hint", element: "p:root", attrs: `xsi:schemaLocation="urn:missing ignored.xsd"`, code: xsderrors.CodeValidationRoot},
+		{name: "missing declaration", element: "root", codes: []xsderrors.Code{xsderrors.CodeValidationRoot}},
+		{name: "matching root hint", element: "p:root", attrs: `xsi:schemaLocation="urn:missing ignored.xsd"`, codes: []xsderrors.Code{xsderrors.CodeValidationRoot}},
 		{name: "selected type before root hint", element: "p:root", attrs: `xsi:type="xs:string" xsi:schemaLocation="urn:missing ignored.xsd"`},
-		{name: "unknown type before malformed nil", element: "root", attrs: `xsi:type="p:Missing" xsi:nil="bad"`, code: xsderrors.CodeValidationType},
-		{name: "namespaced unknown type", element: "p:root", attrs: `xsi:type="p:Missing"`, code: xsderrors.CodeValidationType},
-		{name: "unknown type after malformed nil spelling", element: "root", attrs: `xsi:nil="bad" xsi:type="p:Missing"`, code: xsderrors.CodeValidationType},
-		{name: "type hint before malformed nil", element: "root", attrs: `xsi:type="p:Missing" xsi:nil="bad" xsi:schemaLocation="urn:missing ignored.xsd"`, code: xsderrors.CodeValidationType},
+		{name: "unknown type before malformed nil", element: "root", attrs: `xsi:type="p:Missing" xsi:nil="bad"`, codes: []xsderrors.Code{xsderrors.CodeValidationType, xsderrors.CodeValidationNil}},
+		// Without a governing declaration xsi:nil="true" has no effect (cvc-elt 3.2).
+		{name: "unknown type and true nil", element: "root", attrs: `xsi:type="p:Missing" xsi:nil="true"`, codes: []xsderrors.Code{xsderrors.CodeValidationType}},
+		{name: "namespaced unknown type", element: "p:root", attrs: `xsi:type="p:Missing"`, codes: []xsderrors.Code{xsderrors.CodeValidationType}},
+		{name: "unknown type after malformed nil spelling", element: "root", attrs: `xsi:nil="bad" xsi:type="p:Missing"`, codes: []xsderrors.Code{xsderrors.CodeValidationType, xsderrors.CodeValidationNil}},
+		{name: "type hint before malformed nil", element: "root", attrs: `xsi:type="p:Missing" xsi:nil="bad" xsi:schemaLocation="urn:missing ignored.xsd"`, codes: []xsderrors.Code{xsderrors.CodeValidationType, xsderrors.CodeValidationNil}},
 		{name: "selected type and absent nil", element: "root", attrs: `xsi:type="xs:string"`},
 		{name: "selected type and false nil", element: "root", attrs: `xsi:type="xs:string" xsi:nil="false"`},
 		{name: "selected type and zero nil", element: "root", attrs: `xsi:type="xs:string" xsi:nil="0"`},
 		// Without a governing declaration xsi:nil cannot nil the element (cvc-elt 3.2);
 		// the selected type alone assesses its content.
 		{name: "selected type and true nil", element: "root", attrs: `xsi:type="xs:string" xsi:nil="true"`},
-		{name: "selected type and malformed nil", element: "root", attrs: `xsi:type="xs:string" xsi:nil="bad"`, code: xsderrors.CodeValidationNil},
+		{name: "selected type and malformed nil", element: "root", attrs: `xsi:type="xs:string" xsi:nil="bad"`, codes: []xsderrors.Code{xsderrors.CodeValidationNil}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			doc := "<" + test.element + namespaces + test.attrs + "/>"
 			var want []startDiagnostic
-			if test.code != "" {
+			for _, code := range test.codes {
 				path := "/"
-				if test.code != xsderrors.CodeValidationRoot {
+				if code != xsderrors.CodeValidationRoot {
 					path = "/root"
 					if test.element == "p:root" {
 						path = "/{urn:missing}root"
 					}
 				}
-				want = []startDiagnostic{{test.code, path, 1, 1}}
+				want = append(want, startDiagnostic{code, path, 1, 1})
 			}
 			opts := xsd.ValidateOptions{MaxErrors: 10}
 			assertStartDiagnostics(t, engine.ValidateWithOptions(strings.NewReader(doc), opts), want)
@@ -2311,6 +2323,8 @@ func TestUndeclaredRootXSISelectionOrder(t *testing.T) {
 					t.Fatalf("valid document after root assessment: %v", err)
 				}
 			}
+			// The selection diagnostic stays first under a one-error budget.
+			assertStartDiagnostics(t, engine.ValidateWithOptions(strings.NewReader(doc), xsd.ValidateOptions{MaxErrors: 1}), want[:min(1, len(want))])
 		})
 	}
 }

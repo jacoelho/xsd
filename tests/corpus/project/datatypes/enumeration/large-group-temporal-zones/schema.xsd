@@ -1,0 +1,10 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="DateTimes"><xs:restriction base="xs:dateTime"><xs:enumeration value="2000-01-01T12:00:00Z"/><xs:enumeration value="2000-01-01T12:00:00"/><xs:enumeration value="2000-01-01T00:00:00.5Z"/><xs:enumeration value="2000-01-02T00:00:00Z"/><xs:enumeration value="2001-01-01T00:00:00Z"/><xs:enumeration value="2002-01-01T00:00:00Z"/><xs:enumeration value="2003-01-01T00:00:00Z"/><xs:enumeration value="2004-01-01T00:00:00Z"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="Dates"><xs:restriction base="xs:date"><xs:enumeration value="2000-01-01Z"/><xs:enumeration value="2000-01-02"/><xs:enumeration value="2000-01-03"/><xs:enumeration value="2000-01-04"/><xs:enumeration value="2000-01-05"/><xs:enumeration value="2000-01-06"/><xs:enumeration value="2000-01-07"/><xs:enumeration value="2000-01-08"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="Times"><xs:restriction base="xs:time"><xs:enumeration value="12:00:00Z"/><xs:enumeration value="13:00:00.5"/><xs:enumeration value="14:00:00"/><xs:enumeration value="15:00:00"/><xs:enumeration value="16:00:00"/><xs:enumeration value="17:00:00"/><xs:enumeration value="18:00:00"/><xs:enumeration value="19:00:00"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="Years"><xs:restriction base="xs:gYear"><xs:enumeration value="2000"/><xs:enumeration value="0044"/><xs:enumeration value="1999"/><xs:enumeration value="2001"/><xs:enumeration value="2002"/><xs:enumeration value="2003"/><xs:enumeration value="2004"/><xs:enumeration value="2005"/></xs:restriction></xs:simpleType>
+  <xs:element name="dt" type="DateTimes"/>
+  <xs:element name="da" type="Dates"/>
+  <xs:element name="t" type="Times"/>
+  <xs:element name="y" type="Years"/>
+</xs:schema>

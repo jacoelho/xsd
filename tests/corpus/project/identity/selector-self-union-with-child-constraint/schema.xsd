@@ -1,0 +1,17 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="pair">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="c" minOccurs="0" maxOccurs="unbounded">
+          <xs:complexType><xs:attribute name="b" type="xs:string"/></xs:complexType>
+        </xs:element>
+      </xs:sequence>
+      <xs:attribute name="a" type="xs:string"/>
+    </xs:complexType>
+    <xs:key name="pairSelf"><xs:selector xpath=". | ."/><xs:field xpath="@a"/></xs:key>
+    <xs:unique name="pairChild"><xs:selector xpath="c"/><xs:field xpath="@b"/></xs:unique>
+  </xs:element>
+  <xs:element name="root">
+    <xs:complexType><xs:sequence><xs:element ref="pair" maxOccurs="unbounded"/></xs:sequence></xs:complexType>
+  </xs:element>
+</xs:schema>

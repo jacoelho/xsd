@@ -108,6 +108,9 @@ func (s *qnameScan) split(name []byte) (prefix, local []byte, valid bool) {
 }
 
 func (p *parser) readName(first byte) (xml.Name, error) {
+	if name, ok, err := p.readWindowName(first); ok {
+		return name, err
+	}
 	p.nameBuf = p.nameBuf[:0]
 	if err := p.appendTokenByte(&p.nameBuf, first); err != nil {
 		return xml.Name{}, err
@@ -128,6 +131,46 @@ func (p *parser) readName(first byte) (xml.Name, error) {
 		chunk, err = p.br.buffered()
 	}
 	return xml.Name{}, xmlNameReadError(err)
+}
+
+// readWindowName admits a name whose first byte, remaining bytes, and
+// terminator are all in the read window, interning it from the window instead
+// of copying it to nameBuf. ok is false, with nothing charged or consumed, when
+// first is no longer the window byte before off or the name may continue past
+// the window; readName then takes the chunked path. The first byte and the rest
+// are charged in the chunked path's order before syntax is judged, so a token
+// limit keeps precedence over an invalid name.
+func (p *parser) readWindowName(first byte) (name xml.Name, ok bool, err error) {
+	b := &p.br
+	off, end := b.off, b.end
+	// An equal byte before off spells the same name even if it came from an
+	// earlier window, because the name is interned by value.
+	if off == 0 || off >= end || b.buf[off-1] != first {
+		return xml.Name{}, false, nil
+	}
+	window := b.buf[off:end]
+	scan := startQNameScan(first)
+	n := 0
+	if nameByteClasses[window[0]]&nameByteTerminator == 0 {
+		if n = scan.scan(window, 1); n == len(window) {
+			return xml.Name{}, false, nil
+		}
+	}
+	if err = p.chargeTokenBytes(1); err != nil {
+		return xml.Name{}, true, err
+	}
+	// Only an ASCII start byte leaves bad clear, and alone it is a valid
+	// unprefixed name; split is skipped because it does not inline.
+	if n == 0 && scan.bad == 0 {
+		return xml.Name{Local: p.names.Intern(b.buf[off-1 : off])}, true, nil
+	}
+	// With n == 0 the charge and consume are no-ops.
+	if err = p.chargeTokenBytes(n); err != nil {
+		return xml.Name{}, true, err
+	}
+	b.consumeBuffered(n)
+	name, err = p.internQName(b.buf[off-1:off+n], scan)
+	return name, true, err
 }
 
 func xmlNameReadError(err error) error {

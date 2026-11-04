@@ -218,20 +218,11 @@ func validateEnumerationRestriction(derived, base facetProgram) error {
 	}
 	literals := derived.enumGroups[0].literals
 	for i := range literals {
-		if !enumerationInGroups(&literals[i], base.enumGroups) {
+		if matchEnumerationGroups(base.enumGroups, &literals[i]) >= 0 {
 			return errEnumerationLoosensBase
 		}
 	}
 	return nil
-}
-
-func enumerationInGroups(literal *parsedValue, groups []enumerationGroup) bool {
-	for i := range groups {
-		if !groups[i].matches(literal) {
-			return false
-		}
-	}
-	return true
 }
 
 func orderedLowerRestricts(derived, base boundValue) bool {

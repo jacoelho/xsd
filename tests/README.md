@@ -8,7 +8,7 @@ Use the smallest evidence surface that proves the changed contract:
 | --- | --- | --- |
 | One package-owned rule or representation | Co-located package test, fuzz target, or benchmark | Callers of that package interface |
 | Public compile, validation, source, session, or diagnostic behavior | Root external-package tests and `external_api_smoke_test.go` | Full corpus and API-shape tests |
-| XSD/XML conformance | A minimal project-owned corpus regression | Full `TestHarness` and unsupported allowlist checks |
+| Harness-expressible XSD/XML conformance | Project-owned corpus cases, each minimal, covering every edge case | Full `TestHarness` and unsupported allowlist checks |
 | Package direction, public/internal seam, state ownership, or borrowed lifetime | `phase_*`, `root_public_shape_test.go`, `schema_build_boundary_test.go`, or `stream_boundary_test.go` | `go test ./...` |
 | Large streaming time or peak memory | Focused package benchmark first | Opt-in `TestLargeXMLLintBenchmark` with frozen inputs |
 | WASM, worker, page, or local-server lifecycle | Owning `cmd/wasmxsd`, `docs/js`, or `cmd/xsdweb` tests | Browser integration for browser routes |
@@ -29,7 +29,7 @@ the violated contract, not preserve incidental control flow.
 - `corpus/project`: project-owned regression fixtures.
 
 The manifest and allowlist own inventory. Do not copy their changing counts into
-documentation or plans; derive them when a revision-scoped measurement needs
+documentation; derive them when a revision-scoped measurement needs
 them.
 
 ## Project Fixture Organization
@@ -67,9 +67,13 @@ survive a move. Update the manifest's file paths and `source.sourceFile` when
 moving a project case. Reuse the existing closure and integrity tests to check
 the result.
 
-For a new discriminator, pair a valid control with an isolated opponent where
-the rule permits it. An instance test requires a valid compiled schema; a
-schema-rejection case supplies no instance-validation evidence. Keep XML
+Cover every edge case of the affected rule that no existing case covers.
+Depending on the rule, edge cases include boundary values, lexical and
+whitespace variants, namespace variants, derivation composition, absent and nil
+content, and inputs the rule rejects in its own phase. For a new discriminator,
+pair a valid control with an isolated opponent where the rule permits it. An
+instance test requires a valid compiled schema; a schema-rejection case
+supplies no instance-validation evidence. Keep XML
 admission, unsupported features, resource limits and semantic rejection
 distinct. An unresolved source question or unavailable output is an explicit
 coverage limit, not a reason to derive an expectation from current behavior.
@@ -112,10 +116,13 @@ independent Python xmlschema result.
    and valid/invalid controls before assigning a cause. Record yielded validation
    errors, iterator completion and terminal exceptions separately. An unexpected
    exception leaves the run incomplete even if validation errors were yielded.
-4. Retain implementation/runtime versions, commands, options, fixture identities
-   and raw diagnostics in revision-scoped evidence. Reproduce each disagreement
-   with the smallest opposing controls and diagnose specification, processor,
-   source-closure or harness differences before changing behavior.
+4. Report implementation/runtime versions, commands, options, fixture
+   identities and raw diagnostics with the change, scoped to its revision. Raw
+   evidence may persist in a git-ignored `.codex` ledger; the manifest retains
+   only per-provider results and reasons as `oracle` metadata.
+   Reproduce each disagreement with the smallest opposing controls and diagnose
+   specification, processor, source-closure or harness differences before
+   changing behavior.
 5. Derive effective corpus expectations from the local specifications, approved
    corrections and documented qualifications. Agreement is diagnostic evidence,
    not a majority-vote replacement for those sources. Preserve measured provider
@@ -185,6 +192,11 @@ result against the project expectation. A provider phase recorded with
 `status: "blocked"` and no `expected` is an execution limitation, not a validity
 expectation. In particular, schema rejection blocks its instance phases.
 Provider expectations remain separate from the effective project result.
+
+An instance's optional `errorCode` checks the first structured diagnostic
+returned by the Go runner. Use it for default-option diagnostic precedence,
+including malformed XML after an earlier schema error. Custom readers, option
+budgets, error causes, and reuse of one session belong in public API tests.
 
 The Go runner rejects internal diagnostics anywhere in a compilation or
 validation error tree, including wrapped causes and aggregate branches. An

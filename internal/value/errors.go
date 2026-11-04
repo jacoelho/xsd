@@ -300,20 +300,18 @@ func facetDiagnostic[T byteText](t *typeDef, lexical T, parsed *parsedValue, cau
 }
 
 func failedEnumerationDiagnostic[T byteText](groups []enumerationGroup, lexical T, parsed *parsedValue) string {
+	if parsed != nil {
+		if i := matchEnumerationGroups(groups, parsed); i >= 0 {
+			return enumerationDiagnostic(lexical, groups[i].literals)
+		}
+		return ""
+	}
 	for i := range groups {
-		group := &groups[i]
-		if !diagnosticEnumerationMatches(group, lexical, parsed) {
-			return enumerationDiagnostic(lexical, group.literals)
+		if !groups[i].matchesBytes([]byte(lexical)) {
+			return enumerationDiagnostic(lexical, groups[i].literals)
 		}
 	}
 	return ""
-}
-
-func diagnosticEnumerationMatches[T byteText](group *enumerationGroup, lexical T, parsed *parsedValue) bool {
-	if parsed == nil {
-		return group.matchesBytes([]byte(lexical))
-	}
-	return group.matches(parsed)
 }
 
 func digitDiagnostic[T byteText](f *facetProgram, lexical T, parsed *parsedValue) string {

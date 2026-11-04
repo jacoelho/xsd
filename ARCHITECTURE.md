@@ -106,11 +106,11 @@ Use the narrowest authoritative source that answers the question:
 4. `README.md` owns public usage. `docs/spec` is searchable local standards
    reference. `tests/README.md` owns corpus and test-harness operation.
 5. Plans describe proposed work. Ledgers record revision-scoped evidence and
-   decisions. Neither may silently redefine current architecture.
+   decisions. Neither may redefine current architecture.
 
 For a change, start at the public or package interface named in the routing
 table below, trace the single execution path to its state owner, then inspect
-all readers, writers, failure exits, limits, tests, and relevant history. Read
+all callers, readers, writers, failure exits, limits, tests, and relevant history. Read
 only the detailed module and flow sections reached by that route.
 
 | Change concerns | Start at | Authoritative owner | Required adjacent inspection |
@@ -132,8 +132,8 @@ only the detailed module and flow sections reached by that route.
 
 - `github.com/jacoelho/xsd` is the facade package. It owns exported public API
   types and methods: `Engine`, `Session`, `CompileOptions`, `ValidateOptions`,
-  `SchemaSource`, `Resolver`, `ResolverFunc`, `File`, `Bytes`, `Open`, `Compile`,
-  `CompileWithOptions`, and validation entrypoints.
+  `SchemaSource`, `Resolver`, `ResolverFunc`, `File`, `Bytes`, `Open`,
+  `Compile`, `CompileWithOptions`, and validation entrypoints.
 - `github.com/jacoelho/xsd/xsderrors` owns public diagnostics: structured
   immutable errors, owning error aggregates, the category/code catalog, one
   location decorator, one presentation projection, and unsupported-error
@@ -151,831 +151,917 @@ types/functions; those belong to `xsderrors` and `internal/format`.
 
 ## Internal Packages
 
-- `internal/source` owns immutable/repeatable schema source primitives,
-  explicit source kinds, repeatable callbacks, staged bounded acquisition,
-  resolver adaptation, local and generic backend policy, resolution context,
-  and source identity. `Source.OpenInput` is the only source-opening path; its
-  `Input` owns bounded reads and `Finish` drains unread bytes, closes once, and
-  returns raw byte count, SHA-256 fingerprint, and stage-aware failures.
-  `Source.ResolveFrom` is the only reference-resolution path. The package does
-  not own XSD vocabulary or schema-graph policy. The compiler has one canonical
-  source-loading path and may delegate within that path, but it must not replace,
-  bypass, or duplicate either source boundary capability.
-  Removing a custom resolver preserves the built-in file resolver's canonical
-  context identity. The public adapter normalizes its known nil resolver forms
-  before they enter source resolution.
-  Per-source limit diagnostics acquire their source path before joining read or
-  close failures, so wrapper-preserving presentation cannot lose that location.
-- `internal/uriref` owns XSD 1.0 URI-reference validity after XLink escaping,
-  raw and escaped projections, fragment syntax, and raw-preserving RFC 2396
-  composition. A validated `Reference` privately stores one canonical `Parts`
-  record; its accessor returns a value copy containing immutable strings and
-  presence flags. `internal/source` uses that composition for URI bases; its
-  built-in local and absolute fallback projects admitted, fragmentless references
-  into escaped canonical identities. Resolver spelling and fallback capability
-  remain distinct because valid resolver inputs may be unavailable to a local
-  backend. Arbitrary source names and Unix paths do not enter this type.
-- `internal/schema` owns schema syntax, source-aware diagnostics, opaque
-  annotation consumption, graph loading and planning, chameleon contexts,
-  component dependencies, names and declarations, complex derivation, identity
-  declarations, content models, substitution groups, and immutable publication.
-  Production schema input is read through `internal/xmlstream`; the parser
-  retains compact `schemaNode` records with one closed typed semantic-source
-  variant when a node owns compiler capability, a node-owned `xml:base`
-  projection, document-local node IDs, and source positions. Lexical schema `id`
-  values stay in ordered parse-local records and are checked for uniqueness
-  after complete parsing; they do not enter retained semantic records. Syntax-only
-  grammar nodes may carry only those common facts. Each variant owns its complete capability facts;
-  particle data is embedded in the element, model, group, or wildcard variant
-  that admits it. Simple-type declarations retain name and final constraints;
-  their base, list-item, union-member, and complex-content facts belong to
-  distinct child variants. Its syntax admission facts are transient and are never used
-  as a generic XML tree by compilation. Start admission establishes that every
-  retained node belongs to the XSD namespace. Its local name owns vocabulary
-  dispatch, including unknown XSD names; semantic variants own capability facts.
-  After root/foreign-node and schema-namespace
-  attribute guards, start admission checks names, unsupported features, xml:base,
-  general attributes, then top-level child grammar directly on those transient
-  facts. Ordered forbidden-attribute presence precedes missing-name errors; no
-  top-level syntax projection is retained.
-  Reference and local-declaration attribute restrictions remain compiler-owned,
-  using canonical presence masks and typed source fields. Ordered children belong
-  to the immutable
-  source node; model variants do not retain a second child list. Indexing filters
-  declarations directly from ordered root children within each selected content
-  and effective-namespace context. Repeated context scans remain bounded by
-  admitted context-node limits; they trade the filtered declaration cache for
-  less construction state. Child-order
-  grammar feeds its existing rule state directly from canonical XSD children,
-  preserving source order and diagnostics without a local-name projection. Capability
-  compilers consume admitted expanded QName names and typed lexical presence
-  fields without generic attribute replay; reference namespace policy runs before
-  name interning. Schema uses `internal/value`'s canonical scalar vocabulary
-  for simple varieties, primitive kinds, whitespace modes, facet masks, and
-  builtin kinds. Schema retains source facet-name mapping,
-  facet admission and ordering, whiteSpace restriction, and final constraints.
-  Schema occurrence admission retains checked counts and a finite/unbounded tag.
-  Occurrence and size-facet admission share bounded nonNegativeInteger scanning,
-  including signed zero. Each owner applies its own value bounds and diagnostics.
-  Schema facet-source admission uses one ordered child dispatch. The build's
-  unavailable-type fact defers bound and enumeration literal evaluation while
-  preserving source checks and decidable facets. Available grouped facets apply
-  before local inclusive/exclusive validation; unavailable grouped facets apply
-  afterward. Effective typed facets, literal budgets and completion remain
-  value-owned.
-  End admission checks text, reference-directive children, then annotation
-  placement directly on those nodes. Documentation language admission reads the
-  transient start facts: at start for opaque annotation envelopes and at end for
-  retained documentation nodes, after semantic construction and namespace retention.
-  Schema
-  QName references resolve while their namespace frame is live; literal values
-  and XPath expressions that are intentionally deferred retain only the bounded
-  namespace context needed by their owning compiler. Annotation payload is
-  consumed without entering the retained semantic graph.
-  The loader produces a closed graph before component compilation begins.
-  After planning completes, compiler bindings and deferred work borrow stable
-  plan-document records and immutable source defaults. Cache identity remains
-  source-node identity plus the contextual view key. These construction
-  references do not enter the published schema.
-  Source loading, effective-context planning, and component resolution share a
-  finite dependency-work budget; active expansion has a depth cap of 1024.
-  Content analysis has a separate finite work budget shared by consistency,
-  restriction, ambiguity checks, compilation, and sealing.
-  Semantic model admission retains nonunit sequence and choice boundaries:
-  language-equivalent occurrence multiplication can change XSD 1.0 structural
-  restriction. The shared compiler/publication restriction validator admits both
-  original graphs and their range/emptiability relation before comparison.
-  An already empty derived model succeeds at that boundary: structural
-  normalization must not discard the base branch proving emptiability.
-  Remaining comparisons expand actual substitution groups on both operands,
-  then remove prescribed pointless groups before structural dispatch.
-  RecurseLax consumes a matched base position
-  before comparing the next derived particle; unmatched base alternatives may
-  be skipped. Its bounded recursive matcher admits nested and unbounded branches
-  by their actual restriction relation, without a separate shape classifier.
-  MapAndSum permits shared base members through its separate relation.
-  Group-to-wildcard restriction checks the aggregate against the original
-  wildcard. Immediate-member comparisons use a temporary wildcard copy with
-  minimum zero, retaining its maximum, namespaces and processing strength under
-  selected correction R-240. Each temporary comparison node owns its order
-  provenance: whole generated substitution choices carry an inline marker;
-  flattening into an explicit choice retains private contiguous spans.
-  RecurseLax waives order only within those generated choices or spans on either
-  operand under selected interpretation R-122; explicit siblings keep their
-  order. Each derived span scans from its prior boundary and advances that
-  boundary past its furthest target; a generated
-  base span shares its start boundary. This is bounded functional matching,
-  without permutation search or a global injection set. Ordinary comparisons
-  retain their ordered path. Both corrections are scoped in docs/spec.
-  Its append-only comparison view borrows original models. Normalization visits
-  every child before borrowing an unchanged group with its original particle
-  and model occurrence bounds; flattening requires both layers to be unit.
-  The view owns replacement nodes. A comparison containing replacements owns
-  private range/emptiability analysis and model-keyed caches for one relation;
-  otherwise it reuses the caller's analysis. Analysis borrows child slices from
-  both original and replacement models without mutation; component snapshot
-  boundaries retain their copying contract. Comparison never changes build models,
-  execution limits or reusable source-analysis caches. Traversal, membership scans
-  (including rejected members) and temporary growth share the caller's sticky
-  work budget; failure discards the view. Execution compilation may independently
-  collapse representable singleton repetitions into private values, with charged
-  traversal, after semantic restriction has been checked.
-  Simple content has one canonical content kind. An enclosing syntactic mixed
-  flag is checked at admission but cannot survive simple-content construction
-  or authorize later mixed derivation. Effective-empty extensions retain the
-  inherited base content type. When both base and extension contribute
-  particles, extension lowers to a unit sequence with inherited content first.
-  A nonunit base group carries its original occurrence on a particle
-  referencing a unit clone; publication verifies that
-  occurrence and the clone's compositor, text policy, and ordered particles.
-  It does not require the clone to retain the original model ID or replace the
-  structural preservation check with language equivalence.
-  Extension admission and publication share a bounded, dependency-charged
-  check of matching attribute uses against the
-  original complex ancestor whose base is builtin anyType. It reuses attribute
-  restriction for type, requiredness and fixed-value obligations, without a
-  retained lineage cache. Intermediate restrictions are not independent anchors;
-  new names remain extension-owned. This enforces the attribute projection of
-  cos-ct-extends 1.5, separately from immediate content/wildcard extension checks.
-  Wildcard overlap admits a namespace only through the wildcard owner's
-  membership predicate. It scans finite operands against that predicate and
-  treats an empty namespace set as disjoint before infinite-set shortcuts.
-  An empty-set wildcard retains its particle and occurrence semantics.
-  UPA traversal uses one machine-word visitation tag per admitted model; each
-  root starts a distinct traversal without clearing the full table. Traversal
-  results and work charges are not shared across roots. DFA follows become
-  immutable after normalization. A compiler-local position-to-state cache
-  reuses normalized follows, while every lookup retains the same sequential
-  work charges. Only successful state lookup populates the cache; start
-  state normalization, discovery order, and state limits remain unchanged.
-  Admitted particle and group occurrence ranges own runtime cardinality.
-  Restriction checks establish schema validity separately; they do not rewrite
-  the derived content particle. Direct and DFA execution project those admitted
-  ranges without derivation-specific caps or restriction-owned model copies.
-  Repetition owns counter allocation from occurrence bounds; callers do not
-  supply counter slots. Exact-one repetition retains its initial work charge
-  and uses the admitted child directly.
-  The compiler owns one private `schemaBuild`. Registration and completion
-  update correlated tables together. Global registration bindings also own
-  compiler QName-to-ID lookup, including reserved placeholders; active expansion
-  and local/anonymous caches remain separate. Registration does not establish
-  completion. Complex-type construction owns one ID-indexed source and completion
-  record, with reserved -> completing -> complete transitions. Element type
-  references reserve named or anonymous identities without compiling their bodies.
-  Only derivation-base resolution requires recursive definition completion, so
-  re-entry into a completing definition identifies a derivation cycle rather than
-  legal recursive element content. A monotonic completion pass closes both complex
-  definitions and deferred compositor children, including work discovered by either
-  frontier, and finishes before substitution,
-  element-value constraints, restriction, consistency, and UPA processing.
-  Registration and completion consume dependency work; source declarations and
-  effective contexts bound retained records, and the existing component-depth
-  cap bounds active inheritance. Builtin anyType starts complete. Definition
-  failure aborts compilation; publication rejects incomplete records before
-  consuming the build. A group reference with admitted occurrence 0..0 contributes
-  no component under XSD 1.0
-  [group-reference mapping](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-namedModelGroup).
-  Source shape, QName syntax and occurrence validity remain mandatory; the absent
-  particle has no target lookup, expansion, cycle edge or target-dependent all-group
-  constraint. Nested content omits the absent-model sentinel; direct and restriction
-  content canonicalize it, while extension inherits the base content.
-  Global group definitions remain independently validated.
-  A zero-count sequence or choice likewise contributes no component under the
-  [compositor mapping](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel).
-  This exception applies to that item, not its descendants: their independent
-  declarations, types, references, defaults, facets and identities retain ordinary
-  source and component validation. The compiler defers immediate child roots until
-  active named-group expansion unwinds, then uses the same constructors as attached
-  particles. It creates no discarded parent model, so absent siblings acquire no
-  collective EDC or UPA constraint. Identity predeclaration still visits the whole
-  source tree, and descendant element construction completes those identities.
-  A source/effective-context key admits each omitted compositor once, charging
-  dependency work before retaining its source record. The model cache records
-  `NoContentModel` for admitted absence; that entry completes only the parent's
-  mapping, while the pending queue owns unfinished descendant validation.
-  Admitted source/context counts and the aggregate work budget bound the model
-  cache and append-only queue;
-  ordinary constructors retain their existing depth, work and component limits.
-  Completion clears the pending queue only after both work frontiers close.
-  Failure aborts compilation; publication rejects pending descendants without
-  consuming the build. Source records and the model cache remain private to
-  the compiler and do not enter the published runtime.
-  Model-group expansion rejects an active group directly;
-  legal recursion through element types crosses the definition-completion
-  boundary and needs no element-depth exception or synthetic recursive model.
-  These boundaries follow XSD 1.0
-  [type ancestry](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#ct-props-correct)
-  and [model-group containment](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#mg-props-correct).
-  Private unfinished definitions are distinct from
-  [missing schema components](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing).
-  The latter retain their existing assessment policy and do not leave
-  construction records pending.
-  Simple-type unavailability has one mutable
-  bitmap in that build; publication owns its immutable snapshot. There is no
-  exported mutable builder or forwarding layer between compiler and build state.
-  Value owns fixed builtin simple-type IDs; schema references them directly.
-  Schema owns one intrinsic catalog for the four global XSI attribute
-  declarations and their canonical types: QName, boolean, anyURI and an
-  anonymous list of anyURI for schemaLocation. The anonymous type has no global
-  type binding and does not consume the source-instantiated type allowance.
-  Source admission rejects XSI attribute declarations; only the trusted
-  constructor can supply these intrinsic records. Publication validates their
-  bindings, types and absent value constraints, the fixed simple types and
-  `anyType` structure before constructing immutable reads.
-  Schema QName authorization exempts XSD and XSI namespace references from
-  foreign-namespace imports under adopted WG correction 1890. Ordinary lookup
-  still owns component kind and existence; supplied custom XSD components need
-  explicit sources, and builtin authority remains immutable. Explicit imports
-  retain ordinary resolution and budgets. The selected corrections are recorded
-  in `docs/spec/SOURCES.md` and `docs/spec/INTERPRETATIONS.md`.
-  XML and XLink attribute declarations come only from supplied schema sources;
-  they use ordinary component indexing, compilation and publication. The compiler
-  has no fallback declaration table for either namespace. XML imports use the
-  same resolver, target-namespace checks and source/reference budgets as other
-  imports. The predefined `xml` prefix does not grant a schema import. XML namespace admission,
-  schema `xml:base` and documentation-language admission remain separately owned
-  syntax behavior.
-  Element-declaration consistency uses one charged, model-cached checker during
-  compilation and publication. Distinct particles with the same element name
-  require the same named global type, established by declaration scope and the
-  exact global binding; generated internal names do not name anonymous types.
-  It includes effective transitive substitution members for each element
-  particle. Blocked and abstract members are excluded from consistency, but
-  every raw membership scan still consumes content-model work.
-  The checker borrows canonical models during exclusive build access without
-  cloning their particle slices. One repeated particle is not two declaration
-  particles. Unavailable simple
-  components retain their separate assessment policy.
-  Compilation and publication metadata algorithms borrow the compiler-owned
-  build directly. Work charging remains explicit; attribute-wildcard construction
-  retains its narrow fallible storage boundary. Validation consumes immutable
-  published reads.
-  Union compilation resolves all members and canonicalizes ordered, deduplicated
-  facet-free leaves. A nested union with effective pattern/enumeration facets
-  remains a member node so evaluation cannot discard its constraints. The value
-  builder owns effective facets, including inheritance; its completed-only
-  scalar query derives the private unionHasFacets construction cache after
-  successful completion. Publication verifies that cache and projects the
-  constraint barrier into simple derivation reads. Compiler and runtime member
-  derivation cannot cross a constrained union; identity and ordinary base-chain
-  derivation remain valid. The existing value evaluator validates retained
-  members and their facets recursively.
-  After each member passes final and member-entry admission, compilation derives
-  a private unionContainsList fact from that completed member. Restrictions
-  preserve it. List-item legality reads direct List variety or this union fact
-  in constant time, after final checks; unavailable value placeholders do not
-  erase source List variety. The construction caches disappear with the build;
-  published reads retain only the derivation barrier. General value Builder
-  unions retain their own semantics.
-  Declaration and attribute-use shape audits consume canonical construction
-  records directly; default/fixed presence comes from their constraint pointers.
-  Attribute-use derivation and wildcard audits also read canonical records.
-  Attribute-wildcard construction and provenance admit namespace inclusion and
-  derivation shape. Restriction processing strength belongs to the complex type:
-  one predicate reads its immediate base identity during source compilation and
-  publication, exempting only the actual builtin `anyType`. Equal wildcard shapes,
-  shared wildcard IDs and ancestry do not grant this exception. Particle wildcard
-  restriction uses its separate actual-ur-type-content-wildcard exception, not
-  this immediate-base-type predicate. These exceptions add no retained policy
-  state or graph traversal.
-  An attribute-use compilation owns its explicit ordered uses and name index,
-  borrowing inherited uses as immutable input. Source admission supplies
-  prohibition names separately; they never enter `AttributeUse` records.
-  Referenced default/fixed overrides are validated before attachment to a use;
-  no lexical-only constraints enter a use record. Finalization is terminal;
-  wildcard construction retains its separate fallible storage boundary. Each
-  admitted use receives a nonzero compiler-local component identity. Group and
-  inheritance copies preserve it; set union coalesces only the same component,
-  while distinct same-name uses still reach duplicate or derivation checks.
-  Declaration identity and equal use fields
-  cannot establish use identity. Group expansion borrows immutable members and
-  charges each traversed member before merging, including shared members.
-  The compiler checks identity exhaustion before allocation. Publication drops
-  component identities with the construction records and derives
-  immutable required and applicable value-constraint slot lists from those uses,
-  preserving order. The same projection derives `HasIDUse` from completed
-  value-builder input requirements for the effective uses, after inheritance and
-  restriction. Missing metadata is an internal invariant error before builder
-  sealing; no raw type specification or ancestry scan substitutes for it. Under adopted WG correction 4363, validation-read projection
-  omits XSI value constraints; construction and derivation retain them.
-  `AbsentValueConstraint` supplies synthesis eligibility to slot construction,
-  while required slots remain independent. Publication guarantees that XSI
-  declarations are precisely the four intrinsics. It clones those lists before
-  releasing construction storage.
-  Compilation and sealing exclusively borrow their use slices and attached
-  immutable constraints during each audit; derivation callbacks read metadata
-  and charge work without mutating those inputs.
-  Publication constructs packed attribute reads directly from canonical uses
-  and declarations, projecting each constraint once through its clone owner.
-  Compiled construction models retain execution metadata; source provenance
-  remains compiler-owned, and actual-type content kind supplies text policy.
-  Publication validates semantic source invariants, constructs immutable
-  execution tables once, and consumes the build only on success. Failure preserves
-  build data, while completed work remains charged. Read tables are derived state;
-  comparing each table back to a duplicate runtime projection is not a second
-  publication step.
-  Names, typed references, element constraints, derivation indexes, wildcard
-  policies, substitution membership, and content execution remain schema-owned.
-  Published element constraints use one default/fixed tag and one payload;
-  validation receives a value copy of that row with the declaration owner,
-  never a pointer into the packed table. Publication rejects conflicting
-  constraints before constructing these reads.
-  NOTATION actual-use admission belongs to schema construction and publication.
-  A scalar completed value-definition query distinguishes atomic NOTATION with
-  no effective enumeration. Schema declarations, local attribute uses, resulting
-  simple-content types and list/union constructor edges enforce that predicate.
-  Atomic restriction bases and enumeration-literal evaluation remain legal.
-  Publication audits canonical completed constructor edges once per user type,
-  charging dependency work; trusted builtin constructors are not schema uses.
-  The value owner exposes only immutable constructor-use IDs: a completed type
-  cannot change, so its view survives unrelated construction and sealing. No
-  mutable slice or type-record pointer escapes; owned TypeView copies retain
-  their separate contract for callers that need them.
-  Constructor-edge admission proves nested safety without per-use graph walks
-  or a second cached type property. Unavailable components remain distinct from
-  invalid metadata. Low-level value parsing owns no schema-use prohibition.
-  Cached typed default/fixed values retain their exact owning simple-type ID,
-  including outer union ownership; selected members remain separate value
-  metadata. Publication rejects a member-typed cache even when that member
-  accepts the same lexical value. Published caches are immutable. A changed
-  xsi:type revalidates application text under the actual type into a local
-  result using captured schema namespaces; it never retargets the cached owner.
-  Published value constraints own application text and an immutable namespace
-  projection for revalidation under a different actual type. Context-free
-  constraints use canonical spelling; accepted QName/NOTATION values, including
-  list items, retain source spelling because expanded-name text is not lexical
-  XML. Rejected union members do not determine that choice. The projection
-  captures each distinct prefix in QName-shaped application fields, including
-  the default namespace and unresolved prefixes even when the declared type
-  selected a string member. It retains only sorted bindings and shared immutable
-  strings, never a source node, namespace history, or compiler closure. Source
-  token/byte and instantiated-node limits bound this metadata. Publication
-  validates coverage and consistency with captured resolution proofs; cloning
-  owns the binding slice. Repeatable application lookup is distinct from the
-  consuming proof replay used to audit original literal admission.
-  Ordinary use-owned fixed comparisons use typed-value equality under the
-  selected attribute-use correction. Admission requests identity work for a fixed
-  comparison regardless of static QName capability. Accepted lexical text must
-  still satisfy the actual type's facets. The unconstrained-string fast path
-  compares strings directly, which is its datatype equality. Declaration and
-  use constraints share typed equality; XSI retains intrinsic assessment.
-  Typed comparison consumes the value owner's identity tag and immutable payload
-  directly. Only callers needing an identity key serialize its framing.
-  Every constructed name table reserves namespace ID zero for the empty
-  namespace independently of seed order; publication validates that invariant.
-  Identity declarations compile into immutable selector/field path programs and
-  exact-name, namespace, and wildcard dispatch indexes; validation owns only
-  active document scopes and matching scratch. The dispatch programs are the
-  canonical identity read surface. Construction owns canonical selector and
-  field paths. Publication validates those paths, derives immutable field
-  partitions directly, and clones their steps. Published field-group and
-  path-program slices retain no append-growth capacity.
-  The attribute-use walk, recursive identity declaration walk, and simple-type
-  derivation-child selection read canonical ordered source children directly.
-  Facet dispatch filters those children without copied child-pointer arrays or
-  representation-origin modes; simple-content restriction retains first-facet
-  diagnostic anchoring.
-  Identity child grammar reads the ordered semantic-source children directly.
-  Its transient validated selection carries selector and field nodes; diagnostics
-  attach to the offending node without copied child projections or index replay.
-  Group and notation grammar likewise attach diagnostics to source nodes;
-  group child grammar completes before occurrence checks. Start admission rejects
-  foreign nodes; notation checks every retained child and rejects missing child
-  IDs. Schema defaults consume the typed document
-  source's lexical fields directly, preserving presence and validation order.
-  Large `xs:all` models use a bounded QName-to-term index; small models scan
-  directly. Both preserve occurrence bits, substitution matching, and atomic
-  transition failure. The index is derived once during sealing.
-  Publication retains only the content models validation can enter: complex-type
-  roots, deduplicated in source-ID order. Nested groups are compiled into their
-  ancestors' rows and no published particle names another model, so every other
-  compiled model is dropped and each complex-type read carries its root's
-  published index. Publication rejects a compiled-model table whose length
-  differs from the source models before any root indexes it. Projection and
-  all-group index work are charged, and index failures reported, for every
-  compiled model, so admission never depends on which models are entered;
-  optional dense conversion visits published models only.
-  Shared published content-model rows have storage ceilings of 80 bytes on
-  arm64 and 52 bytes with the gc compiler on 386. Optional dispatch metadata
-  must not enlarge those row records.
-  Published DFA rows own one linear, QName-map, or dense index variant. The
-  discriminator occupies existing row padding; map and dense variants share
-  one map/slice record. Map data holds ordered wildcard positions. Dense data
-  holds namespace and minimum-local IDs followed by edge-plus-one slots, with
-  no retained QName map. Mutable construction indexes remain separate.
-  Dense conversion admits only already-indexed, wildcard-free rows with at least
-  16 source edges, 2–256 expanded names in one namespace, and a local-ID span
-  at most 256 and at most twice the name count. Ambiguous counted rows retain
-  their original linear path. Dense lookup checks namespace and bounds, then uses the
-  same particle/substitution match and occurrence/state admission as other rows.
-  Required flat projection and map cloning retain their mandatory charging
-  order. An ephemeral marker collected during that traversal skips optional
-  conversion entirely when no row can qualify. After mandatory publication
-  charges, a private stable-order pass may replace complete cloned maps with
-  dense arrays. Source indexes, cloned maps and new arrays may overlap during
-  construction; the final schema retains only its selected immutable variant.
-  Optional conversion has independent limits of 4 MiB requested array backing,
-  including both metadata cells, and 16 million work units. Each model/row visit
-  costs one unit before visiting. A candidate prepays N units for its N-name
-  bounds scan; an eligible span S then admits `4*(S+2)` bytes and `2*N+S+4` work
-  before allocation/fill. Exhaustion stops the pass with remaining complete map
-  indexes; spent work is not refunded.
-  One `ElementFrame` read combines effective-type simple content, text policy,
-  and initial child content state. The original element declaration remains the
-  owner of default/fixed constraints after `xsi:type` changes the actual type.
-  Complex-type reads derive text-type presence from the canonical content kind
-  and return its text type directly; absence returns `NoSimpleType`, while
-  present IDs retain caller-owned availability checks.
-  Complex content retains its semantic kind before particle normalization,
-  ignoring annotations when identifying semantic model children:
-  empty, element-only, mixed, or simple (including mixed simple-derivation
-  provenance). Empty content has neither a particle nor a simple text type;
-  the converse does not hold. An optional element or a present outer particle
-  whose children normalize away remains element-only. A nonzero reference to
-  an empty named group also remains element-only. Actual type selection supplies
-  the text policy independently of declaration-owned value constraints.
-  An extension with empty effective content inherits all base content fields
-  after local model syntax and references have been checked. Canonical empty
-  models reuse their existing rows; normalization does not duplicate them.
-  Publication requires empty content to reference a non-mixed `ModelEmpty`;
-  model-shape validation separately rejects inactive occurrence or slice data.
-  A noncanonical source row remains available for reference, consistency, and
-  graph checks when lowering adds a distinct executable empty model.
-  Published empty models reject child admission with a semantic no-match;
-  invalid model IDs and kinds remain invariant failures.
-  Validation carries selected declaration metadata through start assessment
-  instead of resolving the same declaration again. `ContentTransition.Commit`
-  owns the stale-state check and applies the content transition once, after
-  identity commit readiness has been checked.
-- `internal/value` owns simple-type validation and its immutable program:
-  lexical normalization, primitive values, lists, unions, facets, canonical
-  text, typed equality, and ID/IDREF projections. Primitive parsers own their
-  lengths: strings count Unicode code points, admitted URI references count
-  characters, and strictly admitted binary values count octets. Text and binary
-  atoms retain one lexical payload selected by the primitive kind, storing that
-  parser-owned length once. Base64 readiness is meaningful only for base64;
-  string and URI assignment clears it. Primitive admission, equality, borrowed
-  string backing and fixed storage charges remain distinct and unchanged.
-  Text parser return records keep their two-field layout; binary parser returns
-  retain their distinct named type over the shared payload structure. Temporal semantics
-  have one value owner and two consumer-specific execution paths: borrowed string/byte
-  scanners admit raw lexical values without building typed fields or signed
-  timezone offsets; typed string parsers construct the admitted value directly.
-  Both share year and two-digit lexical scanners, calendar, clock, timezone-range,
-  and BCE remainder rules. Whole-primitive admission and typed construction keep
-  their distinct execution paths. Typed
-  year projection preserves canonicalYearDigits normalization: trimming leading
-  zeroes, padding magnitudes shorter than four digits, and otherwise retaining
-  existing string backing. Absent or all-zero
-  fractions use a literal empty string rather than retaining input storage.
-  Calendar arithmetic, partial orders, Gregorian lexical fields and normalized
-  identity, and recurring versus unwrapped time remain distinct value operations.
-  Typed decimal, temporal and duration fractional digit strings are normalized
-  without trailing zeroes; empty represents zero. Their fraction comparison is
-  shared within value, while primitive admission, signs, timezone handling and
-  partial orders retain their existing owners.
-  Compile-time literals and
-  instance values use the same value semantics. Construction capacity is admitted
-  against the same conservative storage budget as type records; reserved slots
-  consume that admission without a second fixed charge. `Reserve` allocates stable
-  IDs; `Complete` requires visible dependencies and admits the remaining
-  metadata on success, reserving its charge before resolver callbacks. Failed
-  or panicking completion refunds only that charge and leaves its slot
-  unavailable and retryable; nested successful construction survives. Resolver
-  callbacks can inspect provisional metadata and complete other slots. Facet
-  publication reacquires the stable ID's current slot after callbacks that may
-  grow construction storage. Sealing rejects incomplete slots and active
-  completions without consuming the builder.
-  Program owns normalized evaluation depth and publication state; Builder
-  reads those facts and retains construction-only limits.
-  One byte per slot in the program-owned completion table records reserved,
-  in-progress or committed state. Reserved slots are unavailable; in-progress
-  and committed slots support construction queries and evaluation. Sealing
-  requires every slot committed, preserving reserved-slot diagnostic priority,
-  then removes the table. Type construction validates dependencies and facets before
-  publication. Source bound presence owns omission. Retained ordered-bound
-  entries are present and use their existing exclusive flag for acceptance,
-  restriction and fixed-kind lookup. One value-owned pair predicate checks
-  same-step consistency: equality permits matching bound kinds, and incomparable
-  endpoints do not violate the prohibited-order comparison. Schema literal
-  admission, instance acceptance, and inherited-bound narrowing remain separate
-  checks. Restriction derivation returns its validated effective facet
-  program for publication; the compiler does not reconstruct that merge.
-  Facet applicability has one value-owned mask shared by schema admission and
-  value construction: atomic Boolean admits pattern and whiteSpace; list and
-  union enumeration remains independent of member primitive families.
-  Fixed builtin metadata lists each primitive's canonical record before its
-  derived records, and primitive lookup skips the generic anySimpleType record.
-  Completion derives one raw evaluation plan from the effective
-  lexical rule and facets, including string enumeration, NMTOKEN lists, and
-  integer bound eligibility. Decimal admission owns normalized numeric sign and
-  trimmed magnitude spans. Raw numeric plans retain eligibility only; validation
-  borrows immutable admitted bounds and shares integer-magnitude comparison with
-  typed values. Builder literals can use completed plans before
-  sealing. Integer eligibility follows the integer lexical rule; decimal types
-  restricted to zero fractional digits still accept decimal spellings.
-  Caller-owned scratch bounds
-  reusable validation storage. Core-reference admission uses the completion
-  table to admit every core reference and derive their maximum depth in one
-  pass. It rejects out-of-range, reserved and self references before checking
-  the core depth limit, then checks facet references separately without
-  folding their depth into the stored core depth. It does not separately scan
-  for cycles. Resolver reentry can observe
-  provisional dependencies, so construction does not promise an acyclic graph.
-  Runtime evaluation tracks depth and cumulative lexical work; empty lists never
-  visit an item type. The schema compiler
-  supplies the builder's construction limit; each completed type's bounds and
-  enumeration share one fresh facet-batch budget. Builder validation starts a
-  fresh construction budget per value. Instance validation supplies its own
-  normalized `MaxInstanceValueWork`, whose fixed default is 4,194,502,132,335
-  work units and does not depend on compilation options. Each evaluation visit
-  charges its lexical byte length plus one. Raw-byte attempts, shortcuts,
-  list items, union attempts, and typed fallback share one per-value counter;
-  a failed fast attempt does not replenish the budget. Borrowed byte plans
-  dispatch through evalBytes, with only the existing unprojected builtin
-  string/anySimpleType shortcut outside it. Unprojected raw results carry no
-  equality identity; typed and projected list results retain their list flag. The published program
-  retains neither caller limits nor work counters; session limits remain fixed
-  for each validation and scratch retains no cumulative work. Limit failures keep their
-  schema or instance diagnostic category at the owning boundary.
-  Explicit fixed-string attributes enter admitted value validation before
-  their fixed comparison, without requesting unused projections. Already
-  validated constraints on omitted attributes retain their compiled-value path.
-  Borrowed-byte and admitted-string validation consume UTF-8 XML 1.0 character
-  data already checked by the stream boundary, including through typed fallback.
-  Ordinary string validation admits external lexical input. All paths share
-  value semantics and work accounting. A type retains its owning type
-  through list and union evaluation. Equality uses the admitted value space,
-  including duration month/second coordinates and resolved QName names. Text
-  projections do not define equality: duration has no XSD 1.0 canonical
-  representation and retains
-  its whitespace-normalized lexical spelling. Requested identity has explicit
-  presence, a primitive tag and an immutable payload; empty payloads remain
-  distinct from absent identity. Equality also preserves the list distinction.
-  Identity-key serialization retains the existing tagged, length-framed bytes;
-  list construction writes item frames directly into its owned payload.
-  Retained values remain valid after scratch reuse or reset. Base64 values carry
-  an explicit readiness bit distinguishing admitted lexical text from compact
-  canonical text; the field name alone cannot prove canonical form. Strict lexical
-  admission validates padding bits before whitespace removal. Published
-  enumeration literals are canonical, and each compiled facet program derives
-  whether any inherited or local literal contains base64. Enumeration evaluation
-  prepares only the selected document value's retained base64 leaves once.
-  Equality never mutates either operand; direct string equality requires both
-  operands to be ready, otherwise it compares decoded values. This adds no
-  decoded sidecar or additional retained list items, and does not change work
-  charging or union selection. Patterns in one restriction step
-  are alternatives; inherited restriction steps all apply. Union patterns inspect
-  the selected member's normalized lexical output after ordered member assessment;
-  evaluation returns that spelling explicitly to its caller, without mutable
-  output pointers in options or enlarging each retained list item. A failed
-  union pattern does not try a later member. Union enumeration compares the
-  selected member's value. An enumeration group of at least eight literals,
-  each a non-list value of one string-family primitive (string types after
-  whitespace normalization, or anyURI), also maps each literal's canonical text
-  to its first declaration position. Those primitives compare by canonical text,
-  so a lookup leaves at most one candidate and equality still decides; other
-  groups scan in declaration order. Diagnostics read the declared literals, and
-  work charging is unchanged. Compiled enumeration groups retain their maximum
-  list-literal item count. Evaluation propagates the maximum applicable count
-  through nested unions and combines it with each list's own groups. An input
-  with N items retains all items only when N is within that bound K; otherwise
-  it retains none. Temporary item storage is therefore at most K parsed values.
-  Every item still validates and consumes work; omitting storage cannot change
-  first-success member selection or bypass local facets. List equality requires
-  equal counts and complete retained items. Enumeration-literal construction
-  retains all items under its construction limits. Literal construction can omit
-  its containing type's facets while they are being installed; member and item
-  types always enforce their own facets, preserving normal value selection.
-  Facet applicability derives one allowed-bit mask from variety and primitive.
-  Single-facet queries, source-mask admission and diagnostic classification share
-  that rule; effective-facet validation remains separate.
-  Fixed ordered facets use the nearest declaration of the same bound kind;
-  the complete inherited bound sequence remains available for partial orders.
-  Ordered bounds retain only admitted atomic payloads. Literal evaluation keeps
-  its declared type and ordered union selection; construction rejects list or
-  mismatched primitive results before retaining the atom. Bound construction
-  requests no unused canonical or identity projections. Raw time day offsets,
-  primitive-kind equality, fixed storage charges, and work accounting remain
-  owned by the value program.
-  Parsed results own requested float, double, date and dateTime canonical text;
-  atoms retain their numeric or temporal comparison payloads. Primitive parser
-  return records keep their public projection contracts. Atomic evaluation resets
-  the complete parsed result for each attempt, including failed union members.
-  Builder-admitted builtin/primitive combinations retain builtin projection
-  precedence; changing projection ownership does not tighten metadata admission.
-  Schema declarations retain only component metadata and value-program
-  references; they do not
-  implement a second simple-value parser, facet evaluator, or equality model.
-  Document identity is carried by each validated value: an atomic type derived
-  from xs:ID or xs:IDREF projects its canonical value, a union preserves the
-  selected member's ID/IDREF projections, and a list (including xs:IDREFS)
-  collects its items' IDs and IDREFs. The value program's ID/IDREF carriers
-  are the only type-level identity metadata and the single ID-carrier
-  predicate ([I-016](docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness));
-  schema value-constraint and attribute-use checks, wildcard counting,
-  identity activation and the fixed-attribute raw-text comparison
-  (`InputRequirements.LexicalCanonical`, which still validates facets before
-  comparing) read it through input requirements. List evaluation constructs its complete framed identity while scanning
-  items, independently of retained item storage; even an empty list has a
-  nonempty identity prefix. Unions preserve that identity and the list value kind. Static type identity metadata cannot replace these dynamic projections.
-  Validation records them even when no key/unique/keyref field requested a value.
-  The g* identity projection uses the normalized instant and timezone presence,
-  matching typed equality independently of lexical calendar fields. QName
-  resolution produces one expanded name before NOTATION declaration checking
-  and typed assignment; absent namespace context cannot bypass that check.
-  The value-owned `ExpandedName` is both the `QNameResolver` result and the
-  shared QName/NOTATION payload, selected by the primitive kind tag. That tag
-  preserves distinct value spaces and selects NOTATION declaration policy.
-  Compilation, proof replay, and document
-  assessment share that resolver contract; value admission validates its result.
-  Validation reads one scalar `InputRequirements` projection for QName context,
-  document identity, and safe string interning. It does not clone diagnostic
-  type views or interpret facet metadata.
-  Construction reads that same scalar projection for completed identity and
-  validity. Builder-only type views supply component metadata, caller-owned
-  union copies, and enumeration presence derived from effective facet groups;
-  they expose no copied facet evaluation program.
-- `internal/xsdregex` owns XSD 1.0 whole-input pattern semantics. One parsed
-  expression selects literal, linear, or NFA execution based on its structure.
-  Compilation and matching have explicit work/state limits. XML input admission
-  belongs to `internal/xmlstream`; match callers provide valid UTF-8 XML text.
-  Finite concatenations whose atoms all have equal minimum and maximum counts
-  use one exact-count cursor over the canonical character sets. Literal matching
-  retains priority. This cursor preserves the general linear matcher's state
-  admission and complete per-atom work charge before returning a mismatch;
-  repetition counts never expand into retained per-position instructions.
-  The parser admits each AST constructor before allocating its node, including
-  constructors later removed by normalization. A failed admission stops parsing
-  at the current rune offset. Pattern byte admission and UTF-8 validation precede
-  parsing; rune conversion remains proportional to the admitted input bytes.
-  Character classes merge sorted inputs through a heap of current ranges:
-  total input ranges R across K nonempty sets require O(R log K) work and
-  O(K + U) temporary storage for U output ranges, without retaining every
-  repeated input range. Unit-stride Unicode rows remain contiguous ranges.
-  A parser-local cache reuses admitted named categories and their complements;
-  its keys are bounded by both polarities of the closed category/block catalogs,
-  and it is released after compilation. No process-wide cache retains patterns.
-  The recognized block catalog excludes the XSD 1.0 surrogate block names,
-  including complemented escapes. Corpus expectations follow that contract;
-  upstream disagreements remain provenance in the authoritative test manifest.
-- `internal/validate` owns instance validation: finite default limits, option
-  normalization, XML reader preflight, parser error classification, validation
-  recovery, document structure, start/end element decisions, attributes,
-  content, simple-content assessment, the concrete document-local identity
-  evaluator and its lifecycle, XSI handling, and location-hint admission and
-  namespace accounting. Hints never participate in component selection; missing
-  required roots, types and wildcard declarations use ordinary assessment errors
-  against the compiled component set.
-  Attribute tracking is skipped only when no attributes are supplied and the
-  schema has neither required slots nor value-constraint slots. An unused
-  wildcard adds no work; explicit, required, default, and fixed assessment
-  otherwise follows the existing schema-owned slots.
-  Known wildcard attributes use their declaration's static identity requirement.
-  An ID declaration conflicts with a published effective ID use even when that
-  use is absent from the instance. Validation rejects the prepared identity
-  target before value recording or capture; the separate count of actual ID
-  attributes still applies. Unavailable types fail first, while skip and
-  unresolved lax attributes remain unassessed. Selected union members do not
-  redefine the declaration's static identity category.
-  Exactly the four intrinsic XSI names use dedicated value/start assessment,
-  bypassing ordinary attribute-use and fixed-value assessment. Physical presence
-  still marks a matching required slot, including when the supplied value is
-  invalid. XSI defaults and fixed values supply no absent attribute or identity
-  value. A prohibited attribute source
-  maps to no use, including when fixed is present, so it neither supplies a
-  default nor overrides wildcard assessment of an actual attribute. Attribute-use
-  construction keeps inherited uses separate from explicit contributions. At
-  finalization, its explicit-use index becomes the completed-set index; no second
-  index is rebuilt. Only restriction applies direct prohibited names to inherited uses. A prohibition
-  never replaces an explicit use or removes an inherited extension use.
-  Its absent component has no type/reference lookup, declaration-name constraint
-  or fixed-value comparison. Source syntax and representation checks remain;
-  independently mapped inline simple types and global declarations retain their
-  own component checks and limits. Prohibition names preserve effective chameleon
-  qualification for inherited-use filtering.
-  XSI identity conversion propagates value-work limit diagnostics after
-  invalidating its fields and releasing the pending target; ordinary lexical
-  conversion errors remain owned by start assessment. During identity capture,
-  each URI item in an XSI location hint is a separate typed evaluation under the
-  same per-value limit; existing token and hint limits bound aggregate
-  processing.
-  The document runner detaches its XML reader on every exit. Reusable sessions
-  clear remaining document state before releasing the overlap guard; that
-  cleanup does not repeat reader detachment. `SessionPool` owns a sealed schema
-  and one atomic idle slot of raw validation scratch. It normalizes options
-  before checking schema availability, and reapplies all limits on each checkout.
-  A cache miss allocates isolated scratch without waiting. Normal returns reset
-  state before attempting publication into the idle slot; a full slot drops the
-  returning scratch. Panics skip publication after reader detachment. Existing
-  buffer, map, and slice retention bounds apply to the single cached session.
-  Explicit sessions are separately allocated guarded owners.
-  Retained document element frames keep payload, expanded name, handle, and
-  path metadata; lexical prefixes remain owned by the XML stream while start
-  admission is live and are not copied into document state.
-  Attribute-use fixed assessment consumes the ordinary typed result through
-  identity record, capture, comparison, rejection and commit. It requires no
-  separate normalized-spelling result at the schema/validation boundary.
-  All borrowed simple-value inputs share one admission path. QName/NOTATION
-  spellings use the reader's bounded string cache, while resolution runs against
-  the current namespace frame each time. Resolver callbacks belong to the
-  reusable session; cached spellings never cache resolved QName values.
-  Empty simple-content elements may instead obtain their value from a schema
-  constraint. The same-owner path reuses the prevalidated value. A changed actual
-  type validates the constraint's application text against its facets and the
-  instance value-work limit, using the constraint's schema namespace projection
-  and the sealed schema's NOTATION declarations. This supplied value records
-  document identity without a second fixed-value comparison. Instance text,
-  including whitespace-only text, uses instance namespaces and retains typed
-  fixed-value equality. Untyped mixed-content constraints retain lexical equality.
-  Both origins share identity record/capture/commit and failure rejection; nil,
-  content recovery, and session cleanup keep their existing owners.
-  Empty complex content rejects every nonempty character-data event, including
-  XML whitespace. Element-only content permits XML whitespace. Comments,
-  processing instructions, and zero-length CDATA add no character content;
-  nil handling and syntax-only recovery retain their own policies.
-- `internal/format` owns repository-internal XML formatting and finite default
-  input, token, processed-node, depth, and output bounds. Its output boundary
-  rejects every incomplete `io.Writer` write, so success means the complete
-  formatted document was written. It consumes the shared stream and namespace
-  boundaries and exposes no root-package API.
-- `internal/xmlstream` owns XML token streaming and declaration scanning shared by
-  schema parsing, instance validation, and formatting. Its parser owns prolog
-  preflight, the sole input buffer, XML 1.0 line-ending normalization and byte
-  positions, and reader detachment for each stream. `Reader.Next` returns one
-  reader-owned, read-only token pointer. Its publisher retires only the previous
-  active payload header before installing the next event; inactive fields stay
-  zero. Borrowed backing is never cleared by token publication because the next
-  event may already share it. A zero token is a legal initial Start-kind header.
-  Error, EOF, reset, and detach retain complete token clearing. Advancing,
-  `Reset`, and `Detach`
-  invalidate it; a rejected advance while admission is pending preserves it for
-  retry. Start and end admission consume that current token without accepting
-  caller-supplied copies. Element and attribute names are admitted in one pass per
-  buffered chunk: a byte-class table derived from the `internal/lex` name
-  predicates finds the terminator and judges ASCII QName syntax while the name
-  is charged and copied. The verdict waits for the terminator, so token-limit
-  and read errors keep precedence over invalid syntax; names with non-ASCII
-  bytes are judged by the Unicode NCName rules. Attribute values share lexical admission and token
-  charging; a nil output destination discards decoded payload while preserving
-  validation and limits. Literal CR and CRLF each
-  advance one logical line in every parser mode; emitted payloads contain LF.
-  Character-data tokens retain one stream-owned lexical origin: literal text,
-  text containing references, or CDATA. Coalescing never erases reference origin.
-  Contiguous ASCII text can borrow the input buffer until the next advance;
-  references, normalization, Unicode, and refill use the existing token buffer.
-  Both paths charge token limits before publishing data. Byte lookahead leaves
-  positions unchanged, and bulk LF consumption preserves CRLF normalization.
-  Compile, validate, and format use that origin for admitted character content;
-  `Reader.Next` owns rejection of unsupported declarations and forbidden
-  outside-root data, while consumers translate those neutral boundary failures.
-  The tokenizer does not duplicate document topology.
-  Only EOF at a token boundary completes a stream; EOF after consumed markup is
-  an XML syntax error, while simultaneous non-EOF reader causes remain observable.
-  Source offsets count admitted bytes; an overflow probe belongs to the terminal
-  input-limit result and cannot shift spans of the admitted prefix. Terminal
-  input errors remain latched so later advances cannot read beyond that result.
-  The same XML stream owner admits namespaces and detects duplicate expanded
-  attributes. Its append-only binding chain owns retained immutable contexts;
-  before successful start admission, attribute names are lexical: `xmlns` in
-  the prefix slot identifies declaration syntax. Successful admission expands
-  declarations into the reserved XMLNS namespace URI and ordinary attributes
-  into their bound namespace URI. Phase-specific predicates never confuse those
-  representations. Failed admission preserves the lexical token and rolls back
-  bindings and document depth. Relative namespace names remain an admitted
-  extension and retain their exact spelling; an ordinary attribute bound to
-  the relative name `xmlns` remains an ordinary attribute.
-  Attribute admission owns one workspace that is clean between calls. Its
-  prepared length is the only active-range marker. After successful name
-  publication or failed-admission rollback, cleanup resets duplicate-name
-  tracking, clears every prepared name slot, then truncates the range. The next
-  preparation only resizes clean storage. Reset and detach independently clear
-  interrupted scratch and enforce the existing retention bounds.
-  An active-prefix index and scalar default-namespace head are reproducible
-  frame-local projections. Retained contexts capture the default head alongside
-  the binding-chain head, so later shadowing cannot change their resolution. Retained
-  namespace frames keep only the lexical closing name and a nonzero serial;
-  handle store ownership remains validated against the owning stack before the
-  serial is checked. Admission, rollback, end, and reset update these together.
-  Oversized maps and buffers are dropped at reset and detach; bounded caches may
-  remain for session reuse. Each name/value cache admits at most 512 owned spellings of at
-  most 256 bytes. Name entries are validated prefix or local NCName components;
-  start admission resolves namespace bindings anew. A string map owns those
-  spellings, and an eight-entry recent ring projects its values. Map keys and
-  values share the same string storage;
-  borrowed-byte lookups return that owned value without copying. Spellings
-  beyond either bound are returned as owned strings without entering the cache.
-  Comment mode
-  selects syntax-only discard for instances, bounded discard for schemas, or
-  emission for formatting. Bounded discard charges normalized payload bytes
-  through the same token-limit owner without retaining or dispatching comments;
-  schema comment limits remain unchanged.
-- `internal/lex` owns low-level XML lexical helpers used by source and
-  `internal/xmlstream` code.
-- `internal/vocab` owns XML/XSD namespace and vocabulary constants.
-
 Internal packages MUST NOT import root `xsd`. Compile-time packages MUST NOT
-depend on validation packages. Value and lexical packages MUST remain below schema and validation packages.
+depend on validation packages. Value and lexical packages MUST remain below
+schema and validation packages.
+
+### `internal/source`
+
+`internal/source` owns immutable/repeatable schema source primitives, explicit
+source kinds, repeatable callbacks, staged bounded acquisition, resolver
+adaptation, local and generic backend policy, resolution context, and source
+identity. `Source.OpenInput` is the only source-opening path; its `Input` owns
+bounded reads and `Finish` drains unread bytes, closes once, and returns raw
+byte count, SHA-256 fingerprint, and stage-aware failures. `Source.ResolveFrom`
+is the only reference-resolution path. The package does not own XSD vocabulary
+or schema-graph policy. The compiler has one canonical source-loading path and
+may delegate within that path, but it must not replace, bypass, or duplicate
+either source boundary capability. Removing a custom resolver preserves the
+built-in file resolver's canonical context identity. The public adapter
+normalizes its known nil resolver forms before they enter source resolution.
+Per-source limit diagnostics acquire their source path before joining read or
+close failures, so wrapper-preserving presentation cannot lose that location.
+
+### `internal/uriref`
+
+`internal/uriref` owns XSD 1.0 URI-reference validity after XLink escaping, raw
+and escaped projections, fragment syntax, and raw-preserving RFC 2396
+composition. A validated `Reference` privately stores one canonical `Parts`
+record; its accessor returns a value copy containing immutable strings and
+presence flags. `internal/source` uses that composition for URI bases; its
+built-in local and absolute fallback projects admitted, fragmentless references
+into escaped canonical identities. Resolver spelling and fallback capability
+remain distinct because valid resolver inputs may be unavailable to a local
+backend. Arbitrary source names and Unix paths do not enter this type.
+
+### `internal/schema`
+
+`internal/schema` owns schema syntax, source-aware diagnostics, opaque
+annotation consumption, graph loading and planning, chameleon contexts,
+component dependencies, names and declarations, complex derivation, identity
+declarations, content models, substitution groups, and immutable publication.
+
+**Source records.** Production schema input is read through
+`internal/xmlstream`; the parser retains compact `schemaNode` records with one
+closed typed semantic-source variant when a node owns compiler capability, a
+node-owned `xml:base` projection, document-local node IDs, and source positions.
+Lexical schema `id` values stay in ordered parse-local records and are checked
+for uniqueness after complete parsing; they do not enter retained semantic
+records. Syntax-only grammar nodes may carry only those common facts. Each
+variant owns its complete capability facts; particle data is embedded in the
+element, model, group, or wildcard variant that admits it. Simple-type
+declarations retain name and final constraints; their base, list-item,
+union-member, and complex-content facts belong to distinct child variants.
+
+**Start admission.** The parser's syntax admission facts are transient and are
+never used as a generic XML tree by compilation. Start admission establishes
+that every retained node belongs to the XSD namespace. A node's local name owns
+vocabulary dispatch, including unknown XSD names; semantic variants own
+capability facts. After root/foreign-node and schema-namespace attribute guards,
+start admission checks names, unsupported features, xml:base, general
+attributes, then top-level child grammar directly on those transient facts.
+Ordered forbidden-attribute presence precedes missing-name errors; no top-level
+syntax projection is retained. Reference and local-declaration attribute
+restrictions remain compiler-owned, using canonical presence masks and typed
+source fields.
+
+**Ordered source children.** Ordered children belong to the immutable source
+node; model variants do not retain a second child list. Indexing filters
+declarations directly from ordered root children within each selected content
+and effective-namespace context. Repeated context scans remain bounded by
+admitted context-node limits; they trade the filtered declaration cache for less
+construction state. Child-order grammar feeds its existing rule state directly
+from canonical XSD children, preserving source order and diagnostics without a
+local-name projection. Capability compilers consume admitted expanded QName
+names and typed lexical presence fields without generic attribute replay;
+reference namespace policy runs before name interning. The attribute-use walk,
+recursive identity declaration walk, and simple-type derivation-child selection
+read canonical ordered source children directly. Facet dispatch filters those
+children without copied child-pointer arrays or representation-origin modes;
+simple-content restriction retains first-facet diagnostic anchoring. Identity
+child grammar reads the ordered semantic-source children directly. Its transient
+validated selection carries selector and field nodes; diagnostics attach to the
+offending node without copied child projections or index replay. Group and
+notation grammar likewise attach diagnostics to source nodes; group child
+grammar completes before occurrence checks. Start admission rejects foreign
+nodes; notation checks every retained child and rejects missing child IDs.
+Schema defaults consume the typed document source's lexical fields directly,
+preserving presence and validation order.
+
+**Facet and occurrence admission.** Schema uses `internal/value`'s canonical
+scalar vocabulary for simple varieties, primitive kinds, whitespace modes, facet
+masks, and builtin kinds. Schema retains source facet-name mapping, facet
+admission and ordering, whiteSpace restriction, and final constraints. Schema
+occurrence admission retains checked counts and a finite/unbounded tag.
+Occurrence and size-facet admission share bounded nonNegativeInteger scanning,
+including signed zero. Each owner applies its own value bounds and diagnostics.
+Schema facet-source admission uses one ordered child dispatch. The build's
+unavailable-type fact defers bound and enumeration literal evaluation while
+preserving source checks and decidable facets. Available grouped facets apply
+before local inclusive/exclusive validation; unavailable grouped facets apply
+afterward. Effective typed facets, literal budgets and completion remain
+value-owned.
+
+**End admission, references and annotations.** End admission checks text,
+reference-directive children, then annotation placement directly on each
+retained `schemaNode`. Documentation language admission reads the transient
+start facts: at start for opaque annotation envelopes and at end for retained
+documentation nodes, after semantic construction and namespace retention. Schema
+QName references resolve while their namespace frame is live; literal values and
+XPath expressions that are intentionally deferred retain only the bounded
+namespace context needed by their owning compiler. Annotation payload is
+consumed without entering the retained semantic graph.
+
+**Graph loading and work budgets.** The loader produces a closed graph before
+component compilation begins. After planning completes, compiler bindings and
+deferred work borrow stable plan-document records and immutable source defaults.
+Cache identity remains source-node identity plus the contextual view key. These
+construction references do not enter the published schema. Source loading,
+effective-context planning, and component resolution share a finite
+dependency-work budget; active expansion has a depth cap of 1024. Content
+analysis has a separate finite work budget shared by consistency, restriction,
+ambiguity checks, compilation, and sealing.
+
+**Particle restriction.** Semantic model admission retains nonunit sequence and
+choice boundaries: language-equivalent occurrence multiplication can change XSD
+1.0 structural restriction. The shared compiler/publication restriction
+validator admits both original graphs and their range/emptiability relation
+before comparison. An already empty derived model succeeds at that boundary:
+structural normalization must not discard the base branch proving emptiability.
+Remaining comparisons expand actual substitution groups on both operands, then
+remove prescribed pointless groups before structural dispatch. RecurseLax
+consumes a matched base position before comparing the next derived particle;
+unmatched base alternatives may be skipped. Its bounded recursive matcher admits
+nested and unbounded branches by their actual restriction relation, without a
+separate shape classifier. MapAndSum permits shared base members through its
+separate relation. Group-to-wildcard restriction checks the aggregate against
+the original wildcard. Immediate-member comparisons use a temporary wildcard
+copy with minimum zero, retaining its maximum, namespaces and processing
+strength under selected correction R-240. Each temporary comparison node owns
+its order provenance: whole generated substitution choices carry an inline
+marker; flattening into an explicit choice retains private contiguous spans.
+RecurseLax waives order only within those generated choices or spans on either
+operand under selected interpretation R-122; explicit siblings keep their order.
+Each derived span scans from its prior boundary and advances that boundary past
+its furthest target; a generated base span shares its start boundary. This is
+bounded functional matching, without permutation search or a global injection
+set. Ordinary comparisons retain their ordered path. Both corrections are scoped
+in docs/spec.
+
+**Comparison view.** The restriction validator's append-only comparison view
+borrows original models. Normalization visits every child before borrowing an
+unchanged group with its original particle and model occurrence bounds;
+flattening requires both layers to be unit. The view owns replacement nodes. A
+comparison containing replacements owns private range/emptiability analysis and
+model-keyed caches for one relation; otherwise it reuses the caller's analysis.
+Analysis borrows child slices from both original and replacement models without
+mutation; component snapshot boundaries retain their copying contract.
+Comparison never changes build models, execution limits or reusable
+source-analysis caches. Traversal, membership scans (including rejected members)
+and temporary growth share the caller's sticky work budget; failure discards the
+view. Execution compilation may independently collapse representable singleton
+repetitions into private values, with charged traversal, after semantic
+restriction has been checked.
+
+**Content kinds and extension.** Simple content has one canonical content kind.
+An enclosing syntactic mixed flag is checked at admission but cannot survive
+simple-content construction or authorize later mixed derivation. Effective-empty
+extensions retain the inherited base content type. When both base and extension
+contribute particles, extension lowers to a unit sequence with inherited content
+first. A nonunit base group carries its original occurrence on a particle
+referencing a unit clone; publication verifies that occurrence and the clone's
+compositor, text policy, and ordered particles. It does not require the clone to
+retain the original model ID or replace the structural preservation check with
+language equivalence. Extension admission and publication share a bounded,
+dependency-charged check of matching attribute uses against the original complex
+ancestor whose base is builtin anyType. It reuses attribute restriction for
+type, requiredness and fixed-value obligations, without a retained lineage
+cache. Intermediate restrictions are not independent anchors; new names remain
+extension-owned. This enforces the attribute projection of cos-ct-extends 1.5,
+separately from immediate content/wildcard extension checks.
+
+**Wildcards.** Wildcard overlap admits a namespace only through the wildcard
+owner's membership predicate. It scans finite operands against that predicate
+and treats an empty namespace set as disjoint before infinite-set shortcuts. An
+empty-set wildcard retains its particle and occurrence semantics.
+Attribute-wildcard construction and provenance admit namespace inclusion and
+derivation shape. Restriction processing strength belongs to the complex type:
+one predicate reads its immediate base identity during source compilation and
+publication, exempting only the actual builtin `anyType`. Equal wildcard shapes,
+shared wildcard IDs and ancestry do not grant this exception. Particle wildcard
+restriction uses its separate actual-ur-type-content-wildcard exception, not
+this immediate-base-type predicate. These exceptions add no retained policy
+state or graph traversal.
+
+**UPA, DFA and occurrence execution.** UPA traversal uses one machine-word
+visitation tag per admitted model; each root starts a distinct traversal without
+clearing the full table. Traversal results and work charges are not shared
+across roots. DFA follows become immutable after normalization. A compiler-local
+position-to-state cache reuses normalized follows, while every lookup retains
+the same sequential work charges. Only successful state lookup populates the
+cache; start state normalization, discovery order, and state limits remain
+unchanged. Admitted particle and group occurrence ranges own runtime
+cardinality. Restriction checks establish schema validity separately; they do
+not rewrite the derived content particle. Direct and DFA execution project those
+admitted ranges without derivation-specific caps or restriction-owned model
+copies. Repetition owns counter allocation from occurrence bounds; callers do
+not supply counter slots. Exact-one repetition retains its initial work charge
+and uses the admitted child directly.
+
+**Construction state.** The compiler owns one private `schemaBuild`.
+Registration and completion update correlated tables together. Global
+registration bindings also own compiler QName-to-ID lookup, including reserved
+placeholders; active expansion and local/anonymous caches remain separate.
+Registration does not establish completion. Complex-type construction owns one
+ID-indexed source and completion record, with reserved -> completing -> complete
+transitions. Element type references reserve named or anonymous identities
+without compiling their bodies. Only derivation-base resolution requires
+recursive definition completion, so re-entry into a completing definition
+identifies a derivation cycle rather than legal recursive element content. A
+monotonic completion pass closes both complex definitions and deferred
+compositor children, including work discovered by either frontier, and finishes
+before substitution, element-value constraints, restriction, consistency, and
+UPA processing. Registration and completion consume dependency work; source
+declarations and effective contexts bound retained records, and the existing
+component-depth cap bounds active inheritance. Builtin anyType starts complete.
+Definition failure aborts compilation; publication rejects incomplete records
+before consuming the build. Simple-type unavailability has one mutable bitmap in
+that build; publication owns its immutable snapshot. There is no exported
+mutable builder or forwarding layer between compiler and build state.
+Compilation and publication metadata algorithms borrow the compiler-owned build
+directly. Work charging remains explicit; attribute-wildcard construction
+retains its narrow fallible storage boundary. Validation consumes immutable
+published reads.
+
+**Zero-occurrence particles.** A group reference with admitted occurrence 0..0
+contributes no component under XSD 1.0 [group-reference
+mapping](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-namedModelGroup).
+Source shape, QName syntax and occurrence validity remain mandatory; the absent
+particle has no target lookup, expansion, cycle edge or target-dependent
+all-group constraint. Nested content omits the absent-model sentinel; direct and
+restriction content canonicalize it, while extension inherits the base content.
+Global group definitions remain independently validated. A zero-count sequence
+or choice likewise contributes no component under the [compositor
+mapping](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel).
+This exception applies to that item, not its descendants: their independent
+declarations, types, references, defaults, facets and identities retain ordinary
+source and component validation. The compiler defers immediate child roots until
+active named-group expansion unwinds, then uses the same constructors as
+attached particles. It creates no discarded parent model, so absent siblings
+acquire no collective EDC or UPA constraint. Identity predeclaration still
+visits the whole source tree, and descendant element construction completes
+those identities. A source/effective-context key admits each omitted compositor
+once, charging dependency work before retaining its source record. The model
+cache records `NoContentModel` for admitted absence; that entry completes only
+the parent's mapping, while the pending queue owns unfinished descendant
+validation. Admitted source/context counts and the aggregate work budget bound
+the model cache and append-only queue; ordinary constructors retain their
+existing depth, work and component limits. Completion clears the pending queue
+only after both work frontiers close. Failure aborts compilation; publication
+rejects pending descendants without consuming the build. Source records and the
+model cache remain private to the compiler and do not enter the published
+runtime.
+
+**Recursion and unfinished definitions.** Model-group expansion rejects an
+active group directly; legal recursion through element types crosses the
+definition-completion boundary and needs no element-depth exception or synthetic
+recursive model. These boundaries follow XSD 1.0 [type
+ancestry](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#ct-props-correct)
+and [model-group
+containment](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#mg-props-correct).
+Private unfinished definitions are distinct from [missing schema
+components](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing).
+The latter retain their existing assessment policy and do not leave construction
+records pending.
+
+**Builtins, XSI, XML and XLink declarations.** Value owns fixed builtin
+simple-type IDs; schema references them directly. Schema owns one intrinsic
+catalog for the four global XSI attribute declarations and their canonical
+types: QName, boolean, anyURI and an anonymous list of anyURI for
+schemaLocation. The anonymous type has no global type binding and does not
+consume the source-instantiated type allowance. Source admission rejects XSI
+attribute declarations; only the trusted constructor can supply these intrinsic
+records. Publication validates their bindings, types and absent value
+constraints, the fixed simple types and `anyType` structure before constructing
+immutable reads. Schema QName authorization exempts XSD and XSI namespace
+references from foreign-namespace imports under adopted WG correction 1890.
+Ordinary lookup still owns component kind and existence; supplied custom XSD
+components need explicit sources, and builtin authority remains immutable.
+Explicit imports retain ordinary resolution and budgets. The selected
+corrections are recorded in `docs/spec/SOURCES.md` and
+`docs/spec/INTERPRETATIONS.md`. XML and XLink attribute declarations come only
+from supplied schema sources; they use ordinary component indexing, compilation
+and publication. The compiler has no fallback declaration table for either
+namespace. XML imports use the same resolver, target-namespace checks and
+source/reference budgets as other imports. The predefined `xml` prefix does not
+grant a schema import. XML namespace admission, schema `xml:base` and
+documentation-language admission remain separately owned syntax behavior.
+
+**Element-declaration consistency.** Element-declaration consistency uses one
+charged, model-cached checker during compilation and publication. Distinct
+particles with the same element name require the same named global type,
+established by declaration scope and the exact global binding; generated
+internal names do not name anonymous types. It includes effective transitive
+substitution members for each element particle. Blocked and abstract members are
+excluded from consistency, but every raw membership scan still consumes
+content-model work. The checker borrows canonical models during exclusive build
+access without cloning their particle slices. One repeated particle is not two
+declaration particles. Unavailable simple components retain their separate
+assessment policy.
+
+**Unions.** Union compilation resolves all members and canonicalizes ordered,
+deduplicated facet-free leaves. A nested union with effective
+pattern/enumeration facets remains a member node so evaluation cannot discard
+its constraints. The value builder owns effective facets, including inheritance;
+its completed-only scalar query derives the private unionHasFacets construction
+cache after successful completion. Publication verifies that cache and projects
+the constraint barrier into simple derivation reads. Compiler and runtime member
+derivation cannot cross a constrained union; identity and ordinary base-chain
+derivation remain valid. The existing value evaluator validates retained members
+and their facets recursively. After each member passes final and member-entry
+admission, compilation derives a private unionContainsList fact from that
+completed member. Restrictions preserve it. List-item legality reads direct List
+variety or this union fact in constant time, after final checks; unavailable
+value placeholders do not erase source List variety. The construction caches
+disappear with the build; published reads retain only the derivation barrier.
+General value Builder unions retain their own semantics.
+
+**Attribute uses.** Declaration and attribute-use shape audits consume canonical
+construction records directly; default/fixed presence comes from their
+constraint pointers. Attribute-use derivation and wildcard audits also read
+canonical records. An attribute-use compilation owns its explicit ordered uses
+and name index, borrowing inherited uses as immutable input. Source admission
+supplies prohibition names separately; they never enter `AttributeUse` records.
+A prohibited attribute source maps to no use, including when fixed is present,
+so it neither supplies a default nor overrides wildcard assessment of an actual
+attribute. Attribute-use construction keeps inherited uses separate from
+explicit contributions. At finalization, its explicit-use index becomes the
+completed-set index; no second index is rebuilt. Only restriction applies direct
+prohibited names to inherited uses. A prohibition never replaces an explicit use
+or removes an inherited extension use. Its absent component has no
+type/reference lookup, declaration-name constraint or fixed-value comparison.
+Source syntax and representation checks remain; independently mapped inline
+simple types and global declarations retain their own component checks and
+limits. Prohibition names preserve effective chameleon qualification for
+inherited-use filtering. Referenced default/fixed overrides are validated before
+attachment to a use; no lexical-only constraints enter a use record.
+Finalization is terminal; wildcard construction retains its separate fallible
+storage boundary. Each admitted use receives a nonzero compiler-local component
+identity. Group and inheritance copies preserve it; set union coalesces only the
+same component, while distinct same-name uses still reach duplicate or
+derivation checks. Declaration identity and equal use fields cannot establish
+use identity. Group expansion borrows immutable members and charges each
+traversed member before merging, including shared members. The compiler checks
+identity exhaustion before allocation. Publication drops component identities
+with the construction records and derives immutable required and applicable
+value-constraint slot lists from those uses, preserving order. The same
+projection derives `HasIDUse` from completed value-builder input requirements
+for the effective uses, after inheritance and restriction. Missing metadata is
+an internal invariant error before builder sealing; no raw type specification or
+ancestry scan substitutes for it. Under adopted WG correction 4363,
+validation-read projection omits XSI value constraints; construction and
+derivation retain them. `AbsentValueConstraint` supplies synthesis eligibility
+to slot construction, while required slots remain independent. Publication
+guarantees that XSI declarations are precisely the four intrinsics. It clones
+those lists before releasing construction storage. Compilation and sealing
+exclusively borrow their use slices and attached immutable constraints during
+each audit; derivation callbacks read metadata and charge work without mutating
+those inputs. Publication constructs packed attribute reads directly from
+canonical uses and declarations, projecting each constraint once through its
+clone owner.
+
+**Publication.** Compiled construction models retain execution metadata; source
+provenance remains compiler-owned, and actual-type content kind supplies text
+policy. Publication validates semantic source invariants, constructs immutable
+execution tables once, and consumes the build only on success. Failure preserves
+build data, while completed work remains charged. Read tables are derived state;
+comparing each table back to a duplicate runtime projection is not a second
+publication step. Names, typed references, element constraints, derivation
+indexes, wildcard policies, substitution membership, and content execution
+remain schema-owned. Published element constraints use one default/fixed tag and
+one payload; validation receives a value copy of that row with the declaration
+owner, never a pointer into the packed table. Publication rejects conflicting
+constraints before constructing these reads. Every constructed name table
+reserves namespace ID zero for the empty namespace independently of seed order;
+publication validates that invariant.
+
+**NOTATION use.** NOTATION actual-use admission belongs to schema construction
+and publication. A scalar completed value-definition query distinguishes atomic
+NOTATION with no effective enumeration. Schema declarations, local attribute
+uses, resulting simple-content types and list/union constructor edges enforce
+that predicate. Atomic restriction bases and enumeration-literal evaluation
+remain legal. Publication audits canonical completed constructor edges once per
+user type, charging dependency work; trusted builtin constructors are not schema
+uses. The value owner exposes only immutable constructor-use IDs: a completed
+type cannot change, so its view survives unrelated construction and sealing. No
+mutable slice or type-record pointer escapes; owned TypeView copies retain their
+separate contract for callers that need them. Constructor-edge admission proves
+nested safety without per-use graph walks or a second cached type property.
+Unavailable components remain distinct from invalid metadata. Low-level value
+parsing owns no schema-use prohibition.
+
+**Value constraints.** Cached typed default/fixed values retain their exact
+owning simple-type ID, including outer union ownership; selected members remain
+separate value metadata. Publication rejects a member-typed cache even when that
+member accepts the same lexical value. Published caches are immutable. A changed
+xsi:type revalidates application text under the actual type into a local result
+using captured schema namespaces; it never retargets the cached owner. Published
+value constraints own application text and an immutable namespace projection for
+revalidation under a different actual type. Context-free constraints use
+canonical spelling; accepted QName/NOTATION values, including list items, retain
+source spelling because expanded-name text is not lexical XML. Rejected union
+members do not determine that choice. The projection captures each distinct
+prefix in QName-shaped application fields, including the default namespace and
+unresolved prefixes even when the declared type selected a string member. It
+retains only sorted bindings and shared immutable strings, never a source node,
+namespace history, or compiler closure. Source token/byte and instantiated-node
+limits bound this metadata. Publication validates coverage and consistency with
+captured resolution proofs; cloning owns the binding slice. Repeatable
+application lookup is distinct from the consuming proof replay used to audit
+original literal admission. Ordinary use-owned fixed comparisons use typed-value
+equality under the selected attribute-use correction. Admission requests
+identity work for a fixed comparison regardless of static QName capability.
+Accepted lexical text must still satisfy the actual type's facets. The
+unconstrained-string fast path compares strings directly, which is its datatype
+equality. Declaration and use constraints share typed equality; XSI retains
+intrinsic assessment. Typed comparison consumes the value owner's identity tag
+and immutable payload directly. Only callers needing an identity key serialize
+its framing.
+
+**Identity declarations.** Identity declarations compile into immutable
+selector/field path programs and exact-name, namespace, and wildcard dispatch
+indexes; validation owns only active document scopes and matching scratch. The
+dispatch programs are the canonical identity read surface. Construction owns
+canonical selector and field paths. Publication validates those paths, derives
+immutable field partitions directly, and clones their steps. Published
+field-group and path-program slices retain no append-growth capacity.
+
+**Published content-model rows.** Large `xs:all` models use a bounded
+QName-to-term index; small models scan directly. Both preserve occurrence bits,
+substitution matching, and atomic transition failure. The index is derived once
+during sealing. Publication retains only the content models validation can
+enter: complex-type roots, deduplicated in source-ID order. Nested groups are
+compiled into their ancestors' rows and no published particle names another
+model, so every other compiled model is dropped and each complex-type read
+carries its root's published index. Every empty-kind model compiles to the
+same read, so all empty roots share the lowest empty-kind source ID and
+publication keeps one row for them. Publication rejects a compiled-model table
+whose length differs from the source models before any root indexes it.
+Projection and all-group index work are charged, and index failures reported,
+for every compiled model, so admission never depends on which models are
+entered; an unentered all-group is indexed into one cleared scratch map that
+nothing retains. Optional dense conversion visits published models only. Shared
+published content-model rows have storage ceilings of 80
+bytes on arm64 and 52 bytes with the gc compiler on 386. Optional dispatch
+metadata must not enlarge those row records. Published DFA rows own one linear,
+QName-map, or dense index variant. The discriminator occupies existing row
+padding; map and dense variants share one map/slice record. Map data holds
+ordered wildcard positions. Dense data holds namespace and minimum-local IDs
+followed by edge-plus-one slots, with no retained QName map. Mutable
+construction indexes remain separate. Dense conversion admits only
+already-indexed, wildcard-free rows with at least 16 source edges, 2–256
+expanded names in one namespace, and a local-ID span at most 256 and at most
+twice the name count. Ambiguous counted rows retain their original linear path.
+Dense lookup checks namespace and bounds, then uses the same
+particle/substitution match and occurrence/state admission as other rows.
+Required flat projection and map cloning retain their mandatory charging order.
+An ephemeral marker collected during that traversal skips optional conversion
+entirely when no row can qualify. After mandatory publication charges, a private
+stable-order pass may replace complete cloned maps with dense arrays. Source
+indexes, cloned maps and new arrays may overlap during construction; the final
+schema retains only its selected immutable variant. Optional conversion has
+independent limits of 4 MiB requested array backing, including both metadata
+cells, and 16 million work units. Each model/row visit costs one unit before
+visiting. A candidate prepays N units for its N-name bounds scan; an eligible
+span S then admits `4*(S+2)` bytes and `2*N+S+4` work before allocation/fill.
+Exhaustion stops the pass with remaining complete map indexes; spent work is not
+refunded.
+
+**Element frames and empty content.** One `ElementFrame` read combines
+effective-type simple content, text policy, and initial child content state. The
+original element declaration remains the owner of default/fixed constraints
+after `xsi:type` changes the actual type. Complex-type reads derive text-type
+presence from the canonical content kind and return its text type directly;
+absence returns `NoSimpleType`, while present IDs retain caller-owned
+availability checks. Complex content retains its semantic kind before particle
+normalization, ignoring annotations when identifying semantic model children:
+empty, element-only, mixed, or simple (including mixed simple-derivation
+provenance). Empty content has neither a particle nor a simple text type; the
+converse does not hold. An optional element or a present outer particle whose
+children normalize away remains element-only. A nonzero reference to an empty
+named group also remains element-only. Actual type selection supplies the text
+policy independently of declaration-owned value constraints. An extension with
+empty effective content inherits all base content fields after local model
+syntax and references have been checked. Canonical empty models reuse their
+existing rows; normalization does not duplicate them. Publication requires empty
+content to reference a non-mixed `ModelEmpty`; model-shape validation separately
+rejects inactive occurrence or slice data. A noncanonical source row remains
+available for reference, consistency, and graph checks when lowering adds a
+distinct executable empty model. Published empty models reject child admission
+with a semantic no-match; invalid model IDs and kinds remain invariant failures.
+Validation carries selected declaration metadata through start assessment
+instead of resolving the same declaration again. `ContentTransition.Commit` owns
+the stale-state check and applies the content transition once, after identity
+commit readiness has been checked.
+
+### `internal/value`
+
+`internal/value` owns simple-type validation and its immutable program: lexical
+normalization, primitive values, lists, unions, facets, canonical text, typed
+equality, and ID/IDREF projections. Schema declarations retain only component
+metadata and value-program references; they do not implement a second
+simple-value parser, facet evaluator, or equality model.
+
+**Primitive payloads.** Primitive parsers own their lengths: strings count
+Unicode code points, admitted URI references count characters, and strictly
+admitted binary values count octets. Text and binary atoms retain one lexical
+payload selected by the primitive kind, storing that parser-owned length once.
+Base64 readiness is meaningful only for base64; string and URI assignment clears
+it. Primitive admission, equality, borrowed string backing and fixed storage
+charges remain distinct and unchanged. Text parser return records keep their
+two-field layout; binary parser returns retain their distinct named type over
+the shared payload structure. Parsed results own requested float, double, date
+and dateTime canonical text; atoms retain their numeric or temporal comparison
+payloads. Primitive parser return records keep their public projection
+contracts. Atomic evaluation resets the complete parsed result for each attempt,
+including failed union members. Builder-admitted builtin/primitive combinations
+retain builtin projection precedence; changing projection ownership does not
+tighten metadata admission.
+
+**Temporal values and fractions.** Temporal semantics have one value owner and
+two consumer-specific execution paths: borrowed string/byte scanners admit raw
+lexical values without building typed fields or signed timezone offsets; typed
+string parsers construct the admitted value directly. Both share year and
+two-digit lexical scanners, calendar, clock, timezone-range, and BCE remainder
+rules. Whole-primitive admission and typed construction keep their distinct
+execution paths. Typed year projection preserves canonicalYearDigits
+normalization: trimming leading zeroes, padding magnitudes shorter than four
+digits, and otherwise retaining existing string backing. Absent or all-zero
+fractions use a literal empty string rather than retaining input storage.
+Calendar arithmetic, partial orders, Gregorian lexical fields and normalized
+identity, and recurring versus unwrapped time remain distinct value operations.
+Typed decimal, temporal and duration fractional digit strings are normalized
+without trailing zeroes; empty represents zero. Their fraction comparison is
+shared within value, while primitive admission, signs, timezone handling and
+partial orders retain their existing owners.
+
+**Construction lifecycle.** Compile-time literals and instance values use the
+same value semantics. Construction capacity is admitted against the same
+conservative storage budget as type records; reserved slots consume that
+admission without a second fixed charge. `Reserve` allocates stable IDs;
+`Complete` requires visible dependencies and admits the remaining metadata on
+success, reserving its charge before resolver callbacks. Failed or panicking
+completion refunds only that charge and leaves its slot unavailable and
+retryable; nested successful construction survives. Resolver callbacks can
+inspect provisional metadata and complete other slots. Facet publication
+reacquires the stable ID's current slot after callbacks that may grow
+construction storage. Sealing rejects incomplete slots and active completions
+without consuming the builder. Program owns normalized evaluation depth and
+publication state; Builder reads those facts and retains construction-only
+limits. One byte per slot in the program-owned completion table records
+reserved, in-progress or committed state. Reserved slots are unavailable;
+in-progress and committed slots support construction queries and evaluation.
+Sealing requires every slot committed, preserving reserved-slot diagnostic
+priority, then removes the table.
+
+**Facets and evaluation plans.** Type construction validates dependencies and
+facets before publication. Restriction derivation returns its validated
+effective facet program for publication; the compiler does not reconstruct that
+merge. Facet applicability has one value-owned allowed-bit mask, derived from
+variety and primitive and shared by schema admission, value construction,
+single-facet queries, source-mask admission and diagnostic classification:
+atomic Boolean admits pattern and whiteSpace; list and union enumeration remains
+independent of member primitive families. Effective-facet validation remains
+separate. Fixed builtin metadata lists each primitive's canonical record before
+its derived records, and primitive lookup skips the generic anySimpleType
+record. Completion derives one raw evaluation plan from the effective lexical
+rule and facets, including string enumeration, NMTOKEN lists, and integer bound
+eligibility. Decimal admission owns normalized numeric sign and trimmed
+magnitude spans. Raw numeric plans retain eligibility only; validation borrows
+immutable admitted bounds and shares integer-magnitude comparison with typed
+values. Builder literals can use completed plans before sealing. Integer
+eligibility follows the integer lexical rule; decimal types restricted to zero
+fractional digits still accept decimal spellings.
+
+**Reference admission and work bounds.** Caller-owned scratch bounds reusable
+validation storage. Core-reference admission uses the completion table to admit
+every core reference and derive their maximum depth in one pass. It rejects
+out-of-range, reserved and self references before checking the core depth limit,
+then checks facet references separately without folding their depth into the
+stored core depth. It does not separately scan for cycles. Resolver reentry can
+observe provisional dependencies, so construction does not promise an acyclic
+graph. Runtime evaluation tracks depth and cumulative lexical work; empty lists
+never visit an item type. The schema compiler supplies the builder's
+construction limit; each completed type's bounds and enumeration share one fresh
+facet-batch budget. Builder validation starts a fresh construction budget per
+value. Instance validation supplies its own normalized `MaxInstanceValueWork`,
+whose fixed default (`defaultMaxInstanceValueWork`, listed in
+`RESOURCE_LIMITS.md`) does not depend on compilation options. Each evaluation
+visit charges its lexical byte length plus one. Enumeration membership is
+uncharged; indexing bounds it per group visit, as `RESOURCE_LIMITS.md`
+states. Raw-byte attempts, shortcuts,
+list items, union attempts, and typed fallback share one per-value counter; a
+failed fast attempt does not replenish the budget. Borrowed byte plans dispatch
+through evalBytes, with only the existing unprojected builtin
+string/anySimpleType shortcut outside it. Unprojected raw results carry no
+equality identity; typed and projected list results retain their list flag. The
+published program retains neither caller limits nor work counters; session
+limits remain fixed for each validation and scratch retains no cumulative work.
+Limit failures keep their schema or instance diagnostic category at the owning
+boundary.
+
+**Validation inputs.** Explicit fixed-string attributes enter admitted value
+validation before their fixed comparison, without requesting unused projections.
+Already validated constraints on omitted attributes retain their compiled-value
+path. Borrowed-byte and admitted-string validation consume UTF-8 XML 1.0
+character data already checked by the stream boundary, including through typed
+fallback. Ordinary string validation admits external lexical input. All paths
+share value semantics and work accounting. A type retains its owning type
+through list and union evaluation.
+
+**Equality and identity.** Equality uses the admitted value space, including
+duration month/second coordinates and resolved QName names. Text projections do
+not define equality: duration has no XSD 1.0 canonical representation and
+retains its whitespace-normalized lexical spelling. Requested identity has
+explicit presence, a primitive tag and an immutable payload; empty payloads
+remain distinct from absent identity. Equality also preserves the list
+distinction. Identity-key serialization retains the existing tagged,
+length-framed bytes; list construction writes item frames directly into its
+owned payload. Retained values remain valid after scratch reuse or reset. Base64
+values carry an explicit readiness bit distinguishing admitted lexical text from
+compact canonical text; the field name alone cannot prove canonical form. Strict
+lexical admission validates padding bits before whitespace removal. Published
+enumeration literals are canonical, and each compiled facet program derives
+whether any inherited or local literal contains base64. Enumeration evaluation
+prepares only the selected document value's retained base64 leaves once.
+Equality never mutates either operand; direct string equality requires both
+operands to be ready, otherwise it compares decoded values. This adds no decoded
+sidecar or additional retained list items, and does not change work charging or
+union selection.
+
+**Patterns, unions and list retention.** Patterns in one restriction step are
+alternatives; inherited restriction steps all apply. Union patterns inspect the
+selected member's normalized lexical output after ordered member assessment;
+evaluation returns that spelling explicitly to its caller, without mutable
+output pointers in options or enlarging each retained list item. A failed union
+pattern does not try a later member. Union enumeration compares the selected
+member's value. An enumeration group of at least eight literals maps each
+literal's equality key to its first declaration position; smaller groups scan in
+declaration order. Key equality holds exactly when value equality does, so a
+lookup leaves at most one candidate and equality still decides. A group whose
+literals are all non-list values of one primitive whose canonical text is its
+equality key (string types after whitespace normalization, anyURI, or compact
+base64Binary) keys by that text; the raw string-enumeration path looks string
+groups up directly. Any other group keys by a
+self-delimiting encoding of the value-space fields equality compares (primitive
+tag, then decimal sign and trimmed digits, float bits with both zeros and every
+NaN folded, duration coordinates, temporal timezone presence and instant fields,
+upper-cased hex, compact base64, expanded QName; lists frame their items). The
+encoding reads only fields every validation fills, never the canonical or
+identity projections that depend on requested needs. Membership encodes the
+value once per derivation chain and looks it up in each keyed group.
+Diagnostics read the declared literals. Compiled enumeration groups retain their
+maximum list-literal item count. Evaluation propagates the maximum applicable count through nested
+unions and combines it with each list's own groups. An input with N items
+retains all items only when N is within that bound K; otherwise it retains none.
+Temporary item storage is therefore at most K parsed values. Every item still
+validates and consumes work; omitting storage cannot change first-success member
+selection or bypass local facets. List equality requires equal counts and
+complete retained items. Enumeration-literal construction retains all items
+under its construction limits. Literal construction can omit its containing
+type's facets while they are being installed; member and item types always
+enforce their own facets, preserving normal value selection.
+
+**Ordered bounds.** Source bound presence owns omission. Retained ordered-bound
+entries are present and use their existing exclusive flag for acceptance,
+restriction and fixed-kind lookup. One value-owned pair predicate checks
+same-step consistency: equality permits matching bound kinds, and incomparable
+endpoints do not violate the prohibited-order comparison. Schema literal
+admission, instance acceptance, and inherited-bound narrowing remain separate
+checks. Fixed ordered facets use the nearest declaration of the same bound kind;
+the complete inherited bound sequence remains available for partial orders.
+Ordered bounds retain only admitted atomic payloads. Literal evaluation keeps
+its declared type and ordered union selection; construction rejects list or
+mismatched primitive results before retaining the atom. Bound construction
+requests no unused canonical or identity projections. Raw time day offsets,
+primitive-kind equality, fixed storage charges, and work accounting remain owned
+by the value program.
+
+**Document identity.** Document identity is carried by each validated value: an
+atomic type derived from xs:ID or xs:IDREF projects its canonical value, a union
+preserves the selected member's ID/IDREF projections, and a list (including
+xs:IDREFS) collects its items' IDs and IDREFs. The value program's ID/IDREF
+carriers are the only type-level identity metadata and the single ID-carrier
+predicate ([I-016](docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness));
+schema value-constraint and attribute-use checks, wildcard counting, identity
+activation and the fixed-attribute raw-text comparison
+(`InputRequirements.LexicalCanonical`, which still validates facets before
+comparing) read it through input requirements. List evaluation constructs its
+complete framed identity while scanning items, independently of retained item
+storage; even an empty list has a nonempty identity prefix. Unions preserve that
+identity and the list value kind. Static type identity metadata cannot replace
+these dynamic projections. Validation records them even when no
+key/unique/keyref field requested a value. The g* identity projection uses the
+normalized instant and timezone presence, matching typed equality independently
+of lexical calendar fields.
+
+**QName resolution and input requirements.** QName resolution produces one
+expanded name before NOTATION declaration checking and typed assignment; absent
+namespace context cannot bypass that check. The value-owned `ExpandedName` is
+both the `QNameResolver` result and the shared QName/NOTATION payload, selected
+by the primitive kind tag. That tag preserves distinct value spaces and selects
+NOTATION declaration policy. Compilation, proof replay, and document assessment
+share that resolver contract; value admission validates its result. Validation
+reads one scalar `InputRequirements` projection for QName context, document
+identity, and safe string interning. It does not clone diagnostic type views or
+interpret facet metadata. Construction reads that same scalar projection for
+completed identity and validity. Builder-only type views supply component
+metadata, caller-owned union copies, and enumeration presence derived from
+effective facet groups; they expose no copied facet evaluation program.
+
+### `internal/xsdregex`
+
+`internal/xsdregex` owns XSD 1.0 whole-input pattern semantics. One parsed
+expression selects literal, linear, or NFA execution based on its structure.
+Compilation and matching have explicit work/state limits. XML input admission
+belongs to `internal/xmlstream`; match callers provide valid UTF-8 XML text.
+Finite concatenations whose atoms all have equal minimum and maximum counts use
+one exact-count cursor over the canonical character sets. Literal matching
+retains priority. This cursor preserves the general linear matcher's state
+admission and complete per-atom work charge before returning a mismatch;
+repetition counts never expand into retained per-position instructions. The
+parser admits each AST constructor before allocating its node, including
+constructors later removed by normalization. A failed admission stops parsing at
+the current rune offset. Pattern byte admission and UTF-8 validation precede
+parsing; rune conversion remains proportional to the admitted input bytes.
+Character classes merge sorted inputs through a heap of current ranges: total
+input ranges R across K nonempty sets require O(R log K) work and O(K + U)
+temporary storage for U output ranges, without retaining every repeated input
+range. Unit-stride Unicode rows remain contiguous ranges. A parser-local cache
+reuses admitted named categories and their complements; its keys are bounded by
+both polarities of the closed category/block catalogs, and it is released after
+compilation. No process-wide cache retains patterns. The recognized block
+catalog excludes the XSD 1.0 surrogate block names, including complemented
+escapes. Corpus expectations follow that contract; upstream disagreements remain
+provenance in the authoritative test manifest.
+
+### `internal/validate`
+
+`internal/validate` owns instance validation: finite default limits, option
+normalization, XML reader preflight, parser error classification, validation
+recovery, document structure, start/end element decisions, attributes, content,
+simple-content assessment, the concrete document-local identity evaluator and
+its lifecycle, XSI handling, and location-hint admission and namespace
+accounting. Hints never participate in component selection; missing required
+roots, types and wildcard declarations use ordinary assessment errors against
+the compiled component set.
+
+**Attributes.** Attribute tracking is skipped only when no attributes are
+supplied and the schema has neither required slots nor value-constraint slots.
+An unused wildcard adds no work; explicit, required, default, and fixed
+assessment otherwise follows the existing schema-owned slots. Known wildcard
+attributes use their declaration's static identity requirement. An ID
+declaration conflicts with a published effective ID use even when that use is
+absent from the instance. Validation rejects the prepared identity target before
+value recording or capture; the separate count of actual ID attributes still
+applies. Unavailable types fail first, while skip and unresolved lax attributes
+remain unassessed. Selected union members do not redefine the declaration's
+static identity category.
+
+**XSI attributes.** Exactly the four intrinsic XSI names use dedicated
+value/start assessment, bypassing ordinary attribute-use and fixed-value
+assessment. Physical presence still marks a matching required slot, including
+when the supplied value is invalid. XSI defaults and fixed values supply no
+absent attribute or identity value. XSI identity conversion propagates
+value-work limit diagnostics after invalidating its fields and releasing the
+pending target; ordinary lexical conversion errors remain owned by start
+assessment. During identity capture, each URI item in an XSI location hint is a
+separate typed evaluation under the same per-value limit; existing token and
+hint limits bound aggregate processing.
+
+**Sessions.** The document runner detaches its XML reader on every exit.
+Reusable sessions clear remaining document state before releasing the overlap
+guard; that cleanup does not repeat reader detachment. `SessionPool` owns a
+sealed schema and one atomic idle slot of raw validation scratch. It normalizes
+options before checking schema availability, and reapplies all limits on each
+checkout. A cache miss allocates isolated scratch without waiting. Normal
+returns reset state before attempting publication into the idle slot; a full
+slot drops the returning scratch. Panics skip publication after reader
+detachment. Existing buffer, map, and slice retention bounds apply to the single
+cached session. Explicit sessions are separately allocated guarded owners.
+
+**Element frames and simple values.** Retained document element frames keep
+payload, expanded name, handle, and path metadata; lexical prefixes remain owned
+by the XML stream while start admission is live and are not copied into document
+state. Attribute-use fixed assessment consumes the ordinary typed result through
+identity record, capture, comparison, rejection and commit. It requires no
+separate normalized-spelling result at the schema/validation boundary. All
+borrowed simple-value inputs share one admission path. QName/NOTATION spellings
+use the reader's bounded string cache, while resolution runs against the current
+namespace frame each time. Resolver callbacks belong to the reusable session;
+cached spellings never cache resolved QName values. Empty simple-content
+elements may instead obtain their value from a schema constraint. The same-owner
+path reuses the prevalidated value. A changed actual type validates the
+constraint's application text against its facets and the instance value-work
+limit, using the constraint's schema namespace projection and the sealed
+schema's NOTATION declarations. This supplied value records document identity
+without a second fixed-value comparison. Instance text, including
+whitespace-only text, uses instance namespaces and retains typed fixed-value
+equality. Untyped mixed-content constraints retain lexical equality. Both
+origins share identity record/capture/commit and failure rejection; nil, content
+recovery, and session cleanup keep their existing owners.
+
+**Character content.** Empty complex content rejects every nonempty
+character-data event, including XML whitespace. Element-only content permits XML
+whitespace. Comments, processing instructions, and zero-length CDATA add no
+character content; nil handling and syntax-only recovery retain their own
+policies.
+
+### `internal/format`
+
+`internal/format` owns repository-internal XML formatting and finite default
+input, token, processed-node, depth, and output bounds. Its output boundary
+rejects every incomplete `io.Writer` write, so success means the complete
+formatted document was written. It consumes the shared stream and namespace
+boundaries and exposes no root-package API.
+
+### `internal/xmlstream`
+
+`internal/xmlstream` owns XML token streaming and declaration scanning shared by
+schema parsing, instance validation, and formatting.
+
+**Tokens and input.** The package's parser owns prolog preflight, the sole input
+buffer, XML 1.0 line-ending normalization and byte positions, and reader
+detachment for each stream. `Reader.Next` returns one reader-owned, read-only
+token pointer. Its publisher retires only the previous active payload header
+before installing the next event; inactive fields stay zero. Borrowed backing is
+never cleared by token publication because the next event may already share it.
+A zero token is a legal initial Start-kind header. Error, EOF, reset, and detach
+retain complete token clearing. Advancing, `Reset`, and `Detach` invalidate it;
+a rejected advance while admission is pending preserves it for retry. Start and
+end admission consume that current token without accepting caller-supplied
+copies. Element and attribute names are admitted in one pass per buffered chunk:
+a byte-class table derived from the `internal/lex` name predicates finds the
+terminator and judges ASCII QName syntax while the name is charged and copied.
+The verdict waits for the terminator, so token-limit and read errors keep
+precedence over invalid syntax; names with non-ASCII bytes are judged by the
+Unicode NCName rules. A name whose bytes and terminator are all in the current
+read window is charged in the same order and interned from the window without
+copying; a name that may continue past the window takes the chunked copy path,
+so limit and syntax outcomes do not depend on read boundaries. A one-byte ASCII
+start name skips the split, which does not inline. Attribute values share lexical admission and token
+charging; a nil output destination discards decoded payload while preserving
+validation and limits. Literal CR and CRLF each advance one logical line in every parser mode;
+emitted payloads contain LF. Character-data tokens retain one stream-owned
+lexical origin: literal text, text containing references, or CDATA. Coalescing
+never erases reference origin. Contiguous ASCII text can borrow the input buffer
+until the next advance; references, normalization, Unicode, and refill use the
+existing token buffer. Both paths charge token limits before publishing data.
+Byte lookahead leaves positions unchanged, and bulk LF consumption preserves
+CRLF normalization. Compile, validate, and format use that origin for admitted
+character content; `Reader.Next` owns rejection of unsupported declarations and
+forbidden outside-root data, while consumers translate those neutral boundary
+failures. The tokenizer does not duplicate document topology. Only EOF at a
+token boundary completes a stream; EOF after consumed markup is an XML syntax
+error, while simultaneous non-EOF reader causes remain observable. Source
+offsets count admitted bytes; an overflow probe belongs to the terminal
+input-limit result and cannot shift spans of the admitted prefix. Terminal input
+errors remain latched so later advances cannot read beyond that result.
+
+**Namespaces and attributes.** The same XML stream owner admits namespaces and
+detects duplicate expanded attributes. Its append-only binding chain owns
+retained immutable contexts; before successful start admission, attribute names
+are lexical: `xmlns` in the prefix slot identifies declaration syntax.
+Successful admission expands declarations into the reserved XMLNS namespace URI
+and ordinary attributes into their bound namespace URI. Phase-specific
+predicates never confuse those representations. Failed admission preserves the
+lexical token and rolls back bindings and document depth. Relative namespace
+names remain an admitted extension and retain their exact spelling; an ordinary
+attribute bound to the relative name `xmlns` remains an ordinary attribute.
+Attribute admission owns one workspace that is clean between calls. Its prepared
+length is the only active-range marker. After successful name publication or
+failed-admission rollback, cleanup resets duplicate-name tracking, clears every
+prepared name slot, then truncates the range. The next preparation only resizes
+clean storage. Reset and detach independently clear interrupted scratch and
+enforce the existing retention bounds. An active-prefix index and scalar
+default-namespace head are reproducible frame-local projections. Retained
+contexts capture the default head alongside the binding-chain head, so later
+shadowing cannot change their resolution. Retained namespace frames keep only
+the lexical closing name and a nonzero serial; handle store ownership remains
+validated against the owning stack before the serial is checked. Admission,
+rollback, end, and reset update these together.
+
+**Caches and comments.** Oversized maps and buffers are dropped at reset and
+detach; bounded caches may remain for session reuse. Each name/value cache
+admits at most 512 owned spellings of at most 256 bytes. Name entries are
+validated prefix or local NCName components; start admission resolves namespace
+bindings anew. A string map owns those spellings, and an eight-entry recent ring
+projects its values. Map keys and values share the same string storage;
+borrowed-byte lookups return that owned value without copying. Spellings beyond
+either bound are returned as owned strings without entering the cache. Comment
+mode selects syntax-only discard for instances, bounded discard for schemas, or
+emission for formatting. Bounded discard charges normalized payload bytes
+through the same token-limit owner without retaining or dispatching comments;
+schema comment limits remain unchanged.
+
+### `internal/lex`
+
+`internal/lex` owns low-level XML lexical helpers used by source and
+`internal/xmlstream` code.
+
+### `internal/vocab`
+
+`internal/vocab` owns XML/XSD namespace and vocabulary constants.
 
 ## Data Flow
 
@@ -992,22 +1078,24 @@ Compilation flow:
    one source budget. It applies inherited `xml:base` per resolver context,
    accounts every source byte and failure stage, and parses every schema token
    against XML namespace and resource limits.
-   Schema-provided URI references are admitted before graph resolution, and graph
-   edges retain a validated reference rather than a reparsable string. Their
-   whitespace-normalized spelling remains the datatype and custom-resolver
-   value; an XLink-escaped projection is created only for generic or file fallback.
-   Source identity canonicalizes hierarchical and opaque URI components while
-   preserving explicit empty authority, query, and fragment delimiters and the
-   case of IPv6 zone identifiers. Source names remain opaque identities, so Unix
-   filename characters such as `#` and `?` are not reinterpreted as URI syntax.
-   Malformed URI references fail before resolver invocation. A custom resolver
-   receives the raw normalized location and a valid raw composed base even when the
-   local-path backend cannot represent it; after an exclusive not-found result,
-   unsupported local fallback remains an unavailable optional hint. A successful
-   resolver result is authoritative for an edge; a generic identity-only
-   candidate remains pending until a document with that identity is actually
-   loaded, when the loader binds and target-checks every pending edge before
-   activating the document.
+
+   Schema-provided URI references are admitted before graph resolution, and
+   graph edges retain a validated reference rather than a reparsable string.
+   Their whitespace-normalized spelling remains the datatype and custom-resolver
+   value; an XLink-escaped projection is created only for generic or file
+   fallback. Source identity canonicalizes hierarchical and opaque URI
+   components while preserving explicit empty authority, query, and fragment
+   delimiters and the case of IPv6 zone identifiers. Source names remain opaque
+   identities, so Unix filename characters such as `#` and `?` are not
+   reinterpreted as URI syntax. Malformed URI references fail before resolver
+   invocation. A custom resolver receives the raw normalized location and a
+   valid raw composed base even when the local-path backend cannot represent it;
+   after an exclusive not-found result, unsupported local fallback remains an
+   unavailable optional hint. A successful resolver result is authoritative for
+   an edge; a generic identity-only candidate remains pending until a document
+   with that identity is actually loaded, when the loader binds and
+   target-checks every pending edge before activating the document.
+
    The canonical identity map owns one parsed document and a raw-content
    fingerprint (byte count plus SHA-256) per source key; resolution-context
    aliases remain attached to that entry. Opened source bytes are streamed into
@@ -1020,37 +1108,43 @@ Compilation flow:
    relies on SHA-256 collision resistance, not mathematically exact byte
    equality. Streaming admission constructs typed source records; the source
    graph retains semantic declarations and references, not a generic XML tree.
+   Annotation payload is consumed as namespace-well-formed opaque XML without
+   entering retained source records.
+
    The loader owns one reader reused sequentially across sources. Each parse
    detaches it before returning; source records own retained names, values, and
    namespace contexts, so resetting the reader cannot change earlier documents.
    Graph documents are admitted in sorted source-key order, without a mirrored
-   source list. Component and identity-declaration contexts derive from the same immutable
-   plan document, without a separate context registry.
-   The completed loader state becomes a closed loaded graph: planning may consume
-   and update graph-owned state but performs no further I/O. Planning expands
-   effective chameleon contexts, then applies src-include and src-import checks
-   to every target-context view against its effective target namespace
+   source list. Component and identity-declaration contexts derive from the same
+   immutable plan document, without a separate context registry.
+
+   The completed loader state becomes a closed loaded graph: planning may
+   consume and update graph-owned state but performs no further I/O. Planning
+   expands effective chameleon contexts, then applies src-include and src-import
+   checks to every target-context view against its effective target namespace
    ([I-021](docs/spec/INTERPRETATIONS.md#i-021--chameleon-reference-checks-use-the-effective-target-namespace)),
    without reopening or resolving sources. Loading applies the same checks
    earlier, before resolving a target's descendants, only where no target
    context can change the outcome: the referencing document declares its
    targetNamespace or is already registered as an explicit root (whose
    no-namespace view always exists), or the check reads only the import's
-   namespace. Annotation payload is consumed as
-   namespace-well-formed opaque XML without entering retained source records.
-   Source loading, graph planning, and component resolution consume one aggregate
-   dependency-work budget. Component references also enter a bounded active
-   expansion stack; cache hits remain charged, while cycles retain their specific
-   schema diagnostics. Element type references bind identities without entering
-   definition expansion; the component completion pass closes complex definitions
-   and deferred omitted-compositor descendants before finalization. Once every
-   effective target namespace is known, the compiler indexes the declarations of
-   every graph document view. Schema document identity is the resolved source key
-   (I-019): one key reached through several edges is one document, while
-   distinct keys are distinct documents even with identical bytes, so their
-   global components are `schema.duplicate`. Callers that want copies at several
-   locations treated as one document canonicalize them in their resolver. It
-   compiles schema components and populates a compiler-owned
+   namespace.
+
+   Source loading, graph planning, and component resolution consume one
+   aggregate dependency-work budget. Component references also enter a bounded
+   active expansion stack; cache hits remain charged, while cycles retain their
+   specific schema diagnostics. Element type references bind identities without
+   entering definition expansion; the component completion pass closes complex
+   definitions and deferred omitted-compositor descendants before finalization.
+   Once every effective target namespace is known, the compiler indexes the
+   declarations of every graph document view. Schema document identity is the
+   resolved source key (I-019): one key reached through several edges is one
+   document, while distinct keys are distinct documents even with identical
+   bytes, so their global components are `schema.duplicate`. Callers that want
+   copies at several locations treated as one document canonicalize them in
+   their resolver.
+
+   `internal/schema` compiles schema components and populates a compiler-owned
    mutable `schemaBuild`. After all types and substitution affiliations are
    complete, element value constraints and effective substitution types are
    finalized atomically; the bounded transitive substitution table is the only
@@ -1067,22 +1161,26 @@ Validation flow:
    a reusable `Session`.
 2. Root `xsd` adapts public validation options.
 3. Root `xsd` delegates construction and validation to `SessionPool.NewSession`
-   and `SessionPool.Validate`; the pool owns schema and scratch lifecycle.
-   A reusable public session is a handle to one guarded internal owner: copies
+   and `SessionPool.Validate`; the pool owns schema and scratch lifecycle. A
+   reusable public session is a handle to one guarded internal owner: copies
    alias that owner, and overlapping calls fail before reading the second input.
    That owner also holds bounded scalar scratch for type derivation and compiled
    string-pattern execution; immutable schema tables never hold validation work
-   buffers. Every return path clears document-local state before releasing the
-   overlap guard, while returned diagnostics remain caller-owned. The overlap
-   guard is acquired before reading input, and cleanup completes before that guard
-   is released.
+   buffers. The overlap guard is acquired before reading input; every exit
+   clears document-local state before releasing the guard, while returned
+   diagnostics remain caller-owned.
 4. `internal/validate` reads immutable schema facts through methods on the
    sealed `*schema.Schema`, then applies validation policy to those facts.
+
    Identity evaluation reads immutable schema-owned selector/field programs and
-   their precomputed dispatch indexes. A self selector branch (`.`) matches only
-   at the element that opened its scope, so the dispatch index carries no self
-   branches; selector dispatch tests the constraints of scopes opened at the
-   current element instead. Element-field dispatch first filters by
+   their precomputed dispatch indexes. Self is derived from path shape, not
+   stored: a non-descendant path with no element steps and no attribute test,
+   so `.`, `./.` and `././.` have one representation and publication cannot
+   carry a conflicting self flag. A self selector branch matches only at the
+   element that opened its scope, so the dispatch index carries no self
+   branches. Each constraint program publishes whether its selector union has a
+   self branch, derived from those paths at construction; selector dispatch
+   tests that report for scopes opened at the current element. Element-field dispatch first filters by
    terminal name, then joins candidates to current selections by constraint ID.
    A single candidate or selection uses a direct scan; larger joins rebuild a
    scratch projection sorted by constraint ID, skipping sorting when the copied
@@ -1093,18 +1191,19 @@ Validation flow:
    of any direct one; a descendant path widens it to the root. The window always
    contains every base depth from which some path can match at the current
    depth. Selections are ordered by depth, so the window is one contiguous run;
-   each selection inside it still tests its own paths. One
-   evaluator-owned bitset deduplicates element and attribute matches by their
-   admitted field-value slot before appending, bounding output by the active
-   field storage. Bitmap storage is admitted only for an actual match and grows
-   geometrically; no-match collections allocate no bitmap. Match words are zero
-   outside a collection. Every ordinary
-   return clears words identified by its completed or partial match output before
-   selections can change; separate attributes cannot reuse match bits. Reset
-   clears retained words once per document, including after an interrupted
-   collection. Cleanup follows matched output rather than scanning every admitted
-   field slot for each sparse value. Final selection/field ordering preserves
-   diagnostic precedence.
+   each selection inside it still tests its own paths. One evaluator-owned
+   bitset deduplicates element and attribute matches by their admitted
+   field-value slot before appending, bounding output
+   by the active field storage. Bitmap storage is admitted only for an actual
+   match and grows geometrically; no-match collections allocate no bitmap. Match
+   words are zero outside a collection. Every ordinary return clears words
+   identified by its completed or partial match output before selections can
+   change; separate attributes cannot reuse match bits. Reset clears retained
+   words once per document, including after an interrupted collection. Cleanup
+   follows matched output rather than scanning every admitted field slot for
+   each sparse value. Final selection/field ordering preserves diagnostic
+   precedence.
+
    One concrete evaluator owns the element identity stack, matching
    path, per-element ID state, document IDs and IDREFs, key/unique/keyref scopes,
    pending selections, resource accounting, and reset/discard behavior.
@@ -1135,27 +1234,29 @@ Validation flow:
    finalization is also evaluator-owned, including recoverable diagnostic
    reporting and the ordering of field completion, scope closure, ancestor
    invalidation, and path/stack release.
+
    Published key tuples retain their originating scope depth through ancestor
    propagation. A scope's local entry takes precedence over descendant entries;
    conflicting descendant nodes remain ambiguous until scope completion, which
    excludes those tuples before propagation. Duplicate local entries remain
-   errors. Completed bindings pass to the immediate XML parent, including parents
-   with no local identity declarations. Those parents receive sparse inherited
-   frames only when a child contributes bindings; ancestor selection and dispatch
-   indexes stay stable. Each frame stores its declared-scope prefix count, so
-   inherited frames consume no `MaxIdentityScopes` allowance and stack truncation
-   restores the count on close or start abort. Frame count is bounded by instance
-   depth and retained capacity by the existing session high-water policy.
-   Propagation transfers the complete bindings map to an empty parent and merges
-   smaller maps into larger ones at both the constraint and tuple levels,
-   preserving provenance without charging or refunding admitted entries.
+   errors. Completed bindings pass to the immediate XML parent, including
+   parents with no local identity declarations. Those parents receive sparse
+   inherited frames only when a child contributes bindings; ancestor selection
+   and dispatch indexes stay stable. Each frame stores its declared-scope prefix
+   count, so inherited frames consume no `MaxIdentityScopes` allowance and stack
+   truncation restores the count on close or start abort. Frame count is bounded
+   by instance depth and retained capacity by the existing session high-water
+   policy. Propagation transfers the complete bindings map to an empty parent
+   and merges smaller maps into larger ones at both the constraint and tuple
+   levels, preserving provenance without charging or refunding admitted entries.
    A conservative conflict hint skips completion scans for clean tables; once
    set, it remains set until completion, even if a local row restores a tuple.
    Dirty completion work is the sum of those frame table sizes, bounded by
    admitted entries times instance depth, rather than a universal logarithmic
    merge bound. Empty bindings survive tuple exclusion.
-   Element frames distinguish assessed nodes, nodes admitted by a
-   `processContents="skip"` wildcard, and validation-recovery containment.
+
+   Element frames distinguish assessed nodes from nodes admitted by a
+   `processContents="skip"` wildcard.
    Identity fields distinguish an absent field from a validated value and a
    selected node that has no valid simple value. A separate nilled state records
    selection without a value: unique/keyref omit incomplete tuples, key requires
@@ -1163,95 +1264,123 @@ Validation flow:
    complex-content fields do not gain simple values. Skipped nodes retain depth
    and path bookkeeping but contribute no selector rows or field cardinality.
    Skip attributes likewise contribute nothing; an assessed ancestor key still
-   requires complete fields. Lax-missing nodes remain visible without assigned
-   declarations or types, while recovery invalidates affected ancestor fields
-   without creating secondary identity diagnostics. A nillable element-field
-   marker is enforced only when selection finalization has established a
-   complete qualified key sequence. A pending selection retains its selected
-   depth, not an eager copy of the document path. Immediate diagnostics project
-   that depth from the active document path. IDs, IDREFs, and published tuples
-   that need a path after an element pops retain references into document-owned
-   parent-linked encoded suffix nodes, and the exact string is materialized only
-   when a diagnostic is emitted. A node extends the nearest referenced active
-   ancestor. Every newly encoded active element receives a reference to its
-   complete segment boundary inside that node, so later descendants and siblings
-   share a live prefix even when it ends inside the encoded text. These
-   annotations are depth-bounded active state; they disappear when elements pop
-   and are never overwritten while live. Each live element is therefore encoded
-   and annotated at most once between rollback or pop boundaries, without one
-   retained node per path element. Lexical path bytes are stored directly.
-   Expanded-name records retain local-name bytes plus a suffix-local compact
-   reference into one string header per distinct namespace in that suffix; they
-   do not copy namespace URI bytes into every path occurrence. A transient
-   namespace index is reused across suffixes, cleared after encoding, and dropped
-   with oversized namespace storage at session reset. Retained paths cannot
-   escape a validation call: fatal start rollback clears references into new
-   nodes and truncates nodes and namespace headers, semantic discard releases
-   them, and session reset clears references and drops oversized capacity. At
-   element end, selections owned by that element's
-   identity scope receive current nillable-field markers and finish before the
-   scope closes. Scope-local failure is then folded into the element assessment
-   and invalidates still-pending ancestor-owned fields before those selections
-   finish. Root and child selection return one validation-owned `schemaStart`.
-   Root selection first uses a global declaration, then a present `xsi:type`,
-   otherwise recoverable missing-root handling.
-   Hint syntax is diagnosed before selection; recovery may continue when the
-   error budget permits. An undeclared root resolves its type during selection;
-   an operation-local type origin lets common assessment consume that same TypeID
-   without resolving it again. No origin or second cached type reaches a frame.
-   Ordinary declared starts extract `xsi:nil` and `xsi:type` before assessing nil
-   then type, preserve successful results when the other fails, and own their
-   diagnostics. An element is nilled only when `xsi:nil` is true and a governing
-   element declaration exists (I-018); otherwise `xsi:nil` is only checked as
-   `xs:boolean`. Identity capture separately validates the lexical QName: a bound
-   QName naming an unknown or non-derived type can still be an identity value,
-   while malformed or unbound QNames invalidate the matched field. Identity
-   capture cannot duplicate semantic XSI diagnostics.
-   Start assessment returns unlocated failures; its recovery boundary attaches
-   the current admitted XML start's expanded name and token position before
-   storing a diagnostic. Undeclared-root type selection uses the same decorator
-   before returning a failure. The reader exposes this metadata only between
-   successful start admission and advance, abort, reset, or detach. Path projection
-   extends the document-owned parent path only on failure, without carrying an
-   extra context through successful checks, committing a frame early, or moving
+   requires complete fields. Lax-missing elements remain visible without
+   assigned declarations or types; nodes laxly assessed after a failed
+   selection carry the global declaration and type that root and child
+   selection assign.
+
+   An attribute that lax assessment leaves without a declaration gives its
+   fields an unknown state
+   ([I-022](docs/spec/INTERPRETATIONS.md#i-022--undeclared-lax-attributes-are-unknown-field-values)).
+   The field slot owns that state; row keys and tables never see it. Capture
+   lets a typed or nilled node supersede it without a cardinality error.
+   Finalization ranks a row invalid, then absent, then unknown, then complete.
+   An unknown row publishes no key or unique tuple. It still passes key
+   presence and the nillable-key check. An unknown keyref row is appended
+   unmatched, so scope completion reports it without a table lookup and marks
+   the scope invalid; capturing an unknown value never does.
+
+   A nillable element-field marker is enforced only when selection
+   finalization has established a complete qualified key sequence.
+
+   A pending selection retains its selected depth, not an eager copy of the
+   document path. Immediate diagnostics project that depth from the active
+   document path. IDs, IDREFs, and published tuples that need a path after an
+   element pops retain references into document-owned parent-linked encoded
+   suffix nodes, and the exact string is materialized only when a diagnostic is
+   emitted. A node extends the nearest referenced active ancestor. Every newly
+   encoded active element receives a reference to its complete segment boundary
+   inside that node, so later descendants and siblings share a live prefix even
+   when it ends inside the encoded text. These annotations are depth-bounded
+   active state; they disappear when elements pop and are never overwritten
+   while live. Each live element is therefore encoded and annotated at most once
+   between rollback or pop boundaries, without one retained node per path
+   element. Lexical path bytes are stored directly. Expanded-name records retain
+   local-name bytes plus a suffix-local compact reference into one string header
+   per distinct namespace in that suffix; they do not copy namespace URI bytes
+   into every path occurrence. A transient namespace index is reused across
+   suffixes, cleared after encoding, and dropped with oversized namespace
+   storage at session reset. Retained paths cannot escape a validation call:
+   fatal start rollback clears references into new nodes and truncates nodes and
+   namespace headers, semantic discard releases them, and session reset clears
+   references and drops oversized capacity. At element end, selections owned by
+   that element's identity scope receive current nillable-field markers and
+   finish before the scope closes. Scope-local failure is then folded into the
+   element assessment and invalidates still-pending ancestor-owned fields before
+   those selections finish.
+
+   Root and child selection return one validation-owned `schemaStart`. Root
+   selection first uses a global declaration, then a present `xsi:type`,
+   otherwise reports the missing root declaration. Hint syntax is diagnosed
+   before selection. A failed selection never contains a subtree: after its
+   diagnostic is recorded, the element is assessed laxly (cvc-assess-elt), as
+   Xerces does. A child that no particle governs (unexpected, strict wildcard
+   without a declaration, or under a nilled, simple-content or empty parent) uses
+   its global declaration when one exists, otherwise anyType; the content error
+   belongs to the parent. An undeclared root whose `xsi:type` is missing or does
+   not resolve, and any element whose selected type is unavailable, is assessed
+   as anyType and marked invalid; a declared element's own `xsi:type` is then
+   resolved against anyType and, when it resolves, assesses the element. The
+   unavailable-type replacement drops the declaration, so its nillability, value constraint and identity constraints no
+   longer apply. An abstract element declaration still governs with its type,
+   and a rejected `xsi:type` leaves the governing type selected. An undeclared
+   root resolves its type during selection; an operation-local type origin lets
+   common assessment consume that same TypeID without resolving it again. No
+   origin or second cached type reaches a frame. Ordinary declared starts
+   extract `xsi:nil` and `xsi:type` before assessing nil then type, preserve
+   successful results when the other fails, and own their diagnostics. An
+   element is nilled only when `xsi:nil` is true and a governing element
+   declaration exists (I-018); otherwise `xsi:nil` is only checked as
+   `xs:boolean`. Identity capture separately validates the lexical QName: a
+   bound QName naming an unknown or non-derived type can still be an identity
+   value, while malformed or unbound QNames invalidate the matched field.
+   Identity capture cannot duplicate semantic XSI diagnostics. Start assessment
+   returns unlocated failures; its recovery boundary attaches the current
+   admitted XML start's expanded name and token position before storing a
+   diagnostic. Undeclared-root type selection uses the same decorator and
+   recovery boundary. Reaching the error budget stops semantic assessment; XML
+   admission continues either way so later fatal failures retain precedence.
+   The reader exposes this metadata only between successful start admission and
+   advance, abort, reset, or detach. Path projection extends
+   the document-owned parent path only on failure, without carrying an extra
+   context through successful checks, committing a frame early, or moving
    parent-content diagnostics off the parent.
+
    Every element start is a transaction across XML/namespace stacks,
    schema-location hints, parent-content state, content-model bits, and identity
    state. A fatal start rolls all of them back. A semantic-stop transition keeps
    the committed XML syntax state needed to parse the remainder while discarding
    semantic state. Identity field batches admit each value against the remaining
    document budget before growing one evaluator-owned staging workspace. They
-   commit only complete batches, clear source references on every exit, and retain
-   capacity only within the validation high-water bound. Identity dispatch resets
-   and semantic discard apply that same bound to active-scope slices, selector
-   hits, and the active-constraint map; the immutable schema dispatch index remains
-   reusable. Field dispatch uses pointer-free scratch proportional to admitted
-   selections plus one bit per admitted field slot, including storage holes.
-   Reset retains at most the session high-water count of selection records and
-   its corresponding rounded-up bitset words; semantic discard drops both.
-   Empty scope-dispatch buckets remain reusable and preserve the map's
-   high-water signal without requiring a scan on element close. Their keys are
-   bounded by schema constraint IDs.
+   commit only complete batches, clear source references on every exit, and
+   retain capacity only within the validation high-water bound. Identity
+   dispatch resets and semantic discard apply that same bound to active-scope
+   slices, selector hits, and the active-constraint map; the immutable schema
+   dispatch index remains reusable. Field dispatch uses pointer-free scratch
+   proportional to admitted selections plus one bit per admitted field slot,
+   including storage holes. Reset retains at most the session high-water count
+   of selection records and its corresponding rounded-up bitset words; semantic
+   discard drops both. Empty scope-dispatch buckets remain reusable and preserve
+   the map's high-water signal without requiring a scan on element close. Their
+   keys are bounded by schema constraint IDs.
+
    `MaxIdentityEntries` independently bounds stored identity entries, pending
    selector matches, and pending field-value slots; selection admission checks
    both pending dimensions before allocation or mutation. Retained diagnostic
    nodes are bounded by path publication extensions; encoded segments and
-   suffix-local namespace headers
-   are bounded by retained path occurrences, admitted document structure and
-   bytes, identity limits, and the session high-water policy. Hint batches stage
-   only new namespaces and copy the bounded retained map only when committing an
-   actual change; no-op or duplicate hints do not snapshot accumulated state.
-   Generic event-sink or matcher interfaces are intentionally absent: there is
-   one evaluator implementation and one validation caller, while an interface
-   would hide the required transaction and element-lifecycle sequencing without
-   providing a real substitution boundary.
+   suffix-local namespace headers are bounded by retained path occurrences,
+   admitted document structure and bytes, identity limits, and the session
+   high-water policy. Hint batches stage only new namespaces and copy the
+   bounded retained map only when committing an actual change; no-op or
+   duplicate hints do not snapshot accumulated state.
 5. Schema table execution and metadata checks stay in `internal/schema`;
    instance-validation policy stays in `internal/validate`.
 
 Compilation and validation are synchronous. Resource limits bound admitted input
 and retained work, but the library does not own deadline or interruption policy.
 Callers that require interruption of a blocked resolver, opener, file operation,
-or arbitrary `io.Reader` MUST provide I/O that they can close or otherwise unblock.
+or arbitrary `io.Reader` MUST provide I/O that they can close or otherwise
+unblock.
 
 Formatting flow:
 
@@ -1259,13 +1388,13 @@ Formatting flow:
    The formatter accepts this immutable supplied input directly; it does not
    acquire or buffer a reader's complete contents.
 2. One `internal/xmlstream` reader validates the document and records bounded
-   source spans and per-element layout decisions. Each start span owns its layout
-   flag, finalized only after its matching end commits. Analysis is the sole
-   processed-node and document-topology admission owner; rendering consumes only
-   its complete tape. The flat span sequence contains offsets, positions, token
-   kinds, and layout flags; it owns no decoded text,
-   attribute values, or child tree. Input, token, node, and depth limits bound
-   admission and retained metadata.
+   source spans and per-element layout decisions. Each start span owns its
+   layout flag, finalized only after its matching end commits. Analysis is the
+   sole processed-node and document-topology admission owner; rendering consumes
+   only its complete tape. The flat span sequence contains offsets, positions,
+   token kinds, and layout flags; it owns no decoded text, attribute values, or
+   child tree. Input, token, node, and depth limits bound admission and retained
+   metadata.
 3. Rendering walks those spans in order with a depth-bounded layout stack and
    writes directly from the immutable caller-owned string. Shared XML lexical
    predicates decode admitted references; the renderer preserves normalized
@@ -1285,47 +1414,51 @@ Diagnostics flow:
    category/code combinations. Aggregate construction owns its input, accessors
    do not expose mutable storage, and `xsderrors.Flatten` is the sole top-level
    presentation projection.
+
    `internal/value/errors.go` owns value-validation message text, error
    identities, and diagnostic formatting; evaluators and primitive parsers own
-   the checks and return cheap failure identities. Value diagnostics are enriched
-   only after the complete value has failed: rejecting an earlier union member
-   remains part of a successful path when a later member accepts. Enrichment
-   never replays QName/NOTATION resolvers or resets evaluation work. A union's
-   own facet failure requires a successfully selected member; a failed list item
-   is described through the rejected list and its item constraints, without
-   inventing an item spelling from a discarded partial result.
-   Enumeration diagnostics identify the first failing group using retained
-   typed values and the existing pure equality operation. Literal construction
-   retains canonical text for this purpose, including list values. Pattern
-   diagnostics describe the effective OR-within/AND-across groups rather than
-   rematching or guessing which group failed. Ordered-bound wording accommodates
-   incomparable values; duration bounds are reconstructed as XSD lexical values
-   from their month/second coordinates only on failure.
-   `internal/validate/errors.go` owns document-assessment messages and the shared
-   translation of value failures: metadata, limit and unsupported failures take
-   precedence over ordinary assessment errors, in that order. Ordinary value
-   and XSI callers supply their assessment code and work limit; URI failures
-   retain their URI-specific message without a value-error suffix. Content
-   expectations come from `internal/schema`'s read-only projection of the
-   current compiled state, occurrence guards, all-group bits, substitutions and
-   wildcard constraints. Projection inspects at most 256 edges/terms/raw
-   substitution entries and displays at most eight alternatives. It distinguishes
-   truncated output from an empty expectation set and invalid metadata.
-   Published schema diagnostic names are cold immutable projections of admitted
-   names/declarations, copied and charged during publication; they do not enlarge
-   frame/session state or hot component-read records. Identity errors identify
-   constraints and one-based fields. Deferred keyrefs identify their retained
-   target constraint; no source ID or original tuple lexemes are added to
-   document state, and opaque identity keys are never presented as values.
+   the checks and return cheap failure identities. Value diagnostics are
+   enriched only after the complete value has failed: rejecting an earlier union
+   member remains part of a successful path when a later member accepts.
+   Enrichment never replays QName/NOTATION resolvers or resets evaluation work.
+   A union's own facet failure requires a successfully selected member; a failed
+   list item is described through the rejected list and its item constraints,
+   without inventing an item spelling from a discarded partial result.
+   Enumeration diagnostics identify the first failing group using retained typed
+   values and the existing pure equality operation. Literal construction retains
+   canonical text for this purpose, including list values. Pattern diagnostics
+   describe the effective OR-within/AND-across groups rather than rematching or
+   guessing which group failed. Ordered-bound wording accommodates incomparable
+   values; duration bounds are reconstructed as XSD lexical values from their
+   month/second coordinates only on failure.
+
+   `internal/validate/errors.go` owns document-assessment messages and the
+   shared translation of value failures: metadata, limit and unsupported
+   failures take precedence over ordinary assessment errors, in that order.
+   Ordinary value and XSI callers supply their assessment code and work limit;
+   URI failures retain their URI-specific message without a value-error suffix.
+   Content expectations come from `internal/schema`'s read-only projection of
+   the current compiled state, occurrence guards, all-group bits, substitutions
+   and wildcard constraints. Projection inspects at most 256 edges/terms/raw
+   substitution entries and displays at most eight alternatives. It
+   distinguishes truncated output from an empty expectation set and invalid
+   metadata. Published schema diagnostic names are cold immutable projections of
+   admitted names/declarations, copied and charged during publication; they do
+   not enlarge frame/session state or hot component-read records. Identity
+   errors identify constraints and one-based fields. Deferred keyrefs identify
+   their retained target constraint; no source ID or original tuple lexemes are
+   added to document state, and opaque identity keys are never presented as
+   values.
+
    `internal/diagnostictext` owns bounded quoting for all these owners: at most
    128 UTF-8 bytes per value before escaping, explicit truncation markers and
    bounded assembly of expanded names. Diagnostics never retain borrowed input.
    At diagnostic admission, known nil pointers and empty aggregate values or
    pointers represent absence. Construction normalizes direct absent causes;
    `xsderrors` traversal checks these shapes before invoking wrapper methods.
-   External wrappers retain their identity and cause chain.
-   Unsupported DTD diagnostics retain the positioned stream cause as their sole
-   message source, so presentation does not repeat the same rejection text.
+   External wrappers retain their identity and cause chain. Unsupported DTD
+   diagnostics retain the positioned stream cause as their sole message source,
+   so presentation does not repeat the same rejection text.
 3. `xsderrors.WithLocation` is the only path/line/column decorator. Root `xsd`
    and formatter packages do not duplicate diagnostic types or codes.
 4. Missing document roots and forbidden outside-root character data use
@@ -1350,16 +1483,16 @@ Browser flow:
    ordering. The page displays structured diagnostics for either unsuccessful
    branch and formats only valid documents.
 2. `docs/js/xsd-worker.js` owns the Go WASM runtime. WASM functions and limits
-   never enter the window global scope.
-   One runtime-owned Go `validationAdapter`, captured by its JavaScript
-   callback, retains one successfully compiled engine and its exact XSD text.
-   Compilation uses the fixed `schema.xsd` source identity, default compile
-   options, and no resolver; those fixed inputs plus exact text define the key.
-   Type and byte admission precede cache access. A changed admitted key evicts
-   before compilation, which publishes only on success; failed compilation
-   leaves the cache empty. Instance failures preserve the cached engine.
-   Worker termination releases the runtime and cache together. There is no
-   process-wide cache, negative caching, synchronization, or retained key history.
+   never enter the window global scope. One runtime-owned Go
+   `validationAdapter`, captured by its JavaScript callback, retains one
+   successfully compiled engine and its exact XSD text. Compilation uses the
+   fixed `schema.xsd` source identity, default compile options, and no resolver;
+   those fixed inputs plus exact text define the key. Type and byte admission
+   precede cache access. A changed admitted key evicts before compilation, which
+   publishes only on success; failed compilation leaves the cache empty.
+   Instance failures preserve the cached engine. Worker termination releases the
+   runtime and cache together. There is no process-wide cache, negative caching,
+   synchronization, or retained key history.
 3. `ValidationWorkerClient` owns worker lifecycle, a single active request, one
    latest pending request, cancellation, initialization and execution timeout
    termination, restart, and immutable state snapshots. The page ignores
@@ -1386,22 +1519,57 @@ Every architectural or behavioral change is one dependency-complete packet:
   point, failure exits, and cleanup.
 - **Bounds:** time, temporary memory, retained memory, recursion, I/O, and
   concurrency implications at the admitting owner.
-- **Proof:** focused behavior tests, affected seam tests, and measurements for a
-  changed hot path or retention shape.
+- **Proof:** focused behavior tests, affected seam tests including opposing and
+  adversarial input shapes, and measurements for a changed hot path or retention
+  shape.
 - **Writeback:** the authoritative document, executable invariant, or local
   intent comment that prevents rediscovery.
 
 Keep facts, inferences, and proposals distinct. Inspectable repository facts
 need no prose cache. Expensive derived evidence may be recorded only with the
-exact revision, command, environment, and status. A proposal remains in a plan
-until implemented; once accepted, update this file and its enforcement in the
-same change, then delete or mark the superseded plan text.
+exact revision, command, environment, and status. A proposal stays in its plan
+until implemented; the implementing change updates this file and its
+enforcement and deletes the superseded plan text.
+
+Every packet follows these design rules:
+
+- Keep one canonical representation and one execution path. Replace a path
+  atomically and delete superseded code instead of adding shims, feature flags,
+  deprecated paths, or parallel state models, unless an external migration
+  contract requires them.
+- Make illegal states unrepresentable where practical. Validate and normalize
+  external data once at entry; enforce invariants at construction and
+  transition.
+- Keep domain decisions deterministic and side-effect-free where practical.
+  Isolate I/O, clocks, randomness, concurrency, storage, transport, and vendor
+  formats at their owning edge. Presentation and transport translate or render;
+  they own no domain policy.
+- Keep dependencies explicit and acyclic and pass them directly. Add a narrow,
+  consumer-owned interface only at a present substitution seam; use concrete
+  types otherwise. Avoid globals, registries, hidden initialization, callbacks,
+  service locators, and cross-module reach-through. Library code uses no
+  reflection; prefer structural guarantees.
+- Choose the smallest design satisfying current constraints. An abstraction
+  must delete more complexity than it adds. Prefer small syntax duplication to
+  false coupling; centralize duplicated policy and invariants.
+- Use one term per concept. Name modules for owned capabilities, not vague
+  roles such as `manager`, `core`, `common`, `engine`, or `utils`.
+- Bound work, retained memory, queues, batches, recursion, retries,
+  concurrency, and I/O at the admitting owner. Caches and projections remain
+  reproducible from an explicit source and have bounded retention.
+- Make ordering, acknowledgement, retry, cancellation, timeout, and
+  partial-failure semantics explicit wherever asynchronous behavior exists.
+- Prefer explicit control flow and actionable contextual errors. Never depend
+  on logs to reconstruct a failure or collapse errors into ambiguous booleans.
+- Prefer returning replacement pointers over double-pointer output parameters;
+  explain exceptions at the declaration.
 
 Test through the changed module's interface. Internal white-box tests are
 appropriate for representations whose lifetime or corruption states cannot be
 reached through a wider interface, but they supplement rather than replace
 seam-level behavior. When a defect exposes split ownership, an invalid state,
-or duplicated policy, repair that model and delete the obsolete path.
+duplicated policy, or unsafe sequencing, repair the model that permits the
+defect class and delete the obsolete path.
 
 An agent should be able to finish a packet without loading the repository-wide
 history. The packet is complete only when a future agent can recover the current
@@ -1410,14 +1578,18 @@ proof from tests or commands, and see no competing current representation.
 
 ## Tests And Enforcement
 
-Architecture is enforced by behavior rather than convention:
+Architecture is enforced by behavior rather than convention. Tests verify
+observable contracts at the owning interface with implementation-independent
+expectations and deterministic fakes. They exercise invariants, boundaries,
+failure, rollback, reuse, concurrency, and resource limits. Delete
+change-detector tests that mirror the implementation or assert their own setup.
 
 | Enforcement owner | Contract enforced |
 | --- | --- |
 | `tests/phase_import_graph_test.go` | Package allowlists, dependency direction, context-free library code, source I/O ownership, and capability isolation |
 | `tests/phase_boundary_test.go` | Required modules, single facade execution edges, session construction ownership, and retired public paths |
 | `tests/root_public_shape_test.go` and `tests/external_api_smoke_test.go` | External callers use only the supported public packages and interface |
-| `tests/stream_boundary_test.go` | Borrowed token data is consumed only in its valid lifetime and cannot escape through aliases or type erasure |
+| `tests/stream_boundary_test.go` | Structural borrowed-type restrictions and intraprocedural retention checks, including raw byte fields and aliases erased to interfaces |
 | `tests/schema_build_boundary_test.go` | Compiler topology mutation has one owner |
 | `cmd/wasmxsd/api_test.go`, `cmd/wasmxsd/main_js_test.go`, `cmd/wasmxsd/build_test.go`, and `cmd/xsdweb/main_test.go` | Go adapter response/build contracts, input bounds, asset catalog, and server shutdown lifecycle |
 | `docs/js/validation-worker.test.js` | Worker queue, cancellation, timeout, generation, and state ownership |
@@ -1425,6 +1597,16 @@ Architecture is enforced by behavior rather than convention:
 
 The files own their exact test inventory. This contract records why each
 enforcement family exists; it does not cache function names.
+
+The stream retention guard tracks reference-bearing provenance through local
+aliases and closures to returns, retained state, channels, and delayed calls.
+Its monotone worklist is bounded by the inspected source graph; a local that
+receives borrowed storage remains borrowed for that analysis. Owned strings,
+byte clones, and copies into owned byte destinations sever that provenance;
+shallow copies of reference-bearing containers do not. Synchronous helper calls
+remain reviewed non-retaining boundaries. The guard does not prove arbitrary
+helper-return ownership or detect every use after reader advance, reset, or
+detach. Those lifetime obligations remain with each stream consumer.
 
 Root tests and benchmarks MUST use `package xsd_test`. Root tests MUST NOT
 import `internal` packages. Implementation fuzz tests MUST live with the package
@@ -1464,6 +1646,8 @@ separately after those groups, so benchmarks do not compete with other checks.
 
 ## Rejected Alternatives
 
+### Diagnostics
+
 - Formatting every rejected value candidate was rejected because unsuccessful
   union members occur on successful validation paths. Replaying validation to
   explain a final error was rejected because QName/NOTATION resolvers may have
@@ -1476,38 +1660,81 @@ separately after those groups, so benchmarks do not compete with other checks.
 - Reimplementing content matching in the diagnostic layer was rejected because
   it would duplicate occurrence, wildcard and substitution rules. Bounded
   schema-owned projection reuses the current compiled state's eligibility.
+- Compatibility fields, aliases, and parallel constructors for diagnostics were
+  rejected because they would preserve two representations and two location
+  paths for the same fact.
+- Moving cause-only custom-`As` detection into the root type switch was
+  rejected because first use of a plain root type can allocate an additional
+  persistent runtime interface-table entry. Warm allocation counters do not
+  establish equality of first-use cache retention.
+- A shared root/cause aggregate assessment was rejected after its larger
+  recursive frame increased stack capacity retained after return on nested
+  aggregate causes. Heap allocation counters alone cannot establish equality
+  of goroutine stack capacity.
+
+### Sources And Schema Graph
 
 - Deduplicating schema documents by content fingerprint, and ignoring later
   documents for an already-loaded namespace (the XSD 1.0 note on `<import>`
   hints), were rejected (I-019). Both hide real sch-props-correct.2 conflicts:
   identical bytes do not imply an identical include/import closure, and the
   verdict would depend on load order the loader does not define.
-
 - Implicit XML/XLink attribute declarations, including fallbacks used only when
   no source is supplied, were rejected because explicit sources own the schema
   component set. Generic seeds discard facets, value constraints and declaration
   errors; a fallback schema would need its own version and product contract.
   Local files, supplied roots and caller resolvers provide these components
   without network loading or namespace-specific acquisition paths.
+- Restricting import-free XSD/XSI access to a builtin type catalogue was
+  rejected after adopting WG correction 1890. The adopted rule exempts both
+  namespaces; a catalogue-only exception invents a different policy. Namespace
+  authorization does not supply components or bypass ordinary kind, existence or
+  duplicate checks. Adopting unrelated XSD 1.1 features is outside this
+  correction.
+- Keeping source buffers for exact byte equality was rejected because it retains
+  complete input streams. Reopening the earlier source cannot recover its exact
+  prior contents, adds observable I/O, and can fail or return changed bytes.
+  The rewrite explicitly uses raw byte length plus SHA-256 content identity.
+  This is a collision-resistance assumption, not an exact-equality guarantee.
+- Returning immediately on schema parse failure was rejected for streamed
+  acquisition: it would hide later read, close, and source-limit failures that
+  previously took precedence. `Input.Finish` owns bounded draining and cleanup.
+- Interleaving resolution, graph validation, and component compilation was
+  rejected because partially known namespaces made ownership and failure state
+  ambiguous. The loaded-graph-to-plan boundary is the only route into indexing.
+- Traversing canonical source references directly for each effective context was
+  rejected under the current CPU budget: matched small-schema and
+  resolved-import compilation medians exceeded the allowed 3% loss. The planner
+  retains its transient filtered edge projection, derived from canonical
+  references and the closed graph's target indices, to preserve the qualified
+  execution path.
+- A retained source vocabulary tag and copied declaration index were rejected
+  because they duplicated admitted local names, semantic capability facts and
+  root-child ordering. Allowlisting child names would discard unknown XSD
+  grammar before its diagnostic owner; all admitted XSD locals remain
+  traversable.
+- A semantic source struct with one nullable pointer per capability was rejected
+  because it permitted contradictory records and forced every consumer through
+  a nil chain. One closed variant owns at most one capability record; common ID
+  and `xml:base` facts stay on the node source, and particle facts stay with the
+  variant that admits them. Syntax-only grammar nodes intentionally retain no
+  capability variant.
 
-- Restricting import-free XSD/XSI access to a builtin type catalogue was rejected
-  after adopting WG correction 1890. The adopted rule exempts both namespaces;
-  a catalogue-only exception invents a different policy. Namespace authorization
-  does not supply components or bypass ordinary kind, existence or duplicate
-  checks. Adopting unrelated XSD 1.1 features is outside this correction.
+### Schema Compilation And Content Models
 
 - Skipping all validation below a zero-count compositor was rejected because the
   mapping removes only that compositor's component. Descendant declarations and
-  their type, identity and value constraints remain independently defined. Eagerly
-  constructing them inside the active containing group invents a recursion cycle;
-  a discarded parent model can also invent sibling EDC or UPA failures. Bounded
-  deferred child roots preserve ordinary construction without either extra edge.
-
+  their type, identity and value constraints remain independently defined.
+  Eagerly constructing them inside the active containing group invents a
+  recursion cycle; a discarded parent model can also invent sibling EDC or UPA
+  failures. Bounded deferred child roots preserve ordinary construction without
+  either extra edge.
 - Deferring complex types only when their immediate base is active was rejected
-  because intermediate bases still produce false cycles and type renaming changes
-  acceptance. Identity-only element references and explicit definition completion
-  separate the permitted content-reference graph from inheritance dependencies
-  without a general dependency scheduler or repeated readiness scans.
+  because intermediate bases still produce false cycles and type renaming
+  changes acceptance. Identity-only element references and explicit definition
+  completion separate the permitted content-reference graph from inheritance
+  dependencies without a general dependency scheduler or repeated readiness
+  scans.
 - Deriving maximum-one execution overrides from a repeated base choice was
   rejected because RecurseAsIfGroup introduces only a comparison wrapper; the
   child retains its own occurrence bounds. Restriction validity belongs to
@@ -1515,9 +1742,9 @@ separately after those groups, so benchmarks do not compete with other checks.
 - Copying the complete model table for each restriction was rejected because
   unrelated components would amplify comparison cost. A private append-only view
   borrows original records and owns only normalized comparison nodes and caches.
-  Applying language-equivalent occurrence multiplication during semantic admission
-  was rejected because it can change the XSD 1.0 structural rule. The execution
-  projection owns that optimization after restriction checks.
+  Applying language-equivalent occurrence multiplication during semantic
+  admission was rejected because it can change the XSD 1.0 structural rule. The
+  execution projection owns that optimization after restriction checks.
 - Rebuilding unchanged groups only to relocate their occurrence bounds was
   rejected because comparison already composes both layers; forced replacement
   adds nodes and repeated analysis. Cloning child slices inside trusted analysis
@@ -1529,41 +1756,6 @@ separately after those groups, so benchmarks do not compete with other checks.
   temporary storage. A whole-choice marker avoids synthetic span slices and
   provenance maps; flattened explicit parents retain only their partial spans.
   Global unordered flags and permutation search lose those boundaries.
-- A global or unbounded session pool was rejected because schema ownership and
-  retained memory would become implicit. One idle slot per shared engine owner
-  reuses the common sequential path without blocking concurrent validations or
-  introducing a new memory budget. Splitting the parser's inline buffer alone
-  would leave per-call allocation of the remaining reusable session state.
-- A separate validator cache of resolved schema names and larger spelling
-  caches remain deferred: no qualified CPU result justifies their retained
-  strings, lookup probes, or invalidation policy. Replacing component caching
-  with complete lexical QNames was rejected because independently cacheable
-  prefix/local pairs can form whole names exceeding the length or entry limit,
-  introducing repeated allocations.
-- Shrinking or replacing the eight-entry recent ring (newest-1, ring sizes
-  below 8, role-split slots) was rejected: a ring that inserts on a miss gets
-  no hits on cyclic vocabularies wider than itself, and the newest-1 probe made
-  `CacheRotatingVocabulary/2` 89% slower. Reopening needs a structure that keeps
-  hits on widths up to 8 while cutting miss cost.
-
-- Keeping source buffers for exact byte equality was rejected because it retains
-  complete input streams. Reopening the earlier source cannot recover its exact
-  prior contents, adds observable I/O, and can fail or return changed bytes.
-  The rewrite explicitly uses raw byte length plus SHA-256 content identity.
-  This is a collision-resistance assumption, not an exact-equality guarantee.
-- Returning immediately on schema parse failure was rejected for streamed
-  acquisition: it would hide later read, close, and source-limit failures that
-  previously took precedence. `Input.Finish` owns bounded draining and cleanup.
-
-- A separate root-start flag result was rejected because its sole consumer
-  immediately translated it into the session's selected state. Resolving all XSI
-  types eagerly was also rejected: undeclared-root selection and declared-start
-  nil/type assessment have different diagnostic precedence. A transient origin
-  on the canonical selected state removes repeated resolution without moving
-  recovery or introducing another assessment owner.
-- Adding document depth to the tokenizer was rejected for outside-root text
-  validation: existing consumers already own topology. Preserving lexical text
-  origin fixes the lost fact without a second document state machine.
 - Refunding work after failed publication validation was rejected because the
   computation has already occurred; repeated failures would evade the aggregate
   work bound. Retryability preserves build data, not spent resources.
@@ -1577,10 +1769,173 @@ separately after those groups, so benchmarks do not compete with other checks.
   publication keeps one dense table. Skipping compilation of unentered models
   was rejected because their compile errors and work charges belong to
   admission.
+- An additional element-value slice projection was rejected because publication
+  and validation already use the canonical packed element table. Tests observe
+  published reads and independently corrupt packed projections instead of
+  preserving a second representation. Private construction and semantic
+  admission own correctness before the read tables are built; duplicate
+  projection equality checks add no boundary.
+- Raising the DFA state cap to admit avoidable expansion was rejected. Safe
+  single-particle occurrence normalization prevents that expansion; the
+  separately bounded scalar-work default is calibrated to the retained-state
+  cap so valid counted models can reach it.
+- Per-row pointers for optional content dispatch are rejected because they
+  enlarge every published row, including models unable to use acceleration.
+  Wide-row dispatch instead uses existing row padding and map/slice storage.
+  Deferring all map cloning was rejected to preserve the original projection
+  lifecycle and small-schema construction path; eligible rows accept temporary
+  clone overlap before their bounded conversion.
+- Inferring empty complex content from an empty normalized child model was
+  rejected because element-only particles can accept no children while still
+  permitting whitespace. The compiler preserves the semantic kind before
+  lowering the particle.
+
+### Values
+
+- Canonical-text comparison for typed fixed values was rejected because
+  equivalent duration and timezone-normalized g* values can have different
+  lexical projections, and canonical spelling can select a different union
+  member. Validation requests the value owner's typed identity; equality
+  compares its tag and payload without allocating serialized framing. A second
+  equality API, lexical shortcut or identity-key cache would duplicate policy or
+  state.
+- Shared temporal parts and optional output destinations were rejected after
+  matching baseline measurements still showed raw and typed regressions.
+  Specialized admission scanners and typed construction remain under the value
+  owner, sharing semantic predicates without forcing identical indexing or
+  output transport. This measured constraint does not reject shared parsers in
+  general. Combining Gregorian primitives is also rejected because their field
+  grammars and failure precedence differ.
+- Re-resolving schema-supplied QNames in instance namespaces was rejected
+  because missing or rebound prefixes change the constraint's value. Retaining
+  the compiler's complete namespace history was rejected in favor of the bounded
+  application-prefix projection. Capturing only names resolved by the declared
+  type is insufficient when a string-first union or anyType later selects QName.
+- Adding normalized spelling to every parsed value was rejected because it
+  enlarges every retained list item. Returning it from evaluation keeps lexical
+  output separate from value-space payloads and removes mutable result options.
+- Publishing the requested type ID only at the result entrypoint was rejected
+  after matched measurements regressed base64 enumeration construction. Removing
+  the transient ID and helper parameters left retained value sizes unchanged.
+  Transient values retain their requested ID through list and union evaluation;
+  immediate union selection remains a separate fact. This measured constraint
+  does not reject other ways to remove redundant type transport.
+- Lazy list growth or a cap on initial capacity alone was rejected because
+  eventual storage still scales with input length. Rejecting a list immediately
+  when it exceeds an enclosing enumeration's item bound was rejected because it
+  can select a later union member and change acceptance. Complete-or-omitted
+  retention bounds storage while preserving normal item and member assessment.
+- Indexing only string-family enumeration groups was replaced because unindexed
+  membership left schema compilation quadratic: a restriction repeating its
+  base's 8192 decimal literals took 590 ms (5.1 ms indexed, screening-grade
+  serialized n=10 runs under a padding layout control). The earlier objection,
+  a 2-8% string-family compile regression with no changed function in the
+  profile, reversed sign under the layout control and is a layout artefact.
+  Indexing costs an extra key encoding and lookup on a first-literal match
+  (11-25% slower at 8-16 literals) and on value-keyed group construction; the
+  bounded worst case outweighs the best case. A threshold of 16 or 32 was
+  rejected: it saved 6-13% on first-literal matches but slowed last-literal
+  matches 36-131% and misses 5-32% at 8-16 literals. A four-literal threshold
+  was rejected earlier: it slowed first-literal matches 11-23% and gained only
+  10-14% on the last literal and misses. Value-keying base64 groups was
+  rejected for text keys: compact canonical text is already their equality
+  key, and the encoded copy spilled past the stack buffer for long literals
+  (construction +222-261% B/op at 512-byte payloads; text keys leave +5-10%
+  B/op and up to +17% time on 8-byte payloads, from building the index).
+- Charging enumeration membership to the value work budget was rejected. One
+  unit per scanned literal pushed `validateStringEnumBytes` from inline cost 58
+  to 121, past the inliner budget. A rework that precomputed per-group work
+  restored cost 80 but still slowed raw string-enumeration validation 2-6%
+  (n=5, loaded host, screening-grade). One up-front charge per visit would
+  charge groups a miss never tests and add a load to every visit. Indexing every
+  group of at least eight literals bounds membership per group visit without a
+  charge (`RESOURCE_LIMITS.md`). Capping literals at admission was not adopted:
+  it would reject schemas the specification accepts.
+
+### Regular Expressions
+
+- Flattening repeated character-class ranges before merging was rejected
+  because temporary storage scales with repeated inputs rather than their
+  union. A range-head heap bounds that storage, accepting extra heap work.
+  A global named-category cache was rejected because compilation already owns
+  the required bounded lifetime; parser-local catalog caching suffices.
+- Extending the linear matcher's runtime-tagged string/byte carrier to all
+  regex loops was rejected after matched scalar and retained-scratch workloads
+  exceeded the allowed 3% median CPU loss. Representation-specific rune loops
+  preserve compiler specialization under the same regex owner.
+- Returning a fully initialized regex Pattern from the NFA graph-building
+  helper was not adopted: its frame remains live during bitset allocation and
+  enlarges that allocation call chain. Removing intermediate records and
+  preserving final field layout do not prove non-increasing stack retention.
+- Embedding compiler return records in regex Pattern was not adopted: the
+  aggregate copies introduce bulk write barriers and enlarge frames active
+  during graph and bitset allocations. The published fields remain flat to
+  avoid that cost.
+
+### XML Stream And Namespaces
+
+- Checking only named token types or immediate selectors was rejected because
+  borrowed byte fields and interface aliases lose that type information.
+  Intraprocedural provenance closes those retention gaps without a whole-program
+  call graph or SSA framework; arbitrary helper effects remain explicit review
+  boundaries rather than an implied proof.
+- A separate validator cache of resolved schema names and larger spelling
+  caches remain deferred: no qualified CPU result justifies their retained
+  strings, lookup probes, or invalidation policy. Replacing component caching
+  with complete lexical QNames was rejected because independently cacheable
+  prefix/local pairs can form whole names exceeding the length or entry limit,
+  introducing repeated allocations.
+- Shrinking or replacing the eight-entry recent ring (newest-1, ring sizes
+  below 8, role-split slots) was rejected: a ring that inserts on a miss gets
+  no hits on cyclic vocabularies wider than itself, and the newest-1 probe made
+  `CacheRotatingVocabulary/2` 89% slower. Reopening needs a structure that keeps
+  hits on widths up to 8 while cutting miss cost.
+- Adding document depth to the tokenizer was rejected for outside-root text
+  validation: existing consumers already own topology. Preserving lexical text
+  origin fixes the lost fact without a second document state machine.
+- Linear live namespace lookup was rejected because repeated resolution through
+  a deep binding chain amplifies declaration churn. A second authoritative map
+  was also rejected because retained contexts require immutable binding history;
+  the active-prefix map is only a frame-owned projection of that history.
+- Parser-mode-specific line counters were rejected because CR/CRLF behavior and
+  diagnostics then diverge. The byte stream owns logical line positions, while
+  token modes own normalization of their emitted payloads.
+- Rejecting relative namespace names was rejected for the admitted extension.
+  Keeping lexical declaration sentinels after expansion was also rejected:
+  canonical expanded declarations use the reserved XMLNS URI, which ordinary
+  namespace bindings cannot legally claim.
+- Reusing the class-table scan's colon index and second-colon flag in the
+  non-ASCII QName split, instead of rescanning for colons, was not adopted:
+  serialized A/B runs (n=10, host load 8.6-11.7) showed no significant change
+  on `ParserNameVocabulary/unicode` and a 5.9% gain on
+  `ParserEndTagNames/unicode` with a candidate CI of 7%, so the evidence is
+  inconclusive. Reopening needs a quiet-host run on non-ASCII name workloads.
+
+### Validation, Sessions And Identity
+
+- A global or unbounded session pool was rejected because schema ownership and
+  retained memory would become implicit. One idle slot per shared engine owner
+  reuses the common sequential path without blocking concurrent validations or
+  introducing a new memory budget. Splitting the parser's inline buffer alone
+  would leave per-call allocation of the remaining reusable session state.
+- Containing the subtree of an element whose selection failed was rejected:
+  it hid the subtree's facet, identity and IDREF diagnostics that Xerces
+  reports after the selection error, and needed a third element mode with its
+  own identity invalidation. Lax assessment reuses the anyType and lax-wildcard
+  paths.
+- A separate root-start flag result was rejected because its sole consumer
+  immediately translated it into the session's selected state. Resolving all XSI
+  types eagerly was also rejected: undeclared-root selection and declared-start
+  nil/type assessment have different diagnostic precedence. A transient origin
+  on the canonical selected state removes repeated resolution without moving
+  recovery or introducing another assessment owner.
 - Scanning all identity scope indexes on every close was rejected because
   unrelated constraints multiply lifecycle work. Closure callbacks and a second
-  registration journal were rejected because the concrete evaluator can unwind its existing
-  scope declarations directly.
+  registration journal were rejected because the concrete evaluator can unwind
+  its existing scope declarations directly.
+- A stored self flag on identity paths was rejected: it gave the context node
+  two encodings (flag and zero-step path), parsed `./.` into the unflagged one,
+  and needed publication checks only to keep the two consistent.
 - A schema-wide list of self selector branches was rejected because every
   element start then joined each self constraint against its active scopes,
   although a self branch can only match where its scope opened.
@@ -1598,6 +1953,15 @@ separately after those groups, so benchmarks do not compete with other checks.
   was rejected: it narrows only at elements shallower than the deepest direct
   path or than every descendant path, and its search kept the per-attribute
   window call from inlining.
+- A schema-wide attribute-name prefilter for attribute-field dispatch (a
+  local-name bitset over exact attribute tests plus a wildcard flag, checked
+  before the base-depth window) was not adopted. In serialized n=10 runs it
+  cut 5.5% from rows carrying one `@id` field among 16 other attributes, but
+  cost 1.7% when an `@*` field disabled the filter and 0.7% on
+  `IdentityCPUDisparateFieldNames`, although the inlined check is a few
+  instructions. A map or sorted slice of names would only add lookup cost, and
+  per-name windows need a second index keyed by name. Reopening needs a workload
+  where unmatched attribute names dominate identity cost.
 - Clearing every identity match word for each value was rejected because sparse
   matches multiplied work by all admitted field slots. The existing unique match
   output identifies dirty words without a touched-word list or generation tags;
@@ -1609,194 +1973,98 @@ separately after those groups, so benchmarks do not compete with other checks.
   because sparse inherited frames preserve this boundary without adding work
   to elements that contribute no bindings.
 - Replacing published selector-path records with a scalar registration invariant
-  remains deferred: representative validation allocation-byte comparisons did not
-  establish nonexpansion. Smaller retained records and matching allocation counts
-  do not by themselves prove total allocated-byte equality.
-- An additional element-value slice projection was rejected because publication
-  and validation already use the canonical packed element table. Tests observe
-  published reads and independently corrupt packed projections instead of
-  preserving a second representation. Private construction and semantic
-  admission own correctness before the read tables are built; duplicate
-  projection equality checks add no boundary.
-- Path-based asset checks followed by unrestricted serving were rejected because
-  symlinked ancestors and replacements could escape the configured directory.
-  One standard-library root handle contains both operations.
-
-- Raising the DFA state cap to admit avoidable expansion was rejected. Safe
-  single-particle occurrence normalization prevents that expansion; the
-  separately bounded scalar-work default is calibrated to the retained-state
-  cap so valid counted models can reach it.
-- Per-row pointers for optional content dispatch are rejected because they
-  enlarge every published row, including models unable to use acceleration.
-  Wide-row dispatch instead uses existing row padding and map/slice storage.
-  Deferring all map cloning was rejected to preserve the original projection
-  lifecycle and small-schema construction path; eligible rows accept temporary
-  clone overlap before their bounded conversion.
-- Interleaving resolution, graph validation, and component compilation was
-  rejected because partially known namespaces made ownership and failure state
-  ambiguous. The loaded-graph-to-plan boundary is the only route into indexing.
-- Traversing canonical source references directly for each effective context was
-  rejected under the current CPU budget: matched small-schema and resolved-import
-  compilation medians exceeded the allowed 3% loss. The planner retains its
-  transient filtered edge projection, derived from canonical references and the
-  closed graph's target indices, to preserve the qualified execution path.
-- Context-bearing compilation and validation APIs were rejected because the
-  library cannot interrupt arbitrary resolvers, openers, files, or readers.
-  Callers own unblocking those operations; compatibility overloads would create
-  parallel public APIs and execution paths without providing cancellation.
-- A generic matcher/evaluator interface was rejected because there is
-  one implementation and one caller; it obscured the required transactional
-  sequencing without creating a substitution boundary.
-- Canonical-text comparison for typed fixed values was rejected because
-  equivalent duration and timezone-normalized g* values can have different
-  lexical projections, and canonical spelling can select a different union
-  member. Validation requests the value owner's typed identity; equality compares
-  its tag and payload without allocating serialized framing. A second equality
-  API, lexical shortcut or identity-key cache would duplicate policy or state.
-- Shared temporal parts and optional output destinations were rejected after
-  matching baseline measurements still showed raw and typed regressions.
-  Specialized admission scanners and typed construction remain under the value
-  owner, sharing semantic predicates without forcing identical indexing or
-  output transport. This measured constraint does not reject shared parsers in
-  general. Combining Gregorian primitives is also rejected because their field
-  grammars and failure precedence differ.
-- Re-resolving schema-supplied QNames in instance namespaces was rejected because
-  missing or rebound prefixes change the constraint's value. Retaining the
-  compiler's complete namespace history was rejected in favor of the bounded
-  application-prefix projection. Capturing only names resolved by the declared
-  type is insufficient when a string-first union or anyType later selects QName.
-- Adding normalized spelling to every parsed value was rejected because it
-  enlarges every retained list item. Returning it from evaluation keeps lexical
-  output separate from value-space payloads and removes mutable result options.
-- Publishing the requested type ID only at the result entrypoint was rejected
-  after matched measurements regressed base64 enumeration construction. Removing
-  the transient ID and helper parameters left retained value sizes unchanged.
-  Transient values retain their requested ID through list and union evaluation;
-  immediate union selection remains a separate fact. This measured constraint
-  does not reject other ways to remove redundant type transport.
-- Lazy list growth or a cap on initial capacity alone was rejected because
-  eventual storage still scales with input length. Rejecting a list immediately
-  when it exceeds an enclosing enumeration's item bound was rejected because it
-  can select a later union member and change acceptance. Complete-or-omitted
-  retention bounds storage while preserving normal item and member assessment.
-- Flattening repeated character-class ranges before merging was rejected
-  because temporary storage scales with repeated inputs rather than their
-  union. A range-head heap bounds that storage, accepting extra heap work.
-  A global named-category cache was rejected because compilation already owns
-  the required bounded lifetime; parser-local catalog caching suffices.
-- Linear live namespace lookup was rejected because repeated resolution through
-  a deep binding chain amplifies declaration churn. A second authoritative map
-  was also rejected because retained contexts require immutable binding history;
-  the active-prefix map is only a frame-owned projection of that history.
-- A universal low cognitive-complexity limit was rejected because it fragments
-  cohesive parsers, state machines, and invariant audits. The configured limit
-  identifies exceptional review targets; ownership and invariants determine
-  semantic boundaries.
-- A one-pass pretty printer was rejected because later mixed content can change
-  indentation decisions for earlier children, and malformed trailing input must
-  produce no output. Validated source spans preserve these contracts without a
-  tree, copied payloads, reader buffering, or temporary files. Repeating full XML
-  tokenization was rejected after measurements showed avoidable parsing work;
-  retained offsets refer only to the caller's existing immutable string.
-- Unlimited zero-value formatter limits were rejected because formatting still
-  retains source spans, per-element decisions, and nested frames. Finite defaults bound these
-  dimensions, while positive options allow explicit smaller or larger budgets.
-- Trusting a writer's nil error after an incomplete write was rejected because
-  formatter success must imply complete XML output; the bounded writer checks
-  every delegated write in one place.
-- Using matching instance hints to require runtime schema acquisition was rejected
-  because an engine assesses its explicitly compiled component set. Namespace
-  presence or matching location basenames cannot establish component availability.
-- Per-element copies of the accumulated hint-admission namespace set were rejected
-  because valid repeated or absent hints multiplied bounded state by document
-  length. A staged delta preserves start-transaction rollback and copies only
-  when a batch adds a namespace.
+  remains deferred: representative validation allocation-byte comparisons did
+  not establish nonexpansion. Smaller retained records and matching allocation
+  counts do not by themselves prove total allocated-byte equality.
+- Reporting a lax-missing attribute field as a node without a simple value,
+  the literal reading of cvc-identity-constraint clause 3, was rejected because
+  Xerces, .NET and libxml2 all accept duplicate unique values on such
+  attributes. Comparing them as `anySimpleType` strings was rejected for the
+  same evidence; xmlschema alone does that. Treating them as absent fields was
+  rejected because Xerces and .NET accept a key whose only field is such an
+  attribute. See
+  [I-022](docs/spec/INTERPRETATIONS.md#i-022--undeclared-lax-attributes-are-unknown-field-values).
+- A generic event-sink or matcher/evaluator interface was rejected because there
+  is one evaluator implementation and one validation caller; it would hide the
+  required transaction and element-lifecycle sequencing without creating a
+  substitution boundary.
+- Using matching instance hints to require runtime schema acquisition was
+  rejected because an engine assesses its explicitly compiled component set.
+  Namespace presence or matching location basenames cannot establish component
+  availability.
+- Per-element copies of the accumulated hint-admission namespace set were
+  rejected because valid repeated or absent hints multiplied bounded state by
+  document length. A staged delta preserves start-transaction rollback and
+  copies only when a batch adds a namespace.
 - Per-value heap staging and post-hoc limit checks for ID and IDREF batches were
   rejected because transactional validation then created garbage proportional to
-  every value and could exceed the configured identity budget before failing. One
-  bounded evaluator-owned workspace admits each field before growth, preserves
-  all-or-nothing commits, and is cleared after success and failure.
+  every value and could exceed the configured identity budget before failing.
+  One bounded evaluator-owned workspace admits each field before growth,
+  preserves all-or-nothing commits, and is cleared after success and failure.
 - A separate `MaxIdentityFieldSlots` option was rejected because it would add a
   public tuning dimension while still requiring a finite default that rejects
   the same amplified inputs. `MaxIdentityEntries` owns retained identity
   cardinality through three independent ceilings; callers can raise that one
   budget deliberately when schemas require greater field fanout.
 - Eager full-path strings were rejected because a long prefix was copied for
-  every retained fact. One parent node per element and one expanded-name node per
-  element were rejected because disjoint deep paths multiplied retained structs
-  by depth and fact count. Rendered-text chunks were rejected because expanded
-  paths copied a namespace URI at every occurrence. Fixed-size encoded chunks
-  were rejected because a common prefix below the threshold still repeated its
-  encoded bytes and suffix-local namespace headers per fact. Global full-name and
-  namespace interners were rejected because unique local names or namespace URIs
-  created another document-wide retained projection with rollback-sensitive
-  state. The document instead owns encoded suffix nodes plus active element-
-  boundary references, which share any live common prefix without retained per-
-  element nodes. An identity-owned path arena and a separate retained-path limit
-  were rejected because they would add a competing writer or public policy
-  dimension; document structure, bytes, identity-entry limits, and session high-
-  water retention already bound the chosen representation.
-- Parser-mode-specific line counters were rejected because CR/CRLF behavior and
-  diagnostics then diverge. The byte stream owns logical line positions, while
-  token modes own normalization of their emitted payloads.
+  every retained fact. One parent node per element and one expanded-name node
+  per element were rejected because disjoint deep paths multiplied retained
+  structs by depth and fact count. Rendered-text chunks were rejected because
+  expanded paths copied a namespace URI at every occurrence. Fixed-size encoded
+  chunks were rejected because a common prefix below the threshold still
+  repeated its encoded bytes and suffix-local namespace headers per fact. Global
+  full-name and namespace interners were rejected because unique local names or
+  namespace URIs created another document-wide retained projection with
+  rollback-sensitive state. The document instead owns encoded suffix nodes plus
+  active element-boundary references, which share any live common prefix without
+  retained per-element nodes. An identity-owned path arena and a separate
+  retained-path limit were rejected because they would add a competing writer or
+  public policy dimension; document structure, bytes, identity-entry limits, and
+  session high-water retention already bound the chosen representation.
+
+### Formatting
+
+- A one-pass pretty printer was rejected because later mixed content can change
+  indentation decisions for earlier children, and malformed trailing input must
+  produce no output. Validated source spans preserve these contracts without a
+  tree, copied payloads, reader buffering, or temporary files. Repeating full
+  XML tokenization was rejected after measurements showed avoidable parsing
+  work; retained offsets refer only to the caller's existing immutable string.
+- Unlimited zero-value formatter limits were rejected because formatting still
+  retains source spans, per-element decisions, and nested frames. Finite
+  defaults bound these dimensions, while positive options allow explicit smaller
+  or larger budgets.
+- Trusting a writer's nil error after an incomplete write was rejected because
+  formatter success must imply complete XML output; the bounded writer checks
+  every delegated write in one place.
+
+### Public API, Browser And Tooling
+
+- Path-based asset checks followed by unrestricted serving were rejected because
+  symlinked ancestors and replacements could escape the configured directory.
+  One standard-library root handle contains both operations.
+- Context-bearing compilation and validation APIs were rejected because the
+  library cannot interrupt arbitrary resolvers, openers, files, or readers.
+  Callers own unblocking those operations; compatibility overloads would create
+  parallel public APIs and execution paths without providing cancellation.
+- A universal low cognitive-complexity limit was rejected because it fragments
+  cohesive parsers, state machines, and invariant audits. The configured limit
+  identifies exceptional review targets; ownership and invariants determine
+  semantic boundaries.
 - Main-thread WASM execution was rejected because synchronous validation blocks
   rendering and cannot be interrupted. Worker termination is the cancellation
   boundary.
 - Boolean-only WASM results and object-valued window globals were rejected. A
   tagged response distinguishes invalid documents from operational failures,
   while worker-owned limits keep the browser boundary explicit and isolated.
-- Inferring empty complex content from an empty normalized child model was
-  rejected because element-only particles can accept no children while still
-  permitting whitespace. The compiler preserves the semantic kind before
-  lowering the particle.
-- Rejecting relative namespace names was rejected for the admitted extension.
-  Keeping lexical declaration sentinels after expansion was also rejected:
-  canonical expanded declarations use the reserved XMLNS URI, which ordinary
-  namespace bindings cannot legally claim.
-- Compatibility fields, aliases, and parallel constructors for diagnostics were
-  rejected because they would preserve two representations and two location
-  paths for the same fact.
-- A retained source vocabulary tag and copied declaration index were rejected
-  because they duplicated admitted local names, semantic capability facts and
-  root-child ordering. Allowlisting child names would discard unknown XSD
-  grammar before its diagnostic owner; all admitted XSD locals remain traversable.
-- A semantic source struct with one nullable pointer per capability was rejected
-  because it permitted contradictory records and forced every consumer through
-  a nil chain. One closed variant owns at most one capability record; common ID
-  and `xml:base` facts stay on the node source, and particle facts stay with the
-  variant that admits them. Syntax-only grammar nodes intentionally retain no
-  capability variant.
-
-- Extending the linear matcher's runtime-tagged string/byte carrier to all
-  regex loops was rejected after matched scalar and retained-scratch workloads
-  exceeded the allowed 3% median CPU loss. Representation-specific rune loops
-  preserve compiler specialization under the same regex owner.
-
-- Moving cause-only custom-`As` detection into the root type switch was
-  rejected because first use of a plain root type can allocate an additional
-  persistent runtime interface-table entry. Warm allocation counters do not
-  establish equality of first-use cache retention.
-
-- A shared root/cause aggregate assessment was rejected after its larger
-  recursive frame increased stack capacity retained after return on nested
-  aggregate causes. Heap allocation counters alone cannot establish equality
-  of goroutine stack capacity.
-
-- Returning a fully initialized regex Pattern from the NFA graph-building
-  helper was not adopted: its frame remains live during bitset allocation and
-  enlarges that allocation call chain. Removing intermediate records and
-  preserving final field layout do not prove non-increasing stack retention.
-
-- Embedding compiler return records in regex Pattern was not adopted: the
-  aggregate copies introduce bulk write barriers and enlarge frames active
-  during graph and bitset allocations. The published fields remain flat to
-  avoid that cost.
 
 ## Documentation Ownership
 
-- `AGENTS.md` is the low-context execution router. It points to this contract and
-  defines discovery, implementation, evidence, and writeback discipline without
-  copying the package graph.
+- `AGENTS.md` is the low-context execution router. It points to this contract
+  and holds the project contract, repository-specific agent workflow, worktree
+  safety, and the verification contract. It does not copy the package graph;
+  design rules belong to **Change Protocol** and test-practice rules to
+  **Tests And Enforcement**.
 - `README.md` documents public usage, command workflows, and benchmark results,
   linking to `RESOURCE_LIMITS.md` for the full option reference and
   `BENCHMARKS.md` for measurement methodology and reproduction commands.
@@ -1808,10 +2076,10 @@ separately after those groups, so benchmarks do not compete with other checks.
 - `tests/README.md` documents corpus and harness operation. Counts and other
   cheap derived facts come from the manifest or test commands rather than
   manually maintained prose.
-- `.codex` plans and ledgers are ignored working memory. Plans own future work;
-  ledgers own revision-scoped evidence. Closed history may be retained for
-  provenance but is loaded only when its finding, revision, or rejected approach
-  is relevant.
+- `.codex` plans and ledgers are git-ignored working memory. Plans own future
+  work and unowned follow-ups; ledgers own revision-scoped evidence such as raw
+  cross-validator output. Closed history is loaded only when its finding,
+  revision, or rejected approach is relevant.
 - Code comments own only non-obvious local intent, invariants, and consequences
   needed to change the adjacent implementation safely.
 - This file is the sole architecture source of truth. Other documentation may

@@ -96,7 +96,7 @@ func TestIdentitySkippedOwnerHasNoAttributeTargets(t *testing.T) {
 	evaluation := newIdentityEvaluation(rt, identityLimits{}, 0)
 	name, _ := rt.LookupQName("", "root")
 	runtimeName := xsdSchema.RuntimeName{Known: true, Name: name}
-	id, _, ok := rt.RootElement(runtimeName)
+	id, _, ok := rt.GlobalElement(runtimeName)
 	if !ok {
 		t.Fatal("compiled schema is missing its root element")
 	}

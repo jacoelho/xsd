@@ -931,20 +931,6 @@ func TestFreezeRejectsIdentityKindReferMismatch(t *testing.T) {
 			},
 		},
 		{
-			name: "selector self stores ignored path",
-			mutate: func(t *testing.T, rt *xsdSchema.SchemaBuild) {
-				t.Helper()
-				ic := &rt.Identities[rt.GlobalIdentities[mustQName(t, &rt.Names, "k")]]
-				ic.Selector[0] = xsdSchema.IdentityPath{
-					Self:       true,
-					Descendant: true,
-					Steps: []xsdSchema.IdentityStep{{
-						Name: mustQName(t, &rt.Names, "item"),
-					}},
-				}
-			},
-		},
-		{
 			name: "selector wildcard stores ignored name",
 			mutate: func(t *testing.T, rt *xsdSchema.SchemaBuild) {
 				t.Helper()
@@ -954,13 +940,11 @@ func TestFreezeRejectsIdentityKindReferMismatch(t *testing.T) {
 			},
 		},
 		{
-			name: "field self stores ignored attribute",
+			name: "self field stores ignored attribute",
 			mutate: func(t *testing.T, rt *xsdSchema.SchemaBuild) {
 				t.Helper()
 				ic := &rt.Identities[rt.GlobalIdentities[mustQName(t, &rt.Names, "k")]]
 				ic.Fields[0].Paths[0] = xsdSchema.IdentityFieldPath{
-					Self:      true,
-					Attr:      true,
 					Attribute: mustQName(t, &rt.Names, "id"),
 				}
 			},
@@ -1873,9 +1857,9 @@ func TestPublishedElementValueConstraints(t *testing.T) {
 				if start, ok := published.Element(id); !ok || start != wantStart {
 					t.Fatalf("Element(%d) = %+v, %v; want %+v", id, start, ok, wantStart)
 				}
-				rootID, start, ok := published.RootElement(xsdSchema.RuntimeName{Name: names[test.name], Known: true})
+				rootID, start, ok := published.GlobalElement(xsdSchema.RuntimeName{Name: names[test.name], Known: true})
 				if !ok || rootID != id || start != wantStart {
-					t.Fatalf("RootElement(%q) = %d, %+v, %v; want %d, %+v", test.name, rootID, start, ok, id, wantStart)
+					t.Fatalf("GlobalElement(%q) = %d, %+v, %v; want %d, %+v", test.name, rootID, start, ok, id, wantStart)
 				}
 			})
 		}

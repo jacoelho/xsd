@@ -25,7 +25,7 @@ func TestParseIdentityPaths(t *testing.T) {
 	if len(paths) != 3 {
 		t.Fatalf("path count = %d, want 3", len(paths))
 	}
-	if !paths[0].Self {
+	if !identitySelectorPathProgramRead(paths[0]).Self() {
 		t.Fatalf("first path = %#v, want self", paths[0])
 	}
 	if !paths[1].Descendant || len(paths[1].Steps) != 2 || paths[1].Steps[0].Name != resolver.qnames[":row"] || paths[1].Steps[1].Name != resolver.qnames[":code"] {
@@ -55,7 +55,7 @@ func TestParseIdentityFieldPaths(t *testing.T) {
 	if len(paths) != 3 {
 		t.Fatalf("path count = %d, want 3", len(paths))
 	}
-	if !paths[0].Self || paths[0].Attribute != NoQName() {
+	if !identityFieldPathProgramRead(paths[0]).Self() || paths[0].Attribute != NoQName() {
 		t.Fatalf("first field path = %#v, want self", paths[0])
 	}
 	if !paths[1].Attr || paths[1].Attribute != resolver.qnames["p:ref"] || len(paths[1].Steps) != 1 || paths[1].Steps[0].Name != resolver.qnames[":row"] {
@@ -63,6 +63,89 @@ func TestParseIdentityFieldPaths(t *testing.T) {
 	}
 	if !paths[2].Attr || !paths[2].AttrWildcard || !paths[2].AttrNamespaceSet || paths[2].AttrNamespace != 2 {
 		t.Fatalf("third field path = %#v, want attribute::p:*", paths[2])
+	}
+}
+
+// TestParseIdentityPathShapes pins the canonical path shape: every spelling of
+// the context node ("." steps in any number) is one non-descendant zero-step
+// path, which the read view reports as self. Attribute fields with zero element
+// steps are not self.
+func TestParseIdentityPathShapes(t *testing.T) {
+	t.Parallel()
+
+	resolver := identityNameResolverStub{qnames: map[string]QName{
+		":e":  {Local: 1},
+		":f":  {Local: 2},
+		":id": {Local: 3},
+	}}
+	type shape struct {
+		descendant bool
+		steps      int
+		self       bool
+	}
+	selectors := []struct {
+		xpath string
+		want  []shape
+	}{
+		{xpath: ".", want: []shape{{self: true}}},
+		{xpath: "./.", want: []shape{{self: true}}},
+		{xpath: "././.", want: []shape{{self: true}}},
+		{xpath: ". /. ", want: []shape{{self: true}}},
+		{xpath: ". | ./.", want: []shape{{self: true}, {self: true}}},
+		{xpath: ".//.", want: []shape{{descendant: true}}},
+		{xpath: "./e/.", want: []shape{{steps: 1}}},
+		{xpath: "e/./f", want: []shape{{steps: 2}}},
+		{xpath: "./*", want: []shape{{steps: 1}}},
+	}
+	for _, tt := range selectors {
+		paths, err := ParseIdentityPaths(tt.xpath, resolver)
+		if err != nil {
+			t.Fatalf("ParseIdentityPaths(%q) error = %v", tt.xpath, err)
+		}
+		if len(paths) != len(tt.want) {
+			t.Fatalf("ParseIdentityPaths(%q) count = %d, want %d", tt.xpath, len(paths), len(tt.want))
+		}
+		for i, path := range paths {
+			got := shape{descendant: path.Descendant, steps: len(path.Steps), self: identitySelectorPathProgramRead(path).Self()}
+			if got != tt.want[i] {
+				t.Fatalf("ParseIdentityPaths(%q)[%d] = %+v, want %+v", tt.xpath, i, got, tt.want[i])
+			}
+		}
+	}
+
+	fields := []struct {
+		xpath string
+		want  shape
+		attr  bool
+	}{
+		{xpath: ".", want: shape{self: true}},
+		{xpath: "./.", want: shape{self: true}},
+		{xpath: ".//.", want: shape{descendant: true}},
+		{xpath: "e/.", want: shape{steps: 1}},
+		{xpath: "@id", want: shape{}, attr: true},
+		{xpath: "./@id", want: shape{}, attr: true},
+		{xpath: ".//@id", want: shape{descendant: true}, attr: true},
+	}
+	for _, tt := range fields {
+		paths, err := ParseIdentityFieldPaths(tt.xpath, resolver)
+		if err != nil {
+			t.Fatalf("ParseIdentityFieldPaths(%q) error = %v", tt.xpath, err)
+		}
+		if len(paths) != 1 {
+			t.Fatalf("ParseIdentityFieldPaths(%q) count = %d, want 1", tt.xpath, len(paths))
+		}
+		path := paths[0]
+		got := shape{descendant: path.Descendant, steps: len(path.Steps), self: identityFieldPathProgramRead(path).Self()}
+		if got != tt.want || path.Attr != tt.attr {
+			t.Fatalf("ParseIdentityFieldPaths(%q) = %+v attr %v, want %+v attr %v", tt.xpath, got, path.Attr, tt.want, tt.attr)
+		}
+		wantAttribute := NoQName()
+		if tt.attr {
+			wantAttribute = resolver.qnames[":id"]
+		}
+		if path.Attribute != wantAttribute {
+			t.Fatalf("ParseIdentityFieldPaths(%q) attribute = %v, want %v", tt.xpath, path.Attribute, wantAttribute)
+		}
 	}
 }
 
@@ -89,6 +172,51 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 			name: "empty field branch",
 			parse: func() error {
 				_, err := ParseIdentityFieldPaths("| @a", resolver)
+				return err
+			},
+			category: xsderrors.CategorySchemaCompile,
+			code:     xsderrors.CodeSchemaIdentity,
+		},
+		{
+			name: "trailing slash after self",
+			parse: func() error {
+				_, err := ParseIdentityPaths("./", resolver)
+				return err
+			},
+			category: xsderrors.CategorySchemaCompile,
+			code:     xsderrors.CodeSchemaIdentity,
+		},
+		{
+			name: "empty step between names",
+			parse: func() error {
+				_, err := ParseIdentityPaths("a//a", resolver)
+				return err
+			},
+			category: xsderrors.CategorySchemaCompile,
+			code:     xsderrors.CodeSchemaIdentity,
+		},
+		{
+			name: "descendant prefix without step",
+			parse: func() error {
+				_, err := ParseIdentityPaths(".//", resolver)
+				return err
+			},
+			category: xsderrors.CategorySchemaCompile,
+			code:     xsderrors.CodeSchemaIdentity,
+		},
+		{
+			name: "empty step between self steps",
+			parse: func() error {
+				_, err := ParseIdentityPaths("./ /.", resolver)
+				return err
+			},
+			category: xsderrors.CategorySchemaCompile,
+			code:     xsderrors.CodeSchemaIdentity,
+		},
+		{
+			name: "field trailing slash after self",
+			parse: func() error {
+				_, err := ParseIdentityFieldPaths("./", resolver)
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,

@@ -65,8 +65,10 @@ Specifies that field values must be unique within the selected scope. Elements w
 - A value-bearing field selects at most one node with assessed simple or
   complex simple content. Nilled fields supply no value but count as selected
   nodes. Under the selected skip correction, skipped selectors/fields contribute
-  nothing. Lax wildcards without a declaration remain invalid field values;
-  they are distinct from skip and absence.
+  nothing. An attribute that lax assessment leaves without a declaration
+  holds an unknown value: it satisfies key presence, equals no value, and
+  yields to a typed node selected by the same field
+  ([I-022](INTERPRETATIONS.md#i-022--undeclared-lax-attributes-are-unknown-field-values)).
 
 ### xs:key
 

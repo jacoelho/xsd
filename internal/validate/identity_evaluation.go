@@ -27,13 +27,6 @@ const (
 	identityTargetCaptured
 )
 
-type identityRejection uint8
-
-const (
-	identityInvalidValue identityRejection = iota
-	identityMissingSimpleValue
-)
-
 type identityValueTarget struct {
 	generation uint64
 	depth      int
@@ -139,26 +132,7 @@ func (e *identityEvaluation) ensureIdentityProgram(id xsdSchema.IdentityConstrai
 	if !ok {
 		return identityConstraintProgram{}, internalIdentityMetadataError("identity constraint metadata is invalid")
 	}
-	if err := validateIdentitySelectorProgram(program); err != nil {
-		return identityConstraintProgram{}, err
-	}
 	return program, nil
-}
-
-func validateIdentitySelectorProgram(program identityConstraintProgram) error {
-	paths := program.Selectors()
-	for index := range paths.Len() {
-		path, ok := paths.At(index)
-		if !ok {
-			return internalIdentityMetadataError("identity selector metadata is invalid")
-		}
-		if !path.Self() && !path.Descendant() {
-			if _, ok := path.FinalStep(); !ok {
-				return xsderrors.InternalInvariant("identity selector path has no terminal step")
-			}
-		}
-	}
-	return nil
 }
 
 func (e *identityEvaluation) registerIdentityScope(scopeIndex int) error {
@@ -260,7 +234,7 @@ func (e *identityEvaluation) advanceIdentitySelectors(ctx StartContext) error {
 }
 
 // appendSelfSelectorHits adds a hit for each constraint whose selector union
-// has a bare "." branch. That branch matches only at its scope's depth, so
+// has a self branch ("." or an equivalent such as "./."). That branch matches only at its scope's depth, so
 // only scopes opened at this element are visited; the schema dispatch index
 // carries no self branches. Scopes are stacked by non-decreasing depth, so the
 // scan stops at the first shallower scope. A deeper scope remains only after a
@@ -289,21 +263,11 @@ func (e *identityEvaluation) appendScopeSelfSelectorHits(hits []identitySelector
 		if !ok {
 			return hits, internalIdentityMetadataError("identity constraint metadata is invalid")
 		}
-		if identitySelectorUnionSelectsSelf(program) {
+		if program.SelectsSelf() {
 			hits = append(hits, identitySelectorHit{scope: scope, order: order, constraint: id})
 		}
 	}
 	return hits, nil
-}
-
-func identitySelectorUnionSelectsSelf(program identityConstraintProgram) bool {
-	paths := program.Selectors()
-	for index := range paths.Len() {
-		if path, ok := paths.At(index); ok && path.Self() {
-			return true
-		}
-	}
-	return false
 }
 
 func (e *identityEvaluation) startSelectorHits(hits []identitySelectorHit, depth int, ctx StartContext) error {
@@ -663,7 +627,7 @@ func (e *identityEvaluation) startElement(in identityElementStart) error {
 		return xsderrors.InternalInvariant("identity value target remains active at element start")
 	}
 	switch in.Mode {
-	case elementAssessed, elementWildcardSkipped, elementRecovery:
+	case elementAssessed, elementWildcardSkipped:
 	default:
 		return xsderrors.InternalInvariant("element assessment mode is invalid")
 	}
@@ -866,7 +830,9 @@ func (e *identityEvaluation) commitValue(target identityValueTarget) error {
 	return nil
 }
 
-func (e *identityEvaluation) rejectValue(target identityValueTarget, reason identityRejection, ctx StartContext) error {
+// rejectValue invalidates the fields target matched after its value failed
+// assessment.
+func (e *identityEvaluation) rejectValue(target identityValueTarget) error {
 	if err := e.validateTarget(target); err != nil {
 		return err
 	}
@@ -874,14 +840,20 @@ func (e *identityEvaluation) rejectValue(target identityValueTarget, reason iden
 		return nil
 	}
 	defer e.releaseTarget()
-	switch reason {
-	case identityInvalidValue:
-		return e.invalidateFields(e.matches)
-	case identityMissingSimpleValue:
-		return e.rejectFieldsWithoutSimpleValue(e.rt, e.matches, ctx)
-	default:
-		return xsderrors.InternalInvariant("identity value rejection is invalid")
+	return e.invalidateFields(e.matches)
+}
+
+// captureUnknownValue records target, an attribute that lax assessment left
+// without a declaration, as an unknown value in the fields it matched.
+func (e *identityEvaluation) captureUnknownValue(target identityValueTarget, ctx StartContext) error {
+	if err := e.validateTarget(target); err != nil {
+		return err
 	}
+	if !target.matched {
+		return nil
+	}
+	defer e.releaseTarget()
+	return e.captureFields(e.rt, e.matches, identityFieldValue{state: identityFieldUnknown}, ctx)
 }
 
 func (e *identityEvaluation) captureXSIAttribute(
@@ -1124,8 +1096,6 @@ func (e *identityEvaluation) finishElementValue(
 	switch element.mode {
 	case elementWildcardSkipped:
 		return xsderrors.InternalInvariant("skipped element reached identity value assessment")
-	case elementRecovery:
-		return e.rejectCurrentElement(identityInvalidValue, in.Context, report)
 	case elementAssessed:
 	default:
 		return xsderrors.InternalInvariant("element assessment mode is invalid")
@@ -1137,18 +1107,10 @@ func (e *identityEvaluation) finishElementValue(
 	case endIdentityCaptureNilledElement:
 		return reportIdentityError(e.captureFields(e.rt, e.dispatchElementFieldMatches(), identityFieldValue{state: identityFieldNilled}, in.Context), report)
 	case endIdentityCaptureComplexElement:
-		return e.rejectCurrentElement(identityMissingSimpleValue, in.Context, report)
+		return reportIdentityError(e.rejectFieldsWithoutSimpleValue(e.rt, e.dispatchElementFieldMatches(), in.Context), report)
 	default:
 		return xsderrors.InternalInvariant("unknown end identity capture action")
 	}
-}
-
-func (e *identityEvaluation) rejectCurrentElement(reason identityRejection, ctx StartContext, report func(error) error) error {
-	matches := e.dispatchElementFieldMatches()
-	if reason == identityInvalidValue {
-		return e.invalidateFields(matches)
-	}
-	return reportIdentityError(e.rejectFieldsWithoutSimpleValue(e.rt, matches, ctx), report)
 }
 
 func (e *identityEvaluation) finishNillableKeyFields(element identityElementState, assessment identityElementAssessment) error {

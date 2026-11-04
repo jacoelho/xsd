@@ -59,7 +59,7 @@ func TestSchemaProgramWorkIgnoresWhichModelsAreEntered(t *testing.T) {
 	for i := range collapsed.ComplexTypes {
 		collapsed.ComplexTypes[i].Content = collapsed.ComplexTypes[0].Content
 	}
-	if entered := len(enteredContentModels(spread.ComplexTypes)); entered < 4 || entered >= len(spread.CompiledModels) {
+	if entered := len(enteredContentModels(contentRoots(spread.ComplexTypes, spread.CompiledModels))); entered < 4 || entered >= len(spread.CompiledModels) {
 		t.Fatalf("fixture: %d entered of %d compiled models, want at least 4 and some unentered", entered, len(spread.CompiledModels))
 	}
 

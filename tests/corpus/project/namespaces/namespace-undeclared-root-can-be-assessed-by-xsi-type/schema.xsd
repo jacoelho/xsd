@@ -4,4 +4,7 @@
   <xs:complexType name="Root">
     <xs:sequence><xs:element name="a" type="xs:string"/></xs:sequence>
   </xs:complexType>
+  <xs:complexType name="AbstractRoot" abstract="true">
+    <xs:sequence><xs:element name="a" type="xs:string"/></xs:sequence>
+  </xs:complexType>
 </xs:schema>

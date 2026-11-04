@@ -147,9 +147,10 @@ func (n *restrictionNormalizer) model(p Particle, depth int) (Particle, error) {
 		return p, nil
 	}
 	occurs := p.Occurs
-	if occurs.IsExactlyOne() {
+	switch {
+	case occurs.IsExactlyOne():
 		occurs = m.Occurs
-	} else if !m.Occurs.IsExactlyOne() {
+	case !m.Occurs.IsExactlyOne():
 		// Source lowering normally moves nested bounds to the particle. Retain
 		// two nonunit layers rather than multiplying away structural guards.
 		inner, err := n.model(ModelParticle(p.Model, Occurrence{Min: 1, Max: 1}), depth+1)

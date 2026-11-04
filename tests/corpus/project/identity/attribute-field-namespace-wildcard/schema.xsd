@@ -1,0 +1,15 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:p" targetNamespace="urn:p">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="row" minOccurs="0" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="a" form="qualified" type="xs:string"/>
+            <xs:attribute name="x" type="xs:string"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="namespaceWildcard"><xs:selector xpath="row"/><xs:field xpath="@p:*"/></xs:unique>
+  </xs:element>
+</xs:schema>

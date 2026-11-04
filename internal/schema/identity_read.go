@@ -49,10 +49,9 @@ type IdentityNamespaceResolver interface {
 //nolint:recvcheck // Matches avoids copying this immutable program on the hot validation path; accessors remain value reads.
 type IdentityPathProgramRead struct {
 	steps                 []IdentityStep
-	descendant            bool
-	self                  bool
 	attribute             QName
 	attributeNamespace    NamespaceID
+	descendant            bool
 	attributeNamespaceSet bool
 	attributePath         bool
 	attributeWildcard     bool
@@ -62,7 +61,6 @@ func identitySelectorPathProgramRead(path IdentityPath) IdentityPathProgramRead 
 	return IdentityPathProgramRead{
 		steps:      slices.Clone(path.Steps),
 		descendant: path.Descendant,
-		self:       path.Self,
 	}
 }
 
@@ -73,7 +71,6 @@ func identityFieldPathProgramRead(path IdentityFieldPath) IdentityPathProgramRea
 		attributeNamespace:    path.AttrNamespace,
 		attributeNamespaceSet: path.AttrNamespaceSet,
 		descendant:            path.Descendant,
-		self:                  path.Self,
 		attributePath:         path.Attr,
 		attributeWildcard:     path.AttrWildcard,
 	}
@@ -104,8 +101,12 @@ func (p IdentityPathProgramRead) FinalStep() (IdentityStep, bool) {
 // Descendant reports whether the path uses descendant matching.
 func (p IdentityPathProgramRead) Descendant() bool { return p.descendant }
 
-// Self reports whether the path selects the current node.
-func (p IdentityPathProgramRead) Self() bool { return p.self }
+// Self reports whether the path selects the current node. Self is derived from
+// the path shape, so "." and "./." have one representation: a non-descendant
+// path with no element steps and no attribute test.
+func (p IdentityPathProgramRead) Self() bool {
+	return !p.descendant && len(p.steps) == 0 && !p.attributePath
+}
 
 // IsAttribute reports whether the path selects an attribute.
 func (p IdentityPathProgramRead) IsAttribute() bool { return p.attributePath }
@@ -123,16 +124,12 @@ func (p IdentityPathProgramRead) AttributeWildcard() bool { return p.attributeWi
 
 // Matches reports whether the path matches namePath from baseDepth to
 // currentDepth.
-//
-//nolint:gocognit // Keep depth validation and step dispatch on one hot path.
 func (p *IdentityPathProgramRead) Matches(
 	names IdentityNamespaceResolver,
 	namePath []RuntimeName,
 	baseDepth, currentDepth int,
 ) bool {
-	if p.self {
-		return currentDepth == baseDepth
-	}
+	// Zero element steps covers self paths and attribute fields such as "@x".
 	if !p.descendant && len(p.steps) == 0 {
 		return baseDepth >= 0 && currentDepth == baseDepth && currentDepth <= len(namePath)
 	}
@@ -265,13 +262,19 @@ type IdentityConstraintProgramRead struct {
 	attributeWildcards []IdentityCompiledFieldProgramRead
 	refer              IdentityConstraintID
 	kind               IdentityKind
-	fieldCount         int
+	// selectsSelf is derived from selectors at construction.
+	selectsSelf bool
+	fieldCount  int
 }
 
 // Selectors returns selector path programs.
 func (p IdentityConstraintProgramRead) Selectors() IdentityPathProgramReads {
 	return IdentityPathProgramReads{values: p.selectors}
 }
+
+// SelectsSelf reports whether any selector path selects the node that opened
+// the constraint's scope.
+func (p IdentityConstraintProgramRead) SelectsSelf() bool { return p.selectsSelf }
 
 // ElementFields returns element field-path programs.
 func (p IdentityConstraintProgramRead) ElementFields() IdentityCompiledFieldProgramReads {
@@ -578,6 +581,7 @@ func newIdentityConstraintProgramRead(identity IdentityConstraint) IdentityConst
 		kind:       identity.Kind,
 		fieldCount: len(identity.Fields),
 	}
+	program.selectsSelf = slices.ContainsFunc(program.selectors, IdentityPathProgramRead.Self)
 	for fieldIndex, field := range identity.Fields {
 		var elements, wildcards []IdentityPathProgramRead
 		var exact map[QName][]IdentityPathProgramRead

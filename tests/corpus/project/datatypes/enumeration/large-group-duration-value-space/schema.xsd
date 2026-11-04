@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Durations"><xs:restriction base="xs:duration"><xs:enumeration value="P1Y"/><xs:enumeration value="PT60S"/><xs:enumeration value="P1D"/><xs:enumeration value="-P1M"/><xs:enumeration value="PT0.5S"/><xs:enumeration value="PT0S"/><xs:enumeration value="P2Y"/><xs:enumeration value="P3Y"/></xs:restriction></xs:simpleType>
+  <xs:element name="u" type="Durations"/>
+</xs:schema>

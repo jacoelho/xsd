@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://golangci-lint.run/jsonschema/golangci.jsonschema.json
-# Target: golangci-lint v2.13.2.
+# Target: golangci-lint v2.15.0.
 #
 # Stock golangci-lint rules enforce known dependency boundaries and suspicious
 # API shapes. Project-aware architecture tests remain authoritative for

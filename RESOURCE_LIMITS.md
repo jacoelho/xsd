@@ -81,6 +81,14 @@ applies to schema defaults or fixed values that require revalidation; already
 validated defaults keep their existing path. Regex and byte limits apply
 separately. Zero selects the default; positive values set a finite work ceiling.
 
+Enumeration membership is not charged; indexing bounds it instead. Each group of
+at least eight literals costs one lookup of a key encoded once per value; a
+smaller group compares the value with at most seven literals. A value meets at
+most one group per derivation step, and derivation chains are limited to 1024
+steps. Schema construction compares literals, defaults, and fixed values against
+enumerated bases the same way, so a restriction that repeats its base's literals
+compiles in time linear in their number.
+
 Reaching `MaxErrors` stops semantic assessment, but XML is still read until the
 end or a fatal error. A later fatal error takes precedence.
 

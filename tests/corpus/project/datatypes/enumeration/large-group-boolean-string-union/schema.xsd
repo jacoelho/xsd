@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="BoolOrString"><xs:union memberTypes="xs:boolean xs:string"/></xs:simpleType>
+  <xs:simpleType name="UnionStrings"><xs:restriction base="BoolOrString"><xs:enumeration value="a"/><xs:enumeration value="b"/><xs:enumeration value="c"/><xs:enumeration value="d"/><xs:enumeration value="e"/><xs:enumeration value="f"/><xs:enumeration value="g"/><xs:enumeration value="h"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="UnionWithOne"><xs:restriction base="BoolOrString"><xs:enumeration value="a"/><xs:enumeration value="b"/><xs:enumeration value="c"/><xs:enumeration value="d"/><xs:enumeration value="e"/><xs:enumeration value="f"/><xs:enumeration value="g"/><xs:enumeration value="1"/></xs:restriction></xs:simpleType>
+  <xs:element name="root"><xs:complexType><xs:choice><xs:element name="u" type="UnionStrings"/><xs:element name="u1" type="UnionWithOne"/></xs:choice></xs:complexType></xs:element>
+</xs:schema>
