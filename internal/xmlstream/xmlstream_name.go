@@ -191,6 +191,13 @@ func (p *parser) internQName(name []byte, scan qnameScan) (xml.Name, error) {
 	return p.internQNameParts(prefix, local), nil
 }
 
+// splitUnicodeQName splits and judges a name containing non-ASCII bytes,
+// rescanning for colons. Reusing qnameScan's colon index and second-colon
+// flag instead was not adopted, because serialized A/B runs
+// (n=10, host load 8.6-11.7) were inconclusive: no significant change on
+// ParserNameVocabulary/unicode and a 5.9% gain on ParserEndTagNames/unicode
+// inside a 7% candidate CI. Reopen with a quiet-host run on non-ASCII name
+// workloads.
 func splitUnicodeQName(name []byte) (prefix, local []byte, valid bool) {
 	colon := bytes.IndexByte(name, ':')
 	if colon < 0 {

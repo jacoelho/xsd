@@ -17,7 +17,8 @@
    writeback. Apply its design rules and the test rules in
    **Tests And Enforcement**.
 4. **Write back.** Put each durable fact in the owner assigned by
-   **Documentation Ownership** and remove stale copies.
+   **Documentation Ownership** (package-local mechanisms in Go doc comments,
+   cross-module facts in `ARCHITECTURE.md`) and remove stale copies.
 
 A change is complete when current behavior, `ARCHITECTURE.md`, tests, and public
 documentation agree; the verification contract passes; no partially migrated
@@ -52,5 +53,5 @@ path remains; and every remaining follow-up is reported to the user.
 - For changed validation, namespace, stream, derivation, or content-model hot
   paths, compare `-benchmem` results against the pre-change tree with
   `benchstat` (`-count` of at least 10, runs serialized); use the
-  [commit comparison](BENCHMARKS.md#commit-comparisons) workloads where they
+  [commit comparison](docs/BENCHMARKS.md#commit-comparisons) workloads where they
   apply.

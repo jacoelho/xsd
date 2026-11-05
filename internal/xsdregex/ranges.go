@@ -87,7 +87,9 @@ func unionMany(sets ...rangeSet) rangeSet {
 func mergeRangeSets(sets []rangeSet, nonEmpty int) []runeRange {
 	// Each input is already sorted and disjoint. Merge their heads instead of
 	// flattening all ranges: repeated category terms can have a large total
-	// input while producing a small final set.
+	// input while producing a small final set. R input ranges across K
+	// nonempty sets cost O(R log K) work and O(K + U) temporary storage for U
+	// output ranges.
 	heap := makeRangeHeap(sets, nonEmpty)
 	var out []runeRange
 	for len(heap) != 0 {

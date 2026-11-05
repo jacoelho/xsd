@@ -15,6 +15,10 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+// Session high-water retention policy. Every reset, for explicit sessions and
+// the pool's idle session alike, drops any slice, buffer, or map larger than
+// these bounds instead of clearing it, so one large document cannot pin its
+// peak memory across later validations.
 const (
 	maxRetainedSliceCap  = 4096
 	maxRetainedBufferCap = 1 << 20
@@ -62,6 +66,9 @@ func (s *Session) Validate(r io.Reader) error {
 // session holds the state for validating documents against one Engine.
 // Per-document state lives in doc; everything else is retained across
 // documents: options, the reader buffer and parser.
+//
+// Validation work buffers (derivation and value scratch) live here, never in the
+// immutable schema, so one sealed schema serves concurrent sessions.
 type session struct {
 	rt                *xsdSchema.Schema
 	valueResolver     xsdValue.Resolver
@@ -293,6 +300,10 @@ func (s *session) result() error {
 	}
 }
 
+// recover records a recoverable diagnostic. Reaching MaxErrors switches the
+// document to syntax-only processing: semantic assessment stops, but XML
+// admission continues to EOF so a later fatal XML or limit failure still takes
+// precedence over the collected diagnostics.
 func (s *session) recover(err error) error {
 	if err == nil {
 		return nil
@@ -348,6 +359,13 @@ const (
 	startTransactionDone
 )
 
+// sessionStartTransaction makes one element start atomic across the XML and
+// namespace stacks, schema-location hints, the parent's content-model state and
+// all-group bits, recovery state, and identity state. A fatal failure (abort)
+// rolls every owner back to the checkpoint and aborts the reader's namespace
+// frame. A semantic stop (MaxErrors reached) instead keeps only the committed
+// XML syntax state needed to parse the remainder and discards semantic state.
+//
 //nolint:govet // Fields are grouped by the state restored together.
 type sessionStartTransaction struct {
 	s                 *session
@@ -531,6 +549,8 @@ func (s *session) runStartTransaction(
 	line, col int,
 ) error {
 	xsiFlags := xsiStartAttributeFlagsFor(attrs)
+	// Hint syntax and limits are diagnosed before selection. Hints never
+	// influence which declaration or type is selected.
 	if xsiFlags.SchemaLocation {
 		if err := s.recover(s.recordSchemaLocationHints(attrs, line, col)); err != nil {
 			return handleStartTransactionError(transaction, se, err)
@@ -597,6 +617,9 @@ func (s *session) assessElementStart(
 	return s.assessXSIElementStart(start, attrs, flags, state)
 }
 
+// assessXSIElementStart assesses xsi:nil, then xsi:type. Each keeps its
+// successful result when the other fails, and each owns its own diagnostic;
+// identity capture of the same attributes never repeats them.
 func (s *session) assessXSIElementStart(
 	start *schemaStart,
 	attrs []xmlstream.Attr,
@@ -650,6 +673,10 @@ func (s *session) completeElementStartAssessment(start *schemaStart, state eleme
 	return state.nilled(), s.recoverElementStartAssessment(start, err)
 }
 
+// expandedInstancePath selects an expanded {namespace}local path segment for an
+// assessed element whose namespaced name the schema does not know, so its own
+// and its descendants' diagnostics stay unambiguous without prefixes. Known
+// names and skipped wildcard content keep lexical segments.
 func expandedInstancePath(mode elementMode, rn xsdSchema.RuntimeName) xmlPathMode {
 	if mode == elementAssessed && !rn.Known && rn.NS != "" {
 		return xmlPathExpanded
@@ -707,9 +734,11 @@ func (s *session) initialElementAssessment(start *schemaStart, declaration start
 		return info, false, nil
 	}
 	// An unavailable type acts as if the declaration were absent (Structures
-	// §5.3, cvc-elt clause 1), so its abstract flag is not checked and the
-	// element is assessed laxly as anyType. The type origin is kept so a root
-	// xsi:type is not resolved again.
+	// §5.3, cvc-elt clause 1), so its abstract flag, nillability, value
+	// constraint, and identity constraints no longer apply and the element is
+	// assessed laxly as anyType. A present xsi:type is then resolved against
+	// anyType and assesses the element when it resolves. The type origin is
+	// kept so a root xsi:type is not resolved again.
 	message := unavailableElementTypeMessage(s.rt, start.typ)
 	*start = schemaStart{element: xsdSchema.NoElement, typ: s.rt.AnyType(), mode: elementAssessed, typeOrigin: start.typeOrigin}
 	err := xsderrors.Validation(xsderrors.CodeValidationElement, message, nil)
@@ -788,6 +817,9 @@ func (s *session) recoverXSITypeError(start *schemaStart, info xsdSchema.TypeInf
 	return info, err != nil, err
 }
 
+// recoverElementStartAssessment is the location boundary for start assessment,
+// which returns unlocated failures: it marks the start invalid and attaches the
+// admitted start's path and token position before recording the diagnostic.
 func (s *session) recoverElementStartAssessment(start *schemaStart, err error) error {
 	if assessmentFailure(err) {
 		start.invalid = true
@@ -796,6 +828,12 @@ func (s *session) recoverElementStartAssessment(start *schemaStart, err error) e
 	return s.recover(err)
 }
 
+// selectedTypeOrigin is a transient origin on the canonical selected start
+// state, so root selection does not resolve xsi:type twice. Rejected: a
+// separate root-start flag result, because its sole consumer immediately
+// translated it into the selected state; and resolving all XSI types eagerly,
+// because undeclared-root selection and declared-start nil/type assessment
+// have different diagnostic precedence.
 type selectedTypeOrigin uint8
 
 const (
@@ -965,6 +1003,10 @@ func (s *session) chars(line, col int, data []byte) error {
 	return s.validateAssessedCharacterData(f, data, line, col)
 }
 
+// validateAssessedCharacterData applies the content type's character policy.
+// Empty content rejects any nonempty character data, including XML
+// whitespace; element-only content permits whitespace only. Comments, PIs and
+// zero-length CDATA never reach here, so they add no character content.
 func (s *session) validateAssessedCharacterData(f *frame, data []byte, line, col int) error {
 	if f.SimpleContent != xsdSchema.NoSimpleType {
 		return s.appendText(data, line, col)

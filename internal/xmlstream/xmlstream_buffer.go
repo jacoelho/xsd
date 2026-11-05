@@ -6,7 +6,10 @@ import (
 )
 
 // byteStream tracks line and column positions in bytes, not runes; columns
-// inside multibyte UTF-8 sequences report byte offsets.
+// inside multibyte UTF-8 sequences report byte offsets. It is the only owner of
+// logical line positions: a literal CR or CRLF advances one line in every
+// parser mode, while each token mode normalizes its own payload (LF in text,
+// comments, and PIs; a space in attribute values).
 type byteStream struct {
 	r        io.Reader
 	err      error
@@ -250,7 +253,10 @@ func (b *byteStream) offset() int {
 
 // Cache interns short parser strings per validation session. Each cache keeps
 // at most maxByteStringCacheEntries strings no longer than
-// maxByteStringCacheLen bytes.
+// maxByteStringCacheLen bytes, and survives Reader.Reset within that bound.
+// The name cache holds only validated prefix and local NCName components,
+// never expanded names, so every start admission resolves namespace bindings
+// anew.
 type cache struct {
 	state *cacheState
 }

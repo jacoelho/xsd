@@ -45,6 +45,10 @@ func prepareRawDecimalFastPath(t *typeDef) {
 	f.raw.kind = rawPlanDecimal
 }
 
+// prepareRawIntegerFastPath admits only types whose lexical kind is
+// BuiltinInteger. Eligibility follows that lexical rule, not fractionDigits=0:
+// a decimal restricted to zero fraction digits still accepts decimal spellings
+// such as "1.0", so it never takes the raw integer plan.
 func prepareRawIntegerFastPath(t *typeDef) {
 	if t.variety != Atomic || t.primitive != PrimitiveDecimal || t.builtin != BuiltinInteger || t.carriers != 0 {
 		return

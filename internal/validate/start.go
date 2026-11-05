@@ -112,6 +112,7 @@ func (state elementEffectiveState) issue() validationIssue {
 // nilled reports whether the element is nilled. Only a governing element
 // declaration can nil an element (cvc-elt 3.2); without one, xsi:nil is
 // checked as an xs:boolean and the element is assessed by its type alone.
+// See I-018 in docs/spec/INTERPRETATIONS.md.
 func (state elementEffectiveState) nilled() bool {
 	return state.nil.value && state.declaration.present
 }

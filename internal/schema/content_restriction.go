@@ -58,6 +58,18 @@ type contentModelWorkState struct {
 
 // ValidateContentRestriction validates content-model restriction while
 // charging every graph traversal and particle comparison to work.
+//
+// Compilation and publication share this validator. Both operands have their
+// actual substitution groups expanded and prescribed pointless groups removed
+// before structural dispatch. Group-to-wildcard restriction checks the
+// aggregate against the original wildcard and each member against a copy with
+// minimum zero (I-004 in docs/spec/INTERPRETATIONS.md). RecurseLax waives
+// order only inside generated substitution choices or their flattened spans
+// (I-005); explicit siblings keep their order. Matching is bounded and
+// functional, with no permutation search. Comparison never mutates build
+// models, execution limits or reusable analysis caches, and a failure discards
+// the temporary comparison view. Restriction never rewrites the derived
+// particle; runtime cardinality comes from the admitted occurrence ranges.
 func ValidateContentRestriction(
 	rt *schemaBuild,
 	baseID, derivedID ContentModelID,
@@ -734,7 +746,7 @@ func (v contentRestrictionValidator) validateModelRestrictsWildcard(base Particl
 	if err != nil {
 		return err
 	}
-	// R-240 applies the wildcard minimum to the group's effective range,
+	// R-240 (I-004 in docs/spec/INTERPRETATIONS.md) applies the wildcard minimum to the group's effective range,
 	// already checked by compareParticleRestriction, rather than each member.
 	base.Occurs.Min = 0
 	for _, child := range model.Particles {

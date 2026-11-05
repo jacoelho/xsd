@@ -1,7 +1,5 @@
 # Resource limits
 
-[Return to the README](README.md#resource-limits).
-
 Defaults bound schema compilation and document validation. Set only the limits
 you need to change. Zero selects the default except where stated below;
 negative signed limits are errors.
@@ -30,7 +28,7 @@ func compileWithLimits(schema []byte) (*xsd.Engine, error) {
 | `MaxSchemaTotalBytes` | `256 MiB` | Max aggregate bytes read across all schema sources. |
 | `MaxSchemaReferences` | `16_384` | Max include/import references processed across the schema set. |
 | `MaxSchemaDependencySteps` | `1_000_000` | Max aggregate schema-graph expansion, target-context propagation, and component-dependency resolution work. |
-| `MaxSchemaTargetContexts` | `4096` | Max distinct source/effective-target-namespace contexts, including primary and chameleon-derived contexts. |
+| `MaxSchemaTargetContexts` | `4_096` | Max distinct source/effective-target-namespace contexts, including primary and chameleon-derived contexts. |
 | `MaxSchemaInstantiatedNodes` | `1_000_000` | Max aggregate schema node occurrences across effective target contexts. |
 | `MaxSchemaNames` | `0` | Max interned schema names, including built-ins. `0` means no explicit limit. |
 | `MaxFiniteOccurs` | `0` | Max accepted finite `maxOccurs`. `0` uses the runtime `uint32` cap. |
@@ -67,7 +65,7 @@ func validateWithLimits(engine *xsd.Engine, doc io.Reader) error {
 | `MaxSchemaLocationNamespaces` | `256` | Max distinct schema-location namespace names admitted per document. Retained names enforce accounting limits, not component lookup. |
 | `MaxSchemaLocationNamespaceBytes` | `64 KiB` | Max aggregate bytes in distinct retained schema-location namespace names. `MaxInstanceTokenBytes` also bounds each complete hint attribute. |
 | `MaxInstanceDepth` | `256` | Max nested XML elements. |
-| `MaxInstanceAttributes` | `4,096` | Max attributes on one XML element. |
+| `MaxInstanceAttributes` | `4_096` | Max attributes on one XML element. |
 | `MaxInstanceTextBytes` | `4 MiB` | Max retained character data bytes. |
 | `MaxInstanceTokenBytes` | `4 MiB` | Max parser-owned bytes for one XML token, including retained payload and active construction scratch. |
 | `MaxInstanceBytes` | `64 MiB` | Max aggregate raw XML bytes read, including a UTF-8 BOM and XML declaration. |
@@ -81,20 +79,7 @@ applies to schema defaults or fixed values that require revalidation; already
 validated defaults keep their existing path. Regex and byte limits apply
 separately. Zero selects the default; positive values set a finite work ceiling.
 
-Enumeration membership is not charged; indexing bounds it instead. Each group of
-at least eight literals costs one lookup of a key encoded once per value; a
-smaller group compares the value with at most seven literals. A value meets at
-most one group per derivation step, and derivation chains are limited to 1024
-steps. Schema construction compares literals, defaults, and fixed values against
-enumerated bases the same way, so a restriction that repeats its base's literals
-compiles in time linear in their number.
+Enumeration membership is not charged against this budget.
 
 Reaching `MaxErrors` stops semantic assessment, but XML is still read until the
 end or a fatal error. A later fatal error takes precedence.
-
-## I/O interruption
-
-Compilation and validation are synchronous. Limits bound admitted input and
-work; they cannot interrupt a blocked opener, resolver, file operation, or
-reader. Callers that need interruption must provide I/O they can close or
-otherwise unblock.

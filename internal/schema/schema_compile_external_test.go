@@ -592,6 +592,7 @@ func TestMissingResolvedIncludeDoesNotInvalidateSchema(t *testing.T) {
 		{name: "wrapped not exist", err: fmt.Errorf("open: %w", os.ErrNotExist)},
 		{name: "schema not found after resolution", err: xsderrors.ErrSchemaNotFound, wantErr: true},
 		{name: "wrapped schema not found after resolution", err: fmt.Errorf("open: %w", xsderrors.ErrSchemaNotFound), wantErr: true},
+		{name: "not exist joined with other error", err: errors.Join(os.ErrNotExist, errors.New("permission check failed")), wantErr: true},
 	}
 	for _, tt := range readErrors {
 		t.Run(tt.name, func(t *testing.T) {
@@ -612,25 +613,6 @@ func TestMissingResolvedIncludeDoesNotInvalidateSchema(t *testing.T) {
 				t.Fatalf("Compile() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
-	}
-}
-
-func TestMissingResolvedIncludeCleanupErrorIsNotSuppressed(t *testing.T) {
-	t.Parallel()
-	closeErr := errors.New("close failed after missing open")
-	resolver := source.Resolver(func(_, _ string) (source.Source, error) {
-		return source.Opener("optional.xsd", func() (io.ReadCloser, error) {
-			//nolint:nilnil // Exercise the loader's cleanup-error classification boundary.
-			return compileCloseErrorReader{Reader: strings.NewReader("schema"), err: closeErr}, os.ErrNotExist
-		}), nil
-	})
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("root.xsd", []byte(`
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:include schemaLocation="optional.xsd"/>
-</xs:schema>`)).WithResolver(resolver)})
-
-	if !errors.Is(err, closeErr) {
-		t.Fatalf("Compile() error = %v, want cleanup error", err)
 	}
 }
 
@@ -1772,30 +1754,6 @@ func TestCachedSchemaIdentityRetainsResolverContext(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "different document identities across resolver contexts") {
 		t.Fatalf("Compile() error = %v, want descendant identity conflict", err)
-	}
-}
-
-func TestCachedSchemaIdentityCleanupErrorIsNotSuppressed(t *testing.T) {
-	t.Parallel()
-	const root = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="shared.xsd"/></xs:schema>`
-	const shared = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`
-	resolverA := source.Resolver(func(_, _ string) (source.Source, error) {
-		return source.Bytes("shared.xsd", []byte(shared)), nil
-	})
-	closeErr := errors.New("close failed while verifying cached source")
-	resolverB := source.Resolver(func(_, _ string) (source.Source, error) {
-		return source.Opener("shared.xsd", func() (io.ReadCloser, error) {
-			//nolint:nilnil // Exercise cached-source cleanup after a missing open.
-			return compileCloseErrorReader{Reader: strings.NewReader(shared), err: closeErr}, os.ErrNotExist
-		}), nil
-	})
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
-		source.Bytes("a.xsd", []byte(root)).WithResolver(resolverA),
-		source.Bytes("b.xsd", []byte(root)).WithResolver(resolverB),
-	})
-
-	if !errors.Is(err, closeErr) {
-		t.Fatalf("Compile() error = %v, want cached-source cleanup error", err)
 	}
 }
 
@@ -3902,20 +3860,12 @@ type qnameLookup interface {
 	LookupQName(namespace, local string) (xsdSchema.QName, bool)
 }
 
-type compileCloseErrorReader struct {
-	io.Reader
-
-	err error
-}
-
 func writeCompileTestFile(t *testing.T, path, data string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
 		t.Fatal(err)
 	}
 }
-
-func (r compileCloseErrorReader) Close() error { return r.err }
 
 func mustQName(t *testing.T, rt qnameLookup, local string) xsdSchema.QName {
 	t.Helper()

@@ -235,8 +235,10 @@ func orderedFacetRelationFromInt(n int) OrderedFacetRelation {
 
 func (r OrderedFacetRelation) valid() bool { return r <= OrderedFacetIncomparable }
 
-// Fractions are normalized without trailing zeroes, so lexical order
-// agrees with order after padding the shorter fraction with zeroes.
+// compareFraction is the single fraction order for decimal, temporal and
+// duration digits. Fractions are normalized without trailing zeroes, and empty
+// means zero, so lexical order agrees with order after padding the shorter
+// fraction with zeroes.
 func compareFraction(a, b string) int {
 	return strings.Compare(a, b)
 }

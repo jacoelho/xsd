@@ -155,7 +155,7 @@ func TestRunReportsDocumentCloseFailure(t *testing.T) {
 	}
 }
 
-func TestRunClosesReaderReturnedWithOpenError(t *testing.T) {
+func TestRunIgnoresReaderReturnedWithOpenError(t *testing.T) {
 	dir := t.TempDir()
 	schema := writeXMLLintTestFile(t, dir, "schema.xsd", xmllintTestSchema)
 	openErr := errors.New("open failed")
@@ -163,45 +163,29 @@ func TestRunClosesReaderReturnedWithOpenError(t *testing.T) {
 
 	var stderr bytes.Buffer
 	code := runWithOpen([]string{"--schema", schema, "doc.xml"}, io.Discard, &stderr, func(string) (io.ReadCloser, error) {
-		return reader, openErr //nolint:nilnil // The regression requires the permitted reader-plus-error result.
-	})
-	if code != 1 {
-		t.Fatalf("runWithOpen() code = %d, stderr = %q", code, stderr.String())
-	}
-	if reader.closes != 1 {
-		t.Fatalf("reader closes = %d, want 1", reader.closes)
-	}
-}
-
-func TestRunRejectsTypedNilDocumentReader(t *testing.T) {
-	dir := t.TempDir()
-	schema := writeXMLLintTestFile(t, dir, "schema.xsd", xmllintTestSchema)
-	var reader *typedNilReadCloser
-
-	var stderr bytes.Buffer
-	code := runWithOpen([]string{"--schema", schema, "doc.xml"}, io.Discard, &stderr, func(string) (io.ReadCloser, error) {
-		return reader, nil
-	})
-	if code != 1 {
-		t.Fatalf("runWithOpen() code = %d, stderr = %q", code, stderr.String())
-	}
-	if !strings.Contains(stderr.String(), "document opener returned nil reader") {
-		t.Fatalf("runWithOpen() stderr = %q", stderr.String())
-	}
-}
-
-func TestRunDoesNotCloseTypedNilReaderReturnedWithError(t *testing.T) {
-	dir := t.TempDir()
-	schema := writeXMLLintTestFile(t, dir, "schema.xsd", xmllintTestSchema)
-	openErr := errors.New("open failed")
-	var reader *typedNilReadCloser
-
-	var stderr bytes.Buffer
-	code := runWithOpen([]string{"--schema", schema, "doc.xml"}, io.Discard, &stderr, func(string) (io.ReadCloser, error) {
-		return reader, openErr //nolint:nilnil // Typed-nil plus error is the regression contract.
+		return reader, openErr //nolint:nilnil // A reader returned with an open error must be ignored.
 	})
 	if code != 1 || !strings.Contains(stderr.String(), openErr.Error()) {
 		t.Fatalf("runWithOpen() code/stderr = %d/%q", code, stderr.String())
+	}
+	if reader.closes != 0 || reader.reads != 0 {
+		t.Fatalf("reader reads/closes = %d/%d, want 0/0", reader.reads, reader.closes)
+	}
+}
+
+func TestRunRejectsNilDocumentReaderWithoutError(t *testing.T) {
+	dir := t.TempDir()
+	schema := writeXMLLintTestFile(t, dir, "schema.xsd", xmllintTestSchema)
+
+	var stderr bytes.Buffer
+	code := runWithOpen([]string{"--schema", schema, "doc.xml"}, io.Discard, &stderr, func(string) (io.ReadCloser, error) {
+		return nil, nil //nolint:nilnil // The opener contract rejects a nil reader without an error.
+	})
+	if code != 1 {
+		t.Fatalf("runWithOpen() code = %d, stderr = %q", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "fails to validate") || !strings.Contains(stderr.String(), "document opener returned nil reader") {
+		t.Fatalf("runWithOpen() stderr = %q", stderr.String())
 	}
 }
 
@@ -237,17 +221,13 @@ type closeErrorReader struct {
 type countingReadCloser struct {
 	io.Reader
 
+	reads  int
 	closes int
 }
 
-type typedNilReadCloser struct{}
-
-func (*typedNilReadCloser) Read([]byte) (int, error) {
-	panic("typed nil reader must not be read")
-}
-
-func (*typedNilReadCloser) Close() error {
-	panic("typed nil reader must not be closed")
+func (r *countingReadCloser) Read(p []byte) (int, error) {
+	r.reads++
+	return r.Reader.Read(p)
 }
 
 func (r *countingReadCloser) Close() error {

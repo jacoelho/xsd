@@ -1,4 +1,10 @@
 // Package source defines internal schema source and resolver primitives.
+//
+// Source names are identities, not schema-provided URI syntax. Local names
+// (absolute paths and scheme-less names) are handled as paths and never parsed
+// as uriref.Reference values, so '#' and '?' in a file name are not
+// reinterpreted. A scheme-bearing name serves as a URI base only when it parses
+// as a reference; otherwise it remains an opaque identity.
 package source
 
 import (
@@ -9,7 +15,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/uriref"
@@ -293,6 +298,13 @@ func (r Resolution) Target() string {
 
 // ResolveFrom resolves location from a base whose custom-resolver spelling and
 // built-in fallback capability have been tracked independently.
+//
+// A custom resolver receives the raw whitespace-normalized location and the
+// raw composed base even when the local backend cannot represent them. A custom
+// resolver failure stops resolution unless it is exclusively not-found, in
+// which case the built-in backends are tried. A reference those backends cannot
+// represent yields an empty Resolution, an unavailable optional hint rather
+// than an error.
 func (s Source) ResolveFrom(base ReferenceBase, location uriref.Reference) (Resolution, error) {
 	resolved, err := s.resolveWithCustomResolver(base, location)
 	if err != nil {
@@ -377,14 +389,16 @@ const (
 
 // ReadResult reports a bounded source acquisition. Bytes and Digest describe
 // the raw source bytes consumed, including a first byte beyond maxBytes when
-// the limit is exceeded.
+// the limit is exceeded. Together they are the content identity callers
+// compare across reopenings; equality relies on SHA-256 collision resistance,
+// not an exact byte comparison.
 type ReadResult struct {
 	Err           error
 	Bytes         int64
 	Digest        [32]byte
 	Stage         ReadStage
 	LimitExceeded bool
-	// OpenNotFound reports an exclusively not-found opener error after successful cleanup.
+	// OpenNotFound reports an exclusively not-found opener error.
 	OpenNotFound bool
 }
 
@@ -428,9 +442,11 @@ func (s Source) OpenInput(maxBytes int64) (*Input, ReadResult) {
 func (s Source) openSourceInput(maxBytes int64) (*Input, ReadResult) {
 	r, err := s.open()
 	if err != nil {
-		return nil, openSourceFailure(r, err)
+		// An opener error makes the reader meaningless; the opener owns any
+		// resource it acquired before failing.
+		return nil, ReadResult{Err: err, Stage: ReadStageOpen, OpenNotFound: errorIsOnly(err, os.ErrNotExist)}
 	}
-	if isNilReadCloser(r) {
+	if r == nil {
 		return nil, ReadResult{
 			Err:   xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema opener returned a nil reader"),
 			Stage: ReadStageOpen,
@@ -439,38 +455,10 @@ func (s Source) openSourceInput(maxBytes int64) (*Input, ReadResult) {
 	return newInput(s.name, r, maxBytes), ReadResult{}
 }
 
-func openSourceFailure(r io.ReadCloser, err error) ReadResult {
-	openNotFound := errorIsOnly(err, os.ErrNotExist)
-	if !isNilReadCloser(r) {
-		if closeErr := r.Close(); closeErr != nil {
-			err = errors.Join(err, closeErr)
-			openNotFound = false
-		}
-	}
-	return ReadResult{Err: err, Stage: ReadStageOpen, OpenNotFound: openNotFound}
-}
-
-func isNilReadCloser(r io.ReadCloser) bool {
-	if r == nil {
-		return true
-	}
-	v := reflect.ValueOf(r)
-	switch v.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Map, reflect.Pointer, reflect.Slice:
-		return v.IsNil()
-	case reflect.Invalid, reflect.Bool,
-		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
-		reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
-		reflect.Array, reflect.Interface, reflect.String, reflect.Struct, reflect.UnsafePointer:
-		return false
-	default:
-	}
-	return false
-}
-
 const maxConsecutiveEmptySchemaReads = 100
 
+// schemaSourceLimitError attaches the source path before any read or close
+// cause is joined, so presentation that preserves wrappers keeps the location.
 func schemaSourceLimitError(name string) error {
 	msg := "schema source exceeds MaxSchemaSourceBytes"
 	if name != "" {
@@ -485,7 +473,11 @@ func IsSchemaLimitError(err error) bool {
 	return ok && x.Code() == xsderrors.CodeSchemaLimit
 }
 
-// Key canonicalizes a schema source name for loaded-document identity.
+// Key canonicalizes a schema source name for loaded-document identity (see
+// I-019 in docs/spec/INTERPRETATIONS.md). Scheme-less names are canonicalized
+// as local paths without URI parsing. URI names keep an explicit empty
+// authority, query, or fragment delimiter and the case of an IPv6 zone
+// identifier, because those spellings can name distinct resources.
 func Key(name string) string {
 	if isLocalName(name) {
 		return canonicalLocalPath(name)

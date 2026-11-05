@@ -13,6 +13,8 @@ const (
 	xsdTimezoneUncertainty = 14 * 60
 )
 
+// xsdYear keeps the canonical year digits as text, so years of any length
+// survive without overflow or truncation.
 type xsdYear struct {
 	digits string
 	neg    bool
@@ -37,7 +39,9 @@ type TemporalValue struct {
 	hasTZ   bool
 }
 
-// TimeValue is the value-space projection for xs:time values.
+// TimeValue is the value-space projection for xs:time values. Like
+// xsdDateTimePoint, it keeps fractional seconds as a digit string rather than
+// a fixed-precision number.
 type TimeValue struct {
 	frac   string
 	second int
@@ -46,6 +50,12 @@ type TimeValue struct {
 
 // ValidateTemporalLexical validates raw as a schema-independent temporal
 // primitive lexical value. It does not build canonical values or compare facets.
+//
+// These admission scanners and the typed parsers share semantic predicates
+// such as parseDateYear but not indexing or output transport. Rejected: shared
+// temporal parts with optional output destinations, because matched baseline
+// measurements still showed raw and typed regressions. This does not reject
+// shared parsers in general.
 func ValidateTemporalLexical[T byteText](kind PrimitiveKind, raw T) error {
 	switch kind {
 	case PrimitiveDate:
@@ -417,6 +427,11 @@ func parseXSDTimezoneToEnd(s string, i int, label string) (xsdTimezone, error) {
 	return tz, nil
 }
 
+// xsdDateTimePoint is the shared calendar point of date, dateTime and g*
+// values. Temporal parsing deliberately avoids Go time.Time: the year and
+// the fractional seconds stay lexical digit strings, so XSD's unbounded year
+// and fraction precision are preserved exactly. frac has no trailing zeroes;
+// empty means zero.
 type xsdDateTimePoint struct {
 	frac   string
 	year   xsdYear

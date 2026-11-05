@@ -870106,7 +870106,7 @@
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec",
           "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt",
-          "docs/spec/02_elements_and_attributes.md"
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-derived-ok"
         ],
         "description": "An intermediate type that blocks restriction removes a member whose type is restricted from it from the head's substitution group, while xsi:type with the same type stays allowed because xsi:type blocking consults only the declaration and declared type.",
         "package": "validate",
@@ -870135,12 +870135,12 @@
           "oracle": {
             "dotnet": {
               "expected": "valid",
-              "reason": "Observed offline with .NET System.Xml.Schema 10.0.9 on the current fixture: instance accepted. The project expectation follows the intermediate-type substitution rule in docs/spec/02_elements_and_attributes.md and the xsi:type rule in docs/spec/05_validation.md; this is interoperability evidence, not a majority-vote oracle.",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.9 on the current fixture: instance accepted. The project expectation follows the intermediate-type {prohibited substitutions} in Substitution Group OK (Transitive) clause 2.3; xsi:type blocking per cvc-elt clause 4.3 and Type Derivation OK (Complex), which consult no intermediate types; this is interoperability evidence, not a majority-vote oracle.",
               "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
             },
             "xmlschema": {
               "expected": "valid",
-              "reason": "Observed offline with xmlschema 4.3.2 on the current fixture: instance accepted. The project expectation follows the intermediate-type substitution rule in docs/spec/02_elements_and_attributes.md and the xsi:type rule in docs/spec/05_validation.md; this is interoperability evidence, not a majority-vote oracle.",
+              "reason": "Observed offline with xmlschema 4.3.2 on the current fixture: instance accepted. The project expectation follows the intermediate-type {prohibited substitutions} in Substitution Group OK (Transitive) clause 2.3; xsi:type blocking per cvc-elt clause 4.3 and Type Derivation OK (Complex), which consult no intermediate types; this is interoperability evidence, not a majority-vote oracle.",
               "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
             }
           }
@@ -870177,8 +870177,7 @@
         "kind": "project",
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
-          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec",
-          "docs/spec/02_elements_and_attributes.md"
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
         ],
         "description": "A member excluded from the head's substitution group by an intermediate type block does not compete with the head particle, so the content model has no Unique Particle Attribution conflict.",
         "package": "schema",
@@ -870270,8 +870269,7 @@
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-RecurseAsIfGroup",
           "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK",
-          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec",
-          "docs/spec/02_elements_and_attributes.md"
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
         ],
         "description": "A restriction cannot replace a head particle by a member that an intermediate type block excludes from the head's substitution group.",
         "package": "schema",
@@ -870289,17 +870287,17 @@
         "oracle": {
           "dotnet": {
             "expected": "valid",
-            "reason": "Observed offline with .NET System.Xml.Schema 10.0.9 on the current fixture: schema accepted. The project expectation follows the intermediate-type substitution rule in docs/spec/02_elements_and_attributes.md; this is interoperability evidence, not a majority-vote oracle.",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.9 on the current fixture: schema accepted. The project expectation follows the intermediate-type {prohibited substitutions} in clause 2.3 of Substitution Group OK (Transitive); this is interoperability evidence, not a majority-vote oracle.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK"
           },
           "libxml2": {
             "expected": "valid",
-            "reason": "Observed offline with libxml2 2.9.13 on the current fixture: schema accepted. The project expectation follows the intermediate-type substitution rule in docs/spec/02_elements_and_attributes.md; this is interoperability evidence, not a majority-vote oracle.",
+            "reason": "Observed offline with libxml2 2.9.13 on the current fixture: schema accepted. The project expectation follows the intermediate-type {prohibited substitutions} in clause 2.3 of Substitution Group OK (Transitive); this is interoperability evidence, not a majority-vote oracle.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK"
           },
           "xmlschema": {
             "expected": "valid",
-            "reason": "Observed offline with xmlschema 4.3.2 on the current fixture: schema accepted. The project expectation follows the intermediate-type substitution rule in docs/spec/02_elements_and_attributes.md; this is interoperability evidence, not a majority-vote oracle.",
+            "reason": "Observed offline with xmlschema 4.3.2 on the current fixture: schema accepted. The project expectation follows the intermediate-type {prohibited substitutions} in clause 2.3 of Substitution Group OK (Transitive); this is interoperability evidence, not a majority-vote oracle.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK"
           }
         }

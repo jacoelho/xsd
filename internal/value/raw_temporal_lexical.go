@@ -37,6 +37,8 @@ func parseDatePart[T byteText](s T) (dateYear, int, error) {
 	return year, next, nil
 }
 
+// parseDateYear is the one year grammar: the borrowed lexical scanners and the
+// typed parsers (through parseXSDYear) both admit years here.
 func parseDateYear[T byteText](s T) (dateYear, int, error) {
 	i := 0
 	if i >= len(s) {

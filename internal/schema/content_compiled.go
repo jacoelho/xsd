@@ -185,6 +185,10 @@ type compiledModelRead struct {
 	Empty     bool
 }
 
+// compiledModelRowRead has a per-architecture storage ceiling
+// (TestCompiledModelRowReadStorageCeiling); optional dispatch metadata must not
+// enlarge it. Each published row owns exactly one index variant, named by
+// indexKind; mutable construction indexes never reach it.
 type compiledModelRowRead struct {
 	Edges         []compiledModelEdgeRead
 	index         publishedDFAIndex

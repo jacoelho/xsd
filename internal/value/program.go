@@ -177,6 +177,13 @@ func (b *Builder) ReserveCapacity(userTypes int) error {
 
 // Complete validates and installs one reserved type. Referenced user types
 // must already be visible, allowing literals to be validated before sealing.
+//
+// The storage charge is taken before facet literals run resolver callbacks.
+// Those callbacks may inspect this provisional record and complete other
+// slots, so construction does not promise an acyclic dependency graph. If
+// Complete fails or panics, it refunds only its own charge and returns the
+// slot to reserved, where it is unavailable to lookups and may be completed
+// again; slots completed by nested callbacks stay committed.
 func (b *Builder) Complete(id TypeID, spec TypeSpec) error {
 	i, err := b.prepareType(id, spec)
 	if err != nil {
@@ -247,7 +254,10 @@ func (b *Builder) reservedTypeIndex(id TypeID) (TypeID, error) {
 }
 
 // Admit all core references before checking depth: a later malformed member
-// takes metadata-error priority over an earlier deep member.
+// takes metadata-error priority over an earlier deep member. A self reference
+// fails as metadata because the slot is still reserved. Facet-literal
+// references are depth-checked separately and do not raise the stored core
+// depth.
 func (b *Builder) admitCoreDependencies(spec TypeSpec) (uint16, error) {
 	depth, err := b.coreReferenceDepth(spec.Base)
 	if err != nil {
@@ -302,6 +312,8 @@ func (b *Builder) completeStorage(spec TypeSpec) (uint64, error) {
 }
 
 // Seal closes the incremental builder and returns its immutable value program.
+// It fails without consuming the builder while any slot is reserved (reported
+// first, naming the slot) or still being completed.
 func (b *Builder) Seal() (*Program, error) {
 	if b == nil || b.program == nil || b.program.sealed {
 		return nil, ErrMetadata
@@ -365,6 +377,11 @@ func (b *Builder) recordDependencyDepth(id, ref TypeID, depth *uint16) error {
 	return nil
 }
 
+// completionState exists only during construction; Seal drops the table once
+// every slot is committed. Reserved slots are invisible to lookups. An
+// in-progress slot is visible to evaluation, InputRequirements and TypeView
+// (provisional metadata), while queries documented as "completed" require a
+// committed slot.
 type completionState uint8
 
 const (
@@ -584,6 +601,8 @@ func (p *Program) inheritedWhitespace(base TypeID, fallback WhitespaceMode) Whit
 	return fallback
 }
 
+// compileFacets evaluates all bound and enumeration literals of one type under
+// one fresh construction work budget.
 func (p *Program) compileFacets(id TypeID, source FacetSpec, workLimit uint64) error {
 	budget, err := newEvaluationBudget(workLimit)
 	if err != nil {
@@ -601,6 +620,8 @@ func (p *Program) compileFacets(id TypeID, source FacetSpec, workLimit uint64) e
 	if batchErr := p.compileFacetBatch(id, t, source, &own, &budget); batchErr != nil {
 		return batchErr
 	}
+	// Resolver callbacks during the batch may complete other slots and grow
+	// p.types, so the earlier pointer can be stale.
 	t = &p.types[id-BuiltinTypeCount]
 	facets := own
 	if t.base != NoType {

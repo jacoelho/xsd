@@ -45,9 +45,13 @@ func Bytes(name string, data []byte) SchemaSource {
 }
 
 // Open returns a reusable schema source backed by open. The function must
-// return a new independent reader on every call. Compilation owns and closes
-// every non-nil reader returned by open, including a reader returned with an
-// error, and reports close errors. The caller must not reuse that reader.
+// return a new independent reader on every call. If open returns a non-nil
+// error, compilation ignores the reader without closing it; open must release
+// any resource it acquired before returning an error. Compilation reports the
+// error, except that for an include/import target an error matching only
+// [os.ErrNotExist] marks the location unavailable. Otherwise compilation owns and closes the returned reader and reports
+// close errors; a nil reader is reported as a schema read error. The caller
+// must not reuse a reader returned without an error.
 func Open(name string, open func() (io.ReadCloser, error)) SchemaSource {
 	return SchemaSource{src: source.Opener(name, open)}
 }
@@ -55,8 +59,9 @@ func Open(name string, open func() (io.ReadCloser, error)) SchemaSource {
 // WithResolver returns s with r used for every schema include/import reached
 // from s. A source returned by r remains in that resolver-owned graph regardless
 // of its own resolver, and its non-empty name is the authoritative document
-// identity for deduplication and descendant resolution. A nil resolver removes
-// custom resolution from s.
+// identity for deduplication and descendant resolution. A nil resolver,
+// including a nil ResolverFunc or *ResolverFunc, removes custom resolution
+// from s; a File source keeps its built-in local schemaLocation resolution.
 func (s SchemaSource) WithResolver(r Resolver) SchemaSource {
 	s.src = s.src.WithResolver(adaptPublicResolver(r))
 	return s

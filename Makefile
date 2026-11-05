@@ -45,9 +45,9 @@ xmllint: | $(BIN)
 	go build -o $(BIN)/xmllint ./cmd/xmllint
 
 .PHONY: wasm
-wasm: | docs
-	GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o docs/xsd.wasm ./cmd/wasmxsd
-	cp $$(go env GOROOT)/lib/wasm/wasm_exec.js docs/wasm_exec.js
+wasm:
+	GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o web/xsd.wasm ./cmd/wasmxsd
+	cp $$(go env GOROOT)/lib/wasm/wasm_exec.js web/wasm_exec.js
 
 .PHONY: web
 web: wasm
@@ -55,11 +55,15 @@ web: wasm
 
 .PHONY: web-test
 web-test:
-	node --test docs/js/*.test.js
+	node --test web/js/*.test.js
 
 .PHONY: browser-test
 browser-test:
-	npm --prefix docs/js run test:browser
+	npm --prefix web/js run test:browser
+
+.PHONY: oracles
+oracles:
+	docker build --tag xsd-oracles:local tools/oracles
 
 .PHONY: staticcheck
 staticcheck: $(BIN)/staticcheck
@@ -81,7 +85,4 @@ $(BIN)/golangci-lint: go.mod .golangci.yml Makefile | $(BIN)
 	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 $(BIN):
-	mkdir -p $@
-
-docs:
 	mkdir -p $@

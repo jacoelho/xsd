@@ -426,6 +426,10 @@ func (s *identityAttributeFieldSteps) includeFields(fields []IdentityCompiledFie
 // one past the highest base depth from which some path can match. from is the
 // lowest such base depth when no path has a ".//" prefix and currentDepth is at
 // least the most steps of any path; otherwise it may be lower.
+//
+// Rejected: an exact window over every distinct direct step count, because it
+// narrows only at elements shallower than the deepest direct path or than
+// every descendant path, and its search kept this call from inlining.
 func (d IdentityDispatchRead) AttributeFieldBaseDepths(currentDepth int) (from, to int) {
 	s := d.attributeFieldSteps
 	if !s.present || currentDepth < s.fewest {

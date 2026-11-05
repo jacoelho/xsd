@@ -34,6 +34,13 @@ type schemaSetDocument struct {
 	explicitRoot      bool
 }
 
+// schemaSetLoader closes the source graph. byKey holds one parsed document and
+// content identity per canonical source key; each further resolver context
+// that reaches the key is kept as an alias in its sources so descendant
+// references resolve in that context too. A repeated identity is reopened and
+// its bytes charged again, but only its content identity is compared with the
+// loaded document. pendingReferences holds edges whose resolver returned an
+// identity without a source; they bind when a document with that key loads.
 type schemaSetLoader struct {
 	byKey             map[string]loadedSchemaDocument
 	resolvedSources   map[string]struct{}
@@ -230,6 +237,8 @@ func loadSchemaGraphOwned(
 	if err := l.loadOwned(sources); err != nil {
 		return loadedSchemaGraph{}, err
 	}
+	// Plan order is by document name, independent of load order. Names are
+	// unique here because the key is a function of the name.
 	slices.SortFunc(l.documents, func(a, b schemaSetDocument) int {
 		return cmp.Compare(a.doc.name, b.doc.name)
 	})
@@ -358,6 +367,9 @@ func (l *schemaSetLoader) read(item schemaLoadRequest, queue *[]schemaLoadReques
 	return l.registerDocument(item, key, doc, content, queue)
 }
 
+// parseNewSource finishes the source before the parse result is accepted, so
+// close, read and byte-limit failures take precedence over an early XML syntax
+// error.
 func (l *schemaSetLoader) parseNewSource(item schemaLoadRequest, key string) (*schemaDocument, schemaContent, error) {
 	src := item.source
 	remaining := l.limits.MaxSchemaTotalBytes - l.totalBytes
@@ -589,6 +601,10 @@ func schemaResolutionError(request schemaLoadRequest, err error) error {
 		xsderrors.SchemaParse(xsderrors.CodeSchemaRead, "resolve schema "+request.ref.location.Raw(), err))
 }
 
+// bindUnopenedReference handles a resolver answer that names an identity but
+// opens no source. Such an identity-only candidate is not authoritative: it
+// binds now only if that key is already loaded, and otherwise stays pending
+// until bindPendingReferences target-checks it before the document activates.
 func (l *schemaSetLoader) bindUnopenedReference(request schemaLoadRequest, target string) error {
 	if target == "" || request.ref.target == target {
 		return nil
@@ -1099,7 +1115,8 @@ func checkReferenceNamespace(n *schemaNode, ctx *schemaSetDocument, name xml.Nam
 	if ctx == nil {
 		return namespace, nil
 	}
-	// Adopted WG correction 1890 exempts these namespaces from import licensing;
+	// Adopted WG correction 1890 (I-006 in docs/spec/INTERPRETATIONS.md)
+	// exempts these namespaces from import licensing;
 	// ordinary component lookup still owns kind, existence and source authority.
 	if namespace == vocab.XSDNamespaceURI || namespace == vocab.XSINamespaceURI || namespace == ctx.effectiveTargetNS || ctx.imports[namespace] {
 		return namespace, nil

@@ -145,7 +145,9 @@ func CompileContentModels(
 }
 
 // CheckContentModelsUPA validates direct unique-particle-attribution checks
-// that can be proven before compiled DFA construction.
+// that can be proven before compiled DFA construction. Traversal is root-local:
+// each root uses its own seen tag, so results and work charges are never
+// shared across roots.
 func CheckContentModelsUPA(
 	names *NameTable,
 	rt *schemaBuild,
@@ -185,6 +187,11 @@ func (c *contentModelCompiler) checkContentModelUPA(id ContentModelID, seen []in
 	return c.checkDirectUPA(model)
 }
 
+// elementDeclarationConsistencyChecker is the one charged, model-cached EDC
+// check shared by compilation and publication. Same-named particles,
+// including effective transitive substitution members, must share one named
+// global type; generated internal names never make an anonymous type named.
+// A single particle is visited once regardless of its occurrence range.
 type elementDeclarationConsistencyChecker struct {
 	rt     *schemaBuild
 	work   ContentModelWork
@@ -1267,6 +1274,8 @@ func (b *dfaBuilder) stateID(entries []dfaEntry) (uint32, error) {
 	return b.internState(normalizeDFAEntries(entries))
 }
 
+// followStateID charges the follow set before consulting the position cache,
+// so state discovery order and limit-failure order do not depend on caching.
 func (b *dfaBuilder) followStateID(pos int) (uint32, error) {
 	if err := b.spendDFAEntries(b.follow[pos]); err != nil {
 		return 0, err

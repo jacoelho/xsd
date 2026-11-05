@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"reflect"
 	"strings"
 	"unicode/utf8"
 
@@ -184,7 +183,7 @@ type Config struct {
 // reset atomically prepares p to read r with one validated configuration.
 func (p *parser) reset(r io.Reader, names, values *cache, config Config) error {
 	limits := config.Limits
-	if isNilReader(r) {
+	if r == nil {
 		p.detach()
 		return ErrXMLInputNilReader
 	}
@@ -238,25 +237,6 @@ func (p *parser) resetBuffers() {
 	p.textBuf = resetRetainedBytes(p.textBuf)
 	p.directive = resetRetainedBytes(p.directive)
 	p.attrs = resetRetainedSlice(p.attrs)
-}
-
-func isNilReader(r io.Reader) bool {
-	if r == nil {
-		return true
-	}
-	v := reflect.ValueOf(r)
-	switch v.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Map, reflect.Pointer, reflect.Slice:
-		return v.IsNil()
-	case reflect.Invalid, reflect.Bool,
-		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
-		reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
-		reflect.Array, reflect.Interface, reflect.String, reflect.Struct, reflect.UnsafePointer:
-		return false
-	default:
-	}
-	return false
 }
 
 // detach drops references to the current input while retaining bounded parser
@@ -1460,7 +1440,7 @@ func validateOptionalXMLEncoding(content []byte) ([]byte, error) {
 
 // isVersionNum implements XML 1.0 Second Edition [26], whose character set is
 // the ASCII XML name characters; a well-formed version other than 1.0 is
-// unsupported rather than malformed.
+// unsupported rather than malformed. See I-020 in docs/spec/INTERPRETATIONS.md.
 func isVersionNum(value string) bool {
 	if value == "" {
 		return false

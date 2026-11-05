@@ -27,6 +27,9 @@ const (
 	identityTargetCaptured
 )
 
+// identityValueTarget is the one borrowed value target active at a time.
+// Callers prepare it, record the validated value, capture it into matched
+// fields, then commit; a validation failure rejects it from any active phase.
 type identityValueTarget struct {
 	generation uint64
 	depth      int
@@ -91,6 +94,11 @@ func newIdentityDispatchState(index xsdSchema.IdentityDispatchRead) identityDisp
 }
 
 // identityEvaluation owns all document-local XML and XSD identity state.
+//
+// Rejected: a generic event-sink or matcher/evaluator interface, because there
+// is one evaluator and one validation caller; it would hide the required
+// transaction and element-lifecycle sequencing without creating a
+// substitution boundary.
 type identityEvaluation struct {
 	identityState
 
@@ -156,6 +164,8 @@ func (e *identityEvaluation) registerIdentityScope(scopeIndex int) error {
 	return nil
 }
 
+// unregisterIdentityScope removes only this scope's entries, from the tail in
+// reverse order, so it also unwinds a partial registration.
 func (e *identityEvaluation) unregisterIdentityScope(scopeIndex int, constraints xsdSchema.IdentityConstraintIDs) {
 	for order := constraints.Len() - 1; order >= 0; order-- {
 		id, ok := constraints.At(order)
@@ -179,6 +189,8 @@ func (e *identityEvaluation) unregisterIdentityScope(scopeIndex int, constraints
 // closeScopes owns scope membership cleanup because activeByConstraint is an
 // evaluator dispatch projection rather than canonical identity state. A scope
 // is removed from that projection before it is merged, cleared, and popped.
+// Keyrefs are checked before tables complete. A failed close leaves the scope
+// registered with its tables uncompleted and its storage live until reset.
 func (e *identityEvaluation) closeScopes(depth int, report func(error) error) (bool, error) {
 	if e == nil {
 		return false, nil
@@ -346,6 +358,8 @@ func (e *identityEvaluation) appendSelectorBranchHits(
 	return hits
 }
 
+// sortIdentityFieldMatches orders matches by selection, then field, which is
+// the diagnostic precedence of field cardinality and value errors.
 func sortIdentityFieldMatches(matches []identityFieldMatch) {
 	slices.SortStableFunc(matches, func(a, b identityFieldMatch) int {
 		if a.Selection < b.Selection {
@@ -647,7 +661,8 @@ func (e *identityEvaluation) startElement(in identityElementStart) error {
 	}
 	e.path = append(e.path, in.Name)
 	// Skipped subtrees retain structural depth for end/rollback, but contribute
-	// no identity nodes, scopes, or selector rows.
+	// no identity nodes, scopes, or selector rows; their fields stay absent, so
+	// an assessed ancestor's key still requires complete fields.
 	if in.Mode != elementAssessed {
 		return nil
 	}
@@ -1016,6 +1031,11 @@ func (e *identityEvaluation) commitIdentityFields(pendingIDs, pendingRefs []stri
 	e.entries += entryCount
 }
 
+// endElement finishes identity in a fixed order: selections owned by this
+// element's scope take the current nillable-field markers and finish; the
+// scope closes; scope-local failure folds into the element assessment and
+// invalidates still-pending ancestor-owned fields; then ancestor selections
+// finish.
 func (e *identityEvaluation) endElement(in identityElementEnd, report func(error) error) (identityElementResult, error) {
 	result := identityElementResult{AssessmentInvalid: in.AssessmentInvalid}
 	if e.targetPhase != identityTargetInactive {

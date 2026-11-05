@@ -18,6 +18,8 @@ type xmlDocument[P any] struct {
 	pathTextDepth int
 }
 
+// xmlDocumentElement stores the expanded name only; prefixes are never
+// retained, so paths render as lexical local names or expanded names.
 type xmlDocumentElement[P any] struct {
 	payload    P
 	name       xml.Name
@@ -28,6 +30,10 @@ type xmlDocumentElement[P any] struct {
 }
 
 // retainedPath preserves an exact diagnostic path within its validation call.
+// IDs, IDREFs, and published identity tuples keep one when their element may
+// pop before the diagnostic is emitted; pending selections keep only a depth
+// and project it from the live path instead. The string is materialized only
+// when a diagnostic is emitted.
 type retainedPath struct {
 	store *documentPathStore
 	ref   documentPathRef
@@ -37,6 +43,13 @@ func (p retainedPath) String() string {
 	return p.store.pathString(p.ref)
 }
 
+// documentPathStore holds document-owned, parent-linked encoded path suffixes
+// that share live prefixes. Each live element is encoded at most once between
+// rollback or pop boundaries (its pathRef), and namespace URIs are stored once
+// per suffix, not per occurrence. References never outlive the validation
+// call: a fatal start rollback clears references into new nodes and truncates
+// them, semantic discard releases all of them, and reset drops capacity above
+// the session high-water bound.
 type documentPathStore struct {
 	namespaceScratch map[string]int
 	nodes            []documentPathNode

@@ -14,6 +14,11 @@ type workBudget struct {
 	kind      workBudgetKind
 }
 
+// workBudgetKind names the two public budgets. Dependency work is shared by
+// source loading, effective-context planning, registration and component
+// resolution; content-model work is shared by element-declaration consistency,
+// restriction, UPA, compilation and sealing. Spent work is never refunded,
+// including when publication fails.
 type workBudgetKind uint8
 
 const (

@@ -52,6 +52,10 @@ func xsiNilIdentity(rt *xsdSchema.Schema, lexical string, workLimit uint64, ctx 
 	return v.IdentityKey(), nil
 }
 
+// xsiTypeIdentity validates xsi:type only as a lexical QName. A bound QName
+// naming an unknown or non-derived type is still an identity value; malformed
+// or unbound QNames invalidate the matched field. Semantic xsi:type
+// diagnostics belong to start assessment and are never repeated here.
 func xsiTypeIdentity(rt *xsdSchema.Schema, lexical string, resolve xsdValue.QNameResolver, workLimit uint64, ctx StartContext) (string, error) {
 	resolver := xsdValue.Resolver{}
 	if resolve != nil {
@@ -87,6 +91,9 @@ func xsiURIIdentity(rt *xsdSchema.Schema, lexical, attribute string, workLimit u
 	return result.IdentityKey(), nil
 }
 
+// xsiSchemaLocationIdentity evaluates each URI item separately under the
+// per-value work limit. The aggregate is bounded only by the attribute's token
+// bytes: hint limits count distinct namespaces, not items.
 func xsiSchemaLocationIdentity(rt *xsdSchema.Schema, lexical string, workLimit uint64, ctx StartContext) (string, error) {
 	anyURI, err := xsiAnyURIType(rt)
 	if err != nil {

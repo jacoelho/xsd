@@ -7,6 +7,11 @@ type restrictionNormalizer struct {
 	models    restrictionModelView
 }
 
+// compareNormalizedRestriction compares over a view that borrows unchanged
+// original models and owns only replacement nodes. When normalization added
+// replacements, the comparison gets a private range/emptiability analysis and
+// wildcard cache so replacement IDs never reach the caller's reusable caches;
+// work still charges the caller's sticky budget.
 func (v contentRestrictionValidator) compareNormalizedRestriction(base, derived Particle) error {
 	n := restrictionNormalizer{validator: v, models: restrictionModelView{original: v.rt.Models}}
 	base, err := n.particle(base, 0)

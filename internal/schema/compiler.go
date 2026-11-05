@@ -12,6 +12,11 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+// maxComponentDependencyDepth caps nested active component compilation
+// (derivation bases, group and declaration references), restriction
+// normalization and value dependency chains,
+// independently of XML nesting depth. Dependency work bounds total effort;
+// this bounds stack depth.
 const maxComponentDependencyDepth = 1024
 
 // Compile compiles internal schema sources into a published validation runtime.
@@ -57,6 +62,8 @@ func mapSchemaSources[T any](sources []T, sourceOf func(T) source.Source) ([]sou
 	return owned, nil
 }
 
+// compileMappedSources indexes only after loading has planned every effective
+// target namespace, because chameleon documents are indexed once per context.
 func (c *compiler) compileMappedSources(owned []source.Source) (*Schema, error) {
 	var err error
 	if err = c.loadOwned(owned); err != nil {
@@ -152,6 +159,9 @@ type compiler struct {
 	missingSimple   SimpleTypeID
 }
 
+// spendComponentDependency charges one component reference. Callers spend
+// before consulting their compiled-component cache, so a cache hit is still
+// charged and repeated references cannot evade the dependency budget.
 func (c *compiler) spendComponentDependency(n *schemaNode) error {
 	if err := c.dependencyWork.spend(1); err != nil {
 		if n != nil {

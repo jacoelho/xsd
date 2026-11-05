@@ -20,6 +20,12 @@ const xmlStreamImport = "github.com/jacoelho/xsd/internal/xmlstream"
 // consumers may pass them through synchronous calls, but no consumer may
 // retain the token, a token-shaped alias, or a borrowed field in state that
 // survives the current call.
+//
+// The guard follows borrowed provenance through local aliases and closures to
+// returns, retained state, channels, and delayed calls. Owned strings, byte
+// clones, and copies into owned byte destinations sever provenance; shallow
+// copies of reference-bearing containers, including slices.Clone of them, do
+// not.
 func TestXMLStreamBorrowedValuesStayEphemeral(t *testing.T) {
 	root := repoRoot(t)
 	fset := token.NewFileSet()

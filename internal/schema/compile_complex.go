@@ -9,6 +9,11 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+// complexTypeCompletion is a complex type's reserved -> completing -> complete
+// transition. Element type references only reserve; derivation-base
+// resolution alone forces completion, so re-entering a completing definition
+// is a derivation cycle, never legal recursive element content. Builtin
+// anyType starts complete.
 type complexTypeCompletion uint8
 
 const (

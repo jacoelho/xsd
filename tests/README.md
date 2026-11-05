@@ -1,6 +1,6 @@
 # Test And Conformance Harness
 
-Standalone XSD 1.0 validation corpus plus a Go test runner. This directory contains data, expected results, and `harness_test.go`; it does not require Xerces-J source code or the original source checkouts.
+Standalone XSD 1.0 validation corpus plus a Go test runner. This directory contains data, expected results, and `harness_test.go`.
 
 Use the smallest evidence surface that proves the changed contract:
 
@@ -10,8 +10,8 @@ Use the smallest evidence surface that proves the changed contract:
 | Public compile, validation, source, session, or diagnostic behavior | Root external-package tests and `external_api_smoke_test.go` | Full corpus and API-shape tests |
 | Harness-expressible XSD/XML conformance | Project-owned corpus cases, each minimal, covering every edge case | Full `TestHarness` and unsupported allowlist checks |
 | Package direction, public/internal seam, state ownership, or borrowed lifetime | `phase_*`, `root_public_shape_test.go`, `schema_build_boundary_test.go`, or `stream_boundary_test.go` | `go test ./...` |
-| Large streaming time or peak memory | Focused package benchmark first | Opt-in `TestLargeXMLLintBenchmark` with frozen inputs |
-| WASM, worker, page, or local-server lifecycle | Owning `cmd/wasmxsd`, `docs/js`, or `cmd/xsdweb` tests | Browser integration for browser routes |
+| Large streaming time or peak memory | Focused package benchmark first | Opt-in `TestLargeXMLLintBenchmark` with frozen inputs ([reproduction](../docs/BENCHMARKS.md)) |
+| WASM, worker, page, or local-server lifecycle | Owning `cmd/wasmxsd`, `web/js`, or `cmd/xsdweb` tests | Browser integration for browser routes |
 
 Behavior tests belong at the owning module's interface. Add a white-box test
 only when a private corruption or lifetime state cannot be exercised through
@@ -23,6 +23,7 @@ the violated contract, not preserve incidental control flow.
 - `manifest.json`: source of truth for expected results and paths.
 - `unsupported.txt`: sorted allowlist of unsupported-feature skips.
 - `harness_test.go`: Go test runner for this corpus.
+- `harness_manifest_test.go`: verifies the manifest closure derived from `manifest.json`.
 - `corpus/`: all schema, XML, and auxiliary files referenced by the manifest.
 - `corpus/w3c`: copied W3C files with original relative layout preserved.
 - `corpus/xerces-j`: selected Xerces-J XSD/XML validation fixtures.
@@ -38,7 +39,7 @@ Project fixtures are grouped by the contract they exercise:
 
 | Directory under `corpus/project/` | Contract |
 | --- | --- |
-| `datatypes/` | Value rules, subdivided into numeric, temporal, string, binary, list, union, name, URI, QName, notation and regex families |
+| `datatypes/` | Value rules, subdivided into numeric, temporal, string, list, union, name, URI, QName, notation and regex families |
 | `attributes/` | Attribute declarations, uses, groups, defaults, fixed values and wildcard processing |
 | `elements/` | Element declarations, XSI selection, nil and value constraints |
 | `content-models/` | Particles, model groups, derivation, attribution and substitution |
@@ -98,14 +99,20 @@ independent Python xmlschema result.
    options. Use XSD 1.0 and XML 1.0. An adapter that cannot represent the same
    source set must report the limitation rather than silently rewriting inputs
    or omitting roots.
-2. Run all four using installed runtimes and local dependencies. Record an
-   unavailable implementation and its concrete reason; an omitted run is not
-   agreement. Keep schema acquisition offline: allow only the explicit closure,
-   block network protocols and external entities, and preserve locationless
-   imports without inventing schema documents. Record unsupported security
-   settings and the mechanism that enforces the same boundary.
-   Verify that resolved include/import URIs select the intended documents;
-   choosing a different allowlisted document is still an adapter failure.
+2. Run all four with [`tools/oracles/run.sh`](../tools/oracles/run.sh)
+   (`--help` documents its arguments; `make oracles` prebuilds the pinned
+   image). Pass every `schema.documents` root in manifest order and a `--root`
+   covering the dependency closure, then record the provider versions it
+   reports with the results. The image runs without network on a read-only
+   mount of the root. The Xerces-J, .NET and xmlschema adapters report
+   non-file references and documents outside the root as `blocked`; libxml2
+   blocks network references but can read image files outside the root, and
+   accepts one root, reporting `blocked` for more. Record an unavailable implementation and its
+   concrete reason; an omitted run is not agreement. Preserve locationless
+   imports without inventing schema documents. The mount is coarser than the
+   explicit closure, so verify from the diagnostics that resolved include/import
+   URIs selected the intended documents; choosing a different file under the
+   root is still an adapter failure.
 3. Isolate cases with fresh schema factories/sets and fresh instance validators.
    Use fresh processes when provider globals still leak between cases. Clear
    diagnostics between phases. Record schema compilation separately from
@@ -122,14 +129,8 @@ independent Python xmlschema result.
    Reproduce each disagreement with the smallest opposing controls and diagnose
    specification, processor, source-closure or harness differences before
    changing behavior.
-5. Derive effective corpus expectations from the local specifications, approved
-   corrections and documented qualifications. Agreement is diagnostic evidence,
-   not a majority-vote replacement for those sources. Preserve measured provider
-   disagreements as implementation-specific oracle metadata without overwriting
-   the project expectation or fabricating results for blocked phases.
-   Where specification text, adopted corrections and accepted W3C expectations
-   leave a reading doubtful, the interpretation record applies the
-   [processor tie-break](../docs/spec/INTERPRETATIONS.md#processor-tie-break).
+5. Record measured results as oracle metadata and derive expectations as the
+   [Corpus Contract](#corpus-contract) defines.
 
 Historical releases and modified provider copies are separate diagnostic
 profiles. Record their selection reason, versions, source changes and hashes;
@@ -151,9 +152,21 @@ or a stated unresolved boundary. Report remaining coverage limits to the user.
   and reasons as provenance, using the keys above. They may match a later
   corrected project expectation; metadata alone does not establish a fresh
   validator run or redefine XSD validity. Actual comparisons follow
-  [Cross-validator Diagnosis](#cross-validator-diagnosis).
-- Each schema or instance `expected` is the effective project expectation. The
-  `source` metadata and per-fixture `status` preserve upstream provenance
+  [Cross-validator Diagnosis](#cross-validator-diagnosis). A provider comparison
+  uses the phase's `oracle.<implementation>.expected` when present and otherwise
+  the project expectation. A provider phase with `status: "blocked"` and no
+  `expected` is an execution limitation, not a validity expectation; schema
+  rejection blocks its instance phases. Measured disagreements stay in oracle
+  metadata; they never overwrite the project expectation, and blocked phases
+  get no fabricated results.
+- Each schema or instance `expected` is the effective project expectation,
+  derived from the published specifications, approved corrections and
+  documented qualifications. Provider agreement is diagnostic evidence, not a
+  majority-vote replacement for those sources. Where specification text,
+  adopted corrections and accepted W3C expectations leave a reading doubtful,
+  the interpretation record applies the
+  [processor tie-break](../docs/spec/INTERPRETATIONS.md#processor-tie-break).
+  The `source` metadata and per-fixture `status` preserve upstream provenance
   without overriding it.
   When a project expectation corrects an upstream W3C result,
   `schema.oracle.w3c` or `instance.oracle.w3c` records the original expectation,
@@ -163,7 +176,7 @@ or a stated unresolved boundary. Report remaining coverage limits to the user.
   expectation. Existing `internalExpected` values remain historical extraction
   metadata. A legacy test name containing `valid` or `invalid` is not an oracle;
   preserve its identity when correcting `expected`.
-- This artifact MUST NOT contain Java classes, jars, shell scripts, or Go exclusion manifests.
+- This directory contains no Java classes, jars, or shell scripts.
 
 ## Go Test Runner
 
@@ -185,14 +198,10 @@ go test ./tests -run '^TestHarness/w3c'
 
 A runner SHOULD read `manifest.json`, compile each case schema document set,
 then validate each listed instance against that schema. Expected values are
-`valid` or `invalid`. For provider comparisons, use the phase's
-`oracle.<implementation>.expected` when present; otherwise compare the measured
-result against the project expectation. A provider phase recorded with
-`status: "blocked"` and no `expected` is an execution limitation, not a validity
-expectation. In particular, schema rejection blocks its instance phases.
-Provider expectations remain separate from the effective project result.
+`valid` or `invalid`; provider comparisons follow the
+[Corpus Contract](#corpus-contract).
 
-An instance's optional `errorCode` checks the first structured diagnostic
+A schema's or instance's optional `errorCode` checks the first structured diagnostic
 returned by the Go runner. Use it for default-option diagnostic precedence,
 including malformed XML after an earlier schema error. Custom readers, option
 budgets, error causes, and reuse of one session belong in public API tests.
@@ -219,11 +228,6 @@ XML/XLink declarations as explicit roots. Their source metadata must identify
 their limited scope; they are not complete copies of the upstream vocabulary
 schemas. Supplying these roots does not authorize network loading.
 
-The checked-in `manifest.json` is the authoritative expectation source. The
-extractor named in its metadata is not part of this repository; any future
-generator must preserve explicit project corrections such as `oracle.w3c`
-entries.
-
 Cases without a `schema` member require schema-less or instance-directed schema
 assessment, which the precompiled `Engine` contract deliberately does not
 perform. The Go runner exposes each such instance as an explicit skipped
@@ -237,7 +241,3 @@ instance<TAB>source<TAB>caseID<TAB>instanceName<TAB>code
 ```
 
 The file MUST stay sorted and unique. New unsupported skips fail until added deliberately; stale entries fail after the full harness passes.
-
-## Export Evidence
-
-- Manifest closure is derived from `manifest.json` and verified by `harness_manifest_test.go`.

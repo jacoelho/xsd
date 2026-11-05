@@ -10,6 +10,10 @@ import (
 // linearPattern is the old bounded run-length matcher expressed directly
 // from the shared AST. It covers concatenations of character sets and their
 // repeats; all other patterns use the Thompson machine.
+//
+// literal takes priority over fixed. A fixed pattern (every atom has equal
+// minimum and maximum counts) is matched by one cursor over the atom sets;
+// repetition counts never expand into per-position instructions.
 type linearPattern struct {
 	literalText  string
 	atoms        []linearAtom
@@ -179,6 +183,11 @@ func (p *linearPattern) matchBytes(input []byte, options MatchOptions, scratch *
 	return p.matchPreparedRunes(runes, options, states)
 }
 
+// linearInput is the runtime-tagged string/byte carrier for the linear
+// matcher's no-scratch path. Rejected: extending it to all regex loops,
+// because matched scalar and retained-scratch workloads exceeded the allowed
+// 3% median CPU loss; representation-specific rune loops keep compiler
+// specialization.
 type linearInput struct {
 	stringInput string
 	bytesInput  []byte

@@ -173,6 +173,13 @@ func (e *valueDiagnosticError) Is(target error) bool {
 // describeValueFailure runs only after a complete value has failed. A rejected
 // union member can still lead to successful validation, so speculative checks
 // return their cheap error identities without formatting diagnostic context.
+// It receives no resolver or work budget, so enrichment cannot replay
+// QName/NOTATION resolution or reset evaluation work. A union's own facet
+// failure is described only when a member was selected; a failed list item is
+// described through the list and its item type, never through a discarded
+// partial item. Enumeration failures name the first failing group from
+// retained literals and pure equality, and pattern failures describe every
+// group rather than rematching to guess which one failed.
 func describeValueFailure[T byteText](program *Program, id TypeID, lexical T, parsed *parsedValue, cause error) error {
 	if errors.Is(cause, ErrLimit) || errors.Is(cause, ErrMetadata) || IsUnsupported(cause) {
 		return cause

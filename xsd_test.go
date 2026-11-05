@@ -1,7 +1,6 @@
 package xsd_test
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -296,7 +295,7 @@ func TestOpenRejectsRepeatedEmptyReadsAndCloses(t *testing.T) {
 	}
 }
 
-func TestOpenOwnsEveryReturnedReader(t *testing.T) {
+func TestOpenOwnsReadersReturnedWithoutError(t *testing.T) {
 	t.Parallel()
 
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`
@@ -317,10 +316,11 @@ func TestOpenOwnsEveryReturnedReader(t *testing.T) {
 		closeErr := errors.New("close failed")
 		reader := &trackingSchemaReadCloser{Reader: strings.NewReader(schema), closeErr: closeErr}
 		_, err := xsd.Compile(xsd.Open("schema.xsd", func() (io.ReadCloser, error) {
-			return reader, openErr //nolint:nilnil // A non-nil reader returned with an error is still owned and closed.
+			return reader, openErr //nolint:nilnil // A reader returned with an open error must be ignored.
 		}))
-		if !errors.Is(err, openErr) || !errors.Is(err, closeErr) || !reader.closed {
-			t.Fatalf("Compile() = %v, closed %v; want both causes and closed reader", err, reader.closed)
+		expectCategoryCode(t, err, xsderrors.CategorySchemaParse, xsderrors.CodeSchemaRead)
+		if !errors.Is(err, openErr) || errors.Is(err, closeErr) || reader.closed {
+			t.Fatalf("Compile() = %v, closed %v; want open cause only and reader ignored", err, reader.closed)
 		}
 	})
 
@@ -1425,31 +1425,31 @@ func TestNilReadersReturnStructuredErrors(t *testing.T) {
 	err = engine.ValidateWithOptions(nil, xsd.ValidateOptions{})
 	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationXML)
 
-	var typedNil *bytes.Reader
-	err = engine.Validate(typedNil)
-	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationXML)
-
-	err = engine.ValidateWithOptions(typedNil, xsd.ValidateOptions{})
-	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationXML)
-
 	session, err := engine.NewSession(xsd.ValidateOptions{})
 	if err != nil {
 		t.Fatalf("NewSession() error = %v", err)
 	}
-	err = session.Validate(typedNil)
+	err = session.Validate(nil)
 	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationXML)
 	err = session.Validate(strings.NewReader(`<root/>`))
 	if err != nil {
-		t.Fatalf("Session.Validate() after typed nil error = %v", err)
+		t.Fatalf("Session.Validate() after nil reader error = %v", err)
 	}
 
 	_, err = xsd.Compile(xsd.Open("schema.xsd", func() (io.ReadCloser, error) {
-		return nil, errors.New("nil schema reader")
+		return nil, errors.New("schema open failed")
 	}))
-
 	expectCategoryCode(t, err, xsderrors.CategorySchemaParse, xsderrors.CodeSchemaRead)
-	if !strings.Contains(err.Error(), "nil schema reader") {
-		t.Fatalf("Compile() error = %v, want nil schema reader", err)
+	if !strings.Contains(err.Error(), "schema open failed") {
+		t.Fatalf("Compile() error = %v, want open error", err)
+	}
+
+	_, err = xsd.Compile(xsd.Open("schema.xsd", func() (io.ReadCloser, error) {
+		return nil, nil //nolint:nilnil // The opener contract rejects a nil reader without an error.
+	}))
+	expectCategoryCode(t, err, xsderrors.CategorySchemaParse, xsderrors.CodeSchemaRead)
+	if !strings.Contains(err.Error(), "schema opener returned a nil reader") {
+		t.Fatalf("Compile() error = %v, want nil reader rejection", err)
 	}
 }
 

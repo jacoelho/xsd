@@ -10,6 +10,11 @@ import (
 // enumerationIndexMinLiterals is the smallest group that gets an index;
 // smaller groups are scanned. Membership work per group visit is therefore at
 // most enumerationIndexMinLiterals-1 comparisons or one key encoding and lookup.
+//
+// Rejected: a threshold of 16 or 32, because it saved 6-13% on first-literal
+// matches but slowed last-literal matches 36-131% and misses 5-32% at 8-16
+// literals; and a threshold of 4, because it slowed first-literal matches
+// 11-23% and gained only 10-14% on the last literal and misses.
 const enumerationIndexMinLiterals = 8
 
 // enumerationKeyBuffer is the stack capacity for one probe key; longer keys
@@ -34,6 +39,10 @@ const enumerationListKeyTag = 0xff
 //     and prepareBase64EnumerationValue compacts a value before membership).
 //     The raw string-enumeration plan relies on this scheme for string groups;
 //     base64 groups use it to avoid copying and spilling long literal keys.
+//     Rejected: value-keying base64 groups, because the encoded copy spilled
+//     past enumerationKeyBuffer (construction +222-261% B/op at 512-byte
+//     payloads; text keys cost +5-10% B/op and up to +17% time on 8-byte
+//     payloads, from building the index).
 //   - value-keyed (enumerationValueKey): any other group; the key is
 //     appendEnumerationKey's encoding.
 //

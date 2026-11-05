@@ -214,6 +214,11 @@ func newDeclaredAttributePlan(use xsdSchema.AttributeUseRead, target identityVal
 	return declaredAttributePlan{use: use, target: target, fixed: fixed, needs: needs, hasFixed: hasFixed, input: input}
 }
 
+// canValidateFixedString selects the projection-free fixed check: when no
+// identity value is needed and the type is LexicalCanonical, an explicit
+// attribute is validated without value projections and then compared as raw
+// text with the fixed value's CanonicalText, because an accepted lexical form
+// is its own canonical value.
 func (p declaredAttributePlan) canValidateFixedString() bool {
 	return !p.target.needsIdentity() && p.hasFixed && p.input.LexicalCanonical
 }
@@ -336,6 +341,11 @@ func (s *session) recoverUnassessedIdentityAttribute(rn xsdSchema.RuntimeName, e
 	return s.recoverAssessment(err)
 }
 
+// validateKnownWildcardAttribute assesses a wildcard-admitted attribute that
+// has a global declaration. An unavailable declared type fails first. An
+// ID-typed declaration conflicts with an ID attribute use of the set even when
+// that use is absent from the instance, and the conflict is reported before
+// any value is recorded.
 func (s *session) validateKnownWildcardAttribute(
 	set xsdSchema.AttributeUseSetRead,
 	decl xsdSchema.AttributeDeclRead,

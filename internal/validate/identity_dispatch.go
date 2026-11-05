@@ -14,6 +14,8 @@ type identitySelectionCandidate struct {
 
 // Scratch is rebuilt from pending selections for each value. It never becomes
 // another writer of selection membership or participates in start rollback.
+// It is pointer-free and proportional to admitted selections plus one bit per
+// admitted field slot; a collection without matches allocates no bitmap.
 type identityFieldDispatchScratch struct {
 	selections []identitySelectionCandidate
 	matched    []uint64 // Zero between collections; unique outputs own cleanup.
@@ -58,6 +60,8 @@ func (s *identityFieldDispatchScratch) forConstraint(constraint xsdSchema.Identi
 	return s.selections[start:end]
 }
 
+// appendIdentityFieldMatch deduplicates by field-value slot, bounding output
+// by active field storage.
 func (e *identityEvaluation) appendIdentityFieldMatch(matches []identityFieldMatch, selection, field int) []identityFieldMatch {
 	if len(matches) == 0 {
 		e.fieldDispatch.prepareMatches(len(e.fieldValues))

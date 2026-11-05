@@ -58,7 +58,9 @@ func XML(w io.Writer, input string) error {
 //
 // It validates the complete caller-owned input before writing, then replays the
 // source spans through a streaming renderer. No generic XML tree or decoded
-// document representation is retained.
+// document representation is retained. Malformed input therefore writes
+// nothing. A nil result means the complete document was written; on a writer
+// failure or output limit, w may hold partial output.
 func XMLWithOptions(w io.Writer, input string, opts Options) error {
 	if w == nil {
 		return formatOptionErr(errors.New("nil writer"))
@@ -175,6 +177,9 @@ func normalizeFormatOptions(opts Options) (Options, error) {
 	return opts, nil
 }
 
+// maxBytesWriter is the single owner of output accounting. It reports every
+// incomplete delegated write as an error, including one whose writer returned
+// a nil error, so formatter success implies complete output.
 type maxBytesWriter struct {
 	w   io.Writer
 	err error
@@ -264,6 +269,8 @@ func (w *maxBytesWriter) record(want, n int, err error) (int, error) {
 	return n, nil
 }
 
+// formatAnalysis is the only formatter stage that counts processed nodes and
+// drives Reader admission. Rendering consumes only its complete tape.
 type formatAnalysis struct {
 	reader   *xmlstream.Reader
 	stack    []analysisFrame
@@ -280,7 +287,9 @@ type formatEvent struct {
 	kind             xmlstream.TokenKind
 	textKind         xmlstream.CharacterDataKind
 	ignoreWhitespace bool
-	inline           bool
+	// inline is meaningful on start events only, and is final only after the
+	// matching end commits, because later content can change the decision.
+	inline bool
 }
 
 type analysisFrame struct {

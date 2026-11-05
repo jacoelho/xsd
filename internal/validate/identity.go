@@ -167,6 +167,8 @@ type identityTupleRef struct {
 	unmatched bool
 }
 
+// identitySelection retains its selected depth, not a path; immediate
+// diagnostics project the depth from the live document path.
 type identitySelection struct {
 	node       uint64
 	scope      int
@@ -196,7 +198,7 @@ const (
 	// identityFieldUnknown records a selected attribute that lax assessment
 	// left without a declaration: the field is present but its value equals
 	// no other value. A selected node with a value supersedes it, and it adds
-	// no field cardinality.
+	// no field cardinality. See I-022 in docs/spec/INTERPRETATIONS.md.
 	identityFieldUnknown
 )
 
@@ -734,6 +736,8 @@ func (s *identityState) retainScopeRefs(refs []identityTupleRef, maxRetained int
 
 // Unmerged root tables have never deleted entries. Their current cardinality
 // admits reuse; merged tables may have pruned a much larger conflict set.
+// This bounds cardinality, not Go map backing bytes. The idle table is handed
+// to a scope only after entry admission succeeds.
 func (s *identityState) retainRootTable(scope *identityScope) {
 	if scope.depth != 1 || scope.tablesMerged || len(scope.tables) != 1 {
 		return
@@ -810,6 +814,10 @@ func (s *identityState) declaredScopeCount() int {
 	return s.scopes[len(s.scopes)-1].declaredScopes
 }
 
+// completeTables excludes conflicting descendant tuples. mayHaveConflicts is a
+// conservative hint that lets clean tables skip the scan; once set it stays set
+// until completion, so dirty completion work is bounded by admitted entries
+// times instance depth.
 func (scope *identityScope) completeTables() {
 	if !scope.mayHaveConflicts {
 		return
@@ -826,6 +834,9 @@ func (scope *identityScope) completeTables() {
 
 // propagateClosedIdentityScope consumes an unregistered, completed frame.
 // Its immediate XML parent may be eligible only through these child bindings.
+// A parent without a frame gets a sparse inherited one, so their count is
+// bounded by instance depth. Propagation transfers or merges bindings without
+// charging or refunding admitted entries.
 func (s *identityState) propagateClosedIdentityScope() {
 	index := len(s.scopes) - 1
 	closed := s.scopes[index]
@@ -897,6 +908,9 @@ func mergeIdentityTable(parent, child map[string]identityTableEntry, parentDepth
 	return larger, conflict
 }
 
+// mergeIdentityTableEntry keeps a parent scope's local entry over descendant
+// entries. Descendant entries from different nodes become conflicts, which
+// scope completion excludes before propagation.
 func mergeIdentityTableEntry(parent, child identityTableEntry, parentDepth int) identityTableEntry {
 	if parent.originDepth == parentDepth {
 		return parent
