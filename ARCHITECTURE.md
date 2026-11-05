@@ -105,8 +105,7 @@ Use the narrowest authoritative source that answers the question:
    is architecture drift to resolve, not a second design.
 4. `README.md` owns public usage. `docs/spec` is searchable local standards
    reference. `tests/README.md` owns corpus and test-harness operation.
-5. Plans describe proposed work. Ledgers record revision-scoped evidence and
-   decisions. Neither may redefine current architecture.
+5. Plans describe proposed work and may not redefine current architecture.
 
 For a change, start at the public or package interface named in the routing
 table below, trace the single execution path to its state owner, then inspect
@@ -1321,9 +1320,14 @@ Validation flow:
    not resolve, and any element whose selected type is unavailable, is assessed
    as anyType and marked invalid; a declared element's own `xsi:type` is then
    resolved against anyType and, when it resolves, assesses the element. The
-   unavailable-type replacement drops the declaration, so its nillability, value constraint and identity constraints no
-   longer apply. An abstract element declaration still governs with its type,
-   and a rejected `xsi:type` leaves the governing type selected. An undeclared
+   unavailable-type replacement drops the declaration, as if it were absent
+   (Structures §5.3, cvc-elt clause 1), so its abstract flag, nillability, value
+   constraint and identity constraints no longer apply. Otherwise an abstract
+   element declaration still governs with its type, and a rejected `xsi:type`
+   leaves the governing type selected. A laxly assessed element whose name the
+   schema does not know records an expanded `{namespace}local` path segment when
+   namespaced, for its own diagnostics and its descendants'; skipped wildcard
+   content and known names keep lexical segments. An undeclared
    root resolves its type during selection; an operation-local type origin lets
    common assessment consume that same TypeID without resolving it again. No
    origin or second cached type reaches a frame. Ordinary declared starts
@@ -2076,10 +2080,6 @@ separately after those groups, so benchmarks do not compete with other checks.
 - `tests/README.md` documents corpus and harness operation. Counts and other
   cheap derived facts come from the manifest or test commands rather than
   manually maintained prose.
-- `.codex` plans and ledgers are git-ignored working memory. Plans own future
-  work and unowned follow-ups; ledgers own revision-scoped evidence such as raw
-  cross-validator output. Closed history is loaded only when its finding,
-  revision, or rejected approach is relevant.
 - Code comments own only non-obvious local intent, invariants, and consequences
   needed to change the adjacent implementation safely.
 - This file is the sole architecture source of truth. Other documentation may

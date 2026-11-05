@@ -692,22 +692,24 @@ func (s *session) syntaxStart(line, col int) error {
 }
 
 func (s *session) initialElementAssessment(start *schemaStart, declaration startDeclaration) (xsdSchema.TypeInfo, bool, error) {
-	if declaration.present && declaration.abstract {
-		// An abstract declaration still governs: its type assesses the content.
-		err := xsderrors.Validation(xsderrors.CodeValidationElement, abstractElementMessage(s.rt, start.element), nil)
-		if err = s.recoverElementStartAssessment(start, err); err != nil {
-			return xsdSchema.TypeInfo{}, true, err
-		}
-	}
 	info, known := s.rt.TypeInfo(start.typ)
 	if !known {
 		return xsdSchema.TypeInfo{}, true, xsderrors.InternalInvariant("start type metadata is invalid")
 	}
 	if !info.Unavailable {
+		if declaration.present && declaration.abstract {
+			// An abstract declaration still governs: its type assesses the content.
+			err := xsderrors.Validation(xsderrors.CodeValidationElement, abstractElementMessage(s.rt, start.element), nil)
+			if err = s.recoverElementStartAssessment(start, err); err != nil {
+				return xsdSchema.TypeInfo{}, true, err
+			}
+		}
 		return info, false, nil
 	}
-	// An unavailable type cannot assess the element, so it is assessed laxly as
-	// anyType. The type origin is kept so a root xsi:type is not resolved again.
+	// An unavailable type acts as if the declaration were absent (Structures
+	// §5.3, cvc-elt clause 1), so its abstract flag is not checked and the
+	// element is assessed laxly as anyType. The type origin is kept so a root
+	// xsi:type is not resolved again.
 	message := unavailableElementTypeMessage(s.rt, start.typ)
 	*start = schemaStart{element: xsdSchema.NoElement, typ: s.rt.AnyType(), mode: elementAssessed, typeOrigin: start.typeOrigin}
 	err := xsderrors.Validation(xsderrors.CodeValidationElement, message, nil)
@@ -879,12 +881,11 @@ func (s *session) rootStartType(rn xsdSchema.RuntimeName, attrs []xmlstream.Attr
 		value, _ := s.reader.MaterializeValue(a)
 		typ, err := resolveXSIType(s.rt, value, s.qnameResolver())
 		if err != nil {
-			if recoverErr := s.recover(s.locateElementStartError(err)); recoverErr != nil {
-				return schemaStart{}, recoverErr
-			}
 			// The failed hint is consumed here; anyType assesses the root laxly.
 			start := rootXSITypeStart(s.rt.AnyType())
-			start.invalid = true
+			if recoverErr := s.recoverElementStartAssessment(&start, err); recoverErr != nil {
+				return schemaStart{}, recoverErr
+			}
 			return start, nil
 		}
 		return rootXSITypeStart(typ), nil

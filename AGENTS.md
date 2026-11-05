@@ -21,8 +21,7 @@
 
 A change is complete when current behavior, `ARCHITECTURE.md`, tests, and public
 documentation agree; the verification contract passes; no partially migrated
-path remains; and every remaining follow-up is reported to the user or owned by
-a `.codex` plan.
+path remains; and every remaining follow-up is reported to the user.
 
 ## Project Contract
 

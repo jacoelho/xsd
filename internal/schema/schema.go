@@ -72,12 +72,12 @@ const (
 	complexTypeReadAbstract complexTypeReadFlags = 1 << iota
 )
 
-// newComplexTypeReads points each type at its root model, roots[i], in the
-// published table built from entered.
-func newComplexTypeReads(types []ComplexType, roots, entered []ContentModelID) []complexTypeRead {
+// newComplexTypeReads points each type at published[i], its model's index in
+// the published content-model table.
+func newComplexTypeReads(types []ComplexType, published []ContentModelID) []complexTypeRead {
 	reads := make([]complexTypeRead, len(types))
 	for i := range types {
-		reads[i] = newComplexTypeRead(types[i], publishedContentModel(entered, roots[i]))
+		reads[i] = newComplexTypeRead(types[i], published[i])
 	}
 	return reads
 }

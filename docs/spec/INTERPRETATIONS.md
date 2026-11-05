@@ -657,7 +657,11 @@ Such a field holds an *unknown* value:
 - a `keyref` row holding one matches no key and reports the keyref failure;
 - it adds no field cardinality: a typed or nilled node selected by the same
   field supersedes it, two unknown nodes stay unknown, and two typed nodes
-  remain multiple values;
+  remain multiple values. Clause 3's one-member limit is stated together with
+  its simple-type requirement, so it shares that doubt. The measured rows
+  decide it: Xerces, .NET and libxml2 accept a typed and an unknown node under
+  one field (`v-typed-and-unknown-same-node`), and all four providers accept two
+  unknown nodes (`v-two-unknown-one-field`);
 - an absent field outranks it, so the row is incomplete.
 
 This applies only to lax assessment without a declaration. Skip-admitted
@@ -692,5 +696,4 @@ The project departs from Xerces twice:
 | `project/identity/undeclared-attribute-field-keyref` `i-unknown-ref-equals-key` (invalid) | reject | accept | accept | accept |
 | `…-keyref` `i-unknown-key-and-unknown-ref` (invalid) | accept | reject | reject | accept |
 
-Per-instance dissent is recorded as manifest `oracle` metadata. Raw output is
-in the ignored ledger `.codex/ledgers/identity-undeclared-attribute-fields/`.
+Per-instance dissent is recorded as manifest `oracle` metadata.

@@ -28,21 +28,35 @@ const enumerationListKeyTag = 0xff
 // key to the literal's first position. Key equality holds exactly when
 // equalParsed does, so a lookup leaves at most one candidate and equalParsed
 // still decides. Two key schemes exist:
-//   - text-keyed (textKind set): every literal is a non-list value of one
+//   - text-keyed (enumerationTextKey): every literal is a non-list value of one
 //     primitive whose canonical text is its equality key: string after
 //     whitespace normalization, anyURI, or base64Binary (literals are compact,
 //     and prepareBase64EnumerationValue compacts a value before membership).
 //     The raw string-enumeration plan relies on this scheme for string groups;
 //     base64 groups use it to avoid copying and spilling long literal keys.
-//   - value-keyed: any other group; the key is appendEnumerationKey's encoding.
+//   - value-keyed (enumerationValueKey): any other group; the key is
+//     appendEnumerationKey's encoding.
 //
-// Smaller groups, and groups holding a literal without a key, have a nil index.
+// Smaller groups, and groups holding a literal without a key, are scanned.
+//
+// newEnumerationGroup is the only constructor: index is non-nil exactly when
+// scheme is not enumerationScan, and textKind is set only for
+// enumerationTextKey.
 type enumerationGroup struct {
 	index    map[string]int
 	literals []parsedValue
+	scheme   enumerationKeyScheme
 	textKind PrimitiveKind
-	textKey  bool
 }
+
+// enumerationKeyScheme selects how a group finds a literal equal to a value.
+type enumerationKeyScheme uint8
+
+const (
+	enumerationScan enumerationKeyScheme = iota
+	enumerationTextKey
+	enumerationValueKey
+)
 
 func newEnumerationGroup(literals []parsedValue) enumerationGroup {
 	group := enumerationGroup{literals: literals}
@@ -54,7 +68,7 @@ func newEnumerationGroup(literals []parsedValue) enumerationGroup {
 		for i := range literals {
 			addEnumerationKey(index, literals[i].atom.lexical.Canonical, i)
 		}
-		group.index, group.textKind, group.textKey = index, kind, true
+		group.index, group.scheme, group.textKind = index, enumerationTextKey, kind
 		return group
 	}
 	index := make(map[string]int, len(literals))
@@ -66,7 +80,7 @@ func newEnumerationGroup(literals []parsedValue) enumerationGroup {
 		}
 		addEnumerationKey(index, string(key), i)
 	}
-	group.index = index
+	group.index, group.scheme = index, enumerationValueKey
 	return group
 }
 
@@ -97,7 +111,7 @@ func matchEnumerationGroups(groups []enumerationGroup, value *parsedValue) int {
 	keyed := false
 	for i := range groups {
 		group := &groups[i]
-		if group.index != nil && !group.textKey && !keyed {
+		if group.scheme == enumerationValueKey && !keyed {
 			var ok bool
 			if key, ok = appendEnumerationKey(buf[:0], value); !ok {
 				key = nil
@@ -115,17 +129,25 @@ func matchEnumerationGroups(groups []enumerationGroup, value *parsedValue) int {
 // encoding, or nil when it has none (every encoding is non-empty); only
 // value-keyed groups consult it.
 func (g *enumerationGroup) matches(value *parsedValue, key []byte) bool {
-	switch {
-	case g.index == nil:
-		return g.scan(value)
-	case g.textKey:
+	switch g.scheme {
+	case enumerationTextKey:
 		if value.isList || value.atom.kind != g.textKind {
 			return false
 		}
 		return g.lookup(value, value.atom.lexical.Canonical)
-	default:
-		return key != nil && g.lookup(value, string(key))
+	case enumerationValueKey:
+		if key == nil {
+			return false
+		}
+		// Indexing with the conversion in place keeps it copy-free in every
+		// build mode; passing string(key) to lookup copies when lookup is
+		// not inlined, as under -race.
+		i, ok := g.index[string(key)]
+		return ok && equalParsed(value, &g.literals[i])
+	case enumerationScan:
+		return g.scan(value)
 	}
+	return false
 }
 
 func (g *enumerationGroup) scan(value *parsedValue) bool {
@@ -145,8 +167,9 @@ func (g *enumerationGroup) lookup(value *parsedValue, key string) bool {
 // matchesBytes reports whether lexical is the canonical text of a literal of a
 // group admitted by the raw string-enumeration plan, whose admission rule makes
 // that text each literal's equality key and the group text-keyed when indexed.
+// Only a text-keyed index holds canonical text, so any other group is scanned.
 func (g *enumerationGroup) matchesBytes(lexical []byte) bool {
-	if g.index != nil {
+	if g.scheme == enumerationTextKey {
 		_, ok := g.index[string(lexical)]
 		return ok
 	}

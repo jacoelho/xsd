@@ -852,6 +852,9 @@ func (e *identityEvaluation) captureUnknownValue(target identityValueTarget, ctx
 	if !target.matched {
 		return nil
 	}
+	if e.targetPhase != identityTargetPrepared {
+		return xsderrors.InternalInvariant("unknown identity value target is not ready for capture")
+	}
 	defer e.releaseTarget()
 	return e.captureFields(e.rt, e.matches, identityFieldValue{state: identityFieldUnknown}, ctx)
 }

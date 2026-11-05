@@ -3,6 +3,7 @@ package schema
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -59,7 +60,7 @@ func TestSchemaProgramWorkIgnoresWhichModelsAreEntered(t *testing.T) {
 	for i := range collapsed.ComplexTypes {
 		collapsed.ComplexTypes[i].Content = collapsed.ComplexTypes[0].Content
 	}
-	if entered := len(enteredContentModels(contentRoots(spread.ComplexTypes, spread.CompiledModels))); entered < 4 || entered >= len(spread.CompiledModels) {
+	if entered := len(enterContentModels(spread.ComplexTypes, spread.CompiledModels).Models); entered < 4 || entered >= len(spread.CompiledModels) {
 		t.Fatalf("fixture: %d entered of %d compiled models, want at least 4 and some unentered", entered, len(spread.CompiledModels))
 	}
 
@@ -87,5 +88,55 @@ func TestSchemaProgramWorkIgnoresWhichModelsAreEntered(t *testing.T) {
 		if !errors.Is(err, exhausted) {
 			t.Fatalf("%s: newSchemaProgram() with %d units = %v, want work exhaustion", name, want-1, err)
 		}
+	}
+}
+
+func TestEnterContentModelsMapsEveryTypeToItsPublishedModel(t *testing.T) {
+	t.Parallel()
+
+	kinds := func(kinds ...CompiledModelKind) []CompiledModel {
+		models := make([]CompiledModel, len(kinds))
+		for i, kind := range kinds {
+			models[i].Kind = kind
+		}
+		return models
+	}
+	types := func(contents ...ContentModelID) []ComplexType {
+		types := make([]ComplexType, len(contents))
+		for i, content := range contents {
+			types[i].Content = content
+		}
+		return types
+	}
+	for _, test := range []struct {
+		name          string
+		models        []CompiledModel
+		types         []ComplexType
+		wantModels    []ContentModelID
+		wantPublished []ContentModelID
+	}{
+		{
+			// Empty roots fold to the lowest empty ID; unentered models drop.
+			name:          "empty roots share the lowest empty model",
+			models:        kinds(CompiledModelEmpty, CompiledModelAll, CompiledModelEmpty, CompiledModelDFA, CompiledModelEmpty),
+			types:         types(2, 1, 0, 3, 1, 4),
+			wantModels:    []ContentModelID{0, 1, 3},
+			wantPublished: []ContentModelID{0, 1, 0, 2, 1, 0},
+		},
+		{
+			name:          "no empty models",
+			models:        kinds(CompiledModelDFA, CompiledModelAll, CompiledModelAny),
+			types:         types(2, 2, 0),
+			wantModels:    []ContentModelID{0, 2},
+			wantPublished: []ContentModelID{1, 1, 0},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			got := enterContentModels(test.types, test.models)
+			if !slices.Equal(got.Models, test.wantModels) || !slices.Equal(got.Published, test.wantPublished) {
+				t.Fatalf("enterContentModels() = %v %v, want %v %v", got.Models, got.Published, test.wantModels, test.wantPublished)
+			}
+		})
 	}
 }

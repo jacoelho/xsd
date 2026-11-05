@@ -21,6 +21,7 @@ const failedSelectionSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSc
   <xs:element name="refd"><xs:complexType><xs:attribute name="ref" type="xs:IDREF"/></xs:complexType></xs:element>
   <xs:element name="unavail" type="absent"/>
   <xs:element name="unavailBlocked" type="absent" block="#all"/>
+  <xs:element name="unavailAbs" type="absent" abstract="true"/>
   <xs:element name="unavailNil" type="absent" nillable="true"/>
   <xs:element name="unavailFixed" type="absent" fixed="v"/>
   <xs:element name="unavailUniq" type="absent">
@@ -167,6 +168,18 @@ func TestFailedSelectionAssessesElementLaxly(t *testing.T) {
 			want: []string{"validation.element@/unavailParent/c", "validation.facet@/unavailParent/c"},
 		},
 		{
+			// An unavailable type acts as if the declaration were absent
+			// (Structures 5.3), so its abstract flag is not checked.
+			name: "abstract root with unavailable type reports only unavailability",
+			doc:  `<unavailAbs><bad>x</bad></unavailAbs>`,
+			want: []string{"validation.element@/unavailAbs", "validation.facet@/unavailAbs/bad"},
+		},
+		{
+			name: "abstract unavailable root with resolving xsi:type",
+			doc:  `<unavailAbs` + failedSelectionNamespaces + ` xsi:type="xs:int">x</unavailAbs>`,
+			want: []string{"validation.element@/unavailAbs", "validation.facet@/unavailAbs"},
+		},
+		{
 			name: "abstract root keeps its type",
 			doc:  `<abs>x</abs>`,
 			want: []string{"validation.element@/abs", "validation.facet@/abs"},
@@ -180,6 +193,13 @@ func TestFailedSelectionAssessesElementLaxly(t *testing.T) {
 			name: "unexpected undeclared child subtree",
 			doc:  `<seqParent><a>1</a><zz><bad>x</bad></zz></seqParent>`,
 			want: []string{"validation.element@/seqParent", "validation.facet@/seqParent/zz/bad"},
+		},
+		{
+			// An unknown namespaced element and its descendants report
+			// expanded path segments, as its own start diagnostic does.
+			name: "unexpected namespaced child subtree paths are expanded",
+			doc:  `<seqParent xmlns:o="urn:o"><a>1</a><o:zz><y><bad>x</bad></y></o:zz></seqParent>`,
+			want: []string{"validation.element@/seqParent", "validation.facet@/seqParent/{urn:o}zz/y/bad"},
 		},
 		{
 			name: "unexpected child uses its global declaration",
@@ -328,5 +348,22 @@ func TestFailedSelectionLaxAssessmentPreservesFatalErrors(t *testing.T) {
 				t.Fatalf("%s MaxErrors=%d: malformed XML reported as conclusive", doc, maxErrors)
 			}
 		}
+	}
+}
+
+func TestAbstractUnavailableTypeReportsUnavailabilityOnly(t *testing.T) {
+	engine := compileFailedSelectionSchema(t)
+	err := engine.Validate(strings.NewReader(`<unavailAbs/>`))
+	var diagnostics []*xsderrors.Error
+	for _, e := range xsderrors.Flatten(err) {
+		if x, ok := errors.AsType[*xsderrors.Error](e); ok && x.Code() == xsderrors.CodeValidationElement {
+			diagnostics = append(diagnostics, x)
+		}
+	}
+	if len(diagnostics) != 1 {
+		t.Fatalf("element diagnostics = %v, want one", diagnostics)
+	}
+	if msg := diagnostics[0].Message(); !strings.Contains(msg, "unavailable") || strings.Contains(msg, "abstract") {
+		t.Fatalf("message = %q, want the unavailable-type diagnostic only", msg)
 	}
 }

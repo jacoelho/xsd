@@ -9,7 +9,7 @@ import (
 // A name read from one window and the same name read one byte per call reach
 // the same outcome, including which of a token limit and a syntax error wins.
 func TestParserNameOutcomeIndependentOfDelivery(t *testing.T) {
-	names := []string{"e", "ab", "p:l", "π:名", "é", "·a", "1bc", "a:b:c", ":a", "a:", "a@b"}
+	names := []string{"e", "ab", "p:l", "π:名", "é", "·a", "1bc", "a:b:c", ":a", "a:", "a@b", "1", "-", ":"}
 	for _, name := range names {
 		for _, position := range []struct {
 			kind     string
@@ -42,7 +42,7 @@ func TestParserWindowNameLimitPrecedence(t *testing.T) {
 		valid bool
 	}{
 		{"e", true}, {"ab", true}, {"p:l", true}, {"π:名", true},
-		{"é", true}, {"·a", false}, {"1bc", false}, {"a:b:c", false}, {"a:", false},
+		{"é", true}, {"·a", false}, {"1bc", false}, {"a:b:c", false}, {"a:", false}, {"1", false}, {"-", false},
 	} {
 		document := "<r><" + test.name + "/>"
 		for _, reads := range deliveries(document) {

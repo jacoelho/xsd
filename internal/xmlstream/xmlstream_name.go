@@ -159,12 +159,15 @@ func (p *parser) readWindowName(first byte) (name xml.Name, ok bool, err error) 
 	if err = p.chargeTokenBytes(1); err != nil {
 		return xml.Name{}, true, err
 	}
-	// Only an ASCII start byte leaves bad clear, and alone it is a valid
-	// unprefixed name; split is skipped because it does not inline.
-	if n == 0 && scan.bad == 0 {
-		return xml.Name{Local: p.names.Intern(b.buf[off-1 : off])}, true, nil
+	if n == 0 {
+		// Only an ASCII start byte leaves bad clear, and alone it is a valid
+		// unprefixed name; split is skipped because it does not inline.
+		if scan.bad == 0 {
+			return xml.Name{Local: p.names.Intern(b.buf[off-1 : off])}, true, nil
+		}
+		name, err = p.internQName(b.buf[off-1:off], scan)
+		return name, true, err
 	}
-	// With n == 0 the charge and consume are no-ops.
 	if err = p.chargeTokenBytes(n); err != nil {
 		return xml.Name{}, true, err
 	}

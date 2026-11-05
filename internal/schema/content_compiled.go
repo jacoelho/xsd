@@ -242,10 +242,43 @@ func newCompiledParticleRead(p Particle) compiledParticleRead {
 	return compiledParticleRead{Element: p.Element, Wildcard: p.Wildcard, Kind: p.Kind}
 }
 
-// contentRoots returns, parallel to types, the source ID of the model each
-// type enters. Every empty-kind model compiles to the same read, so empty
-// roots share the lowest such ID and publication keeps one row for them;
-// projection work is still charged per compiled model.
+// enteredContent is the set of models validation can enter, with each complex
+// type's index into the published table built from Models.
+type enteredContent struct {
+	// Models holds the source IDs of the entered models, ascending and
+	// deduplicated; it is the published table's order.
+	Models []ContentModelID
+	// Published is parallel to the complex types: the published index of the
+	// model each type enters.
+	Published []ContentModelID
+}
+
+// enterContentModels derives the entered models from the complex types.
+// Complex-type roots are the only entry points: nested groups are compiled into
+// their ancestors' rows, so no published particle references another model.
+// Every empty-kind model compiles to the same read, so empty roots share the
+// lowest such ID and publication keeps one row for them; projection work is
+// still charged per compiled model. Publication audits have already proved
+// that every root indexes the compiled table.
+func enterContentModels(types []ComplexType, models []CompiledModel) enteredContent {
+	roots := contentRoots(types, models)
+	entered := slices.Clone(roots)
+	slices.Sort(entered)
+	entered = slices.Compact(entered)
+	position := make([]ContentModelID, len(models))
+	for index, id := range entered {
+		position[id] = ContentModelID(index) // #nosec G115 -- entered holds at most one ID per complex type, and complex-type IDs are uint32.
+	}
+	// Every root is in entered, so each type reads its own model's position.
+	published := roots
+	for i, id := range roots {
+		published[i] = position[id]
+	}
+	return enteredContent{Models: entered, Published: published}
+}
+
+// contentRoots returns each complex type's root model, with empty roots folded
+// to the lowest empty root ID.
 func contentRoots(types []ComplexType, models []CompiledModel) []ContentModelID {
 	roots := make([]ContentModelID, len(types))
 	empty := NoContentModel
@@ -265,24 +298,6 @@ func contentRoots(types []ComplexType, models []CompiledModel) []ContentModelID 
 		}
 	}
 	return roots
-}
-
-// enteredContentModels returns the source IDs of the models validation can
-// enter, ascending and deduplicated, from the type roots. Complex-type roots
-// are the only entry points: nested groups are compiled into their ancestors'
-// rows, so no published particle references another model. Publication audits
-// have already proved that every root indexes the compiled table.
-func enteredContentModels(roots []ContentModelID) []ContentModelID {
-	entered := slices.Clone(roots)
-	slices.Sort(entered)
-	return slices.Compact(entered)
-}
-
-// publishedContentModel maps a root's source model ID, which entered contains,
-// to its index in the published table.
-func publishedContentModel(entered []ContentModelID, id ContentModelID) ContentModelID {
-	index, _ := slices.BinarySearch(entered, id)
-	return ContentModelID(index) // #nosec G115 -- entered holds at most one ID per complex type, and complex-type IDs are uint32.
 }
 
 // newCompiledModelReads publishes the entered models in entered order.

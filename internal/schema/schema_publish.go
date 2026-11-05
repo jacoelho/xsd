@@ -93,8 +93,8 @@ func validateSchemaBuildIDDomain(build *schemaBuild) error {
 }
 
 func newSchemaProgram(build *schemaBuild, work ContentModelWork) (schemaProgram, error) {
-	roots := contentRoots(build.ComplexTypes, build.CompiledModels)
-	entered := enteredContentModels(roots)
+	content := enterContentModels(build.ComplexTypes, build.CompiledModels)
+	entered := content.Models
 	compiledModels, mayHaveDenseRows, err := newCompiledModelReads(build.CompiledModels, entered, work)
 	if err != nil {
 		return schemaProgram{}, err
@@ -131,7 +131,7 @@ func newSchemaProgram(build *schemaBuild, work ContentModelWork) (schemaProgram,
 		Attributes:            newAttributeDeclReadsForDecls(build.Attributes),
 		TypeDerivations:       typeDerivations,
 		SimpleTypeUnavailable: append([]bool(nil), build.simpleTypeUnavailable...),
-		ComplexTypes:          newComplexTypeReads(build.ComplexTypes, roots, entered),
+		ComplexTypes:          newComplexTypeReads(build.ComplexTypes, content.Published),
 		Wildcards:             newWildcardViews(&build.Names, build.Wildcards),
 		CompiledModels:        compiledModels,
 		Elements:              newElementReadTable(build.Elements),

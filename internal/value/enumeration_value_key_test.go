@@ -288,7 +288,7 @@ func enumerationGroupIndexed(t *testing.T, program *Program, id TypeID) bool {
 	if !ok || len(typ.facets.enumGroups) == 0 {
 		t.Fatalf("type %d has no enumeration group", id)
 	}
-	return typ.facets.enumGroups[len(typ.facets.enumGroups)-1].index != nil
+	return typ.facets.enumGroups[len(typ.facets.enumGroups)-1].scheme != enumerationScan
 }
 
 var valueSpaceValidators = []struct {
@@ -307,4 +307,39 @@ var valueSpaceValidators = []struct {
 		_, err := p.ValidateBytes(id, []byte(input), valueSpaceResolver, needs, 16<<20, nil)
 		return err
 	}},
+}
+
+// TestEnumerationValueKeyLookupAllocatesNothingForLongKeys pins a value-keyed
+// hit to zero allocations when the probe key exceeds the runtime's 32-byte
+// conversion buffer but fits enumerationKeyBuffer.
+func TestEnumerationValueKeyLookupAllocatesNothingForLongKeys(t *testing.T) {
+	const namespace = "urn:example:enumeration:long-namespace:0123456"
+	resolver := Resolver{QName: func(lexical string) (ExpandedName, bool) {
+		prefix, local, ok := strings.Cut(lexical, ":")
+		if !ok || prefix != "a" {
+			return ExpandedName{}, false
+		}
+		return ExpandedName{Namespace: namespace, Local: local}, true
+	}}
+	specs := builtinRestriction("QName")(t)
+	literals := make([]LiteralSpec, enumerationIndexMinLiterals+1)
+	for i := range literals {
+		literals[i] = LiteralSpec{Lexical: fmt.Sprintf("a:l%d", i), Type: NoType, Resolver: resolver}
+	}
+	specs[0].Facets.Enumeration = literals
+	program, ids := testEnumerationChain(t, specs...)
+	id := ids[len(ids)-1]
+	if !enumerationGroupIndexed(t, program, id) {
+		t.Fatal("QName enumeration group is not indexed")
+	}
+	if _, err := program.Validate(id, "a:l3", resolver, 0, 16<<20, nil); err != nil {
+		t.Fatalf("Validate(a:l3) error = %v", err)
+	}
+	if allocs := testing.AllocsPerRun(100, func() {
+		if _, err := program.Validate(id, "a:l3", resolver, 0, 16<<20, nil); err != nil {
+			t.Fatal(err)
+		}
+	}); allocs != 0 {
+		t.Fatalf("long-key enumeration hit allocations = %v, want 0", allocs)
+	}
 }

@@ -3,6 +3,7 @@ package valuebench
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	valuepkg "github.com/jacoelho/xsd/internal/value"
@@ -139,5 +140,52 @@ func primitiveOf(local string) valuepkg.PrimitiveKind {
 		return valuepkg.PrimitiveHexBinary
 	default:
 		return valuepkg.PrimitiveDecimal
+	}
+}
+
+// BenchmarkEnumerationValueKeyLongQName measures value-keyed hits whose probe
+// key exceeds the runtime's 32-byte string-conversion buffer.
+func BenchmarkEnumerationValueKeyLongQName(b *testing.B) {
+	const namespace = "urn:example:enumeration:long-namespace:0123456"
+	resolver := valuepkg.Resolver{QName: func(lexical string) (valuepkg.ExpandedName, bool) {
+		prefix, local, ok := strings.Cut(lexical, ":")
+		if !ok || prefix != "a" {
+			return valuepkg.ExpandedName{}, false
+		}
+		return valuepkg.ExpandedName{Namespace: namespace, Local: local}, true
+	}}
+	builtin, ok := valuepkg.BuiltinTypeID("QName")
+	if !ok {
+		b.Fatal(`BuiltinTypeID("QName") missing`)
+	}
+	for _, size := range []int{16, 2048} {
+		literals := make([]valuepkg.LiteralSpec, size)
+		for i := range literals {
+			literals[i] = valuepkg.LiteralSpec{Lexical: fmt.Sprintf("a:l%d", i), Type: valuepkg.NoType, Resolver: resolver}
+		}
+		builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+		id, err := builder.Reserve()
+		if err != nil {
+			b.Fatalf("Reserve() error = %v", err)
+		}
+		if err = builder.Complete(id, valuepkg.TypeSpec{
+			Variety: valuepkg.Atomic, Primitive: valuepkg.PrimitiveQName, Base: builtin, ListItem: valuepkg.NoType,
+			Facets: valuepkg.FacetSpec{Enumeration: literals},
+		}); err != nil {
+			b.Fatalf("QName n=%d: %v", size, err)
+		}
+		program, err := builder.Seal()
+		if err != nil {
+			b.Fatalf("QName n=%d: %v", size, err)
+		}
+		input := fmt.Sprintf("a:l%d", size-1)
+		b.Run(fmt.Sprintf("n_%d/last", size), func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				if _, err := program.Validate(id, input, resolver, 0, 16<<20, nil); err != nil {
+					b.Fatalf("Validate(%q) error = %v", input, err)
+				}
+			}
+		})
 	}
 }

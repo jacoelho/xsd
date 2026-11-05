@@ -117,9 +117,8 @@ independent Python xmlschema result.
    errors, iterator completion and terminal exceptions separately. An unexpected
    exception leaves the run incomplete even if validation errors were yielded.
 4. Report implementation/runtime versions, commands, options, fixture
-   identities and raw diagnostics with the change, scoped to its revision. Raw
-   evidence may persist in a git-ignored `.codex` ledger; the manifest retains
-   only per-provider results and reasons as `oracle` metadata.
+   identities and raw diagnostics with the change, scoped to its revision. The
+   manifest retains only per-provider results and reasons as `oracle` metadata.
    Reproduce each disagreement with the smallest opposing controls and diagnose
    specification, processor, source-closure or harness differences before
    changing behavior.

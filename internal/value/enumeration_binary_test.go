@@ -9,7 +9,7 @@ import (
 )
 
 func TestRawStringEnumerationMembershipAcrossShapes(t *testing.T) {
-	for _, size := range []int{31, 32, 64, 512, 1024} {
+	for _, size := range []int{1, 7, 8, 31, 32, 64, 512, 1024} {
 		for _, shape := range []string{"short", "commonprefix", "reversed"} {
 			t.Run(fmt.Sprintf("%d/%s", size, shape), func(t *testing.T) {
 				values := testStringEnumerationValues(size, shape)
