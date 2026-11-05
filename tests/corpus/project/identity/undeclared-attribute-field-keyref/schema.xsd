@@ -1,0 +1,29 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:x="urn:test" targetNamespace="urn:test" elementFormDefault="qualified">
+  <!-- A keyref row holding an unknown value, from an attribute admitted by a lax wildcard without a declaration, matches no key; a key row holding one can be referenced by nothing; an absent keyref field still omits the row. -->
+  <xs:complexType name="Declared"><xs:attribute name="id" type="xs:string"/><xs:attribute name="ref" type="xs:string"/></xs:complexType>
+  <xs:complexType name="Lax"><xs:anyAttribute processContents="lax" namespace="##local"/></xs:complexType>
+  <xs:element name="kr">
+    <xs:complexType><xs:sequence>
+      <xs:element name="d" type="x:Declared" maxOccurs="unbounded"/>
+      <xs:choice maxOccurs="unbounded"><xs:element name="r" type="x:Declared"/><xs:element name="u" type="x:Lax"/></xs:choice>
+    </xs:sequence></xs:complexType>
+    <xs:key name="krKey"><xs:selector xpath="x:d"/><xs:field xpath="@id"/></xs:key>
+    <xs:keyref name="krRef" refer="x:krKey"><xs:selector xpath="x:r|x:u"/><xs:field xpath="@ref"/></xs:keyref>
+  </xs:element>
+  <xs:element name="krk">
+    <xs:complexType><xs:sequence>
+      <xs:element name="d" type="x:Lax" maxOccurs="unbounded"/>
+      <xs:choice maxOccurs="unbounded"><xs:element name="r" type="x:Declared"/><xs:element name="u" type="x:Lax"/></xs:choice>
+    </xs:sequence></xs:complexType>
+    <xs:key name="krkKey"><xs:selector xpath="x:d"/><xs:field xpath="@id"/></xs:key>
+    <xs:keyref name="krkRef" refer="x:krkKey"><xs:selector xpath="x:r|x:u"/><xs:field xpath="@ref"/></xs:keyref>
+  </xs:element>
+  <xs:element name="kr2">
+    <xs:complexType><xs:sequence>
+      <xs:element name="d" maxOccurs="unbounded"><xs:complexType><xs:attribute name="x" type="xs:string"/><xs:attribute name="y" type="xs:string"/></xs:complexType></xs:element>
+      <xs:element name="r" maxOccurs="unbounded"><xs:complexType><xs:attribute name="x" type="xs:string"/><xs:anyAttribute processContents="lax" namespace="##local"/></xs:complexType></xs:element>
+    </xs:sequence></xs:complexType>
+    <xs:key name="kr2Key"><xs:selector xpath="x:d"/><xs:field xpath="@x"/><xs:field xpath="@y"/></xs:key>
+    <xs:keyref name="kr2Ref" refer="x:kr2Key"><xs:selector xpath="x:r"/><xs:field xpath="@x"/><xs:field xpath="@y"/></xs:keyref>
+  </xs:element>
+</xs:schema>

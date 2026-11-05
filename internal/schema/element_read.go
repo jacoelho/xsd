@@ -24,6 +24,10 @@ type elementConstraintRead struct {
 // elementReadTable is the sole published owner of element declaration facts.
 // Names stay columnar because content-model matching reads them without the
 // colder start, identity, and value-constraint metadata.
+//
+// Rejected: an additional element-value slice projection, because publication
+// and validation already read this table; tests observe published reads and
+// corrupt this table directly instead of preserving a second representation.
 type elementReadTable struct {
 	names       []QName
 	meta        []elementReadMeta

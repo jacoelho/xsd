@@ -1,0 +1,30 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="NameOrToken"><xs:union memberTypes="xs:NCName xs:token"/></xs:simpleType>
+  <xs:simpleType name="Strings8">
+    <xs:restriction base="NameOrToken">
+      <xs:enumeration value="a1"/>
+      <xs:enumeration value="a2"/>
+      <xs:enumeration value="a3"/>
+      <xs:enumeration value="a4"/>
+      <xs:enumeration value="a5"/>
+      <xs:enumeration value="a6"/>
+      <xs:enumeration value="a7"/>
+      <xs:enumeration value="a 8"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="DecimalOrString"><xs:union memberTypes="xs:decimal xs:string"/></xs:simpleType>
+  <xs:simpleType name="Mixed8">
+    <xs:restriction base="DecimalOrString">
+      <xs:enumeration value="a1"/>
+      <xs:enumeration value="a2"/>
+      <xs:enumeration value="a3"/>
+      <xs:enumeration value="a4"/>
+      <xs:enumeration value="a5"/>
+      <xs:enumeration value="a6"/>
+      <xs:enumeration value="a7"/>
+      <xs:enumeration value="1.50"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="strings" type="Strings8"/>
+  <xs:element name="mixed" type="Mixed8"/>
+</xs:schema>

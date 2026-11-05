@@ -538,6 +538,45 @@ func TestSchemaInstantiatedNodeLimit(t *testing.T) {
 		}
 	})
 
+	// Enumeration membership scans are uncharged at validation time; their
+	// bound is that each literal is one source element under this limit. The
+	// difference between two minimal limits pins one node per literal without
+	// restating how the enclosing elements are counted.
+	t.Run("enumeration literals", func(t *testing.T) {
+		t.Parallel()
+
+		schemaWith := func(literals int) []source.Source {
+			var doc strings.Builder
+			doc.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:simpleType name="T"><xs:restriction base="xs:string">`)
+			for i := range literals {
+				doc.WriteString(`<xs:enumeration value="v` + strconv.Itoa(i) + `"/>`)
+			}
+			doc.WriteString(`</xs:restriction></xs:simpleType></xs:schema>`)
+			return []source.Source{source.Bytes("enum.xsd", []byte(doc.String()))}
+		}
+		minimumLimit := func(sources []source.Source) int {
+			t.Helper()
+			for limit := 1; limit <= 64; limit++ {
+				if _, err := Compile(Options{MaxSchemaInstantiatedNodes: limit}, sources); err == nil {
+					return limit
+				}
+			}
+			t.Fatal("no node limit up to 64 compiled the schema")
+			return 0
+		}
+		one := minimumLimit(schemaWith(1))
+		nine := schemaWith(9)
+		limit := minimumLimit(nine)
+		if limit-one != 8 {
+			t.Fatalf("eight extra literals raised the minimum node limit by %d, want 8", limit-one)
+		}
+		_, err := Compile(Options{MaxSchemaInstantiatedNodes: limit - 1}, nine)
+		diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+		if !ok || diagnostic.Code() != xsderrors.CodeSchemaLimit || !strings.Contains(err.Error(), "MaxSchemaInstantiatedNodes") {
+			t.Fatalf("Compile(over) error = %v, want instantiated node limit", err)
+		}
+	})
+
 	schemas := map[string][]byte{
 		"common.xsd": []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="leaf.xsd"/></xs:schema>`),
 		"leaf.xsd":   []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`),

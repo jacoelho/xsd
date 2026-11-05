@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="StringEmptyDup"><xs:restriction base="xs:string"><xs:enumeration value=""/><xs:enumeration value="a"/><xs:enumeration value="b"/><xs:enumeration value="a"/><xs:enumeration value="c"/><xs:enumeration value="d"/><xs:enumeration value="e"/><xs:enumeration value="f"/><xs:enumeration value="g"/></xs:restriction></xs:simpleType>
+  <xs:element name="root"><xs:complexType><xs:sequence><xs:element name="s" type="StringEmptyDup"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>

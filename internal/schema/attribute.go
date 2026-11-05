@@ -107,6 +107,10 @@ func newAttributeUseSetReads(names *NameTable, sets []AttributeUseSet, values *v
 	return out, nil
 }
 
+// newAttributeUseSetRead runs on effective uses, after inheritance and
+// restriction. HasIDUse comes only from completed value-builder input
+// requirements; missing metadata is an invariant error, never a cue to scan
+// raw type specifications or ancestry.
 func newAttributeUseSetRead(names *NameTable, set *AttributeUseSet, values *valuepkg.Builder) (AttributeUseSetRead, error) {
 	uses := make([]AttributeUseRead, len(set.Uses))
 	var required, valueConstraints []uint32
@@ -202,7 +206,8 @@ type AttributeUseRead struct {
 // newAttributeUseRead returns an immutable validation read projection for one
 // attribute use.
 func newAttributeUseRead(names *NameTable, use AttributeUse) AttributeUseRead {
-	// Adopted WG correction 4363 makes XSI constraints inapplicable during
+	// Adopted WG correction 4363 (I-007 in docs/spec/INTERPRETATIONS.md)
+	// makes XSI constraints inapplicable during
 	// validation. Keep them on construction records for schema correctness and
 	// derivation; publication permits only the four intrinsic XSI declarations.
 	if names.Namespace(use.Name.Namespace) == vocab.XSINamespaceURI {

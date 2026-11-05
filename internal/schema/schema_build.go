@@ -60,6 +60,9 @@ func (rt *schemaBuild) simpleTypeWhitespace(id SimpleTypeID) value.WhitespaceMod
 	return rt.SimpleTypes[id].ValueSpec.Whitespace
 }
 
+// appendFlattenedUnionMember keeps a nested union with effective facets as one
+// member so evaluation cannot discard its constraints. See I-010 in
+// docs/spec/INTERPRETATIONS.md.
 func (rt *schemaBuild) appendFlattenedUnionMember(
 	dst *[]SimpleTypeID,
 	id SimpleTypeID,

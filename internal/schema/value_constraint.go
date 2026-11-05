@@ -11,6 +11,9 @@ import (
 // ValueConstraint is a prevalidated default or fixed value constraint.
 // A nil *ValueConstraint means absent. Once attached to a runtime component,
 // the value is immutable; declarations and uses may share the same pointer.
+// The cached value's type is the exact owning simple type, including an outer
+// union, never the member that accepted the text; publication rejects a
+// member-typed cache even when that member accepts the same lexical value.
 type ValueConstraint struct {
 	qnameContext  *valueConstraintQNameContext
 	Lexical       string

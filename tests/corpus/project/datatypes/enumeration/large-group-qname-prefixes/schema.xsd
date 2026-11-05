@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:a="urn:x" xmlns:b="urn:y">
+  <xs:simpleType name="Names"><xs:restriction base="xs:QName"><xs:enumeration value="a:one"/><xs:enumeration value="b:one"/><xs:enumeration value="two"/><xs:enumeration value="a:three"/><xs:enumeration value="a:four"/><xs:enumeration value="a:five"/><xs:enumeration value="a:six"/><xs:enumeration value="a:seven"/></xs:restriction></xs:simpleType>
+  <xs:element name="q" type="Names"/>
+</xs:schema>

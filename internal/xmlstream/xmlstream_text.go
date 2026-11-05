@@ -361,6 +361,10 @@ func (p *parser) readPastSpace() (byte, bool, error) {
 	}
 }
 
+// appendTokenByte and appendTokenBytes charge the token limit before
+// appending. A nil dst discards the payload but still charges it, so skipped
+// values keep the same limit outcome; modes that must not charge, such as
+// CommentModeDiscard, bypass these helpers.
 func (p *parser) appendTokenByte(dst *[]byte, b byte) error {
 	if p.maxTokenBytes <= 0 {
 		if dst != nil {
@@ -391,6 +395,15 @@ func (p *parser) appendTokenBytes(dst *[]byte, data []byte) error {
 		*dst = append(*dst, data...)
 	}
 	return nil
+}
+
+// chargeTokenBytes charges n token bytes that the caller retains outside a
+// parser buffer, as appendTokenBytes would.
+func (p *parser) chargeTokenBytes(n int) error {
+	if p.maxTokenBytes <= 0 {
+		return nil
+	}
+	return p.reserveRetainedBytes(n)
 }
 
 func (p *parser) checkTokenBytes(n int64) error {

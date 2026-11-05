@@ -83,7 +83,7 @@ func TestMatchAttributeWildcard(t *testing.T) {
 		if !ok {
 			t.Fatalf("missing element name %s", local)
 		}
-		_, info, ok := rt.RootElement(xsdSchema.RuntimeName{Known: true, Name: q, NS: "urn:test", Local: local})
+		_, info, ok := rt.GlobalElement(xsdSchema.RuntimeName{Known: true, Name: q, NS: "urn:test", Local: local})
 		if !ok {
 			t.Fatalf("missing element %s", local)
 		}
@@ -178,10 +178,11 @@ func TestMatchAttributeWildcard(t *testing.T) {
 func TestRelativeNamespaceAttributeIsNotReservedOrDropped(t *testing.T) {
 	t.Parallel()
 
+	// A strict wildcard over the "xmlns" namespace makes a dropped attribute
+	// observable: keeping p:value requires a global declaration it lacks.
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">
-    <xs:complexType><xs:anyAttribute processContents="skip"/></xs:complexType>
-    <xs:key name="k"><xs:selector xpath="."/><xs:field xpath="@*"/></xs:key>
+    <xs:complexType><xs:anyAttribute namespace="xmlns" processContents="strict"/></xs:complexType>
   </xs:element>
 </xs:schema>`
 	rt := compileRuntimeForTest(t, schema)
@@ -190,25 +191,6 @@ func TestRelativeNamespaceAttributeIsNotReservedOrDropped(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := &session.session
-	rootName, ok := rt.LookupQName("", "root")
-	if !ok {
-		t.Fatal("compiled runtime is missing root")
-	}
-	rootID, _, ok := rt.RootElement(xsdSchema.RuntimeName{Known: true, Name: rootName, Local: "root"})
-	if !ok {
-		t.Fatal("compiled runtime is missing root element metadata")
-	}
-	rootRuntimeName := xsdSchema.RuntimeName{Known: true, Name: rootName, Local: "root"}
-	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "root"}}, frame{})
-	if startErr := s.doc.identity.startElement(identityElementStart{
-		Context: s.startContext(1, 1),
-		Name:    rootRuntimeName,
-		Element: rootID,
-		Mode:    elementAssessed,
-	}); startErr != nil {
-		t.Fatal(startErr)
-	}
-
 	declaration := xmlstream.Attr{Name: xml.Name{Space: vocab.XMLNSNamespaceURI, Local: "p"}, Value: "xmlns"}
 	ordinary := xmlstream.Attr{Name: xml.Name{Space: vocab.XMLNSPrefix, Local: "value"}, Value: "v"}
 	if handled, reservedErr := s.validateReservedAttribute(&declaration, 1, 1); reservedErr != nil || !handled {
@@ -217,21 +199,17 @@ func TestRelativeNamespaceAttributeIsNotReservedOrDropped(t *testing.T) {
 	if handled, reservedErr := s.validateReservedAttribute(&ordinary, 1, 1); reservedErr != nil || handled {
 		t.Fatalf("ordinary relative-namespace attribute = handled %v, error %v; want ordinary without error", handled, reservedErr)
 	}
-	if identityErr := s.rejectUnassessedIdentityAttributes([]xmlstream.Attr{declaration, ordinary}, 1, 1, identityMissingSimpleValue); identityErr != nil {
-		t.Fatalf("rejectUnassessedIdentityAttributes() error = %v", identityErr)
-	}
-	if got := s.doc.identity.fieldValues[0].state; got != identityFieldInvalid {
-		t.Fatalf("ordinary relative-namespace identity field state = %v, want invalid", got)
-	}
 
-	// The same boundary must be visible through ordinary document validation.
 	integrationSession, err := newSessionForTest(rt, Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := integrationSession.Validate(strings.NewReader(`<root xmlns:p="xmlns" p:value="v"/>`)); err == nil {
-		t.Fatal("Validate() accepted an undeclared ordinary relative-namespace attribute")
+		t.Fatal("Validate() dropped an ordinary relative-namespace attribute")
 	} else {
-		expectXSDCode(t, err, xsderrors.CodeValidationIdentity)
+		expectXSDCode(t, err, xsderrors.CodeValidationAttribute)
+	}
+	if err := integrationSession.Validate(strings.NewReader(`<root xmlns:p="xmlns"/>`)); err != nil {
+		t.Fatalf("Validate() rejected a bare relative-namespace declaration: %v", err)
 	}
 }

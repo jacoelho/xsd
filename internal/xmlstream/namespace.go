@@ -31,6 +31,13 @@ type stackFrame struct {
 
 // stack owns nested XML namespace frames. Every admitted start returns the
 // capability required to close or abort that exact frame.
+//
+// The binding chain in store is authoritative. active and
+// defaultHead are projections of the bindings visible from head, restored
+// through PreviousSame; admission, rollback, pop, and Reset update the chain
+// and both projections together. Once Context publishes the store
+// (persistent), the chain becomes append-only: pop no longer truncates it and
+// Reset detaches it instead of reusing it.
 type stack struct {
 	store         *contextStore
 	active        map[string]uint32
@@ -319,7 +326,10 @@ func formatLexical(name LexicalName) string {
 	return name.Prefix + ":" + name.Local
 }
 
-// Context returns a constant-time immutable view of all active bindings.
+// Context returns a constant-time immutable view of all active bindings. The
+// default-namespace head is captured with the chain head because lookup
+// resolves the empty prefix from it directly, so later shadowing cannot change
+// the captured resolution.
 func (s *stack) Context() Context {
 	if s.store == nil {
 		return Context{}
@@ -429,6 +439,10 @@ func resetRetainedReferences[T any](values []T, maxRetainedCap int) []T {
 	return values[:0]
 }
 
+// appendBinding admits relative namespace names, prefixed or default, as an
+// extension and retains their exact spelling: neither validator checks URI
+// syntax. Beyond the xml and xmlns reservations, only an empty prefixed
+// binding is rejected.
 func (s *stack) appendBinding(name xml.Name, uri string) error {
 	prefix := ""
 	var err error
@@ -535,7 +549,10 @@ func IsLexicalNamespaceName(name xml.Name) bool {
 }
 
 // IsExpandedNamespaceName reports whether name is an expanded xmlns
-// declaration name. It is valid after successful namespace admission.
+// declaration name. It is valid after successful namespace admission. It
+// compares the reserved XMLNS namespace URI, so an ordinary attribute whose
+// prefix is bound to the relative namespace name "xmlns" remains ordinary;
+// IsLexicalNamespaceName must not be applied to expanded names.
 func IsExpandedNamespaceName(name xml.Name) bool {
 	return name.Space == vocab.XMLNSNamespaceURI
 }

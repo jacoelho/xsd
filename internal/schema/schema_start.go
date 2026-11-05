@@ -13,8 +13,9 @@ func (rt *Schema) AnyType() TypeID {
 	return ComplexRef(rt.program.TypeDerivations.AnyTypeID())
 }
 
-// RootElement returns the global element declaration for name.
-func (rt *Schema) RootElement(name RuntimeName) (ElementID, ElementStartInfo, bool) {
+// GlobalElement returns the global element declaration for name, the
+// declaration root selection and lax assessment use.
+func (rt *Schema) GlobalElement(name RuntimeName) (ElementID, ElementStartInfo, bool) {
 	if !name.Known {
 		return NoElement, ElementStartInfo{}, false
 	}

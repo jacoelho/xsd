@@ -27,7 +27,7 @@ func TestIdentityEvaluationEnforcesOneOutstandingValueTarget(t *testing.T) {
 	} else {
 		expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
 	}
-	err = evaluation.rejectValue(target, identityInvalidValue, identityTestContext("/root", 0, 0))
+	err = evaluation.rejectValue(target)
 	if err != nil {
 		t.Fatalf("rejectValue() error = %v", err)
 	}
@@ -35,7 +35,7 @@ func TestIdentityEvaluationEnforcesOneOutstandingValueTarget(t *testing.T) {
 	if err != nil {
 		t.Fatalf("prepareAttributeValue() after release error = %v", err)
 	}
-	if err = evaluation.rejectValue(target, identityInvalidValue, identityTestContext("/root", 0, 0)); err != nil {
+	if err = evaluation.rejectValue(target); err != nil {
 		t.Fatalf("rejectValue(attribute) error = %v", err)
 	}
 }
@@ -137,7 +137,7 @@ func TestIdentityEvaluationResetInvalidatesBorrowedTarget(t *testing.T) {
 		t.Fatalf("prepareElementValue() error = %v", err)
 	}
 	evaluation.reset(1, 1)
-	err = evaluation.rejectValue(target, identityInvalidValue, identityTestContext("/root", 0, 0))
+	err = evaluation.rejectValue(target)
 	if err == nil {
 		t.Fatal("rejectValue() accepted a target borrowed before reset")
 	} else {
@@ -245,7 +245,7 @@ func TestIdentityEvaluationCanRejectRecordedOrCapturedValue(t *testing.T) {
 					t.Fatalf("captureValue() error = %v", err)
 				}
 			}
-			err = evaluation.rejectValue(target, identityInvalidValue, ctx)
+			err = evaluation.rejectValue(target)
 			if err != nil {
 				t.Fatalf("rejectValue() error = %v", err)
 			}
@@ -377,8 +377,15 @@ type startedIdentityEvaluationFixture struct {
 
 func startedIdentityEvaluationForTest(t *testing.T) startedIdentityEvaluationFixture {
 	t.Helper()
+	return startedIdentityEvaluationWithSelectorForTest(t, ".")
+}
 
-	fixture := compiledIdentityRuntimeForTest(t)
+// startedIdentityEvaluationWithSelectorForTest starts the root element of
+// compiledIdentityRuntimeWithSelectorForTest(t, selector).
+func startedIdentityEvaluationWithSelectorForTest(t *testing.T, selector string) startedIdentityEvaluationFixture {
+	t.Helper()
+
+	fixture := compiledIdentityRuntimeWithSelectorForTest(t, selector)
 	evaluation := newIdentityEvaluation(fixture.rt, identityLimits{}, 0)
 	if err := evaluation.startElement(identityElementStart{
 		Context: identityTestContext("/root", 1, 1),
@@ -472,9 +479,9 @@ func startIdentityRetryElement(tb testing.TB, evaluation *identityEvaluation, lo
 		tb.Fatalf("LookupQName(%q) failed", local)
 	}
 	runtimeName := xsdSchema.RuntimeName{Known: true, Name: name}
-	element, _, ok := evaluation.rt.RootElement(runtimeName)
+	element, _, ok := evaluation.rt.GlobalElement(runtimeName)
 	if !ok {
-		tb.Fatalf("RootElement(%q) failed", local)
+		tb.Fatalf("GlobalElement(%q) failed", local)
 	}
 	if err := evaluation.startElement(identityElementStart{
 		Context: ctx,

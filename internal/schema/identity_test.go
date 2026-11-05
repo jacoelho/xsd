@@ -249,22 +249,9 @@ func TestValidateIdentityConstraints(t *testing.T) {
 			wantErr: "identity field has no paths",
 		},
 		{
-			name: "self selector stores inactive fields",
-			mutate: func(identities []IdentityConstraint, names map[string]QName) {
-				identities[0].Selector[0] = IdentityPath{
-					Self:       true,
-					Descendant: true,
-					Steps:      []IdentityStep{{Name: names["item"]}},
-				}
-			},
-			wantErr: "identity selector references invalid name",
-		},
-		{
 			name: "field path stores inactive attribute",
 			mutate: func(identities []IdentityConstraint, names map[string]QName) {
 				identities[0].Fields[0].Paths[0] = IdentityFieldPath{
-					Self:      true,
-					Attr:      true,
 					Attribute: names["id"],
 				}
 			},
@@ -323,7 +310,7 @@ func TestIdentityReadAccessors(t *testing.T) {
 	t.Parallel()
 
 	table, identities, names := identityValidationFixture(t)
-	identities[0].Selector = append(identities[0].Selector, IdentityPath{Self: true})
+	identities[0].Selector = append(identities[0].Selector, IdentityPath{})
 	identities[0].Fields[0].Paths = append(identities[0].Fields[0].Paths,
 		IdentityFieldPath{Steps: []IdentityStep{{Name: names["child"]}}},
 		IdentityFieldPath{Attr: true, AttrWildcard: true},
@@ -351,6 +338,15 @@ func TestIdentityReadAccessors(t *testing.T) {
 	selectorPaths := read.Selectors()
 	if selectorPaths.Len() != 2 {
 		t.Fatalf("IdentityConstraintProgramRead.Selectors() count = %d, want %d", selectorPaths.Len(), 2)
+	}
+	if path, ok := selectorPaths.At(1); !ok || !path.Self() {
+		t.Fatalf("zero-step selector Self() = %v, %v; want true", path.Self(), ok)
+	}
+	if identitySelectorPathProgramRead(IdentityPath{Descendant: true}).Self() {
+		t.Fatal("descendant zero-step selector reports Self()")
+	}
+	if identityFieldPathProgramRead(IdentityFieldPath{Attr: true, Attribute: names["id"]}).Self() {
+		t.Fatal("zero-step attribute field reports Self()")
 	}
 
 	if count := read.FieldCount(); count != 1 {
@@ -392,7 +388,7 @@ func TestPublishedIdentityReadBounds(t *testing.T) {
 	if !rootKnown {
 		t.Fatal("missing root name")
 	}
-	root, _, ok := rt.RootElement(RuntimeName{Name: rootName, Known: true})
+	root, _, ok := rt.GlobalElement(RuntimeName{Name: rootName, Known: true})
 	if !ok {
 		t.Fatal("missing root element")
 	}

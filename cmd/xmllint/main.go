@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"reflect"
 
 	"github.com/jacoelho/xsd"
 	"github.com/jacoelho/xsd/xsderrors"
@@ -49,14 +48,10 @@ func runWithOpen(args []string, stdout, stderr io.Writer, openDoc func(string) (
 		return writeStatus(stderr, 1, "%s fails to compile\n%v\n", cfg.schema, err)
 	}
 	f, err := openDoc(cfg.doc)
-	if isNilReadCloser(f) {
-		if err == nil {
-			err = errors.New("document opener returned nil reader")
-		}
-		return writeStatus(stderr, 1, "%s fails to validate\n%v\n", cfg.doc, err)
+	if err == nil && f == nil {
+		err = errors.New("document opener returned nil reader")
 	}
 	if err != nil {
-		err = errors.Join(err, f.Close())
 		return writeStatus(stderr, 1, "%s fails to validate\n%v\n", cfg.doc, err)
 	}
 	validationErr := engine.ValidateWithOptions(f, xsd.ValidateOptions{
@@ -81,25 +76,6 @@ func reportValidation(stderr io.Writer, doc string, validationErr, closeErr erro
 		return writeStatus(stderr, 1, "%s fails to validate\n%v\n", doc, closeErr)
 	}
 	return 0
-}
-
-func isNilReadCloser(r io.ReadCloser) bool {
-	if r == nil {
-		return true
-	}
-	v := reflect.ValueOf(r)
-	switch v.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
-		return v.IsNil()
-	case reflect.Invalid, reflect.Bool,
-		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
-		reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
-		reflect.Array, reflect.String, reflect.Struct, reflect.UnsafePointer:
-		return false
-	default:
-	}
-	return false
 }
 
 func writeStatus(w io.Writer, code int, format string, args ...any) int {

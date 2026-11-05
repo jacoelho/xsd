@@ -6,6 +6,16 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+// validateSimpleContent assesses an element's simple content at its end. Only
+// empty text takes the declaration's value constraint; whitespace-only text is
+// instance text. A constraint owned by the element's actual type supplies its
+// stored value directly. When xsi:type changed the type, the constraint's
+// application text is revalidated against the actual type with the
+// constraint's schema namespace projection and the instance value-work limit,
+// and that supplied value needs no second fixed-value comparison. Instance
+// text uses instance namespaces and is compared to a fixed value by typed
+// equality.
+//
 //nolint:gocognit // Keeping the raw fast-path gate here avoids copying full constraints into a helper.
 func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 	if f.Nilled {
@@ -104,7 +114,7 @@ func (s *session) validateElementSimpleContentValue(typeID xsdSchema.SimpleTypeI
 }
 
 func (s *session) elementSimpleContentValueError(target identityValueTarget, err error, ctx StartContext) error {
-	if rejectErr := s.doc.identity.rejectValue(target, identityInvalidValue, ctx); rejectErr != nil {
+	if rejectErr := s.doc.identity.rejectValue(target); rejectErr != nil {
 		return rejectErr
 	}
 	return simpleValueError(ctx, xsderrors.CodeValidationFacet, msgInvalidSimpleContent, err, s.limits.InstanceValueWork)
@@ -115,7 +125,7 @@ func (s *session) commitElementSimpleContentValue(result xsdValue.Value, constra
 		return false, err
 	}
 	if fixed, ok := constraints.FixedValue(); ok && !result.Equal(fixed.Value()) {
-		if rejectErr := s.doc.identity.rejectValue(target, identityInvalidValue, ctx); rejectErr != nil {
+		if rejectErr := s.doc.identity.rejectValue(target); rejectErr != nil {
 			return false, rejectErr
 		}
 		return false, validation(ctx, xsderrors.CodeValidationElement, fixedElementMessage(result.CanonicalText(), fixed.CanonicalText()))
@@ -143,6 +153,9 @@ func simpleContentNeeds(
 	return needs
 }
 
+// validateNonSimpleFixedContent checks a fixed value on untyped mixed content
+// by lexical equality with the constraint's application text; element
+// children always conflict and empty text takes the constraint.
 func (*session) validateNonSimpleFixedContent(
 	f *frame,
 	constraints xsdSchema.ElementValueConstraints,

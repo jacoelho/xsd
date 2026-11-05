@@ -25,7 +25,7 @@ func TestParseCommandOptions(t *testing.T) {
 		want    commandOptions
 		wantErr error
 	}{
-		{name: "defaults", want: commandOptions{address: defaultAddress, dir: "docs"}},
+		{name: "defaults", want: commandOptions{address: defaultAddress, dir: "web"}},
 		{name: "overrides", args: []string{"-addr", "127.0.0.1:9000", "-dir", "site"}, want: commandOptions{address: "127.0.0.1:9000", dir: "site"}},
 		{name: "invalid", args: []string{"-unknown"}, wantErr: flag.ErrHelp},
 		{name: "help", args: []string{"-h"}, wantErr: flag.ErrHelp},

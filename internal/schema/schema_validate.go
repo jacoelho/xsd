@@ -2,7 +2,6 @@ package schema
 
 import (
 	"errors"
-	"reflect"
 
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
@@ -393,12 +392,46 @@ func missingSimpleTypeID(rt *schemaValidation) (SimpleTypeID, error) {
 		}
 		expected := MissingSimpleType(missingName, value.AnySimpleTypeID)
 		expected.Scope = DeclarationScopeNonGlobal
-		if missingID != NoSimpleType || !hasMissingName || st.Name != missingName || !reflect.DeepEqual(st, expected) {
+		if missingID != NoSimpleType || !hasMissingName || st.Name != missingName || !intrinsicSimpleTypeEqual(st, expected) {
 			return NoSimpleType, xsderrors.InternalInvariant("missing simple type sentinel is invalid")
 		}
 		missingID = SimpleTypeID(i)
 	}
 	return missingID, nil
+}
+
+// intrinsicSimpleTypeEqual compares a declaration with an intrinsic
+// definition field by field. A test guard over the struct field sets fails when
+// SimpleType or its value specification gains a field this does not compare.
+func intrinsicSimpleTypeEqual(got, want SimpleType) bool {
+	return got.Name == want.Name && got.Final == want.Final && got.Missing == want.Missing &&
+		got.Scope == want.Scope && got.unionContainsList == want.unionContainsList &&
+		got.unionHasFacets == want.unionHasFacets && intrinsicTypeSpecEqual(got.ValueSpec, want.ValueSpec)
+}
+
+// intrinsicTypeSpecEqual compares facet-free, member-free specifications.
+// Intrinsic definitions have neither, so any union member or facet on either
+// side is a difference.
+func intrinsicTypeSpecEqual(got, want value.TypeSpec) bool {
+	return len(got.Union) == 0 && len(want.Union) == 0 &&
+		facetSpecEmpty(got.Facets) && facetSpecEmpty(want.Facets) &&
+		got.Base == want.Base && got.ListItem == want.ListItem && got.Variety == want.Variety &&
+		got.Primitive == want.Primitive && got.Whitespace == want.Whitespace &&
+		got.WhitespacePresent == want.WhitespacePresent && got.Builtin == want.Builtin
+}
+
+func facetSpecEmpty(f value.FacetSpec) bool {
+	var none value.CardinalityFacet
+	return len(f.Patterns) == 0 && len(f.Enumeration) == 0 &&
+		boundFacetEmpty(f.MinInclusive) && boundFacetEmpty(f.MaxExclusive) &&
+		boundFacetEmpty(f.MinExclusive) && boundFacetEmpty(f.MaxInclusive) &&
+		f.MinLength == none && f.FractionDigits == none && f.TotalDigits == none &&
+		f.MaxLength == none && f.Length == none && f.Present == 0 && f.Fixed == 0
+}
+
+func boundFacetEmpty(b value.BoundFacet) bool {
+	return !b.Present && b.Lexical == "" && b.Type == 0 &&
+		b.Resolver.QName == nil && b.Resolver.Notation == nil
 }
 
 func validateMissingSimpleTypeReferences(rt *schemaValidation, missingID SimpleTypeID) error {
@@ -469,7 +502,7 @@ func validateBuiltinSchemaLocationType(rt *schemaValidation) error {
 	list := rt.build.SimpleTypes[builtinSchemaLocationTypeID]
 	name, ok := rt.build.Names.LookupQName(vocab.XSINamespaceURI, "$schemaLocation")
 	if !ok || list.Name != name || list.Scope != DeclarationScopeNonGlobal || list.Final != 0 || list.Missing ||
-		!reflect.DeepEqual(list.ValueSpec, builtinSchemaLocationTypeSpec()) {
+		!intrinsicTypeSpecEqual(list.ValueSpec, builtinSchemaLocationTypeSpec()) {
 		return xsderrors.InternalInvariant("intrinsic schemaLocation type differs from its definition")
 	}
 	view, ok := rt.build.valueBuilder.TypeView(builtinSchemaLocationTypeID)

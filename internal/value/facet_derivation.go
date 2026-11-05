@@ -216,28 +216,13 @@ func validateEnumerationRestriction(derived, base facetProgram) error {
 	if len(derived.enumGroups) == 0 || len(base.enumGroups) == 0 {
 		return nil
 	}
-	for _, literal := range derived.enumGroups[0] {
-		if !enumerationInGroups(literal, base.enumGroups) {
+	literals := derived.enumGroups[0].literals
+	for i := range literals {
+		if matchEnumerationGroups(base.enumGroups, &literals[i]) >= 0 {
 			return errEnumerationLoosensBase
 		}
 	}
 	return nil
-}
-
-func enumerationInGroups(literal parsedValue, groups [][]parsedValue) bool {
-	for _, group := range groups {
-		matched := false
-		for _, candidate := range group {
-			if equalParsed(&literal, &candidate) {
-				matched = true
-				break
-			}
-		}
-		if !matched {
-			return false
-		}
-	}
-	return true
 }
 
 func orderedLowerRestricts(derived, base boundValue) bool {
@@ -256,6 +241,12 @@ func orderedUpperRestricts(derived, base boundValue) bool {
 	return OrderedFacetUpperRestricts(derived.exclusive, base.exclusive, relation)
 }
 
+// compareDerivationBounds orders a derived bound against its base. xs:time
+// bounds compare as raw UTC seconds on a reference day (rawTimeProjection),
+// not as recurring time of day: a maxInclusive base of 12:00:00-10:00 makes a
+// derived 12:00:00-14:00 invalid. Instance acceptance still uses recurring
+// time. This oracle is source-qualified; see R-127 in
+// docs/spec/INTERPRETATIONS.md.
 func compareDerivationBounds(derived, base boundValue) (OrderedFacetRelation, bool) {
 	if derived.value.kind != PrimitiveTime || base.value.kind != PrimitiveTime {
 		return compareAtomic(&derived.value, &base.value)

@@ -8,6 +8,11 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+// compileSubstitutions runs after every type and substitution affiliation is
+// complete. It finalizes element value constraints and effective substitution
+// types on a copy of the elements and installs them with the bounded transitive
+// substitution table together, so a failure leaves the build unchanged. That
+// table is the only substitution lookup the published schema retains.
 func (c *compiler) compileSubstitutions() error {
 	compilation := newSubstitutionCompilation(c)
 	if err := compilation.linkHeads(); err != nil {

@@ -45,6 +45,12 @@ type bitsetNFA struct {
 	enabled     bool
 }
 
+// compileNFA builds the Thompson graph; Compile assembles the Pattern.
+//
+// Rejected: returning a fully initialized Pattern from this helper, because
+// its frame stays live during bitset allocation and enlarges that allocation
+// call chain; reopen only with evidence of non-increasing stack retention,
+// which removing intermediate records and preserving field layout do not give.
 func compileNFA(root *node, options CompileOptions) (compiledNFA, error) {
 	c := nfaCompiler{limit: options.MaxStates}
 	rootFragment, err := c.compile(root)

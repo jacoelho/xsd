@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Tokens"><xs:restriction base="xs:NMTOKENS"><xs:enumeration value="a b"/><xs:enumeration value="c d"/><xs:enumeration value="e"/><xs:enumeration value="f"/><xs:enumeration value="g"/><xs:enumeration value="h"/><xs:enumeration value="i"/><xs:enumeration value="j"/></xs:restriction></xs:simpleType>
+  <xs:element name="root"><xs:complexType><xs:sequence><xs:element name="t" type="Tokens"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>

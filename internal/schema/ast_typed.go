@@ -72,6 +72,8 @@ func parseTypedSchemaSourceDocument(name, key string, input io.Reader, limits Li
 		return nil, xsderrors.WithLocation(name, state.root.line, state.root.column,
 			schemaParseAt(state.root.line, state.root.column, xsderrors.CodeSchemaRoot, "root element must be xs:schema", nil))
 	}
+	// Lexical ids are checked only after the whole document is admitted, so a
+	// structural error earlier in the document wins over a duplicate id.
 	if err := state.validateIDs(); err != nil {
 		return nil, xsderrors.WithLocation(name, 0, 0, err)
 	}
@@ -251,6 +253,9 @@ func typedParentName(parent *typedSchemaParseFrame) xml.Name {
 	return parent.name
 }
 
+// typedStartOpaque marks xs:appinfo and xs:documentation payload as opaque:
+// it is consumed as namespace-well-formed XML and counted against node limits,
+// but never admitted as schema syntax or retained.
 func typedStartOpaque(parent *typedSchemaParseFrame, name xml.Name) bool {
 	if parent == nil {
 		return false
@@ -373,6 +378,10 @@ func admitAnnotationEnvelopeStart(n *schemaSyntaxNode, parent xml.Name) error {
 	return checkAnnotationEnvelopeStart(n)
 }
 
+// admitXSDChildStart runs start checks in a fixed order that decides which
+// diagnostic wins when a node violates several rules. The syntax facts it reads
+// are transient; compilation never treats them as a generic XML tree.
+// Reference and local-declaration attribute restrictions are compiler-owned.
 func admitXSDChildStart(n *schemaSyntaxNode, parent xml.Name) error {
 	if err := rejectSchemaNamespaceAttributes(n); err != nil {
 		return err

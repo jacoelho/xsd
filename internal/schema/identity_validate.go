@@ -121,22 +121,10 @@ func validateIdentityFieldPathSet(names *NameTable, paths []IdentityFieldPath) e
 }
 
 func validIdentityPath(names *NameTable, path IdentityPath) bool {
-	if path.Self {
-		return !path.Descendant && len(path.Steps) == 0
-	}
 	return validIdentitySteps(names, path.Steps)
 }
 
 func validIdentityFieldPath(names *NameTable, path IdentityFieldPath) bool {
-	if path.Self {
-		return !path.Descendant &&
-			len(path.Steps) == 0 &&
-			!path.Attr &&
-			!path.AttrWildcard &&
-			!path.AttrNamespaceSet &&
-			path.Attribute == NoQName() &&
-			path.AttrNamespace == EmptyNamespaceID
-	}
 	if !validIdentityAttributePath(names, path) {
 		return false
 	}

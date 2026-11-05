@@ -31,9 +31,9 @@ jobs:
           - name: Lint
             run: make lint
 
-      - run: npm ci --prefix docs/js
+      - run: npm ci --prefix web/js
 
-      - run: npm exec --prefix docs/js -- playwright install --with-deps chromium
+      - run: npm exec --prefix web/js -- playwright install --with-deps chromium
 
       - parallel:
           - name: Native tests with race detection

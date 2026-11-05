@@ -108,49 +108,6 @@ func TestXMLWhitespaceNormalization(t *testing.T) {
 	}
 }
 
-func TestSplitASCIIQNameBytes(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name      string
-		in        string
-		prefix    string
-		local     string
-		ascii     bool
-		ok        bool
-		hasPrefix bool
-	}{
-		{name: "local", in: "row", local: "row", ascii: true, ok: true},
-		{name: "prefixed", in: "xs:int", prefix: "xs", local: "int", ascii: true, ok: true, hasPrefix: true},
-		{name: "leading_colon", in: ":bad", ascii: true},
-		{name: "trailing_colon", in: "bad:", ascii: true},
-		{name: "duplicate_colon", in: "a:b:c", ascii: true},
-		{name: "invalid_char", in: "bad@name", ascii: true},
-		{name: "unicode", in: "\u00e9", ascii: false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			input := []byte(tt.in)
-			parts := SplitASCIIQNameBytes(input)
-			if parts.ASCII() != tt.ascii || parts.Valid() != tt.ok {
-				t.Fatalf("SplitASCIIQNameBytes(%q) ascii=%v ok=%v, want ascii=%v ok=%v", tt.in, parts.ASCII(), parts.Valid(), tt.ascii, tt.ok)
-			}
-			if !parts.Valid() {
-				return
-			}
-			prefix, local := parts.Bytes(input)
-			if got := prefix != nil; got != tt.hasPrefix {
-				t.Fatalf("prefix presence = %v, want %v", got, tt.hasPrefix)
-			}
-			if string(prefix) != tt.prefix || string(local) != tt.local {
-				t.Fatalf("SplitASCIIQNameBytes(%q) prefix=%q local=%q, want prefix=%q local=%q", tt.in, prefix, local, tt.prefix, tt.local)
-			}
-		})
-	}
-}
-
 func TestSplitQName(t *testing.T) {
 	t.Parallel()
 

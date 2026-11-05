@@ -1,0 +1,15 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Language"><xs:restriction base="xs:language"><xs:enumeration value="en"/><xs:enumeration value="fr"/><xs:enumeration value="de"/><xs:enumeration value="pt"/><xs:enumeration value="es"/><xs:enumeration value="it"/><xs:enumeration value="nl"/><xs:enumeration value="sv"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="Name"><xs:restriction base="xs:Name"><xs:enumeration value="a:x"/><xs:enumeration value="b"/><xs:enumeration value="c"/><xs:enumeration value="d"/><xs:enumeration value="e"/><xs:enumeration value="f"/><xs:enumeration value="g"/><xs:enumeration value="h"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="ID"><xs:restriction base="xs:ID"><xs:enumeration value="a"/><xs:enumeration value="b"/><xs:enumeration value="c"/><xs:enumeration value="d"/><xs:enumeration value="e"/><xs:enumeration value="f"/><xs:enumeration value="g"/><xs:enumeration value="h"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="IDREF"><xs:restriction base="xs:IDREF"><xs:enumeration value="a"/><xs:enumeration value="b"/><xs:enumeration value="c"/><xs:enumeration value="d"/><xs:enumeration value="e"/><xs:enumeration value="f"/><xs:enumeration value="g"/><xs:enumeration value="i"/></xs:restriction></xs:simpleType>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:choice>
+        <xs:element name="lang" type="Language"/>
+        <xs:element name="name" type="Name"/>
+        <xs:sequence><xs:element name="id" type="ID"/><xs:element name="ref" type="IDREF" minOccurs="0"/></xs:sequence>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

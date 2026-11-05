@@ -3,6 +3,10 @@ package tests_test
 import (
 	"bufio"
 	"bytes"
+	"cmp"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -10,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"slices"
 	"strconv"
 	"strings"
@@ -17,6 +22,7 @@ import (
 	"time"
 
 	"github.com/jacoelho/xsd"
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 const (
@@ -120,10 +126,228 @@ func TestLargeXMLLintBenchmark(t *testing.T) {
 	logLargeBenchmarkSummary(t, results)
 }
 
+// Frozen generated inputs. Gates compare this harness across commits, so a
+// generator change must fail the run instead of silently changing the workload.
+const (
+	largeStreamingBenchmarkBytes = 20 << 20
+	largeStreamingDocumentLen    = 20971534
+	largeStreamingDocumentSHA256 = "66521e4a59810161b4e5ab94c2b78dcfc3e9a2e03c23dc632122108b701c6f3e"
+	largeStreamingSchemaSHA256   = "5c5662fe30a483fe7ffa098784d658d3b20ca96027fcc78d5ab37c2124c9eba4"
+	largeIdentityDocumentLen     = 4766707
+	largeIdentityDocumentSHA256  = "e68902788f6296696e441f853b989ab5a8003c1bc7e9bda7feb1444b80842d34"
+	largeIdentitySchemaSHA256    = "cfea58d20827f4d46aa0f904e892699e494969f7232d5b21f2e1929552afd072"
+	largeStreamingShortReadBytes = 1 << 10
+	largePeakHeapSampleInterval  = time.Millisecond
+)
+
+// BenchmarkLargeStreamingValidation validates the 20 MiB streaming fixture
+// from memory, excluding generation and compilation. memory_short_1KiB serves
+// at most 1 KiB per Read, below the parser's initial window.
+func BenchmarkLargeStreamingValidation(b *testing.B) {
+	var buf bytes.Buffer
+	buf.Grow(largeStreamingDocumentLen)
+	writeLargeStreamingDocument(b, &buf, largeStreamingBenchmarkBytes)
+	data := buf.Bytes()
+	requireFrozenInput(b, "streaming document", data, largeStreamingDocumentLen, largeStreamingDocumentSHA256)
+	requireFrozenInput(b, "streaming schema", []byte(largeStreamingSchema), len(largeStreamingSchema), largeStreamingSchemaSHA256)
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(largeStreamingSchema)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	opts := xsd.ValidateOptions{MaxInstanceBytes: int64(len(data))}
+	requireStreamingValidationWork(b, engine, data)
+	for _, shape := range []struct {
+		name  string
+		chunk int
+	}{
+		{name: "memory"},
+		{name: "memory_short_1KiB", chunk: largeStreamingShortReadBytes},
+	} {
+		b.Run(shape.name, func(b *testing.B) {
+			b.SetBytes(int64(len(data)))
+			b.ReportAllocs()
+			for b.Loop() {
+				r := &benchmarkInputReader{r: bytes.NewReader(data), chunk: shape.chunk}
+				if err := engine.ValidateWithOptions(r, opts); err != nil {
+					b.Fatal(err)
+				}
+				if r.n != int64(len(data)) {
+					b.Fatalf("validator read %d bytes, want %d", r.n, len(data))
+				}
+			}
+		})
+	}
+}
+
+// streamingDefect breaks one schema construct in the last row that exercises
+// it: the content between the last open and the following close is replaced
+// by value, or the whole span is deleted when value is nil.
+type streamingDefect struct {
+	name        string
+	open, close string
+	value       func(old string) string
+	message     string // empty means the diagnostic quotes the replacement
+	code        xsderrors.Code
+}
+
+func replaceWith(s string) func(string) string { return func(string) string { return s } }
+
+var streamingDefects = []streamingDefect{
+	{name: "enumeration", open: ` status="`, close: `"`, value: replaceWith("lost"), code: xsderrors.CodeValidationFacet},
+	{name: "pattern", open: ` code="`, close: `"`, value: func(old string) string { return "zz" + old[2:] }, code: xsderrors.CodeValidationFacet},
+	{name: "fixed attribute", open: ` fixed="`, close: `"`, value: replaceWith("v2"), code: xsderrors.CodeValidationAttribute},
+	{name: "decimal bound", open: `<amount>`, close: `</amount>`, value: replaceWith("1000000.00"), code: xsderrors.CodeValidationFacet},
+	{name: "union", open: `<flag>`, close: `</flag>`, value: replaceWith("maybe"), code: xsderrors.CodeValidationFacet},
+	{name: "list item", open: `<tags>`, close: `</tags>`, value: replaceWith("alpha b@d"), message: "b@d", code: xsderrors.CodeValidationFacet},
+	{name: "int", open: `<id>`, close: `</id>`, value: replaceWith("x1"), code: xsderrors.CodeValidationFacet},
+	{name: "missing extension member", open: `<extra>`, close: `</extra>`, message: "extra", code: xsderrors.CodeValidationContent},
+	{name: "missing all member", open: `<created>`, close: `</created>`, message: "created", code: xsderrors.CodeValidationContent},
+	{name: "nil with content", open: `<optional xsi:nil="true"`, close: `>`, value: replaceWith(`>x</optional`), message: `xsi:nil="true"`, code: xsderrors.CodeValidationNil},
+}
+
+// requireStreamingValidationWork proves, before any timer, that both read
+// shapes validate every construct the rows exercise: each defect is reported
+// once, inside the row that carries it, after the whole input is read, and the
+// engine then accepts the valid document again.
+func requireStreamingValidationWork(b *testing.B, engine *xsd.Engine, data []byte) {
+	b.Helper()
+	shapes := []int{0, largeStreamingShortReadBytes}
+	validate := func(doc []byte, chunk int) error {
+		r := &benchmarkInputReader{r: bytes.NewReader(doc), chunk: chunk}
+		err := engine.ValidateWithOptions(r, xsd.ValidateOptions{MaxInstanceBytes: int64(len(doc))})
+		if r.n != int64(len(doc)) {
+			b.Fatalf("chunk %d: validator read %d bytes, want %d", chunk, r.n, len(doc))
+		}
+		return err
+	}
+	for _, chunk := range shapes {
+		if err := validate(data, chunk); err != nil {
+			b.Fatalf("chunk %d: valid streaming document: %v", chunk, err)
+		}
+	}
+	for _, defect := range streamingDefects {
+		start := bytes.LastIndex(data, []byte(defect.open))
+		if start < 0 {
+			b.Fatalf("%s: %s not in the document", defect.name, defect.open)
+		}
+		inner := start + len(defect.open)
+		end := bytes.Index(data[inner:], []byte(defect.close))
+		if end < 0 {
+			b.Fatalf("%s: %s is not closed", defect.name, defect.open)
+		}
+		end += inner
+		with, cut := "", end+len(defect.close)
+		if defect.value != nil {
+			with, start, cut = defect.value(string(data[inner:end])), inner, end
+		}
+		message := cmp.Or(defect.message, with)
+		mutated := slices.Concat(data[:start], []byte(with), data[cut:])
+		rowStart := bytes.LastIndex(mutated[:start], []byte("<record "))
+		rowEnd := start + bytes.Index(mutated[start:], []byte("</record>")) + len("</record>")
+		var first string
+		for _, chunk := range shapes {
+			err := validate(mutated, chunk)
+			diagnostics := xsderrors.Flatten(err)
+			if len(diagnostics) != 1 {
+				b.Fatalf("%s, chunk %d: diagnostics = %d (%v), want 1", defect.name, chunk, len(diagnostics), err)
+			}
+			xerr, ok := errors.AsType[*xsderrors.Error](diagnostics[0])
+			if !ok || xerr.Code() != defect.code || !strings.Contains(xerr.Message(), message) {
+				b.Fatalf("%s, chunk %d: diagnostic %v, want %s containing %q", defect.name, chunk, diagnostics[0], defect.code, message)
+			}
+			if xerr.Line() != 1 || xerr.Column() <= rowStart || xerr.Column() > rowEnd {
+				b.Fatalf("%s, chunk %d: diagnostic at %d:%d, want line 1 in the row at columns (%d, %d]", defect.name, chunk, xerr.Line(), xerr.Column(), rowStart, rowEnd)
+			}
+			if first == "" {
+				first = err.Error()
+			} else if err.Error() != first {
+				b.Fatalf("%s: chunk %d diagnostics %q differ from whole reads %q", defect.name, chunk, err, first)
+			}
+		}
+	}
+	for _, chunk := range shapes {
+		if err := validate(data, chunk); err != nil {
+			b.Fatalf("chunk %d: valid streaming document after defects: %v", chunk, err)
+		}
+	}
+}
+
 // BenchmarkLargeIdentityValidation uses the README fixture and limits while
 // excluding CLI startup and schema compilation from the measured operation.
 func BenchmarkLargeIdentityValidation(b *testing.B) {
+	fixture := newLargeIdentityFixture(b)
+	b.SetBytes(fixture.profile.bytes)
+	b.ReportAllocs()
+	for b.Loop() {
+		fixture.rewind(b)
+		if err := fixture.engine.ValidateWithOptions(fixture.file, fixture.opts); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkLargeIdentityPeakHeap reports the peak in-document HeapInuse while
+// validating the identity fixture. Gate it with -benchtime=1x -count=N on the
+// reported metrics only: ReadMemStats stops the world, so ns/op is perturbed.
+func BenchmarkLargeIdentityPeakHeap(b *testing.B) {
+	// The peak depends on GC pacing; pin it so the metric is independent of GOGC.
+	defer debug.SetGCPercent(debug.SetGCPercent(100))
+	fixture := newLargeIdentityFixture(b)
+	var deltas, peaks []uint64
+	for b.Loop() {
+		fixture.rewind(b)
+		runtime.GC()
+		runtime.GC()
+		baseline := heapInuse()
+		sampler := startHeapSampler(largePeakHeapSampleInterval)
+		err := fixture.engine.ValidateWithOptions(fixture.file, fixture.opts)
+		peak := sampler.stop()
+		if err != nil {
+			b.Fatal(err)
+		}
+		deltas = append(deltas, peak-min(peak, baseline))
+		peaks = append(peaks, peak)
+	}
+	b.ReportMetric(float64(medianUint64(deltas)), "peak-HeapInuse-delta-B")
+	b.ReportMetric(float64(medianUint64(peaks)), "peak-HeapInuse-B")
+}
+
+// The sampler's final sample must observe memory held when it stops, even when
+// no tick fires, and stop must return only after the sampling goroutine sends
+// its result.
+func TestPeakHeapSampler(t *testing.T) {
+	const blockBytes = 32 << 20
+	runtime.GC()
+	runtime.GC()
+	baseline := heapInuse()
+	sampler := startHeapSampler(time.Hour)
+	block := make([]byte, blockBytes)
+	peak := sampler.stop()
+	runtime.KeepAlive(block)
+	if peak < baseline || peak-baseline < blockBytes*3/4 {
+		t.Fatalf("peak HeapInuse = %d with baseline %d, want at least %d above baseline", peak, baseline, blockBytes*3/4)
+	}
+}
+
+type largeIdentityFixture struct {
+	profile largeBenchmarkProfile
+	engine  *xsd.Engine
+	file    *os.File
+	opts    xsd.ValidateOptions
+}
+
+// newLargeIdentityFixture generates the identity fixture and proves, before
+// any timer, that validation still performs the identity work: injected
+// defects in the first and last references are reported in their rows, and
+// the engine recovers.
+func newLargeIdentityFixture(b *testing.B) largeIdentityFixture {
+	b.Helper()
 	profile := generateIdentityProfile(b, b.TempDir(), defaultLargeBenchmarkIdentityRows)
+	schema, err := os.ReadFile(profile.schema)
+	if err != nil {
+		b.Fatal(err)
+	}
+	requireFrozenInput(b, "identity schema", schema, len(largeIdentitySchema), largeIdentitySchemaSHA256)
 	engine, err := xsd.Compile(xsd.File(profile.schema))
 	if err != nil {
 		b.Fatal(err)
@@ -137,23 +361,170 @@ func BenchmarkLargeIdentityValidation(b *testing.B) {
 			b.Fatal(err)
 		}
 	})
-	opts := xsd.ValidateOptions{
-		MaxInstanceBytes:   profile.bytes,
-		MaxIdentityEntries: profile.maxIdentityEntries,
+	fixture := largeIdentityFixture{
+		profile: profile,
+		engine:  engine,
+		file:    f,
+		opts: xsd.ValidateOptions{
+			MaxInstanceBytes:   profile.bytes,
+			MaxIdentityEntries: profile.maxIdentityEntries,
+		},
 	}
-	if err := engine.ValidateWithOptions(f, opts); err != nil {
+	fixture.requireIdentityWork(b)
+	return fixture
+}
+
+func (f largeIdentityFixture) rewind(b *testing.B) {
+	b.Helper()
+	if _, err := f.file.Seek(0, io.SeekStart); err != nil {
 		b.Fatal(err)
 	}
-	b.SetBytes(profile.bytes)
-	b.ReportAllocs()
-	for b.Loop() {
-		if _, err := f.Seek(0, io.SeekStart); err != nil {
-			b.Fatal(err)
-		}
-		if err := engine.ValidateWithOptions(f, opts); err != nil {
-			b.Fatal(err)
+}
+
+func (f largeIdentityFixture) requireIdentityWork(b *testing.B) {
+	b.Helper()
+	data, err := io.ReadAll(f.file)
+	if err != nil {
+		b.Fatal(err)
+	}
+	requireFrozenInput(b, "identity document", data, largeIdentityDocumentLen, largeIdentityDocumentSHA256)
+	validate := func(doc []byte) error {
+		opts := f.opts
+		opts.MaxInstanceBytes = int64(len(doc))
+		return f.engine.ValidateWithOptions(bytes.NewReader(doc), opts)
+	}
+	if err := validate(data); err != nil {
+		b.Fatalf("valid identity document: %v", err)
+	}
+	type diagnostic struct {
+		code    xsderrors.Code
+		message string
+	}
+	unresolved := func(ref string) []diagnostic {
+		// The reference is both a keyref and an IDREF. Codes are sorted.
+		return []diagnostic{
+			{code: xsderrors.CodeValidationIdentity, message: `identity constraint "rowKey"`},
+			{code: xsderrors.CodeValidationType, message: strconv.Quote(ref)},
 		}
 	}
+	lastRow := bytes.LastIndex(data, []byte("<row "))
+	for _, defect := range []struct {
+		name        string
+		from        string
+		to          string
+		last        bool
+		diagnostics []diagnostic
+	}{
+		{name: "duplicate unique group", from: `group="g99999"`, to: `group="g0"`, last: true, diagnostics: []diagnostic{{code: xsderrors.CodeValidationIdentity, message: `"rowGroup"`}}},
+		{name: "unresolved last reference", from: `ref="id99998"`, to: `ref="none"`, last: true, diagnostics: unresolved("none")},
+		{name: "unresolved first reference", from: `ref="id0"`, to: `ref="missing0"`, diagnostics: unresolved("missing0")},
+	} {
+		at := bytes.Index(data, []byte(defect.from))
+		if at < 0 || bytes.Count(data, []byte(defect.from)) != 1 || (at > lastRow) != defect.last {
+			b.Fatalf("%s: %s is not unique in the expected row", defect.name, defect.from)
+		}
+		mutated := bytes.Replace(data, []byte(defect.from), []byte(defect.to), 1)
+		rowStart := bytes.LastIndex(mutated[:at], []byte("<row "))
+		rowEnd := at + bytes.Index(mutated[at:], []byte("/>")) + len("/>")
+		err := validate(mutated)
+		diagnostics := xsderrors.Flatten(err)
+		if len(diagnostics) != len(defect.diagnostics) {
+			b.Fatalf("%s: diagnostics = %d (%v), want %d", defect.name, len(diagnostics), err, len(defect.diagnostics))
+		}
+		got := make([]*xsderrors.Error, len(diagnostics))
+		for i, d := range diagnostics {
+			xerr, ok := errors.AsType[*xsderrors.Error](d)
+			if !ok || xerr.Line() != 1 || xerr.Column() <= rowStart || xerr.Column() > rowEnd {
+				b.Fatalf("%s: diagnostic %v is not in the row at columns (%d, %d]", defect.name, d, rowStart, rowEnd)
+			}
+			got[i] = xerr
+		}
+		slices.SortFunc(got, func(x, y *xsderrors.Error) int { return strings.Compare(string(x.Code()), string(y.Code())) })
+		for i, want := range defect.diagnostics {
+			if got[i].Code() != want.code || !strings.Contains(got[i].Message(), want.message) {
+				b.Fatalf("%s: diagnostic %v, want %s containing %s", defect.name, got[i], want.code, want.message)
+			}
+		}
+		if err := validate(data); err != nil {
+			b.Fatalf("valid identity document after %s: %v", defect.name, err)
+		}
+	}
+}
+
+// requireFrozenInput pins a generated benchmark input to its recorded length
+// and SHA-256.
+func requireFrozenInput(tb testing.TB, name string, data []byte, wantLen int, wantSHA256 string) {
+	tb.Helper()
+	sum := sha256.Sum256(data)
+	if got := hex.EncodeToString(sum[:]); len(data) != wantLen || got != wantSHA256 {
+		tb.Fatalf("%s = %d bytes sha256 %s, want %d bytes sha256 %s; the generator changed", name, len(data), got, wantLen, wantSHA256)
+	}
+}
+
+// benchmarkInputReader counts the bytes it serves and optionally caps each Read
+// at chunk bytes.
+type benchmarkInputReader struct {
+	r     io.Reader
+	chunk int
+	n     int64
+}
+
+func (r *benchmarkInputReader) Read(p []byte) (int, error) {
+	if r.chunk > 0 && len(p) > r.chunk {
+		p = p[:r.chunk]
+	}
+	n, err := r.r.Read(p)
+	r.n += int64(n)
+	return n, err
+}
+
+// heapSampler tracks the peak HeapInuse from one sample at start, one per
+// tick, and one at stop. A transient between ticks can be missed, so the peak
+// is a lower bound.
+type heapSampler struct {
+	done chan struct{}
+	peak chan uint64
+}
+
+func startHeapSampler(interval time.Duration) heapSampler {
+	s := heapSampler{done: make(chan struct{}), peak: make(chan uint64)}
+	started := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		peak := heapInuse()
+		close(started)
+		for {
+			select {
+			case <-ticker.C:
+				peak = max(peak, heapInuse())
+			case <-s.done:
+				s.peak <- max(peak, heapInuse())
+				return
+			}
+		}
+	}()
+	<-started
+	return s
+}
+
+// stop takes the final sample and returns the peak once the sampling
+// goroutine has delivered it.
+func (s heapSampler) stop() uint64 {
+	close(s.done)
+	return <-s.peak
+}
+
+func heapInuse() uint64 {
+	var stats runtime.MemStats
+	runtime.ReadMemStats(&stats)
+	return stats.HeapInuse
+}
+
+func medianUint64(values []uint64) uint64 {
+	sorted := slices.Clone(values)
+	slices.Sort(sorted)
+	return sorted[len(sorted)/2]
 }
 
 func largeBenchmarkConfigFromEnv(t *testing.T) largeBenchmarkConfig {
@@ -470,14 +841,7 @@ func writeLargeStreamingXML(t *testing.T, path string, targetBytes int64) int64 
 		}
 	}()
 	bw := bufio.NewWriterSize(f, 1<<20)
-	cw := &countingWriter{w: bw}
-	header := `<?xml version="1.0" encoding="UTF-8"?><batch xmlns="urn:large" xmlns:t="urn:large" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:f="urn:foreign">`
-	footer := `</batch>`
-	writeString(t, cw, header)
-	for i := int64(0); cw.n+int64(len(footer)) < targetBytes; i++ {
-		writeStreamingRow(t, cw, i)
-	}
-	writeString(t, cw, footer)
+	writeLargeStreamingDocument(t, bw, targetBytes)
 	if flushErr := bw.Flush(); flushErr != nil {
 		t.Fatalf("Flush(%s) error = %v", path, flushErr)
 	}
@@ -488,8 +852,22 @@ func writeLargeStreamingXML(t *testing.T, path string, targetBytes int64) int64 
 	return info.Size()
 }
 
-func writeStreamingRow(t *testing.T, w io.Writer, i int64) {
-	t.Helper()
+// writeLargeStreamingDocument writes rows until the document reaches
+// targetBytes.
+func writeLargeStreamingDocument(tb testing.TB, w io.Writer, targetBytes int64) {
+	tb.Helper()
+	cw := &countingWriter{w: w}
+	header := `<?xml version="1.0" encoding="UTF-8"?><batch xmlns="urn:large" xmlns:t="urn:large" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:f="urn:foreign">`
+	footer := `</batch>`
+	writeString(tb, cw, header)
+	for i := int64(0); cw.n+int64(len(footer)) < targetBytes; i++ {
+		writeStreamingRow(tb, cw, i)
+	}
+	writeString(tb, cw, footer)
+}
+
+func writeStreamingRow(tb testing.TB, w io.Writer, i int64) {
+	tb.Helper()
 	code := i % 1_000_000
 	amount := i % 100_000
 	status := "new"
@@ -500,22 +878,22 @@ func writeStreamingRow(t *testing.T, w io.Writer, i int64) {
 		status = "held"
 	}
 	if i%4 == 0 {
-		writeFormatf(t, w, `<record code="AB%06d" status="%s" fixed="v1" f:trace="trace%d">`, code, status, i)
-		writeFormatf(t, w, `<id>%d</id><name>name-%d</name><amount>%d.50</amount>`, i, i, amount)
-		writeString(t, w, `<tags>alpha beta gamma</tags><flag>true</flag><meta><active>true</active><created>2026-05-05</created></meta>`)
-		writeString(t, w, `<optional xsi:nil="true"/><f:payload>skip</f:payload></record>`)
+		writeFormatf(tb, w, `<record code="AB%06d" status="%s" fixed="v1" f:trace="trace%d">`, code, status, i)
+		writeFormatf(tb, w, `<id>%d</id><name>name-%d</name><amount>%d.50</amount>`, i, i, amount)
+		writeString(tb, w, `<tags>alpha beta gamma</tags><flag>true</flag><meta><active>true</active><created>2026-05-05</created></meta>`)
+		writeString(tb, w, `<optional xsi:nil="true"/><f:payload>skip</f:payload></record>`)
 		return
 	}
 	if i%4 == 1 {
-		writeFormatf(t, w, `<record xsi:type="t:ExtendedRecord" code="CD%06d" status="%s" fixed="v1" kind="extended">`, code, status)
-		writeFormatf(t, w, `<id>%d</id><alias>alias-%d</alias><amount>%d.75</amount>`, i, i, amount)
-		writeString(t, w, `<tags>delta epsilon</tags><flag>7</flag><meta><created>2026-05-05</created></meta>`)
-		writeString(t, w, `<extra>extended</extra></record>`)
+		writeFormatf(tb, w, `<record xsi:type="t:ExtendedRecord" code="CD%06d" status="%s" fixed="v1" kind="extended">`, code, status)
+		writeFormatf(tb, w, `<id>%d</id><alias>alias-%d</alias><amount>%d.75</amount>`, i, i, amount)
+		writeString(tb, w, `<tags>delta epsilon</tags><flag>7</flag><meta><created>2026-05-05</created></meta>`)
+		writeString(tb, w, `<extra>extended</extra></record>`)
 		return
 	}
-	writeFormatf(t, w, `<record code="EF%06d" status="%s" fixed="v1">`, code, status)
-	writeFormatf(t, w, `<id>%d</id><name>name-%d</name><amount>%d.00</amount>`, i, i, amount)
-	writeString(t, w, `<tags>zeta eta</tags><flag>false</flag><meta><created>2026-05-05</created><active>false</active></meta></record>`)
+	writeFormatf(tb, w, `<record code="EF%06d" status="%s" fixed="v1">`, code, status)
+	writeFormatf(tb, w, `<id>%d</id><name>name-%d</name><amount>%d.00</amount>`, i, i, amount)
+	writeString(tb, w, `<tags>zeta eta</tags><flag>false</flag><meta><created>2026-05-05</created><active>false</active></meta></record>`)
 }
 
 const largeIdentitySchema = `<?xml version="1.0" encoding="UTF-8"?>

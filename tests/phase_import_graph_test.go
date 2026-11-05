@@ -71,6 +71,19 @@ func TestLibraryPackagesAreContextFree(t *testing.T) {
 	}
 }
 
+func TestLibraryPackagesAreReflectionFree(t *testing.T) {
+	fset := token.NewFileSet()
+	for _, path := range productionLibraryGoFiles(t) {
+		parsed, err := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
+		if err != nil {
+			t.Fatalf("parse %s: %v", path, err)
+		}
+		if importsPath(parsed, "reflect") {
+			t.Fatalf("library file %s imports reflect", path)
+		}
+	}
+}
+
 func TestSchemaSourceIOOwnership(t *testing.T) {
 	const sourceImport = "github.com/jacoelho/xsd/internal/source"
 	root := repoRoot(t)

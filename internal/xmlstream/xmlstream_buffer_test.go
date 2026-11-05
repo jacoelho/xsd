@@ -2,7 +2,9 @@ package xmlstream
 
 import (
 	"errors"
+	"fmt"
 	"io"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -368,4 +370,100 @@ func TestReaderSkippedProcessingInstructionLimits(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+}
+
+// requestRecorder records the length of every read request it receives.
+type requestRecorder struct {
+	src      io.Reader
+	requests []int
+}
+
+func (r *requestRecorder) Read(p []byte) (int, error) {
+	r.requests = append(r.requests, len(p))
+	return r.src.Read(p)
+}
+
+// Every read asks for a bounded, non-empty window, and with MaxInputBytes L no
+// request exceeds the L+1 overflow probe. An input larger than the window
+// reaches the 65536-byte maximum request; smaller inputs may use less.
+func TestInputReadRequestsAreBounded(t *testing.T) {
+	t.Parallel()
+
+	long := "<r>" + strings.Repeat("a", 70000) + "</r>"
+	for _, test := range []struct {
+		name      string
+		input     string
+		limit     int64
+		wantLimit bool
+		wantMax   int
+	}{
+		{name: "empty_root", input: "<r/>"},
+		{name: "two_windows", input: long, wantMax: 65536},
+		{name: "small_limit", input: long, limit: 100, wantLimit: true, wantMax: 101},
+		{name: "limit_below_input", input: long, limit: 70000, wantLimit: true, wantMax: 65536},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			recorder := &requestRecorder{src: strings.NewReader(test.input)}
+			_, err := recordReader(recorder, Config{Limits: Limits{MaxInputBytes: test.limit}}, 0)
+			if test.wantLimit != IsInputLimit(err) || (!test.wantLimit && err != nil) {
+				t.Fatalf("lifecycle error = %v, want input limit %t", err, test.wantLimit)
+			}
+			if len(recorder.requests) == 0 {
+				t.Fatal("reader received no requests")
+			}
+			for i, n := range recorder.requests {
+				if n <= 0 || n > 65536 {
+					t.Fatalf("request %d length = %d, want (0, 65536]", i, n)
+				}
+				if test.limit > 0 && int64(n) > test.limit+1 {
+					t.Fatalf("request %d length = %d, exceeds MaxInputBytes+1 = %d", i, n, test.limit+1)
+				}
+			}
+			if got := slices.Max(recorder.requests); test.wantMax != 0 && got != test.wantMax {
+				t.Fatalf("largest request = %d, want %d", got, test.wantMax)
+			}
+		})
+	}
+}
+
+// A text run is one token regardless of input-buffer boundaries, and
+// MaxTokenBytes n admits exactly n bytes.
+func TestTextRunIsOneTokenAtAnyBufferBoundary(t *testing.T) {
+	t.Parallel()
+
+	for _, n := range []int{4095, 4096, 4097, 65535, 65536, 65537, 131077} {
+		t.Run(fmt.Sprint(n), func(t *testing.T) {
+			t.Parallel()
+			document := "<r>" + strings.Repeat("a", n) + "</r>"
+			for _, rc := range []readerCase{wholeInput, oneByteInput} {
+				tokens, err := recordReader(rc.open(document), Config{Limits: Limits{MaxTokenBytes: int64(n - 1)}}, 0)
+				if !IsTokenLimit(err) {
+					t.Fatalf("%s: MaxTokenBytes=%d error = %v, want token limit", rc.name, n-1, err)
+				}
+				if got := textTokenLengths(tokens); len(got) != 0 {
+					t.Fatalf("%s: MaxTokenBytes=%d text tokens = %v, want none", rc.name, n-1, got)
+				}
+				for _, limit := range []int64{int64(n), int64(n + 1), 0} {
+					tokens, err := recordReader(rc.open(document), Config{Limits: Limits{MaxTokenBytes: limit}}, 0)
+					if err != nil {
+						t.Fatalf("%s: MaxTokenBytes=%d error = %v", rc.name, limit, err)
+					}
+					if got := textTokenLengths(tokens); len(got) != 1 || got[0] != n {
+						t.Fatalf("%s: MaxTokenBytes=%d text tokens = %v, want [%d]", rc.name, limit, got, n)
+					}
+				}
+			}
+		})
+	}
+}
+
+func textTokenLengths(tokens []recordedToken) []int {
+	var lengths []int
+	for _, tok := range tokens {
+		if tok.kind == KindCharData && tok.textKind == CharacterDataText {
+			lengths = append(lengths, len(tok.data))
+		}
+	}
+	return lengths
 }

@@ -44,7 +44,10 @@ type compiledFacetState struct {
 	valueEnumeration []valuepkg.LiteralSpec
 	valuePatterns    []*valuepkg.Pattern
 	stepSingleFacets valuepkg.FacetMask
-	unavailable      bool
+	// unavailable marks a base lost to optional-import recovery. Bound and
+	// enumeration literals are then skipped rather than evaluated, while
+	// source checks and facets decidable without the base still run.
+	unavailable bool
 }
 
 func (s *compiledFacetState) apply(st *SimpleType) {

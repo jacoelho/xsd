@@ -2,14 +2,10 @@
 
 The [approved correction layer](corrected-reading.md) applies published XSD
 1.0 errata. The records here explain source questions that arise during
-corpus review. Historical acquisitions have role
-`interpretation-history-not-erratum` in [the provenance manifest](source-manifest.json);
-the snapshots are not bundled.
-A closed issue is not, by itself, a new normative XSD 1.0 amendment.
-Selected corrections below follow the
+corpus review. A closed issue is not, by itself, a new normative XSD 1.0
+amendment. Selected corrections below follow the
 [selected-correction policy](SOURCES.md#selected-corrections). Their adoption
-does not claim publication as Second Edition errata. The
-[correction audit](XSD11_CORRECTIONS.md) records scope and opposing witnesses.
+does not claim publication as Second Edition errata.
 
 <a id="processor-tie-break"></a>
 **Processor tie-break.** Precedence is: explicit specification text, then
@@ -54,7 +50,8 @@ may accompany one assessed typed field, but two assessed nodes remain invalid.
 
 Skip already excludes descendant assessment, so the correction removes no
 valid typed descendants. XML syntax and namespace checks still apply. Lax
-missing declarations and recovery are distinct states and retain their rules.
+missing declarations are distinct from skip: their attributes hold unknown
+field values (I-022).
 The four intrinsic XSI attributes on an assessed element remain typed even
 with a skip attribute wildcard; attributes under a skipped element do not
 contribute identity values. Treating absent type information as an empty
@@ -96,9 +93,7 @@ whose minimum is zero. Its maximum, namespace constraint and processing
 strength remain intact. The group aggregate must still restrict the original
 wildcard range. This admits an all group with required `a` and optional `b`
 against wildcard 1..2, while retaining aggregate and namespace opponents.
-The selected correction supersedes earlier literal-baseline invalid overrides;
-previous observations remain provenance only for unchanged inputs. Validator
-acceptance does not waive independent recursive wildcard restrictions.
+Validator acceptance does not waive independent recursive wildcard restrictions.
 
 ## I-005 — implicit substitution-choice order
 
@@ -118,8 +113,9 @@ RecurseLax matching can share a target within a waived comparison; it does not
 acquire RecurseUnordered's separate injectivity rule. Membership, occurrence,
 block/final, type and wildcard restrictions remain independent. Source-order
 and declaration-order opponents protect this boundary. The bounded matching
-implementation and work accounting belong to [the architecture](../../ARCHITECTURE.md),
-not to the historical proposal.
+implementation and work accounting are documented at `ValidateContentRestriction`
+in [`internal/schema`](../../internal/schema/content_restriction.go), not in the
+historical proposal.
 
 ## I-006 — XSD/XSI schema references
 
@@ -286,57 +282,50 @@ subtraction as such an end. The accepted W3C test `msMeta/Regex_w3c.xml` reF56
 [processor tie-break](#processor-tie-break) was considered and does not apply:
 an accepted W3C expectation outranks processor behaviour. Xerces rejects both
 dash-before-subtraction shapes; following it would require recording reF56 as
-a project correction without specification grounding.
-
-| Fixture | Expected | Xerces | .NET | libxml2 | xmlschema |
-| --- | --- | --- | --- | --- | --- |
-| `w3c/msMeta/Regex_w3c.xml/reF56` (`[a-z--[b-z]]`) | valid | reject | accept | accept | accept |
-| `project/datatypes/regex-dash-subtraction-after-range-end` (`[a--[b]]`, `[a-z--[b-z]]`) | valid | reject | reject | reject | accept |
-| `w3c/msMeta/Regex_w3c.xml/reF57` (`[a--b]`) | invalid | not probed | not probed | not probed | not probed |
-| `project/datatypes/regex-dash-range-leading` (`[--a]`) | invalid | reject | accept | accept | reject |
+a project correction without specification grounding. Fixtures:
+`project/datatypes/regex-dash-subtraction-after-range-end` and
+`project/datatypes/regex-dash-range-leading`.
 
 ## Remaining source-integration boundaries
 
 These are qualifications, not alternative permitted policies or approved
 repairs. Success/failure alone cannot observe disputed PSVI/component properties.
-Source IDs are retained for traceability; fixture outcomes remain in the corpus manifest.
+Fixture outcomes remain in the corpus manifest.
 
 | Record | Source and retained boundary |
 | --- | --- |
-| CTS-Q001 | Structures [type annotations](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#ct-annotations), [XML mapping](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type) and [absence convention](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#key-null): required annotation set versus absent no-annotation mapping. Do not invent an annotation, equate absence with empty or reject an otherwise admitted constructor to conceal it. |
-| ASQ001 | [Element validity outcome](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-validity) lacks the connective between nested declaration/type-route clauses. Ordinary applicable-route readings remain conditional; no approved AND/OR repair or blanket rejection follows. Descendant and assessment-attempted conditions remain independent. |
+| Complex-type annotations | Structures [type annotations](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#ct-annotations), [XML mapping](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type) and [absence convention](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#key-null): required annotation set versus absent no-annotation mapping. Do not invent an annotation, equate absence with empty or reject an otherwise admitted constructor to conceal it. |
+| Element validity outcome connective | [Element validity outcome](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-validity) lacks the connective between nested declaration/type-route clauses. Ordinary applicable-route readings remain conditional; no approved AND/OR repair or blanket rejection follows. Descendant and assessment-attempted conditions remain independent. |
 | IBS-Q001 — root ID eligibility and successful declaration validation | [Eligibility](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#key-eas) depends on successful declaration validation; [bindings](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#iib-binding) use ID-valued attributes/children, while [cvc-id](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id) forbids empty bindings. A directly ID-typed root's own value can create an ownerless key conditional on that same success. Preserve the success/contribution question; invent no phase, root-self owner or blanket ID-element rejection. An independently eligible IDREF can create an unambiguously empty binding. |
-| IDS-Q001 | The later `src-resolve` list repairs the omitted identity-component kind. Adopt that clarification, already implemented: keyrefs resolve to supplied key/unique definitions; wrong category, missing target, arity and tuple checks remain. Existing `idH035` protects keyref-to-keyref rejection. No new indexing algorithm follows. |
-| XPS-Q001 / XPQ001 | [Selector](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-selector-xpath)/[field](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-fields-xpaths) components allow whitespace/expanded axes more broadly than normative Appendix A patterns. Distinct component and XML-representation phases must both be reconciled; component permission alone does not prove XML spelling admission. |
-| ANQ001 | Dated [documentation mapping](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-documentation) and XML Second Edition support nonempty xml:lang; Appendix A imports an XML declaration. The acquired 2009 xml.xsd allows empty but does not establish the 2004 imported body. Preserve source selection, not generic XML rejection or automatic later-version acceptance. |
-| CMP-Q001 / ICP-Q001 | An unused [import](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import) with present-empty namespace has anyURI syntax but unresolved semantic-domain scope relative to the empty targetNamespace prohibition. Empty is not absent; lexical admission and existing corpus expectations do not settle acceptance. Ordinary obtained-referent matching still applies. |
-| CMP-Q002 | Attribute-group [redefine clause 7.2](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-agrere) uses ordinary mapping, including nonself group contributions; its note describes explicit-only children. No inheritance from the original group is settled. The note alone does not justify rejecting otherwise matching nonself references. |
+| <a id="ids-q001"></a>IDS-Q001 — identity-component resolution | The later `src-resolve` list repairs the omitted identity-component kind. Adopt that clarification, already implemented: keyrefs resolve to supplied key/unique definitions; wrong category, missing target, arity and tuple checks remain. Existing `idH035` protects keyref-to-keyref rejection. No new indexing algorithm follows. |
+| Selector/field XPath spelling | [Selector](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-selector-xpath)/[field](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-fields-xpaths) components allow whitespace/expanded axes more broadly than normative Appendix A patterns. Distinct component and XML-representation phases must both be reconciled; component permission alone does not prove XML spelling admission. |
+| Empty `xml:lang` in documentation | Dated [documentation mapping](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-documentation) and XML Second Edition support nonempty xml:lang; Appendix A imports an XML declaration. The 2009 revision of xml.xsd allows empty but does not establish the 2004 imported body. Preserve source selection, not generic XML rejection or automatic later-version acceptance. |
+| CMP-Q001 — empty import namespace | An unused [import](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import) with present-empty namespace has anyURI syntax but unresolved semantic-domain scope relative to the empty targetNamespace prohibition. Empty is not absent; lexical admission and existing corpus expectations do not settle acceptance. Ordinary obtained-referent matching still applies. |
+| Attribute-group redefine contributions | Attribute-group [redefine clause 7.2](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-agrere) uses ordinary mapping, including nonself group contributions; its note describes explicit-only children. No inheritance from the original group is settled. The note alone does not justify rejecting otherwise matching nonself references. |
 | DCS-Q001 | Local [attribute mapping](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute) puts a constraint on the use, while declaration [canonical/ID rules](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#a-props-correct) name a different property. [Use correctness](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct) does not expressly transfer both rules. Preserve the ID-default and boolean-pattern/canonical-literal probes as source-qualified, not universal acceptance/rejection. Literal/type admission still applies; present fixed values use the selected typed equality in I-009. DTD ID-default rules and E1-56 do not bridge these properties. |
-| PSVI-Q001 | E1-56 patches lightweight union-member paragraphs, leaving earlier full-member wording and contributor entry premises intact. A member can match while a governing union facet fails; that attribute boundary has no unique full-member oracle here. Invalid complex attributes defeat the element contributor's type-validity premise; declaration-only fixed/identity failures need not. See [corrected reading](corrected-reading.md). |
-| B-044 | Adopt effective declaration fallback as clarified in [G.1.10](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#changes): an absent optional reference uses its global declaration constraint when there is no local override. Already implemented; explicit empty overrides and XSI no-synthesis remain distinct. Added PSVI metadata has its own observation limits. |
-| A-106 | Under both head exclusions, formal [element/type derivation](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct) admits type identity while §3.3.1 nomination prose forbids any affiliation. Same-type affiliation remains source-qualified; a prohibited nonempty derivation is a separate negative. |
+| PSVI-Q001 — union-member PSVI scope | E1-56 full/lightweight union-member scope; owned by [corrected reading](corrected-reading.md#e1-56-applied-reading). |
+| Same-type affiliation under head exclusions | Under both head exclusions, formal [element/type derivation](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct) admits type identity while §3.3.1 nomination prose forbids any affiliation. Same-type affiliation remains source-qualified; a prohibited nonempty derivation is a separate negative. |
 | Anonymous identity / wildcard algebra | The [component identity note](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-identity) leaves some anonymous identity choices incomplete. [Multi-value wildcard algebra](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-aw-union) requires expressible pairwise intermediates without a complete operand order; a mathematically expressible final set does not prove a chosen fold valid. |
 
 ## Datatype and observation qualifications
 
 The [published Datatypes](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html)
-and [source editions](SOURCES.md) supply the following boundaries retained from
-the research notes. Unresolved does not mean arbitrary processor choice.
+and [source editions](SOURCES.md) supply the following boundaries. Unresolved
+does not mean arbitrary processor choice.
 
 | Boundary | Oracle treatment |
 | --- | --- |
-| RXQ001 / RGQ001 | Resolved by the selected grammar correction in [I-011](#i-011--regex-metacharacter-grammar). XPath-only regex features remain excluded. |
-| RXQ002 | Record Unicode version and baseline versus encouraged later support for changed categories/later blocks. A later block is not automatically a mandatory rejection. |
+| Regex Unicode version | Record Unicode version and baseline versus encouraged later support for changed categories/later blocks. A later block is not automatically a mandatory rejection. |
 | Canonical zero and union overlap | Generic one-to-one canonical representation needs integration with decimal/integer minus-zero wording and overlapping integer/decimal union members. Conventional outputs are not disproved; two policies are not thereby permitted. Explicit nonPositiveInteger and float/double zero rules remain determined. Acceptance/member metadata cannot prove an ambiguous canonical output. |
 | Unsigned aliases / single-member union / gMonth | Complete Appendix A unsigned definitions supply signed integer aliases with bounds; preserve the prose seam. Concrete component/representation rules allow one union member despite informal “greater than 1”. Published gMonth form is `--MM`; historical deleted `--MM--` is excluded. |
 | Temporal boundaries | Preserve leap-second lexical/body/Appendix D premises; Appendix E treats an admitted leap second as arithmetic overflow but does not settle all lexical admission. BCE/CE arithmetic needs explicit historical-year mapping. Cross-reference time/g* rollover identity needs a source interpretation, not clock-only equality or an invented canonical g* algorithm. Mixed-zone dateTime separation exactly 14 hours is incomparable under the explicit opening rule. Date example sign/direction discrepancies do not override operative offset/interval definitions. |
-| Time midnight — R-127 | [Issue 2116](https://www.w3.org/Bugs/Public/show_bug.cgi?id=2116) identifies the conflict between §3.2.8's arbitrary-date ordering of `00:00:00` and `24:00:00` and §3.2.8.2's midnight canonical form. Its recorded clarification resolution is not a published correction in the selected baseline. Keep time-bound derivation probes source-qualified; neither day-preserving ordering nor recurring-clock equality alone settles this oracle. The explicit next-day mapping of `dateTime` in §3.2.7.1 remains determined. |
+| Time midnight — [R-127](https://www.w3.org/2001/05/xmlschema-rec-comments.html#pfiTimeMidnight) | [Issue 2116](https://www.w3.org/Bugs/Public/show_bug.cgi?id=2116) identifies the conflict between §3.2.8's arbitrary-date ordering of `00:00:00` and `24:00:00` and §3.2.8.2's midnight canonical form. Its recorded clarification resolution is not a published correction in the selected baseline. Keep time-bound derivation probes source-qualified; neither day-preserving ordering nor recurring-clock equality alone settles this oracle. The explicit next-day mapping of `dateTime` in §3.2.7.1 remains determined. |
 | Duration equality and order | §3.2.6 describes six coordinates, while §3.2.6.2 defines strict order using four reference dates. Equal endpoints for `P400Y` and `P146097D` do not independently establish duration identity. [XSD 1.1 §I.4](https://www.w3.org/TR/2012/REC-xmlschema11-2-20120405/datatypes.html#changes) explicitly changes the value space to two coordinates; no such correction is selected here. Integrate identity, equality and partial order before assigning this pair an unqualified XSD 1.0 enumeration or bound expectation. |
 | Duration / truncation prose | Duration's total-order paragraph refers to a timezone that its grammar lacks; invent no feasible timezone branch. Appendix D's right-truncation list omits gYearMonth despite its explicit type definition; specific grammars still govern. |
-| Fundamental facets — FFP004/006/008, FM13 | Preserve printed property formulas separately from mathematical value-set cardinality: fixed-length integer lists classify finite; enumeration/pattern alone do not trigger atomic finite classification; Appendix C labels gMonth countably infinite. Union ordered explicitly excludes anySimpleType as common ancestor while bounded does not; add no unprinted common-primitive exclusion. Boolean validity cannot expose these component properties. |
+| Fundamental facets | Preserve printed property formulas separately from mathematical value-set cardinality: fixed-length integer lists classify finite; enumeration/pattern alone do not trigger atomic finite classification; Appendix C labels gMonth countably infinite. Union ordered explicitly excludes anySimpleType as common ancestor while bounded does not; add no unprinted common-primitive exclusion. Boolean validity cannot expose these component properties. |
 | Bounds | Repeated equal exclusive endpoints have explicit allowance; do not substitute generic instance validity. Incomparable restriction endpoints need their actual prohibited-comparison wording. Inherited opposite lower-bound kinds retain the same-datatype versus same-step scope question; no blanket rewrite/rejection follows. |
 | URI / language / precision | No implicit percent decoding, case folding, normalization or absolutization establishes anyURI equality. No modern language registry rejection follows from its historical pattern. [Double extrema, overflow and documented precision](SOURCES.md#floating-point-source-versions) remain separately qualified. |
-| ENTITY member selection / 10662 | Full later ENTITY-context assessment is not adopted. A lexical NCName in `ENTITY|string` cannot prove normative string fallback; early unsupported results precede facets, so making them terminal can also suppress legitimate datatype fallback. Keep the [phase qualification](XSD11_CORRECTIONS.md#entity-member-selection-qualification) and use non-NCName fallback witnesses for conformance. |
+| ENTITY member selection / [10662](https://www.w3.org/Bugs/Public/show_bug.cgi?id=10662) | Full later ENTITY-context assessment is not adopted. In an `ENTITY|string` union a lexical NCName such as `missing` cannot prove normative string fallback: the later [Datatype Valid](https://www.w3.org/TR/2012/REC-xmlschema11-2-20120405/datatypes.html#cvc-datatype-valid) and [String Valid](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cvc-simple-type) rules separate datatype-valid member selection from ENTITY assessment against document declarations. The current unsupported ENTITY result occurs before facets, so making it immediately terminal could suppress legitimate fallback after an enclosing list or restricted union fails its datatype rules. A complete phase change would need nested value propagation and explicit facet-literal construction semantics; it is not selected under the DTD-unsupported contract. Conformance fallback witnesses use a non-NCName; NCName observations remain qualified evidence without conformance credit. |
 | Observation / product / modality | Missing public canonical/PSVI/component output is unobservable, not covered. Product exclusions and resource/precision refusals are not datatype-invalid oracles. Compatibility recommendations, discouraged constructs and generic error/recovery permissions do not waive explicit must/conformance requirements or create rejection rules. |
 
 Required XSD 1.0 result, WG interpretation, XSD 1.1 change, processor choice,
@@ -558,21 +547,15 @@ imply an identical include/import closure (relative references resolve against
 each location); and keeping only the first document per namespace, because the
 result depends on load order and hides genuine conflicts.
 
-| Shape: byte-identical documents at two locations | Xerces-J | .NET | libxml2 | xmlschema |
-| --- | --- | --- | --- | --- |
-| Two includes | reject | reject | reject | reject |
-| Two imports of one namespace | accept | reject | accept | accept |
-| Two explicit roots | accept | reject | not observable | reject |
-
-Xerces-J, libxml2 and xmlschema keep the first import per namespace; that
-permitted alternative is rejected above. Because the spec permits both, the
-processor tie-break would favour Xerces here; retaining location identity for
-imports and roots awaits a maintainer decision. Fixtures:
-`tests/corpus/project/namespaces/namespace-duplicate-include-locations-conflict`,
-`tests/corpus/project/namespaces/namespace-shared-include-location-is-one-document`,
-`tests/corpus/project/namespaces/namespace-duplicate-import-locations-conflict`,
-`tests/corpus/project/namespaces/namespace-repeated-import-location-is-one-document`,
-`tests/corpus/project/namespaces/namespace-duplicate-identical-target-namespace-sources-conflict`.
+The library therefore applies resolved-location identity to includes, imports
+and explicit roots alike. Imports of one namespace from distinct locations are
+distinct documents; when they declare the same global component they conflict
+under sch-props-correct clause 2. This is a deliberate departure from the
+[processor tie-break](#processor-tie-break): the sources permit keeping only the
+first import, and Xerces-J, libxml2 and xmlschema do so, but that reading is
+rejected for the reasons above. Fixtures: the `namespace-duplicate-*` and
+`namespace-shared-include-*`/`namespace-repeated-import-*` cases in
+`tests/corpus/project/namespaces/`.
 
 ## I-020 — XML name characters follow the Fifth Edition
 
@@ -604,8 +587,7 @@ Accepted W3C expectations decide the edition, so the
 `msMeta/Regex_w3c.xml` reZ006i expects its `\c` instance valid for XML 1.0,
 citing bug 13606 and the Fifth Edition name characters. Saxon
 `XmlVersions.testSet` xv100c and xv100i (whose metadata references the XSD 1.1
-drafts) support the same classes. A trial switch to Second Edition classes
-failed all three.
+drafts) support the same classes.
 
 ## I-021 — chameleon reference checks use the effective target namespace
 
@@ -625,12 +607,132 @@ into several namespaces must satisfy the checks in every view.
 
 Rejected: checking the declared (absent) attribute literally. It makes the
 reference validity of a document independent of its includer, but every
-measured processor rejects it on at least one shape.
+measured processor rejects it on at least one shape; libxml2 applies the
+effective namespace to include only. Fixtures:
+`project/composition/chameleon-includes-same-tns`,
+`project/composition/chameleon-imports-effective-ns` and
+`project/composition/chameleon-import-without-namespace`.
 
-| Fixture | Xerces | .NET | libxml2 | xmlschema |
-| --- | --- | --- | --- | --- |
-| `project/composition/chameleon-includes-same-tns` (valid) | accept | accept | accept | accept |
-| `project/composition/chameleon-imports-effective-ns` (invalid) | reject | reject | accept | reject |
-| `project/composition/chameleon-import-without-namespace` (valid) | accept | accept | reject | accept |
+## I-022 — undeclared lax attributes are unknown field values
 
-libxml2 applies the effective namespace to include only.
+**Status:** source-qualified reading of
+[cvc-identity-constraint](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint)
+clause 3 for attributes that
+[lax assessment](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-assess-attr)
+leaves without a declaration, chosen by the
+[processor tie-break](#processor-tie-break).
+
+Clause 3 requires a selected field node to have a simple type. An attribute
+admitted by a lax wildcard with no matching declaration has no type at all, so
+the sources leave its field value doubtful: an error, a string, or nothing.
+Such a field holds an *unknown* value:
+
+- it is a selected node, so `key` field presence holds and a key's nillable
+  rule still applies;
+- it equals no value, so a row holding one never takes part in `unique` or
+  `key` duplicates and a key row holding one can be referenced by nothing;
+- a `keyref` row holding one matches no key and reports the keyref failure;
+- it adds no field cardinality: a typed or nilled node selected by the same
+  field supersedes it, two unknown nodes stay unknown, and two typed nodes
+  remain multiple values. Clause 3's one-member limit is stated together with
+  its simple-type requirement, so it shares that doubt. The measured rows
+  decide it: Xerces, .NET and libxml2 accept a typed and an unknown node under
+  one field (`v-typed-and-unknown-same-node`), and all four providers accept two
+  unknown nodes (`v-two-unknown-one-field`);
+- an absent field outranks it, so the row is incomplete.
+
+This applies only to lax assessment without a declaration. Skip-admitted
+attributes follow I-002 and supply nothing. Strict wildcards without a
+declaration and disallowed attributes are invalid attributes, and the fields
+selecting them are invalid.
+
+Rejected:
+
+- the literal no-simple-value error. All four providers accept equal undeclared
+  lax values under `unique`.
+- string comparison. Xerces, .NET and libxml2 accept equal undeclared values.
+- treating the field as absent. Xerces and .NET accept a key whose only field is
+  an undeclared lax attribute.
+
+The project departs from Xerces twice:
+
+- Xerces accepts two typed attributes selected by one field on one node. The
+  clause 3 limit of one node is explicit, so the project reports multiple
+  values, as .NET, libxml2 and xmlschema do.
+- Xerces matches an unknown keyref value to an unknown key value (both `null`).
+  Under this reading an unknown value equals nothing. .NET and libxml2 also
+  reject that instance, though on the key.
+
+Fixtures: `project/identity/undeclared-attribute-field-unique`,
+`project/identity/undeclared-attribute-field-key` and
+`project/identity/undeclared-attribute-field-keyref`.
+Per-instance dissent is recorded as manifest `oracle` metadata.
+
+## I-023 — substitution-group member with a missing head
+
+**Status:** source-qualified reading of
+[QName resolution](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve),
+[Missing Sub-components §5.3](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing)
+and the [element declaration mapping](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element),
+following the accepted W3C expectation for
+`w3c/saxonMeta/Missing.testSet/missing002` (valid).
+
+`src-resolve` requires a `substitutionGroup` QName to resolve, while §3 and
+§5.3 handle unresolved references uniformly as absent values that modify
+assessment only of items validated against the affected component. The §3.3.2
+`{type definition}` mapping gives a declaration without its own type the type
+of the declaration its `substitutionGroup` resolves to, otherwise the ur-type;
+it does not say which branch an unresolved head takes. The library tolerates
+the missing head at schema load: `{substitution group affiliation}` (an
+optional property) is absent and, without an explicit `type` or inline type,
+the member validates with the default type `anyType`. With a resolved head, an
+omitted member type is inherited through the affiliation chain before value
+constraints are checked; it does not fall back to `anyType` while the head's
+type is still being completed.
+
+An accepted W3C expectation outranks processor behaviour, so the
+[processor tie-break](#processor-tie-break) does not apply. xmlschema rejects
+missing002 under `src-resolve`; that dissent is manifest `oracle` metadata.
+Evidence: `TestSubstitutionMemberWithMissingHeadUsesDefaultType` in
+`internal/schema/schema_compile_external_test.go`.
+
+## I-024 — printed primitive-type summary
+
+**Status:** published-text discrepancy; Part 2 definitions govern. Not an
+approved erratum or a new primitive inventory.
+
+[Structures §3.14.7](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#d0e16395)
+prints `number` in its primitive list and omits `decimal`, `QName` and
+`NOTATION`; its earlier
+[simple-type example](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#Simple_Type_Definitions)
+also uses `xs:number`. The same summary says primitive facets are empty. Its
+own reference points to the actual
+[Part 2 primitive definitions](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#built-in-primitive-datatypes),
+which include decimal, QName and NOTATION. Part 2's
+[whiteSpace rules](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-whiteSpace)
+specify preserve for string and fixed collapse for the other atomic primitives.
+The [Appendix A primitive sketches](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#schema)
+are informative displays of those definitions.
+
+The library follows the Part 2 definitions: the printed summary supplies no
+`xs:number` builtin and does not remove required whitespace processing. No
+approved amendment replaces that paragraph.
+
+## I-025 — identity values of unrelated restrictions
+
+**Status:** published formal rule governs over introductory prose; not a new
+equality policy or approved patch.
+
+The [§3.11.1 introduction](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#Identity-constraint_Definition_details)
+says differing-type values can be equal only when one type derives from the
+other. The formal
+[Identity-constraint Satisfied](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint)
+rule compares tuples through Part 2
+[Equal](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal)
+on type-determined values.
+
+Two independently defined restrictions of integer that both supply `1` hold the
+same integer value, so no declared-field-type ancestry veto applies. Two
+distinct simple children `v` and `w`, selected by `v|w` with field `.`, supply
+equal complete tuples for one `unique` constraint. Different declared type
+names do not leave this result unspecified.

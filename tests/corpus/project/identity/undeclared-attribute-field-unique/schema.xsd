@@ -1,0 +1,37 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:x="urn:test" targetNamespace="urn:test" elementFormDefault="qualified">
+  <!-- Fields that select an attribute admitted by a lax wildcard without a declaration hold an unknown value: it equals no other value and adds no field cardinality; a typed value on another selected node supersedes it. -->
+  <xs:element name="u">
+    <xs:complexType><xs:choice maxOccurs="unbounded">
+      <xs:element name="c"><xs:complexType><xs:attribute name="id" type="xs:string"/></xs:complexType></xs:element>
+      <xs:any processContents="lax" namespace="##local"/>
+    </xs:choice></xs:complexType>
+    <xs:unique name="uid"><xs:selector xpath="*"/><xs:field xpath="@id"/></xs:unique>
+  </xs:element>
+  <xs:element name="laxa">
+    <xs:complexType><xs:sequence><xs:element name="c" maxOccurs="unbounded"><xs:complexType><xs:anyAttribute processContents="lax" namespace="##local"/></xs:complexType></xs:element></xs:sequence></xs:complexType>
+    <xs:unique name="ulaxa"><xs:selector xpath="x:c"/><xs:field xpath="@id"/></xs:unique>
+  </xs:element>
+  <xs:element name="two">
+    <xs:complexType><xs:sequence><xs:element name="c" maxOccurs="unbounded"><xs:complexType><xs:attribute name="a" type="xs:string"/><xs:anyAttribute processContents="lax" namespace="##local"/></xs:complexType></xs:element></xs:sequence></xs:complexType>
+    <xs:unique name="utwo"><xs:selector xpath="x:c"/><xs:field xpath="@a"/><xs:field xpath="@b"/></xs:unique>
+  </xs:element>
+  <xs:element name="twoDecl">
+    <xs:complexType><xs:sequence><xs:element name="c" maxOccurs="unbounded"><xs:complexType><xs:attribute name="a" type="xs:string"/><xs:attribute name="b" type="xs:string"/></xs:complexType></xs:element></xs:sequence></xs:complexType>
+    <xs:unique name="utwoDecl"><xs:selector xpath="x:c"/><xs:field xpath="@a"/><xs:field xpath="@b"/></xs:unique>
+  </xs:element>
+  <xs:element name="one">
+    <xs:complexType><xs:sequence><xs:any processContents="lax" namespace="##local" maxOccurs="unbounded"/></xs:sequence></xs:complexType>
+    <xs:unique name="uone"><xs:selector xpath="*"/><xs:field xpath="@id|q/@id"/></xs:unique>
+  </xs:element>
+  <xs:element name="mix">
+    <xs:complexType><xs:sequence><xs:element name="c" maxOccurs="unbounded"><xs:complexType>
+      <xs:sequence><xs:element name="q" minOccurs="0"><xs:complexType><xs:anyAttribute processContents="lax" namespace="##local"/></xs:complexType></xs:element></xs:sequence>
+      <xs:attribute name="id" type="xs:string"/><xs:anyAttribute processContents="lax" namespace="##local"/>
+    </xs:complexType></xs:element></xs:sequence></xs:complexType>
+    <xs:unique name="umix"><xs:selector xpath="x:c"/><xs:field xpath="@id|@u|x:q/@u"/></xs:unique>
+  </xs:element>
+  <xs:element name="nest">
+    <xs:complexType><xs:sequence><xs:any processContents="lax" namespace="##local" maxOccurs="unbounded"/></xs:sequence></xs:complexType>
+    <xs:unique name="unest"><xs:selector xpath="*/*"/><xs:field xpath="@id"/></xs:unique>
+  </xs:element>
+</xs:schema>

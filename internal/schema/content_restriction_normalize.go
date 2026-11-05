@@ -7,6 +7,11 @@ type restrictionNormalizer struct {
 	models    restrictionModelView
 }
 
+// compareNormalizedRestriction compares over a view that borrows unchanged
+// original models and owns only replacement nodes. When normalization added
+// replacements, the comparison gets a private range/emptiability analysis and
+// wildcard cache so replacement IDs never reach the caller's reusable caches;
+// work still charges the caller's sticky budget.
 func (v contentRestrictionValidator) compareNormalizedRestriction(base, derived Particle) error {
 	n := restrictionNormalizer{validator: v, models: restrictionModelView{original: v.rt.Models}}
 	base, err := n.particle(base, 0)
@@ -147,9 +152,10 @@ func (n *restrictionNormalizer) model(p Particle, depth int) (Particle, error) {
 		return p, nil
 	}
 	occurs := p.Occurs
-	if occurs.IsExactlyOne() {
+	switch {
+	case occurs.IsExactlyOne():
 		occurs = m.Occurs
-	} else if !m.Occurs.IsExactlyOne() {
+	case !m.Occurs.IsExactlyOne():
 		// Source lowering normally moves nested bounds to the particle. Retain
 		// two nonunit layers rather than multiplying away structural guards.
 		inner, err := n.model(ModelParticle(p.Model, Occurrence{Min: 1, Max: 1}), depth+1)

@@ -3,7 +3,6 @@ package tests_test
 import (
 	"go/ast"
 	"go/build"
-	"go/importer"
 	"go/parser"
 	"go/token"
 	"go/types"
@@ -21,6 +20,12 @@ const xmlStreamImport = "github.com/jacoelho/xsd/internal/xmlstream"
 // consumers may pass them through synchronous calls, but no consumer may
 // retain the token, a token-shaped alias, or a borrowed field in state that
 // survives the current call.
+//
+// The guard follows borrowed provenance through local aliases and closures to
+// returns, retained state, channels, and delayed calls. Owned strings, byte
+// clones, and copies into owned byte destinations sever provenance; shallow
+// copies of reference-bearing containers, including slices.Clone of them, do
+// not.
 func TestXMLStreamBorrowedValuesStayEphemeral(t *testing.T) {
 	root := repoRoot(t)
 	fset := token.NewFileSet()
@@ -49,8 +54,14 @@ func collectXMLStreamPackages(t *testing.T, root string, fset *token.FileSet) []
 		}
 		slash := filepath.ToSlash(rel)
 		if entry.IsDir() {
+			name := entry.Name()
+			// Match the go command's package patterns, which ignore these
+			// directories; they hold tool state and copies, not packages.
+			if slash != "." && (strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") || name == "testdata") {
+				return filepath.SkipDir
+			}
 			switch slash {
-			case ".git", ".codex", "docs/spec", "tests/corpus", "internal/xmlstream":
+			case "docs/spec", "tests/corpus", "internal/xmlstream":
 				return filepath.SkipDir
 			}
 			return nil
@@ -107,156 +118,22 @@ func fileImportsXMLStream(file *ast.File) bool {
 
 func checkXMLStreamPackage(t *testing.T, fset *token.FileSet, pkg *xmlStreamPackage) {
 	t.Helper()
-	info := &types.Info{
-		Defs:       make(map[*ast.Ident]types.Object),
-		Uses:       make(map[*ast.Ident]types.Object),
-		Selections: make(map[*ast.SelectorExpr]*types.Selection),
-		Types:      make(map[ast.Expr]types.TypeAndValue),
-	}
-	conf := types.Config{Importer: importer.ForCompiler(fset, "source", nil)}
 	path := "github.com/jacoelho/xsd"
 	if pkg.dir != "." {
 		path += "/" + pkg.dir
 	}
-	if _, err := conf.Check(path, fset, pkg.files, info); err != nil {
+	violations, err := analyzeXMLStreamPackage(fset, path, pkg.files)
+	if err != nil {
 		t.Fatalf("type-check %s: %v", path, err)
 	}
-	for _, file := range pkg.files {
-		checkXMLStreamFile(t, fset, info, file)
+	for _, violation := range violations {
+		t.Errorf("%s: %s retains borrowed XML stream data", fset.Position(violation.pos), violation.kind)
 	}
-}
-
-func checkXMLStreamFile(t *testing.T, fset *token.FileSet, info *types.Info, file *ast.File) {
-	t.Helper()
-	ast.Inspect(file, func(node ast.Node) bool {
-		switch node := node.(type) {
-		case *ast.StructType:
-			for _, field := range node.Fields.List {
-				if typ := info.TypeOf(field.Type); borrowedXMLStreamType(typ) {
-					t.Fatalf("%s stores borrowed XML stream type %s in a struct field", fset.Position(field.Pos()), borrowedTypeLabel(typ))
-				}
-			}
-		case *ast.TypeSpec:
-			if typ := info.TypeOf(node.Type); borrowedXMLStreamType(typ) {
-				t.Fatalf("%s aliases borrowed XML stream type %s", fset.Position(node.Pos()), borrowedTypeLabel(typ))
-			}
-		case *ast.FuncType:
-			checkXMLStreamResults(t, fset, info, node)
-		case *ast.GenDecl:
-			if node.Tok == token.VAR {
-				checkXMLStreamPackageVars(t, fset, info, node)
-			}
-		case *ast.ReturnStmt:
-			for _, result := range node.Results {
-				if value, ok := borrowedXMLStreamValue(info, result); ok {
-					t.Fatalf("%s returns borrowed XML stream value %s", fset.Position(result.Pos()), value)
-				}
-			}
-		case *ast.GoStmt, *ast.DeferStmt:
-			call := delayedCall(node)
-			for _, argument := range call.Args {
-				if value, ok := borrowedXMLStreamValue(info, argument); ok {
-					t.Fatalf("%s sends borrowed XML stream value %s across a delayed call", fset.Position(argument.Pos()), value)
-				}
-			}
-		case *ast.AssignStmt:
-			checkXMLStreamAssignment(t, fset, info, node)
-		}
-		return true
-	})
-}
-
-func checkXMLStreamResults(t *testing.T, fset *token.FileSet, info *types.Info, fn *ast.FuncType) {
-	t.Helper()
-	if fn.Results == nil {
-		return
-	}
-	for _, field := range fn.Results.List {
-		if typ := info.TypeOf(field.Type); borrowedXMLStreamType(typ) {
-			t.Fatalf("%s returns borrowed XML stream type %s", fset.Position(field.Pos()), borrowedTypeLabel(typ))
-		}
-	}
-}
-
-func checkXMLStreamPackageVars(t *testing.T, fset *token.FileSet, info *types.Info, decl *ast.GenDecl) {
-	t.Helper()
-	for _, spec := range decl.Specs {
-		valueSpec, ok := spec.(*ast.ValueSpec)
-		if !ok {
-			continue
-		}
-		for _, name := range valueSpec.Names {
-			if object := info.Defs[name]; object != nil {
-				if scope := object.Parent(); scope == nil || scope.Parent() != nil {
-					continue
-				}
-				if typ := object.Type(); borrowedXMLStreamType(typ) {
-					t.Fatalf("%s retains borrowed XML stream variable %s (%s)", fset.Position(name.Pos()), name.Name, borrowedTypeLabel(typ))
-				}
-			}
-		}
-	}
-}
-
-func checkXMLStreamAssignment(t *testing.T, fset *token.FileSet, info *types.Info, assignment *ast.AssignStmt) {
-	t.Helper()
-	for i, destination := range assignment.Lhs {
-		if i >= len(assignment.Rhs) {
-			break
-		}
-		value, ok := borrowedXMLStreamValue(info, assignment.Rhs[i])
-		if !ok {
-			continue
-		}
-		if _, local := destination.(*ast.Ident); local {
-			continue
-		}
-		if _, field := destination.(*ast.SelectorExpr); field {
-			t.Fatalf("%s stores borrowed XML stream value %s in a field", fset.Position(destination.Pos()), value)
-		}
-		if _, index := destination.(*ast.IndexExpr); index {
-			t.Fatalf("%s stores borrowed XML stream value %s in indexed state", fset.Position(destination.Pos()), value)
-		}
-		t.Fatalf("%s stores borrowed XML stream value %s", fset.Position(destination.Pos()), value)
-	}
-}
-
-func delayedCall(node ast.Node) *ast.CallExpr {
-	switch node := node.(type) {
-	case *ast.GoStmt:
-		return node.Call
-	case *ast.DeferStmt:
-		return node.Call
-	default:
-		return nil
-	}
-}
-
-func borrowedXMLStreamValue(info *types.Info, expression ast.Expr) (string, bool) {
-	if expression == nil {
-		return "", false
-	}
-	if typ := info.TypeOf(expression); borrowedXMLStreamType(typ) {
-		return borrowedTypeLabel(typ), true
-	}
-	if call, ok := expression.(*ast.CallExpr); ok && info.Types[call.Fun].IsType() {
-		for _, argument := range call.Args {
-			if value, ok := borrowedXMLStreamValue(info, argument); ok && typeCanHideBorrowed(info.TypeOf(expression)) {
-				return value, true
-			}
-		}
-	}
-	return "", false
 }
 
 func borrowedXMLStreamType(typ types.Type) bool {
 	_, ok := borrowedXMLStreamTypeLabel(typ)
 	return ok
-}
-
-func borrowedTypeLabel(typ types.Type) string {
-	label, _ := borrowedXMLStreamTypeLabel(typ)
-	return label
 }
 
 func borrowedXMLStreamTypeLabel(typ types.Type) (string, bool) {
@@ -312,34 +189,4 @@ func borrowedXMLStreamTypeLabel(typ types.Type) (string, bool) {
 		return "", false
 	}
 	return visit(typ)
-}
-
-func typeCanHideBorrowed(typ types.Type) bool {
-	if typ == nil {
-		return false
-	}
-	typ = types.Unalias(typ)
-	switch typ := typ.(type) {
-	case *types.Interface, *types.Signature:
-		return true
-	case *types.Named:
-		return typeCanHideBorrowed(typ.Underlying())
-	case *types.Pointer:
-		return typeCanHideBorrowed(typ.Elem())
-	case *types.Array:
-		return typeCanHideBorrowed(typ.Elem())
-	case *types.Slice:
-		return typeCanHideBorrowed(typ.Elem())
-	case *types.Map:
-		return typeCanHideBorrowed(typ.Key()) || typeCanHideBorrowed(typ.Elem())
-	case *types.Chan:
-		return typeCanHideBorrowed(typ.Elem())
-	case *types.Struct:
-		for field := range typ.Fields() {
-			if typeCanHideBorrowed(field.Type()) {
-				return true
-			}
-		}
-	}
-	return false
 }

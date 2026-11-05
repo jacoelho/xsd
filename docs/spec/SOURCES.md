@@ -1,11 +1,8 @@
 # XSD 1.0 source authority
 
 The baseline is the English **28 October 2004 Second Edition**, read with
-approved Second Edition errata and the selected corrections below. Historical
-acquisitions on 17–19 October 2026 are recorded in [source-manifest.json](source-manifest.json). Its URLs, hashes,
-byte lengths and retrieval metadata describe those downloads; path entries are
-historical audit locations, not a current inventory. Bulk snapshots are not
-bundled. The preexisting `xml/` source copies remain historical aids.
+approved Second Edition errata and the selected corrections below. Read the
+published W3C pages; no source copies are bundled.
 
 ## Editions and approved corrections
 
@@ -14,12 +11,11 @@ bundled. The preexisting `xml/` source copies remain historical aids.
 | [Primer](https://www.w3.org/TR/2004/REC-xmlschema-0-20041028/primer.html) | Explanatory throughout, including appendices. |
 | [Structures](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html) and [Datatypes](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html) | Normative language definitions, subject to their explicitly non-normative labels. |
 | [First Edition errata](https://www.w3.org/2001/05/xmlschema-errata.html) | Already incorporated into the final Second Edition, including corrections added after the March 2004 proposed edition. Do not apply twice. |
-| [Second Edition errata](https://www.w3.org/2004/03/xmlschema-errata.html) | Captured revision 1.2, 19 August 2010, contains only E1-56 and no Part 0/Part 2 entries. Apply the [corrected reading](corrected-reading.md). |
+| [Second Edition errata](https://www.w3.org/2004/03/xmlschema-errata.html) | Revision 1.2, 19 August 2010, contains only E1-56 and no Part 0/Part 2 entries. Apply the [corrected reading](corrected-reading.md). |
 
-The English published text is normative. Raw XML retains deleted history and
-external/generated placeholders; its extraction cannot prove complete reading
-coverage. Visible-change HTML compares 2001 with 2004 and does not incorporate
-E1-56. [Bug 6836](https://www.w3.org/Bugs/Public/show_bug.cgi?id=6836)
+The English published text is normative. Visible-change HTML compares 2001
+with 2004 and does not incorporate E1-56.
+[Bug 6836](https://www.w3.org/Bugs/Public/show_bug.cgi?id=6836)
 records E1-56 approval with modifications on 9 July 2010 and publication on
 19 August. Earlier proposals, issue closure and XSD 1.1 changes are not automatically
 approved XSD 1.0 amendments. Deliberate library adoptions are listed below.
@@ -46,16 +42,55 @@ from validator agreement alone.
 | Later [attribute-use validity](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cvc-au) | Compare ordinary fixed attributes by typed value after lexical/facet validation. | [I-009](INTERPRETATIONS.md#i-009--fixed-attribute-use-values) |
 | Later [simple derivation](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-st-derived-ok), identified as a 1.0 error in §G.1.8 | Preserve effective restricted-union facets in nested construction and forbid member-type substitution that bypasses them. | [I-010](INTERPRETATIONS.md#i-010--restricted-unions-retain-their-constraints) |
 | [F&O regex correction note](https://www.w3.org/TR/2017/REC-xpath-functions-31-20170321/#regex-syntax) | Treat braces/bar consistently as metacharacters, retaining XSD literal `^`/`$`. | [I-011](INTERPRETATIONS.md#i-011--regex-metacharacter-grammar) |
-| Later Structures §G.1.10 and `src-resolve` | Use effective global attribute constraints when local use has no override; resolve keyrefs to key/unique components. Already implemented. | [Correction audit](XSD11_CORRECTIONS.md) |
+| Later Structures [§G.1.10](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#changes) | An absent optional attribute reference whose use has no local override uses its global declaration's effective constraint. Explicit empty overrides and required presence are separate controls; XSI still supplies no absent values, and added PSVI metadata has its own observation limits. Already implemented. | This row |
+| Later [`src-resolve`](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#src-resolve) | Keyrefs resolve to key/unique components. Already implemented. | [IDS-Q001](INTERPRETATIONS.md#ids-q001) |
 | Later [include semantics](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/structures.html#compound-schema), §4.2.3 | Includes naming one resolved location are one document; distinct locations are distinct documents even with identical bytes. | [I-019](INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location) |
-| Later [double value space](https://www.w3.org/TR/2012/REC-xmlschema11-2-20120405/#double) | Use IEEE-compatible integer-exponent limits −1074…971. Already implemented; no blanket overflow-policy adoption. | [Floating-point scope](#floating-point-source-versions) |
+| Later [double value space](https://www.w3.org/TR/2012/REC-xmlschema11-2-20120405/#double) | Corrected binary64 integer-exponent limits. Already implemented. | [Floating-point scope](#floating-point-source-versions) |
 
 These are explicit library corrections to the pinned baseline, separately
 from published Second Edition errata. Several use final 2012 text; R-122/R-240
 select bounded historical repairs rather than the surrounding 1.1 algorithms.
-The [audit](XSD11_CORRECTIONS.md) distinguishes fixes, existing behavior and
-excluded language changes. They do not enable HTTP loading, implicit XML/XLink declarations or
-other XSD 1.1 features.
+Each adoption needs a source-backed rule, a bounded implementation and an
+opposing witness; validator agreement alone supplies none of those. None
+selects declarations by namespace URL or enables HTTP loading, implicit
+XML/XLink declarations or other XSD 1.1 features. Explicit source closure,
+builtin component authority, source limits and instance-hint nonloading remain
+binding.
+
+## XSD 1.1 change-list dispositions
+
+The families of the final
+[Structures](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#changes) and
+[Datatypes](https://www.w3.org/TR/2012/REC-xmlschema11-2-20120405/datatypes.html#changes)
+change lists are screening categories, not a blanket adoption of their
+contents. Editorial clarifications may confirm existing behavior; new language
+facilities and deliberate semantic changes need independent authorization and
+implementation. An unobservable PSVI property is not proven by an
+instance-validity result.
+
+| Change-list family | Disposition |
+| --- | --- |
+| Structures G.1.1 dependencies | Keep XML 1.0. No automatic XPath tokenization, Unicode, URI or referenced-edition upgrade, except name characters, which follow the XML 1.0 Fifth Edition ([I-020](INTERPRETATIONS.md#i-020--xml-name-characters-follow-the-fifth-edition)). |
+| G.1.2 schema versions | Exclude conditional inclusion and version-selection facilities. |
+| G.1.3 content models | Exclude relaxed UPA, expanded all groups and new wildcard facilities. |
+| G.1.4 assertions | Exclude assertions and XPath expression facilities. |
+| G.1.5 complex derivation | Keep the 1.0 structural algorithm; select only bounded R-122/R-240 repairs. |
+| G.1.6 complex types | No blanket mixed-content or consistency-rule relaxation. |
+| G.1.7 ID-related types | Select recursive ID/IDREF carriage from [10662](https://www.w3.org/Bugs/Public/show_bug.cgi?id=10662) ([I-016](INTERPRETATIONS.md#i-016--recursive-id-ness)) at schema and run time; retain the 1.0 ID default, single-ID-attribute and DTD boundaries. Full ENTITY adoption is excluded ([ENTITY member selection](INTERPRETATIONS.md#datatype-and-observation-qualifications)). |
+| G.1.8 simple types | Select union integrity and typed constraints; exclude new primitive/universal types and assertions. |
+| G.1.9 elements | No type alternatives, abstract-type or other blanket element-policy adoption. |
+| G.1.10 attributes | Select effective constraint fallback and existing XSI corrections; exclude inheritable attributes. |
+| G.1.11 component model | No requirement to expose new component/property APIs. |
+| G.1.12 assessment | Select skip identity processing and physical `xsi:type` resolution (4299); no broader declaration/type fallback policy. |
+| G.1.13 PSVI | Preserve existing observation limits; add no PSVI export surface. |
+| G.1.14 conformance | No XSD 1.1 conformance claim or automatic error-classification replacement. |
+| G.1.15 composition | Retain selected import exception; select §4.2.3 include document identity; exclude override and dynamic network acquisition. |
+| G.1.16 miscellaneous | Require individual evidence; no general adoption. |
+| G.1.17 clarifications | Select simple-content identity fields and the individually recorded corrections. |
+| Datatypes I.1 facets/types | Keep applicable clarifications separate from new assertions/types. |
+| I.2 numeric | Correct binary64 bounds ([floating-point scope](#floating-point-source-versions)); retain unsigned signed aliases and existing 1.0 NaN equality, which the 1.1 NaN regression fix [9196](https://www.w3.org/Bugs/Public/show_bug.cgi?id=9196) does not replace. Exclude `+INF` and changed value models. |
+| I.3 temporal | Do not import year zero, timezone-retention or changed temporal ordering. Existing lexical/arithmetic qualifications remain in the interpretation records. |
+| I.4 other | Select union/regex repairs; preserve NOTATION checks. No new datatypes or automatic dependency upgrade. |
 
 ## Appendix scope
 
@@ -73,10 +108,10 @@ Notes and examples do not acquire normative force from their surrounding section
 
 Dated appendix bodies and independently distributed schemas differ. The
 [dated Part 2 appendix](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.xsd.txt)
-identifies revision 1.4 (29 May 2004), while the acquired undated
+identifies revision 1.4 (29 May 2004), while the undated
 [XMLSchema.xsd](https://www.w3.org/2001/XMLSchema.xsd) incorporates revision
 1.3 (23 January 2004). The `.xsd.txt` bodies contain display wrappers; executable
-extraction is a transformation. The acquired [xml.xsd](https://www.w3.org/2001/xml.xsd)
+extraction is a transformation. The undated [xml.xsd](https://www.w3.org/2001/xml.xsd)
 was changed in 2009; it does not establish the declaration selected by a 2004
 import. Undated URLs cannot silently replace dated authority.
 
@@ -97,11 +132,11 @@ schema-document syntax remain separate from XSD declaration selection. In
 particular, accepting an arbitrary `xml:lang` string is not an independent
 XML-conformance oracle.
 
-The acquired 2009 `xml.xsd` permits empty `xml:lang`; this does not determine
+The 2009 `xml.xsd` permits empty `xml:lang`; this does not determine
 which XML declaration a 2004 schema used. Tests must supply the declaration whose
 behavior they require. Missing imports do not authorize HTTP retrieval under
-this library's explicit-source contract. See the
-[namespace guide](07_namespaces.md#xml-and-xlink-schema-declarations).
+this library's explicit-source contract; see
+[loading schemas from memory or streams](../../README.md#load-schemas-from-memory-or-streams).
 
 ## Referenced-standard boundaries
 
@@ -122,7 +157,7 @@ contract, silently update its regex baseline or add a built-in precisionDecimal.
 
 ### Floating-point source versions
 
-The acquired [IEEE 754-1985 technical text](https://ieeemilestones.ethw.org/File:Ieee754-1985.pdf)
+The [IEEE 754-1985 technical text](https://ieeemilestones.ethw.org/File:Ieee754-1985.pdf)
 declares reformatting and spelling/punctuation corrections; it is not an
 original-publication facsimile. The [8 October 2002 interpretation](https://standards.ieee.org/wp-content/uploads/import/documents/interpretations/754-1985_interp.pdf)
 concerns division by zero and is not an XSD amendment. Oregon's
@@ -133,8 +168,11 @@ proceedings artifact: its final notes add a positive-error premise to Corollary
 arithmetic. Section 8 leaves bounded overflow/underflow policy to the number system.
 
 Datatypes §3.2.5 prints double integer-exponent limits **−1075…970**; IEEE's
-precision 53 and Emin −1022/Emax 1023 yield **−1074…971**. The library explicitly adopts those corrected extrema;
-corpus cases retain that source qualification. This does not settle every
+precision 53 and Emin −1022/Emax 1023 yield **−1074…971**. The library
+explicitly adopts those corrected extrema, as in the later
+[double value space](https://www.w3.org/TR/2012/REC-xmlschema11-2-20120405/#double),
+without adopting a blanket overflow policy or new lexical forms; corpus cases
+retain that source qualification. This does not settle every
 overflow threshold. IEEE nearest rounding with default
 non-trapping overflow has a conditional float threshold `2^128−2^103`; that
 condition does not establish an unqualified XSD infinity-mapping oracle.

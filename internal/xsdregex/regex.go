@@ -89,6 +89,10 @@ const (
 // Pattern is an immutable compiled XSD regular expression. Concatenations of
 // character sets use the bounded run-length matcher; general expressions use
 // the Thompson machine.
+//
+// The fields stay flat. Rejected: embedding compiler return records
+// (compiledNFA, bitsetNFA), because the aggregate copies introduce bulk write
+// barriers and enlarge frames active during graph and bitset allocations.
 type Pattern struct {
 	linear        *linearPattern
 	source        string
@@ -225,6 +229,9 @@ type node struct {
 
 const maxRepeat = math.MaxUint64
 
+// parser is local to one Compile call, and its set caches die with it. Only
+// the fixed category, block and name catalogs are package-level; no
+// process-wide cache retains compiled patterns or per-compile sets.
 type parser struct {
 	simpleSets   map[rune]rangeSet
 	categorySets categorySetCache
@@ -878,6 +885,9 @@ func (p *parser) repeat(child *node, minRepeat, maxRepeat uint64, unbounded bool
 	return repeat, nil
 }
 
+// newNode admits every AST constructor before allocating it, including nodes
+// that concat or alt later flatten away, so MaxNodes bounds parser
+// allocation. A failed admission stops parsing at the current rune offset.
 func (p *parser) newNode(kind nodeKind, set rangeSet, children []*node, minRepeat, maxRepeat uint64) (*node, error) {
 	if p.nodes >= p.limits.MaxNodes {
 		return nil, p.limit("compiled node count exceeds limit")

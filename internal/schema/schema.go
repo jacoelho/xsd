@@ -43,7 +43,6 @@ type schemaProgram struct {
 	TypeDerivations  typeDerivationRead
 	GlobalAttributes map[QName]AttributeID
 	Value            *value.Program
-	IdentityDispatch IdentityDispatchRead
 	Elements         elementReadTable
 	Substitutions    SubstitutionTable
 	Names            nameReadView
@@ -55,6 +54,7 @@ type schemaProgram struct {
 	Attributes            []AttributeDeclRead
 	Wildcards             []WildcardView
 	ComplexTypes          []complexTypeRead
+	IdentityDispatch      IdentityDispatchRead
 }
 
 type complexTypeRead struct {
@@ -72,22 +72,24 @@ const (
 	complexTypeReadAbstract complexTypeReadFlags = 1 << iota
 )
 
-func newComplexTypeReads(types []ComplexType) []complexTypeRead {
+// newComplexTypeReads points each type at published[i], its model's index in
+// the published content-model table.
+func newComplexTypeReads(types []ComplexType, published []ContentModelID) []complexTypeRead {
 	reads := make([]complexTypeRead, len(types))
 	for i := range types {
-		reads[i] = newComplexTypeRead(types[i])
+		reads[i] = newComplexTypeRead(types[i], published[i])
 	}
 	return reads
 }
 
-func newComplexTypeRead(ct ComplexType) complexTypeRead {
+func newComplexTypeRead(ct ComplexType, contentModel ContentModelID) complexTypeRead {
 	var flags complexTypeReadFlags
 	if ct.Abstract {
 		flags |= complexTypeReadAbstract
 	}
 	return complexTypeRead{
 		attributeUseSet: ct.Attrs,
-		contentModel:    ct.Content,
+		contentModel:    contentModel,
 		textType:        ct.TextType,
 		block:           ct.Block,
 		contentKind:     ct.ContentKind,

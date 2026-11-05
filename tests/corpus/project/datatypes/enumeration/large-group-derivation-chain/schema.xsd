@@ -1,0 +1,37 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Base10">
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="a1"/>
+      <xs:enumeration value="a2"/>
+      <xs:enumeration value="a3"/>
+      <xs:enumeration value="a4"/>
+      <xs:enumeration value="a5"/>
+      <xs:enumeration value="a6"/>
+      <xs:enumeration value="a7"/>
+      <xs:enumeration value="a8"/>
+      <xs:enumeration value="a9"/>
+      <xs:enumeration value="a 10"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Mid8">
+    <xs:restriction base="Base10">
+      <xs:enumeration value="a1"/>
+      <xs:enumeration value="a2"/>
+      <xs:enumeration value="a3"/>
+      <xs:enumeration value="a4"/>
+      <xs:enumeration value="a5"/>
+      <xs:enumeration value="a6"/>
+      <xs:enumeration value="a7"/>
+      <xs:enumeration value=" a  10 "/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Leaf3">
+    <xs:restriction base="Mid8">
+      <xs:enumeration value="a1"/>
+      <xs:enumeration value="a 10"/>
+      <xs:enumeration value="a7"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="mid" type="Mid8"/>
+  <xs:element name="leaf" type="Leaf3"/>
+</xs:schema>

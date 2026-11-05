@@ -49,6 +49,13 @@ const (
 // Value: primitive payloads are needed while parsing and checking facets, but
 // retaining the complete tagged payload in every published result made scalar
 // and list values unnecessarily large.
+//
+// typeID keeps the requested type through list and union evaluation;
+// selected records immediate union selection separately. Rejected: publishing
+// the requested type ID only at the result entrypoint, because matched
+// measurements regressed base64 enumeration construction while retained value
+// sizes stayed unchanged. This does not reject other ways to remove redundant
+// type transport.
 type parsedValue struct {
 	canonical          string
 	identity           string
@@ -280,6 +287,11 @@ func (p *Program) evalUnionBytes(t *typeDef, lexical []byte, scratch *Scratch, b
 
 // evaluationBudget is private to one top-level value evaluation. Its limit is
 // selected by the caller, while every nested visit shares the same usage.
+// Each visit charges its lexical byte length plus one. Raw-byte attempts, list
+// items, union member attempts and the typed fallback after an unhandled raw
+// attempt all draw on the same budget; falling back never replenishes it.
+// Enumeration membership is not charged: enumerationIndexMinLiterals bounds
+// its per-group work instead.
 type evaluationBudget struct {
 	limit uint64
 	used  uint64
@@ -568,13 +580,14 @@ func rawFacetlessAtomicPlan(t *typeDef) rawEvaluationKind {
 	return rawPlanNone
 }
 
-func stringEnumerationBytesSupported(groups [][]parsedValue) bool {
-	for _, group := range groups {
-		if len(group) == 0 {
+func stringEnumerationBytesSupported(groups []enumerationGroup) bool {
+	for i := range groups {
+		literals := groups[i].literals
+		if len(literals) == 0 {
 			return false
 		}
-		for i := range group {
-			literal := &group[i]
+		for j := range literals {
+			literal := &literals[j]
 			if !stringEnumerationLiteralSupported(literal) {
 				return false
 			}
@@ -591,26 +604,12 @@ func stringEnumerationLiteralSupported(literal *parsedValue) bool {
 }
 
 func validateStringEnumBytes(f *facetProgram, lexical []byte) error {
-	for _, group := range f.enumGroups {
-		if !stringEnumGroupMatches(group, lexical) {
+	for i := range f.enumGroups {
+		if !f.enumGroups[i].matchesBytes(lexical) {
 			return errEnumerationFacet
 		}
 	}
 	return nil
-}
-
-func stringEnumGroupMatches(group []parsedValue, lexical []byte) bool {
-	for i := range group {
-		literal := &group[i]
-		canonical := literal.atom.lexical.Canonical
-		if canonical == "" && literal.canonical != "" {
-			canonical = literal.canonical
-		}
-		if string(lexical) == canonical {
-			return true
-		}
-	}
-	return false
 }
 
 //nolint:gocognit // One scanner keeps item discovery, work and depth admission, and lexical validation in evaluation order.
@@ -810,6 +809,9 @@ func (p *Program) eval(id TypeID, lexical string, options evalOptions, out *pars
 	case List:
 		*out, err = p.evalList(id, t, normalized, options)
 	case Union:
+		// The union's own facets, including patterns, then apply to the
+		// selected member's normalized spelling. A failure there rejects the
+		// value; it does not resume member selection.
 		normalized, err = p.evalUnion(id, t, normalized, options, out)
 	default:
 		return "", ErrMetadata
@@ -856,6 +858,8 @@ func finishEvaluation(t *typeDef, value *parsedValue, normalized string, options
 
 func evalAtomic(id TypeID, t *typeDef, normalized string, options evalOptions, value *parsedValue) error {
 	parseNeeds := primitiveNeeds(t, options.needs)
+	// Reset the whole result: unions reuse one parsedValue across member
+	// attempts, and a failed member must leave no payload behind.
 	*value = parsedValue{typeID: id, selected: NoType}
 	if err := parseAtomic(value, t, normalized, options.resolver, parseNeeds); err != nil {
 		return err
@@ -903,6 +907,13 @@ type listValueBuilder struct {
 	collectItemIDs bool
 }
 
+// newListValueBuilder retains items only for enumeration comparison.
+// Enumeration-literal construction (retainAllListItems) keeps every item under
+// its construction limits. Otherwise, with K the largest list-literal item
+// count of any applicable enumeration, an input of N items retains all of them
+// when N <= K and none otherwise, so temporary storage is at most K parsed
+// values; a list that retained fewer items than it holds equals no literal.
+// Every item is still evaluated and charged.
 func (p *Program) newListValueBuilder(id TypeID, t *typeDef, normalized string, options evalOptions) (listValueBuilder, error) {
 	itemLimit := max(options.listItemLimit, t.facets.enumItemLimit)
 	b := listValueBuilder{
@@ -1195,6 +1206,10 @@ func parseBinaryAtomic(out *atomicValue, kind PrimitiveKind, normalized string, 
 	return err
 }
 
+// parseNameAtomic resolves one expanded name before the NOTATION declaration
+// check. The resolver result is revalidated here. Without namespace context
+// only an unprefixed NCName resolves, and a nil Notation callback declares no
+// notation, so absent context cannot bypass the declaration check.
 func parseNameAtomic(out *ExpandedName, kind PrimitiveKind, normalized string, resolver Resolver) error {
 	var name ExpandedName
 	if resolver.QName == nil {
@@ -1209,10 +1224,8 @@ func parseNameAtomic(out *ExpandedName, kind PrimitiveKind, normalized string, r
 		}
 		name = resolved
 	}
-	if kind == PrimitiveNotation {
-		if resolver.Notation == nil || !resolver.Notation(name.Namespace, name.Local) {
-			return errors.New(msgUndeclaredNotation)
-		}
+	if kind == PrimitiveNotation && (resolver.Notation == nil || !resolver.Notation(name.Namespace, name.Local)) {
+		return errors.New(msgUndeclaredNotation)
 	}
 	*out = name
 	return nil
@@ -1354,6 +1367,8 @@ func equalAtomic(a, b *atomicValue) bool {
 		if a.kind == PrimitiveHexBinary {
 			return strings.EqualFold(a.lexical.Canonical, b.lexical.Canonical)
 		}
+		// Equality never compacts an operand in place; unless both are
+		// already compact it compares decoded octets.
 		if a.lexical.canonicalReady && b.lexical.canonicalReady {
 			return a.lexical.Canonical == b.lexical.Canonical
 		}
@@ -1490,17 +1505,8 @@ func applyEnumerationFacets(f *facetProgram, value *parsedValue) error {
 	if f.enumBase64 {
 		prepareBase64EnumerationValue(value)
 	}
-	for _, group := range f.enumGroups {
-		matched := false
-		for i := range group {
-			if equalParsed(value, &group[i]) {
-				matched = true
-				break
-			}
-		}
-		if !matched {
-			return errEnumerationFacet
-		}
+	if matchEnumerationGroups(f.enumGroups, value) >= 0 {
+		return errEnumerationFacet
 	}
 	return nil
 }

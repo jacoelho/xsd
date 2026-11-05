@@ -17,6 +17,8 @@ type builtinAttributeDefinition struct {
 	typ   SimpleTypeID
 }
 
+// builtinXSIAttributes is the only source of XSI attribute declarations:
+// source admission rejects them, and publication requires exactly these four.
 var builtinXSIAttributes = [...]builtinAttributeDefinition{
 	{local: vocab.XSIAttrType, typ: value.BuiltinType(value.PrimitiveQName)},
 	{local: vocab.XSIAttrNil, typ: value.BuiltinType(value.PrimitiveBoolean)},

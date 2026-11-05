@@ -88,6 +88,50 @@ func BenchmarkCompileAndFirstSession(b *testing.B) {
 	}
 }
 
+// BenchmarkNewSessionPerOperation creates a fresh session per operation, so
+// per-session setup such as the input buffer is charged on every document.
+func BenchmarkNewSessionPerOperation(b *testing.B) {
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(benchmarkSchema)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	doc := benchmarkDoc()
+	invalid := strings.Replace(doc, `code="AB1234"`, `code="ab1234"`, 1)
+	for _, document := range []struct {
+		text  string
+		valid bool
+	}{{doc, true}, {invalid, false}} {
+		session, err := engine.NewSession(xsd.ValidateOptions{})
+		if err != nil {
+			b.Fatal(err)
+		}
+		if err := session.Validate(strings.NewReader(document.text)); (err == nil) != document.valid {
+			b.Fatalf("fresh session valid=%t document: %v", document.valid, err)
+		}
+	}
+	b.Run("new_only", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			if _, err := engine.NewSession(xsd.ValidateOptions{}); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+	b.Run("new_validate_small", func(b *testing.B) {
+		b.SetBytes(int64(len(doc)))
+		b.ReportAllocs()
+		for b.Loop() {
+			session, err := engine.NewSession(xsd.ValidateOptions{})
+			if err != nil {
+				b.Fatal(err)
+			}
+			if err := session.Validate(strings.NewReader(doc)); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+}
+
 func BenchmarkValidateRepeatedSmallDocument(b *testing.B) {
 	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(benchmarkSchema)))
 	if err != nil {
@@ -546,21 +590,6 @@ func BenchmarkValidateDuplicateAttributes(b *testing.B) {
 	for b.Loop() {
 		if err := engine.Validate(strings.NewReader(doc)); err == nil {
 			b.Fatal("Validate() succeeded")
-		}
-	}
-}
-
-func BenchmarkCompileDuplicateSchemaSources(b *testing.B) {
-	schema := largeSchemaWithText(64 << 10)
-	sources := make([]xsd.SchemaSource, 8)
-	for i := range sources {
-		sources[i] = xsd.Bytes(fmt.Sprintf("schema%d.xsd", i), []byte(schema))
-	}
-	b.SetBytes(int64(len(schema) * len(sources)))
-	b.ReportAllocs()
-	for b.Loop() {
-		if _, err := xsd.Compile(sources...); err != nil {
-			b.Fatal(err)
 		}
 	}
 }

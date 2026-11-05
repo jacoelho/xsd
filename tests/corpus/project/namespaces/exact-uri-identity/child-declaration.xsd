@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="http://EXAMPLE.test/%7E" targetNamespace="http://EXAMPLE.test/%7E"><xs:element name="root"><xs:complexType><xs:sequence><xs:element ref="t:child"/></xs:sequence></xs:complexType></xs:element><xs:element name="child" type="xs:string"/></xs:schema>

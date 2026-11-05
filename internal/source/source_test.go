@@ -803,20 +803,20 @@ func TestSourceInputRejectsRepeatedEmptyReadsAndCloses(t *testing.T) {
 	}
 }
 
-func TestSourceInputClosesReaderReturnedWithOpenError(t *testing.T) {
+func TestSourceInputIgnoresReaderReturnedWithOpenError(t *testing.T) {
 	t.Parallel()
 	openErr := errors.New("open failed")
 	closeErr := errors.New("close failed")
 	reader := &trackingReadCloser{Reader: strings.NewReader("schema"), closeErr: closeErr}
 	_, result := Opener("schema.xsd", func() (io.ReadCloser, error) {
-		return reader, openErr //nolint:nilnil // Exercise cleanup when an opener returns both values.
+		return reader, openErr //nolint:nilnil // A reader returned with an open error must be ignored.
 	}).OpenInput(100)
 
-	if result.Stage != ReadStageOpen || !errors.Is(result.Err, openErr) || !errors.Is(result.Err, closeErr) {
-		t.Fatalf("OpenInput() = %+v, want joined open and close errors", result)
+	if result.Stage != ReadStageOpen || !errors.Is(result.Err, openErr) || errors.Is(result.Err, closeErr) || result.OpenNotFound {
+		t.Fatalf("OpenInput() = %+v, want open error only", result)
 	}
-	if !reader.closed {
-		t.Fatal("OpenInput() did not close reader returned with open error")
+	if reader.closes != 0 {
+		t.Fatalf("OpenInput() closed reader returned with open error %d times, want 0", reader.closes)
 	}
 }
 
@@ -833,12 +833,21 @@ func TestSourceInputClassifiesOnlyPureOpenAbsence(t *testing.T) {
 
 	closeErr := errors.New("close failed")
 	reader := &trackingReadCloser{Reader: strings.NewReader("schema"), closeErr: closeErr}
-	_, mixed := Opener("missing.xsd", func() (io.ReadCloser, error) {
-		return reader, os.ErrNotExist //nolint:nilnil // Exercise cleanup when an opener returns both values.
+	_, withReader := Opener("missing.xsd", func() (io.ReadCloser, error) {
+		return reader, os.ErrNotExist //nolint:nilnil // A reader returned with an open error must be ignored.
 	}).OpenInput(100)
 
-	if mixed.OpenNotFound || !errors.Is(mixed.Err, os.ErrNotExist) || !errors.Is(mixed.Err, closeErr) {
-		t.Fatalf("OpenInput(mixed absence) = %+v, want unsuppressible joined error", mixed)
+	if !withReader.OpenNotFound || errors.Is(withReader.Err, closeErr) || reader.closes != 0 {
+		t.Fatalf("OpenInput(reader with not-exist error) = %+v, closes %d; want OpenNotFound and reader ignored", withReader, reader.closes)
+	}
+
+	other := errors.New("permission check failed")
+	_, mixed := Opener("missing.xsd", func() (io.ReadCloser, error) {
+		return nil, errors.Join(os.ErrNotExist, other)
+	}).OpenInput(100)
+
+	if mixed.OpenNotFound || !errors.Is(mixed.Err, other) {
+		t.Fatalf("OpenInput(not-exist joined with other error) = %+v, want unsuppressible error", mixed)
 	}
 }
 
@@ -848,12 +857,9 @@ func TestMissingFileSourceReturnsPureOpenAbsence(t *testing.T) {
 	if !result.OpenNotFound || result.Stage != ReadStageOpen || !errors.Is(result.Err, os.ErrNotExist) {
 		t.Fatalf("OpenInput(missing file) = %+v, want pure open absence", result)
 	}
-	if errors.Is(result.Err, os.ErrInvalid) {
-		t.Fatalf("OpenInput(missing file) error = %v, contains typed-nil cleanup error", result.Err)
-	}
 }
 
-func TestOpenerNormalizesTypedNilReaderOnOpenFailure(t *testing.T) {
+func TestOpenerReturningStdlibOpenFailureIsPureAbsence(t *testing.T) {
 	t.Parallel()
 	missing := filepath.Join(t.TempDir(), "missing.xsd")
 	_, result := Opener(missing, func() (io.ReadCloser, error) {
@@ -861,21 +867,37 @@ func TestOpenerNormalizesTypedNilReaderOnOpenFailure(t *testing.T) {
 	}).OpenInput(100)
 
 	if !result.OpenNotFound || result.Stage != ReadStageOpen || !errors.Is(result.Err, os.ErrNotExist) {
-		t.Fatalf("OpenInput(typed nil reader) = %+v, want pure open absence", result)
+		t.Fatalf("OpenInput(os.Open failure) = %+v, want pure open absence", result)
 	}
 	if errors.Is(result.Err, os.ErrInvalid) {
-		t.Fatalf("OpenInput(typed nil reader) error = %v, contains cleanup error", result.Err)
+		t.Fatalf("OpenInput(os.Open failure) error = %v, contains cleanup error", result.Err)
 	}
 }
 
-func TestSourceInputRejectsNilOpener(t *testing.T) {
+func TestSourceInputReportsOpenErrorAtOpenStage(t *testing.T) {
 	t.Parallel()
+	openErr := errors.New("open failed")
 	_, result := Opener("schema.xsd", func() (io.ReadCloser, error) {
-		return nil, errors.New("open returned nil reader")
+		return nil, openErr
 	}).OpenInput(10)
 
-	if result.Stage != ReadStageOpen || result.Err == nil {
-		t.Fatalf("OpenInput() = %+v, want open-stage error", result)
+	if result.Stage != ReadStageOpen || !errors.Is(result.Err, openErr) {
+		t.Fatalf("OpenInput() = %+v, want open-stage open error", result)
+	}
+}
+
+func TestSourceInputRejectsNilReaderWithoutError(t *testing.T) {
+	t.Parallel()
+	_, result := Opener("schema.xsd", func() (io.ReadCloser, error) {
+		return nil, nil //nolint:nilnil // The opener contract rejects a nil reader without an error.
+	}).OpenInput(10)
+
+	if result.Stage != ReadStageOpen || result.OpenNotFound {
+		t.Fatalf("OpenInput() = %+v, want open-stage error without absence", result)
+	}
+	var diagnostic *xsderrors.Error
+	if !errors.As(result.Err, &diagnostic) || diagnostic.Code() != xsderrors.CodeSchemaRead {
+		t.Fatalf("OpenInput() error = %v, want %s", result.Err, xsderrors.CodeSchemaRead)
 	}
 }
 

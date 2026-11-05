@@ -109,6 +109,39 @@ func TestCompiledModelReadProjectionUsesIsolatedFlatPools(t *testing.T) {
 	}
 }
 
+func TestCompiledModelReadProjectionPublishesEnteredModelsInOrder(t *testing.T) {
+	t.Parallel()
+
+	models := make([]CompiledModel, 5)
+	for i := range models {
+		models[i] = CompiledModel{
+			Rows: []CompiledModelRow{{Edges: []CompiledModelEdge{{To: uint32(10 + i)}}}},
+			All:  []CompiledAllTerm{{Required: i%2 == 0}},
+		}
+	}
+	work := func(entered []ContentModelID) ([]compiledModelRead, int) {
+		units := 0
+		reads, _, err := newCompiledModelReads(models, entered, func(steps int) error { units += steps; return nil })
+		if err != nil {
+			t.Fatalf("newCompiledModelReads(%v) error = %v", entered, err)
+		}
+		return reads, units
+	}
+	entered := []ContentModelID{1, 3, 4}
+	reads, units := work(entered)
+	if len(reads) != len(entered) {
+		t.Fatalf("published %d models, want %d", len(reads), len(entered))
+	}
+	for i, id := range entered {
+		if reads[i].Rows[0].Edges[0].To != uint32(10+id) || reads[i].All[0].Required != (id%2 == 0) {
+			t.Fatalf("published model %d = %+v, want source model %d", i, reads[i], id)
+		}
+	}
+	if _, all := work(allContentModelIDs(len(models))); units != all {
+		t.Fatalf("projection work = %d for entered models, want %d as for every model", units, all)
+	}
+}
+
 var compiledModelReadAllocationSink []compiledModelRead
 
 func TestCompiledModelReadProjectionAllocationCountIsConstant(t *testing.T) {
@@ -118,8 +151,13 @@ func TestCompiledModelReadProjectionAllocationCountIsConstant(t *testing.T) {
 		models[i].All = []CompiledAllTerm{{Required: true}}
 	}
 
+	entered := allContentModelIDs(len(models))
 	allocs := testing.AllocsPerRun(3, func() {
-		compiledModelReadAllocationSink = testCompiledModelReads(models)
+		reads, _, err := newCompiledModelReads(models, entered, unlimitedContentModelWork)
+		if err != nil {
+			panic(err)
+		}
+		compiledModelReadAllocationSink = reads
 	})
 	if allocs > 4 {
 		t.Fatalf("newCompiledModelReads() allocations = %v, want at most 4 flat tables", allocs)

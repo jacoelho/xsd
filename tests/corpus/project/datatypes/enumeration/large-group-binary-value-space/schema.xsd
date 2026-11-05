@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Hex"><xs:restriction base="xs:hexBinary"><xs:enumeration value="0A0B"/><xs:enumeration value="ff"/><xs:enumeration value=""/><xs:enumeration value="00"/><xs:enumeration value="01"/><xs:enumeration value="02"/><xs:enumeration value="03"/><xs:enumeration value="04"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="Base64"><xs:restriction base="xs:base64Binary"><xs:enumeration value="AAAA"/><xs:enumeration value="AQID"/><xs:enumeration value=""/><xs:enumeration value="QUJD"/><xs:enumeration value="QUJE"/><xs:enumeration value="QUJF"/><xs:enumeration value="QUJG"/><xs:enumeration value="QUJH"/></xs:restriction></xs:simpleType>
+  <xs:element name="h" type="Hex"/>
+  <xs:element name="b" type="Base64"/>
+</xs:schema>

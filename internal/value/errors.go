@@ -173,6 +173,13 @@ func (e *valueDiagnosticError) Is(target error) bool {
 // describeValueFailure runs only after a complete value has failed. A rejected
 // union member can still lead to successful validation, so speculative checks
 // return their cheap error identities without formatting diagnostic context.
+// It receives no resolver or work budget, so enrichment cannot replay
+// QName/NOTATION resolution or reset evaluation work. A union's own facet
+// failure is described only when a member was selected; a failed list item is
+// described through the list and its item type, never through a discarded
+// partial item. Enumeration failures name the first failing group from
+// retained literals and pure equality, and pattern failures describe every
+// group rather than rematching to guess which one failed.
 func describeValueFailure[T byteText](program *Program, id TypeID, lexical T, parsed *parsedValue, cause error) error {
 	if errors.Is(cause, ErrLimit) || errors.Is(cause, ErrMetadata) || IsUnsupported(cause) {
 		return cause
@@ -299,25 +306,19 @@ func facetDiagnostic[T byteText](t *typeDef, lexical T, parsed *parsedValue, cau
 	return ""
 }
 
-func failedEnumerationDiagnostic[T byteText](groups [][]parsedValue, lexical T, parsed *parsedValue) string {
-	for _, group := range groups {
-		if !diagnosticEnumerationMatches(group, lexical, parsed) {
-			return enumerationDiagnostic(lexical, group)
+func failedEnumerationDiagnostic[T byteText](groups []enumerationGroup, lexical T, parsed *parsedValue) string {
+	if parsed != nil {
+		if i := matchEnumerationGroups(groups, parsed); i >= 0 {
+			return enumerationDiagnostic(lexical, groups[i].literals)
+		}
+		return ""
+	}
+	for i := range groups {
+		if !groups[i].matchesBytes([]byte(lexical)) {
+			return enumerationDiagnostic(lexical, groups[i].literals)
 		}
 	}
 	return ""
-}
-
-func diagnosticEnumerationMatches[T byteText](group []parsedValue, lexical T, parsed *parsedValue) bool {
-	if parsed == nil {
-		return stringEnumGroupMatches(group, []byte(lexical))
-	}
-	for i := range group {
-		if equalParsed(parsed, &group[i]) {
-			return true
-		}
-	}
-	return false
 }
 
 func digitDiagnostic[T byteText](f *facetProgram, lexical T, parsed *parsedValue) string {
@@ -488,7 +489,7 @@ func appendDiagnosticBounds(rules []string, builtin BuiltinKind, prefix string, 
 	return rules, false
 }
 
-func diagnosticEnumerationGroups(groups [][]parsedValue) string {
+func diagnosticEnumerationGroups(groups []enumerationGroup) string {
 	var text strings.Builder
 	remaining := diagnostictext.MaxAlternatives
 	for i, group := range groups {
@@ -499,7 +500,7 @@ func diagnosticEnumerationGroups(groups [][]parsedValue) string {
 		if i != 0 {
 			text.WriteString(" and ")
 		}
-		remaining = appendDiagnosticEnumerationGroup(&text, group, remaining)
+		remaining = appendDiagnosticEnumerationGroup(&text, group.literals, remaining)
 	}
 	return text.String()
 }

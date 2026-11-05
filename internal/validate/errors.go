@@ -51,6 +51,9 @@ func validation(ctx StartContext, code xsderrors.Code, msg string) error {
 	return xsderrors.WithLocation(ctx.PathString(), ctx.Line, ctx.Column, xsderrors.Validation(code, msg, nil))
 }
 
+// locateElementStartError projects the failed start's path from the
+// document-owned parent path without committing its frame, so diagnostics
+// about the parent's content stay located on the parent.
 func (s *session) locateElementStartError(err error) error {
 	location, locationErr := s.reader.StartLocation()
 	if locationErr != nil {

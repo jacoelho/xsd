@@ -61,7 +61,7 @@ func parseCommandOptions(args []string, output io.Writer) (commandOptions, error
 	flags.SetOutput(output)
 	options := commandOptions{}
 	flags.StringVar(&options.address, "addr", defaultAddress, "listen address")
-	flags.StringVar(&options.dir, "dir", "docs", "directory to serve")
+	flags.StringVar(&options.dir, "dir", "web", "directory to serve")
 	if err := flags.Parse(args); err != nil {
 		return commandOptions{}, err
 	}
@@ -74,6 +74,11 @@ func command(options commandOptions) error {
 	return run(ctx, options.address, options.dir)
 }
 
+// run owns one os.Root for the whole run: startup asset checks and every
+// request-time open go through it, so replacing a file or parent directory
+// cannot redirect reads outside dir. The root closes only after serving stops,
+// including on startup and shutdown failures, and its close error is joined
+// into the result.
 func run(ctx context.Context, addr, dir string) (runErr error) {
 	assets, err := os.OpenRoot(dir)
 	if err != nil {
@@ -150,6 +155,9 @@ type assetHandler struct {
 	assets *os.Root
 }
 
+// ServeHTTP checks regularity on the opened file, not the path, so a swap
+// after startup validation cannot serve a directory or special file. The file
+// is closed when the request returns.
 func (h assetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		w.Header().Set("Allow", "GET, HEAD")

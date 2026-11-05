@@ -5,6 +5,9 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+// index scans each plan document once per effective-namespace context, so a
+// chameleon document is rescanned for every including context. The repetition
+// is bounded by the admitted target-context and instantiated-node limits.
 func (c *compiler) index() error {
 	for i := range c.plan.documents {
 		document := &c.plan.documents[i]

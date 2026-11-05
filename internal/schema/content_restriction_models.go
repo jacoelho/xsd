@@ -52,6 +52,7 @@ func (v contentRestrictionValidator) choiceOrder(id ContentModelID) restrictionC
 // restrictionChoiceSpan preserves an unordered substitution-generated choice
 // after normalization flattens it into an explicitly ordered parent choice.
 // Positions outside these disjoint half-open spans retain source order.
+// See I-005 in docs/spec/INTERPRETATIONS.md.
 type restrictionChoiceSpan struct {
 	start int
 	end   int

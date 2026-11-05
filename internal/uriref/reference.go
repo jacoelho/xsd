@@ -14,6 +14,10 @@ var ErrInvalid = errors.New("invalid anyURI")
 // Reference is a validated URI reference. Raw retains the normalized XML
 // Schema value; Escaped materializes the URI spelling passed to URI backends.
 // The zero value is the valid empty reference.
+//
+// Raw is the anyURI value and the spelling presented to custom resolvers.
+// Escaped exists only for built-in generic and file fallback, which may be
+// unable to represent a reference that a resolver accepts.
 type Reference struct {
 	raw        string
 	parts      Parts

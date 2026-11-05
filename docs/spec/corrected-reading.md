@@ -8,7 +8,7 @@ authority; this file is not a new edition of the specification.
 
 The baseline is the **28 October 2004 Second Edition**, which already includes
 First Edition corrections. The only subsequently published approved correction
-is **E1-56**. Part 0 and Part 2 have no entries on the captured Second Edition
+is **E1-56**. Part 0 and Part 2 have no entries on the Second Edition
 errata page. [Source and edition evidence](SOURCES.md) explains this boundary.
 
 ## E1-56 applied reading
@@ -57,8 +57,7 @@ require universal property absence outside it.
 E-02 and E-06 explicitly replace the later paragraphs before the lightweight
 member fields, not the earlier full `[member type definition]` descriptions.
 Those unchanged descriptions still require a member that actually validated.
-Preserve the full/lightweight integration qualification (PSVI-Q001 in
-[interpretations](INTERPRETATIONS.md)),
+Preserve this full/lightweight integration qualification (PSVI-Q001),
 especially member acceptance with governing-union facet failure for attributes,
 and contributor-entry/nil/default/value premises for elements. This identifies
 patch scope without inventing another correction, two permitted policies or
@@ -86,68 +85,3 @@ Executable controls distinguish lexical defaults such as `+001` from canonical
 simple/simple-content from mixed types, and declaration-only failures from
 failures of type validity. Attribute synthesis remains a separate mechanism.
 The corpus manifest owns case identities and expectations.
-
-## Other standards and historical material
-
-The [Primer](https://www.w3.org/TR/2004/REC-xmlschema-0-20041028/primer.html) explains the language but supplies no
-additional normative features. The `*-with-errata.html` snapshots show the
-2001-to-2004 editorial history; they do **not** include E1-56. Unresolved bug
-reports, XSD 1.1 rules, and newer versions of referenced standards are not
-automatically corrections to this baseline. Record an actual source tension
-as a question with both clauses, rather than selecting the current
-implementation's behavior as the oracle.
-[Interpretations](INTERPRETATIONS.md) preserve known text-integration and
-source-version questions without treating them as errata.
-
-## Printed primitive-type summary
-
-[Structures §3.14.7](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#d0e16395) prints `number` in its
-primitive list and omits `decimal`, `QName` and `NOTATION`; its earlier
-[simple-type example](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#Simple_Type_Definitions) also
-uses `xs:number`. The same summary says primitive facets are empty.
-Its own reference points to the actual
-[Part 2 primitive definitions](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#built-in-primitive-datatypes),
-which include decimal, QName and NOTATION. Part 2's
-[whiteSpace rules](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-whiteSpace) specify preserve for
-string and fixed collapse for the other atomic primitives. The
-[Appendix A primitive sketches](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#schema) are informative
-displays of those definitions.
-
-Follow the actual Part 2 definitions: the printed summary supplies no
-`xs:number` builtin and does not remove required whitespace processing.
-This records the unchanged published discrepancy. No retained approved
-amendment replaces that paragraph; this note is not an approved erratum or a
-new primitive inventory.
-
-## Identity-constraint type wording
-
-The [§3.11.1 introduction](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#Identity-constraint_Definition_details)
-says differing-type values can be equal only when one type derives from the
-other. The formal
-[Identity-constraint Satisfied](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint)
-rule defines its tuple comparison through Part 2
-[Equal](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal) on type-determined values.
-
-For two independently defined restrictions of integer that both successfully
-supply `1`, the values are the same integer value under the
-[Part 2 equality rules](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal).
-Do not add a declared-field-type ancestry veto to that comparison. Two distinct
-simple children `v` and `w`, selected by `v|w` with field `.`, supply equal
-complete tuples for one `unique` constraint. Different declared type names do
-not leave this result unspecified. This records the introductory wording's
-scope without creating a new equality policy, approved patch or unresolved
-sibling-tuple oracle.
-
-## Particle oracle boundaries
-
-The unchanged NSRecurseCheckCardinality rule checks both immediate member
-restrictions and aggregate range. Its published member check retains the
-original wildcard minimum. The acknowledged historical bug does not supply
-an approved zero-minimum replacement; [I-004](INTERPRETATIONS.md#i-004--published-member-minimum-rule)
-records the library's separately selected zero-minimum repair.
-
-Substitution-set expansion supplies no implicit-choice list order. The
-historical proposal to waive order was not incorporated into this baseline.
-[I-005](INTERPRETATIONS.md#i-005--implicit-substitution-choice-order) separates
-that under-specification from the library's selected generated-span order waiver.
-Neither record is an additional approved correction.

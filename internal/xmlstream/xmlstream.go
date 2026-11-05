@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"reflect"
 	"strings"
 	"unicode/utf8"
 
@@ -184,7 +183,7 @@ type Config struct {
 // reset atomically prepares p to read r with one validated configuration.
 func (p *parser) reset(r io.Reader, names, values *cache, config Config) error {
 	limits := config.Limits
-	if isNilReader(r) {
+	if r == nil {
 		p.detach()
 		return ErrXMLInputNilReader
 	}
@@ -238,25 +237,6 @@ func (p *parser) resetBuffers() {
 	p.textBuf = resetRetainedBytes(p.textBuf)
 	p.directive = resetRetainedBytes(p.directive)
 	p.attrs = resetRetainedSlice(p.attrs)
-}
-
-func isNilReader(r io.Reader) bool {
-	if r == nil {
-		return true
-	}
-	v := reflect.ValueOf(r)
-	switch v.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Map, reflect.Pointer, reflect.Slice:
-		return v.IsNil()
-	case reflect.Invalid, reflect.Bool,
-		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
-		reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
-		reflect.Array, reflect.Interface, reflect.String, reflect.Struct, reflect.UnsafePointer:
-		return false
-	default:
-	}
-	return false
 }
 
 // detach drops references to the current input while retaining bounded parser
@@ -1067,84 +1047,6 @@ func (p *parser) readEndElement() (EndElement, error) {
 	return EndElement{Name: name}, nil
 }
 
-func (p *parser) readName(first byte) (xml.Name, error) {
-	p.nameBuf = p.nameBuf[:0]
-	if err := p.appendTokenByte(&p.nameBuf, first); err != nil {
-		return xml.Name{}, err
-	}
-	chunk, err := p.br.buffered()
-	for err == nil {
-		n := nameChunkLen(chunk)
-		if n > 0 {
-			if appendErr := p.appendTokenBytes(&p.nameBuf, chunk[:n]); appendErr != nil {
-				return xml.Name{}, appendErr
-			}
-			p.br.consumeBuffered(n)
-		}
-		if n < len(chunk) {
-			return p.internQName(p.nameBuf)
-		}
-		chunk, err = p.br.buffered()
-	}
-	return xml.Name{}, xmlNameReadError(err)
-}
-
-func xmlNameReadError(err error) error {
-	if IsOnlyEOF(err) {
-		return fmt.Errorf("unexpected EOF in XML name")
-	}
-	return err
-}
-
-func (p *parser) internQName(name []byte) (xml.Name, error) {
-	if len(name) == 0 {
-		return xml.Name{}, fmt.Errorf("empty XML name")
-	}
-	if parts := lex.SplitASCIIQNameBytes(name); parts.ASCII() {
-		if !parts.Valid() {
-			return xml.Name{}, fmt.Errorf("invalid XML qualified name")
-		}
-		prefix, local := parts.Bytes(name)
-		return p.internQNameParts(prefix, local), nil
-	}
-	prefix, local, ok := splitUnicodeQName(name)
-	if !ok {
-		return xml.Name{}, fmt.Errorf("invalid XML qualified name")
-	}
-	return p.internQNameParts(prefix, local), nil
-}
-
-func splitUnicodeQName(name []byte) (prefix, local []byte, valid bool) {
-	colon := bytes.IndexByte(name, ':')
-	if colon < 0 {
-		return nil, name, lex.IsNCNameBytes(name)
-	}
-	if colon == 0 || colon == len(name)-1 || bytes.IndexByte(name[colon+1:], ':') >= 0 {
-		return nil, nil, false
-	}
-	prefix, local = name[:colon], name[colon+1:]
-	return prefix, local, lex.IsNCNameBytes(prefix) && lex.IsNCNameBytes(local)
-}
-
-func (p *parser) internQNameParts(prefix, local []byte) xml.Name {
-	if prefix == nil {
-		return xml.Name{Local: p.names.Intern(local)}
-	}
-	return xml.Name{
-		Space: p.names.Intern(prefix),
-		Local: p.names.Intern(local),
-	}
-}
-
-func nameChunkLen(chunk []byte) int {
-	for i, b := range chunk {
-		if lex.IsNameTerminator(b) {
-			return i
-		}
-	}
-	return len(chunk)
-}
-
 func (p *parser) readAttributeValueBytes(quote byte, dst *[]byte) ([]byte, error) {
 	start := 0
 	if dst != nil {
@@ -1538,7 +1440,7 @@ func validateOptionalXMLEncoding(content []byte) ([]byte, error) {
 
 // isVersionNum implements XML 1.0 Second Edition [26], whose character set is
 // the ASCII XML name characters; a well-formed version other than 1.0 is
-// unsupported rather than malformed.
+// unsupported rather than malformed. See I-020 in docs/spec/INTERPRETATIONS.md.
 func isVersionNum(value string) bool {
 	if value == "" {
 		return false

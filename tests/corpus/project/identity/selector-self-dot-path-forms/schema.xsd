@@ -1,0 +1,34 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="Scope"><xs:attribute name="id" type="xs:string"/></xs:complexType>
+  <xs:complexType name="ScopeWithChildren">
+    <xs:sequence><xs:element name="e" type="Scope" minOccurs="0" maxOccurs="unbounded"/></xs:sequence>
+    <xs:attribute name="id" type="xs:string"/>
+  </xs:complexType>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="a" type="Scope" minOccurs="0">
+          <xs:key name="ka"><xs:selector xpath="./."/><xs:field xpath="@id"/></xs:key>
+        </xs:element>
+        <xs:element name="b" type="Scope" minOccurs="0">
+          <xs:key name="kb"><xs:selector xpath="././."/><xs:field xpath="@id"/></xs:key>
+        </xs:element>
+        <xs:element name="c" type="Scope" minOccurs="0">
+          <xs:key name="kc"><xs:selector xpath=". | ./."/><xs:field xpath="@id"/></xs:key>
+        </xs:element>
+        <xs:element name="d" type="ScopeWithChildren" minOccurs="0">
+          <xs:unique name="ud"><xs:selector xpath="./. | e"/><xs:field xpath="@id"/></xs:unique>
+        </xs:element>
+        <xs:element name="f" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence><xs:element name="e" type="xs:string" minOccurs="0" maxOccurs="unbounded"/></xs:sequence>
+          </xs:complexType>
+          <xs:unique name="uf"><xs:selector xpath="e"/><xs:field xpath="./."/></xs:unique>
+        </xs:element>
+        <xs:element name="g" type="ScopeWithChildren" minOccurs="0">
+          <xs:unique name="ug"><xs:selector xpath="./e/."/><xs:field xpath="@id"/></xs:unique>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

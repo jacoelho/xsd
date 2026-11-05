@@ -1,0 +1,48 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:group name="orphanLocal">
+    <xs:sequence>
+      <xs:element name="orphanLocalElement">
+        <xs:complexType><xs:sequence><xs:element name="orphanLocalChild"/></xs:sequence></xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:group>
+  <xs:group name="mixedGroup"><xs:sequence><xs:element name="mixedChild"/></xs:sequence></xs:group>
+  <xs:complexType name="Mixed" mixed="true"><xs:group ref="mixedGroup"/></xs:complexType>
+  <xs:complexType name="ExtBase"><xs:sequence><xs:element name="baseChild"/></xs:sequence></xs:complexType>
+  <xs:complexType name="ExtAdds">
+    <xs:complexContent>
+      <xs:extension base="ExtBase"><xs:sequence><xs:element name="addedChild"/></xs:sequence></xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="RestrBase">
+    <xs:sequence><xs:element name="item" minOccurs="0" maxOccurs="2"/></xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="RestrOne">
+    <xs:complexContent>
+      <xs:restriction base="RestrBase"><xs:sequence><xs:element name="item"/></xs:sequence></xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:group name="usedLocal">
+    <xs:sequence>
+      <xs:element name="usedLocalElement">
+        <xs:complexType><xs:sequence><xs:element name="usedLocalChild"/></xs:sequence></xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:group>
+  <xs:complexType name="UsesLocal"><xs:group ref="usedLocal"/></xs:complexType>
+  <xs:complexType name="Simple"><xs:simpleContent><xs:extension base="xs:int"/></xs:simpleContent></xs:complexType>
+  <xs:complexType name="Empty"/>
+  <xs:element name="head"/>
+  <xs:element name="member" substitutionGroup="head"/>
+  <xs:element name="outsider"/>
+  <xs:complexType name="SubstSeq"><xs:sequence><xs:element ref="head"/><xs:element name="tail"/></xs:sequence></xs:complexType>
+  <xs:complexType name="SubstChoice"><xs:choice><xs:element ref="head"/><xs:element name="other"/></xs:choice></xs:complexType>
+  <xs:element name="mixed" type="Mixed"/>
+  <xs:element name="used" type="UsesLocal"/>
+  <xs:element name="ext" type="ExtAdds"/>
+  <xs:element name="restr" type="RestrBase"/>
+  <xs:element name="simple" type="Simple"/>
+  <xs:element name="empty" type="Empty"/>
+  <xs:element name="seq" type="SubstSeq"/>
+  <xs:element name="choice" type="SubstChoice"/>
+</xs:schema>

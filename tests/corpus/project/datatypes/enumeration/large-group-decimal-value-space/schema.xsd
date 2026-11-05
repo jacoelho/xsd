@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Decimals"><xs:restriction base="xs:decimal"><xs:enumeration value="1.0"/><xs:enumeration value="-0"/><xs:enumeration value="0.5"/><xs:enumeration value="1234567890123456789.25"/><xs:enumeration value="10"/><xs:enumeration value="20"/><xs:enumeration value="30"/><xs:enumeration value="40"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="Integers"><xs:restriction base="xs:integer"><xs:enumeration value="01"/><xs:enumeration value="2"/><xs:enumeration value="3"/><xs:enumeration value="4"/><xs:enumeration value="5"/><xs:enumeration value="6"/><xs:enumeration value="7"/><xs:enumeration value="-8"/></xs:restriction></xs:simpleType>
+  <xs:element name="d" type="Decimals"/>
+  <xs:element name="i" type="Integers"/>
+</xs:schema>

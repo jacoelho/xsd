@@ -630,7 +630,8 @@ func (c *compiler) localAttributeUseName(n *schemaNode, ctx *schemaSetDocument) 
 }
 
 // A prohibition admits source syntax and independently mapped children, but
-// contributes only a name directive rather than an attribute-use component.
+// contributes only a name directive rather than an attribute-use component,
+// even when fixed is present. See I-008 in docs/spec/INTERPRETATIONS.md.
 func (c *compiler) admitAttributeProhibition(n *schemaNode, ctx *schemaSetDocument) (QName, error) {
 	source := semanticSource[*schemaAttributeSource](&n.semantic)
 	if source.Ref.Lexical.Present {

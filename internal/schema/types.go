@@ -299,7 +299,6 @@ type IdentityConstraint struct {
 type IdentityPath struct {
 	Steps      []IdentityStep
 	Descendant bool
-	Self       bool
 }
 
 // IdentityStep is one parsed identity XPath name test.
@@ -321,7 +320,6 @@ type IdentityFieldPath struct {
 	Attribute        QName
 	AttrNamespace    NamespaceID
 	Descendant       bool
-	Self             bool
 	Attr             bool
 	AttrWildcard     bool
 	AttrNamespaceSet bool

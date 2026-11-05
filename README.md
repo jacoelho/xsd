@@ -111,7 +111,7 @@ Use `xsderrors.IsUnsupported(err)` to detect unsupported features.
 
 Enumeration errors include the rejected value and choices from the failing
 enumeration, for example:
-`invalid attribute "actuate": value "bogus" is not one of ["onLoad", "onRequest"]`.
+`invalid attribute "{http://www.w3.org/1999/xlink}actuate": value "bogus" is not one of ["onLoad", "onRequest"]`.
 Choices use canonical representations; long values and lists are
 truncated with `...`.
 
@@ -159,9 +159,13 @@ you attach a resolver.
 
 Use `xsd.Open(name, opener)` for a stream, where `opener` has type
 `func() (io.ReadCloser, error)`. It must return a new independent reader on
-every call. Compilation applies byte limits from the first read and closes
-every non-nil reader returned by the opener, including one returned with an
-error. Close errors are reported; the caller must not reuse that reader.
+every call. Compilation applies byte limits from the first read. When the
+opener returns an error, compilation ignores the reader without closing it, so
+the opener must release anything it acquired first. Compilation reports the
+error, except that for an include/import target an error matching only
+`os.ErrNotExist` marks the location unavailable. Otherwise
+compilation closes the returned reader and reports close errors; the caller must
+not reuse that reader.
 
 To supply include/import dependencies on demand, attach a resolver. This example
 loads `types.xsd` from a flat map:
@@ -209,7 +213,8 @@ an explicitly supplied second root, as in `compileSchemas` above. The referring
 schema must import the namespace. Supplied declarations control attribute types,
 facets and fixed/default constraints. The same applies to XML attributes such as
 `xml:lang` and `xml:space`; the predefined `xml` prefix does not replace a schema
-import.
+import. `xml:id` has ID semantics only when a supplied schema declares it with
+an ID-derived type; there is no intrinsic `xml:id` processing.
 
 The four XSI attributes are intrinsic: `xsi:type` is QName-valued, `xsi:nil` is
 boolean-valued, `xsi:noNamespaceSchemaLocation` is anyURI-valued, and
@@ -219,11 +224,8 @@ still require explicit schema sources. XSI defaults/fixed values do not supply
 missing attributes; required uses still demand physical presence.
 
 The supported language is XSD 1.0 with approved errata and explicitly
-[selected corrections](docs/spec/SOURCES.md#selected-corrections). These include
-typed fixed-attribute equality, preservation of restricted-union facets, and
-qualified nilled identity-field handling. The
-[correction audit](docs/spec/XSD11_CORRECTIONS.md) records the boundaries;
-this does not enable XSD 1.1 syntax or schema HTTP loading.
+[selected corrections](docs/spec/SOURCES.md#selected-corrections); this does not
+enable XSD 1.1 syntax or schema HTTP loading.
 
 ## Reuse an engine or session
 
@@ -263,34 +265,14 @@ Use `Engine.Validate` or separate sessions for concurrent work.
 
 ## Resource limits
 
-Defaults include 64 MiB per schema source, 256 MiB across schema sources,
-64 MiB per XML document, and 100 recoverable validation errors. Set validation
-limits for one call with `ValidateWithOptions`, or for a session with
-`NewSession`:
-
-```go
-import (
-	"io"
-
-	"github.com/jacoelho/xsd"
-)
-
-func validateWithLimits(engine *xsd.Engine, doc io.Reader) error {
-	return engine.ValidateWithOptions(doc, xsd.ValidateOptions{
-		MaxErrors:        1,
-		MaxInstanceBytes: 8 << 20,
-	})
-}
-```
-
-Reaching `MaxErrors` stops schema assessment, but XML is still read until the
-end or a fatal error. A later fatal error takes precedence.
+Set validation limits for one call with `ValidateWithOptions`, or for a session
+with `NewSession`.
 
 Compilation and validation are synchronous. Limits cannot interrupt a blocked
 opener, resolver, file operation, or reader. Provide I/O you can close or
 otherwise unblock if you need interruption.
 
-See [resource limits](RESOURCE_LIMITS.md) for all defaults, zero-value rules,
+See [resource limits](docs/RESOURCE_LIMITS.md) for all defaults, zero-value rules,
 and a `CompileWithOptions` example.
 
 ## XML and XSD behavior
@@ -326,9 +308,8 @@ go run ./cmd/xmllint --schema schema.xsd document.xml
 ```
 
 `--schema` is required. Optional flags are `--max-errors`,
-`--max-identity-entries`, and `--max-instance-bytes`; zero selects their defaults
-of 100, 100,000, and 64 MiB. The identity limit independently bounds stored
-identity entries, pending selector matches, and pending field values.
+`--max-identity-entries`, and `--max-instance-bytes`; zero selects the library
+default ([resource limits](docs/RESOURCE_LIMITS.md)).
 Run `make xmllint` to build `bin/xmllint`.
 
 To run the browser validator:
@@ -355,8 +336,8 @@ Run JavaScript tests with `make web-test`. For browser integration tests, instal
 the pinned dependency and Chromium once:
 
 ```sh
-npm ci --prefix docs/js
-npm exec --prefix docs/js -- playwright install chromium
+npm ci --prefix web/js
+npm exec --prefix web/js -- playwright install chromium
 make browser-test
 ```
 
@@ -364,7 +345,7 @@ make browser-test
 
 Results were measured on 2026-10-26 using Go 1.27.0 and libxml2 2.9.13
 on an Apple M2 Max with 32 GiB RAM. Both validators used the same generated
-files; Go ran first, followed by libxml2 with `--stream`.
+files. Measurements include process startup and schema compilation.
 
 | Workload | Go time | libxml2 `--stream` time | Go peak RSS | libxml2 peak RSS |
 | --- | ---: | ---: | ---: | ---: |
@@ -375,18 +356,8 @@ files; Go ran first, followed by libxml2 with `--stream`.
 | Streaming, 2 GiB | 43.507 s | 34.69 s | 6.906 MiB | 1.734 MiB |
 | Identity constraints, 100,000 rows | 333.627 ms | 0.43 s | 89.047 MiB | 74.344 MiB |
 
-Each result is the upper median (sixth sorted value) of 10 runs after one
-warm-up per workload and validator. Time and peak RSS are summarized
-independently. Measurements include process startup and schema compilation.
-Peak RSS is process memory reported by
-`/usr/bin/time`, not cumulative Go allocations.
-
-Go streams input; libxml2 uses `--stream --huge --noout --schema`.
-Libxml2 times are reported to the timer's 0.01 s resolution. These synthetic
-workloads do not represent a production traffic mix.
-
-See [benchmark methodology and reproduction](BENCHMARKS.md) for timing
-variation, commands, and session-reuse guidance.
+See [benchmark methodology and reproduction](docs/BENCHMARKS.md) for measurement
+rules, commands, and session-reuse guidance.
 
 ## Contributing
 

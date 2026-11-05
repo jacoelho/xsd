@@ -28,7 +28,7 @@ func TestContentExpectationsDoNotConsumeState(t *testing.T) {
 			t.Fatal(err)
 		}
 		root, _ := rt.LookupQName("", "root")
-		element, decl, ok := rt.RootElement(RuntimeName{Known: true, Name: root, Local: "root"})
+		element, decl, ok := rt.GlobalElement(RuntimeName{Known: true, Name: root, Local: "root"})
 		if !ok {
 			t.Fatal("root missing")
 		}
@@ -78,7 +78,7 @@ func TestContentExpectationsBoundAlternativesAndTraversal(t *testing.T) {
 		t.Fatal(err)
 	}
 	q, _ := rt.LookupQName("", "root")
-	element, decl, _ := rt.RootElement(RuntimeName{Known: true, Name: q, Local: "root"})
+	element, decl, _ := rt.GlobalElement(RuntimeName{Known: true, Name: q, Local: "root"})
 	frame, _ := rt.ElementFrame(decl.Type, element)
 	state := frame.Content.ContentState()
 	scratch := NewContentScratch(nil, 0, 0)
@@ -105,7 +105,7 @@ func TestContentExpectationsBoundSkippedAllTerms(t *testing.T) {
 		t.Fatal(err)
 	}
 	q, _ := rt.LookupQName("", "root")
-	element, decl, _ := rt.RootElement(RuntimeName{Known: true, Name: q, Local: "root"})
+	element, decl, _ := rt.GlobalElement(RuntimeName{Known: true, Name: q, Local: "root"})
 	frame, _ := rt.ElementFrame(decl.Type, element)
 	state := frame.Content.ContentState()
 	bits := make([]uint64, frame.Content.AllBitLen())

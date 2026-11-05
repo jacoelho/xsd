@@ -592,6 +592,7 @@ func TestMissingResolvedIncludeDoesNotInvalidateSchema(t *testing.T) {
 		{name: "wrapped not exist", err: fmt.Errorf("open: %w", os.ErrNotExist)},
 		{name: "schema not found after resolution", err: xsderrors.ErrSchemaNotFound, wantErr: true},
 		{name: "wrapped schema not found after resolution", err: fmt.Errorf("open: %w", xsderrors.ErrSchemaNotFound), wantErr: true},
+		{name: "not exist joined with other error", err: errors.Join(os.ErrNotExist, errors.New("permission check failed")), wantErr: true},
 	}
 	for _, tt := range readErrors {
 		t.Run(tt.name, func(t *testing.T) {
@@ -612,25 +613,6 @@ func TestMissingResolvedIncludeDoesNotInvalidateSchema(t *testing.T) {
 				t.Fatalf("Compile() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
-	}
-}
-
-func TestMissingResolvedIncludeCleanupErrorIsNotSuppressed(t *testing.T) {
-	t.Parallel()
-	closeErr := errors.New("close failed after missing open")
-	resolver := source.Resolver(func(_, _ string) (source.Source, error) {
-		return source.Opener("optional.xsd", func() (io.ReadCloser, error) {
-			//nolint:nilnil // Exercise the loader's cleanup-error classification boundary.
-			return compileCloseErrorReader{Reader: strings.NewReader("schema"), err: closeErr}, os.ErrNotExist
-		}), nil
-	})
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("root.xsd", []byte(`
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:include schemaLocation="optional.xsd"/>
-</xs:schema>`)).WithResolver(resolver)})
-
-	if !errors.Is(err, closeErr) {
-		t.Fatalf("Compile() error = %v, want cleanup error", err)
 	}
 }
 
@@ -1772,30 +1754,6 @@ func TestCachedSchemaIdentityRetainsResolverContext(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "different document identities across resolver contexts") {
 		t.Fatalf("Compile() error = %v, want descendant identity conflict", err)
-	}
-}
-
-func TestCachedSchemaIdentityCleanupErrorIsNotSuppressed(t *testing.T) {
-	t.Parallel()
-	const root = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="shared.xsd"/></xs:schema>`
-	const shared = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`
-	resolverA := source.Resolver(func(_, _ string) (source.Source, error) {
-		return source.Bytes("shared.xsd", []byte(shared)), nil
-	})
-	closeErr := errors.New("close failed while verifying cached source")
-	resolverB := source.Resolver(func(_, _ string) (source.Source, error) {
-		return source.Opener("shared.xsd", func() (io.ReadCloser, error) {
-			//nolint:nilnil // Exercise cached-source cleanup after a missing open.
-			return compileCloseErrorReader{Reader: strings.NewReader(shared), err: closeErr}, os.ErrNotExist
-		}), nil
-	})
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
-		source.Bytes("a.xsd", []byte(root)).WithResolver(resolverA),
-		source.Bytes("b.xsd", []byte(root)).WithResolver(resolverB),
-	})
-
-	if !errors.Is(err, closeErr) {
-		t.Fatalf("Compile() error = %v, want cached-source cleanup error", err)
 	}
 }
 
@@ -2961,13 +2919,16 @@ func TestUnavailableElementRecoverySkipsBrokenValuePath(t *testing.T) {
       <xs:element name="good" type="xs:int"/>
     </xs:sequence></xs:complexType>
   </xs:element>
+  <xs:element name="num" type="xs:int"/>
 </xs:schema>`)
 	session, err := validate.NewSessionPool(engine).NewSession(validate.Options{MaxErrors: 10})
 	if err != nil {
 		t.Fatalf("NewSession() error = %v", err)
 	}
-	err = session.Validate(strings.NewReader(`<root><bad><ignored/></bad><good>1</good></root>`))
-	if got, want := validationErrorCodes(err), []xsderrors.Code{xsderrors.CodeValidationElement}; !slices.Equal(got, want) {
+	// The broken list type is never evaluated, but the anyType subtree is still
+	// assessed: num is a global xs:int declaration.
+	err = session.Validate(strings.NewReader(`<root><bad><num>x</num></bad><good>1</good></root>`))
+	if got, want := validationErrorCodes(err), []xsderrors.Code{xsderrors.CodeValidationElement, xsderrors.CodeValidationFacet}; !slices.Equal(got, want) {
 		t.Fatalf("validation codes = %v, want %v; err=%v", got, want, err)
 	}
 }
@@ -2983,23 +2944,42 @@ func TestUnavailableElementTypeDefersValueConstraintAssessment(t *testing.T) {
 	mustNotValidate(t, engine, `<transitive>value</transitive>`, xsderrors.CodeValidationElement)
 }
 
-func TestUnavailableElementTypePrecedesXSIProcessingAndContainsRecovery(t *testing.T) {
+func TestUnavailableElementTypePrecedesXSIProcessingAndAssessesLaxlyAsAnyType(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="bad" type="absent" nillable="true"/>
+  <xs:element name="good" type="xs:int"/>
+  <xs:element name="root">
+    <xs:complexType><xs:sequence><xs:element ref="bad"/><xs:element ref="good"/></xs:sequence></xs:complexType>
+  </xs:element>
 </xs:schema>`)
-	for _, doc := range []string{
-		`<bad xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="invalid"><ignored/></bad>`,
-		`<bad xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="unknown"><ignored/></bad>`,
-		`<bad xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xs="http://www.w3.org/2001/XMLSchema" xsi:type="xs:string"><ignored/></bad>`,
+	const ns = ` xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xs="http://www.w3.org/2001/XMLSchema"`
+	for _, test := range []struct {
+		doc  string
+		want []string
+	}{
+		{`<bad` + ns + ` xsi:nil="invalid"><ignored/></bad>`, []string{"validation.element@/bad", "validation.nil@/bad"}},
+		{`<bad` + ns + ` xsi:type="unknown"><ignored/></bad>`, []string{"validation.element@/bad", "validation.type@/bad"}},
+		// anyType governs, so a valid xsi:type override still applies.
+		{`<bad` + ns + ` xsi:type="xs:string"><ignored/></bad>`, []string{"validation.element@/bad", "validation.content@/bad"}},
+		{`<bad><good>x</good></bad>`, []string{"validation.element@/bad", "validation.facet@/bad/good"}},
+		{`<root><bad><good>x</good></bad><good>y</good></root>`, []string{"validation.element@/root/bad", "validation.facet@/root/bad/good", "validation.facet@/root/good"}},
 	} {
 		session, err := validate.NewSessionPool(engine).NewSession(validate.Options{MaxErrors: 10})
 		if err != nil {
 			t.Fatalf("NewSession() error = %v", err)
 		}
-		err = session.Validate(strings.NewReader(doc))
-		if got, want := validationErrorCodes(err), []xsderrors.Code{xsderrors.CodeValidationElement}; !slices.Equal(got, want) {
-			t.Fatalf("validation codes = %v, want %v; err=%v", got, want, err)
+		err = session.Validate(strings.NewReader(test.doc))
+		var got []string
+		for _, leaf := range xsderrors.Flatten(err) {
+			x, ok := errors.AsType[*xsderrors.Error](leaf)
+			if !ok {
+				t.Fatalf("diagnostic %T %v is not structured", leaf, leaf)
+			}
+			got = append(got, string(x.Code())+"@"+x.Path())
+		}
+		if !slices.Equal(got, test.want) {
+			t.Fatalf("%s: diagnostics = %v, want %v; err=%v", test.doc, got, test.want, err)
 		}
 	}
 }
@@ -3880,20 +3860,12 @@ type qnameLookup interface {
 	LookupQName(namespace, local string) (xsdSchema.QName, bool)
 }
 
-type compileCloseErrorReader struct {
-	io.Reader
-
-	err error
-}
-
 func writeCompileTestFile(t *testing.T, path, data string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
 		t.Fatal(err)
 	}
 }
-
-func (r compileCloseErrorReader) Close() error { return r.err }
 
 func mustQName(t *testing.T, rt qnameLookup, local string) xsdSchema.QName {
 	t.Helper()
@@ -3958,7 +3930,7 @@ func TestRuntimeElementAccessor(t *testing.T) {
 		t.Error("element(out of range) resolved, want miss")
 	}
 	rootName := mustQName(t, rt, "root")
-	_, rootInfo, ok := rt.RootElement(xsdSchema.RuntimeName{Known: true, Name: rootName})
+	_, rootInfo, ok := rt.GlobalElement(xsdSchema.RuntimeName{Known: true, Name: rootName})
 	if !ok || !rootInfo.Type.IsSimple() {
 		t.Fatal("root element is missing")
 	}

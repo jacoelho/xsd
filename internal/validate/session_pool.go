@@ -11,6 +11,9 @@ import (
 // SessionPool owns automatic validation scratch reuse for one immutable schema.
 // It retains at most one idle raw session; concurrent callers that miss the
 // slot allocate private scratch and never wait for another validation.
+//
+// Rejected: splitting out only the parser's inline buffer for reuse, because
+// the remaining reusable session state would still be allocated per call.
 type SessionPool struct {
 	rt   *xsdSchema.Schema
 	idle atomic.Pointer[session]
@@ -25,7 +28,9 @@ func NewSessionPool(rt *xsdSchema.Schema) *SessionPool {
 
 // Validate validates one document with options and returns ordinary-call
 // scratch to the single idle slot after reset. Options are normalized before
-// the schema or idle-session state is inspected.
+// the schema or idle-session state is inspected. A panic skips reset and
+// publication, so poisoned scratch is never reused; when the slot is already
+// full the reset scratch is dropped.
 func (p *SessionPool) Validate(r io.Reader, opts Options) error {
 	limits, err := NormalizeOptions(opts)
 	if err != nil {

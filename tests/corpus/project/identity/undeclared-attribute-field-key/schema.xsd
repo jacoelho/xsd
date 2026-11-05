@@ -1,0 +1,15 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:x="urn:test" targetNamespace="urn:test" elementFormDefault="qualified">
+  <!-- A key field that selects an attribute admitted by a lax wildcard without a declaration is present, so the key holds, but its unknown value never duplicates; an absent field still fails the key, and a skip wildcard attribute supplies nothing. -->
+  <xs:element name="keyl">
+    <xs:complexType><xs:sequence><xs:any processContents="lax" namespace="##local" maxOccurs="unbounded"/></xs:sequence></xs:complexType>
+    <xs:key name="kl"><xs:selector xpath="*"/><xs:field xpath="@id"/></xs:key>
+  </xs:element>
+  <xs:element name="keySkip">
+    <xs:complexType><xs:sequence><xs:element name="c" maxOccurs="unbounded"><xs:complexType><xs:anyAttribute processContents="skip" namespace="##local"/></xs:complexType></xs:element></xs:sequence></xs:complexType>
+    <xs:key name="ks"><xs:selector xpath="x:c"/><xs:field xpath="@id"/></xs:key>
+  </xs:element>
+  <xs:element name="keyTwo">
+    <xs:complexType><xs:sequence><xs:element name="c" maxOccurs="unbounded"><xs:complexType><xs:attribute name="a" type="xs:string"/><xs:anyAttribute processContents="lax" namespace="##local"/></xs:complexType></xs:element></xs:sequence></xs:complexType>
+    <xs:key name="ktwo"><xs:selector xpath="x:c"/><xs:field xpath="@a"/><xs:field xpath="@b"/></xs:key>
+  </xs:element>
+</xs:schema>

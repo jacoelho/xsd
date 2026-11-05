@@ -238,6 +238,10 @@ func (c *compiler) appendNestedModelChild(m *ContentModel, child *schemaNode, ct
 	return withSchemaCompileLocation(child, AppendParticle(m, p))
 }
 
+// compileDeferredModelChildren gives descendants of a zero-count sequence or
+// choice their ordinary component validation once named-group expansion has
+// unwound. It builds no parent model, so absent siblings share no EDC or UPA
+// constraint and no recursion edge is invented.
 func (c *compiler) compileDeferredModelChildren(source schemaComponent) error {
 	n := source.sourceNode()
 	kind, err := modelKindForNode(n)

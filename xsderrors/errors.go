@@ -1,4 +1,11 @@
 // Package xsderrors defines structured XSD diagnostics.
+//
+// A nil error, a nil [*Error], a nil [*Errors], and an [Errors] with no
+// children all mean "no diagnostic". Every function in this package treats them
+// alike: [NewErrors] drops them, [Flatten] omits them, [WithLocation] returns
+// nil for them, constructors discard them as causes, and the classifiers report
+// false. Errors from other packages, including wrappers, keep their identity and
+// cause chain; they are never unwrapped or replaced.
 package xsderrors
 
 import (
@@ -77,6 +84,10 @@ const (
 
 // Error is an immutable structured diagnostic returned by compile, validation,
 // and formatting operations.
+//
+// Rejected: compatibility fields, aliases, and parallel constructors, because
+// they would preserve two representations and two location paths for the
+// same fact.
 type Error struct {
 	cause    error
 	category Category
@@ -233,7 +244,11 @@ func NewErrors(children ...error) error {
 	}
 }
 
-// Flatten returns an owned top-level diagnostic list for presentation.
+// Flatten returns an owned top-level diagnostic list for presentation. It
+// expands [Errors] aggregates and joined errors recursively and keeps each
+// [*Error] intact with its causes. A wrapper around an aggregate is replaced by
+// the aggregate's flattened children; any other error is kept as one entry.
+// Flatten does not classify diagnostics; use [IsConclusiveValidation] for that.
 func Flatten(err error) []error {
 	flat, _ := appendFlattened(nil, err)
 	return flat
@@ -309,6 +324,14 @@ func assessConclusiveValidationAggregate(children []error) validationAssessment 
 	return result
 }
 
+// conclusiveDiagnosticCause reports whether cause leaves its enclosing
+// semantic diagnostic conclusive.
+//
+// Rejected: moving the cause-only custom-As check into the root type switch
+// of assessConclusiveValidation, because first use of a plain root type can
+// allocate an additional persistent runtime interface-table entry; reopen
+// only with evidence of equal first-use cache retention, which warm allocation
+// counters do not establish.
 func conclusiveDiagnosticCause(cause error) bool {
 	if isNilDiagnostic(cause) {
 		return true
@@ -337,6 +360,14 @@ func conclusiveDiagnosticCause(cause error) bool {
 	}
 }
 
+// conclusiveDiagnosticAggregateCause assesses an aggregate cause branch by
+// branch.
+//
+// Rejected: sharing one aggregate assessment with
+// assessConclusiveValidationAggregate, because its larger recursive frame
+// increased stack capacity retained after return on nested aggregate causes;
+// reopen only with a stack-capacity comparison, since heap allocation counters
+// cannot establish it.
 func conclusiveDiagnosticAggregateCause(children []error) bool {
 	for _, child := range children {
 		if isNilDiagnostic(child) {
@@ -412,6 +443,8 @@ func appendFlattenedWrapper(dst []error, wrapper, child error) ([]error, bool) {
 	return append(dst[:mark], wrapper), false
 }
 
+// isNilDiagnostic is the single definition of an absent diagnostic described
+// in the package comment.
 func isNilDiagnostic(err error) bool {
 	if err == nil {
 		return true

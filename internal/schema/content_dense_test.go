@@ -257,7 +257,7 @@ func TestDenseDFAProjectionMarkerAndCompleteSmallFallback(t *testing.T) {
 		t.Run(strconv.Itoa(width), func(t *testing.T) {
 			t.Parallel()
 			build := contentContractBuild(t, contentContractNames(width))
-			reads, mayHaveDenseRows, err := newCompiledModelReads(build.CompiledModels, unlimitedContentModelWork)
+			reads, mayHaveDenseRows, err := newCompiledModelReads(build.CompiledModels, allContentModelIDs(len(build.CompiledModels)), unlimitedContentModelWork)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -332,7 +332,7 @@ func TestDenseDFAVisitAndArrayAdmissionBounds(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			build := contentContractBuild(t, contentContractNames(16))
-			reads, _, err := newCompiledModelReads(build.CompiledModels, unlimitedContentModelWork)
+			reads, _, err := newCompiledModelReads(build.CompiledModels, allContentModelIDs(len(build.CompiledModels)), unlimitedContentModelWork)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -358,7 +358,7 @@ func TestDenseDFAExhaustionStopsRemainingConversion(t *testing.T) {
 	build := contentContractBuild(t, contentContractNames(200))
 	other := contentContractBuild(t, contentContractNames(16))
 	models := append([]CompiledModel{build.CompiledModels[0]}, other.CompiledModels...)
-	reads, _, err := newCompiledModelReads(models, unlimitedContentModelWork)
+	reads, _, err := newCompiledModelReads(models, allContentModelIDs(len(models)), unlimitedContentModelWork)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -376,7 +376,7 @@ func TestDenseDFAAggregateAdmissionIsStable(t *testing.T) {
 			t.Parallel()
 			build := contentContractBuild(t, contentContractNames(16))
 			models := []CompiledModel{build.CompiledModels[0], build.CompiledModels[0]}
-			reads, _, err := newCompiledModelReads(models, unlimitedContentModelWork)
+			reads, _, err := newCompiledModelReads(models, allContentModelIDs(len(models)), unlimitedContentModelWork)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -399,7 +399,7 @@ func TestDenseDFAWideMapScanIsOrderIndependent(t *testing.T) {
 	for rotation := range uint32(32) {
 		build := contentContractBuild(t, contentContractNames(16))
 		models := []CompiledModel{build.CompiledModels[0], build.CompiledModels[0]}
-		reads, _, err := newCompiledModelReads(models, unlimitedContentModelWork)
+		reads, _, err := newCompiledModelReads(models, allContentModelIDs(len(models)), unlimitedContentModelWork)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -427,7 +427,7 @@ func TestDenseDFAConversionOwnsOneRepresentation(t *testing.T) {
 				names[15].Namespace = 1
 			}
 			build := contentContractBuild(t, names)
-			reads, _, err := newCompiledModelReads(build.CompiledModels, unlimitedContentModelWork)
+			reads, _, err := newCompiledModelReads(build.CompiledModels, allContentModelIDs(len(build.CompiledModels)), unlimitedContentModelWork)
 			if err != nil {
 				t.Fatal(err)
 			}
