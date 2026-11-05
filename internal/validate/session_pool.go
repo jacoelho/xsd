@@ -69,6 +69,9 @@ func (p *SessionPool) NewSession(opts Options) (*Session, error) {
 	return result, nil
 }
 
+// setLimits is the only writer of a session's limits and of the identity
+// limits derived from them, so a pooled session reused with new options and a
+// fresh session enforce the same configuration.
 func (s *session) setLimits(limits Limits) {
 	s.limits = limits
 	s.doc.identity.limits = identityLimits{

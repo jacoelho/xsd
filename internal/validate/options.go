@@ -1,6 +1,8 @@
 // Package validate owns XML instance validation concerns.
 package validate
 
+import "github.com/jacoelho/xsd/internal/xmlstream"
+
 const (
 	defaultMaxErrors                       = 100
 	defaultMaxIdentityScopes               = 10_000
@@ -49,6 +51,19 @@ type Limits struct {
 	InstanceTokenBytes           int64
 	InstanceBytes                int64
 	InstanceValueWork            uint64
+}
+
+// readerConfig projects the instance syntax limits onto the stream reader.
+func (l Limits) readerConfig() xmlstream.Config {
+	return xmlstream.Config{
+		Limits: xmlstream.Limits{
+			MaxInputBytes: l.InstanceBytes,
+			MaxTokenBytes: l.InstanceTokenBytes,
+			MaxAttrs:      l.InstanceAttributes,
+			MaxDepth:      l.InstanceDepth,
+		},
+		LazyAttrValues: true,
+	}
 }
 
 // NormalizeOptions validates options and returns runtime limits.

@@ -40,11 +40,8 @@ type Session struct {
 // admitted configuration avoids clearing the embedded input buffer a second time.
 func initializeSession(s *session, rt *xsdSchema.Schema, limits Limits) {
 	s.rt = rt
-	s.limits = limits
-	s.doc.identity = newIdentityEvaluation(rt, identityLimits{
-		Entries:    limits.IdentityEntries,
-		TupleBytes: limits.IdentityTupleBytes,
-	}, limits.IdentityScopes)
+	s.doc.identity = newIdentityEvaluation(rt, identityLimits{})
+	s.setLimits(limits)
 }
 
 // Validate validates one XML instance document. It clears document-local state
@@ -142,21 +139,7 @@ func (s *session) validate(r io.Reader) error {
 }
 
 func (s *session) resetParser(r io.Reader) error {
-	if err := s.reader.Reset(r, xmlstream.Config{
-		Limits: xmlstream.Limits{
-			MaxInputBytes: s.limits.InstanceBytes,
-			MaxTokenBytes: s.limits.InstanceTokenBytes,
-			MaxAttrs:      s.limits.InstanceAttributes,
-			MaxDepth:      s.limits.InstanceDepth,
-		},
-		LazyAttrValues: true,
-	}); err != nil {
-		if limitErr := instanceLimitError(err, StartContext{}, s.limits); limitErr != nil {
-			return limitErr
-		}
-		return instanceReaderError(err)
-	}
-	return nil
+	return resetInstanceReader(&s.reader, r, s.limits)
 }
 
 func (s *session) validateTokens() error {
@@ -300,15 +283,17 @@ func (s *session) result() error {
 	}
 }
 
-// recover records a recoverable diagnostic. Reaching MaxErrors switches the
-// document to syntax-only processing: semantic assessment stops, but XML
-// admission continues to EOF so a later fatal XML or limit failure still takes
-// precedence over the collected diagnostics.
+// recover records a recoverable diagnostic. Collected diagnostics form the
+// invalid result, so recoverable means exactly conclusive as xsderrors
+// assesses it; any other failure aborts the document. Reaching MaxErrors
+// switches the document to syntax-only processing: semantic assessment stops,
+// but XML admission continues to EOF so a later fatal XML or limit failure
+// still takes precedence over the collected diagnostics.
 func (s *session) recover(err error) error {
 	if err == nil {
 		return nil
 	}
-	if !RecoverableError(err) {
+	if !xsderrors.IsConclusiveValidation(err) {
 		return err
 	}
 	if !RecoveryLimitReached(len(s.doc.errors), s.limits.Errors) {
@@ -333,12 +318,15 @@ func (s *session) recoverAssessment(err error) error {
 	return s.recover(err)
 }
 
+// assessmentFailure reports whether err makes the current element's own
+// assessment invalid. Identity failures belong to the constraint's scope
+// owner, not to the element whose field or selector produced them.
 func assessmentFailure(err error) bool {
+	if !xsderrors.IsConclusiveValidation(err) {
+		return false
+	}
 	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
-	return ok && diagnostic != nil &&
-		diagnostic.Category() == xsderrors.CategoryValidation &&
-		diagnostic.Code() != xsderrors.CodeValidationIdentity &&
-		diagnostic.Code() != xsderrors.CodeValidationLimit
+	return ok && diagnostic.Code() != xsderrors.CodeValidationIdentity
 }
 
 func (s *session) discardSemanticState() {

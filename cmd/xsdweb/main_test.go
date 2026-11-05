@@ -270,7 +270,7 @@ func TestValidateAssetsRejectsEscapingParentSymlink(t *testing.T) {
 	dir := t.TempDir()
 	writeRequiredAssets(t, dir)
 	external := t.TempDir()
-	for _, name := range []string{"validation-flow.js", "validation-worker.js", "xsd-worker.js"} {
+	for _, name := range []string{"validation-flow.js", "validation-worker.js", "xsd-worker.js", "xsd-runtime.js"} {
 		if err := os.WriteFile(filepath.Join(external, name), []byte("external"), 0o600); err != nil {
 			t.Fatal(err)
 		}

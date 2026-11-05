@@ -91,15 +91,7 @@ func endForTest(t *testing.T, s *session, line, col int, end xmlstream.EndElemen
 }
 
 func resetSessionXMLReader(s *session, state *sessionXMLTestState) error {
-	if err := s.reader.Reset(&state.input, xmlstream.Config{
-		Limits: xmlstream.Limits{
-			MaxInputBytes: s.limits.InstanceBytes,
-			MaxTokenBytes: s.limits.InstanceTokenBytes,
-			MaxAttrs:      s.limits.InstanceAttributes,
-			MaxDepth:      s.limits.InstanceDepth,
-		},
-		LazyAttrValues: true,
-	}); err != nil {
+	if err := s.reader.Reset(&state.input, s.limits.readerConfig()); err != nil {
 		return err
 	}
 	state.ready = true

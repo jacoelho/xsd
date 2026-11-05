@@ -10,15 +10,15 @@ const maxXMLDeclarationPreviewBytes = xmlInputBufferSize
 // ErrXMLInputNilReader reports a nil XML input reader.
 var ErrXMLInputNilReader = errors.New("xml input reader is nil")
 
-// ErrUnsupportedNonUTF8 reports XML input that declares or uses a non-UTF-8 encoding.
-var ErrUnsupportedNonUTF8 = errors.New("xml input must be UTF-8")
+// errUnsupportedNonUTF8 reports XML input that declares or uses a non-UTF-8 encoding.
+var errUnsupportedNonUTF8 = errors.New("xml input must be UTF-8")
 
-// UnsupportedXMLVersionError reports an XML version this tokenizer does not support.
-type UnsupportedXMLVersionError struct {
+// unsupportedXMLVersionError reports an XML version this tokenizer does not support.
+type unsupportedXMLVersionError struct {
 	Version string
 }
 
-func (e UnsupportedXMLVersionError) Error() string {
+func (e unsupportedXMLVersionError) Error() string {
 	return "XML version " + e.Version + " is not supported"
 }
 
@@ -28,7 +28,7 @@ func (p *parser) prepareXMLProlog() error {
 		return err
 	}
 	if startsUTF16(peek) {
-		return ErrUnsupportedNonUTF8
+		return errUnsupportedNonUTF8
 	}
 	if !StartsXMLDeclaration(peek) {
 		return nil
@@ -44,8 +44,8 @@ func (p *parser) prepareXMLProlog() error {
 	if err == nil {
 		return nil
 	}
-	var version UnsupportedXMLVersionError
-	if errors.Is(err, ErrUnsupportedNonUTF8) || errors.As(err, &version) {
+	var version unsupportedXMLVersionError
+	if errors.Is(err, errUnsupportedNonUTF8) || errors.As(err, &version) {
 		return err
 	}
 	return nil

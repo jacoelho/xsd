@@ -386,7 +386,7 @@ func startedIdentityEvaluationWithSelectorForTest(t *testing.T, selector string)
 	t.Helper()
 
 	fixture := compiledIdentityRuntimeWithSelectorForTest(t, selector)
-	evaluation := newIdentityEvaluation(fixture.rt, identityLimits{}, 0)
+	evaluation := newIdentityEvaluation(fixture.rt, identityLimits{})
 	if err := evaluation.startElement(identityElementStart{
 		Context: identityTestContext("/root", 1, 1),
 		Name:    xsdSchema.RuntimeName{Known: true, Name: fixture.elemName},
@@ -421,7 +421,7 @@ func TestIdentityReporterAbortPreservesPendingSelections(t *testing.T) {
     <xs:key name="idKey"><xs:selector xpath="row"/><xs:field xpath="@id"/></xs:key>
   </xs:element>
 </xs:schema>`)
-	evaluation := newIdentityEvaluation(rt, identityLimits{}, 0)
+	evaluation := newIdentityEvaluation(rt, identityLimits{})
 	startIdentityRetryElement(t, &evaluation, "root", identityTestContext("/root", 1, 1))
 
 	first := identityTestContext("/root/row[1]", 2, 1)

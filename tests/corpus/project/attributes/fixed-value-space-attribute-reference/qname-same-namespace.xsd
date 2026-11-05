@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:attribute name="a" type="xs:QName" fixed="p:a" xmlns:p="urn:a"/>
+  <xs:complexType name="T">
+    <xs:attribute ref="a" fixed="q:a" xmlns:q="urn:a"/>
+  </xs:complexType>
+</xs:schema>

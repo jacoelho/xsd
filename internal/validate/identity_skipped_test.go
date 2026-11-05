@@ -93,7 +93,7 @@ func TestIdentitySkippedOwnerHasNoAttributeTargets(t *testing.T) {
 <xs:element name="root"><xs:complexType><xs:sequence><xs:any processContents="skip"/></xs:sequence></xs:complexType>
 <xs:key name="k"><xs:selector xpath="."/><xs:field xpath="child/@xsi:nil"/></xs:key>
 </xs:element></xs:schema>`)
-	evaluation := newIdentityEvaluation(rt, identityLimits{}, 0)
+	evaluation := newIdentityEvaluation(rt, identityLimits{})
 	name, _ := rt.LookupQName("", "root")
 	runtimeName := xsdSchema.RuntimeName{Known: true, Name: name}
 	id, _, ok := rt.GlobalElement(runtimeName)

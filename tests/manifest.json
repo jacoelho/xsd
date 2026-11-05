@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16560,
-    "schemaCases": 16510,
+    "cases": 16589,
+    "schemaCases": 16539,
     "instanceRuns": 35403,
     "w3cCases": 14414,
-    "internalRuns": 2133,
+    "internalRuns": 2162,
     "xercesJCases": 13
   },
   "cases": [
@@ -18460,6 +18460,155 @@
         {
           "file": "corpus/project/xml/streaming-character-references/invalid-entity-name-colon.xml",
           "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-undeclared-entity-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#wf-entdeclared"
+        ],
+        "description": "An undeclared general entity reference in a schema-document attribute value is rejected as an unsupported entity, matching instance documents; the project supports no DTD, so no general entity can be declared.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/xml/schema-undeclared-entity/schema.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/xml/schema-undeclared-entity/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "unsupported.external_entity"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/xml/schema-undeclared-entity/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-undeclared-entity-documentation",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#wf-entdeclared"
+        ],
+        "description": "An undeclared general entity reference inside xs:documentation content is rejected as an unsupported entity before annotation content is ignored.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/xml/schema-undeclared-entity/documentation.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/xml/schema-undeclared-entity/documentation.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "unsupported.external_entity"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/xml/schema-undeclared-entity/documentation.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-undeclared-entity-control",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#wf-entdeclared"
+        ],
+        "description": "Predefined entity and character references in schema-document attribute values and documentation content remain accepted.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/xml/schema-undeclared-entity/control.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/xml/schema-undeclared-entity/control.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/xml/schema-undeclared-entity/control.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-undeclared-entity-long-name",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#wf-entdeclared"
+        ],
+        "description": "An undeclared general entity reference with a long NCName is rejected as an unsupported entity like any other undeclared NCName entity.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/xml/schema-undeclared-entity/long-name.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/xml/schema-undeclared-entity/long-name.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "unsupported.external_entity"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/xml/schema-undeclared-entity/long-name.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-undeclared-entity-colon-name",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#wf-entdeclared"
+        ],
+        "description": "An entity reference whose name contains a colon is malformed under XML Namespaces and stays a schema XML error, not an unsupported entity.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/xml/schema-undeclared-entity/colon-name.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/xml/schema-undeclared-entity/colon-name.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.xml"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/xml/schema-undeclared-entity/colon-name.xsd",
+          "role": "principal"
         }
       ]
     },
@@ -856104,6 +856253,915 @@
       "files": [
         {
           "file": "corpus/project/content-models/properties-fixed-value-opponent/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/fixed-value-space-element-restriction/duration-p1y-p12m",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal"
+        ],
+        "description": "Element restriction: duration P1Y and P12M are the same (months, seconds) value; fixed values compare in value space.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/fixed-value-space-element-restriction/duration-p1y-p12m.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/fixed-value-space-element-restriction/duration-p1y-p12m.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 on the unchanged explicit roots and file bytes: schema assessed invalid. Element restriction: duration P1Y and P12M are the same (months, seconds) value; fixed values compare in value space. Diagnosis: the provider compares fixed constraints by lexical string, not datatype value.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/fixed-value-space-element-restriction/duration-p1y-p12m.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/fixed-value-space-element-restriction/duration-p1y-p365d",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal"
+        ],
+        "description": "Element restriction: duration P1Y and P365D have different month and second components, so they are distinct values; fixed values compare in value space.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/fixed-value-space-element-restriction/duration-p1y-p365d.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/fixed-value-space-element-restriction/duration-p1y-p365d.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET 10.0.14 on the unchanged explicit roots and file bytes: schema assessed valid. Element restriction: duration P1Y and P365D have different month and second components, so they are distinct values; fixed values compare in value space. Diagnosis: the provider maps xs:duration to a single TimeSpan, equating one year with 365 days, while XSD 1.0 duration values are (months, seconds) pairs.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with native libxml2 2.9.13 on the unchanged explicit roots and file bytes: schema assessed valid. Element restriction: duration P1Y and P365D have different month and second components, so they are distinct values; fixed values compare in value space. Diagnosis: the provider does not check fixed-value consistency for this derivation or reference.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/fixed-value-space-element-restriction/duration-p1y-p365d.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/fixed-value-space-element-restriction/decimal-trailing-zero",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal"
+        ],
+        "description": "Element restriction: decimal 1.0 and 1 are the same value; fixed values compare in value space.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/fixed-value-space-element-restriction/decimal-trailing-zero.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/fixed-value-space-element-restriction/decimal-trailing-zero.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 on the unchanged explicit roots and file bytes: schema assessed invalid. Element restriction: decimal 1.0 and 1 are the same value; fixed values compare in value space. Diagnosis: the provider compares fixed constraints by lexical string, not datatype value.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/fixed-value-space-element-restriction/decimal-trailing-zero.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/fixed-value-space-element-restriction/decimal-different",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal"
+        ],
+        "description": "Element restriction: decimal 1.0 and 1.1 are distinct values; fixed values compare in value space.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/fixed-value-space-element-restriction/decimal-different.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/fixed-value-space-element-restriction/decimal-different.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with native libxml2 2.9.13 on the unchanged explicit roots and file bytes: schema assessed valid. Element restriction: decimal 1.0 and 1.1 are distinct values; fixed values compare in value space. Diagnosis: the provider does not check fixed-value consistency for this derivation or reference.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/fixed-value-space-element-restriction/decimal-different.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/fixed-value-space-element-restriction/qname-same-namespace",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal"
+        ],
+        "description": "Element restriction: QName p:a and q:a with both prefixes bound to urn:a are the same expanded name; fixed values compare in value space.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/fixed-value-space-element-restriction/qname-same-namespace.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/fixed-value-space-element-restriction/qname-same-namespace.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 on the unchanged explicit roots and file bytes: schema assessed invalid. Element restriction: QName p:a and q:a with both prefixes bound to urn:a are the same expanded name; fixed values compare in value space. Diagnosis: the provider compares fixed constraints by lexical string, not datatype value.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/fixed-value-space-element-restriction/qname-same-namespace.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/fixed-value-space-element-restriction/qname-different-namespace",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal"
+        ],
+        "description": "Element restriction: QName p:a bound to urn:a and p:a bound to urn:b are distinct expanded names despite equal lexical forms; fixed values compare in value space.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/fixed-value-space-element-restriction/qname-different-namespace.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/fixed-value-space-element-restriction/qname-different-namespace.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 on the unchanged explicit roots and file bytes: schema assessed valid. Element restriction: QName p:a bound to urn:a and p:a bound to urn:b are distinct expanded names despite equal lexical forms; fixed values compare in value space. Diagnosis: the provider compares fixed constraints by lexical string, not datatype value.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with native libxml2 2.9.13 on the unchanged explicit roots and file bytes: schema assessed valid. Element restriction: QName p:a bound to urn:a and p:a bound to urn:b are distinct expanded names despite equal lexical forms; fixed values compare in value space. Diagnosis: the provider does not check fixed-value consistency for this derivation or reference.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/fixed-value-space-element-restriction/qname-different-namespace.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/fixed-value-space-element-restriction/float-nan",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal"
+        ],
+        "description": "Element restriction: float NaN is identical to itself for value-constraint comparison; fixed values compare in value space.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/fixed-value-space-element-restriction/float-nan.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/fixed-value-space-element-restriction/float-nan.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/fixed-value-space-element-restriction/float-nan.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/fixed-value-space-element-restriction/float-infinities",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal"
+        ],
+        "description": "Element restriction: float INF and -INF are distinct values; fixed values compare in value space.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/fixed-value-space-element-restriction/float-infinities.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/fixed-value-space-element-restriction/float-infinities.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with native libxml2 2.9.13 on the unchanged explicit roots and file bytes: schema assessed valid. Element restriction: float INF and -INF are distinct values; fixed values compare in value space. Diagnosis: the provider does not check fixed-value consistency for this derivation or reference.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/fixed-value-space-element-restriction/float-infinities.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/fixed-value-space-attribute-restriction/duration-p1y-p12m",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal"
+        ],
+        "description": "Attribute-use restriction: duration P1Y and P12M are the same (months, seconds) value; fixed values compare in value space.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/fixed-value-space-attribute-restriction/duration-p1y-p12m.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/fixed-value-space-attribute-restriction/duration-p1y-p12m.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 on the unchanged explicit roots and file bytes: schema assessed invalid. Attribute-use restriction: duration P1Y and P12M are the same (months, seconds) value; fixed values compare in value space. Diagnosis: the provider compares fixed constraints by lexical string, not datatype value.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/attributes/fixed-value-space-attribute-restriction/duration-p1y-p12m.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/fixed-value-space-attribute-restriction/duration-p1y-p365d",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal"
+        ],
+        "description": "Attribute-use restriction: duration P1Y and P365D have different month and second components, so they are distinct values; fixed values compare in value space.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/fixed-value-space-attribute-restriction/duration-p1y-p365d.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/fixed-value-space-attribute-restriction/duration-p1y-p365d.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET 10.0.14 on the unchanged explicit roots and file bytes: schema assessed valid. Attribute-use restriction: duration P1Y and P365D have different month and second components, so they are distinct values; fixed values compare in value space. Diagnosis: the provider maps xs:duration to a single TimeSpan, equating one year with 365 days, while XSD 1.0 duration values are (months, seconds) pairs.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with native libxml2 2.9.13 on the unchanged explicit roots and file bytes: schema assessed valid. Attribute-use restriction: duration P1Y and P365D have different month and second components, so they are distinct values; fixed values compare in value space. Diagnosis: the provider does not check fixed-value consistency for this derivation or reference.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/attributes/fixed-value-space-attribute-restriction/duration-p1y-p365d.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/fixed-value-space-attribute-restriction/decimal-trailing-zero",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal"
+        ],
+        "description": "Attribute-use restriction: decimal 1.0 and 1 are the same value; fixed values compare in value space.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/fixed-value-space-attribute-restriction/decimal-trailing-zero.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/fixed-value-space-attribute-restriction/decimal-trailing-zero.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 on the unchanged explicit roots and file bytes: schema assessed invalid. Attribute-use restriction: decimal 1.0 and 1 are the same value; fixed values compare in value space. Diagnosis: the provider compares fixed constraints by lexical string, not datatype value.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/attributes/fixed-value-space-attribute-restriction/decimal-trailing-zero.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/fixed-value-space-attribute-restriction/decimal-different",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal"
+        ],
+        "description": "Attribute-use restriction: decimal 1.0 and 1.1 are distinct values; fixed values compare in value space.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/fixed-value-space-attribute-restriction/decimal-different.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/fixed-value-space-attribute-restriction/decimal-different.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with native libxml2 2.9.13 on the unchanged explicit roots and file bytes: schema assessed valid. Attribute-use restriction: decimal 1.0 and 1.1 are distinct values; fixed values compare in value space. Diagnosis: the provider does not check fixed-value consistency for this derivation or reference.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/attributes/fixed-value-space-attribute-restriction/decimal-different.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/fixed-value-space-attribute-restriction/qname-same-namespace",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal"
+        ],
+        "description": "Attribute-use restriction: QName p:a and q:a with both prefixes bound to urn:a are the same expanded name; fixed values compare in value space.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/fixed-value-space-attribute-restriction/qname-same-namespace.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/fixed-value-space-attribute-restriction/qname-same-namespace.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 on the unchanged explicit roots and file bytes: schema assessed invalid. Attribute-use restriction: QName p:a and q:a with both prefixes bound to urn:a are the same expanded name; fixed values compare in value space. Diagnosis: the provider compares fixed constraints by lexical string, not datatype value.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/attributes/fixed-value-space-attribute-restriction/qname-same-namespace.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/fixed-value-space-attribute-restriction/qname-different-namespace",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal"
+        ],
+        "description": "Attribute-use restriction: QName p:a bound to urn:a and p:a bound to urn:b are distinct expanded names despite equal lexical forms; fixed values compare in value space.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/fixed-value-space-attribute-restriction/qname-different-namespace.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/fixed-value-space-attribute-restriction/qname-different-namespace.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 on the unchanged explicit roots and file bytes: schema assessed valid. Attribute-use restriction: QName p:a bound to urn:a and p:a bound to urn:b are distinct expanded names despite equal lexical forms; fixed values compare in value space. Diagnosis: the provider compares fixed constraints by lexical string, not datatype value.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with native libxml2 2.9.13 on the unchanged explicit roots and file bytes: schema assessed valid. Attribute-use restriction: QName p:a bound to urn:a and p:a bound to urn:b are distinct expanded names despite equal lexical forms; fixed values compare in value space. Diagnosis: the provider does not check fixed-value consistency for this derivation or reference.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/attributes/fixed-value-space-attribute-restriction/qname-different-namespace.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/fixed-value-space-attribute-restriction/float-nan",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal"
+        ],
+        "description": "Attribute-use restriction: float NaN is identical to itself for value-constraint comparison; fixed values compare in value space.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/fixed-value-space-attribute-restriction/float-nan.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/fixed-value-space-attribute-restriction/float-nan.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/attributes/fixed-value-space-attribute-restriction/float-nan.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/fixed-value-space-attribute-restriction/float-infinities",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal"
+        ],
+        "description": "Attribute-use restriction: float INF and -INF are distinct values; fixed values compare in value space.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/fixed-value-space-attribute-restriction/float-infinities.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/fixed-value-space-attribute-restriction/float-infinities.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with native libxml2 2.9.13 on the unchanged explicit roots and file bytes: schema assessed valid. Attribute-use restriction: float INF and -INF are distinct values; fixed values compare in value space. Diagnosis: the provider does not check fixed-value consistency for this derivation or reference.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/attributes/fixed-value-space-attribute-restriction/float-infinities.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/fixed-value-space-attribute-reference/duration-p1y-p12m",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal"
+        ],
+        "description": "Attribute reference: duration P1Y and P12M are the same (months, seconds) value; fixed values compare in value space.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/fixed-value-space-attribute-reference/duration-p1y-p12m.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/fixed-value-space-attribute-reference/duration-p1y-p12m.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 on the unchanged explicit roots and file bytes: schema assessed invalid. Attribute reference: duration P1Y and P12M are the same (months, seconds) value; fixed values compare in value space. Diagnosis: the provider compares fixed constraints by lexical string, not datatype value.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/attributes/fixed-value-space-attribute-reference/duration-p1y-p12m.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/fixed-value-space-attribute-reference/duration-p1y-p365d",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal"
+        ],
+        "description": "Attribute reference: duration P1Y and P365D have different month and second components, so they are distinct values; fixed values compare in value space.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/fixed-value-space-attribute-reference/duration-p1y-p365d.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/fixed-value-space-attribute-reference/duration-p1y-p365d.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET 10.0.14 on the unchanged explicit roots and file bytes: schema assessed valid. Attribute reference: duration P1Y and P365D have different month and second components, so they are distinct values; fixed values compare in value space. Diagnosis: the provider maps xs:duration to a single TimeSpan, equating one year with 365 days, while XSD 1.0 duration values are (months, seconds) pairs.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with native libxml2 2.9.13 on the unchanged explicit roots and file bytes: schema assessed valid. Attribute reference: duration P1Y and P365D have different month and second components, so they are distinct values; fixed values compare in value space. Diagnosis: the provider does not check fixed-value consistency for this derivation or reference.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/attributes/fixed-value-space-attribute-reference/duration-p1y-p365d.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/fixed-value-space-attribute-reference/decimal-trailing-zero",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal"
+        ],
+        "description": "Attribute reference: decimal 1.0 and 1 are the same value; fixed values compare in value space.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/fixed-value-space-attribute-reference/decimal-trailing-zero.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/fixed-value-space-attribute-reference/decimal-trailing-zero.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 on the unchanged explicit roots and file bytes: schema assessed invalid. Attribute reference: decimal 1.0 and 1 are the same value; fixed values compare in value space. Diagnosis: the provider compares fixed constraints by lexical string, not datatype value.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/attributes/fixed-value-space-attribute-reference/decimal-trailing-zero.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/fixed-value-space-attribute-reference/decimal-different",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal"
+        ],
+        "description": "Attribute reference: decimal 1.0 and 1.1 are distinct values; fixed values compare in value space.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/fixed-value-space-attribute-reference/decimal-different.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/fixed-value-space-attribute-reference/decimal-different.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with native libxml2 2.9.13 on the unchanged explicit roots and file bytes: schema assessed valid. Attribute reference: decimal 1.0 and 1.1 are distinct values; fixed values compare in value space. Diagnosis: the provider does not check fixed-value consistency for this derivation or reference.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/attributes/fixed-value-space-attribute-reference/decimal-different.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/fixed-value-space-attribute-reference/qname-same-namespace",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal"
+        ],
+        "description": "Attribute reference: QName p:a and q:a with both prefixes bound to urn:a are the same expanded name; fixed values compare in value space.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/fixed-value-space-attribute-reference/qname-same-namespace.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/fixed-value-space-attribute-reference/qname-same-namespace.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 on the unchanged explicit roots and file bytes: schema assessed invalid. Attribute reference: QName p:a and q:a with both prefixes bound to urn:a are the same expanded name; fixed values compare in value space. Diagnosis: the provider compares fixed constraints by lexical string, not datatype value.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/attributes/fixed-value-space-attribute-reference/qname-same-namespace.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/fixed-value-space-attribute-reference/qname-different-namespace",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal"
+        ],
+        "description": "Attribute reference: QName p:a bound to urn:a and p:a bound to urn:b are distinct expanded names despite equal lexical forms; fixed values compare in value space.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/fixed-value-space-attribute-reference/qname-different-namespace.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/fixed-value-space-attribute-reference/qname-different-namespace.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 on the unchanged explicit roots and file bytes: schema assessed valid. Attribute reference: QName p:a bound to urn:a and p:a bound to urn:b are distinct expanded names despite equal lexical forms; fixed values compare in value space. Diagnosis: the provider compares fixed constraints by lexical string, not datatype value.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with native libxml2 2.9.13 on the unchanged explicit roots and file bytes: schema assessed valid. Attribute reference: QName p:a bound to urn:a and p:a bound to urn:b are distinct expanded names despite equal lexical forms; fixed values compare in value space. Diagnosis: the provider does not check fixed-value consistency for this derivation or reference.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/attributes/fixed-value-space-attribute-reference/qname-different-namespace.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/fixed-value-space-attribute-reference/float-nan",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal"
+        ],
+        "description": "Attribute reference: float NaN is identical to itself for value-constraint comparison; fixed values compare in value space.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/fixed-value-space-attribute-reference/float-nan.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/fixed-value-space-attribute-reference/float-nan.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/attributes/fixed-value-space-attribute-reference/float-nan.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/fixed-value-space-attribute-reference/float-infinities",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal"
+        ],
+        "description": "Attribute reference: float INF and -INF are distinct values; fixed values compare in value space.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/fixed-value-space-attribute-reference/float-infinities.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/fixed-value-space-attribute-reference/float-infinities.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with native libxml2 2.9.13 on the unchanged explicit roots and file bytes: schema assessed valid. Attribute reference: float INF and -INF are distinct values; fixed values compare in value space. Diagnosis: the provider does not check fixed-value consistency for this derivation or reference.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/attributes/fixed-value-space-attribute-reference/float-infinities.xsd",
           "role": "principal"
         }
       ]

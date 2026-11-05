@@ -214,7 +214,10 @@ as `anyType` ([I-023](docs/spec/INTERPRETATIONS.md#i-023--substitution-group-mem
 normalization, primitive values, lists, unions, facets, canonical text, typed
 equality, and ID/IDREF projections. Schema declarations keep only component
 metadata and value-program type IDs. No other package parses simple values,
-evaluates facets, or defines value equality.
+evaluates facets, or defines value equality. Fixed-grammar boolean syntax in
+schema documents and `xsi:nil` is parsed with `ParseBooleanValue`; only
+`minOccurs`/`maxOccurs` and facet integer arguments are parsed by their syntax
+owner, `internal/schema`, because no value-owned parser exists for them.
 
 - **Construction.** The schema compiler drives `Builder` (`Reserve`,
   `Complete`, `Seal`) and supplies its construction limits. Compile-time
@@ -252,6 +255,9 @@ evaluates facets, or defines value equality.
   result and owns the NOTATION declaration check.
 - **Equality.** Equality uses the value space (`Value.Equal`, `IdentityKey`).
   Text projections never define equality, and duration has no canonical form.
+  Schema fixed-value and value-constraint identity checks compare typed
+  constraints with `Value.Equal` only; canonical text is compared only when a
+  constraint has no value type.
   A retained `Value` stays valid after its scratch is reused or reset.
 - **Patterns.** Pattern syntax and match limits belong to `internal/xsdregex`.
   Value owns pattern grouping: alternatives within one restriction step, and
@@ -301,6 +307,11 @@ Cross-module contracts:
   selection error.
 - QName and NOTATION spellings use the `internal/xmlstream` reader's bounded
   string cache, but resolve against the current namespace frame each time.
+- Session validation and `CheckXMLWellFormed` start the reader through one
+  limit projection (`Limits.readerConfig`, `resetInstanceReader`), so both
+  enforce and report the same instance syntax limits. `session.setLimits` is
+  the only writer of session and identity limits, for fresh and pooled
+  sessions alike.
 - Element-start diagnostics carry the location `Reader.StartLocation` exposes;
   `MaxIdentityEntries` bounds stored entries, pending selector matches, and
   pending field slots independently, as `ValidateOptions` documents.
@@ -326,6 +337,12 @@ instance validation, and formatting share one `Reader` contract:
 - The reader owns rejection of DTDs and forbidden outside-root data and reports
   neutral `ErrorKind` failures; consumers translate them into their own
   diagnostics.
+- The reader owns the closed unsupported-feature classification
+  (`UnsupportedFeatureOf`: DTD, non-UTF-8 encoding, XML version, undeclared
+  entity reference); a reader error has `ErrorUnsupported` kind exactly when it
+  classifies. Schema, instance, and format consumers map every feature in one
+  exhaustive switch and own only the message text, so a new feature fails the
+  `exhaustive` lint in each consumer instead of degrading to a syntax error.
 - `CharacterDataKind` preserves lexical origin (literal text, references,
   CDATA); compile, validate, and format use it for their character-content rules.
 - Comment mode is chosen per consumer: validation uses `CommentModeDiscard`,
@@ -437,6 +454,11 @@ Diagnostics flow:
    schema assessment failures. Fatal XML, limit, or operational errors take
    precedence over earlier recoverable diagnostics; adapters preserve the
    diagnostics returned by the core without reconstructing discarded history.
+   A diagnostic is recoverable exactly when
+   `xsderrors.IsConclusiveValidation` holds: the collected diagnostics form
+   the `invalid` result, so nothing inconclusive may be collected. `xsderrors`
+   owns the per-code disposition in one exhaustive switch; validate adds only
+   the identity exclusion from element-assessment failure.
 
 Browser flow:
 
@@ -453,8 +475,12 @@ Browser flow:
    failures retain the bounded well-formedness check and XML-first diagnostic
    ordering. The page displays structured diagnostics for either unsuccessful
    branch and formats only valid documents.
-2. `web/js/xsd-worker.js` owns the Go WASM runtime. WASM functions and limits
-   never enter the window global scope. One runtime-owned Go
+2. `web/js/xsd-worker.js` wires the worker; `web/js/xsd-runtime.js` owns the
+   Go WASM runtime lifecycle. Any settlement of the Go program's `run` is
+   fatal; startup failure and run settlement together post at most one
+   `fatal` message, so a runtime exit restarts the worker instead of failing
+   every later request. WASM
+   functions and limits never enter the window global scope. One runtime-owned Go
    `validationAdapter`, captured by its JavaScript callback, retains one
    successfully compiled engine and its exact XSD text. Compilation uses the
    fixed `schema.xsd` source identity, default compile options, and no resolver;
@@ -561,6 +587,7 @@ change-detector tests that mirror the implementation or assert their own setup.
 | `tests/schema_build_boundary_test.go` | Compiler topology mutation has one owner |
 | `cmd/wasmxsd/api_test.go`, `cmd/wasmxsd/main_js_test.go`, `cmd/wasmxsd/build_test.go`, and `cmd/xsdweb/main_test.go` | Go adapter response/build contracts, input bounds, asset catalog, and server shutdown lifecycle |
 | `web/js/validation-worker.test.js` | Worker queue, cancellation, timeout, generation, and state ownership |
+| `web/js/xsd-runtime.test.js` | Go runtime readiness and single-fatal reporting on runtime exit or startup failure |
 | `web/js/browser/validator.spec.js` | Built WASM behavior, response branches, stale-input protection, and main-thread bounds |
 
 The files own their exact test inventory. This contract records why each

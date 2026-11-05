@@ -252,6 +252,77 @@ test("observer failures cannot unwind worker lifecycle methods", async (t) => {
   assert.ok(observerErrors.every((err) => err instanceof Error && err.message === "observer failed"));
 });
 
+test("fatal during startup rejects readiness and queued work", async () => {
+  const factory = fakeWorkerFactory();
+  const client = new ValidationWorkerClient("worker.js", { workerFactory: factory.create });
+  const starting = client.start();
+  const queued = client.validate("one", "schema");
+
+  factory.workers[0].receive({ type: "fatal", error: "runtime lost" });
+
+  await assert.rejects(starting, { message: "runtime lost" });
+  await assert.rejects(queued, { message: "runtime lost" });
+  assert.equal(factory.workers[0].terminated, true);
+  assert.equal(client.state.phase, "failed");
+  client.dispose();
+});
+
+test("fatal while ready fails the worker and the next validation starts a fresh one", async () => {
+  const factory = fakeWorkerFactory();
+  const client = new ValidationWorkerClient("worker.js", { workerFactory: factory.create });
+  const ready = client.start();
+  factory.workers[0].receive({ type: "ready", limits });
+  await ready;
+
+  factory.workers[0].receive({ type: "fatal", error: "" });
+
+  assert.equal(factory.workers[0].terminated, true);
+  assert.equal(client.state.phase, "failed");
+  const next = client.validate("one", "schema");
+  assert.equal(factory.workers.length, 2);
+  factory.workers[1].receive({ type: "ready", limits });
+  const request = factory.workers[1].messages[0];
+  factory.workers[1].receive({
+    type: "result",
+    requestId: request.requestId,
+    flow: { result: { status: "valid" }, xml: "one" },
+  });
+  assert.equal((await next).result.status, "valid");
+  client.dispose();
+});
+
+test("fatal while running rejects the active request with the default message", async () => {
+  const factory = fakeWorkerFactory();
+  const client = new ValidationWorkerClient("worker.js", { workerFactory: factory.create });
+  const ready = client.start();
+  factory.workers[0].receive({ type: "ready", limits });
+  await ready;
+  const active = client.validate("one", "schema");
+
+  factory.workers[0].receive({ type: "fatal" });
+
+  await assert.rejects(active, { message: "Validation worker failed" });
+  assert.equal(client.state.phase, "failed");
+  client.dispose();
+});
+
+test("fatal from a replaced worker does not fail its successor", async () => {
+  const factory = fakeWorkerFactory();
+  const client = new ValidationWorkerClient("worker.js", { workerFactory: factory.create });
+  const starting = client.start();
+  const staleHandler = factory.workers[0].onmessage;
+  const restarted = client.cancel("restart");
+  await assert.rejects(starting, ValidationCanceledError);
+  factory.workers[1].receive({ type: "ready", limits });
+  await restarted;
+
+  staleHandler({ data: { type: "fatal", error: "old runtime exited" } });
+
+  assert.equal(client.state.phase, "ready");
+  assert.equal(factory.workers[1].terminated, false);
+  client.dispose();
+});
+
 class FakeWorker {
   messages = [];
   onerror = null;

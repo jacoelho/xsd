@@ -75,17 +75,67 @@ func TestCheckXMLWellFormedUsesBufferedCharacterFailurePosition(t *testing.T) {
 func TestCheckXMLWellFormedHonorsParserLimits(t *testing.T) {
 	t.Parallel()
 
-	err := CheckXMLWellFormed(strings.NewReader(`<root a="1" b="2"/>`), Options{MaxInstanceAttributes: 1})
-	requireCode(t, err, xsderrors.CodeValidationLimit)
+	tests := []struct {
+		xml     string
+		opts    Options
+		message string
+	}{
+		{xml: `<root a="1" b="2"/>`, opts: Options{MaxInstanceAttributes: 1}, message: "MaxInstanceAttributes=1"},
+		{xml: `<root><v/></root>`, opts: Options{MaxInstanceDepth: 1}, message: "nesting exceeds 1 element limit"},
+		{xml: `<root>text</root>`, opts: Options{MaxInstanceTokenBytes: 1}, message: "MaxInstanceTokenBytes=1"},
+		{xml: `<r a="12" b="34"/>`, opts: Options{MaxInstanceTokenBytes: 6}, message: "MaxInstanceTokenBytes=6"},
+		{xml: `<root>text</root>`, opts: Options{MaxInstanceBytes: 4}, message: "MaxInstanceBytes=4"},
+	}
+	for _, tt := range tests {
+		diagnostic := requireDiagnostic(t, CheckXMLWellFormed(strings.NewReader(tt.xml), tt.opts), xsderrors.CodeValidationLimit)
+		if !strings.Contains(diagnostic.Error(), tt.message) {
+			t.Fatalf("CheckXMLWellFormed(%q) = %v, want message naming %s", tt.xml, diagnostic, tt.message)
+		}
+	}
+}
 
-	err = CheckXMLWellFormed(strings.NewReader(`<root><v/></root>`), Options{MaxInstanceDepth: 1})
-	requireCode(t, err, xsderrors.CodeValidationLimit)
+// The schema-free check and schema validation read instances under the same
+// limits, so for every limit value they accept or reject a document alike and
+// report the same diagnostic.
+func TestCheckXMLWellFormedMatchesSessionReaderLimits(t *testing.T) {
+	t.Parallel()
 
-	err = CheckXMLWellFormed(strings.NewReader(`<root>text</root>`), Options{MaxInstanceTokenBytes: 1})
-	requireCode(t, err, xsderrors.CodeValidationLimit)
-
-	err = CheckXMLWellFormed(strings.NewReader(`<r a="12" b="34"/>`), Options{MaxInstanceTokenBytes: 6})
-	requireCode(t, err, xsderrors.CodeValidationLimit)
+	// root has xs:anyType, so every well-formed document under it is valid.
+	pool := NewSessionPool(compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root"/>
+</xs:schema>`))
+	const doc = `<root a="1" b="2"><v><w>text</w></v></root>`
+	limits := []struct {
+		name string
+		opts func(int) Options
+	}{
+		{name: "attributes", opts: func(n int) Options { return Options{MaxInstanceAttributes: n} }},
+		{name: "depth", opts: func(n int) Options { return Options{MaxInstanceDepth: n} }},
+		{name: "token bytes", opts: func(n int) Options { return Options{MaxInstanceTokenBytes: int64(n)} }},
+		{name: "input bytes", opts: func(n int) Options { return Options{MaxInstanceBytes: int64(n)} }},
+	}
+	for _, limit := range limits {
+		t.Run(limit.name, func(t *testing.T) {
+			t.Parallel()
+			var accepted, rejected bool
+			for n := 1; n <= len(doc)+1; n++ {
+				opts := limit.opts(n)
+				checked := CheckXMLWellFormed(strings.NewReader(doc), opts)
+				validated := pool.Validate(strings.NewReader(doc), opts)
+				if fmt.Sprint(checked) != fmt.Sprint(validated) {
+					t.Fatalf("limit %d: CheckXMLWellFormed = %v, Validate = %v", n, checked, validated)
+				}
+				if checked == nil {
+					accepted = true
+				} else {
+					rejected = true
+				}
+			}
+			if !accepted || !rejected {
+				t.Fatalf("sweep accepted=%t rejected=%t, want both", accepted, rejected)
+			}
+		})
+	}
 }
 
 func TestCheckXMLWellFormedDefaultAllowsW3CAttributeGroupOracle(t *testing.T) {

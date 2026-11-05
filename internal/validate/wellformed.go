@@ -15,36 +15,19 @@ func CheckXMLWellFormed(r io.Reader, opts Options) error {
 	// Separate field initialization avoids clearing the embedded input buffer
 	// again after the compiler allocates the zeroed checker.
 	var c xmlWellFormedChecker
-	c.maxDepth = limits.InstanceDepth
-	c.maxAttributes = limits.InstanceAttributes
-	c.maxTokenBytes = limits.InstanceTokenBytes
-	c.maxInputBytes = limits.InstanceBytes
+	c.limits = limits
 	return c.check(r)
 }
 
 type xmlWellFormedChecker struct {
-	doc           xmlDocument[struct{}]
-	reader        xmlstream.Reader
-	maxDepth      int
-	maxAttributes int
-	maxTokenBytes int64
-	maxInputBytes int64
+	doc    xmlDocument[struct{}]
+	reader xmlstream.Reader
+	limits Limits
 }
 
 func (c *xmlWellFormedChecker) check(r io.Reader) error {
-	if err := c.reader.Reset(r, xmlstream.Config{
-		Limits: xmlstream.Limits{
-			MaxInputBytes: c.maxInputBytes,
-			MaxTokenBytes: c.maxTokenBytes,
-			MaxAttrs:      c.maxAttributes,
-			MaxDepth:      c.maxDepth,
-		},
-		LazyAttrValues: true,
-	}); err != nil {
-		if limitErr := instanceLimitError(err, StartContext{}, c.limitOptions()); limitErr != nil {
-			return limitErr
-		}
-		return instanceReaderError(err)
+	if err := resetInstanceReader(&c.reader, r, c.limits); err != nil {
+		return err
 	}
 	defer c.reader.Detach()
 	return c.checkTokens()
@@ -100,12 +83,8 @@ func (c *xmlWellFormedChecker) end(line, col int) error {
 
 func (c *xmlWellFormedChecker) streamError(err error) error {
 	line, col := streamErrorPosition(&c.reader, err)
-	if limitErr := instanceLimitError(err, c.doc.context(line, col), c.limitOptions()); limitErr != nil {
+	if limitErr := instanceLimitError(err, c.doc.context(line, col), c.limits); limitErr != nil {
 		return limitErr
 	}
 	return StreamError(line, col, c.doc.PathString(), err)
-}
-
-func (c *xmlWellFormedChecker) limitOptions() Limits {
-	return Limits{InstanceBytes: c.maxInputBytes, InstanceTokenBytes: c.maxTokenBytes, InstanceAttributes: c.maxAttributes}
 }

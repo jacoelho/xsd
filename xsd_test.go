@@ -335,6 +335,73 @@ func TestOpenOwnsReadersReturnedWithoutError(t *testing.T) {
 	})
 }
 
+// Each WithResolver call is its own resolution context: a shared descendant
+// compiles once but is resolved again by every context that reaches it, while
+// reusing one WithResolver result keeps one context.
+func TestWithResolverContextPerCall(t *testing.T) {
+	t.Parallel()
+
+	const rootSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="child.xsd"/></xs:schema>`
+	documents := map[string]string{
+		"child.xsd": `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="leaf.xsd"/><xs:element name="child"/></xs:schema>`,
+		"leaf.xsd":  `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="leaf"/></xs:schema>`,
+	}
+	countingResolver := func(calls map[string]int) xsd.ResolverFunc {
+		var mu sync.Mutex
+		return func(_, location string) (xsd.SchemaSource, error) {
+			mu.Lock()
+			calls[location]++
+			mu.Unlock()
+			data, ok := documents[location]
+			if !ok {
+				return xsd.SchemaSource{}, xsderrors.ErrSchemaNotFound
+			}
+			return xsd.Bytes(location, []byte(data)), nil
+		}
+	}
+	root := func(name string) xsd.SchemaSource { return xsd.Bytes(name, []byte(rootSchema)) }
+
+	tests := []struct {
+		name    string
+		sources func(xsd.ResolverFunc) []xsd.SchemaSource
+		want    map[string]int
+	}{
+		{
+			name: "two calls with one resolver",
+			sources: func(r xsd.ResolverFunc) []xsd.SchemaSource {
+				return []xsd.SchemaSource{root("a.xsd").WithResolver(r), root("b.xsd").WithResolver(r)}
+			},
+			want: map[string]int{"child.xsd": 2, "leaf.xsd": 2},
+		},
+		{
+			name: "one result reused",
+			sources: func(r xsd.ResolverFunc) []xsd.SchemaSource {
+				shared := root("a.xsd").WithResolver(r)
+				return []xsd.SchemaSource{shared, shared}
+			},
+			want: map[string]int{"child.xsd": 1, "leaf.xsd": 1},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			calls := map[string]int{}
+			engine, err := xsd.Compile(tt.sources(countingResolver(calls))...)
+			if err != nil {
+				t.Fatalf("Compile() error = %v", err)
+			}
+			if !reflect.DeepEqual(calls, tt.want) {
+				t.Fatalf("resolver calls = %v, want %v", calls, tt.want)
+			}
+			for _, document := range []string{`<child/>`, `<leaf/>`} {
+				if err := engine.Validate(strings.NewReader(document)); err != nil {
+					t.Fatalf("Validate(%s) error = %v", document, err)
+				}
+			}
+		})
+	}
+}
+
 func TestResolverBoundaryProtocol(t *testing.T) {
 	t.Parallel()
 

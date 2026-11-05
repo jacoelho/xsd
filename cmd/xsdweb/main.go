@@ -40,6 +40,7 @@ var webAssets = [...]webAsset{
 	{route: "/js/validation-flow.js", name: "js/validation-flow.js", contentType: javascriptContentType},
 	{route: "/js/validation-worker.js", name: "js/validation-worker.js", contentType: javascriptContentType},
 	{route: "/js/xsd-worker.js", name: "js/xsd-worker.js", contentType: javascriptContentType},
+	{route: "/js/xsd-runtime.js", name: "js/xsd-runtime.js", contentType: javascriptContentType},
 }
 
 func main() {

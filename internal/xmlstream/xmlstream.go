@@ -389,12 +389,6 @@ func IsAttributeLimit(err error) bool {
 	return errors.Is(err, errXMLAttributeLimit)
 }
 
-// IsUnsupportedEntityReference reports whether err came from an unresolved
-// XML entity reference.
-func IsUnsupportedEntityReference(err error) bool {
-	return errors.Is(err, errUnsupportedEntityReference)
-}
-
 // IsOnlyEOF reports whether every cause in err is io.EOF. Joined errors with
 // any non-EOF cause must not be treated as successful stream completion.
 func IsOnlyEOF(err error) bool {
@@ -1419,7 +1413,7 @@ func validateXMLVersionAttribute(content []byte) ([]byte, error) {
 		return nil, fmt.Errorf("invalid XML declaration version %q", attr.Value)
 	}
 	if attr.Value != xmlVersion10 {
-		return nil, UnsupportedXMLVersionError{Version: attr.Value}
+		return nil, unsupportedXMLVersionError{Version: attr.Value}
 	}
 	return attr.Rest, nil
 }
@@ -1433,7 +1427,7 @@ func validateOptionalXMLEncoding(content []byte) ([]byte, error) {
 		return nil, fmt.Errorf("invalid XML declaration encoding %q", attr.Value)
 	}
 	if !strings.EqualFold(attr.Value, "UTF-8") && !strings.EqualFold(attr.Value, "UTF8") {
-		return nil, ErrUnsupportedNonUTF8
+		return nil, errUnsupportedNonUTF8
 	}
 	return attr.Rest, nil
 }

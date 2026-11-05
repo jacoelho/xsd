@@ -212,12 +212,6 @@ func xsiStartAttributeFlagsFor(attrs []xmlstream.Attr) xsiStartAttributeFlags {
 
 // ParseXSINil parses an xsi:nil attribute value after XML whitespace collapse.
 func ParseXSINil(lexical string) (value, valid bool) {
-	switch lex.CollapseXMLWhitespace(lexical) {
-	case "true", "1":
-		return true, true
-	case "false", "0":
-		return false, true
-	default:
-		return false, false
-	}
+	parsed, err := xsdValue.ParseBooleanValue(lex.CollapseXMLWhitespace(lexical))
+	return parsed, err == nil
 }

@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:annotation><xs:documentation>see &x;</xs:documentation></xs:annotation>
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>

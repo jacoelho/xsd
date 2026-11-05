@@ -73,7 +73,7 @@ var (
 	ErrTextOutsideRoot      = errors.New("character data outside the document element")
 	ErrCDATOutsideRoot      = errors.New("CDATA outside the document element")
 	ErrReferenceOutsideRoot = errors.New("character reference outside the document element")
-	ErrUnsupportedDTD       = errors.New("DTD declarations are not supported")
+	errUnsupportedDTD       = errors.New("DTD declarations are not supported")
 	ErrInvalidFrame         = errors.New("XML frame is not owned by this reader")
 	ErrReaderState          = errors.New("XML reader is not active")
 	ErrPendingStart         = errors.New("XML start token must be admitted before advancing")
@@ -242,7 +242,7 @@ func (r *Reader) acceptToken(tok *Token) error {
 		}
 	case KindDirective:
 		if IsDOCTYPEDeclaration(tok.Directive) {
-			return &Error{Kind: ErrorUnsupported, Line: tok.Line, Column: tok.Column, Cause: ErrUnsupportedDTD}
+			return positionedParserError(errUnsupportedDTD, tok.Line, tok.Column)
 		}
 	case KindComment, KindPI:
 		// Comments and processing instructions do not affect document state.
@@ -274,16 +274,20 @@ func validateOutsideRoot(tok *Token) error {
 }
 
 func positionedParserError(err error, line, column int) error {
-	kind := ErrorSyntax
+	return &Error{Kind: parserErrorKind(err), Line: line, Column: column, Cause: err}
+}
+
+func parserErrorKind(err error) ErrorKind {
+	if _, ok := UnsupportedFeatureOf(err); ok {
+		return ErrorUnsupported
+	}
 	switch {
 	case errors.Is(err, ErrXMLInputNilReader):
-		kind = ErrorInput
+		return ErrorInput
 	case IsInputLimit(err), IsTokenLimit(err), IsAttributeLimit(err), errors.Is(err, errXMLNegativeLimit):
-		kind = ErrorLimit
-	case errors.Is(err, ErrUnsupportedNonUTF8), errors.As(err, new(UnsupportedXMLVersionError)), IsUnsupportedEntityReference(err):
-		kind = ErrorUnsupported
+		return ErrorLimit
 	}
-	return &Error{Kind: kind, Line: line, Column: column, Cause: err}
+	return ErrorSyntax
 }
 
 // Start admits the current borrowed start token, expands its names in place,

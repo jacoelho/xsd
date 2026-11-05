@@ -70,7 +70,7 @@ func TestXMLDeclarationAdmission(t *testing.T) {
 					padding = strings.Repeat(" ", maxXMLDeclarationPreviewBytes+1024)
 				}
 				err := readDocument(`<?xml` + padding + test.decl + `?><r/>`)
-				var versionErr UnsupportedXMLVersionError
+				var versionErr unsupportedXMLVersionError
 				switch {
 				case test.version != "":
 					if !errors.As(err, &versionErr) || versionErr.Version != test.version {
@@ -81,8 +81,8 @@ func TestXMLDeclarationAdmission(t *testing.T) {
 						t.Fatalf("error = %v, want accepted", err)
 					}
 				case test.want == encoding:
-					if !errors.Is(err, ErrUnsupportedNonUTF8) {
-						t.Fatalf("error = %v, want %v", err, ErrUnsupportedNonUTF8)
+					if !errors.Is(err, errUnsupportedNonUTF8) {
+						t.Fatalf("error = %v, want %v", err, errUnsupportedNonUTF8)
 					}
 				default:
 					var xmlErr *Error
@@ -137,7 +137,7 @@ func TestXMLDeclarationPreviewBoundary(t *testing.T) {
 					_, err = reader.Next()
 				}
 				xerr, ok := errors.AsType[*Error](err)
-				if !ok || !errors.Is(err, ErrUnsupportedNonUTF8) || xerr.Kind != ErrorUnsupported || xerr.Line != 1 || xerr.Column != test.column {
+				if !ok || !errors.Is(err, errUnsupportedNonUTF8) || xerr.Kind != ErrorUnsupported || xerr.Line != 1 || xerr.Column != test.column {
 					t.Fatalf("bom=%t end=%d %s: error = %#v, want unsupported encoding at 1:%d", bom != "", test.end, rc.name, err, test.column)
 				}
 				reader.Detach()

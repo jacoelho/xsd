@@ -2,43 +2,24 @@ package validate
 
 import (
 	"errors"
+	"io"
 
 	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-func instanceReaderError(err error) error {
-	switch {
-	case errors.Is(err, xmlstream.ErrXMLInputNilReader):
-		return xsderrors.Validation(xsderrors.CodeValidationXML, msgReaderNil, nil)
-	case errors.Is(err, xmlstream.ErrUnsupportedNonUTF8):
-		return xsderrors.Unsupported(xsderrors.CodeUnsupportedNonUTF8, msgInstanceUTF8, err)
-	case xmlstream.IsInputLimit(err) || xmlstream.IsTokenLimit(err) || xmlstream.IsAttributeLimit(err):
-		return validationReaderCause(xsderrors.CodeValidationLimit, 0, 0, "", err)
-	default:
-		if versionErr, ok := errors.AsType[xmlstream.UnsupportedXMLVersionError](err); ok {
-			return xsderrors.Unsupported(xsderrors.CodeUnsupportedXMLVersion, versionErr.Error(), nil)
-		}
-		return validationReaderCause(xsderrors.CodeValidationXML, 0, 0, "", err)
-	}
-}
-
-// StreamError classifies parser errors as validation diagnostics.
+// StreamError classifies parser errors as validation diagnostics. Reader
+// Reset failures pass a zero position and empty path: they precede the first
+// token, so no instance location exists.
 func StreamError(line, col int, path string, err error) error {
-	if errors.Is(err, xmlstream.ErrUnsupportedNonUTF8) {
-		return xsderrors.WithLocation(path, line, col, xsderrors.Unsupported(xsderrors.CodeUnsupportedNonUTF8, msgInstanceUTF8, err))
+	if feature, ok := xmlstream.UnsupportedFeatureOf(err); ok {
+		return xsderrors.WithLocation(path, line, col, unsupportedInstanceFeature(feature, err))
 	}
-	if versionErr, ok := errors.AsType[xmlstream.UnsupportedXMLVersionError](err); ok {
-		return xsderrors.WithLocation(path, line, col, xsderrors.Unsupported(xsderrors.CodeUnsupportedXMLVersion, versionErr.Error(), nil))
+	if errors.Is(err, xmlstream.ErrXMLInputNilReader) {
+		return xsderrors.Validation(xsderrors.CodeValidationXML, msgReaderNil, nil)
 	}
 	if xmlstream.IsInputLimit(err) || xmlstream.IsTokenLimit(err) || xmlstream.IsAttributeLimit(err) {
 		return validationReaderCause(xsderrors.CodeValidationLimit, line, col, path, err)
-	}
-	if xmlstream.IsUnsupportedEntityReference(err) {
-		return xsderrors.WithLocation(path, line, col, xsderrors.Unsupported(xsderrors.CodeUnsupportedExternal, msgExternalEntity, err))
-	}
-	if errors.Is(err, xmlstream.ErrUnsupportedDTD) {
-		return xsderrors.WithLocation(path, line, col, xsderrors.Unsupported(xsderrors.CodeUnsupportedDTD, "", err))
 	}
 	if errors.Is(err, xmlstream.ErrTextOutsideRoot) {
 		return xsderrors.WithLocation(path, line, col, xsderrors.Validation(xsderrors.CodeValidationXML, msgTextOutsideRoot, err))
@@ -52,6 +33,20 @@ func StreamError(line, col int, path string, err error) error {
 	return validationReaderCause(xsderrors.CodeValidationXML, line, col, path, err)
 }
 
+func unsupportedInstanceFeature(feature xmlstream.UnsupportedFeature, err error) error {
+	switch feature {
+	case xmlstream.UnsupportedDTD:
+		return xsderrors.Unsupported(xsderrors.CodeUnsupportedDTD, "", err)
+	case xmlstream.UnsupportedNonUTF8:
+		return xsderrors.Unsupported(xsderrors.CodeUnsupportedNonUTF8, msgInstanceUTF8, err)
+	case xmlstream.UnsupportedXMLVersion:
+		return xsderrors.Unsupported(xsderrors.CodeUnsupportedXMLVersion, err.Error(), nil)
+	case xmlstream.UnsupportedEntityReference:
+		return xsderrors.Unsupported(xsderrors.CodeUnsupportedExternal, msgExternalEntity, err)
+	}
+	return xsderrors.InternalInvariant("unknown xmlstream unsupported feature")
+}
+
 func streamErrorPosition(reader *xmlstream.Reader, err error) (line, column int) {
 	if boundary, ok := errors.AsType[*xmlstream.Error](err); ok && boundary != nil && boundary.Line > 0 {
 		return boundary.Line, boundary.Column
@@ -61,4 +56,18 @@ func streamErrorPosition(reader *xmlstream.Reader, err error) (line, column int)
 
 func validationReaderCause(code xsderrors.Code, line, col int, path string, err error) error {
 	return xsderrors.WithLocation(path, line, col, xsderrors.Validation(code, "", err))
+}
+
+// resetInstanceReader starts reader on one instance document under the
+// instance limits. Session validation and the schema-free well-formedness check
+// both start here, so they enforce the same reader limits and classify reset
+// failures the same way.
+func resetInstanceReader(reader *xmlstream.Reader, r io.Reader, limits Limits) error {
+	if err := reader.Reset(r, limits.readerConfig()); err != nil {
+		if limitErr := instanceLimitError(err, StartContext{}, limits); limitErr != nil {
+			return limitErr
+		}
+		return StreamError(0, 0, "", err)
+	}
+	return nil
 }

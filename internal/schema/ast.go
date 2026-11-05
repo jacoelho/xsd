@@ -170,19 +170,27 @@ func schemaStreamError(line, col int, err error) error {
 	if boundary, ok := errors.AsType[*xmlstream.Error](err); ok && boundary != nil && boundary.Line > 0 {
 		line, col = boundary.Line, boundary.Column
 	}
-	if errors.Is(err, xmlstream.ErrUnsupportedNonUTF8) {
-		return xsderrors.Unsupported(xsderrors.CodeUnsupportedNonUTF8, "schema documents must be UTF-8", err)
-	}
-	if versionErr, ok := errors.AsType[xmlstream.UnsupportedXMLVersionError](err); ok {
-		return xsderrors.Unsupported(xsderrors.CodeUnsupportedXMLVersion, versionErr.Error(), nil)
-	}
-	if errors.Is(err, xmlstream.ErrUnsupportedDTD) {
-		return xsderrors.Unsupported(xsderrors.CodeUnsupportedDTD, "", err)
+	if feature, ok := xmlstream.UnsupportedFeatureOf(err); ok {
+		return unsupportedSchemaFeature(feature, err)
 	}
 	if xmlstream.IsTokenLimit(err) || xmlstream.IsAttributeLimit(err) {
 		return schemaParseAt(line, col, xsderrors.CodeSchemaLimit, err.Error(), err)
 	}
 	return schemaParseAt(line, col, xsderrors.CodeSchemaXML, "invalid schema XML", err)
+}
+
+func unsupportedSchemaFeature(feature xmlstream.UnsupportedFeature, err error) error {
+	switch feature {
+	case xmlstream.UnsupportedDTD:
+		return xsderrors.Unsupported(xsderrors.CodeUnsupportedDTD, "", err)
+	case xmlstream.UnsupportedNonUTF8:
+		return xsderrors.Unsupported(xsderrors.CodeUnsupportedNonUTF8, "schema documents must be UTF-8", err)
+	case xmlstream.UnsupportedXMLVersion:
+		return xsderrors.Unsupported(xsderrors.CodeUnsupportedXMLVersion, err.Error(), nil)
+	case xmlstream.UnsupportedEntityReference:
+		return xsderrors.Unsupported(xsderrors.CodeUnsupportedExternal, "schema documents cannot reference undeclared entities", err)
+	}
+	return xsderrors.InternalInvariant("unknown xmlstream unsupported feature")
 }
 
 func schemaNodeIDFor(index int) (schemaNodeID, error) {

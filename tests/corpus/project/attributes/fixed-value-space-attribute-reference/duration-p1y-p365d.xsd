@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:attribute name="a" type="xs:duration" fixed="P1Y"/>
+  <xs:complexType name="T">
+    <xs:attribute ref="a" fixed="P365D"/>
+  </xs:complexType>
+</xs:schema>

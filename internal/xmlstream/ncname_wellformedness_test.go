@@ -73,11 +73,11 @@ func TestEntityNamesWithColonAreMalformed(t *testing.T) {
 		})
 	}
 	for _, entity := range []string{"a:b", ":a", "a:"} {
-		if _, err := DecodeEntityReferenceString(entity); err == nil || IsUnsupportedEntityReference(err) {
+		if _, err := DecodeEntityReferenceString(entity); err == nil || unsupportedFeatureIs(err, UnsupportedEntityReference) {
 			t.Fatalf("DecodeEntityReferenceString(%q) error = %v, want malformed entity", entity, err)
 		}
 	}
-	if _, err := DecodeEntityReferenceString("missing"); !IsUnsupportedEntityReference(err) {
+	if _, err := DecodeEntityReferenceString("missing"); !unsupportedFeatureIs(err, UnsupportedEntityReference) {
 		t.Fatalf("DecodeEntityReferenceString(missing) error = %v, want unsupported entity", err)
 	}
 }

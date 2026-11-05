@@ -12,7 +12,7 @@ func TestIdentityEvaluationUsesCompiledDispatchForSelectorAndFields(t *testing.T
 	t.Parallel()
 
 	fixture := compiledIdentityRuntimeForTest(t)
-	evaluation := newIdentityEvaluation(fixture.rt, identityLimits{}, 0)
+	evaluation := newIdentityEvaluation(fixture.rt, identityLimits{})
 	if err := evaluation.startElement(identityElementStart{
 		Context: identityTestContext("/root", 1, 1),
 		Name:    xsdSchema.RuntimeName{Known: true, Name: fixture.elemName},
