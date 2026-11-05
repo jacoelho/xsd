@@ -147,10 +147,19 @@ static class Program
         // Without warnings an undeclared validation root is silently assessed laxly.
         instanceSettings.ValidationFlags |= XmlSchemaValidationFlags.ReportValidationWarnings;
         instanceSettings.ValidationEventHandler += instanceDiag.Record;
+        var rootAssessed = false;
         try
         {
             using var reader = XmlReader.Create(args[0], instanceSettings);
-            while (reader.Read()) { }
+            while (reader.Read())
+            {
+                if (reader.Depth == 0 && reader.NodeType == XmlNodeType.Element)
+                {
+                    // A root with neither a declaration nor a type is assessed laxly;
+                    // the warning text is not a verdict, the absent schema info is.
+                    rootAssessed = reader.SchemaInfo?.SchemaElement is not null || reader.SchemaInfo?.SchemaType is not null;
+                }
+            }
         }
         catch (XmlSchemaException e)
         {
@@ -168,7 +177,8 @@ static class Program
             return 0;
         }
         if (ReportBlocked(resolver)) return 0;
-        Emit(instanceDiag.Error is null ? "valid" : "invalid", instanceDiag.With(instanceDiag.Error));
+        if (instanceDiag.Error is not null) Emit("invalid", instanceDiag.With(instanceDiag.Error));
+        else Emit(rootAssessed ? "valid" : "unassessed", instanceDiag.With(null));
         return 0;
     }
 }

@@ -139,8 +139,8 @@ Their results never replace an unavailable stock result or enter that stock
 profile's oracle metadata. An exception-routing patch can explain a provider
 failure without independently establishing the instance's required validity.
 
-The comparison is complete when every implementation has a measured result or
-an explicit unavailable/blocked reason, and every disagreement has a diagnosis
+The comparison is complete when every implementation has a measured result
+(validity or `unassessed`) or an explicit unavailable/blocked reason, and every disagreement has a diagnosis
 or a stated unresolved boundary. Report remaining coverage limits to the user.
 
 ## Corpus Contract
@@ -154,9 +154,12 @@ or a stated unresolved boundary. Report remaining coverage limits to the user.
   validator run or redefine XSD validity. Actual comparisons follow
   [Cross-validator Diagnosis](#cross-validator-diagnosis). A provider comparison
   uses the phase's `oracle.<implementation>.expected` when present and otherwise
-  the project expectation. A provider phase with `status: "blocked"` and no
-  `expected` is an execution limitation, not a validity expectation; schema
-  rejection blocks its instance phases. Measured disagreements stay in oracle
+  the project expectation. Only provider keys carry a `status`, always without
+  `expected`, and neither status is a validity expectation:
+  `status: "blocked"` is an execution limitation (the provider could not run the
+  phase on the frozen inputs), and `status: "unassessed"` means the provider ran
+  but produced no validity outcome, such as .NET assessing an undeclared root
+  laxly. Schema rejection blocks its instance phases. Measured disagreements stay in oracle
   metadata; they never overwrite the project expectation, and blocked phases
   get no fabricated results.
 - Each schema or instance `expected` is the effective project expectation,

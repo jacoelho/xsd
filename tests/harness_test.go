@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"unicode"
 
 	"github.com/jacoelho/xsd"
 	"github.com/jacoelho/xsd/xsderrors"
@@ -39,9 +40,10 @@ type manifestCase struct {
 }
 
 type manifestSchema struct {
-	Expected  string             `json:"expected"`
-	ErrorCode string             `json:"errorCode"`
-	Documents []manifestDocument `json:"documents"`
+	Expected  string                    `json:"expected"`
+	ErrorCode string                    `json:"errorCode"`
+	Documents []manifestDocument        `json:"documents"`
+	Oracle    map[string]manifestOracle `json:"oracle"`
 }
 
 type manifestDocument struct {
@@ -49,10 +51,56 @@ type manifestDocument struct {
 }
 
 type manifestInstance struct {
-	TestName  string `json:"testName"`
-	File      string `json:"file"`
-	Expected  string `json:"expected"`
-	ErrorCode string `json:"errorCode"`
+	TestName  string                    `json:"testName"`
+	File      string                    `json:"file"`
+	Expected  string                    `json:"expected"`
+	ErrorCode string                    `json:"errorCode"`
+	Oracle    map[string]manifestOracle `json:"oracle"`
+}
+
+// manifestOracle is provenance for one phase, as the tests/README.md Corpus
+// Contract defines: a measured or corrected result in Expected, or, for a
+// cross-validator provider only, a Status recording that no validity result
+// exists. The harness never merges it into the project expectation.
+type manifestOracle struct {
+	Expected string `json:"expected"`
+	Status   string `json:"status"`
+	Reason   string `json:"reason"`
+}
+
+func validateOracle(phase string, oracle map[string]manifestOracle) error {
+	for _, key := range slices.Sorted(maps.Keys(oracle)) {
+		entry := oracle[key]
+		var provider bool
+		switch key {
+		case "xerces", "dotnet", "xmlschema", "libxml2":
+			provider = true
+		case "w3c", "project":
+		default:
+			return fmt.Errorf("%s has unknown oracle key %q", phase, key)
+		}
+		switch {
+		case entry.Expected != "" && entry.Status != "":
+			return fmt.Errorf("%s oracle %q has both expected and status", phase, key)
+		case entry.Expected != "":
+			if entry.Expected != "valid" && entry.Expected != "invalid" {
+				return fmt.Errorf("%s oracle %q has unknown expected value %q", phase, key, entry.Expected)
+			}
+		case entry.Status != "":
+			if !provider {
+				return fmt.Errorf("%s oracle %q has status, which only cross-validator providers record", phase, key)
+			}
+			if entry.Status != "blocked" && entry.Status != "unassessed" {
+				return fmt.Errorf("%s oracle %q has unknown status %q", phase, key, entry.Status)
+			}
+		default:
+			return fmt.Errorf("%s oracle %q has neither expected nor status", phase, key)
+		}
+		if strings.TrimFunc(entry.Reason, unicode.IsSpace) == "" {
+			return fmt.Errorf("%s oracle %q has no reason", phase, key)
+		}
+	}
+	return nil
 }
 
 type manifestFile struct {
@@ -145,12 +193,18 @@ func (c *manifestCase) UnmarshalJSON(data []byte) error {
 		default:
 			return fmt.Errorf("manifest case %q has unknown schema expected value %q", decoded.ID, schema.Expected)
 		}
+		if err := validateOracle(fmt.Sprintf("manifest case %q schema", decoded.ID), schema.Oracle); err != nil {
+			return err
+		}
 	}
 	for _, inst := range decoded.Instances {
 		switch inst.Expected {
 		case "valid", "invalid":
 		default:
 			return fmt.Errorf("manifest case %q instance %q has unknown expected value %q", decoded.ID, instanceName(inst), inst.Expected)
+		}
+		if err := validateOracle(fmt.Sprintf("manifest case %q instance %q", decoded.ID, instanceName(inst)), inst.Oracle); err != nil {
+			return err
 		}
 	}
 	*c = manifestCase{

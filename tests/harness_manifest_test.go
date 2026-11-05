@@ -127,6 +127,76 @@ func TestManifestRejectsIntegrityViolations(t *testing.T) {
 			}}]}`,
 			want: "duplicates schema document",
 		},
+		{
+			name: "unknown oracle key",
+			data: `{"totals":{},"cases":[{"id":"case","expectedSource":"project","schema":{"expected":"valid"},"instances":[
+				{"testName":"i","expected":"valid","oracle":{"dotNet":{"expected":"valid","reason":"r"}}}
+			]}]}`,
+			want: "manifest case \"case\" instance \"i\" has unknown oracle key \"dotNet\"",
+		},
+		{
+			name: "oracle with expected and status",
+			data: `{"totals":{},"cases":[{"id":"case","expectedSource":"project","schema":{"expected":"valid"},"instances":[
+				{"testName":"i","expected":"valid","oracle":{"dotnet":{"expected":"valid","status":"blocked","reason":"r"}}}
+			]}]}`,
+			want: "manifest case \"case\" instance \"i\" oracle \"dotnet\" has both expected and status",
+		},
+		{
+			name: "oracle without expected or status",
+			data: `{"totals":{},"cases":[{"id":"case","expectedSource":"project","schema":{"expected":"valid"},"instances":[
+				{"testName":"i","expected":"valid","oracle":{"dotnet":{"expcted":"valid","reason":"r"}}}
+			]}]}`,
+			want: "manifest case \"case\" instance \"i\" oracle \"dotnet\" has neither expected nor status",
+		},
+		{
+			name: "unknown oracle expected value",
+			data: `{"totals":{},"cases":[{"id":"case","expectedSource":"project","schema":{"expected":"valid"},"instances":[
+				{"testName":"i","expected":"valid","oracle":{"xerces":{"expected":"error","reason":"r"}}}
+			]}]}`,
+			want: "manifest case \"case\" instance \"i\" oracle \"xerces\" has unknown expected value \"error\"",
+		},
+		{
+			name: "unknown oracle status",
+			data: `{"totals":{},"cases":[{"id":"case","expectedSource":"project","schema":{"expected":"valid"},"instances":[
+				{"testName":"i","expected":"valid","oracle":{"libxml2":{"status":"skipped","reason":"r"}}}
+			]}]}`,
+			want: "manifest case \"case\" instance \"i\" oracle \"libxml2\" has unknown status \"skipped\"",
+		},
+		{
+			name: "status under w3c",
+			data: `{"totals":{},"cases":[{"id":"case","expectedSource":"project","schema":{"expected":"valid"},"instances":[
+				{"testName":"i","expected":"valid","oracle":{"w3c":{"status":"blocked","reason":"r"}}}
+			]}]}`,
+			want: "manifest case \"case\" instance \"i\" oracle \"w3c\" has status, which only cross-validator providers record",
+		},
+		{
+			name: "status under project",
+			data: `{"totals":{},"cases":[{"id":"case","expectedSource":"project","schema":{"expected":"valid"},"instances":[
+				{"testName":"i","expected":"valid","oracle":{"project":{"status":"unassessed","reason":"r"}}}
+			]}]}`,
+			want: "manifest case \"case\" instance \"i\" oracle \"project\" has status, which only cross-validator providers record",
+		},
+		{
+			name: "blank oracle reason",
+			data: `{"totals":{},"cases":[{"id":"case","expectedSource":"project","schema":{"expected":"valid"},"instances":[
+				{"testName":"i","expected":"valid","oracle":{"xmlschema":{"status":"unassessed","reason":" "}}}
+			]}]}`,
+			want: "manifest case \"case\" instance \"i\" oracle \"xmlschema\" has no reason",
+		},
+		{
+			name: "schema oracle",
+			data: `{"totals":{},"cases":[{"id":"case","expectedSource":"project","schema":{
+				"expected":"valid","oracle":{"dotnet":{"status":"absent","reason":"r"}}
+			}}]}`,
+			want: "manifest case \"case\" schema oracle \"dotnet\" has unknown status \"absent\"",
+		},
+		{
+			name: "schema-less instance oracle",
+			data: `{"totals":{},"cases":[{"id":"case","expectedSource":"project","instances":[
+				{"testName":"i","expected":"valid","oracle":{"xerces":{"expected":"valid"}}}
+			]}]}`,
+			want: "manifest case \"case\" instance \"i\" oracle \"xerces\" has no reason",
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var m manifest

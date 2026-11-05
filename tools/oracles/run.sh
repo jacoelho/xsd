@@ -16,6 +16,8 @@ Verdicts:
   schema-invalid  schema compilation reported an error; instance not validated
   valid           instance validated without errors
   invalid         instance not well-formed or not valid
+  unassessed      instance processed without errors, but the validator assessed
+                  the undeclared root laxly; no validity result (.NET only)
   blocked         a schema or entity reference resolved to a non-file URI or to a
                   file absent from DIR, or the adapter cannot represent the
                   roots; no validity result

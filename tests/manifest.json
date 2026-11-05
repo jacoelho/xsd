@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16559,
-    "schemaCases": 16509,
-    "instanceRuns": 35396,
+    "cases": 16560,
+    "schemaCases": 16510,
+    "instanceRuns": 35403,
     "w3cCases": 14414,
-    "internalRuns": 2132,
+    "internalRuns": 2133,
     "xercesJCases": 13
   },
   "cases": [
@@ -3246,9 +3246,10 @@
         "kind": "project",
         "package": "schema",
         "sourceFile": "tests/corpus/project/namespaces/exact-uri-identity/declaration.xsd",
-        "description": "Namespace identity preserves URI spelling, including case, percent escapes and a terminal slash.",
+        "description": "Root element declaration lookup compares namespace names exactly: a root whose namespace name differs from the target namespace only by host case, percent-escape form, percent-escape case or a trailing slash has no global declaration, while a same-URI root under another prefix does.",
         "specification": [
-          "https://www.w3.org/TR/1999/REC-xml-names-19990114/"
+          "https://www.w3.org/TR/1999/REC-xml-names-19990114/",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-assess-elt"
         ]
       },
       "schema": {
@@ -3278,7 +3279,7 @@
           "errorCode": "validation.root",
           "oracle": {
             "dotnet": {
-              "reason": "Observed with .NET System.Xml 10.0.9. Schema-validating XmlReader completed without a validity error, but ReportValidationWarnings reports absent schema information and the root SchemaInfo.SchemaElement is absent. This is an unassessed unknown-root namespace, not a valid instance or URI-equality observation.",
+              "reason": "Observed with .NET System.Xml 10.0.9 and 10.0.14. The schema-validating XmlReader reports no schema information for the variant root, while the identical-URI controls are assessed, so .NET distinguishes the namespace name. It then assesses the undeclared root laxly and yields no validity outcome; the project rejects an undeclared root. project/namespaces/exact-uri-identity/child-declaration isolates the namespace rule from root assessment.",
               "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/",
               "status": "unassessed"
             }
@@ -3291,7 +3292,7 @@
           "errorCode": "validation.root",
           "oracle": {
             "dotnet": {
-              "reason": "Observed with .NET System.Xml 10.0.9. Schema-validating XmlReader completed without a validity error, but ReportValidationWarnings reports absent schema information and the root SchemaInfo.SchemaElement is absent. This is an unassessed unknown-root namespace, not a valid instance or URI-equality observation.",
+              "reason": "Observed with .NET System.Xml 10.0.9 and 10.0.14. The schema-validating XmlReader reports no schema information for the variant root, while the identical-URI controls are assessed, so .NET distinguishes the namespace name. It then assesses the undeclared root laxly and yields no validity outcome; the project rejects an undeclared root. project/namespaces/exact-uri-identity/child-declaration isolates the namespace rule from root assessment.",
               "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/",
               "status": "unassessed"
             }
@@ -3304,7 +3305,7 @@
           "errorCode": "validation.root",
           "oracle": {
             "dotnet": {
-              "reason": "Observed with .NET System.Xml 10.0.9. Schema-validating XmlReader completed without a validity error, but ReportValidationWarnings reports absent schema information and the root SchemaInfo.SchemaElement is absent. This is an unassessed unknown-root namespace, not a valid instance or URI-equality observation.",
+              "reason": "Observed with .NET System.Xml 10.0.9 and 10.0.14. The schema-validating XmlReader reports no schema information for the variant root, while the identical-URI controls are assessed, so .NET distinguishes the namespace name. It then assesses the undeclared root laxly and yields no validity outcome; the project rejects an undeclared root. project/namespaces/exact-uri-identity/child-declaration isolates the namespace rule from root assessment.",
               "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/",
               "status": "unassessed"
             }
@@ -3317,7 +3318,7 @@
           "errorCode": "validation.root",
           "oracle": {
             "dotnet": {
-              "reason": "Observed with .NET System.Xml 10.0.9. Schema-validating XmlReader completed without a validity error, but ReportValidationWarnings reports absent schema information and the root SchemaInfo.SchemaElement is absent. This is an unassessed unknown-root namespace, not a valid instance or URI-equality observation.",
+              "reason": "Observed with .NET System.Xml 10.0.9 and 10.0.14. The schema-validating XmlReader reports no schema information for the variant root, while the identical-URI controls are assessed, so .NET distinguishes the namespace name. It then assesses the undeclared root laxly and yields no validity outcome; the project rejects an undeclared root. project/namespaces/exact-uri-identity/child-declaration isolates the namespace rule from root assessment.",
               "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/",
               "status": "unassessed"
             }
@@ -3351,6 +3352,105 @@
         },
         {
           "file": "corpus/project/namespaces/exact-uri-identity/declaration-trailing-slash.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/namespaces/exact-uri-identity/child-declaration",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/namespaces/exact-uri-identity/child-declaration.xsd",
+        "description": "A child element matches a declaration only when its namespace name is identical: host case, percent-escape form, percent-escape case, a trailing slash or no namespace each fail the content model, while a same-URI child under another prefix matches.",
+        "specification": [
+          "https://www.w3.org/TR/1999/REC-xml-names-19990114/",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/namespaces/exact-uri-identity/child-declaration.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "exact",
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-exact.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "prefix-alias",
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-prefix-alias.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "host-case",
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-host-case.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element"
+        },
+        {
+          "testName": "percent-decoded",
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-percent-decoded.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element"
+        },
+        {
+          "testName": "percent-case",
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-percent-case.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element"
+        },
+        {
+          "testName": "trailing-slash",
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-trailing-slash.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element"
+        },
+        {
+          "testName": "no-namespace",
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-no-namespace.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-exact.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-prefix-alias.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-host-case.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-percent-decoded.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-percent-case.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-trailing-slash.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-no-namespace.xml",
           "role": "instance"
         }
       ]
