@@ -98,7 +98,7 @@ func TestIdentityFieldDispatchRetentionBounds(t *testing.T) {
 func TestIdentityFieldDispatchCleansPartialAttributeFailure(t *testing.T) {
 	t.Parallel()
 	fixture := compiledIdentityRuntimeForTest(t)
-	evaluation := newIdentityEvaluation(fixture.rt, identityLimits{}, 0)
+	evaluation := newIdentityEvaluation(fixture.rt, identityLimits{})
 	if err := evaluation.startElement(identityElementStart{
 		Name:    xsdSchema.RuntimeName{Known: true, Name: fixture.elemName},
 		Element: fixture.elemID,
@@ -130,7 +130,7 @@ func TestIdentityFieldDispatchCleansPartialAttributeFailure(t *testing.T) {
 func TestIdentityFieldDispatchDoesNotAdmitBitmapWithoutMatches(t *testing.T) {
 	t.Parallel()
 	fixture := compiledIdentityRuntimeForTest(t)
-	evaluation := newIdentityEvaluation(fixture.rt, identityLimits{}, 0)
+	evaluation := newIdentityEvaluation(fixture.rt, identityLimits{})
 	if err := evaluation.startElement(identityElementStart{
 		Name:    xsdSchema.RuntimeName{Known: true, Name: fixture.elemName},
 		Element: fixture.elemID,

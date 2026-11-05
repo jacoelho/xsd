@@ -384,11 +384,14 @@ func conclusiveDiagnosticAggregateCause(children []error) bool {
 	return true
 }
 
+// isConclusiveValidationDiagnostic owns the per-code disposition. Every code
+// is listed so a new code cannot be added without deciding whether it is
+// semantic evidence of invalidity. ValidCategoryCode binds codes to their
+// category, so the code alone decides.
 func isConclusiveValidationDiagnostic(err *Error) bool {
-	if err == nil || err.category != CategoryValidation {
+	if err == nil {
 		return false
 	}
-	//nolint:exhaustive // Semantic allowlist deliberately rejects every other diagnostic.
 	switch err.code {
 	case CodeValidationRoot,
 		CodeValidationElement,
@@ -400,9 +403,38 @@ func isConclusiveValidationDiagnostic(err *Error) bool {
 		CodeValidationNil,
 		CodeValidationIdentity:
 		return true
-	default:
+	case CodeSchemaRead,
+		CodeSchemaXML,
+		CodeSchemaRoot,
+		CodeSchemaDuplicate,
+		CodeSchemaReference,
+		CodeSchemaFacet,
+		CodeSchemaOccurrence,
+		CodeSchemaContentModel,
+		CodeSchemaNoSources,
+		CodeSchemaInvalidAttribute,
+		CodeSchemaIdentity,
+		CodeSchemaLimit,
+		CodeUnsupportedDTD,
+		CodeUnsupportedExternal,
+		CodeUnsupportedEntity,
+		CodeUnsupportedNonUTF8,
+		CodeUnsupportedRedefine,
+		CodeUnsupportedRegex,
+		CodeUnsupportedSchemaHint,
+		CodeUnsupportedXMLVersion,
+		CodeUnsupportedXSD11,
+		CodeValidationXML,
+		CodeValidationOption,
+		CodeValidationSession,
+		CodeValidationLimit,
+		CodeFormatXML,
+		CodeFormatOption,
+		CodeFormatLimit,
+		CodeInternalInvariant:
 		return false
 	}
+	return false
 }
 
 // appendFlattened reports whether err contains an aggregate that replaced its

@@ -12,7 +12,7 @@ import (
 
 func TestSchemaDTDDiagnosticPreservesCause(t *testing.T) {
 	_, err := Compile(Options{}, []source.Source{source.Bytes("dtd.xsd", []byte("\n<!DOCTYPE xs:schema>"+`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`))})
-	if !errors.Is(err, xmlstream.ErrUnsupportedDTD) {
+	if feature, ok := xmlstream.UnsupportedFeatureOf(err); !ok || feature != xmlstream.UnsupportedDTD {
 		t.Fatalf("DTD cause lost: %v", err)
 	}
 	boundary, ok := errors.AsType[*xmlstream.Error](err)

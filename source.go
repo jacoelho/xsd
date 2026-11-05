@@ -62,6 +62,14 @@ func Open(name string, open func() (io.ReadCloser, error)) SchemaSource {
 // identity for deduplication and descendant resolution. A nil resolver,
 // including a nil ResolverFunc or *ResolverFunc, removes custom resolution
 // from s; a File source keeps its built-in local schemaLocation resolution.
+//
+// Each call creates a distinct resolution context, even for the same r;
+// resolvers are not compared. Copies of the result, and sources r returns,
+// share its context. A document reached from several contexts is compiled once,
+// keyed by its identity, but each context that reaches it resolves its
+// references through its own resolver. Every time a document is reached again
+// it is reopened and its bytes are charged against the compile limits again;
+// different content under the same identity is a schema reference error.
 func (s SchemaSource) WithResolver(r Resolver) SchemaSource {
 	s.src = s.src.WithResolver(adaptPublicResolver(r))
 	return s

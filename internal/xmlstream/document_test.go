@@ -183,7 +183,7 @@ func TestReaderRejectsDocumentTopologyAndOutsideRootData(t *testing.T) {
 		{name: "text before root", xml: `text<r/>`, want: ErrTextOutsideRoot},
 		{name: "reference before root", xml: `&#32;<r/>`, want: ErrReferenceOutsideRoot},
 		{name: "CDATA before root", xml: `<![CDATA[]]><r/>`, want: ErrCDATOutsideRoot},
-		{name: "DTD", xml: `<!DOCTYPE r><r/>`, want: ErrUnsupportedDTD},
+		{name: "DTD", xml: `<!DOCTYPE r><r/>`, want: errUnsupportedDTD},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -646,7 +646,7 @@ func TestReaderSkipOrdinaryAttributeValuesStillValidatesLexicalContent(t *testin
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := reader.Next(); !IsUnsupportedEntityReference(err) {
+	if _, err := reader.Next(); !unsupportedFeatureIs(err, UnsupportedEntityReference) {
 		t.Fatalf("Next() = %v, want unsupported entity reference", err)
 	}
 }

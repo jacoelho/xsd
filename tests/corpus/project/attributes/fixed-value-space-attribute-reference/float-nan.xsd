@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:attribute name="a" type="xs:float" fixed="NaN"/>
+  <xs:complexType name="T">
+    <xs:attribute ref="a" fixed="NaN"/>
+  </xs:complexType>
+</xs:schema>

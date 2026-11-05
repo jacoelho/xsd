@@ -258,6 +258,42 @@ func TestFormatXMLRejectsXML11WithoutInternalCause(t *testing.T) {
 	}
 }
 
+// TestFormatXMLRejectsUnsupportedFeatures pins one code per unsupported
+// feature whether the reader detects it at Reset or at a later token.
+func TestFormatXMLRejectsUnsupportedFeatures(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+		code  xsderrors.Code
+		line  int
+	}{
+		{name: "declared latin1", input: `<?xml version="1.0" encoding="ISO-8859-1"?><root/>`, code: xsderrors.CodeUnsupportedNonUTF8},
+		{name: "utf16 bom", input: "\xFE\xFF<root/>", code: xsderrors.CodeUnsupportedNonUTF8},
+		{name: "doctype first", input: `<!DOCTYPE root><root/>`, code: xsderrors.CodeUnsupportedDTD, line: 1},
+		{name: "doctype after comment", input: "<!-- c -->\n<!DOCTYPE root><root/>", code: xsderrors.CodeUnsupportedDTD, line: 2},
+		{name: "text entity", input: "<root>\n&x;</root>", code: xsderrors.CodeUnsupportedExternal, line: 2},
+		{name: "attribute entity", input: "<root\na=\"&x;\"/>", code: xsderrors.CodeUnsupportedExternal, line: 2},
+		{name: "colon entity name", input: "<root>\n&a:b;</root>", code: xsderrors.CodeFormatXML, line: 2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var out strings.Builder
+			err := XML(&out, tt.input)
+			diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+			if !ok || diagnostic.Code() != tt.code {
+				t.Fatalf("XML() error = %v, want %q", err, tt.code)
+			}
+			if diagnostic.Line() != tt.line {
+				t.Fatalf("XML() error line = %d, want %d", diagnostic.Line(), tt.line)
+			}
+		})
+	}
+}
+
 func TestFormatXMLDoesNotIndentMixedContent(t *testing.T) {
 	var out strings.Builder
 	err := XML(&out, `<p><b>bold</b>tail</p>`)

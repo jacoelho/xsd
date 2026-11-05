@@ -2,7 +2,7 @@ package schema
 
 import (
 	"github.com/jacoelho/xsd/internal/lex"
-
+	valuepkg "github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
@@ -28,14 +28,11 @@ func ParseBooleanAttr(attr BooleanAttr) (bool, error) {
 	if !attr.HasValue {
 		return attr.Default, nil
 	}
-	switch lex.TrimXMLWhitespaceString(attr.Value) {
-	case "true", "1":
-		return true, nil
-	case "false", "0":
-		return false, nil
-	default:
+	parsed, err := valuepkg.ParseBooleanValue(lex.TrimXMLWhitespaceString(attr.Value))
+	if err != nil {
 		return false, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "invalid boolean attribute "+attr.Name)
 	}
+	return parsed, nil
 }
 
 // FormAttr is the raw attribute state needed to parse an XML Schema form

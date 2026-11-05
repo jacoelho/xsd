@@ -294,7 +294,7 @@ func TestFixedValueConstraintEqual(t *testing.T) {
 			derived: fixedValueConstraintIdentity("true", "true", 2, booleanTrue),
 		},
 		{
-			name: "mixed lexical fallback",
+			name: "untyped compares canonical text",
 			base: ValueConstraintIdentity{
 				Lexical:   "a  b",
 				Canonical: "a b",
@@ -308,12 +308,6 @@ func TestFixedValueConstraintEqual(t *testing.T) {
 				Present:   true,
 			},
 			want: true,
-		},
-		{
-			name:    "typed fallback uses full simple value",
-			base:    fixedValueConstraintIdentity("a  b", "a b", 1, ""),
-			derived: fixedValueConstraintIdentity("a b", "a b", 1, ""),
-			want:    true,
 		},
 	}
 	for _, tt := range tests {

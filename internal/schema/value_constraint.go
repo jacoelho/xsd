@@ -257,8 +257,10 @@ func ValueConstraintIdentityEqual(a, b ValueConstraintIdentity) bool {
 	if !equalValueConstraintQNameContexts(a.qnameContext, b.qnameContext) {
 		return false
 	}
-	return a.Value.Equal(b.Value) ||
-		(a.Value.Type() == b.Value.Type() && a.Value.CanonicalText() == b.Value.CanonicalText() && a.Value.IdentityKey() == b.Value.IdentityKey())
+	if a.Value.Type() == valuepkg.NoType || b.Value.Type() == valuepkg.NoType {
+		return a.Value.Type() == b.Value.Type()
+	}
+	return a.Value.Equal(b.Value)
 }
 
 // FixedValueConstraintEqual reports whether two fixed value constraints carry
@@ -274,21 +276,14 @@ func FixedValueConstraintEqual(base, derived ValueConstraintIdentity) bool {
 	return fixedValueEqual(base, derived)
 }
 
+// fixedValueEqual compares untyped (mixed or anySimpleType-free) constraints
+// as strings and typed ones only in value space; internal/value owns typed
+// equality, so no lexical or canonical fallback applies.
 func fixedValueEqual(base, derived ValueConstraintIdentity) bool {
-	baseType, derivedType := base.Value.Type(), derived.Value.Type()
-	if baseType == valuepkg.NoType || derivedType == valuepkg.NoType {
+	if base.Value.Type() == valuepkg.NoType || derived.Value.Type() == valuepkg.NoType {
 		return base.Canonical == derived.Canonical
 	}
-	if base.Value.Equal(derived.Value) {
-		return true
-	}
-	if baseType != derivedType {
-		return false
-	}
-	if base.Value.HasIdentity() && derived.Value.HasIdentity() {
-		return base.Canonical == derived.Canonical || base.Value.CanonicalText() == derived.Value.CanonicalText()
-	}
-	return base.Value.CanonicalText() == derived.Value.CanonicalText()
+	return base.Value.Equal(derived.Value)
 }
 
 // NewValueConstraintValidation returns the runtime validation projection for a

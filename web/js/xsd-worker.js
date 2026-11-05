@@ -1,7 +1,13 @@
 import "../wasm_exec.js";
 import { runValidationFlow } from "./validation-flow.js";
+import { startRuntime } from "./xsd-runtime.js";
 
-const initialization = initialize();
+const initialization = startRuntime({
+  createGo: () => new Go(),
+  instantiate,
+  globals: globalThis,
+  post: (message) => self.postMessage(message),
+});
 
 self.onmessage = async (event) => {
   const message = event.data;
@@ -19,34 +25,10 @@ self.onmessage = async (event) => {
   }
 };
 
-async function initialize() {
-  try {
-    const go = new Go();
-    const instance = await instantiate(go);
-    void go.run(instance).catch((err) => {
-      self.postMessage({ type: "fatal", error: String(err) });
-    });
-
-    const limits = JSON.parse(globalThis.xsdLimits || "null");
-    const api = Object.freeze({
-      validateXML: globalThis.validateXML,
-      formatXML: globalThis.formatXML,
-    });
-    if (typeof api.validateXML !== "function" || typeof api.formatXML !== "function") {
-      throw new Error("WASM API did not initialize");
-    }
-    self.postMessage({ type: "ready", limits });
-    return api;
-  } catch (err) {
-    self.postMessage({ type: "fatal", error: String(err) });
-    throw err;
-  }
-}
-
-async function instantiate(go) {
+async function instantiate(importObject) {
   if (WebAssembly.instantiateStreaming) {
     try {
-      const result = await WebAssembly.instantiateStreaming(fetch("../xsd.wasm"), go.importObject);
+      const result = await WebAssembly.instantiateStreaming(fetch("../xsd.wasm"), importObject);
       return result.instance;
     } catch (_) {
       // A server with the wrong MIME type requires byte instantiation.
@@ -55,7 +37,7 @@ async function instantiate(go) {
   const response = await fetch("../xsd.wasm");
   if (!response.ok) throw new Error(`WASM fetch failed: HTTP ${response.status}`);
   const bytes = await response.arrayBuffer();
-  const result = await WebAssembly.instantiate(bytes, go.importObject);
+  const result = await WebAssembly.instantiate(bytes, importObject);
   return result.instance;
 }
 

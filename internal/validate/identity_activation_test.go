@@ -16,7 +16,7 @@ func TestIdentityEvaluationActivatesDocumentIdentityAtValidatedValueDepth(t *tes
 	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:anyType"/>
 </xs:schema>`)
-	evaluation := newIdentityEvaluation(rt, identityLimits{}, 0)
+	evaluation := newIdentityEvaluation(rt, identityLimits{})
 	if evaluation.constraintsEnabled {
 		t.Fatal("constraint-free schema unexpectedly enabled key identity")
 	}
@@ -67,7 +67,7 @@ func TestIdentityEvaluationFirstDocumentIdentityActivationRollsBackOnFatalStart(
 	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:anyType"/>
 </xs:schema>`)
-	evaluation := newIdentityEvaluation(rt, identityLimits{TupleBytes: 1}, 0)
+	evaluation := newIdentityEvaluation(rt, identityLimits{TupleBytes: 1})
 	if err := evaluation.beginStart(); err != nil {
 		t.Fatalf("beginStart() error = %v", err)
 	}
@@ -102,7 +102,7 @@ func TestIdentityEvaluationLazyIDREFStillRunsDocumentFinalCheck(t *testing.T) {
 	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:anyType"/>
 </xs:schema>`)
-	evaluation := newIdentityEvaluation(rt, identityLimits{}, 0)
+	evaluation := newIdentityEvaluation(rt, identityLimits{})
 	if err := evaluation.startElement(identityElementStart{
 		Context: identityTestContext("/root", 1, 1),
 		Mode:    elementAssessed,

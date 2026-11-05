@@ -121,7 +121,7 @@ type identityEvaluation struct {
 	documentIdentityActive bool
 }
 
-func newIdentityEvaluation(rt *xsdSchema.Schema, limits identityLimits, maxScopes int) identityEvaluation {
+func newIdentityEvaluation(rt *xsdSchema.Schema, limits identityLimits) identityEvaluation {
 	dispatch := xsdSchema.IdentityDispatchRead{}
 	if rt != nil {
 		dispatch = rt.IdentityDispatch()
@@ -130,7 +130,6 @@ func newIdentityEvaluation(rt *xsdSchema.Schema, limits identityLimits, maxScope
 		rt:                 rt,
 		dispatch:           newIdentityDispatchState(dispatch),
 		limits:             limits,
-		maxScopes:          maxScopes,
 		constraintsEnabled: rt.HasIdentityConstraints(),
 	}
 }
@@ -1229,7 +1228,7 @@ func (e *identityEvaluation) finishSelectionCandidate(sel identitySelection, dep
 
 func (e *identityEvaluation) finishSelectionError(sel identitySelection, err error, report func(error) error) error {
 	clear(e.selectionFields(sel))
-	if RecoverableError(err) {
+	if xsderrors.IsConclusiveValidation(err) {
 		if invalidateErr := e.invalidateSelectionScope(sel); invalidateErr != nil {
 			return invalidateErr
 		}

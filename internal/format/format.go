@@ -118,19 +118,34 @@ func resetReader(reader *xmlstream.Reader, input string, limits Options) error {
 }
 
 func formatReaderErr(err error) error {
+	if feature, ok := xmlstream.UnsupportedFeatureOf(err); ok {
+		return unsupportedFormatFeature(feature, err)
+	}
 	switch {
 	case errors.Is(err, xmlstream.ErrXMLInputNilReader):
 		return formatOptionErr(errors.New("nil reader"))
-	case errors.Is(err, xmlstream.ErrUnsupportedNonUTF8):
-		return xsderrors.Unsupported(xsderrors.CodeUnsupportedNonUTF8, "XML documents must be UTF-8", err)
 	case xmlstream.IsInputLimit(err):
 		return formatLimitErr(0, 0, err)
 	default:
-		if versionErr, ok := errors.AsType[xmlstream.UnsupportedXMLVersionError](err); ok {
-			return xsderrors.Unsupported(xsderrors.CodeUnsupportedXMLVersion, versionErr.Error(), nil)
-		}
 		return formatBoundaryErr(err)
 	}
+}
+
+// unsupportedFormatFeature maps reader rejections on both the Reset and token
+// paths, so a feature has one format code wherever the reader detects it.
+// Token-path callers add the position; Reset rejections precede any token.
+func unsupportedFormatFeature(feature xmlstream.UnsupportedFeature, err error) error {
+	switch feature {
+	case xmlstream.UnsupportedDTD:
+		return xsderrors.Unsupported(xsderrors.CodeUnsupportedDTD, "", err)
+	case xmlstream.UnsupportedNonUTF8:
+		return xsderrors.Unsupported(xsderrors.CodeUnsupportedNonUTF8, "XML documents must be UTF-8", err)
+	case xmlstream.UnsupportedXMLVersion:
+		return xsderrors.Unsupported(xsderrors.CodeUnsupportedXMLVersion, err.Error(), nil)
+	case xmlstream.UnsupportedEntityReference:
+		return xsderrors.Unsupported(xsderrors.CodeUnsupportedExternal, "XML documents cannot reference undeclared entities", err)
+	}
+	return xsderrors.InternalInvariant("unknown xmlstream unsupported feature")
 }
 
 func formatBoundaryErr(err error) error {
@@ -586,6 +601,13 @@ func tokenIsIgnorableBlockWhitespace(tok *xmlstream.Token) bool {
 }
 
 func readerBoundaryError(reader *xmlstream.Reader, err error) error {
+	if feature, ok := xmlstream.UnsupportedFeatureOf(err); ok {
+		line, col := reader.Pos()
+		if boundary, isBoundary := errors.AsType[*xmlstream.Error](err); isBoundary && boundary.Line > 0 {
+			line, col = boundary.Line, boundary.Column
+		}
+		return xsderrors.WithLocation("", line, col, unsupportedFormatFeature(feature, err))
+	}
 	if boundary, ok := errors.AsType[*xmlstream.Error](err); ok {
 		switch {
 		case errors.Is(boundary, xmlstream.ErrCDATOutsideRoot):
