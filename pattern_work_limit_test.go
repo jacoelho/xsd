@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/jacoelho/xsd"
 	"github.com/jacoelho/xsd/xsderrors"
@@ -83,30 +82,19 @@ func TestLongLinearValuePassesUnderDefaults(t *testing.T) {
 	}
 }
 
-func TestMaxTextBytesAgainstManyStatePatternIsBoundedByDefaults(t *testing.T) {
+// A many-state NFA on a maximum-size text value is stopped by the per-value
+// budget, not by input length. The limit sits above the input-byte charge so
+// only NFA work can exhaust it. Work, not wall time, is the contract: the
+// default budget's CPU cost is a measurement in docs/RESOURCE_LIMITS.md, and
+// asserting it here would fail on slow or race-instrumented runners.
+func TestMaxTextBytesAgainstManyStatePatternIsBoundedByPatternWork(t *testing.T) {
 	engine := compilePatternSchema(t, "(a|aa){1,300}(a{1,100}){1,300}b")
-	instance := "<root>" + strings.Repeat("a", 4<<20-64) + "</root>"
-	done := make(chan error, 1)
-	start := time.Now()
-	go func() { done <- engine.Validate(strings.NewReader(instance)) }()
-	select {
-	case err := <-done:
-		t.Logf("returned after %v: %v", time.Since(start), err)
-		if err == nil {
-			return
-		}
-		if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok {
-			if diagnostic.Code() == xsderrors.CodeValidationFacet ||
-				diagnostic.Code() == xsderrors.CodeValidationLimit && strings.Contains(diagnostic.Error(), "MaxInstancePatternWork=") {
-				return
-			}
-		}
-		t.Fatalf("error = %v, want valid, invalid, or MaxInstancePatternWork limit", err)
-	case <-t.Context().Done():
-		t.Fatal("cancelled")
-	case <-time.After(60 * time.Second):
-		t.Fatal("validation did not finish within the deadline")
-	}
+	value := strings.Repeat("a", 4<<20-64)
+	limit := uint64(len(value)) + 1<<20
+	err := engine.ValidateWithOptions(strings.NewReader("<root>"+value+"</root>"), xsd.ValidateOptions{
+		MaxInstancePatternWork: limit,
+	})
+	requireDiagnostic(t, err, xsderrors.CodeValidationLimit, "MaxInstancePatternWork="+strconv.FormatUint(limit, 10))
 }
 
 func TestPatternCompileBounds(t *testing.T) {
