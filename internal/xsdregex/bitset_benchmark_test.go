@@ -26,7 +26,7 @@ func BenchmarkBitsetMatch(b *testing.B) {
 					b.ReportAllocs()
 					b.SetBytes(int64(len(input)))
 					for b.Loop() {
-						matched, err := pattern.MatchStringWithScratch(input, MatchOptions{}, &scratch)
+						matched, _, err := pattern.MatchStringWithScratch(input, unlimitedWork, &scratch)
 						if err != nil || !matched {
 							b.Fatalf("match = %v, %v", matched, err)
 						}
@@ -37,7 +37,7 @@ func BenchmarkBitsetMatch(b *testing.B) {
 					b.ReportAllocs()
 					b.SetBytes(int64(len(raw)))
 					for b.Loop() {
-						matched, err := pattern.MatchBytesWithScratch(raw, MatchOptions{}, &scratch)
+						matched, _, err := pattern.MatchBytesWithScratch(raw, unlimitedWork, &scratch)
 						if err != nil || !matched {
 							b.Fatalf("match = %v, %v", matched, err)
 						}
@@ -60,7 +60,7 @@ func BenchmarkBitsetMatchUnicode(b *testing.B) {
 		b.ReportAllocs()
 		b.SetBytes(int64(len(input)))
 		for b.Loop() {
-			matched, err := pattern.MatchStringWithScratch(input, MatchOptions{}, &scratch)
+			matched, _, err := pattern.MatchStringWithScratch(input, unlimitedWork, &scratch)
 			if err != nil || !matched {
 				b.Fatalf("match = %v, %v", matched, err)
 			}
@@ -71,7 +71,7 @@ func BenchmarkBitsetMatchUnicode(b *testing.B) {
 		b.ReportAllocs()
 		b.SetBytes(int64(len(raw)))
 		for b.Loop() {
-			matched, err := pattern.MatchBytesWithScratch(raw, MatchOptions{}, &scratch)
+			matched, _, err := pattern.MatchBytesWithScratch(raw, unlimitedWork, &scratch)
 			if err != nil || !matched {
 				b.Fatalf("match = %v, %v", matched, err)
 			}

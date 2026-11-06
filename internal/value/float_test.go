@@ -51,7 +51,7 @@ func TestParseFloatCanonicalProjection(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.lexical, func(t *testing.T) {
-			got, err := ParseFloatValue(tc.kind, tc.lexical, PrimitiveNeedCanonical)
+			got, err := ParseFloatValue(tc.kind, tc.lexical, primitiveNeedCanonical)
 			if err != nil {
 				t.Fatalf("ParseFloatValue(%q): %v", tc.lexical, err)
 			}

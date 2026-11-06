@@ -17,35 +17,35 @@ func TestCompileIDAllocationDiagnostics(t *testing.T) {
 		msg  string
 	}{
 		{name: "simple type", next: func(n int) error {
-			_, err := NextSimpleTypeID(n)
+			_, err := nextSimpleTypeID(n)
 			return err
 		}, msg: "simple type limit exceeded"},
 		{name: "complex type", next: func(n int) error {
-			_, err := NextComplexTypeID(n)
+			_, err := nextComplexTypeID(n)
 			return err
 		}, msg: "complex type limit exceeded"},
 		{name: "element", next: func(n int) error {
-			_, err := NextElementID(n)
+			_, err := nextElementID(n)
 			return err
 		}, msg: "element declaration limit exceeded"},
 		{name: "attribute", next: func(n int) error {
-			_, err := NextAttributeID(n)
+			_, err := nextAttributeID(n)
 			return err
 		}, msg: "attribute declaration limit exceeded"},
 		{name: "content model", next: func(n int) error {
-			_, err := NextContentModelID(n)
+			_, err := nextContentModelID(n)
 			return err
 		}, msg: "content model limit exceeded"},
 		{name: "attribute use set", next: func(n int) error {
-			_, err := NextAttributeUseSetID(n)
+			_, err := nextAttributeUseSetID(n)
 			return err
 		}, msg: "attribute use set limit exceeded"},
 		{name: "wildcard", next: func(n int) error {
-			_, err := NextWildcardID(n)
+			_, err := nextWildcardID(n)
 			return err
 		}, msg: "wildcard limit exceeded"},
 		{name: "identity constraint", next: func(n int) error {
-			_, err := NextIdentityConstraintID(n)
+			_, err := nextIdentityConstraintID(n)
 			return err
 		}, msg: "identity constraint limit exceeded"},
 	}
@@ -69,11 +69,11 @@ func TestCompileIDAllocationDiagnostics(t *testing.T) {
 func TestCheckedUint32IndexDiagnostic(t *testing.T) {
 	t.Parallel()
 
-	id, err := CheckedUint32Index(2, "index limit exceeded")
+	id, err := checkedUint32Index(2, "index limit exceeded")
 	if err != nil || id != 2 {
 		t.Fatalf("CheckedUint32Index(2) = %d, %v, want 2, nil", id, err)
 	}
-	_, err = CheckedUint32Index(-1, "index limit exceeded")
+	_, err = checkedUint32Index(-1, "index limit exceeded")
 	expectSchemaLimitDiagnostic(t, err, "index limit exceeded")
 }
 
@@ -92,7 +92,7 @@ func expectSchemaLimitDiagnostic(t *testing.T, err error, msg string) {
 func TestCompileIDAllocationMatchesRuntimeIDs(t *testing.T) {
 	t.Parallel()
 
-	id, err := NextElementID(3)
+	id, err := nextElementID(3)
 	if err != nil {
 		t.Fatalf("NextElementID(3) error = %v", err)
 	}

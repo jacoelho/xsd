@@ -11,19 +11,19 @@ func TestParseAttributeUseMode(t *testing.T) {
 	tests := []struct {
 		name    string
 		mode    string
-		want    AttributeUseMode
+		want    attributeUseMode
 		wantErr string
 	}{
-		{name: "optional", mode: "optional", want: AttributeUseOptional},
-		{name: "required", mode: "required", want: AttributeUseRequired},
-		{name: "prohibited", mode: "prohibited", want: AttributeUseProhibited},
+		{name: "optional", mode: "optional", want: attributeUseOptional},
+		{name: "required", mode: "required", want: attributeUseRequired},
+		{name: "prohibited", mode: "prohibited", want: attributeUseProhibited},
 		{name: "invalid", mode: "bad", wantErr: "invalid attribute use bad"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := ParseAttributeUseMode(tt.mode)
+			got, err := parseAttributeUseMode(tt.mode)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ParseAttributeUseMode() error = %v", err)
@@ -45,30 +45,30 @@ func TestValidateAttributeUseValueConstraintAdmission(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		admission AttributeUseValueConstraintAdmission
+		admission attributeUseValueConstraintAdmission
 		wantErr   string
 	}{
-		{name: "optional unconstrained", admission: AttributeUseValueConstraintAdmission{Mode: AttributeUseOptional}},
+		{name: "optional unconstrained", admission: attributeUseValueConstraintAdmission{Mode: attributeUseOptional}},
 		{
 			name: "required default",
-			admission: AttributeUseValueConstraintAdmission{
-				Mode:       AttributeUseRequired,
+			admission: attributeUseValueConstraintAdmission{
+				Mode:       attributeUseRequired,
 				HasDefault: true,
 			},
 			wantErr: "required attribute cannot have default",
 		},
 		{
 			name: "prohibited default",
-			admission: AttributeUseValueConstraintAdmission{
-				Mode:       AttributeUseProhibited,
+			admission: attributeUseValueConstraintAdmission{
+				Mode:       attributeUseProhibited,
 				HasDefault: true,
 			},
 			wantErr: "prohibited attribute cannot have default",
 		},
 		{
 			name: "default conflicts with declaration fixed",
-			admission: AttributeUseValueConstraintAdmission{
-				Mode:                   AttributeUseOptional,
+			admission: attributeUseValueConstraintAdmission{
+				Mode:                   attributeUseOptional,
 				HasDefault:             true,
 				ReferencedDeclHasFixed: true,
 			},
@@ -76,8 +76,8 @@ func TestValidateAttributeUseValueConstraintAdmission(t *testing.T) {
 		},
 		{
 			name: "default and fixed",
-			admission: AttributeUseValueConstraintAdmission{
-				Mode:       AttributeUseOptional,
+			admission: attributeUseValueConstraintAdmission{
+				Mode:       attributeUseOptional,
 				HasDefault: true,
 				HasFixed:   true,
 			},
@@ -85,7 +85,7 @@ func TestValidateAttributeUseValueConstraintAdmission(t *testing.T) {
 		},
 		{
 			name:      "invalid mode",
-			admission: AttributeUseValueConstraintAdmission{Mode: AttributeUseMode(99)},
+			admission: attributeUseValueConstraintAdmission{Mode: attributeUseMode(99)},
 			wantErr:   "attribute use mode is invalid",
 		},
 	}
@@ -93,7 +93,7 @@ func TestValidateAttributeUseValueConstraintAdmission(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateAttributeUseValueConstraintAdmission(tt.admission)
+			err := validateAttributeUseValueConstraintAdmission(tt.admission)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateAttributeUseValueConstraintAdmission() error = %v", err)
@@ -112,25 +112,25 @@ func TestValidateAttributeUseFixedValueAdmission(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		admission AttributeUseFixedValueAdmission
+		admission attributeUseFixedValueAdmission
 		wantErr   string
 	}{
 		{
 			name: "no referenced fixed",
-			admission: AttributeUseFixedValueAdmission{
+			admission: attributeUseFixedValueAdmission{
 				Fixed: valueConstraintIdentity(t, "string", "x"),
 			},
 		},
 		{
 			name: "matching referenced fixed",
-			admission: AttributeUseFixedValueAdmission{
+			admission: attributeUseFixedValueAdmission{
 				Fixed:               valueConstraintIdentity(t, "integer", "5"),
 				ReferencedDeclFixed: valueConstraintIdentity(t, "decimal", "5"),
 			},
 		},
 		{
 			name: "conflicting referenced fixed",
-			admission: AttributeUseFixedValueAdmission{
+			admission: attributeUseFixedValueAdmission{
 				Fixed:               valueConstraintIdentity(t, "boolean", "true"),
 				ReferencedDeclFixed: valueConstraintIdentity(t, "string", "true"),
 			},
@@ -138,7 +138,7 @@ func TestValidateAttributeUseFixedValueAdmission(t *testing.T) {
 		},
 		{
 			name: "inherits referenced fixed",
-			admission: AttributeUseFixedValueAdmission{
+			admission: attributeUseFixedValueAdmission{
 				ReferencedDeclFixed: valueConstraintIdentity(t, "string", "x"),
 			},
 		},
@@ -147,7 +147,7 @@ func TestValidateAttributeUseFixedValueAdmission(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateAttributeUseFixedValueAdmission(tt.admission)
+			err := validateAttributeUseFixedValueAdmission(tt.admission)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateAttributeUseFixedValueAdmission() error = %v", err)
@@ -166,38 +166,38 @@ func TestValidateDeclValueConstraintAdmission(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		fn         func(DeclarationValueConstraint) error
+		fn         func(declarationValueConstraint) error
 		wantErr    string
-		constraint DeclarationValueConstraint
+		constraint declarationValueConstraint
 	}{
-		{name: "element absent", fn: ValidateElementDeclValueConstraintAdmission},
-		{name: "element default", fn: ValidateElementDeclValueConstraintAdmission, constraint: DeclarationValueConstraintDefault},
-		{name: "element fixed", fn: ValidateElementDeclValueConstraintAdmission, constraint: DeclarationValueConstraintFixed},
+		{name: "element absent", fn: validateElementDeclValueConstraintAdmission},
+		{name: "element default", fn: validateElementDeclValueConstraintAdmission, constraint: declarationValueConstraintDefault},
+		{name: "element fixed", fn: validateElementDeclValueConstraintAdmission, constraint: declarationValueConstraintFixed},
 		{
 			name:       "element both",
-			fn:         ValidateElementDeclValueConstraintAdmission,
-			constraint: DeclarationValueConstraintConflict,
+			fn:         validateElementDeclValueConstraintAdmission,
+			constraint: declarationValueConstraintConflict,
 			wantErr:    "element cannot have both default and fixed",
 		},
 		{
 			name:       "element unknown",
-			fn:         ValidateElementDeclValueConstraintAdmission,
-			constraint: DeclarationValueConstraint(99),
+			fn:         validateElementDeclValueConstraintAdmission,
+			constraint: declarationValueConstraint(99),
 			wantErr:    "element declaration has unknown value constraint",
 		},
-		{name: "attribute absent", fn: ValidateAttributeDeclValueConstraintAdmission},
-		{name: "attribute default", fn: ValidateAttributeDeclValueConstraintAdmission, constraint: DeclarationValueConstraintDefault},
-		{name: "attribute fixed", fn: ValidateAttributeDeclValueConstraintAdmission, constraint: DeclarationValueConstraintFixed},
+		{name: "attribute absent", fn: validateAttributeDeclValueConstraintAdmission},
+		{name: "attribute default", fn: validateAttributeDeclValueConstraintAdmission, constraint: declarationValueConstraintDefault},
+		{name: "attribute fixed", fn: validateAttributeDeclValueConstraintAdmission, constraint: declarationValueConstraintFixed},
 		{
 			name:       "attribute both",
-			fn:         ValidateAttributeDeclValueConstraintAdmission,
-			constraint: DeclarationValueConstraintConflict,
+			fn:         validateAttributeDeclValueConstraintAdmission,
+			constraint: declarationValueConstraintConflict,
 			wantErr:    "attribute cannot have both default and fixed",
 		},
 		{
 			name:       "attribute unknown",
-			fn:         ValidateAttributeDeclValueConstraintAdmission,
-			constraint: DeclarationValueConstraint(99),
+			fn:         validateAttributeDeclValueConstraintAdmission,
+			constraint: declarationValueConstraint(99),
 			wantErr:    "attribute declaration has unknown value constraint",
 		},
 	}
@@ -219,8 +219,8 @@ func TestValidateDeclValueConstraintAdmission(t *testing.T) {
 	}
 }
 
-func valueConstraintIdentity(tb testing.TB, typeName, lexical string) ValueConstraintIdentity {
+func valueConstraintIdentity(tb testing.TB, typeName, lexical string) constraintIdentity {
 	tb.Helper()
 	validated := builtinValueForTest(tb, typeName, lexical)
-	return ValueConstraintIdentity{Lexical: lexical, Canonical: validated.CanonicalText(), Value: validated, Present: true}
+	return constraintIdentity{Lexical: lexical, Canonical: validated.CanonicalText(), Value: validated, Present: true}
 }

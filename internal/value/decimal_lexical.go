@@ -140,8 +140,8 @@ func compareIntegerBytesToBound(raw []byte, digitsStart, digitsEnd int, negative
 	return comparison
 }
 
-// ValidateIntegerLexical validates raw as an xs:integer lexical value.
-func ValidateIntegerLexical[T byteText](raw T) error {
+// validateIntegerLexical validates raw as an xs:integer lexical value.
+func validateIntegerLexical[T byteText](raw T) error {
 	_, err := scanIntegerText(raw)
 	return err
 }

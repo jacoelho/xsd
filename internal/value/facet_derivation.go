@@ -45,8 +45,8 @@ func allowedFacetMask(variety Variety, primitive PrimitiveKind) FacetMask {
 		case PrimitiveDecimal:
 			return mask | orderedFacetMask | FacetTotalDigits | FacetFractionDigits
 		case PrimitiveFloat, PrimitiveDouble, PrimitiveDuration,
-			PrimitiveDateTime, PrimitiveTime, PrimitiveDate, PrimitiveGYearMonth,
-			PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth:
+			PrimitiveDateTime, primitiveTime, primitiveDate, primitiveGYearMonth,
+			primitiveGYear, primitiveGMonthDay, primitiveGDay, primitiveGMonth:
 			return mask | orderedFacetMask
 		default:
 			return mask
@@ -230,7 +230,7 @@ func orderedLowerRestricts(derived, base boundValue) bool {
 	if !ok {
 		return false
 	}
-	return OrderedFacetLowerRestricts(derived.exclusive, base.exclusive, relation)
+	return orderedFacetLowerRestricts(derived.exclusive, base.exclusive, relation)
 }
 
 func orderedUpperRestricts(derived, base boundValue) bool {
@@ -238,7 +238,7 @@ func orderedUpperRestricts(derived, base boundValue) bool {
 	if !ok {
 		return false
 	}
-	return OrderedFacetUpperRestricts(derived.exclusive, base.exclusive, relation)
+	return orderedFacetUpperRestricts(derived.exclusive, base.exclusive, relation)
 }
 
 // compareDerivationBounds orders a derived bound against its base. xs:time
@@ -247,13 +247,13 @@ func orderedUpperRestricts(derived, base boundValue) bool {
 // derived 12:00:00-14:00 invalid. Instance acceptance still uses recurring
 // time. This oracle is source-qualified; see R-127 in
 // docs/spec/INTERPRETATIONS.md.
-func compareDerivationBounds(derived, base boundValue) (OrderedFacetRelation, bool) {
-	if derived.value.kind != PrimitiveTime || base.value.kind != PrimitiveTime {
+func compareDerivationBounds(derived, base boundValue) (orderedFacetRelation, bool) {
+	if derived.value.kind != primitiveTime || base.value.kind != primitiveTime {
 		return compareAtomic(&derived.value, &base.value)
 	}
 	left := rawTimeProjection(derived)
 	right := rawTimeProjection(base)
-	return CompareTimePartial(left, right), true
+	return compareTimePartial(left, right), true
 }
 
 func rawTimeProjection(bound boundValue) TimeValue {

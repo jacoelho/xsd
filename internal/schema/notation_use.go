@@ -12,7 +12,7 @@ var errBareNotationTypeUse = errors.New("NOTATION type use requires enumeration"
 // base or an enumeration literal. Constructor edges are admitted independently,
 // so completed list and union types require no repeated descendant walk.
 func checkNotationTypeUse(build *schemaBuild, id SimpleTypeID) error {
-	if !ValidSimpleTypeID(id, len(build.SimpleTypes)) || !ValidSimpleTypeID(id, len(build.simpleTypeUnavailable)) {
+	if !validSimpleTypeID(id, len(build.SimpleTypes)) || !validSimpleTypeID(id, len(build.simpleTypeUnavailable)) {
 		return xsderrors.InternalInvariant("NOTATION use references invalid simple type")
 	}
 	if build.simpleTypeUnavailable[id] {

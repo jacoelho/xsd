@@ -14,13 +14,13 @@ type qualifiedValueAPI struct {
 func qualifiedValueAPIs(p *Program) []qualifiedValueAPI {
 	return []qualifiedValueAPI{
 		{"Validate", 1, func(id TypeID, text string, resolver Resolver, needs Needs, work uint64) (Value, error) {
-			return p.Validate(id, text, resolver, needs, work, nil)
+			return p.Validate(id, text, resolver, needs, EvaluationLimits{Work: work, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		}},
 		{"Admitted", 1, func(id TypeID, text string, resolver Resolver, needs Needs, work uint64) (Value, error) {
-			return p.ValidateAdmitted(id, text, resolver, needs, work, nil)
+			return p.ValidateAdmitted(id, text, resolver, needs, EvaluationLimits{Work: work, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		}},
 		{"Bytes", 2, func(id TypeID, text string, resolver Resolver, needs Needs, work uint64) (Value, error) {
-			return p.ValidateBytes(id, []byte(text), resolver, needs, work, nil)
+			return p.ValidateBytes(id, []byte(text), resolver, needs, EvaluationLimits{Work: work, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		}},
 	}
 }
@@ -34,7 +34,7 @@ func assertUnprojectedQualifiedValue(t *testing.T, got Value, id TypeID) {
 }
 
 func TestUnprojectedQualifiedValueAdmission(t *testing.T) {
-	builder := NewBuilder(BuilderOptions{MaxDepth: 1})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxDepth: 1})
 	custom, err := builder.Reserve()
 	if err != nil {
 		t.Fatal(err)
@@ -112,7 +112,7 @@ func TestUnprojectedQualifiedValueAdmission(t *testing.T) {
 }
 
 func TestUnprojectedNotationWithoutQNameResolver(t *testing.T) {
-	p, err := NewBuilder(BuilderOptions{}).Seal()
+	p, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +152,7 @@ func TestQualifiedValueExternalAdmissionPrecedesResolution(t *testing.T) {
 	} {
 		for _, builderAPI := range []bool{false, true} {
 			for _, work := range []uint64{6, 7} {
-				builder := NewBuilder(BuilderOptions{MaxConstructionWork: work})
+				builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxConstructionWork: work})
 				calls := 0
 				resolver := Resolver{QName: func(string) (ExpandedName, bool) { calls++; return ExpandedName{Local: "item"}, true }}
 				var err error
@@ -163,7 +163,7 @@ func TestQualifiedValueExternalAdmissionPrecedesResolution(t *testing.T) {
 					if sealErr != nil {
 						t.Fatal(sealErr)
 					}
-					_, err = p.Validate(builtinQName, input.text, resolver, 0, work, nil)
+					_, err = p.Validate(builtinQName, input.text, resolver, 0, EvaluationLimits{Work: work, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 				}
 				if work == 6 {
 					if !errors.Is(err, ErrLimit) {
@@ -182,7 +182,7 @@ func TestQualifiedValueExternalAdmissionPrecedesResolution(t *testing.T) {
 
 func TestBuilderUnprojectedQualifiedValueBudget(t *testing.T) {
 	for _, work := range []uint64{6, 7} {
-		builder := NewBuilder(BuilderOptions{MaxConstructionWork: work})
+		builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxConstructionWork: work})
 		calls := 0
 		resolver := Resolver{QName: func(string) (ExpandedName, bool) {
 			calls++
@@ -212,7 +212,7 @@ func TestBuilderUnprojectedQualifiedValueBudget(t *testing.T) {
 }
 
 func TestUnprojectedQNameFailureKeepsOriginalSpelling(t *testing.T) {
-	p, err := NewBuilder(BuilderOptions{}).Seal()
+	p, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 	if err != nil {
 		t.Fatal(err)
 	}

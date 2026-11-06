@@ -48,7 +48,7 @@ type TimeValue struct {
 	hasTZ  bool
 }
 
-// ValidateTemporalLexical validates raw as a schema-independent temporal
+// validateTemporalLexical validates raw as a schema-independent temporal
 // primitive lexical value. It does not build canonical values or compare facets.
 //
 // These admission scanners and the typed parsers share semantic predicates
@@ -56,23 +56,23 @@ type TimeValue struct {
 // temporal parts with optional output destinations, because matched baseline
 // measurements still showed raw and typed regressions. This does not reject
 // shared parsers in general.
-func ValidateTemporalLexical[T byteText](kind PrimitiveKind, raw T) error {
+func validateTemporalLexical[T byteText](kind PrimitiveKind, raw T) error {
 	switch kind {
-	case PrimitiveDate:
+	case primitiveDate:
 		return validateDateLexical(raw)
 	case PrimitiveDateTime:
 		return validateDateTimeLexical(raw)
-	case PrimitiveTime:
+	case primitiveTime:
 		return validateTimeLexical(raw)
-	case PrimitiveGYearMonth:
+	case primitiveGYearMonth:
 		return validateGYearMonthLexical(raw)
-	case PrimitiveGYear:
+	case primitiveGYear:
 		return validateGYearLexical(raw)
-	case PrimitiveGMonthDay:
+	case primitiveGMonthDay:
 		return validateGMonthDayLexical(raw)
-	case PrimitiveGDay:
+	case primitiveGDay:
 		return validateGDayLexical(raw)
-	case PrimitiveGMonth:
+	case primitiveGMonth:
 		return validateGMonthLexical(raw)
 	case PrimitiveString, PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble, PrimitiveDuration,
 		PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
@@ -158,9 +158,9 @@ func (v DateTimeValue) CanonicalText() string {
 	return out
 }
 
-// CompareTemporalValues compares xs:date/xs:dateTime values using the XML
+// compareTemporalValues compares xs:date/xs:dateTime values using the XML
 // Schema partial order.
-func CompareTemporalValues(a, b TemporalValue) OrderedFacetRelation {
+func compareTemporalValues(a, b TemporalValue) orderedFacetRelation {
 	if a.hasTZ == b.hasTZ {
 		return orderedFacetRelationFromInt(compareXSDDateTimePoint(a.instant, b.instant))
 	}
@@ -168,27 +168,27 @@ func CompareTemporalValues(a, b TemporalValue) OrderedFacetRelation {
 		lo := addMinutes(a.instant, -xsdTimezoneUncertainty)
 		hi := addMinutes(a.instant, xsdTimezoneUncertainty)
 		if compareXSDDateTimePoint(hi, b.instant) < 0 {
-			return OrderedFacetLess
+			return orderedFacetLess
 		}
 		if compareXSDDateTimePoint(lo, b.instant) > 0 {
-			return OrderedFacetGreater
+			return orderedFacetGreater
 		}
-		return OrderedFacetIncomparable
+		return orderedFacetIncomparable
 	}
 	lo := addMinutes(b.instant, -xsdTimezoneUncertainty)
 	hi := addMinutes(b.instant, xsdTimezoneUncertainty)
 	if compareXSDDateTimePoint(a.instant, lo) < 0 {
-		return OrderedFacetLess
+		return orderedFacetLess
 	}
 	if compareXSDDateTimePoint(a.instant, hi) > 0 {
-		return OrderedFacetGreater
+		return orderedFacetGreater
 	}
-	return OrderedFacetIncomparable
+	return orderedFacetIncomparable
 }
 
-// EqualTemporalValues reports XML Schema equality for xs:date/xs:dateTime
+// equalTemporalValues reports XML Schema equality for xs:date/xs:dateTime
 // values, including timezone-presence equivalence.
-func EqualTemporalValues(a, b TemporalValue) bool {
+func equalTemporalValues(a, b TemporalValue) bool {
 	return a.hasTZ == b.hasTZ && compareXSDDateTimePoint(a.instant, b.instant) == 0
 }
 
@@ -202,9 +202,9 @@ func ParseTimeValue(s string) (TimeValue, error) {
 	return TimeValue{second: second, frac: tm.frac, hasTZ: tm.tz.present}, nil
 }
 
-// ParseTimeRawValue parses s as xs:time without canonical day wrapping. It is
+// parseTimeRawValue parses s as xs:time without canonical day wrapping. It is
 // used for restriction checks where lexical timezone absence must be preserved.
-func ParseTimeRawValue(s string) (TimeValue, error) {
+func parseTimeRawValue(s string) (TimeValue, error) {
 	tm, err := parseXSDTimeParts(s)
 	if err != nil {
 		return TimeValue{}, err
@@ -224,27 +224,27 @@ func (v TimeValue) CanonicalText() string {
 	return out
 }
 
-// CompareTimeValues compares xs:time values after timezone normalization.
-func CompareTimeValues(a, b TimeValue) int {
+// compareTimeValues compares xs:time values after timezone normalization.
+func compareTimeValues(a, b TimeValue) int {
 	if n := cmp.Compare(a.second, b.second); n != 0 {
 		return n
 	}
 	return compareFraction(a.frac, b.frac)
 }
 
-// CompareTimePartial compares xs:time values using the XML Schema partial
+// compareTimePartial compares xs:time values using the XML Schema partial
 // order.
-func CompareTimePartial(a, b TimeValue) OrderedFacetRelation {
+func compareTimePartial(a, b TimeValue) orderedFacetRelation {
 	if a.hasTZ == b.hasTZ {
-		return orderedFacetRelationFromInt(CompareTimeValues(a, b))
+		return orderedFacetRelationFromInt(compareTimeValues(a, b))
 	}
-	return CompareTemporalValues(xsdTimeTemporalValue(a), xsdTimeTemporalValue(b))
+	return compareTemporalValues(xsdTimeTemporalValue(a), xsdTimeTemporalValue(b))
 }
 
-// EqualTimeValues reports XML Schema equality for xs:time values, including
+// equalTimeValues reports XML Schema equality for xs:time values, including
 // timezone-presence equivalence.
-func EqualTimeValues(a, b TimeValue) bool {
-	return a.hasTZ == b.hasTZ && CompareTimeValues(a, b) == 0
+func equalTimeValues(a, b TimeValue) bool {
+	return a.hasTZ == b.hasTZ && compareTimeValues(a, b) == 0
 }
 
 type xsdDatePart struct {

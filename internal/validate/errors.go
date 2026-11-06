@@ -16,38 +16,41 @@ import (
 // Message construction belongs here; assessment and recovery stay with their
 // state owners. Call diagnostic formatting only after a check has failed.
 const (
-	elementNotNillableMessage     = "xsi:nil is not allowed because the element declaration is not nillable"
-	msgNilledFixed                = "xsi:nil cannot be true because the element has a fixed value"
-	msgAbstractType               = "the selected complex type is abstract; use a concrete derived xsi:type"
-	msgNilledContent              = "an element with xsi:nil=\"true\" must have no text or child elements"
-	msgSimpleTypeChild            = "child elements are not allowed because the element has a simple type"
-	msgSimpleContentChild         = "child elements are not allowed because the element has simple content"
-	msgEmptyText                  = "character data, including whitespace, is not allowed because the content type is empty"
-	msgElementOnlyText            = "non-whitespace character data is not allowed because the content type is element-only"
-	msgAbstractElement            = "the element declaration is abstract; use a concrete substitution-group member"
-	msgSchemaLocationPairs        = "xsi:schemaLocation must contain namespace/location pairs"
-	msgSessionInUse               = "validation session is already in use"
-	msgReaderNil                  = "instance reader is nil"
-	msgInstanceUTF8               = "instance documents must be UTF-8"
-	msgExternalEntity             = "external or undeclared entity resolution is not supported"
-	msgTextOutsideRoot            = "text outside root element"
-	msgCDATAOutsideRoot           = "CDATA section outside root element"
-	msgReferenceOutsideRoot       = "reference outside root element"
-	msgMultipleRoots              = "multiple root elements"
-	msgUnexpectedEnd              = "unexpected end element"
-	msgNoRoot                     = "instance document has no root element"
-	msgUnclosedElement            = "unclosed element"
-	msgSimpleValueLimit           = "simple value validation limit exceeded"
-	msgInvalidSimpleContent       = "invalid simple content"
-	msgInvalidXSINil              = "invalid xsi:nil value"
-	msgInvalidXSIType             = "invalid xsi:type"
-	msgContentExpectationMetadata = "content expectation metadata is invalid"
-	optionMaxInstanceBytes        = "MaxInstanceBytes"
-	optionMaxInstanceTokenBytes   = "MaxInstanceTokenBytes"
-	optionMaxInstanceAttributes   = "MaxInstanceAttributes"
+	elementNotNillableMessage         = "xsi:nil is not allowed because the element declaration is not nillable"
+	msgNilledFixed                    = "xsi:nil cannot be true because the element has a fixed value"
+	msgAbstractType                   = "the selected complex type is abstract; use a concrete derived xsi:type"
+	msgNilledContent                  = "an element with xsi:nil=\"true\" must have no text or child elements"
+	msgSimpleTypeChild                = "child elements are not allowed because the element has a simple type"
+	msgSimpleContentChild             = "child elements are not allowed because the element has simple content"
+	msgEmptyText                      = "character data, including whitespace, is not allowed because the content type is empty"
+	msgElementOnlyText                = "non-whitespace character data is not allowed because the content type is element-only"
+	msgAbstractElement                = "the element declaration is abstract; use a concrete substitution-group member"
+	msgSchemaLocationPairs            = "xsi:schemaLocation must contain namespace/location pairs"
+	msgSessionInUse                   = "validation session is already in use"
+	msgReaderNil                      = "instance reader is nil"
+	msgInstanceUTF8                   = "instance documents must be UTF-8"
+	msgExternalEntity                 = "external or undeclared entity resolution is not supported"
+	msgTextOutsideRoot                = "text outside root element"
+	msgCDATAOutsideRoot               = "CDATA section outside root element"
+	msgReferenceOutsideRoot           = "reference outside root element"
+	msgMultipleRoots                  = "multiple root elements"
+	msgUnexpectedEnd                  = "unexpected end element"
+	msgNoRoot                         = "instance document has no root element"
+	msgUnclosedElement                = "unclosed element"
+	msgSimpleValueLimit               = "simple value validation limit exceeded"
+	msgInvalidSimpleContent           = "invalid simple content"
+	msgInvalidXSINil                  = "invalid xsi:nil value"
+	msgInvalidXSIType                 = "invalid xsi:type"
+	msgContentExpectationMetadata     = "content expectation metadata is invalid"
+	optionMaxInstanceBytes            = "MaxInstanceBytes"
+	optionMaxInstanceTokenBytes       = "MaxInstanceTokenBytes"
+	optionMaxInstanceAttributes       = "MaxInstanceAttributes"
+	optionMaxInstanceDepth            = "MaxInstanceDepth"
+	optionMaxInstancePatternWork      = "MaxInstancePatternWork"
+	optionMaxInstanceTotalPatternWork = "MaxInstanceTotalPatternWork"
 )
 
-func validation(ctx StartContext, code xsderrors.Code, msg string) error {
+func validation(ctx startContext, code xsderrors.Code, msg string) error {
 	return xsderrors.WithLocation(ctx.PathString(), ctx.Line, ctx.Column, xsderrors.Validation(code, msg, nil))
 }
 
@@ -220,7 +223,6 @@ const (
 	msgIdentityNillableKey   = "a key field must not select a nillable element declaration"
 	msgMultipleIDAttributes  = "an element must not have more than one attribute of type xs:ID"
 	msgWildcardIDDeclaredUse = "wildcard ID attribute conflicts with a declared ID attribute use"
-	msgInstanceDepthLimit    = "instance depth limit exceeded"
 )
 
 func duplicateAttributeMessage(name xsdSchema.RuntimeName) string {
@@ -268,18 +270,24 @@ func (s *session) incompleteContentIssue(parent *frame) validationIssue {
 	return validationIssue{code: xsderrors.CodeValidationContent, message: "content is incomplete; expected next child " + contentExpectationMessage(expected)}
 }
 
-func attributeValidation(ctx StartContext, msg string) error {
+func attributeValidation(ctx startContext, msg string) error {
 	return validation(ctx, xsderrors.CodeValidationAttribute, msg)
 }
 
 // terminalValueError preserves operational failures before ordinary value errors
 // are rendered with an assessment-specific code and message.
-func terminalValueError(ctx StartContext, err error, workLimit uint64) error {
+func terminalValueError(ctx startContext, err error, eval xsdValue.EvaluationLimits) error {
 	if errors.Is(err, xsdValue.ErrMetadata) {
 		return xsderrors.InternalInvariant("simple value metadata is invalid")
 	}
+	if errors.Is(err, xsdValue.ErrPatternTotalLimit) {
+		return validation(ctx, xsderrors.CodeValidationLimit, msgSimpleValueLimit+": "+optionMaxInstanceTotalPatternWork+"="+strconv.FormatUint(eval.PatternTotal.Limit(), 10))
+	}
+	if errors.Is(err, xsdValue.ErrPatternLimit) {
+		return validation(ctx, xsderrors.CodeValidationLimit, msgSimpleValueLimit+": "+optionMaxInstancePatternWork+"="+strconv.FormatUint(eval.PatternWork, 10))
+	}
 	if errors.Is(err, xsdValue.ErrLimit) {
-		return validation(ctx, xsderrors.CodeValidationLimit, msgSimpleValueLimit+": MaxInstanceValueWork="+strconv.FormatUint(workLimit, 10))
+		return validation(ctx, xsderrors.CodeValidationLimit, msgSimpleValueLimit+": MaxInstanceValueWork="+strconv.FormatUint(eval.Work, 10))
 	}
 	if xsderrors.IsUnsupported(err) {
 		return err
@@ -287,8 +295,8 @@ func terminalValueError(ctx StartContext, err error, workLimit uint64) error {
 	return nil
 }
 
-func simpleValueError(ctx StartContext, code xsderrors.Code, message string, err error, workLimit uint64) error {
-	if terminalErr := terminalValueError(ctx, err, workLimit); terminalErr != nil {
+func simpleValueError(ctx startContext, code xsderrors.Code, message string, err error, eval xsdValue.EvaluationLimits) error {
+	if terminalErr := terminalValueError(ctx, err, eval); terminalErr != nil {
 		return terminalErr
 	}
 	return validation(ctx, code, message+": "+err.Error())
@@ -298,7 +306,7 @@ func optionError(msg string) error {
 	return xsderrors.Validation(xsderrors.CodeValidationOption, msg, nil)
 }
 
-func validationFromIssue(ctx StartContext, issue validationIssue) error {
+func validationFromIssue(ctx startContext, issue validationIssue) error {
 	if issue.code == xsderrors.CodeInternalInvariant {
 		return xsderrors.InternalInvariant(issue.message)
 	}
@@ -325,22 +333,18 @@ func unavailableElementTypeMessage(rt *xsdSchema.Schema, id xsdSchema.TypeID) st
 	return "element type " + typeDiagnosticLabel(rt, id) + " is unavailable because its schema declaration was not loaded"
 }
 
-func depthLimitMessage(cause error) string { return msgInstanceDepthLimit + ": " + cause.Error() }
-func instanceLimitError(err error, ctx StartContext, limits Limits) error {
-	var option string
-	var configured int64
-	switch {
-	case xmlstream.IsInputLimit(err):
-		option = optionMaxInstanceBytes
-		configured = limits.InstanceBytes
-	case xmlstream.IsTokenLimit(err):
-		option = optionMaxInstanceTokenBytes
-		configured = limits.InstanceTokenBytes
-	case xmlstream.IsAttributeLimit(err):
-		option = optionMaxInstanceAttributes
-		configured = int64(limits.InstanceAttributes)
-	default:
-		return nil
+// readerLimitOption maps every reader limit to the instance option that
+// configured it.
+func readerLimitOption(limit xmlstream.Limit, limits Limits) (option string, configured int64) {
+	switch limit {
+	case xmlstream.LimitInputBytes:
+		return optionMaxInstanceBytes, limits.InstanceBytes
+	case xmlstream.LimitTokenBytes:
+		return optionMaxInstanceTokenBytes, limits.InstanceTokenBytes
+	case xmlstream.LimitAttrs:
+		return optionMaxInstanceAttributes, int64(limits.InstanceAttributes)
+	case xmlstream.LimitDepth:
+		return optionMaxInstanceDepth, int64(limits.InstanceDepth)
 	}
-	return xsderrors.WithLocation(ctx.PathString(), ctx.Line, ctx.Column, xsderrors.Validation(xsderrors.CodeValidationLimit, option+"="+strconv.FormatInt(configured, 10)+" exceeded", err))
+	return "", 0
 }

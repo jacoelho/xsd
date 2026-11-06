@@ -12,11 +12,11 @@ func BenchmarkCompileRepeatedCategoryTerms(b *testing.B) {
 			source := `[` + strings.Repeat(`\p{L}`, count) + `]`
 			b.ReportAllocs()
 			for b.Loop() {
-				pattern, err := Compile(source, CompileOptions{})
+				pattern, err := Compile(source)
 				if err != nil {
 					b.Fatal(err)
 				}
-				matched, err := pattern.MatchStringWithScratch("A", MatchOptions{}, nil)
+				matched, _, err := pattern.MatchStringWithScratch("A", unlimitedWork, nil)
 				if err != nil || !matched {
 					b.Fatalf("MatchString(A) = %v, %v", matched, err)
 				}
@@ -31,24 +31,24 @@ func BenchmarkCompileBitsetWhitespace(b *testing.B) {
 	if !pattern.bitset || pattern.deterministic || pattern.linear != nil {
 		b.Fatal("benchmark requires the general bitset NFA")
 	}
-	if matched, err := pattern.MatchStringWithScratch(" a ", MatchOptions{}, nil); err != nil || !matched {
+	if matched, _, err := pattern.MatchStringWithScratch(" a ", unlimitedWork, nil); err != nil || !matched {
 		b.Fatalf("fixture match = %v, %v", matched, err)
 	}
 	b.ReportAllocs()
 	for b.Loop() {
 		var err error
-		pattern, err = Compile(source, CompileOptions{})
+		pattern, err = Compile(source)
 		if err != nil || pattern == nil {
 			b.Fatalf("compile = %v, %v", pattern, err)
 		}
 	}
-	if matched, err := pattern.MatchStringWithScratch(" a ", MatchOptions{}, nil); err != nil || !matched {
+	if matched, _, err := pattern.MatchStringWithScratch(" a ", unlimitedWork, nil); err != nil || !matched {
 		b.Fatalf("compiled match = %v, %v", matched, err)
 	}
 }
 
 func BenchmarkParseNodeAdmissionPrebuilt(b *testing.B) {
-	options := normalizeCompileOptions(CompileOptions{MaxNodes: 8})
+	options := compileLimits{nodes: 8}.withDefaults()
 	for _, test := range []struct {
 		name string
 		size int
@@ -76,20 +76,20 @@ func BenchmarkCompileNodeAdmission(b *testing.B) {
 	for _, test := range []struct {
 		name      string
 		source    string
-		options   CompileOptions
+		options   compileLimits
 		wantLimit bool
 	}{
-		{name: "admitted/literal", source: "abc", options: CompileOptions{}},
-		{name: "admitted/class", source: "[a-z]", options: CompileOptions{}},
-		{name: "admitted/repeat", source: "a*", options: CompileOptions{}},
-		{name: "rejected/low-cap", source: large, options: CompileOptions{MaxNodes: 8}, wantLimit: true},
-		{name: "rejected/default-cap", source: large, options: CompileOptions{}, wantLimit: true},
+		{name: "admitted/literal", source: "abc", options: fixedCompileLimits},
+		{name: "admitted/class", source: "[a-z]", options: fixedCompileLimits},
+		{name: "admitted/repeat", source: "a*", options: fixedCompileLimits},
+		{name: "rejected/low-cap", source: large, options: compileLimits{nodes: 8}.withDefaults(), wantLimit: true},
+		{name: "rejected/default-cap", source: large, options: fixedCompileLimits, wantLimit: true},
 	} {
 		b.Run(test.name, func(b *testing.B) {
 			b.ReportAllocs()
 			b.SetBytes(int64(len(test.source)))
 			for b.Loop() {
-				pattern, err := Compile(test.source, test.options)
+				pattern, err := compileWithLimits(test.source, test.options)
 				if test.wantLimit {
 					if pattern != nil || !IsLimit(err) {
 						b.Fatalf("Compile() = (%v, %v), want nil and limit", pattern, err)

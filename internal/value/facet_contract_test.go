@@ -30,7 +30,7 @@ func boundFacet(lexical string) value.FacetSpec {
 
 func assertFacetDerivationRejected(t *testing.T, base, derived value.TypeSpec) {
 	t.Helper()
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	baseID, err := builder.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -216,11 +216,11 @@ func TestFacetContractRejectsLengthAncestryWithoutInheritedBound(t *testing.T) {
 func TestFacetContractSupportsListAndUnionFacets(t *testing.T) {
 	t.Parallel()
 
-	pattern, err := xsdregex.Compile("a b", xsdregex.CompileOptions{})
+	pattern, err := xsdregex.Compile("a b")
 	if err != nil {
 		t.Fatal(err)
 	}
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	listID, err := builder.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -276,7 +276,7 @@ func TestFacetContractSupportsListAndUnionFacets(t *testing.T) {
 		{id: unionID, lexical: "yes", valid: true},
 		{id: unionID, lexical: "2", valid: false},
 	} {
-		_, err := program.Validate(test.id, test.lexical, value.Resolver{}, 0, 16<<20, nil)
+		_, err := program.Validate(test.id, test.lexical, value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		if (err == nil) != test.valid {
 			t.Errorf("Validate(%d, %q) error = %v, valid = %v", test.id, test.lexical, err, test.valid)
 		}
@@ -286,7 +286,7 @@ func TestFacetContractSupportsListAndUnionFacets(t *testing.T) {
 func TestFacetContractRejectsForbiddenFacetFamilies(t *testing.T) {
 	t.Parallel()
 
-	pattern, err := xsdregex.Compile("x", xsdregex.CompileOptions{})
+	pattern, err := xsdregex.Compile("x")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -307,7 +307,7 @@ func TestFacetContractRejectsForbiddenFacetFamilies(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			builder := value.NewBuilder(value.BuilderOptions{})
+			builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 			reservedID, reserveErr := builder.Reserve()
 			if reserveErr != nil {
 				t.Fatalf("Reserve() error = %v", reserveErr)
@@ -326,11 +326,11 @@ func TestFacetContractRejectsForbiddenFacetFamilies(t *testing.T) {
 
 func TestBooleanEnumerationRejectionAndCompletionRetry(t *testing.T) {
 	t.Parallel()
-	pattern, err := xsdregex.Compile("true|1", xsdregex.CompileOptions{})
+	pattern, err := xsdregex.Compile("true|1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := builder.Reserve()
 	if err != nil {
 		t.Fatal(err)
@@ -355,12 +355,12 @@ func TestBooleanEnumerationRejectionAndCompletionRetry(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, lexical := range []string{"true", "1", " true "} {
-		if _, err := program.Validate(id, lexical, value.Resolver{}, 0, 16<<20, nil); err != nil {
+		if _, err := program.Validate(id, lexical, value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 			t.Errorf("Validate(%q) = %v; want admitted Boolean pattern", lexical, err)
 		}
 	}
 	for _, lexical := range []string{"false", "0"} {
-		if _, validationErr := program.Validate(id, lexical, value.Resolver{}, 0, 16<<20, nil); !errors.Is(validationErr, value.ErrFacet) {
+		if _, validationErr := program.Validate(id, lexical, value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); !errors.Is(validationErr, value.ErrFacet) {
 			t.Errorf("Validate(%q) = %v; want Boolean pattern rejection", lexical, validationErr)
 		}
 	}
@@ -380,7 +380,7 @@ func TestBooleanListAndUnionEnumeration(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			builder := value.NewBuilder(value.BuilderOptions{})
+			builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 			id, err := builder.Reserve()
 			if err != nil {
 				t.Fatal(err)
@@ -404,12 +404,12 @@ func TestBooleanListAndUnionEnumeration(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, lexical := range test.valid {
-				if _, err := program.Validate(id, lexical, value.Resolver{}, 0, 16<<20, nil); err != nil {
+				if _, err := program.Validate(id, lexical, value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 					t.Errorf("Validate(%q) = %v; want value-equivalent enumerand", lexical, err)
 				}
 			}
 			for _, lexical := range test.invalid {
-				if _, validationErr := program.Validate(id, lexical, value.Resolver{}, 0, 16<<20, nil); !errors.Is(validationErr, value.ErrFacet) {
+				if _, validationErr := program.Validate(id, lexical, value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); !errors.Is(validationErr, value.ErrFacet) {
 					t.Errorf("Validate(%q) = %v; want enumeration rejection", lexical, validationErr)
 				}
 			}
@@ -454,19 +454,19 @@ func TestFacetContractRejectsPrimitiveAndVarietyChanges(t *testing.T) {
 func TestFacetContractUsesORWithinStepAndANDAcrossAncestors(t *testing.T) {
 	t.Parallel()
 
-	basePattern, err := xsdregex.Compile("[A-Z]+", xsdregex.CompileOptions{})
+	basePattern, err := xsdregex.Compile("[A-Z]+")
 	if err != nil {
 		t.Fatal(err)
 	}
-	derivedA, err := xsdregex.Compile("AX", xsdregex.CompileOptions{})
+	derivedA, err := xsdregex.Compile("AX")
 	if err != nil {
 		t.Fatal(err)
 	}
-	derivedB, err := xsdregex.Compile("BX", xsdregex.CompileOptions{})
+	derivedB, err := xsdregex.Compile("BX")
 	if err != nil {
 		t.Fatal(err)
 	}
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	base, err := builder.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -506,7 +506,7 @@ func TestFacetContractUsesORWithinStepAndANDAcrossAncestors(t *testing.T) {
 		{lexical: "AB", valid: false},
 		{lexical: "ax", valid: false},
 	} {
-		_, err := program.Validate(derived, test.lexical, value.Resolver{}, 0, 16<<20, nil)
+		_, err := program.Validate(derived, test.lexical, value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		if (err == nil) != test.valid {
 			t.Errorf("Validate(%q) error = %v, valid = %v", test.lexical, err, test.valid)
 		}
@@ -529,7 +529,7 @@ func TestFacetContractRejectsEnumerationOutsideBaseValueSpace(t *testing.T) {
 func TestFacetContractAllowsExplicitSelfTypedBound(t *testing.T) {
 	t.Parallel()
 
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := builder.Reserve()
 	if err != nil {
 		t.Fatal(err)
@@ -552,10 +552,10 @@ func TestFacetContractAllowsExplicitSelfTypedBound(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := program.Validate(id, "1", value.Resolver{}, 0, 16<<20, nil); err != nil {
+	if _, err := program.Validate(id, "1", value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 		t.Fatalf("self-typed bound rejected its boundary value: %v", err)
 	}
-	if _, err := program.Validate(id, "0", value.Resolver{}, 0, 16<<20, nil); err == nil {
+	if _, err := program.Validate(id, "0", value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err == nil {
 		t.Fatal("self-typed bound accepted a value below its boundary")
 	}
 }
@@ -567,7 +567,7 @@ func TestFacetContractAllowsDirectAnySimpleTypeVarietyDerivation(t *testing.T) {
 	if !ok {
 		t.Fatal("anySimpleType builtin is missing")
 	}
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	list, err := builder.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -606,10 +606,10 @@ func TestFacetContractAllowsDirectAnySimpleTypeVarietyDerivation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := program.Validate(list, "a b", value.Resolver{}, 0, 16<<20, nil); err != nil {
+	if _, err := program.Validate(list, "a b", value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 		t.Fatalf("list derived from anySimpleType rejected: %v", err)
 	}
-	if _, err := program.Validate(union, "1", value.Resolver{}, 0, 16<<20, nil); err != nil {
+	if _, err := program.Validate(union, "1", value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 		t.Fatalf("union derived from anySimpleType rejected: %v", err)
 	}
 }
@@ -622,7 +622,7 @@ func TestFacetContractUsesValueSpaceForFixedAndPartialOrderedBounds(t *testing.T
 		facets.Fixed = value.FacetMinInclusive
 		return facets
 	}())
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	base, err := builder.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -660,7 +660,7 @@ func TestFacetContractUsesValueSpaceForFixedAndPartialOrderedBounds(t *testing.T
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			b := value.NewBuilder(value.BuilderOptions{})
+			b := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 			baseID, err := b.Reserve()
 			if err != nil {
 				t.Fatalf("Reserve() error = %v", err)
@@ -726,7 +726,7 @@ func TestFacetContractAllowsIncomparableOrderedBounds(t *testing.T) {
 				{"both exclusive", value.FacetSpec{MinExclusive: lower, MaxExclusive: upper}},
 			} {
 				t.Run(bounds.name, func(t *testing.T) {
-					builder := value.NewBuilder(value.BuilderOptions{})
+					builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 					id, err := builder.Reserve()
 					if err != nil {
 						t.Fatal(err)
@@ -770,7 +770,7 @@ func TestFacetContractEqualOrderedBounds(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			builder := value.NewBuilder(value.BuilderOptions{})
+			builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 			id, err := builder.Reserve()
 			if err != nil {
 				t.Fatal(err)
@@ -806,7 +806,7 @@ func TestFacetContractEqualNaNBounds(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			builder := value.NewBuilder(value.BuilderOptions{})
+			builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 			id, err := builder.Reserve()
 			if err != nil {
 				t.Fatal(err)
@@ -831,10 +831,10 @@ func assertOrderedFacetValues(t *testing.T, program *value.Program, id value.Typ
 	for _, form := range []string{"typed", "bytes"} {
 		validate := func(input string) error {
 			if form == "bytes" {
-				_, err := program.ValidateBytes(id, []byte(input), value.Resolver{}, 0, 16<<20, nil)
+				_, err := program.ValidateBytes(id, []byte(input), value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 				return err
 			}
-			_, err := program.Validate(id, input, value.Resolver{}, value.NeedCanonical, 16<<20, nil)
+			_, err := program.Validate(id, input, value.Resolver{}, value.NeedCanonical, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			return err
 		}
 		for _, input := range accepted {
@@ -852,7 +852,7 @@ func assertOrderedFacetValues(t *testing.T, program *value.Program, id value.Typ
 
 func TestCollectionFacetsCannotBeFixedAndCompletionCanRetry(t *testing.T) {
 	t.Parallel()
-	pattern, err := xsdregex.Compile("x", xsdregex.CompileOptions{})
+	pattern, err := xsdregex.Compile("x")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -874,7 +874,7 @@ func TestCollectionFacetsCannotBeFixedAndCompletionCanRetry(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			builder := value.NewBuilder(value.BuilderOptions{})
+			builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 			id, err := builder.Reserve()
 			if err != nil {
 				t.Fatal(err)
@@ -895,10 +895,10 @@ func TestCollectionFacetsCannotBeFixedAndCompletionCanRetry(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, validationErr := program.Validate(id, "x", value.Resolver{}, 0, 16<<20, nil); validationErr != nil {
+			if _, validationErr := program.Validate(id, "x", value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); validationErr != nil {
 				t.Fatalf("Validate(x) = %v", validationErr)
 			}
-			_, err = program.Validate(id, "y", value.Resolver{}, 0, 16<<20, nil)
+			_, err = program.Validate(id, "y", value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			if !errors.Is(err, value.ErrFacet) || err.Error() != test.message {
 				t.Fatalf("Validate(y) = %v; want %q", err, test.message)
 			}
@@ -908,7 +908,7 @@ func TestCollectionFacetsCannotBeFixedAndCompletionCanRetry(t *testing.T) {
 
 func TestFixedWhitespaceRejectsStrengtheningAndCompletionCanRetry(t *testing.T) {
 	t.Parallel()
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	baseID, err := builder.Reserve()
 	if err != nil {
 		t.Fatal(err)
@@ -940,7 +940,7 @@ func TestFixedWhitespaceRejectsStrengtheningAndCompletionCanRetry(t *testing.T) 
 		t.Fatal(err)
 	}
 	const lexical = " \ta\n "
-	result, err := program.Validate(derivedID, lexical, value.Resolver{}, value.NeedCanonical, 16<<20, nil)
+	result, err := program.Validate(derivedID, lexical, value.Resolver{}, value.NeedCanonical, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -993,7 +993,7 @@ func TestInheritedCardinalityConflictsAndRetry(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			builder := value.NewBuilder(value.BuilderOptions{})
+			builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 			baseID, err := builder.Reserve()
 			if err != nil {
 				t.Fatal(err)
@@ -1030,12 +1030,12 @@ func TestInheritedCardinalityConflictsAndRetry(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, lexical := range []string{"abc", "abcde"} {
-				if _, err := program.Validate(id, lexical, value.Resolver{}, 0, 16<<20, nil); err != nil {
+				if _, err := program.Validate(id, lexical, value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 					t.Fatalf("Validate(%q) = %v", lexical, err)
 				}
 			}
 			for _, lexical := range []string{"ab", "abcdef"} {
-				if _, err := program.Validate(id, lexical, value.Resolver{}, 0, 16<<20, nil); !errors.Is(err, value.ErrFacet) {
+				if _, err := program.Validate(id, lexical, value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); !errors.Is(err, value.ErrFacet) {
 					t.Fatalf("Validate(%q) = %v; want ErrFacet", lexical, err)
 				}
 			}
@@ -1056,7 +1056,7 @@ func TestProgramLexicalPayloadLengthFacets(t *testing.T) {
 		{"base64 octets", value.PrimitiveBase64Binary, 1, " Y Q == ", "YQ==", []string{"", "YWI="}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			builder := value.NewBuilder(value.BuilderOptions{})
+			builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 			id, reserveErr := builder.Reserve()
 			if reserveErr != nil {
 				t.Fatal(reserveErr)
@@ -1082,9 +1082,9 @@ func TestProgramLexicalPayloadLengthFacets(t *testing.T) {
 				for _, needs := range []value.Needs{0, value.NeedCanonical} {
 					validate := func(input string) (value.Value, error) {
 						if form == "bytes" {
-							return program.ValidateBytes(id, []byte(input), value.Resolver{}, needs, 16<<20, nil)
+							return program.ValidateBytes(id, []byte(input), value.Resolver{}, needs, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 						}
-						return program.Validate(id, input, value.Resolver{}, needs, 16<<20, nil)
+						return program.Validate(id, input, value.Resolver{}, needs, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 					}
 					accepted, validationErr := validate(tc.accepted)
 					if validationErr != nil {

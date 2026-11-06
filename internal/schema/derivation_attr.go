@@ -4,9 +4,9 @@ import (
 	"github.com/jacoelho/xsd/internal/vocab"
 )
 
-// DerivationAttrRule identifies one XSD derivation-set attribute and the mask
+// derivationAttrRule identifies one XSD derivation-set attribute and the mask
 // allowed for that attribute.
-type DerivationAttrRule struct {
+type derivationAttrRule struct {
 	Name    string
 	Label   string
 	Allowed DerivationMask
@@ -20,31 +20,31 @@ const (
 	elementFinalLabel     = "element final"
 )
 
-func complexTypeBlockDerivation() DerivationAttrRule {
-	return DerivationAttrRule{Name: vocab.XSDAttrBlock, Label: complexTypeBlockLabel, Allowed: DerivationComplexMask}
+func complexTypeBlockDerivation() derivationAttrRule {
+	return derivationAttrRule{Name: vocab.XSDAttrBlock, Label: complexTypeBlockLabel, Allowed: derivationComplexMask}
 }
 
-func complexTypeFinalDerivation() DerivationAttrRule {
-	return DerivationAttrRule{Name: vocab.XSDAttrFinal, Label: complexTypeFinalLabel, Allowed: DerivationComplexMask}
+func complexTypeFinalDerivation() derivationAttrRule {
+	return derivationAttrRule{Name: vocab.XSDAttrFinal, Label: complexTypeFinalLabel, Allowed: derivationComplexMask}
 }
 
-func simpleTypeFinalDerivation() DerivationAttrRule {
-	return DerivationAttrRule{Name: vocab.XSDAttrFinal, Label: simpleTypeFinalLabel, Allowed: DerivationSimpleFinalMask}
+func simpleTypeFinalDerivation() derivationAttrRule {
+	return derivationAttrRule{Name: vocab.XSDAttrFinal, Label: simpleTypeFinalLabel, Allowed: derivationSimpleFinalMask}
 }
 
-func elementBlockDerivation() DerivationAttrRule {
-	return DerivationAttrRule{Name: vocab.XSDAttrBlock, Label: elementBlockLabel, Allowed: DerivationBlockDefaultMask}
+func elementBlockDerivation() derivationAttrRule {
+	return derivationAttrRule{Name: vocab.XSDAttrBlock, Label: elementBlockLabel, Allowed: derivationBlockDefaultMask}
 }
 
-func elementFinalDerivation() DerivationAttrRule {
-	return DerivationAttrRule{Name: vocab.XSDAttrFinal, Label: elementFinalLabel, Allowed: DerivationComplexMask}
+func elementFinalDerivation() derivationAttrRule {
+	return derivationAttrRule{Name: vocab.XSDAttrFinal, Label: elementFinalLabel, Allowed: derivationComplexMask}
 }
 
-// ParseDerivationAttrWithDefault parses a derivation-set attribute or applies
+// parseDerivationAttrWithDefault parses a derivation-set attribute or applies
 // the schema default restricted to the rule's allowed derivation class.
-func ParseDerivationAttrWithDefault(attr LexicalAttribute, def DerivationMask, rule DerivationAttrRule) (DerivationMask, error) {
+func parseDerivationAttrWithDefault(attr lexicalAttribute, def DerivationMask, rule derivationAttrRule) (DerivationMask, error) {
 	if attr.Present {
-		return ParseDerivationSet(attr.Value, rule.Label, rule.Allowed)
+		return parseDerivationSet(attr.Value, rule.Label, rule.Allowed)
 	}
 	return def & rule.Allowed, nil
 }

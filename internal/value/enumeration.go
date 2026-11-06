@@ -238,14 +238,14 @@ func appendAtomicEnumerationKey(b []byte, a *atomicValue) ([]byte, bool) {
 		b = appendKeyDurationInteger(b, seconds)
 		b = appendKeyBool(b, a.duration.negativeFrac)
 		return appendKeyText(b, a.duration.frac), true
-	case PrimitiveDate, PrimitiveDateTime:
+	case primitiveDate, PrimitiveDateTime:
 		b = appendKeyBool(b, a.temporal.hasTZ)
 		return appendKeyDateTimePoint(b, a.temporal.instant), true
-	case PrimitiveTime:
+	case primitiveTime:
 		b = appendKeyBool(b, a.time.hasTZ)
 		b = binary.AppendVarint(b, int64(a.time.second))
 		return appendKeyText(b, a.time.frac), true
-	case PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth:
+	case primitiveGYearMonth, primitiveGYear, primitiveGMonthDay, primitiveGDay, primitiveGMonth:
 		b = appendKeyBool(b, a.g.tz.present)
 		return appendKeyDateTimePoint(b, a.g.instant), true
 	case PrimitiveHexBinary:
@@ -268,7 +268,7 @@ func appendAtomicEnumerationKey(b []byte, a *atomicValue) ([]byte, bool) {
 	}
 }
 
-// enumerationFloatBits folds the float values EqualFloatValues equates: both
+// enumerationFloatBits folds the float values equalFloatValues equates: both
 // zeros, and every NaN.
 func enumerationFloatBits(f float64) uint64 {
 	switch {

@@ -12,7 +12,7 @@ import (
 // access to build for the duration of the call. On success, build is cleared
 // and the returned schema owns all validation-facing storage; previously
 // retained aliases may be mutated without affecting the schema.
-func publishSchema(build *schemaBuild, work ContentModelWork) (*Schema, error) {
+func publishSchema(build *schemaBuild, work contentModelWork) (*Schema, error) {
 	if build == nil {
 		return nil, errors.New("nil schema build")
 	}
@@ -27,14 +27,14 @@ func publishSchema(build *schemaBuild, work ContentModelWork) (*Schema, error) {
 	return &Schema{program: program}, nil
 }
 
-func sealSchemaProgram(build *schemaBuild, work ContentModelWork) (schemaProgram, error) {
+func sealSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram, error) {
 	if err := validateSchemaBuildIDDomain(build); err != nil {
 		return schemaProgram{}, err
 	}
 	if err := validateSchemaBuildOwnership(build); err != nil {
 		return schemaProgram{}, err
 	}
-	contentAnalysis, err := NewContentModelAnalysis(build, work)
+	contentAnalysis, err := newContentModelAnalysis(build, work)
 	if err != nil {
 		return schemaProgram{}, err
 	}
@@ -55,7 +55,7 @@ func sealSchemaProgram(build *schemaBuild, work ContentModelWork) (schemaProgram
 	}
 	valueProgram, err := build.valueBuilder.Seal()
 	if err != nil {
-		return schemaProgram{}, valueBuilderError(err)
+		return schemaProgram{}, schemaValueError(Limits{}, xsderrors.CodeSchemaFacet, "simple type", err)
 	}
 	if valueProgram == nil {
 		return schemaProgram{}, xsderrors.InternalInvariant("value builder returned nil program")
@@ -92,7 +92,7 @@ func validateSchemaBuildIDDomain(build *schemaBuild) error {
 	return nil
 }
 
-func newSchemaProgram(build *schemaBuild, work ContentModelWork) (schemaProgram, error) {
+func newSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram, error) {
 	content := enterContentModels(build.ComplexTypes, build.CompiledModels)
 	entered := content.Models
 	compiledModels, mayHaveDenseRows, err := newCompiledModelReads(build.CompiledModels, entered, work)

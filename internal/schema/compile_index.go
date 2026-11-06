@@ -32,7 +32,7 @@ func (c *compiler) indexSchemaDocument(ctx *schemaSetDocument) error {
 	return nil
 }
 
-func (c *compiler) indexTopLevelSchemaDeclaration(name LexicalAttribute, child *schemaNode, ctx *schemaSetDocument) error {
+func (c *compiler) indexTopLevelSchemaDeclaration(name lexicalAttribute, child *schemaNode, ctx *schemaSetDocument) error {
 	// Top-level shape and declaration attributes were validated before the
 	// immutable source node was published. Indexing only performs notation's
 	// compiler-owned child check and registers the admitted declaration.
@@ -58,25 +58,25 @@ func (c *compiler) indexNamedTopLevelSchemaChild(child *schemaNode, q QName, lab
 	case vocab.XSDElemComplexType:
 		return c.indexType(child, q, label, component, c.complexComponents)
 	case vocab.XSDElemElement:
-		return withSchemaCompileLocation(child, AddSchemaComponent(c.elementComponents, q, component, label))
+		return withSchemaCompileLocation(child, addSchemaComponent(c.elementComponents, q, component, label))
 	case vocab.XSDElemAttribute:
 		return withSchemaCompileLocation(child, c.indexGlobalAttribute(q, component, label))
 	case vocab.XSDElemGroup:
 		return c.indexModelGroup(child, q, label, component)
 	case vocab.XSDElemAttributeGroup:
-		return withSchemaCompileLocation(child, AddSchemaComponent(c.attributeGroupComponents, q, component, label))
+		return withSchemaCompileLocation(child, addSchemaComponent(c.attributeGroupComponents, q, component, label))
 	}
 	return nil
 }
 
 func (c *compiler) indexType(child *schemaNode, q QName, label string, component schemaComponent, dst map[QName]schemaComponent) error {
 	if _, exists := dst[q]; exists {
-		return withSchemaCompileLocation(child, AddSchemaComponent(dst, q, component, label))
+		return withSchemaCompileLocation(child, addSchemaComponent(dst, q, component, label))
 	}
 	if c.typeQNameKnown(q) {
-		return withSchemaCompileLocation(child, SchemaTypeNameConflictError(label))
+		return withSchemaCompileLocation(child, schemaTypeNameConflictError(label))
 	}
-	return withSchemaCompileLocation(child, AddSchemaComponent(dst, q, component, label))
+	return withSchemaCompileLocation(child, addSchemaComponent(dst, q, component, label))
 }
 
 func (c *compiler) indexModelGroup(child *schemaNode, q QName, label string, component schemaComponent) error {
@@ -87,7 +87,7 @@ func (c *compiler) indexModelGroup(child *schemaNode, q QName, label string, com
 	if err := validateModelGroupSyntax(model, c.limits); err != nil {
 		return err
 	}
-	return withSchemaCompileLocation(child, AddSchemaComponent(c.groupComponents, q, component, label))
+	return withSchemaCompileLocation(child, addSchemaComponent(c.groupComponents, q, component, label))
 }
 
 func (c *compiler) indexNotation(n *schemaNode, ctx *schemaSetDocument, name string) error {
@@ -111,13 +111,13 @@ func validateModelGroupSyntax(n *schemaNode, limits Limits) error {
 	}
 	var orderLocal string
 	switch parentKind {
-	case ModelSequence:
+	case modelSequence:
 		orderLocal = vocab.XSDElemSequence
-	case ModelChoice:
+	case modelChoice:
 		orderLocal = vocab.XSDElemChoice
-	case ModelAll:
+	case modelAll:
 		orderLocal = vocab.XSDElemAll
-	case ModelEmpty, ModelAny:
+	case modelEmpty, modelAny:
 		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("unknown typed model group kind"))
 	}
 	if err := checkOrderedXSDChildren(n, modelGroupChildOrder(orderLocal)); err != nil {
@@ -134,12 +134,12 @@ func validateModelGroupSyntax(n *schemaNode, limits Limits) error {
 	return nil
 }
 
-func validateModelGroupChild(child *schemaNode, parent ModelKind, limits Limits) error {
+func validateModelGroupChild(child *schemaNode, parent modelKind, limits Limits) error {
 	admission, err := modelChildAdmissionForNode(child)
 	if err != nil {
 		return err
 	}
-	if err := ValidateModelGroupChildAdmission(parent, admission); err != nil {
+	if err := validateModelGroupChildAdmission(parent, admission); err != nil {
 		return withSchemaCompileLocation(child, err)
 	}
 	switch child.local {
@@ -157,7 +157,7 @@ func validateModelGroupReference(child *schemaNode) error {
 	if err := checkGroupOccurrenceAttributes(child); err != nil {
 		return err
 	}
-	if err := ValidateGroupUseSource(semanticSource[*schemaGroupSource](&child.semantic).Ref.Lexical); err != nil {
+	if err := validateGroupUseSource(semanticSource[*schemaGroupSource](&child.semantic).Ref.Lexical); err != nil {
 		return withSchemaCompileLocation(child, err)
 	}
 	return checkOrderedXSDChildren(child, groupUseChildOrder)
@@ -169,7 +169,7 @@ func validateNestedModelGroupOccurrence(n *schemaNode, limits Limits) error {
 		return err
 	}
 	if n.local == vocab.XSDElemAll {
-		if err := ValidateAllModelOccurrence(occurs); err != nil {
+		if err := validateAllModelOccurrence(occurs); err != nil {
 			return withSchemaCompileLocation(n, err)
 		}
 	}

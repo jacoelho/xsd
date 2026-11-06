@@ -21,9 +21,9 @@ func TestXSIAttributeIdentityKey(t *testing.T) {
 	typeName, _ := rt.LookupQName(vocab.XSINamespaceURI, vocab.XSIAttrType)
 	schemaLocationName, _ := rt.LookupQName(vocab.XSINamespaceURI, vocab.XSIAttrSchemaLocation)
 	noNamespaceSchemaLocationName, _ := rt.LookupQName(vocab.XSINamespaceURI, vocab.XSIAttrNoNamespaceSchemaLocation)
-	ctx := StartContext{Line: 2, Column: 3, Path: "/root"}
+	ctx := startContext{Line: 2, Column: 3, Path: "/root"}
 
-	identity, err := xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrNil}, " 1 ", nil, defaultMaxInstanceValueWork, ctx)
+	identity, err := xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrNil}, " 1 ", nil, testEval(), ctx)
 	if err != nil {
 		t.Fatalf("xsiAttributeIdentityKey(nil) error = %v", err)
 	}
@@ -38,7 +38,7 @@ func TestXSIAttributeIdentityKey(t *testing.T) {
 		}
 		return value.ExpandedName{Namespace: "urn:test", Local: "T"}, true
 	}
-	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrType}, " p:T ", resolveType, defaultMaxInstanceValueWork, ctx)
+	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrType}, " p:T ", resolveType, testEval(), ctx)
 	if err != nil {
 		t.Fatalf("xsiAttributeIdentityKey(type) error = %v", err)
 	}
@@ -47,22 +47,22 @@ func TestXSIAttributeIdentityKey(t *testing.T) {
 	}
 
 	anyURI := simpleTypeIDByNameForTest(t, rt, vocab.XSDNamespaceURI, vocab.XSDValueAnyURI)
-	ordinaryAnyURI, err := rt.ValueProgram().Validate(anyURI, "one.xsd", value.Resolver{}, value.NeedIdentity, defaultMaxInstanceValueWork, nil)
+	ordinaryAnyURI, err := rt.ValueProgram().Validate(anyURI, "one.xsd", value.Resolver{}, value.NeedIdentity, value.EvaluationLimits{Work: defaultMaxInstanceValueWork, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatalf("ValueProgram.Validate(anyURI) error = %v", err)
 	}
-	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrNoNamespaceSchemaLocation}, "  one.xsd\t", nil, defaultMaxInstanceValueWork, ctx)
+	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrNoNamespaceSchemaLocation}, "  one.xsd\t", nil, testEval(), ctx)
 	if err != nil {
 		t.Fatalf("xsiAttributeIdentityKey(noNamespaceSchemaLocation) error = %v", err)
 	}
 	if !identity.present || identity.name != noNamespaceSchemaLocationName || identity.key != ordinaryAnyURI.IdentityKey() {
 		t.Fatalf("xsiAttributeIdentityKey(noNamespaceSchemaLocation) = %+v, want ordinary anyURI key %q", identity, ordinaryAnyURI.IdentityKey())
 	}
-	emptyAnyURI, err := rt.ValueProgram().Validate(anyURI, "", value.Resolver{}, value.NeedIdentity, defaultMaxInstanceValueWork, nil)
+	emptyAnyURI, err := rt.ValueProgram().Validate(anyURI, "", value.Resolver{}, value.NeedIdentity, value.EvaluationLimits{Work: defaultMaxInstanceValueWork, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatalf("ValueProgram.Validate(empty anyURI) error = %v", err)
 	}
-	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrNoNamespaceSchemaLocation}, " \t", nil, defaultMaxInstanceValueWork, ctx)
+	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrNoNamespaceSchemaLocation}, " \t", nil, testEval(), ctx)
 	if err != nil {
 		t.Fatalf("xsiAttributeIdentityKey(empty noNamespaceSchemaLocation) error = %v", err)
 	}
@@ -71,11 +71,11 @@ func TestXSIAttributeIdentityKey(t *testing.T) {
 	}
 
 	uriList := simpleTypeIDByNameForTest(t, rt, "", "URIs")
-	ordinaryList, err := rt.ValueProgram().Validate(uriList, "urn:a a.xsd urn:b b.xsd", value.Resolver{}, value.NeedIdentity, defaultMaxInstanceValueWork, nil)
+	ordinaryList, err := rt.ValueProgram().Validate(uriList, "urn:a a.xsd urn:b b.xsd", value.Resolver{}, value.NeedIdentity, value.EvaluationLimits{Work: defaultMaxInstanceValueWork, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatalf("ValueProgram.Validate(list<anyURI>) error = %v", err)
 	}
-	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrSchemaLocation}, " urn:a\ta.xsd\nurn:b  b.xsd ", nil, defaultMaxInstanceValueWork, ctx)
+	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrSchemaLocation}, " urn:a\ta.xsd\nurn:b  b.xsd ", nil, testEval(), ctx)
 	if err != nil {
 		t.Fatalf("xsiAttributeIdentityKey(schemaLocation) error = %v", err)
 	}
@@ -83,7 +83,7 @@ func TestXSIAttributeIdentityKey(t *testing.T) {
 		t.Fatalf("xsiAttributeIdentityKey(schemaLocation) = %+v, want ordinary list<anyURI> key %q", identity, ordinaryList.IdentityKey())
 	}
 
-	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: "other"}, " a\tb ", nil, defaultMaxInstanceValueWork, ctx)
+	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: "other"}, " a\tb ", nil, testEval(), ctx)
 	if err != nil || identity != (xsiIdentityKey{}) {
 		t.Fatalf("xsiAttributeIdentityKey(other) = %+v err %v, want ignored", identity, err)
 	}
@@ -93,14 +93,14 @@ func TestXSIAttributeIdentityKeyErrors(t *testing.T) {
 	t.Parallel()
 
 	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
-	ctx := StartContext{Line: 2, Column: 3, Path: "/root"}
+	ctx := startContext{Line: 2, Column: 3, Path: "/root"}
 
-	identity, err := xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: "unknown"}, "x", nil, defaultMaxInstanceValueWork, ctx)
+	identity, err := xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: "unknown"}, "x", nil, testEval(), ctx)
 	if err != nil || identity != (xsiIdentityKey{}) {
 		t.Fatalf("xsiAttributeIdentityKey(unknown) = %+v err %v, want ignored", identity, err)
 	}
 
-	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrNil}, "maybe", nil, defaultMaxInstanceValueWork, ctx)
+	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrNil}, "maybe", nil, testEval(), ctx)
 	if identity != (xsiIdentityKey{}) {
 		t.Fatalf("xsiAttributeIdentityKey(invalid nil) = %+v, want empty error result", identity)
 	}
@@ -108,7 +108,7 @@ func TestXSIAttributeIdentityKeyErrors(t *testing.T) {
 
 	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrType}, "bad", func(string) (value.ExpandedName, bool) {
 		return value.ExpandedName{}, false
-	}, defaultMaxInstanceValueWork, ctx)
+	}, testEval(), ctx)
 	if identity != (xsiIdentityKey{}) {
 		t.Fatalf("xsiAttributeIdentityKey(invalid type) = %+v, want empty error result", identity)
 	}
@@ -126,7 +126,7 @@ func TestXSIAttributeIdentityKeyErrors(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			identity, err := xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: test.local}, test.lexical, nil, defaultMaxInstanceValueWork, ctx)
+			identity, err := xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: test.local}, test.lexical, nil, testEval(), ctx)
 			if identity != (xsiIdentityKey{}) {
 				t.Fatalf("xsiAttributeIdentityKey(invalid %s) = %+v, want empty error result", test.local, identity)
 			}
@@ -155,4 +155,29 @@ func simpleTypeIDByNameForTest(t *testing.T, rt *xsdSchema.Schema, ns, local str
 		t.Fatalf("Type(%q, %q) is not simple", ns, local)
 	}
 	return id
+}
+
+func testLimits() Limits {
+	return Limits{InstanceValueWork: defaultMaxInstanceValueWork, InstancePatternWork: defaultMaxInstancePatternWork}
+}
+
+func testEval() value.EvaluationLimits {
+	return testLimits().evaluation(testPatternTotal())
+}
+
+// Every XSI identity evaluation must use the caller-supplied evaluation
+// limits: an eval without a funded pattern account is rejected as invalid
+// metadata for each attribute kind, which proves no path rebuilds its own.
+func TestXSIAttributeIdentityKeyUsesSuppliedEvaluation(t *testing.T) {
+	t.Parallel()
+
+	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
+	unfunded := value.EvaluationLimits{Work: defaultMaxInstanceValueWork, PatternWork: defaultMaxInstancePatternWork}
+	resolveType := func(string) (value.ExpandedName, bool) { return value.ExpandedName{Local: "T"}, true }
+	for _, local := range []string{vocab.XSIAttrNil, vocab.XSIAttrType, vocab.XSIAttrNoNamespaceSchemaLocation, vocab.XSIAttrSchemaLocation} {
+		_, err := xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: local}, "a b", resolveType, unfunded, startContext{})
+		if diagnostic, ok := errors.AsType[*xsderrors.Error](err); !ok || diagnostic.Code() != xsderrors.CodeInternalInvariant {
+			t.Errorf("%s: error = %v, want internal invariant from the unfunded evaluation", local, err)
+		}
+	}
 }

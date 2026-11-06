@@ -3,23 +3,29 @@ package validate
 import (
 	"errors"
 	"io"
+	"strconv"
 
 	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// StreamError classifies parser errors as validation diagnostics. Reader
-// Reset failures pass a zero position and empty path: they precede the first
-// token, so no instance location exists.
-func StreamError(line, col int, path string, err error) error {
+// streamError is the single mapping from xmlstream reader errors to instance
+// diagnostics. It classifies reader limits first, as
+// '<option>=<n> exceeded' at ctx, then unsupported features, a nil reader,
+// outside-root sentinels, and finally well-formedness failures. Reader Reset
+// failures pass a zero ctx: they precede the first token, so no instance
+// location exists.
+func streamError(err error, ctx startContext, limits Limits) error {
+	line, col, path := ctx.Line, ctx.Column, ctx.PathString()
+	if limit, ok := xmlstream.LimitOf(err); ok {
+		option, configured := readerLimitOption(limit, limits)
+		return xsderrors.WithLocation(path, line, col, xsderrors.Validation(xsderrors.CodeValidationLimit, option+"="+strconv.FormatInt(configured, 10)+" exceeded", err))
+	}
 	if feature, ok := xmlstream.UnsupportedFeatureOf(err); ok {
 		return xsderrors.WithLocation(path, line, col, unsupportedInstanceFeature(feature, err))
 	}
 	if errors.Is(err, xmlstream.ErrXMLInputNilReader) {
 		return xsderrors.Validation(xsderrors.CodeValidationXML, msgReaderNil, nil)
-	}
-	if xmlstream.IsInputLimit(err) || xmlstream.IsTokenLimit(err) || xmlstream.IsAttributeLimit(err) {
-		return validationReaderCause(xsderrors.CodeValidationLimit, line, col, path, err)
 	}
 	if errors.Is(err, xmlstream.ErrTextOutsideRoot) {
 		return xsderrors.WithLocation(path, line, col, xsderrors.Validation(xsderrors.CodeValidationXML, msgTextOutsideRoot, err))
@@ -64,10 +70,7 @@ func validationReaderCause(code xsderrors.Code, line, col int, path string, err 
 // failures the same way.
 func resetInstanceReader(reader *xmlstream.Reader, r io.Reader, limits Limits) error {
 	if err := reader.Reset(r, limits.readerConfig()); err != nil {
-		if limitErr := instanceLimitError(err, StartContext{}, limits); limitErr != nil {
-			return limitErr
-		}
-		return StreamError(0, 0, "", err)
+		return streamError(err, startContext{}, limits)
 	}
 	return nil
 }

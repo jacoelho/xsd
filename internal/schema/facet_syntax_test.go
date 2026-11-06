@@ -12,43 +12,43 @@ import (
 func TestValidateFacetSource(t *testing.T) {
 	t.Parallel()
 
-	stringType := FacetSource{
+	stringType := facetSource{
 		Variety:   valuepkg.Atomic,
 		Primitive: valuepkg.PrimitiveString,
 	}
-	booleanType := FacetSource{
+	booleanType := facetSource{
 		Variety:   valuepkg.Atomic,
 		Primitive: valuepkg.PrimitiveBoolean,
 	}
 
 	tests := []struct {
 		name        string
-		source      FacetSource
+		source      facetSource
 		wantCompile bool
 		wantMessage string
 	}{
 		{
 			name:   "skips non xsd non facet child",
-			source: FacetSource{Local: "other"},
+			source: facetSource{Local: "other"},
 		},
 		{
 			name:        "rejects unsupported xsd facet",
-			source:      FacetSource{Local: "other", InXSDNamespace: true},
-			wantMessage: "unsupported facet other",
+			source:      facetSource{Local: "other", InXSDNamespace: true},
+			wantMessage: "unsupported facet \"other\"",
 		},
 		{
 			name:        "rejects missing value",
-			source:      FacetSource{Local: "length", InXSDNamespace: true, Variety: stringType.Variety, Primitive: stringType.Primitive},
+			source:      facetSource{Local: "length", InXSDNamespace: true, Variety: stringType.Variety, Primitive: stringType.Primitive},
 			wantMessage: "length missing value",
 		},
 		{
 			name:        "rejects facet not allowed for type",
-			source:      FacetSource{Local: "length", InXSDNamespace: true, HasValue: true, Variety: booleanType.Variety, Primitive: booleanType.Primitive},
+			source:      facetSource{Local: "length", InXSDNamespace: true, HasValue: true, Variety: booleanType.Variety, Primitive: booleanType.Primitive},
 			wantMessage: "facet length is not allowed",
 		},
 		{
 			name:        "admits allowed facet",
-			source:      FacetSource{Local: "length", InXSDNamespace: true, HasValue: true, Variety: stringType.Variety, Primitive: stringType.Primitive},
+			source:      facetSource{Local: "length", InXSDNamespace: true, HasValue: true, Variety: stringType.Variety, Primitive: stringType.Primitive},
 			wantCompile: true,
 		},
 	}
@@ -56,7 +56,7 @@ func TestValidateFacetSource(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := ValidateFacetSource(tt.source)
+			got, err := validateFacetSource(tt.source)
 			if tt.wantMessage != "" {
 				expectSchemaFacetMessage(t, err, tt.wantMessage)
 				return
@@ -96,7 +96,7 @@ func TestIsFacetLocal(t *testing.T) {
 		t.Run(tt.local, func(t *testing.T) {
 			t.Parallel()
 
-			if got := IsFacetLocal(tt.local); got != tt.want {
+			if got := isFacetLocal(tt.local); got != tt.want {
 				t.Fatalf("IsFacetLocal(%q) = %v, want %v", tt.local, got, tt.want)
 			}
 		})
@@ -109,22 +109,20 @@ func TestParseWhitespaceFacetValue(t *testing.T) {
 	tests := []struct {
 		name        string
 		value       string
-		base        valuepkg.WhitespaceMode
 		want        valuepkg.WhitespaceMode
 		wantMessage string
 	}{
-		{name: "preserve", value: "preserve", base: valuepkg.WhitespacePreserve, want: valuepkg.WhitespacePreserve},
-		{name: "replace", value: "replace", base: valuepkg.WhitespacePreserve, want: valuepkg.WhitespaceReplace},
-		{name: "collapse", value: "collapse", base: valuepkg.WhitespaceReplace, want: valuepkg.WhitespaceCollapse},
-		{name: "collapsed lexical", value: " \tcollapse\n", base: valuepkg.WhitespaceReplace, want: valuepkg.WhitespaceCollapse},
-		{name: "invalid lexical", value: "trim", base: valuepkg.WhitespacePreserve, wantMessage: "invalid whiteSpace facet trim"},
-		{name: "looser", value: "replace", base: valuepkg.WhitespaceCollapse, wantMessage: "whiteSpace cannot loosen base whiteSpace"},
+		{name: "preserve", value: "preserve", want: valuepkg.WhitespacePreserve},
+		{name: "replace", value: "replace", want: valuepkg.WhitespaceReplace},
+		{name: "collapse", value: "collapse", want: valuepkg.WhitespaceCollapse},
+		{name: "collapsed lexical", value: " \tcollapse\n", want: valuepkg.WhitespaceCollapse},
+		{name: "invalid lexical", value: "trim", wantMessage: "invalid whiteSpace facet \"trim\""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := ParseWhitespaceFacetValue(tt.value, tt.base)
+			got, err := parseWhitespaceFacetValue(tt.value)
 			if tt.wantMessage != "" {
 				expectSchemaFacetMessage(t, err, tt.wantMessage)
 				return
@@ -157,7 +155,7 @@ func BenchmarkSizeFacetAdmission(b *testing.B) {
 	}{{"Short", "8", 8}, {"MinusZero", "-" + strings.Repeat("0", 4096), 0}}
 	for _, c := range cases {
 		b.Run(c.name, func(b *testing.B) {
-			pre, err := ParseSizeFacetValue("maxLength", c.text)
+			pre, err := parseSizeFacetValue("maxLength", c.text)
 			if err != nil || pre != c.want {
 				b.Fatalf("preflight %v %v", pre, err)
 			}
@@ -165,7 +163,7 @@ func BenchmarkSizeFacetAdmission(b *testing.B) {
 			b.ReportAllocs()
 			for b.Loop() {
 				var err error
-				last, err = ParseSizeFacetValue("maxLength", c.text)
+				last, err = parseSizeFacetValue("maxLength", c.text)
 				if err != nil {
 					b.Fatal(err)
 				}

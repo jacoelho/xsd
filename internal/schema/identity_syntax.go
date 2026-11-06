@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
@@ -42,7 +43,7 @@ func checkIdentityConstraintChildren(n *schemaNode) (identityConstraintSyntax, e
 			}
 			syntax.fields = append(syntax.fields, child)
 		default:
-			return identityConstraintSyntax{}, schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "invalid identity constraint child "+child.local)
+			return identityConstraintSyntax{}, schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "invalid identity constraint child "+diagnostictext.Quote(child.local))
 		}
 	}
 	if syntax.selector == nil {
@@ -57,18 +58,18 @@ func checkIdentityConstraintChildren(n *schemaNode) (identityConstraintSyntax, e
 func checkIdentityXPathChild(n *schemaNode) error {
 	source := semanticSource[*schemaIdentityXPathSource](&n.semantic)
 	if source == nil || !source.XPath.Present {
-		return schemaCompileAt(n, xsderrors.CodeSchemaIdentity, n.local+" missing xpath")
+		return schemaCompileAt(n, xsderrors.CodeSchemaIdentity, diagnostictext.Quote(n.local)+" missing xpath")
 	}
 	if lex.TrimXMLWhitespaceString(source.XPath.Value) == "" {
-		return schemaCompileAt(n, xsderrors.CodeSchemaIdentity, n.local+" xpath is empty")
+		return schemaCompileAt(n, xsderrors.CodeSchemaIdentity, diagnostictext.Quote(n.local)+" xpath is empty")
 	}
 	seenAnnotation := false
 	for child := range n.xsdChildren() {
 		if child.local != annotationChild {
-			return schemaCompileAt(child, xsderrors.CodeSchemaContentModel, n.local+" can contain only annotation")
+			return schemaCompileAt(child, xsderrors.CodeSchemaContentModel, diagnostictext.Quote(n.local)+" can contain only annotation")
 		}
 		if seenAnnotation {
-			return schemaCompileAt(child, xsderrors.CodeSchemaContentModel, n.local+" can contain at most one annotation")
+			return schemaCompileAt(child, xsderrors.CodeSchemaContentModel, diagnostictext.Quote(n.local)+" can contain at most one annotation")
 		}
 		seenAnnotation = true
 	}

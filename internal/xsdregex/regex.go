@@ -33,10 +33,8 @@ type Error struct {
 }
 
 const (
-	nilPatternError        = "nil pattern"
-	matchStateLimitError   = "match state limit exceeded"
-	matchWorkLimitError    = "match work limit exceeded"
-	matchScratchLimitError = "match scratch limit exceeded"
+	nilPatternError     = "nil pattern"
+	matchWorkLimitError = "match work limit exceeded"
 )
 
 func (e *Error) Error() string {
@@ -52,43 +50,50 @@ func IsLimit(err error) bool {
 	return errors.As(err, &e) && e.Kind == ErrorLimit
 }
 
-// CompileOptions bounds immutable pattern construction. A zero field uses the
-// package default. MaxRepeat is a numeric guard only; repetitions are never
-// expanded into one AST node per occurrence.
-type CompileOptions struct {
-	MaxPatternBytes uint64
-	MaxNodes        uint64
-	MaxStates       uint64
-	MaxRanges       uint64
-	MaxDepth        uint64
-	MaxRepeat       uint64
+// compileLimits are the fixed structural bounds of one compiled pattern. They
+// are not per-value budgets: the NFA expands counted repeats and precomputes
+// closures, so its size is capped when the schema is compiled. states bounds
+// len(states), which bounds every reachable match-time state set; it never
+// limits input length. Repetitions are never expanded into one AST node per
+// occurrence. The aggregate over patterns is admitted by the caller from
+// Pattern.RetainedBytes.
+type compileLimits struct {
+	patternBytes   uint64
+	nodes          uint64
+	states         uint64
+	retainedRanges uint64
+	depth          uint64
 }
 
-const (
-	defaultMaxPatternBytes = 1 << 20
-	defaultMaxNodes        = 100_000
-	defaultMaxStates       = 100_000
-	defaultMaxRanges       = 1_000_000
-	defaultMaxDepth        = 1_024
-	defaultMaxRepeat       = math.MaxUint64
-)
+// fixedCompileLimits are the bounds Compile applies; docs/RESOURCE_LIMITS.md
+// publishes them.
+var fixedCompileLimits = compileLimits{
+	patternBytes:   1 << 20,
+	nodes:          100_000,
+	states:         100_000,
+	retainedRanges: 1_000_000,
+	depth:          1_024,
+}
 
-// MatchOptions bounds one match operation. MaxWork counts decoding,
-// transitions, and epsilon-closure work. MaxStates bounds one reachable NFA
-// state set and, for linear patterns, the number of input rune positions plus
-// one used by each dynamic-programming row.
+// MatchOptions bounds one match. MaxWork counts:
+//   - one unit per input byte, charged first;
+//   - nothing further for literal patterns;
+//   - for linear patterns, 4*(runes+1)+1 per atom, every atom including
+//     literal atoms of a non-literal pattern and exact-count atoms;
+//   - for NFA patterns, one unit per set-state test and per split or jump
+//     followed during epsilon closure (bitset runner: the popcount of active
+//     states per rune), so NFA work is at most 72*(runes+1)*compiled states.
+//
+// Zero admits no work: every match returns an ErrorLimit error. Work depends
+// only on the pattern and the input.
 type MatchOptions struct {
-	MaxWork   uint64
-	MaxStates uint64
+	MaxWork uint64
 }
-
-const (
-	defaultMaxWork = 16 << 20
-)
 
 // Pattern is an immutable compiled XSD regular expression. Concatenations of
 // character sets use the bounded run-length matcher; general expressions use
-// the Thompson machine.
+// the Thompson machine. Pattern is immutable after Compile; all match state
+// lives in the caller's Scratch, so one Pattern may be shared.
 //
 // The fields stay flat. Rejected: embedding compiler return records
 // (compiledNFA, bitsetNFA), because the aggregate copies introduce bulk write
@@ -105,13 +110,20 @@ type Pattern struct {
 	acceptBits    uint64
 	deterministic bool
 	bitset        bool
+
+	// retainedRanges counts runeRange elements in distinct backing arrays.
+	retainedRanges uint64
 }
 
-// Compile parses and compiles one XSD 1.0 regular expression. XSD patterns
-// match the complete input; callers do not add host-language anchors.
-func Compile(source string, options CompileOptions) (*Pattern, error) {
-	options = normalizeCompileOptions(options)
-	if uint64(len(source)) > options.MaxPatternBytes {
+// Compile parses and compiles one XSD 1.0 regular expression under the fixed
+// per-pattern bounds. XSD patterns match the complete input; callers do not
+// add host-language anchors.
+func Compile(source string) (*Pattern, error) {
+	return compileWithLimits(source, fixedCompileLimits)
+}
+
+func compileWithLimits(source string, options compileLimits) (*Pattern, error) {
+	if uint64(len(source)) > options.patternBytes {
 		return nil, &Error{Kind: ErrorLimit, Offset: -1, What: "pattern exceeds byte limit"}
 	}
 	if !utf8.ValidString(source) {
@@ -126,7 +138,7 @@ func Compile(source string, options CompileOptions) (*Pattern, error) {
 		return nil, err
 	}
 	if linear, ok := compileLinear(root, options); ok {
-		return &Pattern{source: source, linear: linear}, nil
+		return &Pattern{source: source, linear: linear, retainedRanges: p.retainedRanges}, nil
 	}
 	nfa, err := compileNFA(root, options)
 	if err != nil {
@@ -145,29 +157,9 @@ func Compile(source string, options CompileOptions) (*Pattern, error) {
 		closureBits:   bitset.closureBits,
 		startBits:     bitset.startBits,
 		acceptBits:    bitset.acceptBits,
-	}, nil
-}
 
-func normalizeCompileOptions(options CompileOptions) CompileOptions {
-	if options.MaxPatternBytes == 0 {
-		options.MaxPatternBytes = defaultMaxPatternBytes
-	}
-	if options.MaxNodes == 0 {
-		options.MaxNodes = defaultMaxNodes
-	}
-	if options.MaxStates == 0 {
-		options.MaxStates = defaultMaxStates
-	}
-	if options.MaxRanges == 0 {
-		options.MaxRanges = defaultMaxRanges
-	}
-	if options.MaxDepth == 0 {
-		options.MaxDepth = defaultMaxDepth
-	}
-	if options.MaxRepeat == 0 {
-		options.MaxRepeat = defaultMaxRepeat
-	}
-	return options
+		retainedRanges: p.retainedRanges,
+	}, nil
 }
 
 // Source returns the original pattern text.
@@ -181,31 +173,31 @@ func (p *Pattern) Source() string {
 // MatchStringWithScratch matches complete valid UTF-8 XML text using
 // caller-owned bounded scratch. Nil scratch keeps storage local to this call.
 // Scratch is not safe for concurrent use by multiple goroutines.
-func (p *Pattern) MatchStringWithScratch(input string, options MatchOptions, scratch *Scratch) (bool, error) {
+//
+// work is the number of units consumed, at most options.MaxWork, and is
+// meaningful only when err is nil. Equal inputs report equal work.
+func (p *Pattern) MatchStringWithScratch(input string, options MatchOptions, scratch *Scratch) (matched bool, work uint64, err error) {
 	if p == nil {
-		return false, &Error{Kind: ErrorSyntax, Offset: -1, What: nilPatternError}
+		return false, 0, &Error{Kind: ErrorSyntax, Offset: -1, What: nilPatternError}
 	}
-	return matchString(p, input, normalizeMatchOptions(options), scratch)
+	if options.MaxWork == 0 {
+		return false, 0, &Error{Kind: ErrorLimit, Offset: -1, What: matchWorkLimitError}
+	}
+	return matchString(p, input, options, scratch)
 }
 
 // MatchBytesWithScratch matches validated XML bytes using caller-owned bounded
 // scratch. Callers must validate the byte stream before matching. Nil scratch
-// keeps storage local to this call.
-func (p *Pattern) MatchBytesWithScratch(input []byte, options MatchOptions, scratch *Scratch) (bool, error) {
+// keeps storage local to this call. work has the meaning documented on
+// MatchStringWithScratch.
+func (p *Pattern) MatchBytesWithScratch(input []byte, options MatchOptions, scratch *Scratch) (matched bool, work uint64, err error) {
 	if p == nil {
-		return false, &Error{Kind: ErrorSyntax, Offset: -1, What: nilPatternError}
+		return false, 0, &Error{Kind: ErrorSyntax, Offset: -1, What: nilPatternError}
 	}
-	return matchBytes(p, input, normalizeMatchOptions(options), scratch)
-}
-
-func normalizeMatchOptions(options MatchOptions) MatchOptions {
 	if options.MaxWork == 0 {
-		options.MaxWork = defaultMaxWork
+		return false, 0, &Error{Kind: ErrorLimit, Offset: -1, What: matchWorkLimitError}
 	}
-	if options.MaxStates == 0 {
-		options.MaxStates = defaultMaxStates
-	}
-	return options
+	return matchBytes(p, input, options, scratch)
 }
 
 type nodeKind uint8
@@ -234,12 +226,15 @@ const maxRepeat = math.MaxUint64
 // process-wide cache retains compiled patterns or per-compile sets.
 type parser struct {
 	simpleSets   map[rune]rangeSet
+	seenRanges   map[*runeRange]struct{}
 	categorySets categorySetCache
 	source       []rune
-	limits       CompileOptions
+	limits       compileLimits
 	pos          int
 	depth        uint64
 	nodes        uint64
+	// retainedRanges counts runeRange elements (by cap) of distinct backing arrays.
+	retainedRanges uint64
 }
 
 const simpleSetCacheCapacity = 10 // d, D, s, S, w, W, i, I, c, and C.
@@ -400,9 +395,6 @@ func (p *parser) parseDigits() (uint64, bool, error) {
 	if p.pos == start {
 		return 0, false, nil
 	}
-	if value > p.limits.MaxRepeat {
-		return 0, false, p.limit("counted quantifier exceeds repeat limit")
-	}
 	return value, true, nil
 }
 
@@ -430,7 +422,7 @@ func (p *parser) parseAtom() (*node, error) {
 func (p *parser) parseGroupAtom() (*node, error) {
 	p.pos++
 	p.depth++
-	if p.depth > p.limits.MaxDepth {
+	if p.depth > p.limits.depth {
 		return nil, p.limit("group nesting exceeds limit")
 	}
 	group, err := p.parseRegexp(')')
@@ -583,7 +575,7 @@ func namedCategorySet(name string) (rangeSet, bool) {
 func (p *parser) parseClass() (rangeSet, error) {
 	p.pos++ // [
 	p.depth++
-	if p.depth > p.limits.MaxDepth {
+	if p.depth > p.limits.depth {
 		return rangeSet{}, p.limit("character-class nesting exceeds limit")
 	}
 	polarity := classPositive
@@ -659,9 +651,6 @@ func (p *parser) finishClass(polarity classPolarity, terms []classTerm) (rangeSe
 	if polarity == classNegated {
 		base = complementXML(base)
 	}
-	if rangeCountExceeds(base, p.limits.MaxRanges) {
-		return rangeSet{}, p.limit("character-class range count exceeds limit")
-	}
 	return base, nil
 }
 
@@ -681,9 +670,6 @@ func (p *parser) parseClassSubtraction(polarity classPolarity, terms []classTerm
 		base = complementXML(base)
 	}
 	base = subtractSets(base, subtracted)
-	if rangeCountExceeds(base, p.limits.MaxRanges) {
-		return rangeSet{}, p.limit("character-class range count exceeds limit")
-	}
 	return base, nil
 }
 
@@ -816,13 +802,25 @@ func classTermsSet(terms []classTerm) rangeSet {
 	return intersectSets(unionMany(sets...), xmlCharacters)
 }
 
-func rangeCountExceeds(set rangeSet, limit uint64) bool {
-	return uint64(len(set.ranges)) > limit
-}
-
+// setNode is the only entry of sets into the AST. Each backing array is
+// charged once, by cap, because the compiled machine retains whole arrays:
+// counted repeats and cached categories share one array, and NFA instructions
+// copy the slice header. Subslices of one array at different offsets, and
+// package-level sets such as xsdDecimalDigits, may be charged more than once;
+// that over-count is deliberate and safe. Do not change it into an under-count.
 func (p *parser) setNode(set rangeSet) (*node, error) {
-	if rangeCountExceeds(set, p.limits.MaxRanges) {
-		return nil, p.limit("pattern range count exceeds limit")
+	if cap(set.ranges) > 0 {
+		key := &set.ranges[:1][0]
+		if _, seen := p.seenRanges[key]; !seen {
+			if p.seenRanges == nil {
+				p.seenRanges = make(map[*runeRange]struct{})
+			}
+			p.seenRanges[key] = struct{}{}
+			p.retainedRanges += uint64(cap(set.ranges))
+			if p.retainedRanges > p.limits.retainedRanges {
+				return nil, p.limit("pattern retained character-range count exceeds limit")
+			}
+		}
 	}
 	return p.newNode(nodeSet, set, nil, 0, 0)
 }
@@ -889,7 +887,7 @@ func (p *parser) repeat(child *node, minRepeat, maxRepeat uint64, unbounded bool
 // that concat or alt later flatten away, so MaxNodes bounds parser
 // allocation. A failed admission stops parsing at the current rune offset.
 func (p *parser) newNode(kind nodeKind, set rangeSet, children []*node, minRepeat, maxRepeat uint64) (*node, error) {
-	if p.nodes >= p.limits.MaxNodes {
+	if p.nodes >= p.limits.nodes {
 		return nil, p.limit("compiled node count exceeds limit")
 	}
 	p.nodes++

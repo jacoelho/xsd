@@ -191,8 +191,8 @@ func TestRelativeNamespaceAttributeIsNotReservedOrDropped(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := &session.session
-	declaration := xmlstream.Attr{Name: xml.Name{Space: vocab.XMLNSNamespaceURI, Local: "p"}, Value: "xmlns"}
-	ordinary := xmlstream.Attr{Name: xml.Name{Space: vocab.XMLNSPrefix, Local: "value"}, Value: "v"}
+	declaration := xmlstream.NewAttr(xml.Name{Space: vocab.XMLNSNamespaceURI, Local: "p"}, "xmlns")
+	ordinary := xmlstream.NewAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "value"}, "v")
 	if handled, reservedErr := s.validateReservedAttribute(&declaration, 1, 1); reservedErr != nil || !handled {
 		t.Fatalf("expanded namespace declaration = handled %v, error %v; want handled without error", handled, reservedErr)
 	}

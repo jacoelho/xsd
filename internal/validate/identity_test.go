@@ -18,11 +18,11 @@ func identityValueForTest(tb testing.TB, typeName, lexical string, needs value.N
 	if !ok {
 		tb.Fatalf("BuiltinTypeID(%q) failed", typeName)
 	}
-	program, err := value.NewBuilder(value.BuilderOptions{}).Seal()
+	program, err := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 	if err != nil {
 		tb.Fatalf("value program construction failed: %v", err)
 	}
-	result, err := program.Validate(id, lexical, value.Resolver{}, needs, defaultMaxInstanceValueWork, nil)
+	result, err := program.Validate(id, lexical, value.Resolver{}, needs, value.EvaluationLimits{Work: defaultMaxInstanceValueWork, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		tb.Fatalf("Validate(%s, %q) failed: %v", typeName, lexical, err)
 	}
@@ -51,9 +51,9 @@ func (s identityTestPathSource) retainPathAtDepth(int) retainedPath {
 	return s.path
 }
 
-func identityTestContext(path string, line, column int) StartContext {
+func identityTestContext(path string, line, column int) startContext {
 	source := identityTestPathSource{text: path, path: explicitRetainedPath(path)}
-	return StartContext{
+	return startContext{
 		document: source,
 		Path:     path,
 		Line:     line,
@@ -115,7 +115,7 @@ func TestIdentityStateLimitsBoundStaging(t *testing.T) {
 }
 
 // startSelectionForTest starts an unbounded selection for white-box state tests.
-func (s *identityState) startSelectionForTest(scope, depth int, constraint xsdSchema.IdentityConstraintID, fieldCount int, ctx StartContext) {
+func (s *identityState) startSelectionForTest(scope, depth int, constraint xsdSchema.IdentityConstraintID, fieldCount int, ctx startContext) {
 	if err := s.startSelection(scope, depth, constraint, fieldCount, 0, ctx); err != nil {
 		panic(err)
 	}
@@ -1011,7 +1011,7 @@ func finishSelectionsForTest(
 	s *identityState,
 	infoByID identityInfoRuntime,
 	depth int,
-	ctx StartContext,
+	ctx startContext,
 	report func(error) error,
 ) error {
 	if s == nil || len(s.selections) == 0 {

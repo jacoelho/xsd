@@ -12,44 +12,44 @@ func TestParseBooleanAttr(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		attr        BooleanAttr
+		attr        booleanAttr
 		want        bool
 		wantMessage string
 	}{
 		{
 			name: "missing uses default",
-			attr: BooleanAttr{Default: true},
+			attr: booleanAttr{Default: true},
 			want: true,
 		},
 		{
 			name: "true literal",
-			attr: BooleanAttr{Name: "mixed", Value: "\ttrue\n", HasValue: true},
+			attr: booleanAttr{Name: "mixed", Value: "\ttrue\n", HasValue: true},
 			want: true,
 		},
 		{
 			name: "one literal",
-			attr: BooleanAttr{Name: "mixed", Value: "1", HasValue: true},
+			attr: booleanAttr{Name: "mixed", Value: "1", HasValue: true},
 			want: true,
 		},
 		{
 			name: "false literal",
-			attr: BooleanAttr{Name: "mixed", Value: "\rfalse ", HasValue: true},
+			attr: booleanAttr{Name: "mixed", Value: "\rfalse ", HasValue: true},
 		},
 		{
 			name: "zero literal",
-			attr: BooleanAttr{Name: "mixed", Value: "0", HasValue: true},
+			attr: booleanAttr{Name: "mixed", Value: "0", HasValue: true},
 		},
 		{
 			name:        "invalid",
-			attr:        BooleanAttr{Name: "mixed", Value: "yes", HasValue: true},
-			wantMessage: "invalid boolean attribute mixed",
+			attr:        booleanAttr{Name: "mixed", Value: "yes", HasValue: true},
+			wantMessage: "invalid boolean attribute \"mixed\"",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := ParseBooleanAttr(tt.attr)
+			got, err := parseBooleanAttr(tt.attr)
 			if tt.wantMessage != "" {
 				expectInvalidAttributeMessage(t, err, tt.wantMessage)
 				return
@@ -69,39 +69,39 @@ func TestParseFormDefaultAttr(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		attr        FormAttr
+		attr        formAttr
 		want        bool
 		wantMessage string
 	}{
 		{
 			name: "missing uses zero default",
-			attr: FormAttr{Name: "elementFormDefault"},
+			attr: formAttr{Name: "elementFormDefault"},
 		},
 		{
 			name: "missing uses explicit default",
-			attr: FormAttr{Name: "elementFormDefault", DefaultQualified: true},
+			attr: formAttr{Name: "elementFormDefault", DefaultQualified: true},
 			want: true,
 		},
 		{
 			name: "qualified",
-			attr: FormAttr{Name: "elementFormDefault", Value: "qualified", HasValue: true},
+			attr: formAttr{Name: "elementFormDefault", Value: "qualified", HasValue: true},
 			want: true,
 		},
 		{
 			name: "unqualified",
-			attr: FormAttr{Name: "elementFormDefault", Value: "unqualified", HasValue: true},
+			attr: formAttr{Name: "elementFormDefault", Value: "unqualified", HasValue: true},
 		},
 		{
 			name:        "invalid",
-			attr:        FormAttr{Name: "elementFormDefault", Value: "local", HasValue: true},
-			wantMessage: "invalid elementFormDefault value local",
+			attr:        formAttr{Name: "elementFormDefault", Value: "local", HasValue: true},
+			wantMessage: "invalid \"elementFormDefault\" value \"local\"",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := ParseFormDefaultAttr(tt.attr)
+			got, err := parseFormDefaultAttr(tt.attr)
 			if tt.wantMessage != "" {
 				expectInvalidAttributeMessage(t, err, tt.wantMessage)
 				return
@@ -121,8 +121,8 @@ func TestParseSchemaDefaults(t *testing.T) {
 
 	t.Run("zero defaults", func(t *testing.T) {
 		t.Parallel()
-		got, err := ParseSchemaDefaults(schemaDocumentSource{})
-		if err != nil || got != (SchemaDefaults{}) {
+		got, err := parseSchemaDefaults(schemaDocumentSource{})
+		if err != nil || got != (schemaDefaults{}) {
 			t.Fatalf("ParseSchemaDefaults() = %+v, %v, want zero defaults", got, err)
 		}
 	})
@@ -130,18 +130,18 @@ func TestParseSchemaDefaults(t *testing.T) {
 	t.Run("valid defaults", func(t *testing.T) {
 		t.Parallel()
 
-		got, err := ParseSchemaDefaults(schemaDocumentSource{
-			TargetNamespace:      LexicalAttribute{Value: "urn:test", Present: true},
-			BlockDefault:         LexicalAttribute{Value: "#all"},
-			FinalDefault:         LexicalAttribute{Value: "extension restriction"},
-			ElementFormDefault:   LexicalAttribute{Value: "qualified", Present: true},
-			AttributeFormDefault: LexicalAttribute{Value: "unqualified", Present: true},
+		got, err := parseSchemaDefaults(schemaDocumentSource{
+			TargetNamespace:      lexicalAttribute{Value: "urn:test", Present: true},
+			BlockDefault:         lexicalAttribute{Value: "#all"},
+			FinalDefault:         lexicalAttribute{Value: "extension restriction"},
+			ElementFormDefault:   lexicalAttribute{Value: "qualified", Present: true},
+			AttributeFormDefault: lexicalAttribute{Value: "unqualified", Present: true},
 		})
 		if err != nil {
 			t.Fatalf("ParseSchemaDefaults() error = %v", err)
 		}
 		if got.TargetNamespace != "urn:test" ||
-			got.BlockDefault != DerivationBlockDefaultMask ||
+			got.BlockDefault != derivationBlockDefaultMask ||
 			got.FinalDefault != DerivationExtension|DerivationRestriction ||
 			!got.ElementQualified ||
 			got.AttributeQualified {
@@ -156,59 +156,59 @@ func TestParseSchemaDefaults(t *testing.T) {
 	}{
 		{
 			name:        "empty target namespace",
-			attrs:       schemaDocumentSource{TargetNamespace: LexicalAttribute{Present: true}},
+			attrs:       schemaDocumentSource{TargetNamespace: lexicalAttribute{Present: true}},
 			wantMessage: "schema targetNamespace cannot be empty",
 		},
 		{
 			name:        "invalid block default",
-			attrs:       schemaDocumentSource{BlockDefault: LexicalAttribute{Value: "list"}},
-			wantMessage: "schema blockDefault cannot contain list",
+			attrs:       schemaDocumentSource{BlockDefault: lexicalAttribute{Value: "list"}},
+			wantMessage: "schema blockDefault cannot contain \"list\"",
 		},
 		{
 			name:        "invalid final default",
-			attrs:       schemaDocumentSource{FinalDefault: LexicalAttribute{Value: "#all extension"}},
+			attrs:       schemaDocumentSource{FinalDefault: lexicalAttribute{Value: "#all extension"}},
 			wantMessage: "schema finalDefault cannot combine #all with other values",
 		},
 		{
 			name:        "invalid element form default",
-			attrs:       schemaDocumentSource{ElementFormDefault: LexicalAttribute{Value: "local", Present: true}},
-			wantMessage: "invalid elementFormDefault value local",
+			attrs:       schemaDocumentSource{ElementFormDefault: lexicalAttribute{Value: "local", Present: true}},
+			wantMessage: "invalid \"elementFormDefault\" value \"local\"",
 		},
 		{
 			name:        "invalid attribute form default",
-			attrs:       schemaDocumentSource{AttributeFormDefault: LexicalAttribute{Value: "local", Present: true}},
-			wantMessage: "invalid attributeFormDefault value local",
+			attrs:       schemaDocumentSource{AttributeFormDefault: lexicalAttribute{Value: "local", Present: true}},
+			wantMessage: "invalid \"attributeFormDefault\" value \"local\"",
 		},
 		{
 			name: "target namespace before block",
 			attrs: schemaDocumentSource{
-				TargetNamespace: LexicalAttribute{Present: true},
-				BlockDefault:    LexicalAttribute{Value: "list"},
+				TargetNamespace: lexicalAttribute{Present: true},
+				BlockDefault:    lexicalAttribute{Value: "list"},
 			},
 			wantMessage: "schema targetNamespace cannot be empty",
 		},
 		{
 			name: "block before final",
 			attrs: schemaDocumentSource{
-				BlockDefault: LexicalAttribute{Value: "list"},
-				FinalDefault: LexicalAttribute{Value: "#all extension"},
+				BlockDefault: lexicalAttribute{Value: "list"},
+				FinalDefault: lexicalAttribute{Value: "#all extension"},
 			},
-			wantMessage: "schema blockDefault cannot contain list",
+			wantMessage: "schema blockDefault cannot contain \"list\"",
 		},
 		{
 			name: "element form before attribute form",
 			attrs: schemaDocumentSource{
-				ElementFormDefault:   LexicalAttribute{Value: "local", Present: true},
-				AttributeFormDefault: LexicalAttribute{Value: "local", Present: true},
+				ElementFormDefault:   lexicalAttribute{Value: "local", Present: true},
+				AttributeFormDefault: lexicalAttribute{Value: "local", Present: true},
 			},
-			wantMessage: "invalid elementFormDefault value local",
+			wantMessage: "invalid \"elementFormDefault\" value \"local\"",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, err := ParseSchemaDefaults(tt.attrs)
+			_, err := parseSchemaDefaults(tt.attrs)
 			expectInvalidAttributeMessage(t, err, tt.wantMessage)
 		})
 	}
@@ -219,39 +219,39 @@ func TestParseLocalFormAttrs(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		parse       func(FormAttr) (bool, error)
-		attr        FormAttr
+		parse       func(formAttr) (bool, error)
+		attr        formAttr
 		want        bool
 		wantMessage string
 	}{
 		{
 			name:  "element missing uses default",
-			parse: ParseElementFormAttr,
-			attr:  FormAttr{DefaultQualified: true},
+			parse: parseElementFormAttr,
+			attr:  formAttr{DefaultQualified: true},
 			want:  true,
 		},
 		{
 			name:  "attribute qualified",
-			parse: ParseAttributeFormAttr,
-			attr:  FormAttr{Value: "qualified", HasValue: true},
+			parse: parseAttributeFormAttr,
+			attr:  formAttr{Value: "qualified", HasValue: true},
 			want:  true,
 		},
 		{
 			name:  "element unqualified",
-			parse: ParseElementFormAttr,
-			attr:  FormAttr{Value: "unqualified", HasValue: true, DefaultQualified: true},
+			parse: parseElementFormAttr,
+			attr:  formAttr{Value: "unqualified", HasValue: true, DefaultQualified: true},
 		},
 		{
 			name:        "invalid element",
-			parse:       ParseElementFormAttr,
-			attr:        FormAttr{Value: "local", HasValue: true},
-			wantMessage: "invalid element form value local",
+			parse:       parseElementFormAttr,
+			attr:        formAttr{Value: "local", HasValue: true},
+			wantMessage: "invalid element form value \"local\"",
 		},
 		{
 			name:        "invalid attribute",
-			parse:       ParseAttributeFormAttr,
-			attr:        FormAttr{Value: "local", HasValue: true},
-			wantMessage: "invalid attribute form local",
+			parse:       parseAttributeFormAttr,
+			attr:        formAttr{Value: "local", HasValue: true},
+			wantMessage: "invalid attribute form \"local\"",
 		},
 	}
 	for _, tt := range tests {
@@ -298,7 +298,7 @@ func TestDocumentDefaultsRequireTypedSource(t *testing.T) {
 			}
 			got, err := parseDocumentDefaultsNode(tt.root)
 			issue, ok := errors.AsType[*xsderrors.Error](err)
-			if !ok || got != (SchemaDefaults{}) {
+			if !ok || got != (schemaDefaults{}) {
 				t.Fatalf("parseDocumentDefaultsNode() = %+v, %v, want zero defaults and invariant error", got, err)
 			}
 			if issue.Category() != xsderrors.CategoryInternal || issue.Code() != xsderrors.CodeInternalInvariant || issue.Message() != wantMessage {

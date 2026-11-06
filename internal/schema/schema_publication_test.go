@@ -15,11 +15,11 @@ func TestPublishSchemaRejectsRawCorruptionWithoutMutation(t *testing.T) {
 	badName := QName{Local: 1}
 	build := schemaBuild{
 		GlobalElements: map[QName]ElementID{badName: 0},
-		Elements:       []ElementDecl{{Name: badName}},
+		Elements:       []elementDecl{{Name: badName}},
 	}
 	want := schemaBuild{
 		GlobalElements: map[QName]ElementID{badName: 0},
-		Elements:       []ElementDecl{{Name: badName}},
+		Elements:       []elementDecl{{Name: badName}},
 	}
 
 	_, err := publishSchema(&build, unlimitedContentModelWork)
@@ -39,18 +39,18 @@ func TestPublishSchemaRejectsEmptyComplexTypeModelMismatchWithoutConsumingBuild(
 </xs:schema>`
 	tests := []struct {
 		name   string
-		mutate func(*ContentModel)
+		mutate func(*contentModelNode)
 	}{
 		{
 			name: "required choice without particles",
-			mutate: func(model *ContentModel) {
-				model.Kind = ModelChoice
-				model.Occurs = Occurrence{Min: 1, Max: 1}
+			mutate: func(model *contentModelNode) {
+				model.Kind = modelChoice
+				model.Occurs = occurrence{Min: 1, Max: 1}
 			},
 		},
 		{
 			name: "mixed empty model",
-			mutate: func(model *ContentModel) {
+			mutate: func(model *contentModelNode) {
 				model.Mixed = true
 			},
 		},
@@ -61,7 +61,7 @@ func TestPublishSchemaRejectsEmptyComplexTypeModelMismatchWithoutConsumingBuild(
 
 			c, modelID := newEmptyComplexTypePublicationCompiler(t, document)
 			validModel := c.rt.Models[modelID]
-			if validModel.Kind != ModelEmpty || validModel.Mixed {
+			if validModel.Kind != modelEmpty || validModel.Mixed {
 				t.Fatalf("compiled source model = %#v, want non-mixed ModelEmpty", validModel)
 			}
 			tt.mutate(&c.rt.Models[modelID])
@@ -95,7 +95,7 @@ func TestPublishSchemaRejectsEmptyComplexTypeModelMismatchWithoutConsumingBuild(
 	}
 }
 
-func newEmptyComplexTypePublicationCompiler(t *testing.T, document string) (*compiler, ContentModelID) {
+func newEmptyComplexTypePublicationCompiler(t *testing.T, document string) (*compiler, contentModelID) {
 	t.Helper()
 	limits, err := NormalizeOptions(Options{})
 	if err != nil {
@@ -281,11 +281,11 @@ func forbiddenPublishedSchemaType(typ reflect.Type) bool {
 func TestComplexTypeReadDerivesValidationViews(t *testing.T) {
 	t.Parallel()
 
-	ct := ComplexType{
+	ct := complexTypeMetadata{
 		Content:     3,
 		Attrs:       4,
 		TextType:    5,
-		ContentKind: ContentSimple,
+		ContentKind: contentSimple,
 		Block:       DerivationExtension,
 		Abstract:    true,
 	}

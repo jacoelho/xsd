@@ -11,8 +11,8 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// ResolveRuntimeName returns name with its runtime QName when the schema knows it.
-func ResolveRuntimeName(rt *xsdSchema.Schema, name xml.Name) xsdSchema.RuntimeName {
+// resolveRuntimeName returns name with its runtime QName when the schema knows it.
+func resolveRuntimeName(rt *xsdSchema.Schema, name xml.Name) xsdSchema.RuntimeName {
 	q, ok := rt.LookupQName(name.Space, name.Local)
 	if ok {
 		return xsdSchema.RuntimeName{Name: q, Known: true, NS: name.Space, Local: name.Local}
@@ -20,11 +20,11 @@ func ResolveRuntimeName(rt *xsdSchema.Schema, name xml.Name) xsdSchema.RuntimeNa
 	return xsdSchema.RuntimeName{Known: false, NS: name.Space, Local: name.Local}
 }
 
-// NamespaceLookup resolves an XML namespace prefix to its URI.
-type NamespaceLookup func(string) (string, bool)
+// namespaceLookup resolves an XML namespace prefix to its URI.
+type namespaceLookup func(string) (string, bool)
 
-// ResolveLexicalQName resolves a lexical QName after XML whitespace collapse.
-func ResolveLexicalQName(lexical string, lookup NamespaceLookup) (xsdValue.ExpandedName, bool) {
+// resolveLexicalQName resolves a lexical QName after XML whitespace collapse.
+func resolveLexicalQName(lexical string, lookup namespaceLookup) (xsdValue.ExpandedName, bool) {
 	v := lex.CollapseXMLWhitespace(lexical)
 	parts := lex.SplitQName(v)
 	if !parts.Valid {
@@ -43,8 +43,8 @@ type pathSource interface {
 	retainPathAtDepth(depth int) retainedPath
 }
 
-// StartContext identifies a validation location.
-type StartContext struct {
+// startContext identifies a validation location.
+type startContext struct {
 	document pathSource
 	Path     string
 	Line     int
@@ -53,7 +53,7 @@ type StartContext struct {
 
 // PathString returns the current validation path, materializing it lazily for
 // document-owned contexts.
-func (ctx StartContext) PathString() string {
+func (ctx startContext) PathString() string {
 	if ctx.Path != "" || ctx.document == nil {
 		return ctx.Path
 	}
@@ -62,14 +62,14 @@ func (ctx StartContext) PathString() string {
 
 // PathStringAtDepth returns the validation path at depth. Explicit contexts
 // already represent their requested location.
-func (ctx StartContext) PathStringAtDepth(depth int) string {
+func (ctx startContext) PathStringAtDepth(depth int) string {
 	if ctx.Path != "" || ctx.document == nil {
 		return ctx.Path
 	}
 	return ctx.document.PathStringAtDepth(depth)
 }
 
-func (ctx StartContext) retainPathAtDepth(depth int) retainedPath {
+func (ctx startContext) retainPathAtDepth(depth int) retainedPath {
 	if ctx.document == nil {
 		panic("retained XML path requires a document context")
 	}
@@ -181,8 +181,8 @@ func resolveXSIType(
 	return xsdSchema.TypeID{}, xsderrors.Validation(xsderrors.CodeValidationType, unknownXSITypeMessage(value, name), nil)
 }
 
-// IsXSITypeName reports whether name is the xsi:type attribute.
-func IsXSITypeName(name xml.Name) bool {
+// isXSITypeName reports whether name is the xsi:type attribute.
+func isXSITypeName(name xml.Name) bool {
 	return name.Space == vocab.XSINamespaceURI && name.Local == vocab.XSIAttrType
 }
 
@@ -210,8 +210,8 @@ func xsiStartAttributeFlagsFor(attrs []xmlstream.Attr) xsiStartAttributeFlags {
 	return flags
 }
 
-// ParseXSINil parses an xsi:nil attribute value after XML whitespace collapse.
-func ParseXSINil(lexical string) (value, valid bool) {
+// parseXSINil parses an xsi:nil attribute value after XML whitespace collapse.
+func parseXSINil(lexical string) (value, valid bool) {
 	parsed, err := xsdValue.ParseBooleanValue(lex.CollapseXMLWhitespace(lexical))
 	return parsed, err == nil
 }

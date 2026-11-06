@@ -73,11 +73,15 @@ func TestCurrentUnsupportedRegexCorpus(t *testing.T) {
 				if strings.Contains(attr.Value, `-[`) {
 					subtraction++
 				}
-				if _, err := Compile(attr.Value, CompileOptions{}); err != nil {
+				pattern, err := Compile(attr.Value)
+				if err != nil {
 					if IsLimit(err) {
 						return err
 					}
 					continue
+				}
+				if pattern.RetainedBytes() == 0 {
+					t.Errorf("RetainedBytes(%q) = 0, want > 0", attr.Value)
 				}
 				compiled++
 			}

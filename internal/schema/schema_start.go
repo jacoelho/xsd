@@ -48,7 +48,7 @@ func (rt *Schema) LookupQName(ns, local string) (QName, bool) {
 }
 
 // Namespace returns the namespace URI for id.
-func (rt *Schema) Namespace(id NamespaceID) string {
+func (rt *Schema) Namespace(id namespaceID) string {
 	return rt.program.Names.Namespace(id)
 }
 
@@ -62,7 +62,7 @@ func (rt *Schema) TypeInfo(id TypeID) (TypeInfo, bool) {
 		return TypeInfo{Unavailable: availability == simpleTypeAvailabilityUnavailable}, true
 	}
 	complexID, ok := id.Complex()
-	if !ok || !ValidComplexTypeID(complexID, len(rt.program.ComplexTypes)) {
+	if !ok || !validComplexTypeID(complexID, len(rt.program.ComplexTypes)) {
 		return TypeInfo{}, false
 	}
 	read := rt.program.ComplexTypes[complexID]
@@ -78,7 +78,7 @@ func (rt *Schema) TypeInfo(id TypeID) (TypeInfo, bool) {
 }
 
 func (rt *Schema) simpleTypeAvailability(id SimpleTypeID) (availability simpleTypeAvailability, present, valid bool) {
-	if rt == nil || rt.program.Value == nil || !ValidSimpleTypeID(id, len(rt.program.SimpleTypeUnavailable)) {
+	if rt == nil || rt.program.Value == nil || !validSimpleTypeID(id, len(rt.program.SimpleTypeUnavailable)) {
 		return simpleTypeAvailabilityInvalid, false, false
 	}
 	if unavailable := rt.program.SimpleTypeUnavailable[id]; unavailable {
@@ -105,7 +105,7 @@ func (rt *Schema) TypeDerivationWithScratch(derived, base TypeID, scratch *TypeD
 
 // GlobalAttribute returns the global attribute declaration for name.
 func (rt *Schema) GlobalAttribute(name QName) (id AttributeID, present, valid bool) {
-	return GlobalAttributeByName(rt.program.GlobalAttributes, rt.program.Attributes, name)
+	return globalAttributeByName(rt.program.GlobalAttributes, rt.program.Attributes, name)
 }
 
 // WildcardView returns a validation-facing wildcard view.

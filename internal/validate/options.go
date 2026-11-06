@@ -1,7 +1,10 @@
 // Package validate owns XML instance validation concerns.
 package validate
 
-import "github.com/jacoelho/xsd/internal/xmlstream"
+import (
+	xsdValue "github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/xmlstream"
+)
 
 const (
 	defaultMaxErrors                       = 100
@@ -19,6 +22,16 @@ const (
 	// Keep this literal in the validation owner so it does not depend on schema
 	// construction limits or the builtin type count.
 	defaultMaxInstanceValueWork uint64 = 4_194_502_132_335
+	// defaultMaxInstancePatternWork bounds regular-expression matching CPU per
+	// value, in the units documented on xsdregex.MatchOptions. It keeps the
+	// measured worst case (a near-cap NFA against 4 MiB of text) near 1.2 s.
+	defaultMaxInstancePatternWork uint64 = 1 << 29
+	// defaultMaxInstanceTotalPatternWork bounds pattern work summed over one
+	// document. It is the per-value default times the number of maximum-size
+	// text values a maximum-size document can hold, so a document made
+	// entirely of values at the per-value default stays admitted. At the
+	// measured worst case of about 1 s per value this is about 16 s.
+	defaultMaxInstanceTotalPatternWork uint64 = defaultMaxInstancePatternWork * (defaultMaxInstanceBytes / defaultMaxInstanceTextBytes)
 )
 
 // Options controls instance validation limits.
@@ -35,6 +48,8 @@ type Options struct {
 	MaxInstanceTokenBytes           int64
 	MaxInstanceBytes                int64
 	MaxInstanceValueWork            uint64
+	MaxInstancePatternWork          uint64
+	MaxInstanceTotalPatternWork     uint64
 }
 
 // Limits is the normalized internal form of Options.
@@ -51,6 +66,15 @@ type Limits struct {
 	InstanceTokenBytes           int64
 	InstanceBytes                int64
 	InstanceValueWork            uint64
+	InstancePatternWork          uint64
+	InstanceTotalPatternWork     uint64
+}
+
+// evaluation projects the work limits onto the value program. total is the
+// calling session's document account; it is passed by pointer at each call so
+// every evaluation draws on the live account.
+func (l Limits) evaluation(total *xsdValue.PatternAccount) xsdValue.EvaluationLimits {
+	return xsdValue.EvaluationLimits{Work: l.InstanceValueWork, PatternWork: l.InstancePatternWork, PatternTotal: total}
 }
 
 // readerConfig projects the instance syntax limits onto the stream reader.
@@ -84,6 +108,8 @@ func NormalizeOptions(opts Options) (Limits, error) {
 		InstanceTokenBytes:           byteLimitOrDefault(opts.MaxInstanceTokenBytes, defaultMaxInstanceTokenBytes),
 		InstanceBytes:                byteLimitOrDefault(opts.MaxInstanceBytes, defaultMaxInstanceBytes),
 		InstanceValueWork:            uintLimitOrDefault(opts.MaxInstanceValueWork, defaultMaxInstanceValueWork),
+		InstancePatternWork:          uintLimitOrDefault(opts.MaxInstancePatternWork, defaultMaxInstancePatternWork),
+		InstanceTotalPatternWork:     uintLimitOrDefault(opts.MaxInstanceTotalPatternWork, defaultMaxInstanceTotalPatternWork),
 	}, nil
 }
 

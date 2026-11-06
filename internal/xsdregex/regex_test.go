@@ -9,7 +9,7 @@ import (
 
 func mustCompile(t *testing.T, source string) *Pattern {
 	t.Helper()
-	pattern, err := Compile(source, CompileOptions{})
+	pattern, err := Compile(source)
 	if err != nil {
 		t.Fatalf("Compile(%q) error = %v", source, err)
 	}
@@ -37,7 +37,7 @@ func TestWholeStringAndLiteralAnchors(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.pattern+"/"+test.input, func(t *testing.T) {
 			t.Parallel()
-			got, err := mustCompile(t, test.pattern).MatchStringWithScratch(test.input, MatchOptions{}, nil)
+			got, _, err := mustCompile(t, test.pattern).MatchStringWithScratch(test.input, unlimitedWork, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -74,7 +74,7 @@ func TestEscapesAndShorthands(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.pattern+"/"+test.input, func(t *testing.T) {
 			t.Parallel()
-			got, err := mustCompile(t, test.pattern).MatchStringWithScratch(test.input, MatchOptions{}, nil)
+			got, _, err := mustCompile(t, test.pattern).MatchStringWithScratch(test.input, unlimitedWork, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -100,7 +100,7 @@ func TestUnicodeVersionForDecimalDigitEscapes(t *testing.T) {
 	}
 	for _, test := range tests {
 		p := mustCompile(t, test.pattern)
-		got, err := p.MatchStringWithScratch(test.input, MatchOptions{}, nil)
+		got, _, err := p.MatchStringWithScratch(test.input, unlimitedWork, nil)
 		if err != nil {
 			t.Fatalf("%s.MatchString(%q): %v", test.pattern, test.input, err)
 		}
@@ -114,7 +114,7 @@ func TestXMLCharactersExtendThroughUnicodeMaxRune(t *testing.T) {
 	t.Parallel()
 	for _, pattern := range []string{`[\I]+`, `[\C]+`} {
 		p := mustCompile(t, pattern)
-		got, err := p.MatchStringWithScratch("\U000F0000\U0010FFFE", MatchOptions{}, nil)
+		got, _, err := p.MatchStringWithScratch("\U000F0000\U0010FFFE", unlimitedWork, nil)
 		if err != nil || !got {
 			t.Errorf("%s.MatchString(high XML characters) = %v, %v; want true", pattern, got, err)
 		}
@@ -142,7 +142,7 @@ func TestBlocksAndSubtraction(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.pattern+"/"+test.input, func(t *testing.T) {
 			t.Parallel()
-			got, err := mustCompile(t, test.pattern).MatchStringWithScratch(test.input, MatchOptions{}, nil)
+			got, _, err := mustCompile(t, test.pattern).MatchStringWithScratch(test.input, unlimitedWork, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -173,7 +173,7 @@ func TestUnicodeBlocksAndXMLNameBoundaries(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.pattern+"/"+test.input, func(t *testing.T) {
 			t.Parallel()
-			got, err := mustCompile(t, test.pattern).MatchStringWithScratch(test.input, MatchOptions{}, nil)
+			got, _, err := mustCompile(t, test.pattern).MatchStringWithScratch(test.input, unlimitedWork, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -187,11 +187,11 @@ func TestUnicodeBlocksAndXMLNameBoundaries(t *testing.T) {
 func TestCountedRepeatsBeyondGoLimit(t *testing.T) {
 	t.Parallel()
 	p := mustCompile(t, `0{1001}`)
-	got, err := p.MatchStringWithScratch(strings.Repeat("0", 1001), MatchOptions{}, nil)
+	got, _, err := p.MatchStringWithScratch(strings.Repeat("0", 1001), unlimitedWork, nil)
 	if err != nil || !got {
 		t.Fatalf("exact repeat error = %v, matched = %v", err, got)
 	}
-	got, err = p.MatchStringWithScratch(strings.Repeat("0", 1000), MatchOptions{}, nil)
+	got, _, err = p.MatchStringWithScratch(strings.Repeat("0", 1000), unlimitedWork, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,7 +199,7 @@ func TestCountedRepeatsBeyondGoLimit(t *testing.T) {
 		t.Fatal("exact repeat did not match")
 	}
 	p = mustCompile(t, `a{1001,}`)
-	got, err = p.MatchStringWithScratch(strings.Repeat("a", 2_000), MatchOptions{}, nil)
+	got, _, err = p.MatchStringWithScratch(strings.Repeat("a", 2_000), unlimitedWork, nil)
 	if err != nil || !got {
 		t.Fatalf("open repeat error = %v, matched = %v", err, got)
 	}
@@ -207,10 +207,10 @@ func TestCountedRepeatsBeyondGoLimit(t *testing.T) {
 
 func TestCountedRepeatIsNotExpanded(t *testing.T) {
 	t.Parallel()
-	if _, err := Compile(`a{18446744073709551615}`, CompileOptions{}); !IsLimit(err) {
+	if _, err := Compile(`a{18446744073709551615}`); !IsLimit(err) {
 		t.Fatalf("huge exact repeat error = %v, want limit", err)
 	}
-	if _, err := Compile(`a{18446744073709551616}`, CompileOptions{}); !IsLimit(err) {
+	if _, err := Compile(`a{18446744073709551616}`); !IsLimit(err) {
 		t.Fatalf("overflowing repeat error = %v, want limit", err)
 	}
 }
@@ -219,7 +219,7 @@ func TestExactMaxUint64RepeatIsNotTheUnboundedForm(t *testing.T) {
 	t.Parallel()
 	parseRepeat := func(t *testing.T, source string) *node {
 		t.Helper()
-		p := parser{source: []rune(source), limits: normalizeCompileOptions(CompileOptions{})}
+		p := parser{source: []rune(source), limits: fixedCompileLimits}
 		root, err := p.parse()
 		if err != nil {
 			t.Fatal(err)
@@ -239,11 +239,11 @@ func TestExactMaxUint64RepeatIsNotTheUnboundedForm(t *testing.T) {
 	}
 	child := &node{kind: nodeSet, set: singletonSet('a')}
 	exactNode := &node{kind: nodeRepeat, children: []*node{child}, min: 1, max: maxRepeat}
-	if _, err := compileNFA(exactNode, CompileOptions{MaxStates: 3}); !IsLimit(err) {
+	if _, err := compileNFA(exactNode, compileLimits{states: 3}); !IsLimit(err) {
 		t.Fatalf("exact max repeat compilation error = %v, want limit", err)
 	}
 	openNode := &node{kind: nodeRepeat, children: []*node{child}, min: 1, max: maxRepeat, unbounded: true}
-	if _, err := compileNFA(openNode, CompileOptions{MaxStates: 4}); err != nil {
+	if _, err := compileNFA(openNode, compileLimits{states: 4}); err != nil {
 		t.Fatalf("unbounded repeat compilation error = %v", err)
 	}
 }
@@ -256,7 +256,7 @@ func TestSyntaxErrors(t *testing.T) {
 		`[--a]`, `[^--a]`, `[--a-[b]]`, `[--\-]`, `[--\]]`, `[--a-]`, `[a--]`, `[a-\-]`, `[a-b-c]`, `[---]`,
 		`[a--b]`, `[!--]`, `[\d-a]`, `[-[a]]`, `[^-[a]]`,
 	} {
-		_, err := Compile(source, CompileOptions{})
+		_, err := Compile(source)
 		diagnostic, ok := errors.AsType[*Error](err)
 		if !ok || diagnostic.Kind != ErrorSyntax {
 			t.Errorf("Compile(%q) error = %v, want syntax", source, err)
@@ -327,7 +327,7 @@ func TestCharacterClassLiteralCaretAndDashSubtraction(t *testing.T) {
 	}
 	for _, test := range tests {
 		p := mustCompile(t, test.pattern)
-		got, err := p.MatchStringWithScratch(test.input, MatchOptions{}, nil)
+		got, _, err := p.MatchStringWithScratch(test.input, unlimitedWork, nil)
 		if err != nil {
 			t.Fatalf("%s.MatchString(%q): %v", test.pattern, test.input, err)
 		}
@@ -362,7 +362,7 @@ func TestCharacterClassCaretRangeEndpoints(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.pattern+"/"+test.input, func(t *testing.T) {
 			t.Parallel()
-			got, err := mustCompile(t, test.pattern).MatchStringWithScratch(test.input, MatchOptions{}, nil)
+			got, _, err := mustCompile(t, test.pattern).MatchStringWithScratch(test.input, unlimitedWork, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -383,7 +383,7 @@ func TestSurrogateBlockEscapesAreExcluded(t *testing.T) {
 			} {
 				t.Run(pattern, func(t *testing.T) {
 					t.Parallel()
-					_, err := Compile(pattern, CompileOptions{})
+					_, err := Compile(pattern)
 					diagnostic, ok := errors.AsType[*Error](err)
 					if !ok || diagnostic.Kind != ErrorSyntax {
 						t.Fatalf("Compile(%q) error = %v, want syntax error", pattern, err)
@@ -396,37 +396,36 @@ func TestSurrogateBlockEscapesAreExcluded(t *testing.T) {
 
 func TestMatchLimits(t *testing.T) {
 	t.Parallel()
-	linear := mustCompile(t, `a*`)
-	if _, err := linear.MatchStringWithScratch("aa", MatchOptions{MaxStates: 2}, nil); !IsLimit(err) {
-		t.Fatalf("linear state limit error = %v, want limit", err)
-	}
-	if _, err := mustCompile(t, `abc`).MatchStringWithScratch("abc", MatchOptions{MaxWork: 2}, nil); !IsLimit(err) {
+	if _, _, err := mustCompile(t, `abc`).MatchStringWithScratch("abc", MatchOptions{MaxWork: 2}, nil); !IsLimit(err) {
 		t.Fatalf("literal work limit error = %v, want limit", err)
 	}
 	p := mustCompile(t, `(a|aa)*b`)
-	if _, err := p.MatchStringWithScratch(strings.Repeat("a", 2_000)+"b", MatchOptions{MaxWork: 10, MaxStates: 10}, nil); !IsLimit(err) {
+	if _, _, err := p.MatchStringWithScratch(strings.Repeat("a", 2_000)+"b", MatchOptions{MaxWork: 10}, nil); !IsLimit(err) {
 		t.Fatalf("bounded match error = %v, want limit", err)
 	}
 }
 
-func TestCompileRangeLimitAppliesToEveryCharacterSet(t *testing.T) {
+func TestCompileRetainedRangeLimit(t *testing.T) {
 	t.Parallel()
-	if _, err := Compile("a", CompileOptions{MaxRanges: 1}); err != nil {
-		t.Fatalf("single-range literal rejected at limit: %v", err)
-	}
-	if _, err := Compile("[a-z]", CompileOptions{MaxRanges: 1}); err != nil {
-		t.Fatalf("single-range class rejected at limit: %v", err)
+	limits := fixedCompileLimits
+	limits.retainedRanges = 1
+	for _, source := range []string{"a", "[a-z]"} {
+		if _, err := compileWithLimits(source, limits); err != nil {
+			t.Fatalf("compileWithLimits(%q) rejected at limit: %v", source, err)
+		}
 	}
 	for _, source := range []string{"\\d", `\p{L}`, ".", "[a-zA-Z]"} {
-		if _, err := Compile(source, CompileOptions{MaxRanges: 1}); !IsLimit(err) {
-			t.Fatalf("Compile(%q) error = %v, want range limit", source, err)
+		_, err := compileWithLimits(source, limits)
+		var regexErr *Error
+		if !IsLimit(err) || !errors.As(err, &regexErr) || regexErr.What != "pattern retained character-range count exceeds limit" {
+			t.Fatalf("compileWithLimits(%q) error = %v, want retained range limit", source, err)
 		}
 	}
 }
 
 func TestParserCachesRepeatedSetEscapes(t *testing.T) {
 	t.Parallel()
-	p := parser{source: []rune(`\p{L}\p{L}\w\w`), limits: normalizeCompileOptions(CompileOptions{})}
+	p := parser{source: []rune(`\p{L}\p{L}\w\w`), limits: fixedCompileLimits}
 	root, err := p.parse()
 	if err != nil {
 		t.Fatal(err)
@@ -467,7 +466,7 @@ func TestParserCategoryCacheCoversClosedVocabulary(t *testing.T) {
 		source.WriteByte('}')
 	}
 	source.WriteString(`\P{L}\p{L}`)
-	p := parser{source: []rune(source.String()), limits: normalizeCompileOptions(CompileOptions{})}
+	p := parser{source: []rune(source.String()), limits: fixedCompileLimits}
 	root, err := p.parse()
 	if err != nil {
 		t.Fatal(err)
@@ -497,11 +496,8 @@ func TestMatchLimitsBoundScratchAndAdversarialClosure(t *testing.T) {
 	t.Parallel()
 	p := mustCompile(t, `(a|aa)*b`)
 	var scratch Scratch
-	if _, err := p.MatchStringWithScratch("", MatchOptions{MaxWork: 1}, &scratch); !IsLimit(err) {
+	if _, _, err := p.MatchStringWithScratch("", MatchOptions{MaxWork: 1}, &scratch); !IsLimit(err) {
 		t.Fatalf("initial closure with tiny work budget = %v, want limit", err)
-	}
-	if _, err := p.MatchStringWithScratch(strings.Repeat("a", 2_000)+"b", MatchOptions{MaxStates: 1}, &scratch); !IsLimit(err) {
-		t.Fatalf("active state set with tiny state budget = %v, want limit", err)
 	}
 }
 
@@ -519,7 +515,7 @@ func TestScratchResetClearsNFAGenerationMarkers(t *testing.T) {
 		if i != 0 {
 			scratch.Reset(4096)
 		}
-		matched, err := p.MatchStringWithScratch(input, MatchOptions{}, &scratch)
+		matched, _, err := p.MatchStringWithScratch(input, unlimitedWork, &scratch)
 		if err != nil || !matched {
 			t.Fatalf("input %d match = %t, %v; want true, nil", i+1, matched, err)
 		}
@@ -529,32 +525,9 @@ func TestScratchResetClearsNFAGenerationMarkers(t *testing.T) {
 func TestMatchBytes(t *testing.T) {
 	t.Parallel()
 	p := mustCompile(t, `\p{L}+`)
-	got, err := p.MatchBytesWithScratch([]byte("héllo"), MatchOptions{}, nil)
+	got, _, err := p.MatchBytesWithScratch([]byte("héllo"), unlimitedWork, nil)
 	if err != nil || !got {
 		t.Fatalf("MatchBytes valid input error = %v, matched = %v", err, got)
-	}
-}
-
-func TestLinearMatchStateLimitCountsRunes(t *testing.T) {
-	t.Parallel()
-	p := mustCompile(t, `é*`)
-	input := strings.Repeat("é", 129)
-	options := MatchOptions{MaxStates: 130}
-	for name, match := range map[string]func() (bool, error){
-		"string": func() (bool, error) { return p.MatchStringWithScratch(input, options, nil) },
-		"bytes":  func() (bool, error) { return p.MatchBytesWithScratch([]byte(input), options, nil) },
-	} {
-		got, err := match()
-		if err != nil || !got {
-			t.Errorf("%s match at rune state limit = %v, %v; want true, nil", name, got, err)
-		}
-	}
-	tooMany := strings.Repeat("é", 130)
-	if _, err := p.MatchStringWithScratch(tooMany, options, nil); !IsLimit(err) {
-		t.Fatalf("string match over rune state limit error = %v, want limit", err)
-	}
-	if _, err := p.MatchBytesWithScratch([]byte(tooMany), options, nil); !IsLimit(err) {
-		t.Fatalf("bytes match over rune state limit error = %v, want limit", err)
 	}
 }
 
@@ -568,7 +541,7 @@ func TestShortLinearMatchesDoNotAllocate(t *testing.T) {
 			var err error
 			allocations := testing.AllocsPerRun(100, func() {
 				var scratch Scratch
-				matched, err = pattern.MatchStringWithScratch(input, MatchOptions{}, &scratch)
+				matched, _, err = pattern.MatchStringWithScratch(input, unlimitedWork, &scratch)
 			})
 			if err != nil || matched != want {
 				t.Fatalf("string match = %t, %v; want %t, nil", matched, err, want)
@@ -578,7 +551,7 @@ func TestShortLinearMatchesDoNotAllocate(t *testing.T) {
 			}
 			allocations = testing.AllocsPerRun(100, func() {
 				var scratch Scratch
-				matched, err = pattern.MatchBytesWithScratch(raw, MatchOptions{}, &scratch)
+				matched, _, err = pattern.MatchBytesWithScratch(raw, unlimitedWork, &scratch)
 			})
 			if err != nil || matched != want {
 				t.Fatalf("byte match = %t, %v; want %t, nil", matched, err, want)

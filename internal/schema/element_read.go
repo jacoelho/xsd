@@ -18,7 +18,7 @@ type elementReadMeta struct {
 
 type elementConstraintRead struct {
 	value ValueConstraintRead
-	kind  DeclarationValueConstraint
+	kind  declarationValueConstraint
 }
 
 // elementReadTable is the sole published owner of element declaration facts.
@@ -35,7 +35,7 @@ type elementReadTable struct {
 	constraints []elementConstraintRead
 }
 
-func newElementReadTable(decls []ElementDecl) elementReadTable {
+func newElementReadTable(decls []elementDecl) elementReadTable {
 	identityCount, constraintCount := elementReadStorageCounts(decls)
 	table := elementReadTable{
 		names:       make([]QName, len(decls)),
@@ -49,7 +49,7 @@ func newElementReadTable(decls []ElementDecl) elementReadTable {
 	return table
 }
 
-func elementReadStorageCounts(decls []ElementDecl) (identityCount, constraintCount int) {
+func elementReadStorageCounts(decls []elementDecl) (identityCount, constraintCount int) {
 	for i := range decls {
 		identityCount += len(decls[i].Identity)
 		if decls[i].Fixed != nil || decls[i].Default != nil {
@@ -59,7 +59,7 @@ func elementReadStorageCounts(decls []ElementDecl) (identityCount, constraintCou
 	return identityCount, constraintCount
 }
 
-func (t *elementReadTable) addDeclaration(index int, decl ElementDecl) {
+func (t *elementReadTable) addDeclaration(index int, decl elementDecl) {
 	t.names[index] = decl.Name
 	meta := elementReadMeta{
 		typ:           decl.Type,
@@ -74,7 +74,7 @@ func (t *elementReadTable) addDeclaration(index int, decl ElementDecl) {
 	t.meta[index] = meta
 }
 
-func elementFlags(decl ElementDecl) elementReadFlags {
+func elementFlags(decl elementDecl) elementReadFlags {
 	var flags elementReadFlags
 	if decl.Abstract {
 		flags |= elementReadAbstract
@@ -85,29 +85,29 @@ func elementFlags(decl ElementDecl) elementReadFlags {
 	return flags
 }
 
-func (t *elementReadTable) addValueConstraint(decl ElementDecl) int {
+func (t *elementReadTable) addValueConstraint(decl elementDecl) int {
 	if decl.Fixed != nil {
 		value, _ := newValueConstraintReadFromConstraint(decl.Fixed)
-		t.constraints = append(t.constraints, elementConstraintRead{value: value, kind: DeclarationValueConstraintFixed})
+		t.constraints = append(t.constraints, elementConstraintRead{value: value, kind: declarationValueConstraintFixed})
 		return len(t.constraints) - 1
 	}
 	if decl.Default != nil {
 		value, _ := newValueConstraintReadFromConstraint(decl.Default)
-		t.constraints = append(t.constraints, elementConstraintRead{value: value, kind: DeclarationValueConstraintDefault})
+		t.constraints = append(t.constraints, elementConstraintRead{value: value, kind: declarationValueConstraintDefault})
 		return len(t.constraints) - 1
 	}
 	return -1
 }
 
 func (t *elementReadTable) name(id ElementID) (QName, bool) {
-	if !ValidElementID(id, len(t.meta)) || len(t.names) != len(t.meta) {
+	if !validElementID(id, len(t.meta)) || len(t.names) != len(t.meta) {
 		return QName{}, false
 	}
 	return t.names[id], true
 }
 
 func (t *elementReadTable) start(id ElementID) (ElementStartInfo, bool) {
-	if !ValidElementID(id, len(t.meta)) || len(t.names) != len(t.meta) {
+	if !validElementID(id, len(t.meta)) || len(t.names) != len(t.meta) {
 		return ElementStartInfo{}, false
 	}
 	meta := t.meta[id]
@@ -120,13 +120,13 @@ func (t *elementReadTable) start(id ElementID) (ElementStartInfo, bool) {
 		Block:    meta.block,
 		Abstract: meta.flags&elementReadAbstract != 0,
 		Nillable: meta.flags&elementReadNillable != 0,
-		Fixed:    constraint != nil && constraint.kind == DeclarationValueConstraintFixed,
-		Default:  constraint != nil && constraint.kind == DeclarationValueConstraintDefault,
+		Fixed:    constraint != nil && constraint.kind == declarationValueConstraintFixed,
+		Default:  constraint != nil && constraint.kind == declarationValueConstraintDefault,
 	}, true
 }
 
 func (t *elementReadTable) identityConstraints(id ElementID) (IdentityConstraintIDs, bool) {
-	if !ValidElementID(id, len(t.meta)) {
+	if !validElementID(id, len(t.meta)) {
 		return IdentityConstraintIDs{}, false
 	}
 	meta := t.meta[id]
@@ -141,7 +141,7 @@ func (t *elementReadTable) valueConstraints(id ElementID) (constraints ElementVa
 	if id == NoElement {
 		return ElementValueConstraints{}, false, true
 	}
-	if !ValidElementID(id, len(t.meta)) {
+	if !validElementID(id, len(t.meta)) {
 		return ElementValueConstraints{}, false, false
 	}
 	meta := t.meta[id]
@@ -169,12 +169,12 @@ func (t *elementReadTable) constraintFlags(id ElementID) (fixed, present, valid 
 	if id == NoElement {
 		return false, false, true
 	}
-	if !ValidElementID(id, len(t.meta)) {
+	if !validElementID(id, len(t.meta)) {
 		return false, false, false
 	}
 	constraint, valid := t.constraintAt(t.meta[id].constraint)
 	if constraint == nil {
 		return false, false, valid
 	}
-	return constraint.kind == DeclarationValueConstraintFixed, true, true
+	return constraint.kind == declarationValueConstraintFixed, true, true
 }

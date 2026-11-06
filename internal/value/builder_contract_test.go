@@ -12,7 +12,7 @@ import (
 func TestBuilderCompleteChargesFacetLiteralEvaluationWork(t *testing.T) {
 	t.Parallel()
 
-	builder := value.NewBuilder(value.BuilderOptions{
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62,
 		MaxConstructionWork: 1,
 		MaxStorageBytes:     1024,
 	})
@@ -38,7 +38,7 @@ func TestBuilderCompleteChargesFacetLiteralEvaluationWork(t *testing.T) {
 func TestBuilderReserveChargesTypeStorage(t *testing.T) {
 	t.Parallel()
 
-	builder := value.NewBuilder(value.BuilderOptions{MaxStorageBytes: 1})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxStorageBytes: 1})
 	if _, err := builder.Reserve(); !errors.Is(err, value.ErrLimit) {
 		t.Fatalf("Reserve() error = %v, want ErrLimit", err)
 	}
@@ -61,7 +61,7 @@ func TestBuilderCoreReferenceAdmission(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			builder := value.NewBuilder(value.BuilderOptions{MaxDepth: 1})
+			builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxDepth: 1})
 			completed, err := builder.Reserve()
 			if err != nil {
 				t.Fatal(err)
@@ -123,7 +123,7 @@ func TestBuilderCoreReferenceAdmission(t *testing.T) {
 
 func TestBuilderCoreDepthPrecedesFacetReferenceAdmission(t *testing.T) {
 	t.Parallel()
-	builder := value.NewBuilder(value.BuilderOptions{MaxDepth: 1})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxDepth: 1})
 	base, err := builder.Reserve()
 	if err != nil {
 		t.Fatal(err)
@@ -171,10 +171,10 @@ func requireConstructionEnumeration(t *testing.T, builder *value.Builder, id val
 		t.Fatal(err)
 	}
 	resolver := value.Resolver{QName: constructionQName}
-	if _, validationErr := program.Validate(id, "p:x", resolver, 0, 16<<20, nil); validationErr != nil {
+	if _, validationErr := program.Validate(id, "p:x", resolver, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); validationErr != nil {
 		t.Fatalf("Validate(p:x) = %v", validationErr)
 	}
-	_, err = program.Validate(id, "p:y", resolver, 0, 16<<20, nil)
+	_, err = program.Validate(id, "p:y", resolver, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if !errors.Is(err, value.ErrFacet) {
 		t.Fatalf("Validate(p:y) = %v; want enumeration rejection", err)
 	}
@@ -190,7 +190,7 @@ func requireActiveCompletionSealFailure(t *testing.T, builder *value.Builder) {
 
 func TestBuilderCallbackCannotSealBeforeCompletion(t *testing.T) {
 	t.Parallel()
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := builder.Reserve()
 	if err != nil {
 		t.Fatal(err)
@@ -220,7 +220,7 @@ func TestBuilderCallbackCannotSealBeforeCompletion(t *testing.T) {
 
 func TestBuilderCallbackGrowthPreservesEnumeration(t *testing.T) {
 	t.Parallel()
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := builder.Reserve()
 	if err != nil {
 		t.Fatal(err)
@@ -258,7 +258,7 @@ func TestBuilderCallbackGrowthPreservesEnumeration(t *testing.T) {
 
 func TestBuilderCallbackCannotSpendParentStorage(t *testing.T) {
 	t.Parallel()
-	builder := value.NewBuilder(value.BuilderOptions{MaxStorageBytes: 1024})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxStorageBytes: 1024})
 	id, err := builder.Reserve()
 	if err != nil {
 		t.Fatal(err)
@@ -283,7 +283,7 @@ func TestBuilderCallbackCannotSpendParentStorage(t *testing.T) {
 
 func TestBuilderCallbackFailureRefundPreservesChild(t *testing.T) {
 	t.Parallel()
-	builder := value.NewBuilder(value.BuilderOptions{MaxStorageBytes: 1070})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxStorageBytes: 1070})
 	id, err := builder.Reserve()
 	if err != nil {
 		t.Fatal(err)
@@ -321,7 +321,7 @@ func TestBuilderCallbackFailureRefundPreservesChild(t *testing.T) {
 
 func TestBuilderCallbackPanicRefundPreservesChild(t *testing.T) {
 	t.Parallel()
-	builder := value.NewBuilder(value.BuilderOptions{MaxStorageBytes: 1070})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxStorageBytes: 1070})
 	id, err := builder.Reserve()
 	if err != nil {
 		t.Fatal(err)
@@ -366,7 +366,7 @@ func TestBuilderCallbackPanicRefundPreservesChild(t *testing.T) {
 
 func TestBuilderMetadataProvisionalFailureAndRetryContract(t *testing.T) {
 	t.Parallel()
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := builder.Reserve()
 	if err != nil {
 		t.Fatal(err)
@@ -416,7 +416,7 @@ func TestBuilderMetadataProvisionalFailureAndRetryContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := program.Validate(id, "p:item", resolved, 0, 16<<20, nil); err != nil {
+	if _, err := program.Validate(id, "p:item", resolved, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 		t.Fatalf("sealed retried QName validation = %v", err)
 	}
 }
@@ -424,7 +424,7 @@ func TestBuilderMetadataProvisionalFailureAndRetryContract(t *testing.T) {
 func TestBuilderRejectsMissingFacetPayloads(t *testing.T) {
 	for _, facet := range []value.FacetMask{value.FacetEnumeration, value.FacetPattern, value.FacetMinInclusive, value.FacetTotalDigits} {
 		t.Run(fmt.Sprint(facet), func(t *testing.T) {
-			builder := value.NewBuilder(value.BuilderOptions{})
+			builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 			id, err := builder.Reserve()
 			if err != nil {
 				t.Fatal(err)

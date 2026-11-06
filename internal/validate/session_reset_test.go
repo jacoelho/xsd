@@ -237,8 +237,8 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 	s.doc.identity.ids = map[string]retainedPath{"stale": explicitRetainedPath("/stale")}
 	s.doc.identity.entries = 1
 	if err := s.doc.schemaLocationHints.RecordAttributes(
-		[]xmlstream.Attr{{Name: staleSchemaLocationHintName(), Value: "urn:stale stale.xsd"}},
-		nil,
+		[]xmlstream.Attr{xmlstream.NewAttr(staleSchemaLocationHintName(), "urn:stale stale.xsd")},
+		&s.reader,
 		testSchemaLocationHintLimits,
 		s.startContext(1, 1),
 	); err != nil {

@@ -8,27 +8,27 @@ import (
 
 func TestWildcardsOverlapBoundarySets(t *testing.T) {
 	t.Parallel()
-	empty := Wildcard{Mode: WildcardList}
-	other := Wildcard{Mode: WildcardOther, OtherThan: 1}
+	empty := wildcardRuntime{Mode: WildcardList}
+	other := wildcardRuntime{Mode: WildcardOther, OtherThan: 1}
 	for _, test := range []struct {
 		name string
-		a, b Wildcard
+		a, b wildcardRuntime
 		want bool
 	}{
-		{name: "empty and any", a: empty, b: Wildcard{Mode: WildcardAny}},
+		{name: "empty and any", a: empty, b: wildcardRuntime{Mode: WildcardAny}},
 		{name: "empty and other", a: empty, b: other},
-		{name: "empty and local", a: empty, b: Wildcard{Mode: WildcardLocal}},
-		{name: "empty and finite", a: empty, b: Wildcard{Mode: WildcardList, Namespaces: []NamespaceID{1, 2}}},
+		{name: "empty and local", a: empty, b: wildcardRuntime{Mode: WildcardLocal}},
+		{name: "empty and finite", a: empty, b: wildcardRuntime{Mode: WildcardList, Namespaces: []namespaceID{1, 2}}},
 		{name: "empty and empty", a: empty, b: empty},
-		{name: "other excludes every finite member", a: other, b: Wildcard{Mode: WildcardList, Namespaces: []NamespaceID{EmptyNamespaceID, 1}}},
-		{name: "other admits a finite member", a: other, b: Wildcard{Mode: WildcardList, Namespaces: []NamespaceID{EmptyNamespaceID, 1, 2}}, want: true},
+		{name: "other excludes every finite member", a: other, b: wildcardRuntime{Mode: WildcardList, Namespaces: []namespaceID{emptyNamespaceID, 1}}},
+		{name: "other admits a finite member", a: other, b: wildcardRuntime{Mode: WildcardList, Namespaces: []namespaceID{emptyNamespaceID, 1, 2}}, want: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			if got := WildcardsOverlap(test.a, test.b); got != test.want {
+			if got := wildcardsOverlap(test.a, test.b); got != test.want {
 				t.Fatalf("WildcardsOverlap(%+v, %+v) = %v, want %v", test.a, test.b, got, test.want)
 			}
-			if got := WildcardsOverlap(test.b, test.a); got != test.want {
+			if got := wildcardsOverlap(test.b, test.a); got != test.want {
 				t.Fatalf("WildcardsOverlap(%+v, %+v) = %v, want %v", test.b, test.a, got, test.want)
 			}
 		})
@@ -38,12 +38,12 @@ func TestWildcardsOverlapBoundarySets(t *testing.T) {
 func TestWildcardByID(t *testing.T) {
 	t.Parallel()
 
-	wildcards := []Wildcard{
-		{Mode: WildcardAny, Process: ProcessStrict},
-		{Mode: WildcardList, Process: ProcessLax, Namespaces: []NamespaceID{1, 2}},
+	wildcards := []wildcardRuntime{
+		{Mode: WildcardAny, Process: processStrict},
+		{Mode: WildcardList, Process: ProcessLax, Namespaces: []namespaceID{1, 2}},
 	}
-	got, ok := WildcardByID(wildcards, 1)
-	if !ok || got.Mode != WildcardList || !slices.Equal(got.Namespaces, []NamespaceID{1, 2}) {
+	got, ok := wildcardByID(wildcards, 1)
+	if !ok || got.Mode != WildcardList || !slices.Equal(got.Namespaces, []namespaceID{1, 2}) {
 		t.Fatalf("WildcardByID(valid) = %+v, %v; want cloned wildcard 1, true", got, ok)
 	}
 	got.Namespaces[0] = 9
@@ -51,7 +51,7 @@ func TestWildcardByID(t *testing.T) {
 		t.Fatalf("WildcardByID aliased namespace slice: %+v", wildcards[1])
 	}
 	for _, id := range []WildcardID{NoWildcard, 2} {
-		got, ok := WildcardByID(wildcards, id)
+		got, ok := wildcardByID(wildcards, id)
 		if ok || got.Mode != 0 || got.Process != 0 || got.OtherThan != 0 || len(got.Namespaces) != 0 {
 			t.Fatalf("WildcardByID(%d) = %+v, %v; want zero, false", id, got, ok)
 		}
@@ -65,104 +65,104 @@ func TestValidateWildcard(t *testing.T) {
 	tests := []struct {
 		name    string
 		wantErr string
-		in      Wildcard
+		in      wildcardRuntime
 	}{
 		{
 			name: "any",
-			in:   Wildcard{Mode: WildcardAny, Process: ProcessStrict},
+			in:   wildcardRuntime{Mode: WildcardAny, Process: processStrict},
 		},
 		{
 			name: "local",
-			in:   Wildcard{Mode: WildcardLocal, Process: ProcessLax},
+			in:   wildcardRuntime{Mode: WildcardLocal, Process: ProcessLax},
 		},
 		{
 			name: "other",
-			in:   Wildcard{Mode: WildcardOther, OtherThan: names["urn:a"], Process: ProcessSkip},
+			in:   wildcardRuntime{Mode: WildcardOther, OtherThan: names["urn:a"], Process: ProcessSkip},
 		},
 		{
 			name: "target namespace",
-			in: Wildcard{
+			in: wildcardRuntime{
 				Mode:       WildcardTargetNamespace,
-				Namespaces: []NamespaceID{names["urn:a"]},
-				Process:    ProcessStrict,
+				Namespaces: []namespaceID{names["urn:a"]},
+				Process:    processStrict,
 			},
 		},
 		{
 			name: "list",
-			in: Wildcard{
+			in: wildcardRuntime{
 				Mode:       WildcardList,
-				Namespaces: []NamespaceID{EmptyNamespaceID, names["urn:a"], names["urn:b"]},
+				Namespaces: []namespaceID{emptyNamespaceID, names["urn:a"], names["urn:b"]},
 				Process:    ProcessLax,
 			},
 		},
 		{
 			name:    "invalid process",
-			in:      Wildcard{Mode: WildcardAny, Process: ProcessContents(99)},
+			in:      wildcardRuntime{Mode: WildcardAny, Process: ProcessContents(99)},
 			wantErr: "wildcard has invalid process contents",
 		},
 		{
 			name:    "invalid mode",
-			in:      Wildcard{Mode: WildcardMode(99), Process: ProcessStrict},
+			in:      wildcardRuntime{Mode: wildcardMode(99), Process: processStrict},
 			wantErr: "wildcard has invalid mode",
 		},
 		{
 			name: "any stores inactive namespace",
-			in: Wildcard{
+			in: wildcardRuntime{
 				Mode:       WildcardAny,
-				Namespaces: []NamespaceID{names["urn:a"]},
-				Process:    ProcessStrict,
+				Namespaces: []namespaceID{names["urn:a"]},
+				Process:    processStrict,
 			},
 			wantErr: "wildcard stores inactive namespace fields",
 		},
 		{
 			name:    "other invalid namespace",
-			in:      Wildcard{Mode: WildcardOther, OtherThan: NamespaceID(99), Process: ProcessStrict},
+			in:      wildcardRuntime{Mode: WildcardOther, OtherThan: namespaceID(99), Process: processStrict},
 			wantErr: "wildcard other namespace is invalid",
 		},
 		{
 			name: "target namespace stores inactive other",
-			in: Wildcard{
+			in: wildcardRuntime{
 				Mode:       WildcardTargetNamespace,
-				Namespaces: []NamespaceID{names["urn:a"]},
+				Namespaces: []namespaceID{names["urn:a"]},
 				OtherThan:  names["urn:b"],
-				Process:    ProcessStrict,
+				Process:    processStrict,
 			},
 			wantErr: "targetNamespace wildcard has invalid namespace",
 		},
 		{
 			name: "list stores inactive other",
-			in: Wildcard{
+			in: wildcardRuntime{
 				Mode:       WildcardList,
-				Namespaces: []NamespaceID{names["urn:a"]},
+				Namespaces: []namespaceID{names["urn:a"]},
 				OtherThan:  names["urn:b"],
-				Process:    ProcessStrict,
+				Process:    processStrict,
 			},
 			wantErr: "namespace list wildcard stores inactive other namespace",
 		},
 		{
 			name: "list invalid namespace",
-			in: Wildcard{
+			in: wildcardRuntime{
 				Mode:       WildcardList,
-				Namespaces: []NamespaceID{NamespaceID(99)},
-				Process:    ProcessStrict,
+				Namespaces: []namespaceID{namespaceID(99)},
+				Process:    processStrict,
 			},
 			wantErr: "namespace list wildcard is invalid",
 		},
 		{
 			name: "list is not sorted",
-			in: Wildcard{
+			in: wildcardRuntime{
 				Mode:       WildcardList,
-				Namespaces: []NamespaceID{names["urn:b"], names["urn:a"]},
-				Process:    ProcessStrict,
+				Namespaces: []namespaceID{names["urn:b"], names["urn:a"]},
+				Process:    processStrict,
 			},
 			wantErr: "namespace list wildcard is invalid",
 		},
 		{
 			name: "list has duplicate namespace",
-			in: Wildcard{
+			in: wildcardRuntime{
 				Mode:       WildcardList,
-				Namespaces: []NamespaceID{names["urn:a"], names["urn:a"]},
-				Process:    ProcessStrict,
+				Namespaces: []namespaceID{names["urn:a"], names["urn:a"]},
+				Process:    processStrict,
 			},
 			wantErr: "namespace list wildcard is invalid",
 		},
@@ -171,7 +171,7 @@ func TestValidateWildcard(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateWildcard(&table, tt.in)
+			err := validateWildcard(&table, tt.in)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateWildcard() error = %v", err)
@@ -188,7 +188,7 @@ func TestValidateWildcard(t *testing.T) {
 func TestValidateWildcardRejectsNilNameTable(t *testing.T) {
 	t.Parallel()
 
-	err := ValidateWildcard(nil, Wildcard{Mode: WildcardAny, Process: ProcessStrict})
+	err := validateWildcard(nil, wildcardRuntime{Mode: WildcardAny, Process: processStrict})
 	if err == nil || !strings.Contains(err.Error(), "wildcard requires name table") {
 		t.Fatalf("ValidateWildcard(nil, wildcard) error = %v", err)
 	}
@@ -198,26 +198,26 @@ func TestWildcardSetPredicates(t *testing.T) {
 	t.Parallel()
 
 	_, names := wildcardValidationFixture(t)
-	anyWildcard := Wildcard{Mode: WildcardAny, Process: ProcessStrict}
-	otherA := Wildcard{Mode: WildcardOther, OtherThan: names["urn:a"], Process: ProcessStrict}
-	local := Wildcard{Mode: WildcardLocal, Process: ProcessStrict}
-	listAB := Wildcard{Mode: WildcardList, Namespaces: []NamespaceID{names["urn:a"], names["urn:b"]}, Process: ProcessStrict}
-	if !WildcardAllowsNamespace(anyWildcard, names["urn:a"]) {
+	anyWildcard := wildcardRuntime{Mode: WildcardAny, Process: processStrict}
+	otherA := wildcardRuntime{Mode: WildcardOther, OtherThan: names["urn:a"], Process: processStrict}
+	local := wildcardRuntime{Mode: WildcardLocal, Process: processStrict}
+	listAB := wildcardRuntime{Mode: WildcardList, Namespaces: []namespaceID{names["urn:a"], names["urn:b"]}, Process: processStrict}
+	if !wildcardAllowsNamespace(anyWildcard, names["urn:a"]) {
 		t.Fatal("##any did not allow interned namespace")
 	}
-	if WildcardAllowsNamespace(otherA, names["urn:a"]) || !WildcardAllowsNamespace(otherA, names["urn:b"]) {
+	if wildcardAllowsNamespace(otherA, names["urn:a"]) || !wildcardAllowsNamespace(otherA, names["urn:b"]) {
 		t.Fatal("##other namespace admission is wrong")
 	}
-	if !WildcardAllowsNamespace(local, EmptyNamespaceID) || WildcardAllowsNamespace(local, names["urn:a"]) {
+	if !wildcardAllowsNamespace(local, emptyNamespaceID) || wildcardAllowsNamespace(local, names["urn:a"]) {
 		t.Fatal("##local namespace admission is wrong")
 	}
-	if !WildcardSubset(listAB, anyWildcard) || WildcardSubset(anyWildcard, listAB) {
+	if !wildcardSubset(listAB, anyWildcard) || wildcardSubset(anyWildcard, listAB) {
 		t.Fatal("wildcard subset relation is wrong")
 	}
-	if !WildcardsOverlap(otherA, listAB) || WildcardsOverlap(local, listAB) {
+	if !wildcardsOverlap(otherA, listAB) || wildcardsOverlap(local, listAB) {
 		t.Fatal("wildcard overlap relation is wrong")
 	}
-	if !WildcardNamespaceEqual(listAB, Wildcard{Mode: WildcardList, Namespaces: []NamespaceID{names["urn:a"], names["urn:b"]}}) {
+	if !wildcardNamespaceEqual(listAB, wildcardRuntime{Mode: WildcardList, Namespaces: []namespaceID{names["urn:a"], names["urn:b"]}}) {
 		t.Fatal("equal wildcard namespace sets were not recognized")
 	}
 }
@@ -226,71 +226,71 @@ func TestWildcardSetOperators(t *testing.T) {
 	t.Parallel()
 
 	_, names := wildcardValidationFixture(t)
-	normalized := NormalizeNamespaceList([]NamespaceID{names["urn:b"], names["urn:a"], names["urn:a"]})
-	if !slices.Equal(normalized, []NamespaceID{names["urn:a"], names["urn:b"]}) {
+	normalized := normalizeNamespaceList([]namespaceID{names["urn:b"], names["urn:a"], names["urn:a"]})
+	if !slices.Equal(normalized, []namespaceID{names["urn:a"], names["urn:b"]}) {
 		t.Fatalf("NormalizeNamespaceList() = %v", normalized)
 	}
 
-	listA := Wildcard{Mode: WildcardList, Namespaces: []NamespaceID{names["urn:a"]}, Process: ProcessStrict}
-	listB := Wildcard{Mode: WildcardList, Namespaces: []NamespaceID{names["urn:b"]}, Process: ProcessLax}
-	union, err := UnionWildcard(listA, listB, ProcessSkip)
+	listA := wildcardRuntime{Mode: WildcardList, Namespaces: []namespaceID{names["urn:a"]}, Process: processStrict}
+	listB := wildcardRuntime{Mode: WildcardList, Namespaces: []namespaceID{names["urn:b"]}, Process: ProcessLax}
+	union, err := unionWildcard(listA, listB, ProcessSkip)
 	if err != nil {
 		t.Fatalf("UnionWildcard() error = %v", err)
 	}
-	if union.Mode != WildcardList || union.Process != ProcessSkip || !slices.Equal(union.Namespaces, []NamespaceID{names["urn:a"], names["urn:b"]}) {
+	if union.Mode != WildcardList || union.Process != ProcessSkip || !slices.Equal(union.Namespaces, []namespaceID{names["urn:a"], names["urn:b"]}) {
 		t.Fatalf("UnionWildcard() = %+v", union)
 	}
-	sameList := Wildcard{Mode: WildcardList, Namespaces: []NamespaceID{names["urn:a"]}, Process: ProcessStrict}
-	sameUnion, err := UnionWildcard(sameList, sameList, ProcessLax)
+	sameList := wildcardRuntime{Mode: WildcardList, Namespaces: []namespaceID{names["urn:a"]}, Process: processStrict}
+	sameUnion, err := unionWildcard(sameList, sameList, ProcessLax)
 	if err != nil {
 		t.Fatalf("UnionWildcard(equal list) error = %v", err)
 	}
 	sameList.Namespaces[0] = names["urn:b"]
-	if !slices.Equal(sameUnion.Namespaces, []NamespaceID{names["urn:a"]}) {
+	if !slices.Equal(sameUnion.Namespaces, []namespaceID{names["urn:a"]}) {
 		t.Fatalf("UnionWildcard(equal list) aliased input namespace slice: %+v", sameUnion)
 	}
 
-	otherA := Wildcard{Mode: WildcardOther, OtherThan: names["urn:a"], Process: ProcessStrict}
-	union, err = UnionWildcard(otherA, listA, ProcessStrict)
+	otherA := wildcardRuntime{Mode: WildcardOther, OtherThan: names["urn:a"], Process: processStrict}
+	union, err = unionWildcard(otherA, listA, processStrict)
 	if err != nil {
 		t.Fatalf("UnionWildcard(other, negated namespace) error = %v", err)
 	}
-	if union.Mode != WildcardOther || union.OtherThan != EmptyNamespaceID {
+	if union.Mode != WildcardOther || union.OtherThan != emptyNamespaceID {
 		t.Fatalf("UnionWildcard(other, negated namespace) = %+v", union)
 	}
-	if _, unionErr := UnionWildcard(otherA, Wildcard{Mode: WildcardLocal, Process: ProcessStrict}, ProcessStrict); unionErr == nil {
+	if _, unionErr := unionWildcard(otherA, wildcardRuntime{Mode: WildcardLocal, Process: processStrict}, processStrict); unionErr == nil {
 		t.Fatal("unexpressible wildcard union succeeded")
 	}
 
-	intersection, err := IntersectWildcard(Wildcard{Mode: WildcardAny, Process: ProcessStrict}, listB, ProcessSkip)
+	intersection, err := intersectWildcard(wildcardRuntime{Mode: WildcardAny, Process: processStrict}, listB, ProcessSkip)
 	if err != nil {
 		t.Fatalf("IntersectWildcard(any, list) error = %v", err)
 	}
-	if !WildcardNamespaceEqual(intersection, listB) || intersection.Process != ProcessSkip {
+	if !wildcardNamespaceEqual(intersection, listB) || intersection.Process != ProcessSkip {
 		t.Fatalf("IntersectWildcard(any, list) = %+v", intersection)
 	}
 	listB.Namespaces[0] = names["urn:a"]
-	if !slices.Equal(intersection.Namespaces, []NamespaceID{names["urn:b"]}) {
+	if !slices.Equal(intersection.Namespaces, []namespaceID{names["urn:b"]}) {
 		t.Fatalf("IntersectWildcard(any, list) aliased input namespace slice: %+v", intersection)
 	}
-	_, err = IntersectWildcard(
-		Wildcard{Mode: WildcardOther, OtherThan: names["urn:a"], Process: ProcessStrict},
-		Wildcard{Mode: WildcardOther, OtherThan: names["urn:b"], Process: ProcessStrict},
-		ProcessStrict,
+	_, err = intersectWildcard(
+		wildcardRuntime{Mode: WildcardOther, OtherThan: names["urn:a"], Process: processStrict},
+		wildcardRuntime{Mode: WildcardOther, OtherThan: names["urn:b"], Process: processStrict},
+		processStrict,
 	)
 	if err == nil {
 		t.Fatalf("IntersectWildcard(other a, other b) error = %v, want error", err)
 	}
 }
 
-func wildcardValidationFixture(t *testing.T) (NameTable, map[string]NamespaceID) {
+func wildcardValidationFixture(t *testing.T) (nameTable, map[string]namespaceID) {
 	t.Helper()
 
-	table, err := NewNameTable(16, []string{EmptyNamespaceURI, "urn:a", "urn:b"}, nil)
+	table, err := newNameTable(16, []string{EmptyNamespaceURI, "urn:a", "urn:b"}, nil)
 	if err != nil {
 		t.Fatalf("NewNameTable() error = %v", err)
 	}
-	names := map[string]NamespaceID{EmptyNamespaceURI: EmptyNamespaceID}
+	names := map[string]namespaceID{EmptyNamespaceURI: emptyNamespaceID}
 	for _, uri := range []string{"urn:a", "urn:b"} {
 		id, ok := table.LookupNamespace(uri)
 		if !ok {

@@ -10,5 +10,5 @@ package schema
 type ElementFrameRead struct {
 	SimpleContent SimpleTypeID
 	TextContent   ElementTextContent
-	Content       ContentFrame
+	Content       contentFrame
 }

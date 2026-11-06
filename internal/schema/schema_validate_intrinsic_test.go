@@ -15,17 +15,17 @@ import (
 // Enumeration need no walk because intrinsic definitions carry no facets and
 // facetSpecEmpty rejects any non-empty slice.
 func TestIntrinsicComparatorDetectsEveryFieldChange(t *testing.T) {
-	baseline := MissingSimpleType(QName{Namespace: 1, Local: 2}, value.AnySimpleTypeID)
+	baseline := missingSimpleType(QName{Namespace: 1, Local: 2}, value.AnySimpleTypeID)
 	if !intrinsicSimpleTypeEqual(baseline, baseline) {
 		t.Fatal("intrinsicSimpleTypeEqual(x, x) = false")
 	}
 	// Reflection cannot set unexported fields; this package can.
-	unexported := map[string]func(*SimpleType){
-		"unionContainsList": func(st *SimpleType) { st.unionContainsList = !st.unionContainsList },
-		"unionHasFacets":    func(st *SimpleType) { st.unionHasFacets = !st.unionHasFacets },
+	unexported := map[string]func(*simpleType){
+		"unionContainsList": func(st *simpleType) { st.unionContainsList = !st.unionContainsList },
+		"unionHasFacets":    func(st *simpleType) { st.unionHasFacets = !st.unionHasFacets },
 	}
 	visitedUnexported := map[string]bool{}
-	requireDetected := func(path string, changed SimpleType) {
+	requireDetected := func(path string, changed simpleType) {
 		t.Helper()
 		if intrinsicSimpleTypeEqual(baseline, changed) || intrinsicSimpleTypeEqual(changed, baseline) {
 			t.Errorf("change to %s not detected; extend intrinsicSimpleTypeEqual", path)
@@ -57,7 +57,7 @@ func TestIntrinsicComparatorDetectsEveryFieldChange(t *testing.T) {
 			requireDetected(fieldPath, changed)
 		}
 	}
-	visit("SimpleType", reflect.TypeFor[SimpleType](), nil)
+	visit("SimpleType", reflect.TypeFor[simpleType](), nil)
 	for name := range unexported {
 		if !visitedUnexported[name] {
 			t.Errorf("SimpleType.%s no longer exists; remove its perturbation", name)

@@ -5,15 +5,15 @@ const (
 	booleanCanonicalTrue  = "true"
 )
 
-// BooleanLexicalOK reports whether raw is an XML Schema boolean lexical value.
-func BooleanLexicalOK[T byteText](raw T) bool {
+// booleanLexicalOK reports whether raw is an XML Schema boolean lexical value.
+func booleanLexicalOK[T byteText](raw T) bool {
 	_, ok := parseBooleanLexical(raw)
 	return ok
 }
 
-// ValidateBooleanLexical validates raw as an XML Schema boolean lexical value.
-func ValidateBooleanLexical[T byteText](raw T) error {
-	if BooleanLexicalOK(raw) {
+// validateBooleanLexical validates raw as an XML Schema boolean lexical value.
+func validateBooleanLexical[T byteText](raw T) error {
+	if booleanLexicalOK(raw) {
 		return nil
 	}
 	return errBoolean

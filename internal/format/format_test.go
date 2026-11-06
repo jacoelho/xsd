@@ -900,8 +900,34 @@ func TestFormatXMLWithOptionsRejectsInputBytesAfterSniff(t *testing.T) {
 	if xerr.Code() != xsderrors.CodeFormatLimit {
 		t.Fatalf("XMLWithOptions() code = %q, want %q", xerr.Code(), xsderrors.CodeFormatLimit)
 	}
-	if !xmlstream.IsInputLimit(err) {
+	if limit, ok := xmlstream.LimitOf(err); !ok || limit != xmlstream.LimitInputBytes {
 		t.Fatalf("XMLWithOptions() error = %v, want input limit", err)
+	}
+}
+
+func TestFormatReaderLimitsNameOptions(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		opts   Options
+		option string
+	}{
+		{name: "depth", input: `<a><b><c/></b></a>`, opts: Options{MaxDepth: 2}, option: "MaxDepth=2 exceeded"},
+		{name: "input", input: `<a>xx</a>`, opts: Options{MaxInputBytes: 4}, option: "MaxInputBytes=4 exceeded"},
+		{name: "token", input: `<a>` + strings.Repeat("x", 17) + `</a>`, opts: Options{MaxTokenBytes: 16}, option: "MaxTokenBytes=16 exceeded"},
+		{name: "token default", input: `<a>` + strings.Repeat("x", int(defaultMaxFormatTokenBytes)+1) + `</a>`, opts: Options{}, option: "MaxTokenBytes=" + strconv.FormatInt(defaultMaxFormatTokenBytes, 10) + " exceeded"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := XMLWithOptions(io.Discard, tt.input, tt.opts)
+			var xerr *xsderrors.Error
+			if !errors.As(err, &xerr) || xerr.Code() != xsderrors.CodeFormatLimit {
+				t.Fatalf("XMLWithOptions() error = %v, want %s", err, xsderrors.CodeFormatLimit)
+			}
+			if !strings.Contains(err.Error(), tt.option) {
+				t.Fatalf("error %q does not name %s", err, tt.option)
+			}
+		})
 	}
 }
 
@@ -972,7 +998,7 @@ func TestFormatXMLRejectsExcessiveDepth(t *testing.T) {
 	if err == nil {
 		t.Fatal("XML() succeeded")
 	}
-	if !strings.Contains(err.Error(), "XML nesting exceeds") {
+	if !strings.Contains(err.Error(), "MaxDepth") {
 		t.Fatalf("XML() error = %v", err)
 	}
 }

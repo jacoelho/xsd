@@ -21,7 +21,7 @@ func TestDecimalTotalDigitsCountsSignificantFractionDigitsAfterZeroInteger(t *te
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			program, id := decimalTotalDigitsProgram(t, test.limit)
-			_, err := program.Validate(id, test.lexical, Resolver{}, 0, 16<<20, nil)
+			_, err := program.Validate(id, test.lexical, Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			if (err == nil) != test.valid {
 				t.Fatalf("Validate(%q) error = %v, valid = %t", test.lexical, err, test.valid)
 			}
@@ -50,7 +50,7 @@ func TestDecimalParseCountsLeadingFractionZeros(t *testing.T) {
 
 func decimalTotalDigitsProgram(t *testing.T, totalDigits uint32) (*Program, TypeID) {
 	t.Helper()
-	builder := NewBuilder(BuilderOptions{})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := builder.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)

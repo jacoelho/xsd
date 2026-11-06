@@ -75,6 +75,9 @@ type session struct {
 	attributeSeen     []bool
 	reader            xmlstream.Reader
 	limits            Limits
+	// patternTotal is the pattern-work account of the document in progress; it
+	// is reset at every validate entry and passed by pointer at each call.
+	patternTotal xsdValue.PatternAccount
 }
 
 // documentState is the mutable state of one document validation. XML syntax
@@ -91,7 +94,7 @@ type documentState struct {
 	xmlDocument[frame]
 
 	identity            identityEvaluation
-	schemaLocationHints SchemaLocationHints
+	schemaLocationHints schemaLocationHintSet
 	allBits             []uint64
 	errors              []error
 	text                []byte
@@ -132,6 +135,9 @@ func (s *session) validate(r io.Reader) error {
 	if s.rt == nil {
 		return xsderrors.InternalInvariant("nil validation session")
 	}
+	// Every entry starts a fresh document account, including after a document
+	// that failed mid-stream.
+	s.patternTotal.Reset(s.limits.InstanceTotalPatternWork)
 	if err := s.resetParser(r); err != nil {
 		return err
 	}
@@ -203,10 +209,7 @@ func (s *session) validateCharacterToken(tok *xmlstream.Token, mode tokenValidat
 
 func (s *session) parseError(err error) error {
 	line, col := streamErrorPosition(&s.reader, err)
-	if limitErr := instanceLimitError(err, s.startContext(line, col), s.limits); limitErr != nil {
-		return limitErr
-	}
-	return StreamError(line, col, s.doc.PathString(), err)
+	return streamError(err, s.startContext(line, col), s.limits)
 }
 
 func (s *session) finishValidation() error {
@@ -296,9 +299,9 @@ func (s *session) recover(err error) error {
 	if !xsderrors.IsConclusiveValidation(err) {
 		return err
 	}
-	if !RecoveryLimitReached(len(s.doc.errors), s.limits.Errors) {
+	if !recoveryLimitReached(len(s.doc.errors), s.limits.Errors) {
 		s.doc.errors = append(s.doc.errors, err)
-		if RecoveryLimitReached(len(s.doc.errors), s.limits.Errors) {
+		if recoveryLimitReached(len(s.doc.errors), s.limits.Errors) {
 			s.doc.syntaxOnly = true
 			return errSemanticStop
 		}
@@ -333,7 +336,7 @@ func (s *session) discardSemanticState() {
 	s.doc.clearPayloads()
 	s.doc.identity.discard()
 	s.doc.discardRetainedPaths()
-	s.doc.schemaLocationHints = SchemaLocationHints{}
+	s.doc.schemaLocationHints = schemaLocationHintSet{}
 	s.doc.allBits = nil
 	s.doc.text = nil
 	s.attributeSeen = nil
@@ -358,7 +361,7 @@ const (
 type sessionStartTransaction struct {
 	s                 *session
 	xml               xmlDocumentCheckpoint
-	hints             SchemaLocationHints
+	hints             schemaLocationHintSet
 	transition        xsdSchema.ContentTransition
 	handle            xmlstream.Handle
 	allBitsLen        int
@@ -512,7 +515,7 @@ func (s *session) start(line, col int, attrs []xmlstream.Attr) error {
 		return s.syntaxStart(line, col)
 	}
 	xmlCheckpoint := s.doc.startCheckpoint()
-	se, err := s.doc.PrepareStart(&s.reader, line, col)
+	se, err := s.doc.PrepareStart(&s.reader, s.limits, line, col)
 	if err != nil {
 		return err
 	}
@@ -598,7 +601,7 @@ func (s *session) assessElementStart(
 		if !issue.valid() {
 			return false, nil
 		}
-		err := validationFromIssue(StartContext{}, elementStartDiagnosticIssue(s.rt, start, issue))
+		err := validationFromIssue(startContext{}, elementStartDiagnosticIssue(s.rt, start, issue))
 		return false, s.recoverElementStartAssessment(start, err)
 	}
 	state := elementEffectiveState{declaration: declaration, typeID: start.typ, typeInfo: info}
@@ -614,27 +617,19 @@ func (s *session) assessXSIElementStart(
 	flags xsiStartAttributeFlags,
 	state elementEffectiveState,
 ) (bool, error) {
-	var nilValue, typeValue string
-	for i := range attrs {
-		a := &attrs[i]
-		switch xsiStartValueFor(a.Name) {
-		case xsiStartNilValue:
-			nilValue, _ = s.reader.MaterializeValue(a)
-		case xsiStartTypeValue:
-			typeValue, _ = s.reader.MaterializeValue(a)
-		case xsiStartNoValue:
-		}
+	nilValue, typeValue, err := s.xsiStartValues(attrs)
+	if err != nil {
+		return false, err
 	}
-	nilValid := true
 	if flags.Nil {
-		state.nil.value, nilValid = ParseXSINil(nilValue)
+		var nilValid bool
+		state.nil.value, nilValid = parseXSINil(nilValue)
 		state.nil.specified = true
-	}
-	if !nilValid {
-		err := xsderrors.Validation(xsderrors.CodeValidationNil, invalidNilMessage(nilValue), nil)
-		err = s.recoverElementStartAssessment(start, err)
-		if err != nil {
-			return false, err
+		if !nilValid {
+			err := xsderrors.Validation(xsderrors.CodeValidationNil, invalidNilMessage(nilValue), nil)
+			if err = s.recoverElementStartAssessment(start, err); err != nil {
+				return false, err
+			}
 		}
 	}
 	if flags.Type {
@@ -652,12 +647,33 @@ func (s *session) assessXSIElementStart(
 	return s.completeElementStartAssessment(start, state)
 }
 
+// xsiStartValues materializes the xsi:nil and xsi:type lexical values.
+func (s *session) xsiStartValues(attrs []xmlstream.Attr) (nilValue, typeValue string, err error) {
+	for i := range attrs {
+		a := &attrs[i]
+		kind := xsiStartValueFor(a.Name)
+		if kind == xsiStartNoValue {
+			continue
+		}
+		value, err := s.attributeValue(a)
+		if err != nil {
+			return "", "", err
+		}
+		if kind == xsiStartNilValue {
+			nilValue = value
+		} else {
+			typeValue = value
+		}
+	}
+	return nilValue, typeValue, nil
+}
+
 func (s *session) completeElementStartAssessment(start *schemaStart, state elementEffectiveState) (bool, error) {
 	issue := state.issue()
 	if !issue.valid() {
 		return state.nilled(), nil
 	}
-	err := validationFromIssue(StartContext{}, elementStartDiagnosticIssue(s.rt, start, issue))
+	err := validationFromIssue(startContext{}, elementStartDiagnosticIssue(s.rt, start, issue))
 	return state.nilled(), s.recoverElementStartAssessment(start, err)
 }
 
@@ -698,7 +714,7 @@ func (s *session) validateStartAttributes(start schemaStart, attrs []xmlstream.A
 }
 
 func (s *session) syntaxStart(line, col int) error {
-	start, err := s.doc.PrepareStart(&s.reader, line, col)
+	start, err := s.doc.PrepareStart(&s.reader, s.limits, line, col)
 	if err != nil {
 		return err
 	}
@@ -894,17 +910,26 @@ func (s *session) startType(rn xsdSchema.RuntimeName, attrs []xmlstream.Attr, fl
 	return nil
 }
 
+// xsiTypeIndex returns the index of the xsi:type attribute, or -1.
+func xsiTypeIndex(attrs []xmlstream.Attr) int {
+	for i := range attrs {
+		if isXSITypeName(attrs[i].Name) {
+			return i
+		}
+	}
+	return -1
+}
+
 func (s *session) rootStartType(rn xsdSchema.RuntimeName, attrs []xmlstream.Attr, line, col int) (schemaStart, error) {
 	if id, decl, ok := s.rt.GlobalElement(rn); ok {
 		return declaredSchemaStart(id, decl), nil
 	}
 	ctx := s.startContext(line, col)
-	for i := range attrs {
-		a := &attrs[i]
-		if !IsXSITypeName(a.Name) {
-			continue
+	if i := xsiTypeIndex(attrs); i >= 0 {
+		value, valueErr := s.attributeValue(&attrs[i])
+		if valueErr != nil {
+			return schemaStart{}, valueErr
 		}
-		value, _ := s.reader.MaterializeValue(a)
 		typ, err := resolveXSIType(s.rt, value, s.qnameResolver())
 		if err != nil {
 			// The failed hint is consumed here; anyType assesses the root laxly.
@@ -925,7 +950,7 @@ func (s *session) rootStartType(rn xsdSchema.RuntimeName, attrs []xmlstream.Attr
 	return start, nil
 }
 
-func (s *session) startContext(line, col int) StartContext {
+func (s *session) startContext(line, col int) startContext {
 	return s.doc.context(line, col)
 }
 

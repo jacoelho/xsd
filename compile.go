@@ -17,7 +17,11 @@ type CompileOptions struct {
 	MaxSchemaDepth int
 	// MaxSchemaAttributes caps attributes on one schema XML element. Zero uses the default.
 	MaxSchemaAttributes int
-	// MaxSchemaTokenBytes caps retained schema XML token payloads. Zero uses the default.
+	// MaxSchemaTokenBytes caps the bytes the schema XML reader holds for one
+	// token (names, attribute values, PI and text payload, construction
+	// scratch), measured lexically, and the character data accumulated in
+	// one element across text tokens. It also scales literal evaluation
+	// work. Zero uses the default.
 	MaxSchemaTokenBytes int64
 	// MaxSchemaSourceBytes caps bytes read from each schema source. Zero uses the default.
 	MaxSchemaSourceBytes int64
@@ -48,6 +52,23 @@ type CompileOptions struct {
 	MaxSubstitutionClosureEntries int
 	// MaxSimpleUnionMemberEntries caps aggregate flattened simple-union members. Zero uses the default.
 	MaxSimpleUnionMemberEntries int
+	// MaxSchemaPatternWork caps regular-expression matching work for one schema
+	// literal (enumeration, bound, fixed or default value), across all pattern
+	// facets, list items and union members. Units are defined in
+	// docs/RESOURCE_LIMITS.md (Pattern matching cost). Zero uses the finite
+	// default.
+	MaxSchemaPatternWork uint64
+	// MaxSchemaTotalPatternWork caps regular-expression matching work summed
+	// over every schema-literal evaluation of one compilation; a facet literal
+	// may be charged for both its base-type check and facet compilation; units are in
+	// docs/RESOURCE_LIMITS.md (Pattern matching cost). Zero uses the default.
+	MaxSchemaTotalPatternWork uint64
+	// MaxSchemaPatternRetainedBytes caps the estimated memory retained by
+	// compiled regular expressions, summed over the distinct pattern facets of
+	// one compilation; identical pattern text is compiled and charged once.
+	// The estimate is defined in docs/RESOURCE_LIMITS.md. Each pattern is
+	// separately limited by fixed per-pattern bounds. Zero uses the default.
+	MaxSchemaPatternRetainedBytes int64
 }
 
 // Compile compiles schema sources into a concurrently reusable validation engine.

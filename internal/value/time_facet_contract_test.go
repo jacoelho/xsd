@@ -15,7 +15,7 @@ func TestTimeFacetDerivationRejectsWideningAndCanRetry(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			builder := value.NewBuilder(value.BuilderOptions{})
+			builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 			base, err := builder.Reserve()
 			if err != nil {
 				t.Fatal(err)
@@ -40,7 +40,7 @@ func TestTimeFacetDerivationRejectsWideningAndCanRetry(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := program.Validate(id, tc.accepted, value.Resolver{}, 0, 16<<20, nil); err != nil {
+			if _, err := program.Validate(id, tc.accepted, value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 				t.Fatalf("Validate after retry: %v", err)
 			}
 		})
@@ -50,7 +50,7 @@ func TestTimeFacetDerivationRejectsWideningAndCanRetry(t *testing.T) {
 func TestTimeFacetDerivationAllowsContainedUnknownTimezoneBound(t *testing.T) {
 	t.Parallel()
 
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	base, err := builder.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -91,7 +91,7 @@ func TestTimeFacetDerivationAllowsContainedUnknownTimezoneBound(t *testing.T) {
 func TestTimeFacetRuntimeComparisonUsesRecurringTimeOfDay(t *testing.T) {
 	t.Parallel()
 
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	typeID, err := builder.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -113,7 +113,7 @@ func TestTimeFacetRuntimeComparisonUsesRecurringTimeOfDay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := program.Validate(typeID, "00:30:00+14:00", value.Resolver{}, 0, 16<<20, nil); err != nil {
+	if _, err := program.Validate(typeID, "00:30:00+14:00", value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 		t.Fatalf("timezone-adjusted recurring time violated equal bounds: %v", err)
 	}
 }

@@ -64,7 +64,7 @@ func (f retirementBenchFixture) drain(reader *Reader, input *strings.Reader, che
 		if err != nil {
 			if f.scenario == retirementBenchFailure {
 				var boundary *Error
-				if !errors.As(err, &boundary) || boundary.Kind != f.failure || (f.failure == ErrorLimit && !IsTokenLimit(err)) {
+				if !errors.As(err, &boundary) || boundary.Kind != f.failure || (f.failure == ErrorLimit && !isLimit(err, LimitTokenBytes)) {
 					return sample, fmt.Errorf("failure class = %w, want %v", err, f.failure)
 				}
 				if check == retirementBenchFull && (token != nil || held == nil || !retirementBenchTokenZero(held)) {
@@ -182,8 +182,8 @@ func (f retirementBenchFixture) checkToken(reader *Reader, token *Token, eventIn
 			return fmt.Errorf("publication %d start differs from literal expectation", eventIndex)
 		}
 		for i, attr := range want.attrs {
-			value, ok := reader.MaterializeValue(&token.Start.Attr[i])
-			if !ok || token.Start.Attr[i].Name != attr.Name || value != attr.Value {
+			value, err := reader.AttrValue(&token.Start.Attr[i])
+			if err != nil || token.Start.Attr[i].Name != attr.Name || value != attr.Value {
 				return fmt.Errorf("publication %d attribute %d differs from literal expectation", eventIndex, i)
 			}
 		}

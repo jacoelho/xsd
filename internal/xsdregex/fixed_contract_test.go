@@ -35,7 +35,7 @@ func TestFixedPatternLanguageAndReuse(t *testing.T) {
 		var reused Scratch
 		for _, scratch := range []*Scratch{nil, &reused, &reused} {
 			for representation, match := range fixedContractMatchers(pattern) {
-				matched, err := match(test.input, MatchOptions{}, scratch)
+				matched, err := match(test.input, unlimitedWork, scratch)
 				if err != nil || matched != test.matched {
 					t.Fatalf("pattern=%q input=%q representation=%d: %v, %v; want %v", test.source, test.input, representation, matched, err, test.matched)
 				}
@@ -49,30 +49,29 @@ func TestFixedPatternResourceBoundaries(t *testing.T) {
 	pattern := mustCompile(t, `[A-Z]{2}\d{4}`)
 	for _, test := range []struct {
 		input, failure string
-		states, work   uint64
+		work           uint64
 		matched        bool
 	}{
-		{"AB1234", "", 7, 64, true},
-		{"AB١٢٣٤", "", 7, 64, true},
-		{"aB1234", "", 7, 64, false},
-		{"AB1234", matchWorkLimitError, 7, 63, false},
-		{"aB1234", matchWorkLimitError, 7, 63, false},
-		{"AB1234", matchStateLimitError, 6, 63, false},
-		{"AB123", "", 6, 55, false},
-		{"AB123", matchWorkLimitError, 6, 54, false},
-		{"AB12345", "", 8, 73, false},
-		{"AB12345", matchWorkLimitError, 8, 72, false},
-		{"", "", 1, 10, false},
-		{"", matchWorkLimitError, 1, 9, false},
+		{"AB1234", "", 64, true},
+		{"AB١٢٣٤", "", 68, true},
+		{"aB1234", "", 64, false},
+		{"AB1234", matchWorkLimitError, 63, false},
+		{"aB1234", matchWorkLimitError, 63, false},
+		{"AB123", "", 55, false},
+		{"AB123", matchWorkLimitError, 54, false},
+		{"AB12345", "", 73, false},
+		{"AB12345", matchWorkLimitError, 72, false},
+		{"", "", 10, false},
+		{"", matchWorkLimitError, 9, false},
 	} {
 		var reused Scratch
 		for _, scratch := range []*Scratch{nil, &reused, &reused} {
 			for representation, match := range fixedContractMatchers(pattern) {
-				matched, err := match(test.input, MatchOptions{MaxStates: test.states, MaxWork: test.work}, scratch)
+				matched, err := match(test.input, MatchOptions{MaxWork: test.work}, scratch)
 				if test.failure != "" {
 					assertMatchLimitError(t, err, test.failure)
 				} else if err != nil || matched != test.matched {
-					t.Fatalf("input=%q states=%d work=%d representation=%d: %v, %v; want %v", test.input, test.states, test.work, representation, matched, err, test.matched)
+					t.Fatalf("input=%q work=%d representation=%d: %v, %v; want %v", test.input, test.work, representation, matched, err, test.matched)
 				}
 			}
 		}
@@ -86,7 +85,7 @@ func TestFixedPatternLongScratchAndLiteralBudget(t *testing.T) {
 	var reused Scratch
 	for representation, match := range fixedContractMatchers(pattern) {
 		for _, work := range []uint64{650, 649, 650} {
-			matched, err := match(input, MatchOptions{MaxStates: 130, MaxWork: work}, &reused)
+			matched, err := match(input, MatchOptions{MaxWork: work}, &reused)
 			if work == 649 {
 				assertMatchLimitError(t, err, matchWorkLimitError)
 			} else if err != nil || !matched {
@@ -96,20 +95,24 @@ func TestFixedPatternLongScratchAndLiteralBudget(t *testing.T) {
 	}
 	literal := mustCompile(t, `é`)
 	for representation, match := range fixedContractMatchers(literal) {
-		matched, err := match("é", MatchOptions{MaxStates: 1, MaxWork: 2}, &reused)
+		matched, err := match("é", MatchOptions{MaxWork: 2}, &reused)
 		if err != nil || !matched {
 			t.Fatalf("literal representation=%d: %v, %v", representation, matched, err)
 		}
-		_, err = match("é", MatchOptions{MaxStates: 1, MaxWork: 1}, &reused)
+		_, err = match("é", MatchOptions{MaxWork: 1}, &reused)
 		assertMatchLimitError(t, err, matchWorkLimitError)
 	}
 }
 
 func fixedContractMatchers(pattern *Pattern) [2]func(string, MatchOptions, *Scratch) (bool, error) {
 	return [2]func(string, MatchOptions, *Scratch) (bool, error){
-		pattern.MatchStringWithScratch,
 		func(input string, options MatchOptions, scratch *Scratch) (bool, error) {
-			return pattern.MatchBytesWithScratch([]byte(input), options, scratch)
+			matched, _, err := pattern.MatchStringWithScratch(input, options, scratch)
+			return matched, err
+		},
+		func(input string, options MatchOptions, scratch *Scratch) (bool, error) {
+			matched, _, err := pattern.MatchBytesWithScratch([]byte(input), options, scratch)
+			return matched, err
 		},
 	}
 }

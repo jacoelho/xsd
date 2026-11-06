@@ -56,7 +56,7 @@ func TestOmittedCompositorAdmissionReusesAbsentModel(t *testing.T) {
 	}
 	c.dependencyWork = newWorkBudget(dependencyWorkBudget, 0)
 	id, err := c.compileModel(component.sourceNode(), component.ctx)
-	if err != nil || id != NoContentModel {
+	if err != nil || id != noContentModel {
 		t.Fatalf("reusing admitted absence with exhausted budget = %v, %v", id, err)
 	}
 }
@@ -75,7 +75,7 @@ func TestOmittedCompositorFailedAdmissionLeavesNoWork(t *testing.T) {
 		t.Fatalf("failed admission left descendant work: %v", err)
 	}
 	id, err := c.compileModel(component.sourceNode(), component.ctx)
-	if err != nil || id != NoContentModel {
+	if err != nil || id != noContentModel {
 		t.Fatalf("retrying admission with available budget = %v, %v", id, err)
 	}
 	err = c.completeComponentDefinitions()

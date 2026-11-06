@@ -1,8 +1,10 @@
 package schema
 
 import (
+	"fmt"
 	"slices"
 
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	valuepkg "github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/internal/xsdregex"
@@ -12,10 +14,10 @@ import (
 // compileFacetChildren admits source facet syntax and records one local facet
 // step in ValueSpec. Effective inheritance, typed literal evaluation, bound
 // ordering, and fixed-facet derivation are owned by value.Builder.Complete.
-func (c *compiler) compileFacetChildren(parent *schemaNode, st *SimpleType, base SimpleTypeID) error {
+func (c *compiler) compileFacetChildren(parent *schemaNode, st *simpleType, base SimpleTypeID) error {
 	state := compiledFacetState{unavailable: c.rt.simpleTypeUnavailable[base]}
 	for child := range parent.xsdChildren() {
-		if !IsFacetLocal(child.local) {
+		if !isFacetLocal(child.local) {
 			continue
 		}
 		if err := c.compileFacetChild(child, st, base, &state); err != nil {
@@ -25,13 +27,13 @@ func (c *compiler) compileFacetChildren(parent *schemaNode, st *SimpleType, base
 	if !state.unavailable {
 		state.apply(st)
 	}
-	step := OrderedFacetStep{
+	step := orderedFacetStep{
 		MinInclusive: state.stepSingleFacets&valuepkg.FacetMinInclusive != 0,
 		MinExclusive: state.stepSingleFacets&valuepkg.FacetMinExclusive != 0,
 		MaxInclusive: state.stepSingleFacets&valuepkg.FacetMaxInclusive != 0,
 		MaxExclusive: state.stepSingleFacets&valuepkg.FacetMaxExclusive != 0,
 	}
-	if err := ValidateOrderedFacetStep(step); err != nil {
+	if err := validateOrderedFacetStep(step); err != nil {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, err.Error())
 	}
 	if state.unavailable {
@@ -50,7 +52,7 @@ type compiledFacetState struct {
 	unavailable bool
 }
 
-func (s *compiledFacetState) apply(st *SimpleType) {
+func (s *compiledFacetState) apply(st *simpleType) {
 	if len(s.valueEnumeration) != 0 {
 		st.ValueSpec.Facets.Enumeration = slices.Clone(s.valueEnumeration)
 		st.ValueSpec.Facets.Present |= valuepkg.FacetEnumeration
@@ -63,7 +65,7 @@ func (s *compiledFacetState) apply(st *SimpleType) {
 	}
 }
 
-func (c *compiler) compileFacetChild(child *schemaNode, st *SimpleType, base SimpleTypeID, state *compiledFacetState) error {
+func (c *compiler) compileFacetChild(child *schemaNode, st *simpleType, base SimpleTypeID, state *compiledFacetState) error {
 	flag, err := validateFacetChildSource(child, st, &state.stepSingleFacets)
 	if err != nil || flag == 0 {
 		return err
@@ -75,12 +77,12 @@ func (c *compiler) compileFacetChild(child *schemaNode, st *SimpleType, base Sim
 	return c.compileFacetValue(child, st, base, state, facet)
 }
 
-func validateFacetChildSource(child *schemaNode, st *SimpleType, single *valuepkg.FacetMask) (valuepkg.FacetMask, error) {
+func validateFacetChildSource(child *schemaNode, st *simpleType, single *valuepkg.FacetMask) (valuepkg.FacetMask, error) {
 	source := semanticSource[*schemaFacetSource](&child.semantic)
 	if source == nil {
 		return 0, withSchemaCompileLocation(child, xsderrors.InternalInvariant("facet node has no typed facet source"))
 	}
-	compile, err := ValidateFacetSource(FacetSource{
+	compile, err := validateFacetSource(facetSource{
 		Local: child.local, InXSDNamespace: true, HasValue: source.Value.Present,
 		Variety: st.ValueSpec.Variety, Primitive: st.ValueSpec.Primitive,
 	})
@@ -93,14 +95,14 @@ func validateFacetChildSource(child *schemaNode, st *SimpleType, single *valuepk
 	mask, _ := facetMaskForLocal(child.local)
 	if mask != valuepkg.FacetPattern && mask != valuepkg.FacetEnumeration {
 		if *single&mask != 0 {
-			return 0, withSchemaCompileLocation(child, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "duplicate "+child.local+" facet"))
+			return 0, withSchemaCompileLocation(child, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "duplicate "+facetLabel(child.local)+" facet"))
 		}
 		*single |= mask
 	}
 	return mask, nil
 }
 
-func (c *compiler) compileFacetValue(child *schemaNode, st *SimpleType, base SimpleTypeID, state *compiledFacetState, facet facetInput) error {
+func (c *compiler) compileFacetValue(child *schemaNode, st *simpleType, base SimpleTypeID, state *compiledFacetState, facet facetInput) error {
 	switch facet.flag {
 	case valuepkg.FacetLength, valuepkg.FacetMinLength, valuepkg.FacetMaxLength, valuepkg.FacetTotalDigits, valuepkg.FacetFractionDigits:
 		return compileSizeFacet(st, child, facet)
@@ -112,9 +114,9 @@ func (c *compiler) compileFacetValue(child *schemaNode, st *SimpleType, base Sim
 		}
 		return c.compileEnumerationFacet(child, base, facet.value, state)
 	case valuepkg.FacetPattern:
-		return compilePatternFacet(child, facet.value, state)
+		return c.compilePatternFacet(child, facet.value, state)
 	case valuepkg.FacetWhiteSpace:
-		return c.compileWhitespaceFacet(st, base, child, facet)
+		return c.compileWhitespaceFacet(st, child, facet)
 	}
 	return nil
 }
@@ -128,11 +130,27 @@ func (c *compiler) compileEnumerationFacet(child *schemaNode, literalType Simple
 	return nil
 }
 
-func compilePatternFacet(child *schemaNode, patternText string, state *compiledFacetState) error {
-	pattern, err := xsdregex.Compile(patternText, xsdregex.CompileOptions{})
+func (c *compiler) compilePatternFacet(child *schemaNode, patternText string, state *compiledFacetState) error {
+	if pattern, ok := c.patterns[patternText]; ok {
+		state.valuePatterns = append(state.valuePatterns, pattern)
+		return nil
+	}
+	pattern, err := xsdregex.Compile(patternText)
 	if err != nil {
 		return withSchemaCompileLocation(child, schemaRegexError(err))
 	}
+	n := pattern.RetainedBytes()
+	// The charged total never exceeds the normalized, non-negative limit.
+	remaining := uint64(c.limits.MaxSchemaPatternRetainedBytes - c.patternRetainedBytes) //nolint:gosec // Normalization rejects negative limits and charges stay within them.
+	if n > remaining {
+		return withSchemaCompileLocation(child, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit,
+			fmt.Sprintf("MaxSchemaPatternRetainedBytes=%d exceeded", c.limits.MaxSchemaPatternRetainedBytes)))
+	}
+	c.patternRetainedBytes += int64(n) //nolint:gosec // n <= remaining <= MaxInt64.
+	if c.patterns == nil {
+		c.patterns = make(map[string]*xsdregex.Pattern)
+	}
+	c.patterns[patternText] = pattern
 	state.valuePatterns = append(state.valuePatterns, pattern)
 	return nil
 }
@@ -149,16 +167,16 @@ func facetAttrs(n *schemaNode, flag valuepkg.FacetMask) (facetInput, error) {
 		return facetInput{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("facet node has no typed facet source"))
 	}
 	value := source.Value.Value
-	fixed, err := ParseBooleanAttr(BooleanAttr{Name: vocab.XSDAttrFixed, Value: source.Fixed.Value, HasValue: source.Fixed.Present})
+	fixed, err := parseBooleanAttr(booleanAttr{Name: vocab.XSDAttrFixed, Value: source.Fixed.Value, HasValue: source.Fixed.Present})
 	if err != nil {
 		return facetInput{}, err
 	}
 	return facetInput{value: value, flag: flag, fixed: fixed}, nil
 }
 
-func compileSizeFacet(st *SimpleType, node *schemaNode, facet facetInput) error {
+func compileSizeFacet(st *simpleType, node *schemaNode, facet facetInput) error {
 	name := node.local
-	size, err := ParseSizeFacetValue(name, facet.value)
+	size, err := parseSizeFacetValue(name, facet.value)
 	if err != nil {
 		return withSchemaCompileLocation(node, err)
 	}
@@ -169,7 +187,7 @@ func compileSizeFacet(st *SimpleType, node *schemaNode, facet facetInput) error 
 	return nil
 }
 
-func (c *compiler) compileBoundFacet(st *SimpleType, base SimpleTypeID, child *schemaNode, facet facetInput, state *compiledFacetState) error {
+func (c *compiler) compileBoundFacet(st *simpleType, base SimpleTypeID, child *schemaNode, facet facetInput, state *compiledFacetState) error {
 	var literal valuepkg.LiteralSpec
 	if !state.unavailable {
 		var err error
@@ -185,8 +203,8 @@ func (c *compiler) compileBoundFacet(st *SimpleType, base SimpleTypeID, child *s
 	return nil
 }
 
-func (c *compiler) compileWhitespaceFacet(st *SimpleType, base SimpleTypeID, n *schemaNode, facet facetInput) error {
-	mode, err := ParseWhitespaceFacetValue(facet.value, c.rt.simpleTypeWhitespace(base))
+func (*compiler) compileWhitespaceFacet(st *simpleType, n *schemaNode, facet facetInput) error {
+	mode, err := parseWhitespaceFacetValue(facet.value)
 	if err != nil {
 		return withSchemaCompileLocation(n, err)
 	}
@@ -238,9 +256,9 @@ func setValueBoundFacet(f *valuepkg.FacetSpec, facet facetInput, literal valuepk
 }
 
 func (c *compiler) compileLiteral(base SimpleTypeID, lexical string, resolve valuepkg.QNameResolver) (valuepkg.LiteralSpec, error) {
-	_, names, err := c.validateValueLiteral(base, lexical, resolve)
+	_, names, err := c.validateValue(base, lexical, resolve, valuepkg.NeedCanonical|valuepkg.NeedIdentity)
 	if err != nil {
-		return valuepkg.LiteralSpec{}, FacetValueError(lexical, err)
+		return valuepkg.LiteralSpec{}, schemaValueError(c.limits, xsderrors.CodeSchemaFacet, "invalid facet value "+diagnostictext.Quote(lexical), err)
 	}
 	literal := valuepkg.LiteralSpec{
 		Lexical: lexical,
@@ -251,9 +269,9 @@ func (c *compiler) compileLiteral(base SimpleTypeID, lexical string, resolve val
 		}},
 	}
 	if len(names) != 0 {
-		replay, replayErr := NewValueConstraintNameReplay(names)
+		replay, replayErr := newValueConstraintNameReplay(names)
 		if replayErr != nil {
-			return valuepkg.LiteralSpec{}, FacetValueError(lexical, replayErr)
+			return valuepkg.LiteralSpec{}, schemaValueError(c.limits, xsderrors.CodeSchemaFacet, "invalid facet value "+diagnostictext.Quote(lexical), replayErr)
 		}
 		literal.Resolver.QName = replay.ResolveQName
 	}
@@ -263,6 +281,12 @@ func (c *compiler) compileLiteral(base SimpleTypeID, lexical string, resolve val
 func schemaRegexError(err error) error {
 	if err == nil {
 		return nil
+	}
+	if xsderrors.IsUnsupported(err) {
+		return err
+	}
+	if xsdregex.IsLimit(err) {
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "pattern exceeds fixed compile limit: "+err.Error())
 	}
 	return xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "invalid pattern: "+err.Error())
 }

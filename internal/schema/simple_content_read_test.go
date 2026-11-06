@@ -7,43 +7,43 @@ func TestSimpleContentTypeReadForComplexType(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		ct      ComplexType
+		ct      complexTypeMetadata
 		want    SimpleTypeID
 		present bool
 	}{
 		{
 			name: "simple",
-			ct: ComplexType{
+			ct: complexTypeMetadata{
 				TextType:    3,
-				ContentKind: ContentSimple,
+				ContentKind: contentSimple,
 			},
 			want:    3,
 			present: true,
 		},
 		{
 			name: "element only",
-			ct: ComplexType{
+			ct: complexTypeMetadata{
 				TextType:    5,
-				ContentKind: ContentElementOnly,
+				ContentKind: contentElementOnly,
 			},
 			want: NoSimpleType,
 		},
 		{
 			name: "mixed",
-			ct: ComplexType{
+			ct: complexTypeMetadata{
 				TextType:    6,
-				ContentKind: ContentMixed,
+				ContentKind: contentMixed,
 			},
 			want: NoSimpleType,
 		},
 		{
 			name: "empty",
-			ct:   ComplexType{TextType: 7, ContentKind: ContentEmpty},
+			ct:   complexTypeMetadata{TextType: 7, ContentKind: contentEmpty},
 			want: NoSimpleType,
 		},
 		{
 			name:    "present invalid",
-			ct:      ComplexType{TextType: NoSimpleType, ContentKind: ContentSimple},
+			ct:      complexTypeMetadata{TextType: NoSimpleType, ContentKind: contentSimple},
 			want:    NoSimpleType,
 			present: true,
 		},

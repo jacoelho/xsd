@@ -6,73 +6,73 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// ComplexTypeFinalRole identifies the schema component role that is applying a
+// complexTypeFinalRole identifies the schema component role that is applying a
 // complex-type final derivation rule.
-type ComplexTypeFinalRole uint8
+type complexTypeFinalRole uint8
 
 const (
-	// ComplexTypeFinalBaseExtension checks a complexContent/simpleContent
+	// complexTypeFinalBaseExtension checks a complexContent/simpleContent
 	// extension base complex type.
-	ComplexTypeFinalBaseExtension ComplexTypeFinalRole = iota
-	// ComplexTypeFinalBaseRestriction checks a complexContent/simpleContent
+	complexTypeFinalBaseExtension complexTypeFinalRole = iota
+	// complexTypeFinalBaseRestriction checks a complexContent/simpleContent
 	// restriction base complex type.
-	ComplexTypeFinalBaseRestriction
+	complexTypeFinalBaseRestriction
 )
 
-// CheckComplexTypeFinalAllows maps runtime complex-type final-mask rejection
+// checkComplexTypeFinalAllows maps runtime complex-type final-mask rejection
 // into the compile diagnostic for the schema role being derived.
-func CheckComplexTypeFinalAllows(final, derivation DerivationMask, role ComplexTypeFinalRole) error {
-	if err := ValidateComplexTypeFinalAllows(final, derivation); err != nil {
+func checkComplexTypeFinalAllows(final, derivation DerivationMask, role complexTypeFinalRole) error {
+	if err := validateComplexTypeFinalAllows(final, derivation); err != nil {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, complexTypeFinalRoleMessage(role))
 	}
 	return nil
 }
 
-// CheckSimpleBaseComplexExtensionFinalAllows maps runtime final-mask rejection
+// checkSimpleBaseComplexExtensionFinalAllows maps runtime final-mask rejection
 // for complex types extending a simple-type base into a schema diagnostic.
-func CheckSimpleBaseComplexExtensionFinalAllows(final DerivationMask) error {
-	if err := ValidateSimpleBaseComplexExtensionFinalAllows(final); err != nil {
+func checkSimpleBaseComplexExtensionFinalAllows(final DerivationMask) error {
+	if err := validateSimpleBaseComplexExtensionFinalAllows(final); err != nil {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "base simple type final blocks extension")
 	}
 	return nil
 }
 
-// CheckComplexContentRestrictionBase rejects complexContent restriction from a
+// checkComplexContentRestrictionBase rejects complexContent restriction from a
 // simple-content complex base.
-func CheckComplexContentRestrictionBase(base ComplexType) error {
+func checkComplexContentRestrictionBase(base complexTypeMetadata) error {
 	if base.SimpleContent() {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "complexContent restriction base cannot have simple content")
 	}
 	return nil
 }
 
-// CheckSimpleContentSimpleBase rejects xs:simpleContent restriction from an
+// checkSimpleContentSimpleBase rejects xs:simpleContent restriction from an
 // xs:simpleType base.
-func CheckSimpleContentSimpleBase(kind ContentDerivationKind) error {
-	if kind == ContentDerivationRestriction {
+func checkSimpleContentSimpleBase(kind contentDerivationKind) error {
+	if kind == contentDerivationRestriction {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "simpleContent restriction base must be complex type")
 	}
 	return nil
 }
 
-// SimpleContentComplexBaseMissingError reports a missing complex base during
+// simpleContentComplexBaseMissingError reports a missing complex base during
 // xs:simpleContent base resolution.
-func SimpleContentComplexBaseMissingError() error {
+func simpleContentComplexBaseMissingError() error {
 	return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "simpleContent base must be simple or simple-content complex type")
 }
 
-// CheckSimpleContentDerivationBase maps runtime base admissibility into the
+// checkSimpleContentDerivationBase maps runtime base admissibility into the
 // schema diagnostic for xs:simpleContent derivation.
-func CheckSimpleContentDerivationBase(
-	analysis *ContentModelAnalysis,
-	base ComplexType,
-	derivation ContentDerivationKind,
+func checkSimpleContentDerivationBase(
+	analysis *contentModelAnalysis,
+	base complexTypeMetadata,
+	derivation contentDerivationKind,
 ) error {
-	runtimeDerivation := DerivationKindExtension
-	if derivation == ContentDerivationRestriction {
-		runtimeDerivation = DerivationKindRestriction
+	runtimeDerivation := derivationKindExtension
+	if derivation == contentDerivationRestriction {
+		runtimeDerivation = derivationKindRestriction
 	}
-	allowed, err := SimpleContentDerivationBaseAllowed(analysis, base, runtimeDerivation)
+	allowed, err := simpleContentDerivationBaseAllowed(analysis, base, runtimeDerivation)
 	if err != nil {
 		return contentRestrictionCompileError(err)
 	}
@@ -82,23 +82,23 @@ func CheckSimpleContentDerivationBase(
 	return nil
 }
 
-// CheckSimpleContentRestrictionTextTypePresent rejects simpleContent
+// checkSimpleContentRestrictionTextTypePresent rejects simpleContent
 // restriction of mixed content when no explicit simpleType is supplied.
-func CheckSimpleContentRestrictionTextTypePresent(textType SimpleTypeID) error {
+func checkSimpleContentRestrictionTextTypePresent(textType SimpleTypeID) error {
 	if textType == NoSimpleType {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "simpleContent restriction of mixed content requires simpleType")
 	}
 	return nil
 }
 
-// CheckSimpleContentRestrictionTextType maps runtime text-type derivation
+// checkSimpleContentRestrictionTextType maps runtime text-type derivation
 // validation into a schema compile diagnostic.
-func CheckSimpleContentRestrictionTextType(
+func checkSimpleContentRestrictionTextType(
 	rt *schemaBuild,
 	derived, base SimpleTypeID,
 	work func(int) error,
 ) error {
-	if err := ValidateSimpleContentRestrictionTextType(rt, derived, base, work); err != nil {
+	if err := validateSimpleContentRestrictionTextType(rt, derived, base, work); err != nil {
 		if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
 			return err
 		}
@@ -107,24 +107,24 @@ func CheckSimpleContentRestrictionTextType(
 	return nil
 }
 
-// CheckComplexContentMixedDerivationBase maps runtime mixed-base admission into
+// checkComplexContentMixedDerivationBase maps runtime mixed-base admission into
 // the schema diagnostic for xs:complexContent derivation.
-func CheckComplexContentMixedDerivationBase(base ComplexType, derivation ContentDerivationKind, content ContentKind) error {
-	runtimeDerivation := DerivationKindRestriction
-	if derivation == ContentDerivationExtension {
-		runtimeDerivation = DerivationKindExtension
+func checkComplexContentMixedDerivationBase(base complexTypeMetadata, derivation contentDerivationKind, content complexContentVariety) error {
+	runtimeDerivation := derivationKindRestriction
+	if derivation == contentDerivationExtension {
+		runtimeDerivation = derivationKindExtension
 	}
-	if err := ValidateComplexContentMixedDerivationBase(base, runtimeDerivation, content); err != nil {
+	if err := validateComplexContentMixedDerivationBase(base, runtimeDerivation, content); err != nil {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, err.Error())
 	}
 	return nil
 }
 
-func complexTypeFinalRoleMessage(role ComplexTypeFinalRole) string {
+func complexTypeFinalRoleMessage(role complexTypeFinalRole) string {
 	switch role {
-	case ComplexTypeFinalBaseExtension:
+	case complexTypeFinalBaseExtension:
 		return "base complex type final blocks extension"
-	case ComplexTypeFinalBaseRestriction:
+	case complexTypeFinalBaseRestriction:
 		return "base complex type final blocks restriction"
 	default:
 		return "base complex type final blocks derivation"

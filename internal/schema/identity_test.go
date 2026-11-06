@@ -14,24 +14,24 @@ func TestIdentityFieldProgramPartitions(t *testing.T) {
 	elem := QName{Namespace: 1, Local: 1}
 	attr := QName{Namespace: 1, Local: 2}
 	otherAttr := QName{Namespace: 2, Local: 3}
-	fields := []IdentityField{
-		{Paths: []IdentityFieldPath{
-			{Steps: []IdentityStep{{Name: elem}}, Attribute: NoQName()},
+	fields := []identityField{
+		{Paths: []identityFieldPath{
+			{Steps: []IdentityStep{{Name: elem}}, Attribute: noQName()},
 			{Attr: true, Attribute: attr},
 			{Attr: true, Attribute: attr, Steps: []IdentityStep{{Name: elem}}},
-			{Attr: true, AttrWildcard: true, Attribute: NoQName()},
-			{Attr: true, AttrWildcard: true, Attribute: NoQName(), AttrNamespaceSet: true, AttrNamespace: otherAttr.Namespace},
+			{Attr: true, AttrWildcard: true, Attribute: noQName()},
+			{Attr: true, AttrWildcard: true, Attribute: noQName(), AttrNamespaceSet: true, AttrNamespace: otherAttr.Namespace},
 		}},
-		{Paths: []IdentityFieldPath{
+		{Paths: []identityFieldPath{
 			{Attr: true, Attribute: otherAttr},
 			{Attr: true, Attribute: attr, Descendant: true, Steps: []IdentityStep{{Name: elem}}},
 		}},
 	}
-	identity := NewIdentityConstraint(IdentityKey, elem, NoIdentityConstraint, nil, fields)
+	identity := newIdentityConstraint(IdentityKey, elem, NoIdentityConstraint, nil, fields)
 	program := newIdentityConstraintProgramRead(identity)
 	wantElements := []IdentityCompiledFieldProgramRead{{
 		field: 0,
-		paths: []IdentityPathProgramRead{{steps: []IdentityStep{{Name: elem}}, attribute: NoQName()}},
+		paths: []IdentityPathProgramRead{{steps: []IdentityStep{{Name: elem}}, attribute: noQName()}},
 	}}
 	wantAttributes := map[QName][]IdentityCompiledFieldProgramRead{
 		attr: {
@@ -48,8 +48,8 @@ func TestIdentityFieldProgramPartitions(t *testing.T) {
 	wantWildcards := []IdentityCompiledFieldProgramRead{{
 		field: 0,
 		paths: []IdentityPathProgramRead{
-			{attributePath: true, attributeWildcard: true, attribute: NoQName()},
-			{attributePath: true, attributeWildcard: true, attribute: NoQName(), attributeNamespaceSet: true, attributeNamespace: otherAttr.Namespace},
+			{attributePath: true, attributeWildcard: true, attribute: noQName()},
+			{attributePath: true, attributeWildcard: true, attribute: noQName(), attributeNamespaceSet: true, attributeNamespace: otherAttr.Namespace},
 		},
 	}}
 	if got := program.ElementFields().values; !reflect.DeepEqual(got, wantElements) {
@@ -68,13 +68,13 @@ func TestIdentityFieldProgramDoesNotAliasConstructionSteps(t *testing.T) {
 
 	elem := QName{Namespace: 1, Local: 1}
 	attr := QName{Namespace: 1, Local: 2}
-	otherNamespace := NamespaceID(2)
+	otherNamespace := namespaceID(2)
 	replacement := QName{Namespace: 3, Local: 4}
-	identity := NewIdentityConstraint(IdentityKey, elem, NoIdentityConstraint, nil, []IdentityField{{
-		Paths: []IdentityFieldPath{
-			{Steps: []IdentityStep{{Name: elem}}, Attribute: NoQName()},
+	identity := newIdentityConstraint(IdentityKey, elem, NoIdentityConstraint, nil, []identityField{{
+		Paths: []identityFieldPath{
+			{Steps: []IdentityStep{{Name: elem}}, Attribute: noQName()},
 			{Attr: true, Attribute: attr, Steps: []IdentityStep{{Name: elem}}},
-			{Attr: true, AttrWildcard: true, Attribute: NoQName(), Steps: []IdentityStep{{Name: elem}}, AttrNamespaceSet: true, AttrNamespace: otherNamespace},
+			{Attr: true, AttrWildcard: true, Attribute: noQName(), Steps: []IdentityStep{{Name: elem}}, AttrNamespaceSet: true, AttrNamespace: otherNamespace},
 		},
 	}})
 	program := newIdentityConstraintProgramRead(identity)
@@ -104,21 +104,21 @@ func TestIdentityFieldProgramPreservesGroupAndPathOrder(t *testing.T) {
 	table, _, names := identityValidationFixture(t)
 	wantNames := []QName{names["item"], names["child"], names["key"], names["kr1"], names["kr2"]}
 	wantDescendant := []bool{false, true, false, true, false}
-	fields := make([]IdentityField, 5)
+	fields := make([]identityField, 5)
 	for fieldIndex := range fields {
 		for index, name := range wantNames {
 			descendant := index == 1 || index == 3
 			fields[fieldIndex].Paths = append(fields[fieldIndex].Paths,
-				IdentityFieldPath{Steps: []IdentityStep{{Name: name}}, Attribute: NoQName(), Descendant: descendant},
-				IdentityFieldPath{Steps: []IdentityStep{{Name: name}}, Attr: true, Attribute: names["id"], Descendant: descendant},
-				IdentityFieldPath{Steps: []IdentityStep{{Name: name}}, Attr: true, Attribute: NoQName(), AttrWildcard: true, AttrNamespaceSet: true, AttrNamespace: EmptyNamespaceID, Descendant: descendant},
+				identityFieldPath{Steps: []IdentityStep{{Name: name}}, Attribute: noQName(), Descendant: descendant},
+				identityFieldPath{Steps: []IdentityStep{{Name: name}}, Attr: true, Attribute: names["id"], Descendant: descendant},
+				identityFieldPath{Steps: []IdentityStep{{Name: name}}, Attr: true, Attribute: noQName(), AttrWildcard: true, AttrNamespaceSet: true, AttrNamespace: emptyNamespaceID, Descendant: descendant},
 			)
 		}
 	}
-	identity := NewIdentityConstraint(IdentityKey, names["key"], NoIdentityConstraint,
-		[]IdentityPath{{Steps: []IdentityStep{{Name: names["item"]}}}}, fields,
+	identity := newIdentityConstraint(IdentityKey, names["key"], NoIdentityConstraint,
+		[]identityPath{{Steps: []IdentityStep{{Name: names["item"]}}}}, fields,
 	)
-	if err := ValidateIdentityConstraints(&table, []IdentityConstraint{identity}); err != nil {
+	if err := validateIdentityConstraints(&table, []identityConstraintSpec{identity}); err != nil {
 		t.Fatalf("canonical field fixture is invalid: %v", err)
 	}
 	program := newIdentityConstraintProgramRead(identity)
@@ -153,11 +153,11 @@ func TestIdentityFieldProgramPreservesGroupAndPathOrder(t *testing.T) {
 				if path.IsAttribute() != partition.attribute || path.AttributeWildcard() != partition.wildcard || path.AttributeNamespaceSet() != partition.wildcard {
 					t.Fatalf("%s field %d path %d lost its attribute flags", partition.name, wantField, index)
 				}
-				wantAttribute := NoQName()
+				wantAttribute := noQName()
 				if partition.attribute && !partition.wildcard {
 					wantAttribute = names["id"]
 				}
-				if path.Attribute() != wantAttribute || path.attributeNamespace != EmptyNamespaceID {
+				if path.Attribute() != wantAttribute || path.attributeNamespace != emptyNamespaceID {
 					t.Fatalf("%s field %d path %d lost its attribute name or namespace", partition.name, wantField, index)
 				}
 			}
@@ -170,7 +170,7 @@ func TestValidateIdentityConstraints(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		mutate  func([]IdentityConstraint, map[string]QName)
+		mutate  func([]identityConstraintSpec, map[string]QName)
 		wantErr string
 		exact   bool
 	}{
@@ -179,14 +179,14 @@ func TestValidateIdentityConstraints(t *testing.T) {
 		},
 		{
 			name: "invalid name",
-			mutate: func(identities []IdentityConstraint, names map[string]QName) {
-				identities[0].Name = QName{Namespace: NamespaceID(99), Local: names["key"].Local}
+			mutate: func(identities []identityConstraintSpec, names map[string]QName) {
+				identities[0].Name = QName{Namespace: namespaceID(99), Local: names["key"].Local}
 			},
 			wantErr: "identity constraint references invalid name",
 		},
 		{
 			name: "invalid kind",
-			mutate: func(identities []IdentityConstraint, _ map[string]QName) {
+			mutate: func(identities []identityConstraintSpec, _ map[string]QName) {
 				identities[0].Kind = IdentityKind(99)
 			},
 			wantErr: "identity constraint has invalid kind",
@@ -194,64 +194,64 @@ func TestValidateIdentityConstraints(t *testing.T) {
 		},
 		{
 			name: "non-keyref stores refer",
-			mutate: func(identities []IdentityConstraint, names map[string]QName) {
+			mutate: func(identities []identityConstraintSpec, names map[string]QName) {
 				identities[0].Refer = 1
 			},
 			wantErr: "non-keyref identity constraint stores refer",
 		},
 		{
 			name: "keyref missing refer",
-			mutate: func(identities []IdentityConstraint, names map[string]QName) {
+			mutate: func(identities []identityConstraintSpec, names map[string]QName) {
 				identities[1].Refer = NoIdentityConstraint
 			},
 			wantErr: "keyref identity constraint references invalid key",
 		},
 		{
 			name: "keyref out-of-range refer",
-			mutate: func(identities []IdentityConstraint, names map[string]QName) {
+			mutate: func(identities []identityConstraintSpec, names map[string]QName) {
 				identities[1].Refer = 99
 			},
 			wantErr: "keyref identity constraint references invalid key",
 		},
 		{
 			name: "keyref references keyref",
-			mutate: func(identities []IdentityConstraint, names map[string]QName) {
+			mutate: func(identities []identityConstraintSpec, names map[string]QName) {
 				identities[1].Refer = 2
 			},
 			wantErr: "keyref identity constraint references keyref",
 		},
 		{
 			name: "keyref field count mismatch",
-			mutate: func(identities []IdentityConstraint, names map[string]QName) {
+			mutate: func(identities []identityConstraintSpec, names map[string]QName) {
 				identities[1].Fields = append(identities[1].Fields, identityAttrField(names["id"]))
 			},
 			wantErr: "keyref identity constraint field count differs from refer",
 		},
 		{
 			name: "missing selector",
-			mutate: func(identities []IdentityConstraint, names map[string]QName) {
+			mutate: func(identities []identityConstraintSpec, names map[string]QName) {
 				identities[0].Selector = nil
 			},
 			wantErr: "identity constraint has no selector",
 		},
 		{
 			name: "missing fields",
-			mutate: func(identities []IdentityConstraint, names map[string]QName) {
+			mutate: func(identities []identityConstraintSpec, names map[string]QName) {
 				identities[0].Fields = nil
 			},
 			wantErr: "identity constraint has no fields",
 		},
 		{
 			name: "field without paths",
-			mutate: func(identities []IdentityConstraint, names map[string]QName) {
+			mutate: func(identities []identityConstraintSpec, names map[string]QName) {
 				identities[0].Fields[0].Paths = nil
 			},
 			wantErr: "identity field has no paths",
 		},
 		{
 			name: "field path stores inactive attribute",
-			mutate: func(identities []IdentityConstraint, names map[string]QName) {
-				identities[0].Fields[0].Paths[0] = IdentityFieldPath{
+			mutate: func(identities []identityConstraintSpec, names map[string]QName) {
+				identities[0].Fields[0].Paths[0] = identityFieldPath{
 					Attribute: names["id"],
 				}
 			},
@@ -259,13 +259,13 @@ func TestValidateIdentityConstraints(t *testing.T) {
 		},
 		{
 			name: "attribute wildcard uses invalid namespace",
-			mutate: func(identities []IdentityConstraint, names map[string]QName) {
-				identities[0].Fields = []IdentityField{{
-					Paths: []IdentityFieldPath{{
+			mutate: func(identities []identityConstraintSpec, names map[string]QName) {
+				identities[0].Fields = []identityField{{
+					Paths: []identityFieldPath{{
 						Attr:             true,
 						AttrWildcard:     true,
 						AttrNamespaceSet: true,
-						AttrNamespace:    NamespaceID(99),
+						AttrNamespace:    namespaceID(99),
 					}},
 				}}
 			},
@@ -280,7 +280,7 @@ func TestValidateIdentityConstraints(t *testing.T) {
 			if tt.mutate != nil {
 				tt.mutate(identities, names)
 			}
-			err := ValidateIdentityConstraints(&table, identities)
+			err := validateIdentityConstraints(&table, identities)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateIdentityConstraints() error = %v", err)
@@ -300,7 +300,7 @@ func TestValidateIdentityConstraintsRejectsNilNameTable(t *testing.T) {
 	table, identities, names := identityValidationFixture(t)
 	_ = table
 	_ = names
-	err := ValidateIdentityConstraints(nil, identities)
+	err := validateIdentityConstraints(nil, identities)
 	if err == nil || !strings.Contains(err.Error(), "identity constraints require name table") {
 		t.Fatalf("ValidateIdentityConstraints(nil, identities) error = %v", err)
 	}
@@ -310,12 +310,12 @@ func TestIdentityReadAccessors(t *testing.T) {
 	t.Parallel()
 
 	table, identities, names := identityValidationFixture(t)
-	identities[0].Selector = append(identities[0].Selector, IdentityPath{})
+	identities[0].Selector = append(identities[0].Selector, identityPath{})
 	identities[0].Fields[0].Paths = append(identities[0].Fields[0].Paths,
-		IdentityFieldPath{Steps: []IdentityStep{{Name: names["child"]}}},
-		IdentityFieldPath{Attr: true, AttrWildcard: true},
+		identityFieldPath{Steps: []IdentityStep{{Name: names["child"]}}},
+		identityFieldPath{Attr: true, AttrWildcard: true},
 	)
-	identities[0] = NewIdentityConstraint(identities[0].Kind, identities[0].Name, identities[0].Refer, identities[0].Selector, identities[0].Fields)
+	identities[0] = newIdentityConstraint(identities[0].Kind, identities[0].Name, identities[0].Refer, identities[0].Selector, identities[0].Fields)
 	dispatch := newIdentityDispatchRead(identities, newNameReadView(&table))
 	invalid := IdentityConstraintID(99)
 	read, readOK := dispatch.Program(0)
@@ -342,10 +342,10 @@ func TestIdentityReadAccessors(t *testing.T) {
 	if path, ok := selectorPaths.At(1); !ok || !path.Self() {
 		t.Fatalf("zero-step selector Self() = %v, %v; want true", path.Self(), ok)
 	}
-	if identitySelectorPathProgramRead(IdentityPath{Descendant: true}).Self() {
+	if identitySelectorPathProgramRead(identityPath{Descendant: true}).Self() {
 		t.Fatal("descendant zero-step selector reports Self()")
 	}
-	if identityFieldPathProgramRead(IdentityFieldPath{Attr: true, Attribute: names["id"]}).Self() {
+	if identityFieldPathProgramRead(identityFieldPath{Attr: true, Attribute: names["id"]}).Self() {
 		t.Fatal("zero-step attribute field reports Self()")
 	}
 
@@ -449,7 +449,7 @@ func TestPublishedIdentityReadBounds(t *testing.T) {
 func TestIdentityPathProgramMatchesEmptyDirectPathDepthBounds(t *testing.T) {
 	t.Parallel()
 
-	program := identityFieldPathProgramRead(IdentityFieldPath{})
+	program := identityFieldPathProgramRead(identityFieldPath{})
 	namePath := make([]RuntimeName, 2)
 	tests := []struct {
 		name                    string
@@ -472,7 +472,7 @@ func TestIdentityPathProgramMatchesEmptyDirectPathDepthBounds(t *testing.T) {
 	}
 }
 
-func identityValidationFixture(t *testing.T) (NameTable, []IdentityConstraint, map[string]QName) {
+func identityValidationFixture(t *testing.T) (nameTable, []identityConstraintSpec, map[string]QName) {
 	t.Helper()
 
 	namespaces := []string{EmptyNamespaceURI}
@@ -484,7 +484,7 @@ func identityValidationFixture(t *testing.T) (NameTable, []IdentityConstraint, m
 		{Local: "child"},
 		{Local: "id"},
 	}
-	table, err := NewNameTable(64, namespaces, requiredNames)
+	table, err := newNameTable(64, namespaces, requiredNames)
 	if err != nil {
 		t.Fatalf("NewNameTable() error = %v", err)
 	}
@@ -500,16 +500,16 @@ func identityValidationFixture(t *testing.T) (NameTable, []IdentityConstraint, m
 	key := identityConstraint(names["key"], IdentityKey, NoIdentityConstraint, names["item"], names["id"])
 	kr1 := identityConstraint(names["kr1"], IdentityKeyRef, 0, names["item"], names["id"])
 	kr2 := identityConstraint(names["kr2"], IdentityKeyRef, 0, names["item"], names["id"])
-	return table, []IdentityConstraint{key, kr1, kr2}, names
+	return table, []identityConstraintSpec{key, kr1, kr2}, names
 }
 
-func identityConstraint(name QName, kind IdentityKind, refer IdentityConstraintID, selectorName, attr QName) IdentityConstraint {
-	return NewIdentityConstraint(kind, name, refer,
-		[]IdentityPath{{Steps: []IdentityStep{{Name: selectorName}}}},
-		[]IdentityField{identityAttrField(attr)},
+func identityConstraint(name QName, kind IdentityKind, refer IdentityConstraintID, selectorName, attr QName) identityConstraintSpec {
+	return newIdentityConstraint(kind, name, refer,
+		[]identityPath{{Steps: []IdentityStep{{Name: selectorName}}}},
+		[]identityField{identityAttrField(attr)},
 	)
 }
 
-func identityAttrField(attr QName) IdentityField {
-	return IdentityField{Paths: []IdentityFieldPath{{Attr: true, Attribute: attr}}}
+func identityAttrField(attr QName) identityField {
+	return identityField{Paths: []identityFieldPath{{Attr: true, Attribute: attr}}}
 }

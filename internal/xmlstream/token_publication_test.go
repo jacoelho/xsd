@@ -40,7 +40,7 @@ func snapshotPublicationToken(token *Token) publicationSnapshot {
 		Line: token.Line, Column: token.Column, Kind: token.Kind, TextKind: token.TextKind,
 	}
 	for _, attr := range token.Start.Attr {
-		result.Attrs = append(result.Attrs, publicationAttribute{Name: attr.Name, Value: attr.Value})
+		result.Attrs = append(result.Attrs, publicationAttribute{Name: attr.Name, Value: attr.value})
 	}
 	return result
 }
@@ -140,8 +140,8 @@ func TestReaderTokenPublicationRetiresPriorPayload(t *testing.T) {
 						t.Fatalf("start event %d = %+v, want %+v", index, token.Start, expected)
 					}
 					for i, attr := range expected.attrs {
-						value, ok := reader.MaterializeValue(&token.Start.Attr[i])
-						if !ok || token.Start.Attr[i].Name != attr.Name || value != attr.Value {
+						value, err := reader.AttrValue(&token.Start.Attr[i])
+						if err != nil || token.Start.Attr[i].Name != attr.Name || value != attr.Value {
 							t.Fatalf("event %d attribute %d = %+v/%q, want %+v", index, i, token.Start.Attr[i], value, attr)
 						}
 					}

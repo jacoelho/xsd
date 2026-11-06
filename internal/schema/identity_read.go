@@ -39,7 +39,7 @@ func (r IdentityConstraintIDs) IsSubsetOf(base IdentityConstraintIDs) bool {
 // Runtime identity paths use URI comparison when an instance name is not
 // interned in the schema name table.
 type IdentityNamespaceResolver interface {
-	Namespace(id NamespaceID) string
+	Namespace(id namespaceID) string
 }
 
 // IdentityPathProgramRead is the immutable execution projection of one
@@ -50,21 +50,21 @@ type IdentityNamespaceResolver interface {
 type IdentityPathProgramRead struct {
 	steps                 []IdentityStep
 	attribute             QName
-	attributeNamespace    NamespaceID
+	attributeNamespace    namespaceID
 	descendant            bool
 	attributeNamespaceSet bool
 	attributePath         bool
 	attributeWildcard     bool
 }
 
-func identitySelectorPathProgramRead(path IdentityPath) IdentityPathProgramRead {
+func identitySelectorPathProgramRead(path identityPath) IdentityPathProgramRead {
 	return IdentityPathProgramRead{
 		steps:      slices.Clone(path.Steps),
 		descendant: path.Descendant,
 	}
 }
 
-func identityFieldPathProgramRead(path IdentityFieldPath) IdentityPathProgramRead {
+func identityFieldPathProgramRead(path identityFieldPath) IdentityPathProgramRead {
 	return IdentityPathProgramRead{
 		steps:                 slices.Clone(path.Steps),
 		attribute:             path.Attribute,
@@ -419,7 +419,7 @@ func (s *identityAttributeFieldSteps) includeFields(fields []IdentityCompiledFie
 // path can match an attribute of an element at currentDepth. A base depth
 // outside the range matches no attribute field path of any constraint. The
 // range is schema-wide and ignores element names: a base depth inside it must
-// still be checked with [IdentityPathProgramRead.Matches].
+// still be checked with [identityPathProgramRead.Matches].
 //
 // The result satisfies 0 <= from <= to <= currentDepth+1. It is empty
 // (from == to) when no attribute field path can match at currentDepth. to is
@@ -446,7 +446,7 @@ func (d IdentityDispatchRead) ConstraintCount() int { return len(d.programs) }
 
 // Program returns the immutable dispatch program for an identity constraint.
 func (d IdentityDispatchRead) Program(id IdentityConstraintID) (IdentityConstraintProgramRead, bool) {
-	if !ValidIdentityConstraintID(id, len(d.programs)) {
+	if !validIdentityConstraintID(id, len(d.programs)) {
 		return IdentityConstraintProgramRead{}, false
 	}
 	return d.programs[id], true
@@ -487,7 +487,7 @@ func (d IdentityDispatchRead) ElementSelf() IdentityFieldDispatchReads {
 	return IdentityFieldDispatchReads{values: d.elementSelf}
 }
 
-func newIdentityDispatchRead(identities []IdentityConstraint, names nameReadView) IdentityDispatchRead {
+func newIdentityDispatchRead(identities []identityConstraintSpec, names nameReadView) IdentityDispatchRead {
 	dispatch := IdentityDispatchRead{programs: make([]IdentityConstraintProgramRead, len(identities))}
 	constraint := IdentityConstraintID(0)
 	for _, identity := range identities {
@@ -578,7 +578,7 @@ func addIdentityFieldDispatch(index *identityFieldDispatchIndex, step IdentitySt
 }
 
 //nolint:gocognit // Keep ordered field partition construction and bounded publication storage under one owner.
-func newIdentityConstraintProgramRead(identity IdentityConstraint) IdentityConstraintProgramRead {
+func newIdentityConstraintProgramRead(identity identityConstraintSpec) IdentityConstraintProgramRead {
 	program := IdentityConstraintProgramRead{
 		selectors:  newIdentitySelectorPathProgramReads(identity.Selector),
 		refer:      identity.Refer,
@@ -638,7 +638,7 @@ func tightIdentityProgramSlice[T any](values []T) []T {
 	return tight
 }
 
-func newIdentitySelectorPathProgramReads(paths []IdentityPath) []IdentityPathProgramRead {
+func newIdentitySelectorPathProgramReads(paths []identityPath) []IdentityPathProgramRead {
 	programs := make([]IdentityPathProgramRead, len(paths))
 	for index, path := range paths {
 		programs[index] = identitySelectorPathProgramRead(path)
@@ -649,7 +649,7 @@ func newIdentitySelectorPathProgramReads(paths []IdentityPath) []IdentityPathPro
 // ElementIdentityConstraintIDs returns an immutable view of the constraints
 // attached to id.
 func ElementIdentityConstraintIDs(reads [][]IdentityConstraintID, id ElementID) (IdentityConstraintIDs, bool) {
-	if !ValidElementID(id, len(reads)) {
+	if !validElementID(id, len(reads)) {
 		return IdentityConstraintIDs{}, false
 	}
 	return borrowedIdentityConstraintIDs(reads[id]), true

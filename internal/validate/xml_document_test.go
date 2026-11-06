@@ -92,7 +92,7 @@ func (d *emptyXMLDocument) PrepareStart(start xmlstream.StartElement, _ *struct{
 	if err != nil {
 		return preparedXMLStart{}, err
 	}
-	prepared, err := d.xmlDocument.PrepareStart(&d.reader, line, col)
+	prepared, err := d.xmlDocument.PrepareStart(&d.reader, Limits{InstanceDepth: maxDepth}, line, col)
 	if err == nil {
 		d.pendingLexical = xmlstream.Lexical(start.Name)
 	}
@@ -201,7 +201,7 @@ func (d *emptyXMLDocument) popLexicalEnd() {
 func (d *emptyXMLDocument) Complete() error {
 	if !d.ready {
 		if d.Depth() == 0 {
-			return validation(StartContext{}, xsderrors.CodeValidationXML, "instance document has no root element")
+			return validation(startContext{}, xsderrors.CodeValidationXML, "instance document has no root element")
 		}
 		return validation(d.context(0, 0), xsderrors.CodeValidationXML, "unclosed element")
 	}
@@ -223,11 +223,17 @@ func testXMLStartBytes(start xmlstream.StartElement) []byte {
 	var b strings.Builder
 	b.WriteByte('<')
 	testXMLName(&b, start.Name)
-	for _, attr := range start.Attr {
+	var owned xmlstream.Reader
+	for i := range start.Attr {
+		attr := &start.Attr[i]
+		value, err := owned.AttrValue(attr)
+		if err != nil {
+			panic(err)
+		}
 		b.WriteByte(' ')
 		testXMLName(&b, attr.Name)
 		b.WriteString("=\"")
-		if err := xml.EscapeText(&b, []byte(attr.Value)); err != nil {
+		if err := xml.EscapeText(&b, []byte(value)); err != nil {
 			panic(err)
 		}
 		b.WriteString("\"")
@@ -859,5 +865,5 @@ func testXMLStart(name xml.Name, attrs ...xmlstream.Attr) xmlstream.StartElement
 }
 
 func testXMLAttr(name xml.Name, value string) xmlstream.Attr {
-	return xmlstream.Attr{Name: name, Value: value}
+	return xmlstream.NewAttr(name, value)
 }

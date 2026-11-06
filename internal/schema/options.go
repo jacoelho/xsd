@@ -19,13 +19,26 @@ const (
 	// per retained DFA state; keep the work cap proportional to the state cap.
 	defaultMaxContentModelAnalysisSteps  = defaultMaxContentModelStates * 1024
 	defaultMaxSubstitutionClosureEntries = 1_000_000
-	defaultMaxSimpleUnionMemberEntries   = 1_000_000
+	// defaultMaxSchemaPatternWork bounds regular-expression matching per
+	// compiler literal, in the units documented on xsdregex.MatchOptions.
+	defaultMaxSchemaPatternWork = uint64(1 << 29)
+	// defaultMaxSchemaTotalPatternWork is the per-literal default x 16; the
+	// same headroom ratio as the instance plane.
+	defaultMaxSchemaTotalPatternWork   = uint64(1 << 33)
+	defaultMaxSimpleUnionMemberEntries = 1_000_000
+	// defaultMaxSchemaPatternRetainedBytes is derived from a byte target, not
+	// from the per-pattern caps; docs/RESOURCE_LIMITS.md gives the derivation.
+	defaultMaxSchemaPatternRetainedBytes = int64(64 << 20)
 )
 
 // Options controls schema compilation resource limits.
 type Options struct {
-	MaxSchemaDepth                int
-	MaxSchemaAttributes           int
+	MaxSchemaDepth      int
+	MaxSchemaAttributes int
+	// MaxSchemaTokenBytes caps the bytes the schema XML reader holds for one
+	// token (names, attribute values, PI and text payload, construction
+	// scratch), measured lexically, and the character data accumulated in
+	// one element across text tokens. It also scales literal evaluation work.
 	MaxSchemaTokenBytes           int64
 	MaxSchemaSourceBytes          int64
 	MaxSchemaSources              int
@@ -40,6 +53,9 @@ type Options struct {
 	MaxContentModelAnalysisSteps  int
 	MaxSubstitutionClosureEntries int
 	MaxSimpleUnionMemberEntries   int
+	MaxSchemaPatternWork          uint64
+	MaxSchemaTotalPatternWork     uint64
+	MaxSchemaPatternRetainedBytes int64
 }
 
 // Limits is the normalized internal form of Options.
@@ -60,6 +76,9 @@ type Limits struct {
 	MaxSubstitutionClosureEntries int
 	MaxSimpleUnionMemberEntries   int
 	MaxFiniteOccurs               uint64
+	MaxSchemaPatternWork          uint64
+	MaxSchemaTotalPatternWork     uint64
+	MaxSchemaPatternRetainedBytes int64
 }
 
 // NormalizeOptions validates options and fills default limits.
@@ -75,6 +94,10 @@ func NormalizeOptions(opts Options) (Limits, error) {
 		return Limits{}, err
 	}
 	limits.MaxFiniteOccurs = opts.MaxFiniteOccurs
+	var err error
+	if limits.MaxSchemaPatternRetainedBytes, err = byteLimitOrDefault("MaxSchemaPatternRetainedBytes", opts.MaxSchemaPatternRetainedBytes, defaultMaxSchemaPatternRetainedBytes); err != nil {
+		return Limits{}, err
+	}
 	return limits, nil
 }
 
@@ -136,6 +159,8 @@ func normalizeCompilationLimits(opts Options, limits *Limits) error {
 	if limits.MaxSimpleUnionMemberEntries, err = limitOrDefault("MaxSimpleUnionMemberEntries", opts.MaxSimpleUnionMemberEntries, defaultMaxSimpleUnionMemberEntries); err != nil {
 		return err
 	}
+	limits.MaxSchemaPatternWork = uintLimitOrDefault(opts.MaxSchemaPatternWork, defaultMaxSchemaPatternWork)
+	limits.MaxSchemaTotalPatternWork = uintLimitOrDefault(opts.MaxSchemaTotalPatternWork, defaultMaxSchemaTotalPatternWork)
 	return nil
 }
 
@@ -147,6 +172,13 @@ func limitOrDefault(name string, value, def int) (int, error) {
 		return def, nil
 	}
 	return value, nil
+}
+
+func uintLimitOrDefault(value, def uint64) uint64 {
+	if value == 0 {
+		return def
+	}
+	return value
 }
 
 func byteLimitOrDefault(name string, value, def int64) (int64, error) {

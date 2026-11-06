@@ -8,20 +8,21 @@ import (
 	"errors"
 	"math/bits"
 
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
 type contentDerivationSource struct {
 	node *schemaNode
-	kind ContentDerivationKind
+	kind contentDerivationKind
 }
 
-func checkOrderedXSDChildren(n *schemaNode, order ChildOrder) error {
+func checkOrderedXSDChildren(n *schemaNode, order childOrder) error {
 	state := childOrderState{maxLevelSeen: -1}
 	index := 0
 	for child := range n.xsdChildren() {
 		if err := state.accept(index, child.local, order); err != nil {
-			issue, ok := errors.AsType[*ChildOrderError](err)
+			issue, ok := errors.AsType[*childOrderError](err)
 			if !ok {
 				return err
 			}
@@ -48,16 +49,16 @@ func checkSimpleContentSyntax(n *schemaNode) (contentDerivationSource, error) {
 	return checkContentDerivation(n, simpleContent, simpleContentChildOrder)
 }
 
-func checkContentDerivation(n *schemaNode, container string, order ChildOrder) (contentDerivationSource, error) {
+func checkContentDerivation(n *schemaNode, container string, order childOrder) (contentDerivationSource, error) {
 	if err := checkOrderedXSDChildren(n, order); err != nil {
 		return contentDerivationSource{}, err
 	}
 	for child := range n.xsdChildren() {
 		switch child.local {
 		case extensionChild:
-			return contentDerivationSource{node: child, kind: ContentDerivationExtension}, nil
+			return contentDerivationSource{node: child, kind: contentDerivationExtension}, nil
 		case restrictionChild:
-			return contentDerivationSource{node: child, kind: ContentDerivationRestriction}, nil
+			return contentDerivationSource{node: child, kind: contentDerivationRestriction}, nil
 		}
 	}
 	return contentDerivationSource{}, schemaCompileAt(n, xsderrors.CodeSchemaContentModel, container+" missing extension or restriction")
@@ -116,7 +117,7 @@ func checkAllowedTypedAttributes(n *schemaNode, label string, allowed func(strin
 		index := bits.TrailingZeros64(mask)
 		local := typedAttributeNames[index]
 		if !allowed(local) {
-			return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, label+" cannot have attribute "+local)
+			return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, label+" cannot have attribute "+diagnostictext.Quote(local))
 		}
 		mask &^= uint64(1) << index
 	}
@@ -139,7 +140,7 @@ func checkLocalElementAttributes(n *schemaNode) error {
 
 func checkLocalElementSource(n *schemaNode) error {
 	source := semanticSource[*schemaElementSource](&n.semantic)
-	if err := ValidateLocalElementSource(NameReferenceSource{
+	if err := validateLocalElementSource(nameReferenceSource{
 		Name: source.Global.Name, Reference: source.Ref.Lexical,
 	}); err != nil {
 		return withSchemaCompileLocation(n, err)
@@ -204,7 +205,7 @@ func checkTopLevelGroupChildren(n *schemaNode) (*schemaNode, error) {
 		case groupChild:
 			return nil, schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "top-level group cannot contain group ref")
 		default:
-			return nil, schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "invalid top-level group child "+child.local)
+			return nil, schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "invalid top-level group child "+diagnostictext.Quote(child.local))
 		}
 	}
 	if model == nil {
@@ -248,7 +249,7 @@ func checkAttributeDeclarationChildren(n *schemaNode) error {
 
 func checkAttributeUseSource(n *schemaNode) error {
 	source := semanticSource[*schemaAttributeSource](&n.semantic)
-	if err := ValidateAttributeUseSource(NameReferenceSource{
+	if err := validateAttributeUseSource(nameReferenceSource{
 		Name: source.Global.Name, Reference: source.Ref.Lexical,
 	}); err != nil {
 		return withSchemaCompileLocation(n, err)
@@ -257,7 +258,7 @@ func checkAttributeUseSource(n *schemaNode) error {
 }
 
 func checkAttributeGroupUseSource(n *schemaNode) error {
-	if err := ValidateAttributeGroupUseSource(semanticSource[*schemaAttributeGroupSource](&n.semantic).Ref.Lexical); err != nil {
+	if err := validateAttributeGroupUseSource(semanticSource[*schemaAttributeGroupSource](&n.semantic).Ref.Lexical); err != nil {
 		return withSchemaCompileLocation(n, err)
 	}
 	return nil
@@ -282,17 +283,17 @@ func hasAnonymousTypedElementType(n *schemaNode) bool {
 	return false
 }
 
-func checkContentDerivationBase(n *schemaNode, base ContentDerivationBase) error {
-	if err := ValidateContentDerivationBase(base); err != nil {
+func checkContentDerivationBase(n *schemaNode, base contentDerivationBase) error {
+	if err := validateContentDerivationBase(base); err != nil {
 		return withSchemaCompileLocation(n, err)
 	}
 	return nil
 }
 
-func checkSchemaQNameParts(n *schemaNode, lexical string) (QNameParts, error) {
-	parts, err := ParseQNameParts(lexical)
+func checkSchemaQNameParts(n *schemaNode, lexical string) (qNameParts, error) {
+	parts, err := parseQNameParts(lexical)
 	if err != nil {
-		return QNameParts{}, withSchemaCompileLocation(n, err)
+		return qNameParts{}, withSchemaCompileLocation(n, err)
 	}
 	return parts, nil
 }

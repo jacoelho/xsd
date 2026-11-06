@@ -12,7 +12,7 @@ func builtinValueForTest(tb testing.TB, typeName, lexical string) value.Value {
 	if !ok {
 		tb.Fatalf("unknown builtin %q", typeName)
 	}
-	got, err := value.NewBuilder(value.BuilderOptions{}).Validate(id, lexical, value.Resolver{}, value.NeedCanonical|value.NeedIdentity, nil)
+	got, err := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Validate(id, lexical, value.Resolver{}, value.NeedCanonical|value.NeedIdentity, nil)
 	if err != nil {
 		tb.Fatalf("validate %s value %q: %v", typeName, lexical, err)
 	}

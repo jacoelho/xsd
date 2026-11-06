@@ -9,7 +9,7 @@ import (
 func TestGValueIdentityMatchesValueSpaceEquality(t *testing.T) {
 	t.Parallel()
 
-	program, err := value.NewBuilder(value.BuilderOptions{}).Seal()
+	program, err := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,11 +39,11 @@ func TestGValueIdentityMatchesValueSpaceEquality(t *testing.T) {
 			if !ok {
 				t.Fatalf("missing builtin %q", test.typ)
 			}
-			left, err := program.Validate(id, test.left, value.Resolver{}, value.NeedIdentity, 16<<20, nil)
+			left, err := program.Validate(id, test.left, value.Resolver{}, value.NeedIdentity, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			if err != nil {
 				t.Fatalf("validate left %q: %v", test.left, err)
 			}
-			right, err := program.Validate(id, test.right, value.Resolver{}, value.NeedIdentity, 16<<20, nil)
+			right, err := program.Validate(id, test.right, value.Resolver{}, value.NeedIdentity, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			if err != nil {
 				t.Fatalf("validate right %q: %v", test.right, err)
 			}
@@ -60,7 +60,7 @@ func TestGValueIdentityMatchesValueSpaceEquality(t *testing.T) {
 func TestGValueIdentityDistinguishesTimezonePresence(t *testing.T) {
 	t.Parallel()
 
-	program, err := value.NewBuilder(value.BuilderOptions{}).Seal()
+	program, err := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,11 +79,11 @@ func TestGValueIdentityDistinguishesTimezonePresence(t *testing.T) {
 			if !ok {
 				t.Fatalf("missing builtin %q", test.typ)
 			}
-			without, err := program.Validate(id, test.without, value.Resolver{}, value.NeedIdentity, 16<<20, nil)
+			without, err := program.Validate(id, test.without, value.Resolver{}, value.NeedIdentity, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			if err != nil {
 				t.Fatalf("validate no-timezone value %q: %v", test.without, err)
 			}
-			with, err := program.Validate(id, test.with, value.Resolver{}, value.NeedIdentity, 16<<20, nil)
+			with, err := program.Validate(id, test.with, value.Resolver{}, value.NeedIdentity, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			if err != nil {
 				t.Fatalf("validate timezone value %q: %v", test.with, err)
 			}
@@ -98,7 +98,7 @@ func TestGValueIdentityDistinguishesTimezonePresence(t *testing.T) {
 }
 
 func TestGValueIdentityCalendarDefaults(t *testing.T) {
-	program, err := value.NewBuilder(value.BuilderOptions{}).Seal()
+	program, err := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +119,7 @@ func TestGValueIdentityCalendarDefaults(t *testing.T) {
 				t.Fatalf("missing builtin %q", tc.typ)
 			}
 			want := string([]byte{byte(tc.kind), '\x1e'}) + tc.identity
-			got, err := program.Validate(id, tc.lexical, value.Resolver{}, value.NeedIdentity, 16<<20, nil)
+			got, err := program.Validate(id, tc.lexical, value.Resolver{}, value.NeedIdentity, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -127,7 +127,7 @@ func TestGValueIdentityCalendarDefaults(t *testing.T) {
 				t.Fatalf("identity = %q, want %q", got.IdentityKey(), want)
 			}
 			raw := []byte(tc.lexical)
-			got, err = program.ValidateBytes(id, raw, value.Resolver{}, value.NeedIdentity, 16<<20, nil)
+			got, err = program.ValidateBytes(id, raw, value.Resolver{}, value.NeedIdentity, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			if err != nil {
 				t.Fatal(err)
 			}

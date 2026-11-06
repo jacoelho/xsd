@@ -17,7 +17,7 @@ func enumerationQNameResolver() Resolver {
 
 func enumerationPattern(t *testing.T, source string) *Pattern {
 	t.Helper()
-	pattern, err := xsdregex.Compile(source, xsdregex.CompileOptions{})
+	pattern, err := xsdregex.Compile(source)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,7 +27,7 @@ func enumerationPattern(t *testing.T, source string) *Pattern {
 func TestProgramUnionEnumerationEnforcesQNameMemberFacets(t *testing.T) {
 	pattern := enumerationPattern(t, "nope")
 	resolver := enumerationQNameResolver()
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	qname, err := b.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -73,7 +73,7 @@ func TestProgramUnionEnumerationEnforcesQNameMemberFacets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	v, err := p.Validate(restricted, "p:item", resolver, 0, 16<<20, nil)
+	v, err := p.Validate(restricted, "p:item", resolver, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatalf("QName member facet forced wrong enum value: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestProgramUnionEnumerationEnforcesQNameMemberFacets(t *testing.T) {
 
 func TestProgramUnionEnumerationEnforcesListItemFacets(t *testing.T) {
 	pattern := enumerationPattern(t, "nope")
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	item, err := b.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -140,7 +140,7 @@ func TestProgramUnionEnumerationEnforcesListItemFacets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	v, err := p.Validate(restricted, "x", Resolver{}, 0, 16<<20, nil)
+	v, err := p.Validate(restricted, "x", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatalf("list item facet forced wrong enum value: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestProgramUnionEnumerationEnforcesListItemFacets(t *testing.T) {
 func TestProgramNestedUnionEnumerationEnforcesNestedMemberFacets(t *testing.T) {
 	pattern := enumerationPattern(t, "nope")
 	resolver := enumerationQNameResolver()
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	qname, err := b.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -212,13 +212,13 @@ func TestProgramNestedUnionEnumerationEnforcesNestedMemberFacets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := p.Validate(restricted, "p:item", resolver, 0, 16<<20, nil); err != nil {
+	if _, err := p.Validate(restricted, "p:item", resolver, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 		t.Fatalf("nested member facet forced wrong enum value: %v", err)
 	}
 }
 
 func TestProgramUnionEnumerationRetainsListMemberItems(t *testing.T) {
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	item, err := b.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -290,9 +290,9 @@ func TestProgramUnionEnumerationRetainsListMemberItems(t *testing.T) {
 			var err error
 			var v Value
 			if tc.bytes {
-				v, err = p.ValidateBytes(union, []byte(tc.input), Resolver{}, tc.needs, 16<<20, nil)
+				v, err = p.ValidateBytes(union, []byte(tc.input), Resolver{}, tc.needs, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			} else {
-				v, err = p.Validate(union, tc.input, Resolver{}, tc.needs, 16<<20, nil)
+				v, err = p.Validate(union, tc.input, Resolver{}, tc.needs, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			}
 			if (err == nil) != tc.accept {
 				t.Fatalf("validation error = %v, want accepted=%t", err, tc.accept)
@@ -305,7 +305,7 @@ func TestProgramUnionEnumerationRetainsListMemberItems(t *testing.T) {
 }
 
 func TestProgramInheritedUnionEnumerationRetainsNestedListItems(t *testing.T) {
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	item, err := b.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -413,7 +413,7 @@ func TestProgramInheritedUnionEnumerationRetainsNestedListItems(t *testing.T) {
 		{input: "1 3", valid: false},
 	} {
 		t.Run(tc.input, func(t *testing.T) {
-			_, err := p.Validate(derived, tc.input, Resolver{}, 0, 16<<20, nil)
+			_, err := p.Validate(derived, tc.input, Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			if (err == nil) != tc.valid {
 				t.Fatalf("Validate(%q) error = %v, want valid=%t", tc.input, err, tc.valid)
 			}

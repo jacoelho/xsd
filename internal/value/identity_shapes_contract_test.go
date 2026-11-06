@@ -12,15 +12,15 @@ import (
 // every way a simple type can reach xs:ID or xs:IDREF: directly, by
 // restriction, as a list item, or as a union member at any depth.
 func TestDocumentIdentityProjectionAcrossShapes(t *testing.T) {
-	pattern, err := xsdregex.Compile("i[0-9]", xsdregex.CompileOptions{})
+	pattern, err := xsdregex.Compile("i[0-9]")
 	if err != nil {
 		t.Fatal(err)
 	}
-	unionPattern, err := xsdregex.Compile("[ir][0-9]", xsdregex.CompileOptions{})
+	unionPattern, err := xsdregex.Compile("[ir][0-9]")
 	if err != nil {
 		t.Fatal(err)
 	}
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	builtin := func(name string) value.TypeID {
 		id, ok := value.BuiltinTypeID(name)
 		if !ok {
@@ -144,8 +144,8 @@ func TestDocumentIdentityProjectionAcrossShapes(t *testing.T) {
 				t.Fatalf("InputRequirements = %+v, %t; want DocumentIdentity and CarriesID=%t", input, ok, tc.carriesID)
 			}
 			for _, needs := range []value.Needs{0, value.NeedCanonical, value.NeedIdentity, value.NeedCanonical | value.NeedIdentity} {
-				fromString, stringErr := program.Validate(typ, tc.lexical, value.Resolver{}, needs, 16<<20, nil)
-				fromBytes, bytesErr := program.ValidateBytes(typ, []byte(tc.lexical), value.Resolver{}, needs, 16<<20, nil)
+				fromString, stringErr := program.Validate(typ, tc.lexical, value.Resolver{}, needs, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
+				fromBytes, bytesErr := program.ValidateBytes(typ, []byte(tc.lexical), value.Resolver{}, needs, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 				if tc.facetFailure {
 					if !errors.Is(stringErr, value.ErrFacet) || !errors.Is(bytesErr, value.ErrFacet) {
 						t.Fatalf("needs %d: errors = %v, %v; want facet failure", needs, stringErr, bytesErr)

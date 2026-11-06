@@ -23,7 +23,7 @@ func BenchmarkAuditStringEnumerationValidation(b *testing.B) {
 					b.ReportAllocs()
 					b.SetBytes(int64(len(input)))
 					for b.Loop() {
-						_, err := program.ValidateBytes(id, raw, valuepkg.Resolver{}, 0, 16<<20, nil)
+						_, err := program.ValidateBytes(id, raw, valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 						if (err != nil) != wantFacet || (wantFacet && !errors.Is(err, valuepkg.ErrFacet)) {
 							b.Fatalf("ValidateBytes(%q) error = %v, want facet=%t", input, err, wantFacet)
 						}
@@ -55,9 +55,9 @@ func BenchmarkAuditBase64EnumerationValidation(b *testing.B) {
 							for b.Loop() {
 								var err error
 								if api == "bytes" {
-									_, err = program.ValidateBytes(id, raw, valuepkg.Resolver{}, 0, 16<<20, nil)
+									_, err = program.ValidateBytes(id, raw, valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 								} else {
-									_, err = program.Validate(id, input, valuepkg.Resolver{}, 0, 16<<20, nil)
+									_, err = program.Validate(id, input, valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 								}
 								if (err != nil) != wantFacet || (wantFacet && !errors.Is(err, valuepkg.ErrFacet)) {
 									b.Fatalf("validation(%q) error = %v, want facet=%t", input, err, wantFacet)
@@ -72,7 +72,7 @@ func BenchmarkAuditBase64EnumerationValidation(b *testing.B) {
 }
 
 func BenchmarkAuditBase64NonEnumeration(b *testing.B) {
-	program, err := valuepkg.NewBuilder(valuepkg.BuilderOptions{}).Seal()
+	program, err := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -105,9 +105,9 @@ func BenchmarkAuditBase64NonEnumeration(b *testing.B) {
 						for b.Loop() {
 							var err error
 							if api == "bytes" {
-								_, err = program.ValidateBytes(id, raw, valuepkg.Resolver{}, needs.value, 16<<20, nil)
+								_, err = program.ValidateBytes(id, raw, valuepkg.Resolver{}, needs.value, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 							} else {
-								_, err = program.Validate(id, input, valuepkg.Resolver{}, needs.value, 16<<20, nil)
+								_, err = program.Validate(id, input, valuepkg.Resolver{}, needs.value, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 							}
 							if err != nil {
 								b.Fatal(err)
@@ -127,7 +127,7 @@ func BenchmarkAuditStringEnumerationCompile(b *testing.B) {
 			b.Run(fmt.Sprintf("n=%d/%s", size, shape), func(b *testing.B) {
 				b.ReportAllocs()
 				for b.Loop() {
-					builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+					builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 					reservedID, reserveErr := builder.Reserve()
 					if reserveErr != nil {
 						b.Fatalf("Reserve() error = %v", reserveErr)
@@ -152,7 +152,7 @@ func BenchmarkAuditStringEnumerationCompile(b *testing.B) {
 func auditStringEnumerationProgram(tb testing.TB, size int, shape string) (*valuepkg.Program, valuepkg.TypeID, []string) {
 	tb.Helper()
 	values := auditStringEnumerationLiterals(size, shape)
-	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := builder.Reserve()
 	if err != nil {
 		tb.Fatalf("Reserve() error = %v", err)
@@ -181,7 +181,7 @@ func auditBase64EnumerationProgram(tb testing.TB, payloadSize, groupSize int) (*
 		values[i] = auditBase64Value(payloadSize, i)
 		literals[i] = valuepkg.LiteralSpec{Lexical: values[i], Type: valuepkg.NoType}
 	}
-	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := builder.Reserve()
 	if err != nil {
 		tb.Fatalf("Reserve() error = %v", err)

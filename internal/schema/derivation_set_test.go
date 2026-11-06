@@ -42,7 +42,7 @@ func TestParseDerivationSet(t *testing.T) {
 			value:       "extension\u00a0restriction",
 			label:       "complexType final",
 			allowed:     allowed,
-			wantMessage: "invalid complexType final value extension\u00a0restriction",
+			wantMessage: "invalid complexType final value \"extension\\u00a0restriction\"",
 		},
 		{
 			name:        "repeated all",
@@ -70,21 +70,21 @@ func TestParseDerivationSet(t *testing.T) {
 			value:       "list",
 			label:       "complexType final",
 			allowed:     allowed,
-			wantMessage: "complexType final cannot contain list",
+			wantMessage: "complexType final cannot contain \"list\"",
 		},
 		{
 			name:        "invalid token",
 			value:       "bad",
 			label:       "complexType final",
 			allowed:     allowed,
-			wantMessage: "invalid complexType final value bad",
+			wantMessage: "invalid complexType final value \"bad\"",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := ParseDerivationSet(tt.value, tt.label, tt.allowed)
+			got, err := parseDerivationSet(tt.value, tt.label, tt.allowed)
 			if tt.wantMessage != "" {
 				expectInvalidAttributeMessage(t, err, tt.wantMessage)
 				return
@@ -102,8 +102,8 @@ func TestParseDerivationSet(t *testing.T) {
 func TestParseDerivationAttrWithDefault(t *testing.T) {
 	t.Parallel()
 
-	def := DerivationBlockDefaultMask
-	got, err := ParseDerivationAttrWithDefault(LexicalAttribute{}, def, complexTypeBlockDerivation())
+	def := derivationBlockDefaultMask
+	got, err := parseDerivationAttrWithDefault(lexicalAttribute{}, def, complexTypeBlockDerivation())
 	if err != nil {
 		t.Fatalf("ParseDerivationAttrWithDefault(absent) error = %v", err)
 	}
@@ -112,7 +112,7 @@ func TestParseDerivationAttrWithDefault(t *testing.T) {
 		t.Fatalf("ParseDerivationAttrWithDefault(absent) = %08b, want %08b", got, want)
 	}
 
-	got, err = ParseDerivationAttrWithDefault(LexicalAttribute{Value: "extension", Present: true}, def, complexTypeBlockDerivation())
+	got, err = parseDerivationAttrWithDefault(lexicalAttribute{Value: "extension", Present: true}, def, complexTypeBlockDerivation())
 	if err != nil {
 		t.Fatalf("ParseDerivationAttrWithDefault(present) error = %v", err)
 	}
@@ -120,8 +120,8 @@ func TestParseDerivationAttrWithDefault(t *testing.T) {
 		t.Fatalf("ParseDerivationAttrWithDefault(present) = %08b, want extension", got)
 	}
 
-	_, err = ParseDerivationAttrWithDefault(LexicalAttribute{Value: "list", Present: true}, def, complexTypeBlockDerivation())
-	expectInvalidAttributeMessage(t, err, "complexType block cannot contain list")
+	_, err = parseDerivationAttrWithDefault(lexicalAttribute{Value: "list", Present: true}, def, complexTypeBlockDerivation())
+	expectInvalidAttributeMessage(t, err, "complexType block cannot contain \"list\"")
 }
 
 func TestDerivationRulesReturnIndependentValues(t *testing.T) {

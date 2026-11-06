@@ -3,7 +3,6 @@ package xmlstream
 import (
 	"encoding/xml"
 	"errors"
-	"fmt"
 	"io"
 
 	"github.com/jacoelho/xsd/internal/lex"
@@ -19,21 +18,20 @@ const (
 	ErrorSyntax ErrorKind = iota
 	// ErrorInput reports an invalid or unavailable input source.
 	ErrorInput
-	// ErrorLimit reports an exceeded parser or document limit.
+	// ErrorLimit reports an exceeded parser or document limit. Kind is
+	// ErrorLimit exactly when LimitOf reports true.
 	ErrorLimit
 	// ErrorUnsupported reports valid XML features outside this boundary's support.
 	ErrorUnsupported
 	// ErrorRoot reports invalid document-root topology.
 	ErrorRoot
-	// ErrorDepth reports excessive element nesting.
-	ErrorDepth
 	// ErrorNamespace reports invalid namespace declarations or names.
 	ErrorNamespace
 	// ErrorOutsideRoot reports data that is forbidden outside the document element.
 	ErrorOutsideRoot
 	// ErrorIncomplete reports an unclosed document.
 	ErrorIncomplete
-	// ErrorState reports an invalid Reader lifecycle transition.
+	// ErrorState reports an invalid Reader lifecycle transition or configuration.
 	ErrorState
 )
 
@@ -184,7 +182,7 @@ func (r *Reader) resetDocument(maxRetained int) {
 
 func validateReaderLimits(limits Limits) error {
 	if limits.MaxInputBytes < 0 || limits.MaxTokenBytes < 0 || limits.MaxAttrs < 0 || limits.MaxDepth < 0 || limits.MaxRetained < 0 {
-		return &Error{Kind: ErrorLimit, Cause: errXMLNegativeLimit}
+		return &Error{Kind: ErrorState, Cause: errXMLNegativeLimit}
 	}
 	return nil
 }
@@ -281,11 +279,14 @@ func parserErrorKind(err error) ErrorKind {
 	if _, ok := UnsupportedFeatureOf(err); ok {
 		return ErrorUnsupported
 	}
+	if _, ok := LimitOf(err); ok {
+		return ErrorLimit
+	}
 	switch {
 	case errors.Is(err, ErrXMLInputNilReader):
 		return ErrorInput
-	case IsInputLimit(err), IsTokenLimit(err), IsAttributeLimit(err), errors.Is(err, errXMLNegativeLimit):
-		return ErrorLimit
+	case errors.Is(err, errXMLNegativeLimit):
+		return ErrorState
 	}
 	return ErrorSyntax
 }
@@ -307,7 +308,7 @@ func (r *Reader) Start() (Handle, xml.Name, error) {
 	}
 	if r.limits.MaxDepth > 0 && r.ns.depth()+1 > r.limits.MaxDepth {
 		r.pending = pendingEvent{}
-		return Handle{}, xml.Name{}, &Error{Kind: ErrorDepth, Line: r.lastLine, Column: r.lastColumn, Cause: fmt.Errorf("XML nesting exceeds %d element limit", r.limits.MaxDepth)}
+		return Handle{}, xml.Name{}, &Error{Kind: ErrorLimit, Line: r.lastLine, Column: r.lastColumn, Cause: errXMLDepthLimit}
 	}
 	namespace, element, err := r.ns.StartStream(&r.token.Start, &r.values)
 	if err != nil {
@@ -461,13 +462,11 @@ func (r *Reader) Complete() error {
 	return nil
 }
 
-// MaterializeValue copies a borrowed attribute value into the reader-owned
-// cache while the current token remains live.
-func (r *Reader) MaterializeValue(attr *Attr) (string, bool) {
-	if attr == nil {
-		return "", false
-	}
-	return attr.materializeValue(&r.values)
+// AttrValue returns the decoded, owned value of attr. It must be called while
+// attr's token is current. It returns ErrAttrValueSkipped for an ordinary
+// attribute when Config.SkipOrdinaryAttrValues is set. attr must be non-nil.
+func (r *Reader) AttrValue(attr *Attr) (string, error) {
+	return attr.attrValue(&r.values)
 }
 
 // InternBytes returns a session-owned string for borrowed bytes. Short values

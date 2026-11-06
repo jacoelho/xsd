@@ -2,7 +2,6 @@
 package format
 
 import (
-	"bytes"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -75,14 +74,17 @@ func XMLWithOptions(w io.Writer, input string, opts Options) error {
 	}
 	writer := newMaxBytesWriter(w, limits.MaxOutputBytes, errFormatOutputLimit)
 	f := xmlFormatter{
-		w:     writer,
-		input: input,
-		tape:  tape,
+		w:      writer,
+		input:  input,
+		tape:   tape,
+		limits: limits,
 	}
 	err = f.format()
 	var formatErr *xsderrors.Error
-	if err != nil && !errors.As(err, &formatErr) && (xmlstream.IsInputLimit(err) || errors.Is(err, errFormatOutputLimit)) {
-		return formatLimitErr(0, 0, err)
+	if err != nil && !errors.As(err, &formatErr) {
+		if limitErr := classifyLimit(0, 0, err, limits); limitErr != nil {
+			return limitErr
+		}
 	}
 	return err
 }
@@ -112,23 +114,19 @@ func resetReader(reader *xmlstream.Reader, input string, limits Options) error {
 		SkipOrdinaryAttrValues: true,
 	})
 	if err != nil {
-		return formatReaderErr(err)
+		return formatReaderErr(err, limits)
 	}
 	return nil
 }
 
-func formatReaderErr(err error) error {
+func formatReaderErr(err error, limits Options) error {
 	if feature, ok := xmlstream.UnsupportedFeatureOf(err); ok {
 		return unsupportedFormatFeature(feature, err)
 	}
-	switch {
-	case errors.Is(err, xmlstream.ErrXMLInputNilReader):
+	if errors.Is(err, xmlstream.ErrXMLInputNilReader) {
 		return formatOptionErr(errors.New("nil reader"))
-	case xmlstream.IsInputLimit(err):
-		return formatLimitErr(0, 0, err)
-	default:
-		return formatBoundaryErr(err)
 	}
+	return formatBoundaryErr(err, limits)
 }
 
 // unsupportedFormatFeature maps reader rejections on both the Reset and token
@@ -148,14 +146,11 @@ func unsupportedFormatFeature(feature xmlstream.UnsupportedFeature, err error) e
 	return xsderrors.InternalInvariant("unknown xmlstream unsupported feature")
 }
 
-func formatBoundaryErr(err error) error {
+func formatBoundaryErr(err error, limits Options) error {
 	if boundary, ok := errors.AsType[*xmlstream.Error](err); ok {
-		if boundary.Kind == xmlstream.ErrorLimit || boundary.Kind == xmlstream.ErrorDepth {
-			return formatLimitErr(boundary.Line, boundary.Column, boundary)
-		}
-		return xmlFormatErr(boundary.Line, boundary.Column, boundary)
+		return xmlFormatErr(boundary.Line, boundary.Column, boundary, limits)
 	}
-	return formatXMLErr(0, 0, err)
+	return xmlFormatErr(0, 0, err, limits)
 }
 
 func normalizeFormatOptions(opts Options) (Options, error) {
@@ -292,6 +287,7 @@ type formatAnalysis struct {
 	tape     []formatEvent
 	nodes    int
 	maxNodes int
+	limits   Options
 }
 
 type formatEvent struct {
@@ -323,6 +319,7 @@ type xmlFormatter struct {
 	tape          []formatEvent
 	stack         []formatFrame
 	topLevelItems int
+	limits        Options
 }
 
 type formatFrame struct {
@@ -335,7 +332,7 @@ func analyze(input string, limits Options) ([]formatEvent, error) {
 	if err != nil {
 		return nil, err
 	}
-	a := formatAnalysis{reader: reader, maxNodes: limits.MaxNodes}
+	a := formatAnalysis{reader: reader, limits: limits, maxNodes: limits.MaxNodes}
 	if err := a.format(); err != nil {
 		reader.Detach()
 		return nil, err
@@ -351,7 +348,7 @@ func (a *formatAnalysis) format() error {
 			return a.finishEOF()
 		}
 		if err != nil {
-			return readerBoundaryError(a.reader, err)
+			return readerBoundaryError(a.reader, a.limits, err)
 		}
 		if err := a.collectToken(tok); err != nil {
 			return err
@@ -362,13 +359,13 @@ func (a *formatAnalysis) format() error {
 func (a *formatAnalysis) finishEOF() error {
 	if len(a.stack) > 0 {
 		line, col := a.reader.Pos()
-		return xmlFormatErr(line, col, fmt.Errorf("unexpected EOF before end element </%s>", xmlQName(a.stack[len(a.stack)-1].name)))
+		return xmlFormatErr(line, col, fmt.Errorf("unexpected EOF before end element </%s>", xmlQName(a.stack[len(a.stack)-1].name)), a.limits)
 	}
 	if completeErr := a.reader.Complete(); completeErr != nil {
 		if errors.Is(completeErr, xmlstream.ErrNoRoot) {
-			return xmlFormatErr(1, 1, errors.New("XML document is empty"))
+			return xmlFormatErr(1, 1, errors.New("XML document is empty"), a.limits)
 		}
-		return readerBoundaryError(a.reader, completeErr)
+		return readerBoundaryError(a.reader, a.limits, completeErr)
 	}
 	return nil
 }
@@ -396,7 +393,7 @@ func (a *formatAnalysis) collectToken(tok *xmlstream.Token) error {
 			a.stack[len(a.stack)-1].hasNonElementLayout = true
 		}
 	default:
-		return xmlFormatErr(tok.Line, tok.Column, errors.New("unknown XML token"))
+		return xmlFormatErr(tok.Line, tok.Column, errors.New("unknown XML token"), a.limits)
 	}
 	a.tape = append(a.tape, formatEvent{
 		start:            tok.StartOffset,
@@ -415,10 +412,13 @@ func (a *formatAnalysis) collectStart(tok *xmlstream.Token) error {
 	if len(a.stack) != 0 {
 		inherited = a.stack[len(a.stack)-1].preserve
 	}
-	preserve := xmlSpacePreserve(tok.Start.Attr, inherited)
+	preserve, err := a.xmlSpacePreserve(tok.Start.Attr, inherited)
+	if err != nil {
+		return err
+	}
 	handle, _, err := a.reader.Start()
 	if err != nil {
-		return readerBoundaryError(a.reader, err)
+		return readerBoundaryError(a.reader, a.limits, err)
 	}
 	if err := a.appendNode(tok.Line, tok.Column); err != nil {
 		return a.abortStart(handle, err)
@@ -438,14 +438,14 @@ func (a *formatAnalysis) collectStart(tok *xmlstream.Token) error {
 
 func (a *formatAnalysis) collectEnd(tok *xmlstream.Token) error {
 	if len(a.stack) == 0 {
-		return xmlFormatErr(tok.Line, tok.Column, errors.New("unexpected end element"))
+		return xmlFormatErr(tok.Line, tok.Column, errors.New("unexpected end element"), a.limits)
 	}
 	frame := &a.stack[len(a.stack)-1]
 	if err := a.reader.MatchEnd(frame.handle); err != nil {
-		return readerBoundaryError(a.reader, err)
+		return readerBoundaryError(a.reader, a.limits, err)
 	}
 	if err := a.reader.CommitEnd(frame.handle); err != nil {
-		return readerBoundaryError(a.reader, err)
+		return readerBoundaryError(a.reader, a.limits, err)
 	}
 	a.tape[frame.startEvent].inline = frame.inline()
 	a.stack = a.stack[:len(a.stack)-1]
@@ -506,7 +506,7 @@ func (f *xmlFormatter) renderEvent(event formatEvent) error {
 	case xmlstream.KindComment, xmlstream.KindPI:
 		return f.renderMisc(event)
 	default:
-		return xmlFormatErr(event.line, event.column, errors.New("unknown XML token"))
+		return xmlFormatErr(event.line, event.column, errors.New("unknown XML token"), f.limits)
 	}
 }
 
@@ -521,7 +521,7 @@ func (f *xmlFormatter) renderMisc(event formatEvent) error {
 		err = writeSourcePI(f.w, f.input, event.start, event.end)
 	}
 	if err != nil {
-		return xmlFormatErr(event.line, event.column, err)
+		return xmlFormatErr(event.line, event.column, err, f.limits)
 	}
 	return nil
 }
@@ -533,7 +533,7 @@ func (f *xmlFormatter) renderStart(event formatEvent) error {
 	}
 	nameStart, nameEnd := sourceNameSpan(f.input, event.start, event.end)
 	if err := writeSourceStart(f.w, f.input, event.end, nameStart, nameEnd); err != nil {
-		return xmlFormatErr(event.line, event.column, err)
+		return xmlFormatErr(event.line, event.column, err, f.limits)
 	}
 	f.stack = append(f.stack, formatFrame{
 		inline: parentInline || event.inline,
@@ -549,7 +549,7 @@ func (f *xmlFormatter) renderEnd(event formatEvent) error {
 		}
 	}
 	if err := writeSourceEnd(f.w, f.input, event.start, event.end); err != nil {
-		return xmlFormatErr(event.line, event.column, err)
+		return xmlFormatErr(event.line, event.column, err, f.limits)
 	}
 	f.stack = f.stack[:len(f.stack)-1]
 	return nil
@@ -566,7 +566,7 @@ func (f *xmlFormatter) renderChars(event formatEvent) error {
 		return err
 	}
 	if err := writeSourceText(f.w, f.input, event); err != nil {
-		return xmlFormatErr(event.line, event.column, err)
+		return xmlFormatErr(event.line, event.column, err, f.limits)
 	}
 	return nil
 }
@@ -600,7 +600,7 @@ func tokenIsIgnorableBlockWhitespace(tok *xmlstream.Token) bool {
 	return tok.TextKind != xmlstream.CharacterDataCDATA && lex.IsXMLWhitespaceBytes(tok.Data)
 }
 
-func readerBoundaryError(reader *xmlstream.Reader, err error) error {
+func readerBoundaryError(reader *xmlstream.Reader, limits Options, err error) error {
 	if feature, ok := xmlstream.UnsupportedFeatureOf(err); ok {
 		line, col := reader.Pos()
 		if boundary, isBoundary := errors.AsType[*xmlstream.Error](err); isBoundary && boundary.Line > 0 {
@@ -611,19 +611,16 @@ func readerBoundaryError(reader *xmlstream.Reader, err error) error {
 	if boundary, ok := errors.AsType[*xmlstream.Error](err); ok {
 		switch {
 		case errors.Is(boundary, xmlstream.ErrCDATOutsideRoot):
-			return xmlFormatErr(boundary.Line, boundary.Column, errors.New("CDATA section outside root element"))
+			return xmlFormatErr(boundary.Line, boundary.Column, errors.New("CDATA section outside root element"), limits)
 		case errors.Is(boundary, xmlstream.ErrReferenceOutsideRoot):
-			return xmlFormatErr(boundary.Line, boundary.Column, errors.New("reference outside root element"))
+			return xmlFormatErr(boundary.Line, boundary.Column, errors.New("reference outside root element"), limits)
 		case errors.Is(boundary, xmlstream.ErrTextOutsideRoot):
-			return xmlFormatErr(boundary.Line, boundary.Column, errors.New("text outside root element"))
+			return xmlFormatErr(boundary.Line, boundary.Column, errors.New("text outside root element"), limits)
 		}
-		if boundary.Kind == xmlstream.ErrorLimit || boundary.Kind == xmlstream.ErrorDepth {
-			return formatLimitErr(boundary.Line, boundary.Column, boundary)
-		}
-		return xmlFormatErr(boundary.Line, boundary.Column, boundary)
+		return xmlFormatErr(boundary.Line, boundary.Column, boundary, limits)
 	}
 	line, col := reader.Pos()
-	return xmlFormatErr(line, col, err)
+	return xmlFormatErr(line, col, err, limits)
 }
 
 func (f analysisFrame) inline() bool {
@@ -635,41 +632,24 @@ func (f analysisFrame) inline() bool {
 
 const xmlSpaceDefault = false
 
-func xmlSpacePreserve(attrs []xmlstream.Attr, inherited bool) bool {
-	for _, attr := range attrs {
-		if !isXMLSpaceAttribute(attr) {
+func (a *formatAnalysis) xmlSpacePreserve(attrs []xmlstream.Attr, inherited bool) (bool, error) {
+	for i := range attrs {
+		attr := &attrs[i]
+		if !xmlstream.IsLexicalXMLSpaceName(attr.Name) {
 			continue
 		}
-		if preserve, recognized := xmlSpaceValue(attr); recognized {
-			return preserve
+		value, err := a.reader.AttrValue(attr)
+		if err != nil {
+			return false, xsderrors.InternalInvariant("format reader skipped xml:space value")
+		}
+		switch value {
+		case vocab.XMLValuePreserve:
+			return true, nil
+		case vocab.XMLValueDefault:
+			return false, nil
 		}
 	}
-	return inherited
-}
-
-func isXMLSpaceAttribute(attr xmlstream.Attr) bool {
-	return attr.Name.Space == vocab.XMLPrefix && attr.Name.Local == vocab.XMLAttrSpace
-}
-
-func xmlSpaceValue(attr xmlstream.Attr) (preserve, recognized bool) {
-	if raw, ok := attr.RawValue(); ok {
-		switch {
-		case bytes.Equal(raw, []byte(vocab.XMLValuePreserve)):
-			return true, true
-		case bytes.Equal(raw, []byte(vocab.XMLValueDefault)):
-			return false, true
-		default:
-			return false, false
-		}
-	}
-	switch attr.Value {
-	case vocab.XMLValuePreserve:
-		return true, true
-	case vocab.XMLValueDefault:
-		return false, true
-	default:
-		return false, false
-	}
+	return inherited, nil
 }
 
 func hasXMLLineBreak(data []byte) bool {
@@ -681,14 +661,45 @@ func hasXMLLineBreak(data []byte) bool {
 	return false
 }
 
-func xmlFormatErr(line, col int, err error) error {
+func xmlFormatErr(line, col int, err error, opts Options) error {
 	if err == nil {
 		return nil
 	}
-	if xmlstream.IsInputLimit(err) || errors.Is(err, errFormatOutputLimit) || xmlstream.IsTokenLimit(err) || xmlstream.IsAttributeLimit(err) {
-		return formatLimitErr(line, col, err)
+	if limitErr := classifyLimit(line, col, err, opts); limitErr != nil {
+		return limitErr
 	}
 	return formatXMLErr(line, col, err)
+}
+
+// classifyLimit returns the format.limit diagnostic for the formatter output
+// limit or a reader limit, and nil for any other error.
+func classifyLimit(line, col int, err error, opts Options) error {
+	if errors.Is(err, errFormatOutputLimit) {
+		return formatLimitErr(line, col, err)
+	}
+	if limit, ok := xmlstream.LimitOf(err); ok {
+		return formatReaderLimitErr(limit, line, col, err, opts)
+	}
+	return nil
+}
+
+// formatReaderLimitErr names the formatter option behind every reader limit.
+// The formatter configures no attribute limit, so LimitAttrs is an invariant
+// violation.
+func formatReaderLimitErr(limit xmlstream.Limit, line, col int, err error, opts Options) error {
+	var option string
+	var configured int64
+	switch limit {
+	case xmlstream.LimitInputBytes:
+		option, configured = "MaxInputBytes", opts.MaxInputBytes
+	case xmlstream.LimitTokenBytes:
+		option, configured = "MaxTokenBytes", opts.MaxTokenBytes
+	case xmlstream.LimitDepth:
+		option, configured = "MaxDepth", int64(opts.MaxDepth)
+	case xmlstream.LimitAttrs:
+		return xsderrors.InternalInvariant("format reader has no attribute limit")
+	}
+	return formatLimitErr(line, col, fmt.Errorf("%s=%d exceeded: %w", option, configured, err))
 }
 
 func formatOptionErr(err error) error {

@@ -15,7 +15,7 @@ func BenchmarkProgramPrimitiveNoFacets(b *testing.B) {
 }
 
 func BenchmarkProgramDecimalBound(b *testing.B) {
-	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := builder.Reserve()
 	if err != nil {
 		b.Fatalf("Reserve() error = %v", err)
@@ -42,7 +42,7 @@ func BenchmarkProgramDecimalBound(b *testing.B) {
 }
 
 func BenchmarkProgramList(b *testing.B) {
-	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	item, err := builder.Reserve()
 	if err != nil {
 		b.Fatalf("Reserve() error = %v", err)
@@ -80,7 +80,7 @@ func BenchmarkProgramList(b *testing.B) {
 }
 
 func BenchmarkProgramUnion(b *testing.B) {
-	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	stringID, err := builder.Reserve()
 	if err != nil {
 		b.Fatalf("Reserve() error = %v", err)
@@ -135,7 +135,7 @@ func BenchmarkProgramUnion(b *testing.B) {
 
 func benchmarkProgramPrimitive(b *testing.B) (*valuepkg.Program, valuepkg.TypeID) {
 	b.Helper()
-	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := builder.Reserve()
 	if err != nil {
 		b.Fatalf("Reserve() error = %v", err)
@@ -162,7 +162,7 @@ func benchmarkProgramValidate(b *testing.B, p *valuepkg.Program, id valuepkg.Typ
 	b.Helper()
 	b.ReportAllocs()
 	for range b.N {
-		if _, err := p.Validate(id, lexical, valuepkg.Resolver{}, needs, 16<<20, nil); err != nil {
+		if _, err := p.Validate(id, lexical, valuepkg.Resolver{}, needs, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -171,7 +171,7 @@ func benchmarkProgramValidate(b *testing.B, p *valuepkg.Program, id valuepkg.Typ
 func BenchmarkReentrantQNameConstruction(b *testing.B) {
 	childSpec := valuepkg.TypeSpec{Variety: valuepkg.Atomic, Primitive: valuepkg.PrimitiveString, Base: valuepkg.NoType, ListItem: valuepkg.NoType}
 	build := func() (*valuepkg.Program, valuepkg.TypeID, valuepkg.TypeID, error) {
-		builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+		builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 		if err := builder.ReserveCapacity(2); err != nil {
 			return nil, valuepkg.NoType, valuepkg.NoType, err
 		}
@@ -213,14 +213,14 @@ func BenchmarkReentrantQNameConstruction(b *testing.B) {
 			}
 			return valuepkg.ExpandedName{}, false
 		}}
-		if _, err := program.Validate(parent, "p:x", resolver, 0, 16<<20, nil); err != nil {
+		if _, err := program.Validate(parent, "p:x", resolver, 0, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 			b.Fatal(err)
 		}
-		_, err := program.Validate(parent, "p:y", resolver, 0, 16<<20, nil)
+		_, err := program.Validate(parent, "p:y", resolver, 0, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		if !errors.Is(err, valuepkg.ErrFacet) {
 			b.Fatalf("Validate(p:y) = %v; want enumeration rejection", err)
 		}
-		got, err := program.Validate(child, "child", valuepkg.Resolver{}, valuepkg.NeedCanonical, 16<<20, nil)
+		got, err := program.Validate(child, "child", valuepkg.Resolver{}, valuepkg.NeedCanonical, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		if err != nil || got.Type() != child || got.CanonicalText() != "child" {
 			b.Fatalf("child validation = %v, %v", got, err)
 		}
@@ -279,7 +279,7 @@ func BenchmarkFacetPolicyRejectedAdmission(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		for _, test := range cases {
-			builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+			builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 			id, err := builder.Reserve()
 			if err != nil {
 				b.Fatal(err)
@@ -371,7 +371,7 @@ func completeFloatPolicyType(tb testing.TB, builder *valuepkg.Builder, spec valu
 
 func floatPolicyFixtures(tb testing.TB) []floatPolicyFixture {
 	tb.Helper()
-	program, err := valuepkg.NewBuilder(valuepkg.BuilderOptions{}).Seal()
+	program, err := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 	if err != nil {
 		tb.Fatal(err)
 	}
@@ -395,7 +395,7 @@ func floatPolicyFixtures(tb testing.TB) []floatPolicyFixture {
 		}
 		fixtures = append(fixtures, floatPolicyFixture{entry.name + "BorrowedUnprojected", program, 0, rows})
 	}
-	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	decimal := completeFloatPolicyType(tb, builder, valuepkg.TypeSpec{
 		Variety: valuepkg.Atomic, Primitive: valuepkg.PrimitiveDecimal, Base: valuepkg.NoType, ListItem: valuepkg.NoType,
 		Whitespace: valuepkg.WhitespaceCollapse, WhitespacePresent: true,
@@ -468,9 +468,9 @@ func checkFloatPolicyFixture(tb testing.TB, fixture floatPolicyFixture) {
 		var got valuepkg.Value
 		var err error
 		if row.raw != nil {
-			got, err = fixture.program.ValidateBytes(row.id, row.raw, valuepkg.Resolver{}, fixture.needs, 16<<20, &scratch)
+			got, err = fixture.program.ValidateBytes(row.id, row.raw, valuepkg.Resolver{}, fixture.needs, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 		} else {
-			got, err = fixture.program.Validate(row.id, row.input, valuepkg.Resolver{}, fixture.needs, 16<<20, &scratch)
+			got, err = fixture.program.Validate(row.id, row.input, valuepkg.Resolver{}, fixture.needs, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 		}
 		if err != nil {
 			tb.Fatal(err)
@@ -479,20 +479,20 @@ func checkFloatPolicyFixture(tb testing.TB, fixture floatPolicyFixture) {
 		checkFloatPolicyBits(tb, row)
 	}
 	for _, row := range fixture.rows {
-		if _, err := fixture.program.Validate(row.id, "INX", valuepkg.Resolver{}, fixture.needs, 16<<20, &scratch); err == nil {
+		if _, err := fixture.program.Validate(row.id, "INX", valuepkg.Resolver{}, fixture.needs, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch); err == nil {
 			tb.Fatal("malformed lexical accepted")
 		}
-		got, err := fixture.program.Validate(row.id, row.input, valuepkg.Resolver{}, fixture.needs, 16<<20, &scratch)
+		got, err := fixture.program.Validate(row.id, row.input, valuepkg.Resolver{}, fixture.needs, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 		if err != nil {
 			tb.Fatal(err)
 		}
 		checkFloatPolicyResult(tb, got, row)
 	}
 	if fixture.name == "FloatList" {
-		if _, err := fixture.program.Validate(fixture.rows[0].id, "1 INX", valuepkg.Resolver{}, fixture.needs, 16<<20, &scratch); err == nil || !strings.HasSuffix(err.Error(), "invalid float") {
+		if _, err := fixture.program.Validate(fixture.rows[0].id, "1 INX", valuepkg.Resolver{}, fixture.needs, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch); err == nil || !strings.HasSuffix(err.Error(), "invalid float") {
 			tb.Fatalf("list member rejection: %v", err)
 		}
-		got, err := fixture.program.Validate(fixture.rows[0].id, fixture.rows[0].input, valuepkg.Resolver{}, fixture.needs, 16<<20, &scratch)
+		got, err := fixture.program.Validate(fixture.rows[0].id, fixture.rows[0].input, valuepkg.Resolver{}, fixture.needs, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 		if err != nil {
 			tb.Fatal(err)
 		}
@@ -511,9 +511,9 @@ func BenchmarkFloatCanonicalPolicy(b *testing.B) {
 				for i, row := range fixture.rows {
 					var err error
 					if row.raw != nil {
-						outputs[i], err = fixture.program.ValidateBytes(row.id, row.raw, valuepkg.Resolver{}, fixture.needs, 16<<20, &scratch)
+						outputs[i], err = fixture.program.ValidateBytes(row.id, row.raw, valuepkg.Resolver{}, fixture.needs, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 					} else {
-						outputs[i], err = fixture.program.Validate(row.id, row.input, valuepkg.Resolver{}, fixture.needs, 16<<20, &scratch)
+						outputs[i], err = fixture.program.Validate(row.id, row.input, valuepkg.Resolver{}, fixture.needs, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 					}
 					if err != nil {
 						b.Fatal(err)
@@ -580,7 +580,7 @@ func completeAdmittedOrdered(tb testing.TB, builder *valuepkg.Builder, spec valu
 
 func admittedOrderedFixtures(tb testing.TB) [4]admittedOrderedFixture {
 	tb.Helper()
-	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	inclusive := admittedOrderedFacet(valuepkg.FacetMinInclusive, "1.5", false)
 	inclusive.MaxInclusive = admittedOrderedFacet(valuepkg.FacetMaxInclusive, "2.5", false).MaxInclusive
 	inc := completeAdmittedOrdered(tb, builder, admittedOrderedSpec(valuepkg.PrimitiveDecimal, valuepkg.NoType, inclusive))
@@ -627,7 +627,7 @@ func checkAdmittedOrderedResult(tb testing.TB, got valuepkg.Value, id valuepkg.T
 
 func checkAdmittedOrderedRow(tb testing.TB, program *valuepkg.Program, row admittedOrderedRow, scratch *valuepkg.Scratch) {
 	tb.Helper()
-	got, err := program.Validate(row.id, row.input, valuepkg.Resolver{}, 0, 16<<20, scratch)
+	got, err := program.Validate(row.id, row.input, valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, scratch)
 	checkAdmittedOrderedOutcome(tb, got, err, row)
 }
 
@@ -672,7 +672,7 @@ func BenchmarkAdmittedOrderedBounds(b *testing.B) {
 			b.ReportAllocs()
 			for b.Loop() {
 				for i, row := range fixture.rows {
-					outputs[i], outcomes[i] = fixture.program.Validate(row.id, row.input, valuepkg.Resolver{}, 0, 16<<20, &scratch)
+					outputs[i], outcomes[i] = fixture.program.Validate(row.id, row.input, valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 					if (outcomes[i] != nil) != (row.message != "") {
 						b.Fatalf("Validate(%q) unexpected error presence: %v", row.input, outcomes[i])
 					}
@@ -708,7 +708,7 @@ func buildAdmittedOrderedBatch(tb testing.TB, widening bool) ([4]*valuepkg.Progr
 		} else if widening {
 			changed, message = "0", "lower ordered facet cannot loosen base restriction"
 		}
-		builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+		builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 		base := completeAdmittedOrdered(tb, builder, admittedOrderedSpec(valuepkg.PrimitiveDecimal, valuepkg.NoType, admittedOrderedFacet(flag, older, false)))
 		fixed := completeAdmittedOrdered(tb, builder, admittedOrderedSpec(valuepkg.PrimitiveDecimal, base, admittedOrderedFacet(flag, middle, true)))
 		omitted := completeAdmittedOrdered(tb, builder, admittedOrderedSpec(valuepkg.PrimitiveDecimal, fixed, valuepkg.FacetSpec{}))

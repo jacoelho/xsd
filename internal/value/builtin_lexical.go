@@ -7,9 +7,9 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// BuiltinDerivedInput is the projection needed to validate built-in simple
+// builtinDerivedInput is the projection needed to validate built-in simple
 // types whose lexical rules are layered on top of a primitive datatype.
-type BuiltinDerivedInput struct {
+type builtinDerivedInput struct {
 	Norm string
 	Kind BuiltinKind
 }
@@ -21,22 +21,22 @@ func skipLeadingZeros[T byteText](s T, start, end int) int {
 	return start
 }
 
-// ValidateBuiltinDerived validates lexical rules attached to built-in simple
+// validateBuiltinDerived validates lexical rules attached to built-in simple
 // types. Primitive parsing remains caller-owned until the datatype engine moves
 // behind the runtime boundary.
-func ValidateBuiltinDerived(in BuiltinDerivedInput) error {
+func validateBuiltinDerived(in builtinDerivedInput) error {
 	switch in.Kind {
 	case BuiltinInteger:
-		return ValidateIntegerLexical(in.Norm)
-	case BuiltinName:
+		return validateIntegerLexical(in.Norm)
+	case builtinNameLexical:
 		return validateXMLNameLexical(in.Norm)
-	case BuiltinNCName:
+	case builtinNCNameLexical:
 		return validateNCNameLexical(in.Norm)
-	case BuiltinEntity:
+	case builtinEntity:
 		return validateEntityLexical(in.Norm)
-	case BuiltinNMTOKEN:
+	case builtinNMTOKENLexical:
 		return validateNMTOKENLexical(in.Norm)
-	case BuiltinLanguage:
+	case builtinLanguageLexical:
 		return validateLanguageLexical(in.Norm)
 	case BuiltinNone:
 		return nil

@@ -15,18 +15,18 @@ func isXSIAttributeName(name xml.Name) bool {
 			name.Local == vocab.XSIAttrNoNamespaceSchemaLocation)
 }
 
-// AttributeSeen tracks declared attributes seen on one element.
-type AttributeSeen struct {
+// attributeSeen tracks declared attributes seen on one element.
+type attributeSeen struct {
 	list []bool
 	mask uint64
 }
 
-func newAttributeSeenWithScratch(n int, scratch *[]bool) AttributeSeen {
+func newAttributeSeenWithScratch(n int, scratch *[]bool) attributeSeen {
 	if n <= 64 {
-		return AttributeSeen{}
+		return attributeSeen{}
 	}
 	if n > maxRetainedSliceCap {
-		return AttributeSeen{list: make([]bool, n)}
+		return attributeSeen{list: make([]bool, n)}
 	}
 	if cap(*scratch) < n {
 		*scratch = make([]bool, n)
@@ -34,10 +34,10 @@ func newAttributeSeenWithScratch(n int, scratch *[]bool) AttributeSeen {
 		*scratch = (*scratch)[:n]
 		clear(*scratch)
 	}
-	return AttributeSeen{list: *scratch}
+	return attributeSeen{list: *scratch}
 }
 
-func (s *AttributeSeen) mark(slot int) bool {
+func (s *attributeSeen) mark(slot int) bool {
 	if s.list != nil {
 		if s.list[slot] {
 			return false
@@ -53,7 +53,7 @@ func (s *AttributeSeen) mark(slot int) bool {
 	return true
 }
 
-func (s *AttributeSeen) has(slot int) bool {
+func (s *attributeSeen) has(slot int) bool {
 	if s.list != nil {
 		return s.list[slot]
 	}

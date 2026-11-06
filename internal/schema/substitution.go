@@ -5,36 +5,36 @@ import (
 	"slices"
 )
 
-// SubstitutionCycleError reports a cyclic substitution group rooted at Element.
-type SubstitutionCycleError struct {
+// substitutionCycleError reports a cyclic substitution group rooted at Element.
+type substitutionCycleError struct {
 	Element ElementID
 }
 
-// SubstitutionClosureLimitError reports that the aggregate number of raw
+// substitutionClosureLimitError reports that the aggregate number of raw
 // head/member ancestor pairs exceeds the configured bound.
-type SubstitutionClosureLimitError struct {
+type substitutionClosureLimitError struct {
 	Limit int
 }
 
-// SubstitutionMembershipError identifies an invalid direct member/head edge.
-type SubstitutionMembershipError struct {
+// substitutionMembershipError identifies an invalid direct member/head edge.
+type substitutionMembershipError struct {
 	Cause  error
 	Member ElementID
 	Head   ElementID
 }
 
 var (
-	// ErrSubstitutionMemberTypeNotDerived reports that a substitution member's
+	// errSubstitutionMemberTypeNotDerived reports that a substitution member's
 	// type is not derived from the substitution head's type.
-	ErrSubstitutionMemberTypeNotDerived = errors.New("substitution member type is not derived from head")
-	// ErrSubstitutionMemberTypeExcludedDerivation reports that the head's final
+	errSubstitutionMemberTypeNotDerived = errors.New("substitution member type is not derived from head")
+	// errSubstitutionMemberTypeExcludedDerivation reports that the head's final
 	// constraint blocks the member's derivation path.
-	ErrSubstitutionMemberTypeExcludedDerivation = errors.New("substitution member type uses excluded derivation")
+	errSubstitutionMemberTypeExcludedDerivation = errors.New("substitution member type uses excluded derivation")
 )
 
-// SubstitutionTable is the immutable substitution-group projection shared by
+// substitutionTable is the immutable substitution-group projection shared by
 // compilation and published validation. Its slices are intentionally private.
-type SubstitutionTable struct {
+type substitutionTable struct {
 	spans   []substitutionSpan
 	entries []substitutionEntry
 }
@@ -50,33 +50,33 @@ type substitutionEntry struct {
 	effective bool
 }
 
-// BuildSubstitutionTable validates the direct substitution forest and builds a
+// buildSubstitutionTable validates the direct substitution forest and builds a
 // bounded transitive table. maxClosureEntries counts every raw ancestor pair,
 // including entries later excluded from effective name matching.
-func BuildSubstitutionTable(
+func buildSubstitutionTable(
 	rt *schemaBuild,
-	names *NameTable,
-	elements []ElementDecl,
+	names *nameTable,
+	elements []elementDecl,
 	globals map[QName]ElementID,
 	maxClosureEntries int,
 	work func(int) error,
-) (SubstitutionTable, error) {
+) (substitutionTable, error) {
 	if maxClosureEntries < 0 {
-		return SubstitutionTable{}, errors.New("substitution closure entry limit must be non-negative")
+		return substitutionTable{}, errors.New("substitution closure entry limit must be non-negative")
 	}
 	forest, err := validateSubstitutionForest(names, elements, globals)
 	if err != nil {
-		return SubstitutionTable{}, err
+		return substitutionTable{}, err
 	}
 	if forest.total == 0 {
-		return SubstitutionTable{}, nil
+		return substitutionTable{}, nil
 	}
 	if forest.total > maxClosureEntries {
-		return SubstitutionTable{}, SubstitutionClosureLimitError{Limit: maxClosureEntries}
+		return substitutionTable{}, substitutionClosureLimitError{Limit: maxClosureEntries}
 	}
 	edges, err := validateSubstitutionEdges(rt, elements, forest.parents, work)
 	if err != nil {
-		return SubstitutionTable{}, err
+		return substitutionTable{}, err
 	}
 	counts := substitutionAncestorCounts(forest.parents)
 	table, next := newSubstitutionTable(counts, forest.total)
@@ -95,8 +95,8 @@ func substitutionAncestorCounts(parents []ElementID) []int {
 	return counts
 }
 
-func newSubstitutionTable(counts []int, total int) (SubstitutionTable, []int) {
-	table := SubstitutionTable{
+func newSubstitutionTable(counts []int, total int) (substitutionTable, []int) {
+	table := substitutionTable{
 		spans:   make([]substitutionSpan, len(counts)),
 		entries: make([]substitutionEntry, total),
 	}
@@ -111,9 +111,9 @@ func newSubstitutionTable(counts []int, total int) (SubstitutionTable, []int) {
 }
 
 func populateSubstitutionTable(
-	table *SubstitutionTable,
+	table *substitutionTable,
 	next []int,
-	elements []ElementDecl,
+	elements []elementDecl,
 	parents []ElementID,
 	edges []substitutionEdge,
 ) {
@@ -135,7 +135,7 @@ func populateSubstitutionTable(
 	}
 }
 
-func sortSubstitutionTable(table SubstitutionTable) {
+func sortSubstitutionTable(table substitutionTable) {
 	for _, span := range table.spans {
 		entries := table.entries[span.start : span.start+span.count]
 		slices.SortFunc(entries, compareSubstitutionEntry)
@@ -144,7 +144,7 @@ func sortSubstitutionTable(table SubstitutionTable) {
 
 // ForEachMember iterates all raw transitive members for head until fn returns
 // false. Abstract and blocked members remain visible to compilation checks.
-func (t SubstitutionTable) ForEachMember(head ElementID, fn func(ElementID) bool) {
+func (t substitutionTable) ForEachMember(head ElementID, fn func(ElementID) bool) {
 	span, ok := t.span(head)
 	if !ok || span.count == 0 {
 		return
@@ -158,7 +158,7 @@ func (t SubstitutionTable) ForEachMember(head ElementID, fn func(ElementID) bool
 
 // ForEachEntry iterates effective name/member entries for head until fn returns
 // false.
-func (t SubstitutionTable) ForEachEntry(head ElementID, fn func(QName, ElementID) bool) {
+func (t substitutionTable) ForEachEntry(head ElementID, fn func(QName, ElementID) bool) {
 	span, ok := t.span(head)
 	if !ok || span.count == 0 {
 		return
@@ -171,7 +171,7 @@ func (t SubstitutionTable) ForEachEntry(head ElementID, fn func(QName, ElementID
 }
 
 // MemberByName returns the effective substitution member registered under head.
-func (t SubstitutionTable) MemberByName(head ElementID, name QName) (ElementID, bool) {
+func (t substitutionTable) MemberByName(head ElementID, name QName) (ElementID, bool) {
 	span, ok := t.span(head)
 	if !ok || span.count == 0 {
 		return NoElement, false
@@ -187,13 +187,13 @@ func (t SubstitutionTable) MemberByName(head ElementID, name QName) (ElementID, 
 }
 
 // HasMembers reports whether head has raw transitive substitution members.
-func (t SubstitutionTable) HasMembers(head ElementID) bool {
+func (t substitutionTable) HasMembers(head ElementID) bool {
 	span, ok := t.span(head)
 	return ok && span.count != 0
 }
 
-func (t SubstitutionTable) span(head ElementID) (substitutionSpan, bool) {
-	if !ValidElementID(head, len(t.spans)) {
+func (t substitutionTable) span(head ElementID) (substitutionSpan, bool) {
+	if !validElementID(head, len(t.spans)) {
 		return substitutionSpan{}, false
 	}
 	span := t.spans[head]
@@ -209,8 +209,8 @@ type substitutionForest struct {
 }
 
 func validateSubstitutionForest(
-	names *NameTable,
-	elements []ElementDecl,
+	names *nameTable,
+	elements []elementDecl,
 	globals map[QName]ElementID,
 ) (substitutionForest, error) {
 	if names == nil {
@@ -235,8 +235,8 @@ func validateSubstitutionForest(
 }
 
 func validateSubstitutionParents(
-	names *NameTable,
-	elements []ElementDecl,
+	names *nameTable,
+	elements []elementDecl,
 	globals map[QName]ElementID,
 ) ([]ElementID, bool, error) {
 	parents := make([]ElementID, len(elements))
@@ -258,11 +258,11 @@ func validateSubstitutionParents(
 }
 
 func validateSubstitutionParent(
-	names *NameTable,
-	elements []ElementDecl,
+	names *nameTable,
+	elements []elementDecl,
 	globals map[QName]ElementID,
 	index int,
-	member ElementDecl,
+	member elementDecl,
 ) (ElementID, error) {
 	if member.SubstHead == NoElement {
 		return NoElement, nil
@@ -318,7 +318,7 @@ func traceSubstitutionPath(
 ) ([]ElementID, error) {
 	for current := start; current != NoElement && state[current] != 2; current = parents[current] {
 		if state[current] == 1 {
-			return nil, SubstitutionCycleError{Element: current}
+			return nil, substitutionCycleError{Element: current}
 		}
 		state[current] = 1
 		path = append(path, current)
@@ -340,7 +340,7 @@ func substitutionClosureSize(depth []int) (int, error) {
 	total := 0
 	for _, ancestors := range depth {
 		if ancestors > maxInt-total {
-			return 0, SubstitutionClosureLimitError{Limit: maxInt}
+			return 0, substitutionClosureLimitError{Limit: maxInt}
 		}
 		total += ancestors
 	}
@@ -354,7 +354,7 @@ type substitutionEdge struct {
 
 func validateSubstitutionEdges(
 	rt *schemaBuild,
-	elements []ElementDecl,
+	elements []elementDecl,
 	parents []ElementID,
 	work func(int) error,
 ) ([]substitutionEdge, error) {
@@ -374,7 +374,7 @@ func validateSubstitutionEdges(
 
 func validateSubstitutionEdge(
 	rt *schemaBuild,
-	elements []ElementDecl,
+	elements []elementDecl,
 	member int,
 	head ElementID,
 	work func(int) error,
@@ -388,15 +388,15 @@ func validateSubstitutionEdge(
 		return substitutionEdge{}, err
 	}
 	if !ok {
-		return substitutionEdge{}, SubstitutionMembershipError{
-			Cause:  ErrSubstitutionMemberTypeNotDerived,
+		return substitutionEdge{}, substitutionMembershipError{
+			Cause:  errSubstitutionMemberTypeNotDerived,
 			Member: memberID,
 			Head:   head,
 		}
 	}
 	if elements[head].Final&mask != 0 {
-		return substitutionEdge{}, SubstitutionMembershipError{
-			Cause:  ErrSubstitutionMemberTypeExcludedDerivation,
+		return substitutionEdge{}, substitutionMembershipError{
+			Cause:  errSubstitutionMemberTypeExcludedDerivation,
 			Member: memberID,
 			Head:   head,
 		}
@@ -444,34 +444,34 @@ func int64Compare(a, b int64) int {
 // Error returns the stable substitution-cycle message.
 //
 //nolint:revive // The receiver is required by error and carries type identity.
-func (e SubstitutionCycleError) Error() string {
+func (e substitutionCycleError) Error() string {
 	return "cyclic substitution group"
 }
 
 // Error returns the stable substitution closure limit message.
 //
 //nolint:revive // The receiver is required by error and carries type identity.
-func (e SubstitutionClosureLimitError) Error() string {
+func (e substitutionClosureLimitError) Error() string {
 	return "substitution closure entry limit exceeded"
 }
 
 // Error returns the stable invalid-membership message.
 //
 //nolint:revive // The receiver is required by error and carries type identity.
-func (e SubstitutionMembershipError) Error() string {
+func (e substitutionMembershipError) Error() string {
 	return "substitution member is not allowed by head"
 }
 
 // Unwrap returns the precise direct-membership failure.
-func (e SubstitutionMembershipError) Unwrap() error {
+func (e substitutionMembershipError) Unwrap() error {
 	return e.Cause
 }
 
-func substitutionEffective(head, member ElementDecl, mask, typeBlocks DerivationMask) bool {
+func substitutionEffective(head, member elementDecl, mask, typeBlocks DerivationMask) bool {
 	if member.Abstract {
 		return false
 	}
-	if head.Block&DerivationSubstitution != 0 {
+	if head.Block&derivationSubstitution != 0 {
 		return false
 	}
 	return mask&head.Block == 0 && mask&typeBlocks == 0
@@ -484,6 +484,6 @@ func elementIndexID(id int) (ElementID, bool) {
 	return ElementID(uint32(id)), true
 }
 
-func validSubstitutionElementID(elements []ElementDecl, id ElementID) bool {
-	return ValidElementID(id, len(elements))
+func validSubstitutionElementID(elements []elementDecl, id ElementID) bool {
+	return validElementID(id, len(elements))
 }

@@ -110,8 +110,9 @@ func parserOutcome(t *testing.T, reads []string, config Config) string {
 		switch token.Kind {
 		case KindStart:
 			entry := "start " + qnameText(token.Start.Name.Space, token.Start.Name.Local)
-			for _, attr := range token.Start.Attr {
-				entry += fmt.Sprintf(" %s=%q", qnameText(attr.Name.Space, attr.Name.Local), attr.Value)
+			for i := range token.Start.Attr {
+				attr := &token.Start.Attr[i]
+				entry += fmt.Sprintf(" %s=%q", qnameText(attr.Name.Space, attr.Name.Local), parser.attrValue(attr))
 			}
 			out = append(out, entry)
 		case KindEnd:

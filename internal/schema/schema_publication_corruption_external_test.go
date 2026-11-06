@@ -473,7 +473,7 @@ func buildValueConstraint(t *testing.T, build *xsdSchema.SchemaBuild, id xsdSche
 			return ok && build.Notations[q]
 		},
 	}
-	validated, err := valuepkg.NewBuilder(valuepkg.BuilderOptions{}).Validate(id, lexical, resolver, valuepkg.NeedCanonical|valuepkg.NeedIdentity, nil)
+	validated, err := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Validate(id, lexical, resolver, valuepkg.NeedCanonical|valuepkg.NeedIdentity, nil)
 	if err != nil {
 		t.Fatalf("validate %q: %v", lexical, err)
 	}
@@ -582,7 +582,7 @@ func TestFreezeRejectsInconsistentValueConstraints(t *testing.T) {
 			if mismatch == "canonical" {
 				vc.Canonical = "other"
 			} else {
-				validated, err := valuepkg.NewBuilder(valuepkg.BuilderOptions{}).Validate(valuepkg.BuiltinType(valuepkg.PrimitiveBoolean), "true", valuepkg.Resolver{}, valuepkg.NeedCanonical|valuepkg.NeedIdentity, nil)
+				validated, err := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Validate(valuepkg.BuiltinType(valuepkg.PrimitiveBoolean), "true", valuepkg.Resolver{}, valuepkg.NeedCanonical|valuepkg.NeedIdentity, nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -698,6 +698,30 @@ func TestFreezeRejectsUnusedResolvedNameProof(t *testing.T) {
 	defaultValue.ResolvedNames = append(defaultValue.ResolvedNames, xsdSchema.ResolvedValueName{Lexical: "t:other", NS: "urn:test", Local: "other"})
 	err := validateSchemaBuild(rt)
 	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+}
+
+// A union can record one field twice: the first member resolves the QName and
+// then fails its enumeration, and the second member resolves it again. The
+// structural proof rule checks membership, not counts, so this valid build must
+// pass; if the compiler records no duplicate, the test is a positive control.
+func TestFreezeAcceptsDuplicateUnionResolvedNameProof(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    xmlns:t="urn:test">
+  <xs:simpleType name="Other">
+    <xs:restriction base="xs:QName"><xs:enumeration value="t:other"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Item">
+    <xs:restriction base="xs:QName"><xs:enumeration value="t:item"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="U"><xs:union memberTypes="Other Item"/></xs:simpleType>
+  <xs:element name="root" type="U" default="t:item"/>
+</xs:schema>`
+	rt := mutableSchemaBuild(t, schema)
+	if err := validateSchemaBuild(rt); err != nil {
+		t.Fatalf("ValidateSchema() error = %v", err)
+	}
+	rootID := rt.GlobalElements[mustQName(t, &rt.Names, "root")]
+	t.Logf("recorded proof entries = %d", len(rt.Elements[rootID].Default.ResolvedNames))
 }
 
 func TestFreezeRejectsNondeterministicResolvedNameProof(t *testing.T) {

@@ -8,11 +8,11 @@ import (
 func TestContentModelAnalysisBoundsAndMemoizesFacts(t *testing.T) {
 	t.Parallel()
 
-	one := Occurrence{Min: 1, Max: 1}
+	one := occurrence{Min: 1, Max: 1}
 	rt := particleFixture{
-		models: []ContentModel{
-			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ModelParticle(1, one)}},
-			{Kind: ModelEmpty},
+		models: []contentModelNode{
+			{Kind: modelSequence, Occurs: one, Particles: []contentParticle{modelParticle(1, one)}},
+			{Kind: modelEmpty},
 		},
 		elements: []QName{{Local: 1}},
 	}
@@ -21,7 +21,7 @@ func TestContentModelAnalysisBoundsAndMemoizesFacts(t *testing.T) {
 		spent += steps
 		return nil
 	}
-	analysis, err := NewContentModelAnalysis(rt.build(), work)
+	analysis, err := newContentModelAnalysis(rt.build(), work)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,10 +46,10 @@ func TestContentModelAnalysisBoundsAndMemoizesFacts(t *testing.T) {
 		t.Fatalf("memoized count range spent %d additional steps", spent-afterRange)
 	}
 
-	cyclic := particleFixture{models: []ContentModel{{
-		Kind:      ModelSequence,
+	cyclic := particleFixture{models: []contentModelNode{{
+		Kind:      modelSequence,
 		Occurs:    one,
-		Particles: []Particle{ModelParticle(0, one)},
+		Particles: []contentParticle{modelParticle(0, one)},
 	}}}
 	cycleAnalysis := unlimitedContentModelAnalysis(cyclic.build())
 	if _, err := cycleAnalysis.ModelEmptiable(0); err == nil {
@@ -61,10 +61,10 @@ func TestContentModelAnalysisBoundsAndMemoizesFacts(t *testing.T) {
 	if _, err := analysis.ModelEmptiable(99); err == nil {
 		t.Fatal("ModelEmptiable() accepted a missing model")
 	}
-	if _, err := NewContentModelAnalysis(nil, work); err == nil {
+	if _, err := newContentModelAnalysis(nil, work); err == nil {
 		t.Fatal("NewContentModelAnalysis() accepted nil runtime")
 	}
-	if _, err := NewContentModelAnalysis(rt.build(), nil); err == nil {
+	if _, err := newContentModelAnalysis(rt.build(), nil); err == nil {
 		t.Fatal("NewContentModelAnalysis() accepted nil work budget")
 	}
 }
@@ -72,25 +72,25 @@ func TestContentModelAnalysisBoundsAndMemoizesFacts(t *testing.T) {
 func TestParticleModelEmptiability(t *testing.T) {
 	t.Parallel()
 
-	one := Occurrence{Min: 1, Max: 1}
-	optional := Occurrence{Min: 0, Max: 1}
+	one := occurrence{Min: 1, Max: 1}
+	optional := occurrence{Min: 0, Max: 1}
 	rt := particleFixture{
-		models: []ContentModel{
-			{Kind: ModelEmpty},
-			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(0, one)}},
-			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ModelParticle(0, one)}},
-			{Kind: ModelChoice, Occurs: one, Particles: []Particle{ElementParticle(0, one), ElementParticle(1, optional)}},
-			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(0, optional), ElementParticle(1, one)}},
-			{Kind: ModelChoice, Occurs: one, Particles: []Particle{ElementParticle(0, one)}},
+		models: []contentModelNode{
+			{Kind: modelEmpty},
+			{Kind: modelSequence, Occurs: one, Particles: []contentParticle{elementParticle(0, one)}},
+			{Kind: modelSequence, Occurs: one, Particles: []contentParticle{modelParticle(0, one)}},
+			{Kind: modelChoice, Occurs: one, Particles: []contentParticle{elementParticle(0, one), elementParticle(1, optional)}},
+			{Kind: modelSequence, Occurs: one, Particles: []contentParticle{elementParticle(0, optional), elementParticle(1, one)}},
+			{Kind: modelChoice, Occurs: one, Particles: []contentParticle{elementParticle(0, one)}},
 		},
 	}
 	tests := []struct {
 		name    string
-		model   ContentModelID
+		model   contentModelID
 		want    bool
 		wantErr bool
 	}{
-		{name: "absent", model: NoContentModel, want: true},
+		{name: "absent", model: noContentModel, want: true},
 		{name: "empty", model: 0, want: true},
 		{name: "required element sequence", model: 1, want: false},
 		{name: "nested empty sequence", model: 2, want: true},
@@ -123,21 +123,21 @@ func TestParticleModelEmptiability(t *testing.T) {
 func TestParticleModelHasNoParticles(t *testing.T) {
 	t.Parallel()
 
-	one := Occurrence{Min: 1, Max: 1}
+	one := occurrence{Min: 1, Max: 1}
 	rt := particleFixture{
-		models: []ContentModel{
-			{Kind: ModelEmpty},
-			{Kind: ModelSequence, Occurs: one},
-			{Kind: ModelAny, Mixed: true},
-			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(0, one)}},
+		models: []contentModelNode{
+			{Kind: modelEmpty},
+			{Kind: modelSequence, Occurs: one},
+			{Kind: modelAny, Mixed: true},
+			{Kind: modelSequence, Occurs: one, Particles: []contentParticle{elementParticle(0, one)}},
 		},
 	}
 	tests := []struct {
 		name  string
-		model ContentModelID
+		model contentModelID
 		want  bool
 	}{
-		{name: "absent", model: NoContentModel, want: true},
+		{name: "absent", model: noContentModel, want: true},
 		{name: "empty", model: 0, want: true},
 		{name: "empty sequence", model: 1, want: true},
 		{name: "any", model: 2, want: false},
@@ -148,7 +148,7 @@ func TestParticleModelHasNoParticles(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := ModelHasNoParticles(rt.build(), tt.model); got != tt.want {
+			if got := modelHasNoParticles(rt.build(), tt.model); got != tt.want {
 				t.Fatalf("ModelHasNoParticles() = %v, want %v", got, tt.want)
 			}
 		})
@@ -158,34 +158,34 @@ func TestParticleModelHasNoParticles(t *testing.T) {
 func TestParticleCountRange(t *testing.T) {
 	t.Parallel()
 
-	one := Occurrence{Min: 1, Max: 1}
-	optional := Occurrence{Min: 0, Max: 1}
-	repeat := Occurrence{Min: 2, Max: 3}
+	one := occurrence{Min: 1, Max: 1}
+	optional := occurrence{Min: 0, Max: 1}
+	repeat := occurrence{Min: 2, Max: 3}
 	rt := particleFixture{
-		models: []ContentModel{
+		models: []contentModelNode{
 			{
-				Kind:   ModelSequence,
+				Kind:   modelSequence,
 				Occurs: one,
-				Particles: []Particle{
-					ElementParticle(0, repeat),
-					ElementParticle(1, optional),
+				Particles: []contentParticle{
+					elementParticle(0, repeat),
+					elementParticle(1, optional),
 				},
 			},
 			{
-				Kind:      ModelChoice,
-				Occurs:    Occurrence{Min: 2, Max: 2},
-				Particles: []Particle{ElementParticle(0, one), ElementParticle(1, repeat)},
+				Kind:      modelChoice,
+				Occurs:    occurrence{Min: 2, Max: 2},
+				Particles: []contentParticle{elementParticle(0, one), elementParticle(1, repeat)},
 			},
 		},
 	}
 	tests := []struct {
 		name  string
-		model ContentModelID
-		want  Occurrence
+		model contentModelID
+		want  occurrence
 	}{
-		{name: "sequence sums particles", model: 0, want: Occurrence{Min: 2, Max: 4}},
-		{name: "choice unions then multiplies", model: 1, want: Occurrence{Min: 2, Max: 6}},
-		{name: "absent", model: NoContentModel, want: Occurrence{}},
+		{name: "sequence sums particles", model: 0, want: occurrence{Min: 2, Max: 4}},
+		{name: "choice unions then multiplies", model: 1, want: occurrence{Min: 2, Max: 6}},
+		{name: "absent", model: noContentModel, want: occurrence{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -200,11 +200,11 @@ func TestParticleCountRange(t *testing.T) {
 			}
 		})
 	}
-	got, err := unlimitedContentModelAnalysis(rt.build()).ParticleCountRange(ModelParticle(0, Occurrence{Min: 2, Max: 2}))
+	got, err := unlimitedContentModelAnalysis(rt.build()).ParticleCountRange(modelParticle(0, occurrence{Min: 2, Max: 2}))
 	if err != nil {
 		t.Fatalf("ParticleCountRange() error = %v", err)
 	}
-	if want := (Occurrence{Min: 4, Max: 8}); got != want {
+	if want := (occurrence{Min: 4, Max: 8}); got != want {
 		t.Fatalf("ParticleCountRange() = %+v, want %+v", got, want)
 	}
 }
@@ -212,13 +212,13 @@ func TestParticleCountRange(t *testing.T) {
 func TestOccurrenceRangeSubset(t *testing.T) {
 	t.Parallel()
 
-	if !OccurrenceRangeSubset(Occurrence{Min: 2, Max: 3}, Occurrence{Min: 1, Max: 5}) {
+	if !occurrenceRangeSubset(occurrence{Min: 2, Max: 3}, occurrence{Min: 1, Max: 5}) {
 		t.Fatal("narrow finite range should be subset")
 	}
-	if OccurrenceRangeSubset(Occurrence{Min: 0, Max: 3}, Occurrence{Min: 1, Max: 5}) {
+	if occurrenceRangeSubset(occurrence{Min: 0, Max: 3}, occurrence{Min: 1, Max: 5}) {
 		t.Fatal("lower minimum should not be subset")
 	}
-	if OccurrenceRangeSubset(Occurrence{Min: 2, Unbounded: true}, Occurrence{Min: 1, Max: 5}) {
+	if occurrenceRangeSubset(occurrence{Min: 2, Unbounded: true}, occurrence{Min: 1, Max: 5}) {
 		t.Fatal("unbounded derived range should not be subset of finite base")
 	}
 }
@@ -226,21 +226,21 @@ func TestOccurrenceRangeSubset(t *testing.T) {
 func TestParticlesOverlap(t *testing.T) {
 	t.Parallel()
 
-	one := Occurrence{Min: 1, Max: 1}
-	optional := Occurrence{Min: 0, Max: 1}
-	nameA := QName{Namespace: EmptyNamespaceID, Local: 1}
-	nameB := QName{Namespace: EmptyNamespaceID, Local: 2}
-	nameC := QName{Namespace: EmptyNamespaceID, Local: 3}
+	one := occurrence{Min: 1, Max: 1}
+	optional := occurrence{Min: 0, Max: 1}
+	nameA := QName{Namespace: emptyNamespaceID, Local: 1}
+	nameB := QName{Namespace: emptyNamespaceID, Local: 2}
+	nameC := QName{Namespace: emptyNamespaceID, Local: 3}
 	rt := particleFixture{
-		models: []ContentModel{
-			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(1, optional), ElementParticle(2, one)}},
-			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(1, one), ElementParticle(2, one)}},
+		models: []contentModelNode{
+			{Kind: modelSequence, Occurs: one, Particles: []contentParticle{elementParticle(1, optional), elementParticle(2, one)}},
+			{Kind: modelSequence, Occurs: one, Particles: []contentParticle{elementParticle(1, one), elementParticle(2, one)}},
 		},
 		elements: []QName{nameA, nameB, nameC},
-		wildcards: []Wildcard{
-			{Mode: WildcardLocal, Process: ProcessStrict},
-			{Mode: WildcardTargetNamespace, Namespaces: []NamespaceID{1}, Process: ProcessStrict},
-			{Mode: WildcardAny, Process: ProcessStrict},
+		wildcards: []wildcardRuntime{
+			{Mode: WildcardLocal, Process: processStrict},
+			{Mode: WildcardTargetNamespace, Namespaces: []namespaceID{1}, Process: processStrict},
+			{Mode: WildcardAny, Process: processStrict},
 		},
 		substitutions: map[ElementID][]ElementID{
 			0: {2},
@@ -251,60 +251,60 @@ func TestParticlesOverlap(t *testing.T) {
 	}
 	tests := []struct {
 		name     string
-		a        Particle
-		b        Particle
+		a        contentParticle
+		b        contentParticle
 		wantName QName
 		want     bool
 		wantErr  bool
 	}{
 		{
 			name:     "same element",
-			a:        ElementParticle(0, one),
-			b:        ElementParticle(0, one),
+			a:        elementParticle(0, one),
+			b:        elementParticle(0, one),
 			wantName: nameA,
 			want:     true,
 		},
 		{
 			name:     "substitution member",
-			a:        ElementParticle(0, one),
-			b:        ElementParticle(2, one),
+			a:        elementParticle(0, one),
+			b:        elementParticle(2, one),
 			wantName: nameC,
 			want:     true,
 		},
 		{
 			name:     "element wildcard",
-			a:        ElementParticle(0, one),
-			b:        WildcardParticle(0, one),
+			a:        elementParticle(0, one),
+			b:        wildcardParticle(0, one),
 			wantName: nameA,
 			want:     true,
 		},
 		{
 			name: "disjoint wildcards",
-			a:    WildcardParticle(0, one),
-			b:    WildcardParticle(1, one),
+			a:    wildcardParticle(0, one),
+			b:    wildcardParticle(1, one),
 		},
 		{
 			name: "overlapping wildcards",
-			a:    WildcardParticle(1, one),
-			b:    WildcardParticle(2, one),
+			a:    wildcardParticle(1, one),
+			b:    wildcardParticle(2, one),
 			want: true,
 		},
 		{
 			name:     "sequence start skips optional",
-			a:        ModelParticle(0, one),
-			b:        ElementParticle(2, one),
+			a:        modelParticle(0, one),
+			b:        elementParticle(2, one),
 			wantName: nameC,
 			want:     true,
 		},
 		{
 			name: "sequence start stops at required",
-			a:    ModelParticle(1, one),
-			b:    ElementParticle(2, one),
+			a:    modelParticle(1, one),
+			b:    elementParticle(2, one),
 		},
 		{
 			name:    "invalid model",
-			a:       ModelParticle(99, one),
-			b:       ElementParticle(0, one),
+			a:       modelParticle(99, one),
+			b:       elementParticle(0, one),
 			wantErr: true,
 		},
 	}
@@ -332,13 +332,13 @@ func TestParticlesOverlap(t *testing.T) {
 type particleFixture struct {
 	substitutionLookup map[ElementID]map[QName]ElementID
 	substitutions      map[ElementID][]ElementID
-	models             []ContentModel
+	models             []contentModelNode
 	elements           []QName
-	wildcards          []Wildcard
+	wildcards          []wildcardRuntime
 }
 
-func fixtureElements(names []QName, restrictions []ParticleRestrictionElement) []ElementDecl {
-	out := make([]ElementDecl, max(len(names), len(restrictions)))
+func fixtureElements(names []QName, restrictions []particleRestrictionElement) []elementDecl {
+	out := make([]elementDecl, max(len(names), len(restrictions)))
 	for i, name := range names {
 		out[i].Name = name
 	}
@@ -349,7 +349,7 @@ func fixtureElements(names []QName, restrictions []ParticleRestrictionElement) [
 		out[i].Block = r.Block
 		out[i].Identity = slices.Clone(r.Identities.values)
 		if r.Fixed.Present {
-			out[i].Fixed = &ValueConstraint{Lexical: r.Fixed.Lexical, Canonical: r.Fixed.Canonical, Value: r.Fixed.Value, ResolvedNames: slices.Clone(r.Fixed.ResolvedNames), qnameContext: r.Fixed.qnameContext}
+			out[i].Fixed = &valueConstraint{Lexical: r.Fixed.Lexical, Canonical: r.Fixed.Canonical, Value: r.Fixed.Value, ResolvedNames: slices.Clone(r.Fixed.ResolvedNames), qnameContext: r.Fixed.qnameContext}
 		}
 	}
 	return out

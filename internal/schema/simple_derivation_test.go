@@ -8,7 +8,7 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-func testSimpleType(variety value.Variety, base SimpleTypeID, members ...SimpleTypeID) SimpleType {
+func testSimpleType(variety value.Variety, base SimpleTypeID, members ...SimpleTypeID) simpleType {
 	spec := value.TypeSpec{Variety: variety, Base: base}
 	switch variety {
 	case value.Atomic:
@@ -19,16 +19,16 @@ func testSimpleType(variety value.Variety, base SimpleTypeID, members ...SimpleT
 	case value.Union:
 		spec.Union = append([]SimpleTypeID(nil), members...)
 	}
-	return SimpleType{ValueSpec: spec}
+	return simpleType{ValueSpec: spec}
 }
 
 func TestCheckSimpleRestrictionBase(t *testing.T) {
 	t.Parallel()
 
-	if err := CheckSimpleRestrictionBase(1, 0); err != nil {
+	if err := checkSimpleRestrictionBase(1, 0); err != nil {
 		t.Fatalf("CheckSimpleRestrictionBase(non-anySimpleType) error = %v", err)
 	}
-	err := CheckSimpleRestrictionBase(1, 1)
+	err := checkSimpleRestrictionBase(1, 1)
 	expectCompileDiagnostic(t, err, xsderrors.CodeSchemaReference, "simple type cannot restrict xs:anySimpleType")
 }
 
@@ -39,28 +39,28 @@ func TestCheckSimpleTypeFinalAllows(t *testing.T) {
 		name       string
 		final      DerivationMask
 		derivation DerivationMask
-		role       SimpleTypeFinalRole
+		role       simpleTypeFinalRole
 		msg        string
 	}{
 		{
 			name:       "restriction",
 			final:      DerivationRestriction,
 			derivation: DerivationRestriction,
-			role:       SimpleTypeFinalBaseRestriction,
+			role:       simpleTypeFinalBaseRestriction,
 			msg:        "base simple type final blocks restriction",
 		},
 		{
 			name:       "list",
-			final:      DerivationList,
-			derivation: DerivationList,
-			role:       SimpleTypeFinalListItem,
+			final:      derivationList,
+			derivation: derivationList,
+			role:       simpleTypeFinalListItem,
 			msg:        "item simple type final blocks list",
 		},
 		{
 			name:       "union",
-			final:      DerivationUnion,
-			derivation: DerivationUnion,
-			role:       SimpleTypeFinalUnionMember,
+			final:      derivationUnion,
+			derivation: derivationUnion,
+			role:       simpleTypeFinalUnionMember,
 			msg:        "member simple type final blocks union",
 		},
 	}
@@ -68,10 +68,10 @@ func TestCheckSimpleTypeFinalAllows(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if err := CheckSimpleTypeFinalAllows(0, tt.derivation, tt.role); err != nil {
+			if err := checkSimpleTypeFinalAllows(0, tt.derivation, tt.role); err != nil {
 				t.Fatalf("CheckSimpleTypeFinalAllows(allowed) error = %v", err)
 			}
-			err := CheckSimpleTypeFinalAllows(tt.final, tt.derivation, tt.role)
+			err := checkSimpleTypeFinalAllows(tt.final, tt.derivation, tt.role)
 			expectCompileDiagnostic(t, err, xsderrors.CodeSchemaReference, tt.msg)
 		})
 	}

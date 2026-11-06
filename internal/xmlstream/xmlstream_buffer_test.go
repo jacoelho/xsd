@@ -324,7 +324,7 @@ func TestReaderSkippedProcessingInstructionLimits(t *testing.T) {
 		}
 		token, err := reader.Next()
 		if emit {
-			if token != nil || !IsTokenLimit(err) {
+			if token != nil || !isLimit(err, LimitTokenBytes) {
 				t.Fatalf("emitted PI = %v, %v, want token limit", token, err)
 			}
 			continue
@@ -349,10 +349,10 @@ func TestReaderSkippedProcessingInstructionLimits(t *testing.T) {
 		token, err := reader.Next()
 		if limit < int64(len(input)) {
 			boundary, ok := errors.AsType[*Error](err)
-			if token != nil || !ok || boundary.Kind != ErrorLimit || !IsInputLimit(err) {
+			if token != nil || !ok || boundary.Kind != ErrorLimit || !isLimit(err, LimitInputBytes) {
 				t.Fatalf("limited PI = %v, %v, want input limit", token, err)
 			}
-			if _, nextErr := reader.Next(); !IsInputLimit(nextErr) {
+			if _, nextErr := reader.Next(); !isLimit(nextErr, LimitInputBytes) {
 				t.Fatalf("repeated Next() = %v, lost input limit", nextErr)
 			}
 			continue
@@ -406,7 +406,7 @@ func TestInputReadRequestsAreBounded(t *testing.T) {
 			t.Parallel()
 			recorder := &requestRecorder{src: strings.NewReader(test.input)}
 			_, err := recordReader(recorder, Config{Limits: Limits{MaxInputBytes: test.limit}}, 0)
-			if test.wantLimit != IsInputLimit(err) || (!test.wantLimit && err != nil) {
+			if test.wantLimit != isLimit(err, LimitInputBytes) || (!test.wantLimit && err != nil) {
 				t.Fatalf("lifecycle error = %v, want input limit %t", err, test.wantLimit)
 			}
 			if len(recorder.requests) == 0 {
@@ -438,7 +438,7 @@ func TestTextRunIsOneTokenAtAnyBufferBoundary(t *testing.T) {
 			document := "<r>" + strings.Repeat("a", n) + "</r>"
 			for _, rc := range []readerCase{wholeInput, oneByteInput} {
 				tokens, err := recordReader(rc.open(document), Config{Limits: Limits{MaxTokenBytes: int64(n - 1)}}, 0)
-				if !IsTokenLimit(err) {
+				if !isLimit(err, LimitTokenBytes) {
 					t.Fatalf("%s: MaxTokenBytes=%d error = %v, want token limit", rc.name, n-1, err)
 				}
 				if got := textTokenLengths(tokens); len(got) != 0 {

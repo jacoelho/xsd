@@ -47,7 +47,7 @@ func builtinRestriction(local string) func(*testing.T) []TypeSpec {
 		if !ok {
 			t.Fatalf("no builtin %s", local)
 		}
-		def, ok := NewBuilder(BuilderOptions{}).program.typeDef(base)
+		def, ok := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).program.typeDef(base)
 		if !ok {
 			t.Fatalf("no builtin definition %s", local)
 		}
@@ -296,15 +296,15 @@ var valueSpaceValidators = []struct {
 	validate func(p *Program, id TypeID, input string, needs Needs) error
 }{
 	{name: "Validate", validate: func(p *Program, id TypeID, input string, needs Needs) error {
-		_, err := p.Validate(id, input, valueSpaceResolver, needs, 16<<20, nil)
+		_, err := p.Validate(id, input, valueSpaceResolver, needs, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		return err
 	}},
 	{name: "ValidateAdmitted", validate: func(p *Program, id TypeID, input string, needs Needs) error {
-		_, err := p.ValidateAdmitted(id, input, valueSpaceResolver, needs, 16<<20, nil)
+		_, err := p.ValidateAdmitted(id, input, valueSpaceResolver, needs, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		return err
 	}},
 	{name: "ValidateBytes", validate: func(p *Program, id TypeID, input string, needs Needs) error {
-		_, err := p.ValidateBytes(id, []byte(input), valueSpaceResolver, needs, 16<<20, nil)
+		_, err := p.ValidateBytes(id, []byte(input), valueSpaceResolver, needs, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		return err
 	}},
 }
@@ -332,11 +332,11 @@ func TestEnumerationValueKeyLookupAllocatesNothingForLongKeys(t *testing.T) {
 	if !enumerationGroupIndexed(t, program, id) {
 		t.Fatal("QName enumeration group is not indexed")
 	}
-	if _, err := program.Validate(id, "a:l3", resolver, 0, 16<<20, nil); err != nil {
+	if _, err := program.Validate(id, "a:l3", resolver, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 		t.Fatalf("Validate(a:l3) error = %v", err)
 	}
 	if allocs := testing.AllocsPerRun(100, func() {
-		if _, err := program.Validate(id, "a:l3", resolver, 0, 16<<20, nil); err != nil {
+		if _, err := program.Validate(id, "a:l3", resolver, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: sequentialPatternTotal}, nil); err != nil {
 			t.Fatal(err)
 		}
 	}); allocs != 0 {

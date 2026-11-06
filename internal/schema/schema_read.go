@@ -23,11 +23,11 @@ func (rt *Schema) IdentityDispatch() IdentityDispatchRead {
 }
 
 func (rt *Schema) complexAttributeUses(id ComplexTypeID) (AttributeUseSetRead, bool) {
-	if !ValidComplexTypeID(id, len(rt.program.ComplexTypes)) {
+	if !validComplexTypeID(id, len(rt.program.ComplexTypes)) {
 		return AttributeUseSetRead{}, false
 	}
 	set := rt.program.ComplexTypes[id].attributeUseSet
-	if !ValidAttributeUseSetID(set, len(rt.program.AttributeUseSets)) {
+	if !validAttributeUseSetID(set, len(rt.program.AttributeUseSets)) {
 		return AttributeUseSetRead{}, false
 	}
 	return rt.program.AttributeUseSets[set], true
@@ -71,18 +71,18 @@ func (rt *Schema) simpleElementFrame(frame ElementFrameRead, id SimpleTypeID) (E
 	if _, _, valid := rt.simpleTypeAvailability(id); !valid {
 		return ElementFrameRead{}, false
 	}
-	content, valid := rt.contentFrameForModel(NoContentModel)
+	content, valid := rt.contentFrameForModel(noContentModel)
 	if !valid {
 		return ElementFrameRead{}, false
 	}
 	frame.Content = content
 	frame.SimpleContent = id
-	frame.TextContent.kind = ContentSimple
+	frame.TextContent.kind = contentSimple
 	return frame, true
 }
 
 func (rt *Schema) complexElementFrame(frame ElementFrameRead, id ComplexTypeID) (ElementFrameRead, bool) {
-	if !ValidComplexTypeID(id, len(rt.program.ComplexTypes)) {
+	if !validComplexTypeID(id, len(rt.program.ComplexTypes)) {
 		return ElementFrameRead{}, false
 	}
 	read := rt.program.ComplexTypes[id]

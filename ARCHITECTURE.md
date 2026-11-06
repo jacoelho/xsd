@@ -189,6 +189,15 @@ schema owns facet admission, final constraints and schema-use policy.
 compilation and sealing. Spent work is never refunded. Publication consumes the
 build only on success; `*schema.Schema` exposes only immutable derived reads.
 
+`internal/schema`, `internal/value` and `internal/validate` export only
+identifiers consumed outside their package: for schema the published read
+surface plus `Compile`, `CompileMappedSources`, `NormalizeOptions`,
+`Options` and `Limits`. Types in exported signatures stay exported; everything
+else is unexported; external test packages reach internals
+only through aliases in `export_test.go`. Fixed-value comparison, for attributes
+and elements, is owned by `internal/validate` (`fixedValueEqual`, value space,
+identity required).
+
 Contracts `internal/validate` relies on:
 
 - `ElementFrameRead`: effective-type text policy, simple content and initial
@@ -235,7 +244,48 @@ owner, `internal/schema`, because no value-owned parser exists for them.
   listed in `docs/RESOURCE_LIMITS.md`, and it does not depend on compilation
   options. The sealed program keeps no caller limits or work counters.
   `ErrLimit` failures keep their schema or instance diagnostic category at the
-  calling boundary.
+  calling boundary. `internal/schema` translates every value failure through
+  one function, `schemaValueError`: `ErrMetadata` is an internal invariant,
+  then limits are `schema.limit`, then unsupported diagnostics and existing
+  structured diagnostics pass through, and any other failure keeps its value
+  reason under the caller's code. Whitespace loosening is rejected only by the
+  value Builder's derivation check.
+- **Pattern work.** Pattern matching draws on two accounts.
+  `EvaluationLimits.PatternWork` is the per-value budget, supplied by
+  `MaxInstancePatternWork` at instance time and `MaxSchemaPatternWork` for
+  compiler literals. One per-value budget is shared by every pattern group,
+  list item and union attempt of a top-level evaluation; each bound,
+  enumeration, fixed or default literal is its own top-level evaluation, even
+  where one type's facet literals share traversal work. It bounds one value,
+  not a document. `EvaluationLimits.PatternTotal` points to a caller-owned
+  `value.PatternAccount` that sums pattern work over many evaluations. The
+  validate session owns the per-document account (limit
+  `MaxInstanceTotalPatternWork`) and resets it at every `session.validate`
+  entry, including after a document that failed mid-stream. `value.Builder`
+  owns the per-compilation account, configured by `internal/schema` through
+  `BuilderOptions.MaxTotalPatternWork` (`MaxSchemaTotalPatternWork`). Every
+  compile-time evaluation through `Builder.Validate` or `Builder.Complete`
+  charges it, including a facet literal's base-type check. There is no
+  uncharged evaluation path, so `MaxSchemaTotalPatternWork` bounds all
+  compile-time pattern matching. A facet literal can be charged for its
+  base-type check and again when facet compilation re-evaluates it; a value
+  constraint is charged once. Publication audits element and attribute value
+  constraints structurally (shape, QName context, resolved-name proof
+  membership) and never re-evaluates them. The
+  account is passed by pointer from its owner at each call and never
+  snapshotted, so the XSI identity path receives `EvaluationLimits` built from
+  the live session, not from `identityEvaluation.limits`. Each match runs with
+  the smaller of the two remainders and a limit failure charges the granted
+  work to both. Exhausting the per-value budget returns `ErrPatternLimit`;
+  exhausting the account returns `ErrPatternTotalLimit` only when its
+  remainder was strictly smaller, so ties name the per-value option. Both wrap
+  `ErrLimit`, so each plane names the option its caller can raise. Defaults are
+  finite and owned by their planes (`internal/validate`, `internal/schema`);
+  the instance total default is the per-value default times
+  `MaxInstanceBytes / MaxInstanceTextBytes`. `Program.Validate*` rejects a zero
+  `EvaluationLimits` field, a nil `PatternTotal` or a zero account limit, and
+  `BuilderOptions.MaxPatternWork` and `MaxTotalPatternWork` have no default;
+  each is `ErrMetadata`.
 - **Input requirements.** Callers read one scalar `InputRequirements`
   projection for QName context, document identity, and raw-text comparison
   eligibility (`UnconstrainedString`, `LexicalCanonical`). They never read
@@ -250,27 +300,47 @@ owner, `internal/schema`, because no value-owned parser exists for them.
   when no identity constraint asked for a value. Static metadata cannot
   replace them.
 - **QName resolution.** `ExpandedName` is both the `QNameResolver` result and
-  the QName/NOTATION payload. Compilation, proof replay, and document
+  the QName/NOTATION payload. Compilation, facet-literal proof replay, and document
   assessment supply resolvers under that one contract. Value revalidates the
   result and owns the NOTATION declaration check.
 - **Equality.** Equality uses the value space (`Value.Equal`, `IdentityKey`).
   Text projections never define equality, and duration has no canonical form.
-  Schema fixed-value and value-constraint identity checks compare typed
-  constraints with `Value.Equal` only; canonical text is compared only when a
+  Fixed-value checks (validate-owned) and schema value-constraint identity checks
+  compare typed constraints with `Value.Equal` only; canonical text is compared only when a
   constraint has no value type.
   A retained `Value` stays valid after its scratch is reused or reset.
-- **Patterns.** Pattern syntax and match limits belong to `internal/xsdregex`.
-  Value owns pattern grouping: alternatives within one restriction step, and
-  every inherited step applies.
+- **Patterns.** Pattern syntax, the fixed compile bounds and the match work
+  unit belong to `internal/xsdregex`; the match work unit is defined on
+  `xsdregex.MatchOptions` and restated for callers in `docs/RESOURCE_LIMITS.md`;
+  work is a function of pattern and input only. Value owns pattern grouping (alternatives
+  within one restriction step, and every inherited step applies) and the
+  per-value pattern budget described under **Pattern work**. The aggregate
+  `MaxSchemaPatternRetainedBytes` budget and the per-compilation pattern cache
+  keyed by pattern text belong to `internal/schema`; identical text is
+  compiled and charged once.
 
 ### `internal/xsdregex`
 
 `internal/xsdregex` owns XSD 1.0 whole-input pattern semantics, from syntax
 through bounded compilation and matching. It does not translate patterns into a
 host regexp dialect. XML input admission belongs to `internal/xmlstream`, so
-match callers must pass valid UTF-8 XML text. Compilation and matching take
-explicit work and state limits (`CompileOptions`, `MatchOptions`), and
-`internal/value` maps their limit errors to `ErrLimit`. Compiled patterns are
+match callers must pass valid UTF-8 XML text. Compilation uses fixed
+xsdregex-owned structural bounds (constants, not options; numbers in
+[RESOURCE_LIMITS.md](docs/RESOURCE_LIMITS.md)), because the NFA expands counted
+repeats and precomputes closures. The schema plane reports a compile-bound
+failure as `schema.limit`. The state bound limits the number of compiled
+states, and so every match-time state set; it never limits input length.
+Per-pattern bounds do not bound aggregate memory. `Pattern.RetainedBytes` is
+the admitted measure: an estimate covering instructions or linear atoms,
+precomputed closures and closure bitsets, the source and the character ranges,
+weighted by byte constants that tests keep at least `unsafe.Sizeof` of what
+they estimate. Every retained derived structure must have a term there. Ranges
+are charged once per backing array, by capacity; the over-count for subslices
+is deliberate. `internal/schema` sums the estimate over distinct pattern
+texts. Matching takes only a work budget (`MatchOptions.MaxWork`)
+whose unit definition lives in the `MatchOptions` doc comment and reports the
+work it used. `internal/value` charges that work to its per-value pattern
+budget and maps exhaustion to `ErrPatternLimit`. Compiled patterns are
 immutable and safe to share. Scratch is owned by the caller, and no
 process-wide cache keeps patterns. The block catalog leaves out the XSD 1.0
 surrogate block names, including in complemented escapes. Corpus expectations
@@ -343,8 +413,30 @@ instance validation, and formatting share one `Reader` contract:
   classifies. Schema, instance, and format consumers map every feature in one
   exhaustive switch and own only the message text, so a new feature fails the
   `exhaustive` lint in each consumer instead of degrading to a syntax error.
+- The reader owns the closed limit classification (`Limit`, `LimitOf`:
+  input bytes, token bytes, attributes, depth); a reader error has
+  `ErrorLimit` kind exactly when `LimitOf` classifies, and there is no separate
+  depth kind. Negative limits are `ErrorState` configuration failures, not
+  exceeded limits. Schema, instance, and format consumers map every `Limit` to
+  their own option name in one exhaustive switch (`schemaReaderLimitError`,
+  `readerLimitOption`, `formatReaderLimitErr`) and report
+  `<option>=<n> exceeded`, so a new limit fails the `exhaustive` lint in each
+  consumer instead of degrading to a syntax error. Each consumer has one
+  reader-error mapping that classifies limits first: validate `streamError`,
+  schema `schemaStreamError`, format `classifyLimit`. Consumers do not re-check
+  limits already handed to the reader; `internal/schema` owns only the
+  cross-token measure the reader cannot see, character data accumulated in one
+  element under `MaxSchemaTokenBytes`.
 - `CharacterDataKind` preserves lexical origin (literal text, references,
-  CDATA); compile, validate, and format use it for their character-content rules.
+  CDATA). Format uses it to keep CDATA whitespace; compile and validate treat
+  all kinds as character data.
+- Attribute values are read only through `Reader.AttrValue`, which returns an
+  owned string while the attribute's token is current. A value skipped by
+  `Config.SkipOrdinaryAttrValues` fails with `ErrAttrValueSkipped` instead of
+  reading as empty; `NewAttr` builds owned values without a reader cache.
+  `Attr.RawValue` is a borrowed, current-token-only view guarded by
+  `TestXMLStreamBorrowedValuesStayEphemeral`
+  (`tests/stream_boundary_test.go`).
 - Comment mode is chosen per consumer: validation uses `CommentModeDiscard`,
   schema parsing `CommentModeBoundedDiscard`, formatting `CommentModeEmit`.
 - `Context` values are immutable and outlive frame close and `Reset`; consumers
@@ -582,6 +674,9 @@ change-detector tests that mirror the implementation or assert their own setup.
 | --- | --- |
 | `tests/phase_import_graph_test.go` | Package allowlists, dependency direction, context-free and reflection-free library code, source I/O ownership, and capability isolation |
 | `tests/phase_boundary_test.go` | Required modules, single facade execution edges, session construction ownership, and retired public paths |
+| `tests/schema_diagnostic_text_test.go` | Schema diagnostics quote schema text through `internal/diagnostictext`: an allowlist lint over `internal/schema` message operands (known gaps are listed in its doc comment); the public hostile-value table in `schema_diagnostic_bound_test.go` is the contract proof |
+| `tests/schema_export_surface_test.go` | The exported top-level identifiers of `internal/schema`, `internal/value` and `internal/validate` equal an explicit allowlist of the surface consumed across packages |
+| `tests/resource_limits_doc_test.go` | `docs/RESOURCE_LIMITS.md` option tables list every public option with its code-owned default |
 | `tests/root_public_shape_test.go` and `tests/external_api_smoke_test.go` | External callers use only the supported public packages and interface |
 | `tests/stream_boundary_test.go` | Structural borrowed-type restrictions and intraprocedural retention checks, including raw byte fields and aliases erased to interfaces |
 | `tests/schema_build_boundary_test.go` | Compiler topology mutation has one owner |
@@ -634,6 +729,43 @@ graph preserves these ownership rules:
 `.github/workflows/test.yml` owns CI ordering and grouping.
 
 ## Rejected Alternatives
+
+- A hidden 16 Mi match-work default in `internal/xsdregex`, plus a state cap
+  that also limited linear input length, was rejected: it rejected valid values
+  below the documented text limits (a 100,001-rune value failed `[a-z]+`) and
+  its diagnostic named an option callers could not raise.
+- A documentation-only aggregate bound was rejected: it left the stated
+  document bound false, since CPU grew as the number of values times about one
+  second per value.
+- Redefining `MaxInstancePatternWork` and `MaxSchemaPatternWork` as aggregates
+  was rejected: one value needs a roughly one-second ceiling while large valid
+  documents need far more total work, so one number cannot serve both.
+- Uncharged re-evaluation of already-counted literals
+  (`Builder.ValidateUncharged`) and publication replay of value constraints
+  were rejected. The once-per-literal rule was an unenforced caller
+  convention, and the replay multiplied a shared fixed/default literal by the
+  number of attribute use sets. Consequence: publication no longer re-proves
+  that a cached `Lexical` matches its cached `Value` (including IDs, IDRefs
+  and `IdentityKey`), because the compiler-produced build is trusted within
+  one compilation.
+- An exported account pointer on `BuilderOptions` was rejected: `value.Builder`
+  owns the compilation account so a caller cannot share or snapshot it; the
+  option is a scalar.
+- Charging pattern matching to `MaxInstanceValueWork` was rejected: that
+  default is sized for type-graph traversal (text bytes times the type graph)
+  and gives no time bound for matching, whose cost grows as runes times
+  states. It would also change the documented meaning of an existing option.
+- Charging pattern memory through the value-storage bound was rejected: that
+  bound defaults to about 1.5 GiB, so a 925 MB pattern set passes, and its
+  failure names no pattern option.
+- Metering compiled patterns by state count alone, or by an unweighted
+  state-plus-range count, was rejected: closures and range arrays escape a
+  states-only measure, and an unweighted count rejects valid Unicode-category
+  schemas whose ranges retain few bytes each. The unit is estimated retained
+  bytes.
+- Tunable `xsdregex` compile options were rejected: no production caller set
+  them, and they contradicted fixed per-pattern bounds. Aggregate admission is
+  the only tunable.
 
 ### Diagnostics
 
@@ -846,6 +978,15 @@ graph preserves these ownership rules:
 
 ### Public API, Browser And Tooling
 
+- Command import edges are an explicit allowlist enforced by `TestCmdImportEdges`
+  in `tests/phase_import_graph_test.go` (host and `GOOS=js GOARCH=wasm`):
+  `cmd/wasmxsd` imports the root package, `xsderrors`, `internal/format`, and
+  `internal/validate`; `cmd/xmllint` imports the root package and `xsderrors`;
+  `cmd/xsdweb` imports no repository package. A new command fails the test until
+  listed. `cmd/wasmxsd` calls `validate.CheckXMLWellFormed` directly to give
+  schema-free XML diagnostics when compilation fails, with options converted from
+  its single `xsd.ValidateOptions` value. A public root `CheckWellFormed` was
+  rejected because it would add public API for one adapter.
 - Path-based asset checks followed by unrestricted serving were rejected because
   symlinked ancestors and replacements could escape the configured directory.
   One standard-library root handle contains both operations.
@@ -876,8 +1017,11 @@ graph preserves these ownership rules:
   than restating them. Comments explain non-obvious intent, constraints, and
   consequences, not the code itself.
 - `README.md` documents public usage, command workflows, and benchmark results.
-- `docs/RESOURCE_LIMITS.md` owns the public option reference: defaults,
-  zero-value rules, and limit interaction.
+- Default limit values are owned by the constants in
+  `internal/validate/options.go` and `internal/schema/options.go`.
+  `docs/RESOURCE_LIMITS.md` owns the public option reference (zero-value rules,
+  meaning, limit interaction); `tests/resource_limits_doc_test.go` checks its
+  tables against those constants through the public zero-value options.
 - `docs/BENCHMARKS.md` owns benchmark methodology, reproduction commands, and
   comparison workloads.
 - `docs` holds only documentation: `docs/BENCHMARKS.md`,

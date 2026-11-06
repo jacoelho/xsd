@@ -1,38 +1,39 @@
 package schema
 
 import (
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// ValidateIdentityConstraintNameSource validates declaration-level identity
+// validateIdentityConstraintNameSource validates declaration-level identity
 // constraint name source.
-func ValidateIdentityConstraintNameSource(name LexicalAttribute) error {
+func validateIdentityConstraintNameSource(name lexicalAttribute) error {
 	if !name.Present || name.Value == "" {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "identity constraint missing name")
 	}
 	return nil
 }
 
-// IdentityConstraintReferSource keeps the declaration kind and refer attribute
+// identityConstraintReferSource keeps the declaration kind and refer attribute
 // together for keyref source admission.
-type IdentityConstraintReferSource struct {
+type identityConstraintReferSource struct {
 	Local string
-	Refer LexicalAttribute
+	Refer lexicalAttribute
 }
 
-// ValidateIdentityConstraintReferSource validates declaration-level keyref
+// validateIdentityConstraintReferSource validates declaration-level keyref
 // reference source.
-func ValidateIdentityConstraintReferSource(source IdentityConstraintReferSource) error {
+func validateIdentityConstraintReferSource(source identityConstraintReferSource) error {
 	if source.Local == vocab.XSDElemKeyref && !source.Refer.Present {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "keyref missing refer")
 	}
 	return nil
 }
 
-// IdentityConstraintKindForLocal maps identity constraint element names to
+// identityConstraintKindForLocal maps identity constraint element names to
 // runtime identity kinds.
-func IdentityConstraintKindForLocal(local string) (IdentityKind, error) {
+func identityConstraintKindForLocal(local string) (IdentityKind, error) {
 	switch local {
 	case vocab.XSDElemKey:
 		return IdentityKey, nil
@@ -41,13 +42,13 @@ func IdentityConstraintKindForLocal(local string) (IdentityKind, error) {
 	case vocab.XSDElemKeyref:
 		return IdentityKeyRef, nil
 	default:
-		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity constraint "+local)
+		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity constraint "+diagnostictext.Quote(local))
 	}
 }
 
-// CheckIdentityConstraintNameAvailable rejects duplicate global identity
+// checkIdentityConstraintNameAvailable rejects duplicate global identity
 // constraint names.
-func CheckIdentityConstraintNameAvailable(
+func checkIdentityConstraintNameAvailable(
 	identities map[QName]IdentityConstraintID,
 	name QName,
 	label string,
@@ -58,9 +59,9 @@ func CheckIdentityConstraintNameAvailable(
 	return nil
 }
 
-// ResolveIdentityConstraintRefer resolves a keyref refer name against declared
+// resolveIdentityConstraintRefer resolves a keyref refer name against declared
 // global identity constraints.
-func ResolveIdentityConstraintRefer(
+func resolveIdentityConstraintRefer(
 	identities map[QName]IdentityConstraintID,
 	name QName,
 	label string,
@@ -72,13 +73,13 @@ func ResolveIdentityConstraintRefer(
 	return id, nil
 }
 
-// ValidateIdentityReferences validates compile-time keyref reference shape.
-func ValidateIdentityReferences(identities []IdentityConstraint) error {
+// validateIdentityReferences validates compile-time keyref reference shape.
+func validateIdentityReferences(identities []identityConstraintSpec) error {
 	for _, ic := range identities {
 		if ic.Kind != IdentityKeyRef {
 			continue
 		}
-		if !ValidUint32Index(uint32(ic.Refer), len(identities)) {
+		if !validUint32Index(uint32(ic.Refer), len(identities)) {
 			return xsderrors.InternalInvariant("keyref references missing identity constraint")
 		}
 		ref := identities[ic.Refer]

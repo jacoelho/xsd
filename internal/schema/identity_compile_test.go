@@ -11,10 +11,10 @@ import (
 func TestValidateIdentityConstraintNameSource(t *testing.T) {
 	t.Parallel()
 
-	if err := ValidateIdentityConstraintNameSource(LexicalAttribute{Value: "name", Present: true}); err != nil {
+	if err := validateIdentityConstraintNameSource(lexicalAttribute{Value: "name", Present: true}); err != nil {
 		t.Fatalf("ValidateIdentityConstraintNameSource(present) error = %v", err)
 	}
-	err := ValidateIdentityConstraintNameSource(LexicalAttribute{})
+	err := validateIdentityConstraintNameSource(lexicalAttribute{})
 	expectSchemaIdentityMessage(t, err, "identity constraint missing name")
 }
 
@@ -36,9 +36,9 @@ func TestValidateIdentityConstraintReferSource(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateIdentityConstraintReferSource(IdentityConstraintReferSource{
+			err := validateIdentityConstraintReferSource(identityConstraintReferSource{
 				Local: tt.local,
-				Refer: LexicalAttribute{Present: tt.hasRefer},
+				Refer: lexicalAttribute{Present: tt.hasRefer},
 			})
 			if tt.wantMessage == "" {
 				if err != nil {
@@ -63,13 +63,13 @@ func TestIdentityConstraintKindForLocal(t *testing.T) {
 		{name: "key", local: vocab.XSDElemKey, want: IdentityKey},
 		{name: "unique", local: vocab.XSDElemUnique, want: IdentityUnique},
 		{name: "keyref", local: vocab.XSDElemKeyref, want: IdentityKeyRef},
-		{name: "invalid", local: "selector", wantMessage: "invalid identity constraint selector"},
+		{name: "invalid", local: "selector", wantMessage: "invalid identity constraint \"selector\""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := IdentityConstraintKindForLocal(tt.local)
+			got, err := identityConstraintKindForLocal(tt.local)
 			if tt.wantMessage == "" {
 				if err != nil {
 					t.Fatalf("IdentityConstraintKindForLocal() error = %v", err)
@@ -88,11 +88,11 @@ func TestCheckIdentityConstraintNameAvailable(t *testing.T) {
 	t.Parallel()
 
 	name := QName{Namespace: 2, Local: 3}
-	if err := CheckIdentityConstraintNameAvailable(map[QName]IdentityConstraintID{}, name, "p:k"); err != nil {
+	if err := checkIdentityConstraintNameAvailable(map[QName]IdentityConstraintID{}, name, "p:k"); err != nil {
 		t.Fatalf("CheckIdentityConstraintNameAvailable(absent) error = %v", err)
 	}
 
-	err := CheckIdentityConstraintNameAvailable(
+	err := checkIdentityConstraintNameAvailable(
 		map[QName]IdentityConstraintID{name: 4},
 		name,
 		"p:k",
@@ -114,7 +114,7 @@ func TestResolveIdentityConstraintRefer(t *testing.T) {
 
 	name := QName{Namespace: 2, Local: 3}
 	identities := map[QName]IdentityConstraintID{name: 4}
-	id, err := ResolveIdentityConstraintRefer(identities, name, "p:k")
+	id, err := resolveIdentityConstraintRefer(identities, name, "p:k")
 	if err != nil {
 		t.Fatalf("ResolveIdentityConstraintRefer(existing) error = %v", err)
 	}
@@ -123,7 +123,7 @@ func TestResolveIdentityConstraintRefer(t *testing.T) {
 	}
 
 	missing := QName{Namespace: 2, Local: 5}
-	id, err = ResolveIdentityConstraintRefer(identities, missing, "p:missing")
+	id, err = resolveIdentityConstraintRefer(identities, missing, "p:missing")
 	if id != NoIdentityConstraint {
 		t.Fatalf("ResolveIdentityConstraintRefer(missing) id = %d, want NoIdentityConstraint", id)
 	}
@@ -142,49 +142,49 @@ func TestResolveIdentityConstraintRefer(t *testing.T) {
 func TestValidateIdentityReferences(t *testing.T) {
 	t.Parallel()
 
-	field := IdentityField{Paths: []IdentityFieldPath{{Attribute: NoQName()}}}
-	twoFields := []IdentityField{field, field}
+	field := identityField{Paths: []identityFieldPath{{Attribute: noQName()}}}
+	twoFields := []identityField{field, field}
 
 	tests := []struct {
 		name       string
-		identities []IdentityConstraint
+		identities []identityConstraintSpec
 		category   xsderrors.Category
 		code       xsderrors.Code
 	}{
 		{
 			name: "keyref references key",
-			identities: []IdentityConstraint{
-				{Kind: IdentityKey, Fields: []IdentityField{field}},
-				{Kind: IdentityKeyRef, Refer: 0, Fields: []IdentityField{field}},
+			identities: []identityConstraintSpec{
+				{Kind: IdentityKey, Fields: []identityField{field}},
+				{Kind: IdentityKeyRef, Refer: 0, Fields: []identityField{field}},
 			},
 		},
 		{
 			name: "keyref references unique",
-			identities: []IdentityConstraint{
-				{Kind: IdentityUnique, Fields: []IdentityField{field}},
-				{Kind: IdentityKeyRef, Refer: 0, Fields: []IdentityField{field}},
+			identities: []identityConstraintSpec{
+				{Kind: IdentityUnique, Fields: []identityField{field}},
+				{Kind: IdentityKeyRef, Refer: 0, Fields: []identityField{field}},
 			},
 		},
 		{
 			name: "non-keyref ignores refer",
-			identities: []IdentityConstraint{
-				{Kind: IdentityKey, Refer: 99, Fields: []IdentityField{field}},
+			identities: []identityConstraintSpec{
+				{Kind: IdentityKey, Refer: 99, Fields: []identityField{field}},
 			},
 		},
 		{
 			name: "keyref cannot reference keyref",
-			identities: []IdentityConstraint{
-				{Kind: IdentityKey, Fields: []IdentityField{field}},
-				{Kind: IdentityKeyRef, Refer: 0, Fields: []IdentityField{field}},
-				{Kind: IdentityKeyRef, Refer: 1, Fields: []IdentityField{field}},
+			identities: []identityConstraintSpec{
+				{Kind: IdentityKey, Fields: []identityField{field}},
+				{Kind: IdentityKeyRef, Refer: 0, Fields: []identityField{field}},
+				{Kind: IdentityKeyRef, Refer: 1, Fields: []identityField{field}},
 			},
 			category: xsderrors.CategorySchemaCompile,
 			code:     xsderrors.CodeSchemaIdentity,
 		},
 		{
 			name: "keyref field count must match referenced key",
-			identities: []IdentityConstraint{
-				{Kind: IdentityKey, Fields: []IdentityField{field}},
+			identities: []identityConstraintSpec{
+				{Kind: IdentityKey, Fields: []identityField{field}},
 				{Kind: IdentityKeyRef, Refer: 0, Fields: twoFields},
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -192,8 +192,8 @@ func TestValidateIdentityReferences(t *testing.T) {
 		},
 		{
 			name: "invalid refer is invariant failure",
-			identities: []IdentityConstraint{
-				{Kind: IdentityKeyRef, Refer: 9, Fields: []IdentityField{field}},
+			identities: []identityConstraintSpec{
+				{Kind: IdentityKeyRef, Refer: 9, Fields: []identityField{field}},
 			},
 			category: xsderrors.CategoryInternal,
 			code:     xsderrors.CodeInternalInvariant,
@@ -203,7 +203,7 @@ func TestValidateIdentityReferences(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateIdentityReferences(tt.identities)
+			err := validateIdentityReferences(tt.identities)
 			if tt.code == "" {
 				if err != nil {
 					t.Fatalf("ValidateIdentityReferences() error = %v", err)

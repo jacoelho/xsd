@@ -34,7 +34,7 @@ func TestNextContentQNameBounds(t *testing.T) {
 				return
 			}
 			kind, element := transition.Match()
-			if status != ContentTransitionMatched || kind != ContentMatchDeclared || element != test.want {
+			if status != contentTransitionMatched || kind != ContentMatchDeclared || element != test.want {
 				t.Fatalf("named match = %v/%v/%v, want declared %v", status, kind, element, test.want)
 			}
 			if !transition.Commit(&st, &ContentScratch{}) || st.state != 1 {
@@ -63,16 +63,16 @@ func TestNextContentExhaustedNamedCandidateContinuesToWildcard(t *testing.T) {
 			row.Counted, row.Min, row.Max = true, 1, 1
 			row.CountParticle = row.Edges[0].Particle
 			row.Edges[0].To = 0
-			row.Edges = append(row.Edges, CompiledModelEdge{Particle: WildcardParticle(0, Occurrence{Min: 1, Max: 1}), To: 1})
-			if err := IndexCompiledModelsRows(build, build.CompiledModels, unlimitedContentModelWork); err != nil {
+			row.Edges = append(row.Edges, compiledModelEdge{Particle: wildcardParticle(0, occurrence{Min: 1, Max: 1}), To: 1})
+			if err := indexCompiledModelsRows(build, build.CompiledModels, unlimitedContentModelWork); err != nil {
 				t.Fatal(err)
 			}
 			rt := contentContractSchema(build, testCompiledModelReads(build.CompiledModels))
-			rt.program.Wildcards = []WildcardView{newWildcardView(nil, &Wildcard{Mode: WildcardAny, Process: ProcessSkip})}
+			rt.program.Wildcards = []WildcardView{newWildcardView(nil, &wildcardRuntime{Mode: WildcardAny, Process: ProcessSkip})}
 			st := ContentState{model: 0, count: 1, present: true}
 			transition, status := rt.NextContent(st, ContentInput{Name: RuntimeName{Known: true, Name: QName{Local: 1}}}, &ContentScratch{})
 			kind, _ := transition.Match()
-			if status != ContentTransitionMatched || kind != ContentMatchSkip || !transition.Commit(&st, &ContentScratch{}) || st.state != 1 {
+			if status != contentTransitionMatched || kind != ContentMatchSkip || !transition.Commit(&st, &ContentScratch{}) || st.state != 1 {
 				t.Fatalf("exhausted named candidate = %+v/%v/%v, want wildcard exit", st, status, kind)
 			}
 		})
@@ -90,9 +90,9 @@ func TestNextContentDuplicateNameKeepsCountedLoopAndExit(t *testing.T) {
 			row.CountParticle = row.Edges[0].Particle
 			loop := row.Edges[0]
 			loop.To = 0
-			row.Edges = append([]CompiledModelEdge{loop}, row.Edges...)
+			row.Edges = append([]compiledModelEdge{loop}, row.Edges...)
 			row.index = dfaRowIndex{}
-			if err := IndexCompiledModelsRows(build, build.CompiledModels, unlimitedContentModelWork); err != nil {
+			if err := indexCompiledModelsRows(build, build.CompiledModels, unlimitedContentModelWork); err != nil {
 				t.Fatal(err)
 			}
 			reads := testCompiledModelReads(build.CompiledModels)
@@ -100,7 +100,7 @@ func TestNextContentDuplicateNameKeepsCountedLoopAndExit(t *testing.T) {
 			st := ContentState{model: 0, present: true}
 			for _, want := range []ContentState{{model: 0, count: 1, present: true}, {model: 0, count: 2, present: true}, {model: 0, state: 1, present: true}} {
 				transition, status := rt.NextContent(st, ContentInput{Name: RuntimeName{Known: true, Name: QName{Local: 1}}}, &ContentScratch{})
-				if status != ContentTransitionMatched || !transition.Commit(&st, &ContentScratch{}) || st != want {
+				if status != contentTransitionMatched || !transition.Commit(&st, &ContentScratch{}) || st != want {
 					t.Fatalf("counted transition = %+v/%v, want %+v", st, status, want)
 				}
 			}
@@ -111,25 +111,25 @@ func TestNextContentDuplicateNameKeepsCountedLoopAndExit(t *testing.T) {
 func contentContractNames(count int) []QName {
 	names := make([]QName, count)
 	for i := range names {
-		local, ok := NewUint32Index(i + 1)
+		local, ok := newUint32Index(i + 1)
 		if !ok {
 			panic("test local-name ID exceeds uint32")
 		}
-		names[i] = QName{Local: LocalNameID(local)}
+		names[i] = QName{Local: localNameID(local)}
 	}
 	return names
 }
 
 func contentContractBuild(t *testing.T, names []QName) *schemaBuild {
 	t.Helper()
-	build := &schemaBuild{Elements: make([]ElementDecl, len(names))}
-	edges := make([]CompiledModelEdge, len(names))
+	build := &schemaBuild{Elements: make([]elementDecl, len(names))}
+	edges := make([]compiledModelEdge, len(names))
 	for i, name := range names {
-		build.Elements[i] = ElementDecl{Name: name}
-		edges[i] = CompiledModelEdge{Particle: ElementParticle(ElementID(i), Occurrence{Min: 1, Max: 1}), To: 1}
+		build.Elements[i] = elementDecl{Name: name}
+		edges[i] = compiledModelEdge{Particle: elementParticle(ElementID(i), occurrence{Min: 1, Max: 1}), To: 1}
 	}
-	build.CompiledModels = []CompiledModel{{Kind: CompiledModelDFA, Rows: []CompiledModelRow{{Edges: edges}, {Accept: true}}}}
-	if err := IndexCompiledModelsRows(build, build.CompiledModels, unlimitedContentModelWork); err != nil {
+	build.CompiledModels = []compiledModel{{Kind: compiledModelDFA, Rows: []compiledModelRow{{Edges: edges}, {Accept: true}}}}
+	if err := indexCompiledModelsRows(build, build.CompiledModels, unlimitedContentModelWork); err != nil {
 		t.Fatal(err)
 	}
 	return build
@@ -143,26 +143,26 @@ func TestNextContentWarmNamedDispatchAllocatesNothing(t *testing.T) {
 	for _, width := range []uint32{4, 8, 16} {
 		t.Run(map[uint32]string{4: "four edges", 8: "eight edges", 16: "sixteen edges"}[width], func(t *testing.T) {
 			names := make(map[ElementID]QName, width)
-			edges := make([]CompiledModelEdge, width)
+			edges := make([]compiledModelEdge, width)
 			for i := range width {
 				id := ElementID(i + 1)
-				names[id] = QName{Local: LocalNameID(i + 1)}
-				edges[i] = CompiledModelEdge{Particle: ElementParticle(id, Occurrence{Min: 1, Max: 1}), To: 1}
+				names[id] = QName{Local: localNameID(i + 1)}
+				edges[i] = compiledModelEdge{Particle: elementParticle(id, occurrence{Min: 1, Max: 1}), To: 1}
 			}
 			build := (dfaRowIndexFixture{elementNames: names}).build()
-			models := []CompiledModel{{Kind: CompiledModelDFA, Rows: []CompiledModelRow{{Edges: edges}, {Accept: true}}}}
-			if err := IndexCompiledModelsRows(build, models, unlimitedContentModelWork); err != nil {
+			models := []compiledModel{{Kind: compiledModelDFA, Rows: []compiledModelRow{{Edges: edges}, {Accept: true}}}}
+			if err := indexCompiledModelsRows(build, models, unlimitedContentModelWork); err != nil {
 				t.Fatal(err)
 			}
-			rt := publishedContentSchema(contentSchemaFixture{models: map[ContentModelID]CompiledModel{0: models[0]}, elementNames: names})
+			rt := publishedContentSchema(contentSchemaFixture{models: map[contentModelID]compiledModel{0: models[0]}, elementNames: names})
 			initial := ContentState{model: 0, present: true}
-			input := ContentInput{Name: RuntimeName{Known: true, Name: QName{Local: LocalNameID(width)}}}
+			input := ContentInput{Name: RuntimeName{Known: true, Name: QName{Local: localNameID(width)}}}
 			var scratch ContentScratch
 			transition, status := rt.NextContent(initial, input, &scratch)
 			check := func() {
 				t.Helper()
 				kind, element := transition.Match()
-				if status != ContentTransitionMatched || kind != ContentMatchDeclared || element != ElementID(width) {
+				if status != contentTransitionMatched || kind != ContentMatchDeclared || element != ElementID(width) {
 					t.Fatalf("named dispatch = %v/%v/%v, want declaration %d", status, kind, element, width)
 				}
 				next := initial

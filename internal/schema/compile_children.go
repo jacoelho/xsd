@@ -3,6 +3,7 @@ package schema
 import (
 	"encoding/xml"
 
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/uriref"
 	"github.com/jacoelho/xsd/internal/vocab"
@@ -10,9 +11,9 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-func schemaLexicalAttributeSyntax(n *schemaSyntaxNode, name string) LexicalAttribute {
+func schemaLexicalAttributeSyntax(n *schemaSyntaxNode, name string) lexicalAttribute {
 	value, present := n.attr(name)
-	return LexicalAttribute{Value: value, Present: present}
+	return lexicalAttribute{Value: value, Present: present}
 }
 
 func checkXMLBaseAttributeSyntax(n *schemaSyntaxNode) error {
@@ -40,7 +41,7 @@ func checkSchemaAttributesSyntax(n *schemaSyntaxNode) error {
 
 func checkSchemaAttributeSyntax(n *schemaSyntaxNode, attr schemaAttribute) error {
 	if !schemaElementAttributeAllowed(n.Name.Local, attr.Name.Local) {
-		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, n.Name.Local+" cannot have attribute "+attr.Name.Local)
+		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, diagnostictext.Quote(n.Name.Local)+" cannot have attribute "+diagnostictext.Quote(attr.Name.Local))
 	}
 	if !schemaAnyURIAttribute(n.Name.Local, attr.Name.Local) {
 		return nil
@@ -50,7 +51,7 @@ func checkSchemaAttributeSyntax(n *schemaSyntaxNode, attr schemaAttribute) error
 		if attr.Name.Local == vocab.XSDAttrSchemaLocation {
 			code = xsderrors.CodeSchemaReference
 		}
-		return schemaCompileAt(n, code, "invalid "+attr.Name.Local+": "+err.Error())
+		return schemaCompileAt(n, code, "invalid "+diagnostictext.Quote(attr.Name.Local)+": "+err.Error())
 	}
 	return nil
 }
@@ -58,7 +59,7 @@ func checkSchemaAttributeSyntax(n *schemaSyntaxNode, attr schemaAttribute) error
 func rejectSchemaNamespaceAttributes(n *schemaSyntaxNode) error {
 	for _, attr := range n.Attrs {
 		if attr.Name.Space == vocab.XSDNamespaceURI {
-			return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "schema namespace attribute "+attr.Name.Local+" is not allowed")
+			return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "schema namespace attribute "+diagnostictext.Quote(attr.Name.Local)+" is not allowed")
 		}
 	}
 	return nil
@@ -98,7 +99,7 @@ func checkSchemaNodeNamesSyntax(n, parent *schemaSyntaxNode) error {
 	}
 	id, hasID := n.attr(vocab.XSDAttrID)
 	name, hasName := n.attr(vocab.XSDAttrName)
-	return withSchemaCompileLocation(n, ValidateSchemaNodeNames(SchemaNodeNames{
+	return withSchemaCompileLocation(n, validateSchemaNodeNames(schemaNodeNames{
 		Local:       n.Name.Local,
 		ParentLocal: parentLocal,
 		ID:          id,
@@ -110,10 +111,10 @@ func checkSchemaNodeNamesSyntax(n, parent *schemaSyntaxNode) error {
 	}))
 }
 
-func checkSchemaQNamePartsSyntax(n *schemaSyntaxNode, lexical string) (QNameParts, error) {
-	parts, err := ParseQNameParts(lexical)
+func checkSchemaQNamePartsSyntax(n *schemaSyntaxNode, lexical string) (qNameParts, error) {
+	parts, err := parseQNameParts(lexical)
 	if err != nil {
-		return QNameParts{}, withSchemaCompileLocation(n, err)
+		return qNameParts{}, withSchemaCompileLocation(n, err)
 	}
 	return parts, nil
 }
@@ -136,15 +137,15 @@ func checkTopLevelSchemaChildSyntax(n *schemaSyntaxNode) error {
 	case uniqueChild, keyChild, keyrefChild, selectorChild, fieldChild:
 		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "identity constraint must be inside element")
 	default:
-		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "invalid top-level schema child "+local)
+		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "invalid top-level schema child "+diagnostictext.Quote(local))
 	}
 	for _, attr := range forbidden {
 		if _, present := n.attr(attr); present {
-			return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "top-level "+local+" cannot have "+attr)
+			return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "top-level "+diagnostictext.Quote(local)+" cannot have "+diagnostictext.Quote(attr))
 		}
 	}
 	if _, present := n.attr(vocab.XSDAttrName); !present {
-		return schemaCompileAt(n, xsderrors.CodeSchemaReference, "top-level "+local+" missing name")
+		return schemaCompileAt(n, xsderrors.CodeSchemaReference, "top-level "+diagnostictext.Quote(local)+" missing name")
 	}
 	return nil
 }

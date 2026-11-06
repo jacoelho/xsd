@@ -14,13 +14,13 @@ func TestCanonicalComplexContentModelReusesValidEmptyRow(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := &schemaNode{}
-	id, err := c.addModelAt(ContentModel{Kind: ModelEmpty}, source)
+	id, err := c.addModelAt(contentModelNode{Kind: modelEmpty}, source)
 	if err != nil {
 		t.Fatal(err)
 	}
 	before := len(c.rt.Models)
 
-	got, err := c.canonicalComplexContentModel(id, ContentEmpty)
+	got, err := c.canonicalComplexContentModel(id, contentEmpty)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,35 +36,35 @@ func TestCanonicalComplexContentModelAllocatesEmptyRowForNonCanonicalInput(t *te
 	t.Parallel()
 	tests := []struct {
 		name  string
-		model ContentModel
+		model contentModelNode
 	}{
 		{
 			name: "mixed empty model",
-			model: ContentModel{
-				Kind:  ModelEmpty,
+			model: contentModelNode{
+				Kind:  modelEmpty,
 				Mixed: true,
 			},
 		},
 		{
 			name: "empty model with inactive slices",
-			model: ContentModel{
-				Kind:      ModelEmpty,
-				Particles: []Particle{ElementParticle(1, Occurrence{Min: 1, Max: 1})},
+			model: contentModelNode{
+				Kind:      modelEmpty,
+				Particles: []contentParticle{elementParticle(1, occurrence{Min: 1, Max: 1})},
 			},
 		},
 		{
 			name: "empty model with occurrence",
-			model: ContentModel{
-				Kind:   ModelEmpty,
-				Occurs: Occurrence{Min: 1, Max: 1},
+			model: contentModelNode{
+				Kind:   modelEmpty,
+				Occurs: occurrence{Min: 1, Max: 1},
 			},
 		},
 		{
 			name: "nonempty sequence",
-			model: ContentModel{
-				Kind:      ModelSequence,
-				Occurs:    Occurrence{Min: 1, Max: 1},
-				Particles: []Particle{{Kind: ParticleElement, Element: 0, Occurs: Occurrence{Min: 1, Max: 1}}},
+			model: contentModelNode{
+				Kind:      modelSequence,
+				Occurs:    occurrence{Min: 1, Max: 1},
+				Particles: []contentParticle{{Kind: particleElement, Element: 0, Occurs: occurrence{Min: 1, Max: 1}}},
 			},
 		},
 	}
@@ -86,7 +86,7 @@ func TestCanonicalComplexContentModelAllocatesEmptyRowForNonCanonicalInput(t *te
 				t.Fatal(err)
 			}
 			before := len(c.rt.Models)
-			got, err := c.canonicalComplexContentModel(id, ContentEmpty)
+			got, err := c.canonicalComplexContentModel(id, contentEmpty)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -97,10 +97,10 @@ func TestCanonicalComplexContentModelAllocatesEmptyRowForNonCanonicalInput(t *te
 				t.Fatalf("canonical empty model count = %d, want %d", len(c.rt.Models), before+1)
 			}
 			model := c.rt.Models[got]
-			if err := ValidateContentModelShape(model); err != nil {
+			if err := validateContentModelShape(model); err != nil {
 				t.Fatalf("canonical empty model shape invalid: %v", err)
 			}
-			if model.Kind != ModelEmpty || model.Mixed {
+			if model.Kind != modelEmpty || model.Mixed {
 				t.Fatalf("canonical empty model = %#v, want inactive non-mixed ModelEmpty", model)
 			}
 			if c.modelSources[got] != baseSource {
@@ -122,21 +122,21 @@ func TestCanonicalComplexContentModelAllocatesEmptyRowForNoModel(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := len(c.rt.Models)
-	got, err := c.canonicalComplexContentModel(NoContentModel, ContentEmpty)
+	got, err := c.canonicalComplexContentModel(noContentModel, contentEmpty)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got == NoContentModel {
+	if got == noContentModel {
 		t.Fatal("canonical empty model kept absent model ID")
 	}
 	if len(c.rt.Models) != before+1 {
 		t.Fatalf("canonical empty model count = %d, want %d", len(c.rt.Models), before+1)
 	}
 	model := c.rt.Models[got]
-	if err := ValidateContentModelShape(model); err != nil {
+	if err := validateContentModelShape(model); err != nil {
 		t.Fatalf("canonical empty model shape invalid: %v", err)
 	}
-	if model.Kind != ModelEmpty || model.Mixed {
+	if model.Kind != modelEmpty || model.Mixed {
 		t.Fatalf("canonical empty model = %#v, want inactive non-mixed ModelEmpty", model)
 	}
 }
@@ -153,9 +153,9 @@ func TestCanonicalComplexContentModelRejectsInvalidModelID(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := len(c.rt.Models)
-	invalid := NoContentModel - 1
+	invalid := noContentModel - 1
 
-	if _, err := c.canonicalComplexContentModel(invalid, ContentEmpty); err == nil {
+	if _, err := c.canonicalComplexContentModel(invalid, contentEmpty); err == nil {
 		t.Fatal("canonical empty model accepted invalid model ID")
 	}
 	if len(c.rt.Models) != before {

@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16589,
-    "schemaCases": 16539,
-    "instanceRuns": 35403,
+    "cases": 16591,
+    "schemaCases": 16541,
+    "instanceRuns": 35406,
     "w3cCases": 14414,
-    "internalRuns": 2162,
+    "internalRuns": 2164,
     "xercesJCases": 13
   },
   "cases": [
@@ -23593,6 +23593,94 @@
         {
           "file": "corpus/project/datatypes/regex/architecture-regex-unicode-block-unsupported/schema.xsd",
           "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/architecture-pattern-linear-input-above-state-cap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dt-regex"
+        ],
+        "description": "A linear pattern matches a value of 100,001 characters: input length is bounded by the documented text limits and the pattern work budget, not by the compiled state count.",
+        "sourceFile": "tests/corpus/project/datatypes/regex/architecture-pattern-linear-input-above-state-cap"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/regex/architecture-pattern-linear-input-above-state-cap/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "runes-100001",
+          "file": "corpus/project/datatypes/regex/architecture-pattern-linear-input-above-state-cap/runes-100001.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/regex/architecture-pattern-linear-input-above-state-cap/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/architecture-pattern-linear-input-above-state-cap/runes-100001.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/architecture-pattern-alternation-star",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dt-regex"
+        ],
+        "description": "A non-linear pattern with alternation under a star matches and rejects values through the NFA path.",
+        "sourceFile": "tests/corpus/project/datatypes/regex/architecture-pattern-alternation-star"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/regex/architecture-pattern-alternation-star/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "match",
+          "file": "corpus/project/datatypes/regex/architecture-pattern-alternation-star/match.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "no-final-c",
+          "file": "corpus/project/datatypes/regex/architecture-pattern-alternation-star/no-final-c.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/regex/architecture-pattern-alternation-star/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/architecture-pattern-alternation-star/match.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/architecture-pattern-alternation-star/no-final-c.xml",
+          "role": "instance"
         }
       ]
     },

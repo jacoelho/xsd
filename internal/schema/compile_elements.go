@@ -13,16 +13,16 @@ const (
 	elementFixedConstraintLabel   = "element fixed"
 )
 
-func (c *compiler) compileElementParticle(n *schemaNode, ctx *schemaSetDocument) (Particle, error) {
+func (c *compiler) compileElementParticle(n *schemaNode, ctx *schemaSetDocument) (contentParticle, error) {
 	id, err := c.compileElementParticleDeclaration(n, ctx)
 	if err != nil {
-		return Particle{}, err
+		return contentParticle{}, err
 	}
 	occurs, err := parseOccurs(n, c.limits)
 	if err != nil {
-		return Particle{}, err
+		return contentParticle{}, err
 	}
-	return ElementParticle(id, occurs), nil
+	return elementParticle(id, occurs), nil
 }
 
 func (c *compiler) compileElementParticleDeclaration(n *schemaNode, ctx *schemaSetDocument) (ElementID, error) {
@@ -58,14 +58,14 @@ func (c *compiler) compileElementByQName(q QName) (ElementID, error) {
 	}
 	label := c.rt.formatName(q)
 	if !exists {
-		return 0, SchemaComponentMissingError(SchemaComponentElement, label)
+		return 0, schemaComponentMissingError(schemaComponentElement, label)
 	}
 	leave, err := c.enterComponent(raw.sourceNode())
 	if err != nil {
 		return 0, err
 	}
 	defer leave()
-	id, err := c.registerGlobalElement(q, ElementDecl{Name: q, Type: ComplexRef(c.rt.AnyType)})
+	id, err := c.registerGlobalElement(q, elementDecl{Name: q, Type: ComplexRef(c.rt.AnyType)})
 	if err != nil {
 		return 0, err
 	}
@@ -99,7 +99,7 @@ func (c *compiler) compileLocalElement(n *schemaNode, ctx *schemaSetDocument) (E
 	name := schemaElementName(n)
 	ns := ""
 	form, hasForm := schemaElementForm(n)
-	qualified, err := ParseElementFormAttr(FormAttr{
+	qualified, err := parseElementFormAttr(formAttr{
 		Value:            form,
 		HasValue:         hasForm,
 		DefaultQualified: ctx.doc.defaults.ElementQualified,
@@ -114,7 +114,7 @@ func (c *compiler) compileLocalElement(n *schemaNode, ctx *schemaSetDocument) (E
 	if err != nil {
 		return 0, err
 	}
-	id, err := c.addElement(ElementDecl{Name: q, Type: ComplexRef(c.rt.AnyType)})
+	id, err := c.addElement(elementDecl{Name: q, Type: ComplexRef(c.rt.AnyType)})
 	if err != nil {
 		return 0, err
 	}
@@ -130,30 +130,30 @@ func (c *compiler) compileLocalElement(n *schemaNode, ctx *schemaSetDocument) (E
 
 type elementConstraintDraft struct {
 	lexical string
-	kind    DeclarationValueConstraint
+	kind    declarationValueConstraint
 }
 
 type pendingElementConstraint struct {
 	node    *schemaNode
 	lexical string
 	element ElementID
-	kind    DeclarationValueConstraint
+	kind    declarationValueConstraint
 }
 
-func (c *compiler) compileElementDecl(n *schemaNode, ctx *schemaSetDocument, q QName) (ElementDecl, elementConstraintDraft, error) {
+func (c *compiler) compileElementDecl(n *schemaNode, ctx *schemaSetDocument, q QName) (elementDecl, elementConstraintDraft, error) {
 	if err := checkElementDeclarationChildren(n); err != nil {
-		return ElementDecl{}, elementConstraintDraft{}, err
+		return elementDecl{}, elementConstraintDraft{}, err
 	}
 	identityNodes := identityConstraintNodes(n)
 	identityIDs, err := c.declareIdentityConstraints(identityNodes, ctx)
 	if err != nil {
-		return ElementDecl{}, elementConstraintDraft{}, err
+		return elementDecl{}, elementConstraintDraft{}, err
 	}
 	properties, err := c.compileElementProperties(n, ctx)
 	if err != nil {
-		return ElementDecl{}, elementConstraintDraft{}, err
+		return elementDecl{}, elementConstraintDraft{}, err
 	}
-	decl := ElementDecl{
+	decl := elementDecl{
 		Name:      q,
 		Type:      properties.typ,
 		Nillable:  properties.nillable,
@@ -161,14 +161,14 @@ func (c *compiler) compileElementDecl(n *schemaNode, ctx *schemaSetDocument, q Q
 		SubstHead: NoElement,
 	}
 	if maskErr := applyElementDerivationMasks(n, ctx, &decl); maskErr != nil {
-		return ElementDecl{}, elementConstraintDraft{}, maskErr
+		return elementDecl{}, elementConstraintDraft{}, maskErr
 	}
 	draft, err := compileElementConstraintDraft(n)
 	if err != nil {
-		return ElementDecl{}, elementConstraintDraft{}, err
+		return elementDecl{}, elementConstraintDraft{}, err
 	}
 	if err := c.compileDeclaredIdentityConstraints(identityNodes, identityIDs, ctx); err != nil {
-		return ElementDecl{}, elementConstraintDraft{}, err
+		return elementDecl{}, elementConstraintDraft{}, err
 	}
 	decl.Identity = identityIDs
 	return decl, draft, nil
@@ -185,8 +185,8 @@ func (c *compiler) compileElementProperties(n *schemaNode, ctx *schemaSetDocumen
 	if source == nil {
 		return compiledElementProperties{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("element node has no typed element source"))
 	}
-	nillable, err := ParseBooleanAttr(BooleanAttr{Name: vocab.XSDAttrNillable, Value: source.Nillable.Value, HasValue: source.Nillable.Present})
-	abstract, abstractErr := ParseBooleanAttr(BooleanAttr{Name: vocab.XSDAttrAbstract, Value: source.Abstract.Value, HasValue: source.Abstract.Present})
+	nillable, err := parseBooleanAttr(booleanAttr{Name: vocab.XSDAttrNillable, Value: source.Nillable.Value, HasValue: source.Nillable.Present})
+	abstract, abstractErr := parseBooleanAttr(booleanAttr{Name: vocab.XSDAttrAbstract, Value: source.Abstract.Value, HasValue: source.Abstract.Present})
 	if err != nil {
 		return compiledElementProperties{}, err
 	}
@@ -220,7 +220,7 @@ func (c *compiler) compileElementDeclType(n *schemaNode, ctx *schemaSetDocument)
 	return ComplexRef(c.rt.AnyType), nil
 }
 
-func applyElementDerivationMasks(n *schemaNode, ctx *schemaSetDocument, decl *ElementDecl) error {
+func applyElementDerivationMasks(n *schemaNode, ctx *schemaSetDocument, decl *elementDecl) error {
 	block, err := derivationMaskWithDefaultChecked(n, semanticSource[*schemaElementSource](&n.semantic).Block, ctx.doc.defaults.BlockDefault, elementBlockDerivation())
 	if err != nil {
 		return err
@@ -242,15 +242,15 @@ func compileElementConstraintDraft(n *schemaNode) (elementConstraintDraft, error
 	defaultLexical, hasDefault := source.Default.Value, source.Default.Present
 	fixedLexical, hasFixed := source.Fixed.Value, source.Fixed.Present
 	var lexical string
-	var kind DeclarationValueConstraint
+	var kind declarationValueConstraint
 	switch {
 	case hasDefault && hasFixed:
-		kind = DeclarationValueConstraintConflict
+		kind = declarationValueConstraintConflict
 	case hasDefault:
-		kind = DeclarationValueConstraintDefault
+		kind = declarationValueConstraintDefault
 		lexical = defaultLexical
 	case hasFixed:
-		kind = DeclarationValueConstraintFixed
+		kind = declarationValueConstraintFixed
 		lexical = fixedLexical
 	}
 	if err := validateElementDeclValueConstraintAtNode(n, kind); err != nil {
@@ -260,7 +260,7 @@ func compileElementConstraintDraft(n *schemaNode) (elementConstraintDraft, error
 }
 
 func (c *compiler) addPendingElementConstraint(id ElementID, n *schemaNode, draft elementConstraintDraft) {
-	if draft.kind == DeclarationValueConstraintNone {
+	if draft.kind == declarationValueConstraintNone {
 		return
 	}
 	c.pendingElementConstraints = append(c.pendingElementConstraints, pendingElementConstraint{
@@ -277,7 +277,7 @@ func (c *compiler) compileElementTypeAttribute(n *schemaNode, ctx *schemaSetDocu
 		return c.resolveTypeQName(typeQName)
 	}
 	if !c.typeQNameMayBeUnavailable(typeQName) {
-		missingErr := SchemaComponentMissingError(SchemaComponentType, c.rt.formatName(typeQName))
+		missingErr := schemaComponentMissingError(schemaComponentType, c.rt.formatName(typeQName))
 		return TypeID{}, withSchemaCompileLocation(n, missingErr)
 	}
 	missing, err := c.missingSimpleType()
@@ -287,13 +287,13 @@ func (c *compiler) compileElementTypeAttribute(n *schemaNode, ctx *schemaSetDocu
 	return SimpleRef(missing), nil
 }
 
-func (c *compiler) validateElementValueConstraints(decl *ElementDecl, n *schemaNode, unavailable []bool) error {
+func (c *compiler) validateElementValueConstraints(decl *elementDecl, n *schemaNode, unavailable []bool) error {
 	if decl.Default == nil && decl.Fixed == nil {
 		return nil
 	}
-	simpleID, err := ElementValueConstraintType(&c.rt, c.contentAnalysis, decl.Type)
+	simpleID, err := elementValueConstraintType(&c.rt, c.contentAnalysis, decl.Type)
 	if err != nil {
-		return ElementValueConstraintTypeError(err)
+		return schemaValueError(c.limits, xsderrors.CodeSchemaInvalidAttribute, "invalid element value constraint", err)
 	}
 	if simpleID == NoSimpleType {
 		applyMixedElementConstraints(decl, n.namespace.Lookup)
@@ -303,8 +303,8 @@ func (c *compiler) validateElementValueConstraints(decl *ElementDecl, n *schemaN
 	if err != nil || unavailableType {
 		return err
 	}
-	if err = ValidateElementDeclValueConstraintRuntime(&c.rt, simpleID, DeclarationValueConstraintOf(decl.Default, decl.Fixed)); err != nil {
-		return ElementValueConstraintRuntimeError(err)
+	if err = validateElementDeclValueConstraintRuntime(&c.rt, simpleID, declarationValueConstraintOf(decl.Default, decl.Fixed)); err != nil {
+		return schemaValueError(c.limits, xsderrors.CodeSchemaInvalidAttribute, "invalid element value constraint", err)
 	}
 	constraint := decl.Default
 	label := elementDefaultConstraintLabel
@@ -325,7 +325,7 @@ func (c *compiler) validateElementValueConstraints(decl *ElementDecl, n *schemaN
 	return nil
 }
 
-func applyMixedElementConstraints(decl *ElementDecl, lookup func(string) (string, bool)) {
+func applyMixedElementConstraints(decl *elementDecl, lookup func(string) (string, bool)) {
 	if decl.Default != nil {
 		decl.Default = mixedContentConstraint(decl.Default.Lexical, lookup)
 	}
@@ -334,8 +334,8 @@ func applyMixedElementConstraints(decl *ElementDecl, lookup func(string) (string
 	}
 }
 
-func prepareElementConstraintType(decl *ElementDecl, simpleID SimpleTypeID, unavailable []bool) (bool, error) {
-	if !ValidSimpleTypeID(simpleID, len(unavailable)) {
+func prepareElementConstraintType(decl *elementDecl, simpleID SimpleTypeID, unavailable []bool) (bool, error) {
+	if !validSimpleTypeID(simpleID, len(unavailable)) {
 		return false, xsderrors.InternalInvariant("element value constraint references invalid simple type")
 	}
 	if !unavailable[simpleID] {
@@ -349,8 +349,8 @@ func prepareElementConstraintType(decl *ElementDecl, simpleID SimpleTypeID, unav
 // mixedContentConstraint builds the constraint for an emptiable mixed-content
 // element, whose default or fixed text is used verbatim: the lexical form is
 // its own canonical form and the value is untyped.
-func mixedContentConstraint(lexical string, lookup func(string) (string, bool)) *ValueConstraint {
-	return &ValueConstraint{
+func mixedContentConstraint(lexical string, lookup func(string) (string, bool)) *valueConstraint {
+	return &valueConstraint{
 		Lexical:      lexical,
 		Canonical:    lexical,
 		Value:        valuepkg.NewUntypedValue(lexical),

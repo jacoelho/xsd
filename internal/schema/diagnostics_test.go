@@ -50,7 +50,7 @@ func TestContentExpectationsDoNotConsumeState(t *testing.T) {
 		}
 		first, _ := rt.LookupQName("", "a")
 		transition, status := rt.NextContent(state, ContentInput{Name: RuntimeName{Known: true, Name: first, Local: "a"}}, &scratch)
-		if status != ContentTransitionMatched || !transition.Commit(&state, &scratch) {
+		if status != contentTransitionMatched || !transition.Commit(&state, &scratch) {
 			t.Fatal("diagnostic changed child admission")
 		}
 		after, valid := rt.ExpectedContent(state, &scratch, ExpectedNextChild)

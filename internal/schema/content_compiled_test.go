@@ -12,12 +12,12 @@ func TestElementFrameUsesCompiledModelInitialState(t *testing.T) {
 	t.Parallel()
 
 	typ := ComplexRef(1)
-	modelID := ContentModelID(2)
+	modelID := contentModelID(2)
 	rt := publishedContentSchema(contentSchemaFixture{
-		contentModels: map[TypeID]ContentModelID{
+		contentModels: map[TypeID]contentModelID{
 			typ: modelID,
 		},
-		models: map[ContentModelID]CompiledModel{
+		models: map[contentModelID]compiledModel{
 			modelID: {Start: 7, AllBitLen: 130},
 		},
 	})
@@ -31,7 +31,7 @@ func TestElementFrameUsesCompiledModelInitialState(t *testing.T) {
 	}
 
 	read, ok = publishedContentSchema(contentSchemaFixture{
-		contentModels: map[TypeID]ContentModelID{typ: NoContentModel},
+		contentModels: map[TypeID]contentModelID{typ: noContentModel},
 	}).ElementFrame(typ, NoElement)
 	if !ok {
 		t.Fatal("ElementFrame() failed for valid complex type without content model")
@@ -64,19 +64,19 @@ func TestContentScratchAllBitInvariants(t *testing.T) {
 func TestCompiledModelReadProjectionUsesIsolatedFlatPools(t *testing.T) {
 	t.Parallel()
 
-	models := []CompiledModel{
+	models := []compiledModel{
 		{},
-		{Rows: []CompiledModelRow{{}}},
+		{Rows: []compiledModelRow{{}}},
 		{
-			Rows: []CompiledModelRow{
-				{Edges: []CompiledModelEdge{{To: 1}}},
-				{Edges: []CompiledModelEdge{{To: 2}}},
+			Rows: []compiledModelRow{
+				{Edges: []compiledModelEdge{{To: 1}}},
+				{Edges: []compiledModelEdge{{To: 2}}},
 			},
-			All: []CompiledAllTerm{{Required: true}},
+			All: []compiledAllTerm{{Required: true}},
 		},
 		{
-			Rows: []CompiledModelRow{{Edges: []CompiledModelEdge{{To: 3}}}},
-			All:  []CompiledAllTerm{{Required: false}},
+			Rows: []compiledModelRow{{Edges: []compiledModelEdge{{To: 3}}}},
+			All:  []compiledAllTerm{{Required: false}},
 		},
 	}
 
@@ -112,14 +112,14 @@ func TestCompiledModelReadProjectionUsesIsolatedFlatPools(t *testing.T) {
 func TestCompiledModelReadProjectionPublishesEnteredModelsInOrder(t *testing.T) {
 	t.Parallel()
 
-	models := make([]CompiledModel, 5)
+	models := make([]compiledModel, 5)
 	for i := range models {
-		models[i] = CompiledModel{
-			Rows: []CompiledModelRow{{Edges: []CompiledModelEdge{{To: uint32(10 + i)}}}},
-			All:  []CompiledAllTerm{{Required: i%2 == 0}},
+		models[i] = compiledModel{
+			Rows: []compiledModelRow{{Edges: []compiledModelEdge{{To: uint32(10 + i)}}}},
+			All:  []compiledAllTerm{{Required: i%2 == 0}},
 		}
 	}
-	work := func(entered []ContentModelID) ([]compiledModelRead, int) {
+	work := func(entered []contentModelID) ([]compiledModelRead, int) {
 		units := 0
 		reads, _, err := newCompiledModelReads(models, entered, func(steps int) error { units += steps; return nil })
 		if err != nil {
@@ -127,7 +127,7 @@ func TestCompiledModelReadProjectionPublishesEnteredModelsInOrder(t *testing.T) 
 		}
 		return reads, units
 	}
-	entered := []ContentModelID{1, 3, 4}
+	entered := []contentModelID{1, 3, 4}
 	reads, units := work(entered)
 	if len(reads) != len(entered) {
 		t.Fatalf("published %d models, want %d", len(reads), len(entered))
@@ -145,10 +145,10 @@ func TestCompiledModelReadProjectionPublishesEnteredModelsInOrder(t *testing.T) 
 var compiledModelReadAllocationSink []compiledModelRead
 
 func TestCompiledModelReadProjectionAllocationCountIsConstant(t *testing.T) {
-	models := make([]CompiledModel, 10_000)
+	models := make([]compiledModel, 10_000)
 	for i := range models {
-		models[i].Rows = []CompiledModelRow{{Edges: []CompiledModelEdge{{To: uint32(i)}}}}
-		models[i].All = []CompiledAllTerm{{Required: true}}
+		models[i].Rows = []compiledModelRow{{Edges: []compiledModelEdge{{To: uint32(i)}}}}
+		models[i].All = []compiledAllTerm{{Required: true}}
 	}
 
 	entered := allContentModelIDs(len(models))
@@ -181,7 +181,7 @@ func TestNextContentAnyReturnsGlobalElement(t *testing.T) {
 	name := QName{Local: 1}
 	elem := ElementID(2)
 	rt := publishedContentSchema(contentSchemaFixture{
-		models:         map[ContentModelID]CompiledModel{0: {Kind: CompiledModelAny}},
+		models:         map[contentModelID]compiledModel{0: {Kind: compiledModelAny}},
 		globalElements: map[QName]ElementID{name: elem},
 	})
 	st := ContentState{model: 0, present: true}
@@ -189,7 +189,7 @@ func TestNextContentAnyReturnsGlobalElement(t *testing.T) {
 		Name: RuntimeName{Known: true, Name: name, Local: "e"},
 	}, &ContentScratch{})
 	kind, element := transition.Match()
-	if status != ContentTransitionMatched || kind != ContentMatchDeclared || element != elem {
+	if status != contentTransitionMatched || kind != ContentMatchDeclared || element != elem {
 		t.Fatalf("NextContent(any) = %v/%v/%v, want declared element", kind, element, status)
 	}
 }
@@ -198,7 +198,7 @@ func TestNextContentEmptyReturnsNoMatchWithoutMutation(t *testing.T) {
 	t.Parallel()
 
 	rt := publishedContentSchema(contentSchemaFixture{
-		models: map[ContentModelID]CompiledModel{0: {Kind: CompiledModelEmpty}},
+		models: map[contentModelID]compiledModel{0: {Kind: compiledModelEmpty}},
 	})
 	state := ContentState{model: 0, present: true}
 	bits := []uint64{0x5a}
@@ -224,17 +224,17 @@ func TestNextContentRejectsInvalidModelState(t *testing.T) {
 	tests := []struct {
 		name  string
 		state ContentState
-		model CompiledModel
+		model compiledModel
 	}{
-		{name: "missing state", state: ContentState{present: false}, model: CompiledModel{Kind: CompiledModelEmpty}},
-		{name: "out of range model", state: ContentState{model: 1, present: true}, model: CompiledModel{Kind: CompiledModelEmpty}},
-		{name: "unknown model kind", state: ContentState{model: 0, present: true}, model: CompiledModel{Kind: CompiledModelKind(99)}},
+		{name: "missing state", state: ContentState{present: false}, model: compiledModel{Kind: compiledModelEmpty}},
+		{name: "out of range model", state: ContentState{model: 1, present: true}, model: compiledModel{Kind: compiledModelEmpty}},
+		{name: "unknown model kind", state: ContentState{model: 0, present: true}, model: compiledModel{Kind: compiledModelKind(99)}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			rt := publishedContentSchema(contentSchemaFixture{
-				models: map[ContentModelID]CompiledModel{0: tt.model},
+				models: map[contentModelID]compiledModel{0: tt.model},
 			})
 			_, status := rt.NextContent(tt.state, ContentInput{}, &ContentScratch{})
 			if status != ContentTransitionInvalid {
@@ -249,14 +249,14 @@ func TestNextContentAllDefersScratchUntilCommit(t *testing.T) {
 
 	name := QName{Local: 1}
 	elem := ElementID(2)
-	model := ContentModelID(3)
+	model := contentModelID(3)
 	rt := publishedContentSchema(contentSchemaFixture{
-		models: map[ContentModelID]CompiledModel{
+		models: map[contentModelID]compiledModel{
 			model: {
-				Kind:      CompiledModelAll,
+				Kind:      compiledModelAll,
 				AllBitLen: 1,
-				All: []CompiledAllTerm{
-					{Particle: ElementParticle(elem, Occurrence{Min: 1, Max: 1}), Required: true},
+				All: []compiledAllTerm{
+					{Particle: elementParticle(elem, occurrence{Min: 1, Max: 1}), Required: true},
 				},
 			},
 		},
@@ -268,7 +268,7 @@ func TestNextContentAllDefersScratchUntilCommit(t *testing.T) {
 		Name: RuntimeName{Known: true, Name: name, Local: "e"},
 	}, &scratch)
 	kind, element := transition.Match()
-	if status != ContentTransitionMatched || kind != ContentMatchDeclared || element != elem {
+	if status != contentTransitionMatched || kind != ContentMatchDeclared || element != elem {
 		t.Fatalf("NextContent(all) = %v/%v/%v, want declared element", kind, element, status)
 	}
 	seen, ok := scratch.AllSeen(0)
@@ -292,14 +292,14 @@ func TestContentTransitionRejectsStaleAllStateWithoutMutation(t *testing.T) {
 
 	name := QName{Local: 1}
 	elem := ElementID(2)
-	model := ContentModelID(3)
+	model := contentModelID(3)
 	rt := publishedContentSchema(contentSchemaFixture{
-		models: map[ContentModelID]CompiledModel{
+		models: map[contentModelID]compiledModel{
 			model: {
-				Kind:      CompiledModelAll,
+				Kind:      compiledModelAll,
 				AllBitLen: 1,
-				All: []CompiledAllTerm{
-					{Particle: ElementParticle(elem, Occurrence{Min: 1, Max: 1}), Required: true},
+				All: []compiledAllTerm{
+					{Particle: elementParticle(elem, occurrence{Min: 1, Max: 1}), Required: true},
 				},
 			},
 		},
@@ -309,7 +309,7 @@ func TestContentTransitionRejectsStaleAllStateWithoutMutation(t *testing.T) {
 	scratch := NewContentScratch(bits, 0, 1)
 	state := ContentState{model: model, present: true}
 	transition, status := rt.NextContent(state, ContentInput{Name: RuntimeName{Known: true, Name: name}}, &scratch)
-	if status != ContentTransitionMatched {
+	if status != contentTransitionMatched {
 		t.Fatalf("NextContent(all) status = %v, want matched", status)
 	}
 	state.state++
@@ -330,16 +330,16 @@ func TestNextContentIndexedSubstitutionReturnsMember(t *testing.T) {
 	member := ElementID(2)
 	headName := QName{Local: 1}
 	memberName := QName{Local: 2}
-	model := ContentModelID(3)
+	model := contentModelID(3)
 	rt := publishedContentSchema(contentSchemaFixture{
-		models: map[ContentModelID]CompiledModel{
+		models: map[contentModelID]compiledModel{
 			model: {
-				Kind: CompiledModelDFA,
-				Rows: []CompiledModelRow{
+				Kind: compiledModelDFA,
+				Rows: []compiledModelRow{
 					{
 						index: dfaRowIndex{nameToEdge: map[QName]uint32{memberName: 0}},
-						Edges: []CompiledModelEdge{{
-							Particle: ElementParticle(head, Occurrence{Min: 1, Max: 1}),
+						Edges: []compiledModelEdge{{
+							Particle: elementParticle(head, occurrence{Min: 1, Max: 1}),
 							To:       1,
 						}},
 					},
@@ -357,7 +357,7 @@ func TestNextContentIndexedSubstitutionReturnsMember(t *testing.T) {
 		Name: RuntimeName{Known: true, Name: memberName, Local: "member"},
 	}, &ContentScratch{})
 	kind, element := transition.Match()
-	if status != ContentTransitionMatched || kind != ContentMatchDeclared || element != member || st.state != 0 {
+	if status != contentTransitionMatched || kind != ContentMatchDeclared || element != member || st.state != 0 {
 		t.Fatalf("NextContent(indexed substitution) = %v/%v/%v state %d, want declared member and unchanged state 0", kind, element, status, st.state)
 	}
 	if !transition.Commit(&st, &ContentScratch{}) || st.state != 1 {
@@ -371,24 +371,24 @@ func TestNextContentIndexedPreservesWildcardBeforeElement(t *testing.T) {
 	elem := ElementID(1)
 	wildcard := WildcardID(2)
 	name := QName{Local: 1}
-	model := ContentModelID(3)
+	model := contentModelID(3)
 	rt := publishedContentSchema(contentSchemaFixture{
-		models: map[ContentModelID]CompiledModel{
+		models: map[contentModelID]compiledModel{
 			model: {
-				Kind: CompiledModelDFA,
-				Rows: []CompiledModelRow{
+				Kind: compiledModelDFA,
+				Rows: []compiledModelRow{
 					{
 						index: dfaRowIndex{
 							nameToEdge:    map[QName]uint32{name: 1},
 							wildcardEdges: []uint32{0},
 						},
-						Edges: []CompiledModelEdge{
+						Edges: []compiledModelEdge{
 							{
-								Particle: WildcardParticle(wildcard, Occurrence{Min: 1, Max: 1}),
+								Particle: wildcardParticle(wildcard, occurrence{Min: 1, Max: 1}),
 								To:       1,
 							},
 							{
-								Particle: ElementParticle(elem, Occurrence{Min: 1, Max: 1}),
+								Particle: elementParticle(elem, occurrence{Min: 1, Max: 1}),
 								To:       2,
 							},
 						},
@@ -399,14 +399,14 @@ func TestNextContentIndexedPreservesWildcardBeforeElement(t *testing.T) {
 			},
 		},
 		elementNames: map[ElementID]QName{elem: name},
-		wildcards:    map[WildcardID]Wildcard{wildcard: {Mode: WildcardAny, Process: ProcessSkip}},
+		wildcards:    map[WildcardID]wildcardRuntime{wildcard: {Mode: WildcardAny, Process: ProcessSkip}},
 	})
 	st := ContentState{model: model, present: true}
 	transition, status := rt.NextContent(st, ContentInput{
 		Name: RuntimeName{Known: true, Name: name, Local: "e"},
 	}, &ContentScratch{})
 	kind, element := transition.Match()
-	if status != ContentTransitionMatched || kind != ContentMatchSkip || element != NoElement || st.state != 0 {
+	if status != contentTransitionMatched || kind != ContentMatchSkip || element != NoElement || st.state != 0 {
 		t.Fatalf("NextContent(indexed order) = %v/%v/%v state %d, want wildcard skip and unchanged state 0", kind, element, status, st.state)
 	}
 	if !transition.Commit(&st, &ContentScratch{}) || st.state != 1 {
@@ -419,7 +419,7 @@ func TestNextContentWildcardProcessContents(t *testing.T) {
 
 	name := QName{Local: 1}
 	elem := ElementID(2)
-	model := ContentModelID(3)
+	model := contentModelID(3)
 	tests := []struct {
 		name        string
 		process     ProcessContents
@@ -430,13 +430,13 @@ func TestNextContentWildcardProcessContents(t *testing.T) {
 	}{
 		{
 			name:        "strict missing",
-			process:     ProcessStrict,
+			process:     processStrict,
 			wantKind:    ContentMatchStrictMissing,
 			wantElement: NoElement,
 		},
 		{
 			name:        "strict missing with xsi type",
-			process:     ProcessStrict,
+			process:     processStrict,
 			xsiType:     true,
 			wantKind:    ContentMatchAssessUndeclared,
 			wantElement: NoElement,
@@ -471,13 +471,13 @@ func TestNextContentWildcardProcessContents(t *testing.T) {
 				globalElements = map[QName]ElementID{name: elem}
 			}
 			rt := publishedContentSchema(contentSchemaFixture{
-				models: map[ContentModelID]CompiledModel{
+				models: map[contentModelID]compiledModel{
 					model: {
-						Kind: CompiledModelDFA,
-						Rows: []CompiledModelRow{
+						Kind: compiledModelDFA,
+						Rows: []compiledModelRow{
 							{
-								Edges: []CompiledModelEdge{{
-									Particle: WildcardParticle(wildcard, Occurrence{Min: 1, Max: 1}),
+								Edges: []compiledModelEdge{{
+									Particle: wildcardParticle(wildcard, occurrence{Min: 1, Max: 1}),
 									To:       1,
 								}},
 							},
@@ -486,7 +486,7 @@ func TestNextContentWildcardProcessContents(t *testing.T) {
 					},
 				},
 				globalElements: globalElements,
-				wildcards:      map[WildcardID]Wildcard{wildcard: {Mode: WildcardAny, Process: tt.process}},
+				wildcards:      map[WildcardID]wildcardRuntime{wildcard: {Mode: WildcardAny, Process: tt.process}},
 			})
 			st := ContentState{model: model, present: true}
 			transition, status := rt.NextContent(st, ContentInput{
@@ -494,8 +494,8 @@ func TestNextContentWildcardProcessContents(t *testing.T) {
 				HasXSIType: tt.xsiType,
 			}, &ContentScratch{})
 			kind, element := transition.Match()
-			if status != ContentTransitionMatched || kind != tt.wantKind || element != tt.wantElement {
-				t.Fatalf("NextContent(wildcard) = %v/%v/%v, want %v/%v/%v", kind, element, status, tt.wantKind, tt.wantElement, ContentTransitionMatched)
+			if status != contentTransitionMatched || kind != tt.wantKind || element != tt.wantElement {
+				t.Fatalf("NextContent(wildcard) = %v/%v/%v, want %v/%v/%v", kind, element, status, tt.wantKind, tt.wantElement, contentTransitionMatched)
 			}
 		})
 	}
@@ -504,9 +504,9 @@ func TestNextContentWildcardProcessContents(t *testing.T) {
 func TestNextContentInvalidParticleReferenceIsInvalidState(t *testing.T) {
 	t.Parallel()
 
-	model := ContentModelID(4)
+	model := contentModelID(4)
 	child := ElementID(3)
-	childName := QName{Namespace: EmptyNamespaceID, Local: 1}
+	childName := QName{Namespace: emptyNamespaceID, Local: 1}
 	tests := []struct {
 		name  string
 		index dfaRowIndex
@@ -524,14 +524,14 @@ func TestNextContentInvalidParticleReferenceIsInvalidState(t *testing.T) {
 			t.Parallel()
 
 			rt := publishedContentSchema(contentSchemaFixture{
-				models: map[ContentModelID]CompiledModel{
+				models: map[contentModelID]compiledModel{
 					model: {
-						Kind: CompiledModelDFA,
-						Rows: []CompiledModelRow{
+						Kind: compiledModelDFA,
+						Rows: []compiledModelRow{
 							{
 								index: tc.index,
-								Edges: []CompiledModelEdge{{
-									Particle: ElementParticle(child, Occurrence{Min: 1, Max: 1}),
+								Edges: []compiledModelEdge{{
+									Particle: elementParticle(child, occurrence{Min: 1, Max: 1}),
 									To:       1,
 								}},
 							},
@@ -555,12 +555,12 @@ func TestNextContentInvalidParticleReferenceIsInvalidState(t *testing.T) {
 func TestCompleteContentInvalidDFAStateIsInvalid(t *testing.T) {
 	t.Parallel()
 
-	model := ContentModelID(4)
+	model := contentModelID(4)
 	rt := publishedContentSchema(contentSchemaFixture{
-		models: map[ContentModelID]CompiledModel{
+		models: map[contentModelID]compiledModel{
 			model: {
-				Kind: CompiledModelDFA,
-				Rows: []CompiledModelRow{{Accept: true}},
+				Kind: compiledModelDFA,
+				Rows: []compiledModelRow{{Accept: true}},
 			},
 		},
 	})
@@ -575,19 +575,19 @@ func TestNextContentCountSaturatesAtUint32Max(t *testing.T) {
 
 	name := QName{Local: 1}
 	elem := ElementID(2)
-	model := ContentModelID(3)
-	particle := ElementParticle(elem, Occurrence{Min: 2, Unbounded: true})
+	model := contentModelID(3)
+	particle := elementParticle(elem, occurrence{Min: 2, Unbounded: true})
 	rt := publishedContentSchema(contentSchemaFixture{
-		models: map[ContentModelID]CompiledModel{
+		models: map[contentModelID]compiledModel{
 			model: {
-				Kind: CompiledModelDFA,
-				Rows: []CompiledModelRow{{
+				Kind: compiledModelDFA,
+				Rows: []compiledModelRow{{
 					Accept:        true,
 					Counted:       true,
 					Unbounded:     true,
 					Min:           2,
 					CountParticle: particle,
-					Edges: []CompiledModelEdge{{
+					Edges: []compiledModelEdge{{
 						Particle: particle,
 						To:       0,
 					}},
@@ -601,7 +601,7 @@ func TestNextContentCountSaturatesAtUint32Max(t *testing.T) {
 		Name: RuntimeName{Known: true, Name: name, Local: "e"},
 	}, &ContentScratch{})
 	kind, element := transition.Match()
-	if status != ContentTransitionMatched || kind != ContentMatchDeclared || element != elem {
+	if status != contentTransitionMatched || kind != ContentMatchDeclared || element != elem {
 		t.Fatalf("NextContent() = %v/%v/%v, want matched valid transition", kind, element, status)
 	}
 	if !transition.Commit(&st, &ContentScratch{}) {
@@ -645,11 +645,11 @@ func TestContentMatchRepresentationDoesNotGrow(t *testing.T) {
 }
 
 type contentSchemaFixture struct {
-	contentModels      map[TypeID]ContentModelID
-	models             map[ContentModelID]CompiledModel
+	contentModels      map[TypeID]contentModelID
+	models             map[contentModelID]compiledModel
 	globalElements     map[QName]ElementID
 	elementNames       map[ElementID]QName
-	wildcards          map[WildcardID]Wildcard
+	wildcards          map[WildcardID]wildcardRuntime
 	substitutionLookup map[ElementID]map[QName]ElementID
 }
 
@@ -673,7 +673,7 @@ func publishedContentSchema(s contentSchemaFixture) *Schema {
 			maxModel = int(id)
 		}
 	}
-	models := make([]CompiledModel, maxModel+1)
+	models := make([]compiledModel, maxModel+1)
 	for id, model := range s.models {
 		models[id] = model
 	}
@@ -685,10 +685,10 @@ func publishedContentSchema(s contentSchemaFixture) *Schema {
 		}
 	}
 	elementNames := make([]QName, maxElement+1)
-	elements := make([]ElementDecl, maxElement+1)
+	elements := make([]elementDecl, maxElement+1)
 	for id, name := range s.elementNames {
 		elementNames[id] = name
-		elements[id] = ElementDecl{Name: name}
+		elements[id] = elementDecl{Name: name}
 	}
 
 	maxWildcard := -1
@@ -712,11 +712,11 @@ func publishedContentSchema(s contentSchemaFixture) *Schema {
 	}}
 }
 
-func testSubstitutionTable(lookup map[ElementID]map[QName]ElementID, elementCount int) SubstitutionTable {
+func testSubstitutionTable(lookup map[ElementID]map[QName]ElementID, elementCount int) substitutionTable {
 	if len(lookup) == 0 {
-		return SubstitutionTable{}
+		return substitutionTable{}
 	}
-	table := SubstitutionTable{spans: make([]substitutionSpan, elementCount)}
+	table := substitutionTable{spans: make([]substitutionSpan, elementCount)}
 	for head := range elementCount {
 		members := lookup[ElementID(head)]
 		table.spans[head] = substitutionSpan{start: len(table.entries), count: len(members)}

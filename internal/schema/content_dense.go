@@ -49,7 +49,7 @@ func addDenseDFAIndexes(models []compiledModelRead, budget *denseIndexBudget) {
 			return
 		}
 		model := &models[i]
-		if model.Kind == CompiledModelDFA && addDenseDFARows(model.Rows, budget) {
+		if model.Kind == compiledModelDFA && addDenseDFARows(model.Rows, budget) {
 			return
 		}
 	}
@@ -107,7 +107,7 @@ func newDenseDFAData(row *compiledModelRowRead, budget *denseIndexBudget) (data 
 }
 
 func (idx publishedDFAIndex) denseEdge(name QName) int {
-	if name.Namespace != NamespaceID(idx.data[denseNamespaceOffset]) || name.Local < LocalNameID(idx.data[denseMinLocalOffset]) {
+	if name.Namespace != namespaceID(idx.data[denseNamespaceOffset]) || name.Local < localNameID(idx.data[denseMinLocalOffset]) {
 		return -1
 	}
 	offset := uint64(name.Local) - uint64(idx.data[denseMinLocalOffset])
@@ -119,9 +119,9 @@ func (idx publishedDFAIndex) denseEdge(name QName) int {
 }
 
 type denseNameBounds struct {
-	namespace NamespaceID
-	minLocal  LocalNameID
-	maxLocal  LocalNameID
+	namespace namespaceID
+	minLocal  localNameID
+	maxLocal  localNameID
 	mixed     bool
 }
 

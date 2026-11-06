@@ -4,17 +4,17 @@ package schema
 // nodes. Readers borrow its slices without mutation. Temporary IDs never enter
 // the build or its analysis caches.
 type restrictionModelView struct {
-	original []ContentModel
+	original []contentModelNode
 	added    []restrictionModel
 }
 
-func (m *restrictionModelView) model(id ContentModelID) (ContentModel, bool) {
+func (m *restrictionModelView) model(id contentModelID) (contentModelNode, bool) {
 	if uint64(id) < uint64(len(m.original)) {
 		return m.original[id], true
 	}
 	index := uint64(id) - uint64(len(m.original))
 	if index >= uint64(len(m.added)) {
-		return ContentModel{}, false
+		return contentModelNode{}, false
 	}
 	return m.added[index].model, true
 }
@@ -23,7 +23,7 @@ func (m *restrictionModelView) model(id ContentModelID) (ContentModel, bool) {
 // only the marker; flattening into an explicit choice materializes local spans.
 type restrictionModel struct {
 	order restrictionChoiceOrder
-	model ContentModel
+	model contentModelNode
 }
 
 type restrictionChoiceOrder struct {
@@ -35,14 +35,14 @@ func (o restrictionChoiceOrder) ordered() bool {
 	return !o.unordered && len(o.spans) == 0
 }
 
-func (m *restrictionModelView) choiceOrder(id ContentModelID) restrictionChoiceOrder {
+func (m *restrictionModelView) choiceOrder(id contentModelID) restrictionChoiceOrder {
 	if uint64(id) < uint64(len(m.original)) {
 		return restrictionChoiceOrder{}
 	}
 	return m.added[uint64(id)-uint64(len(m.original))].order
 }
 
-func (v contentRestrictionValidator) choiceOrder(id ContentModelID) restrictionChoiceOrder {
+func (v contentRestrictionValidator) choiceOrder(id contentModelID) restrictionChoiceOrder {
 	if v.analysis.models == nil {
 		return restrictionChoiceOrder{}
 	}
@@ -61,7 +61,7 @@ type restrictionChoiceSpan struct {
 // A generated derived span may reuse a target: removing the order condition
 // leaves a functional mapping, not an injective one. Earliest matching targets
 // minimize the next explicit boundary, so no permutation search is needed.
-func (v contentRestrictionValidator) validateChoiceSpans(base, derived []Particle, baseOrder, derivedOrder restrictionChoiceOrder) error {
+func (v contentRestrictionValidator) validateChoiceSpans(base, derived []contentParticle, baseOrder, derivedOrder restrictionChoiceOrder) error {
 	after, err := v.choiceTargetBoundaries(len(base), baseOrder)
 	if err != nil {
 		return err
@@ -109,7 +109,7 @@ func (v contentRestrictionValidator) choiceTargetBoundaries(size int, order rest
 	return after, nil
 }
 
-func (v contentRestrictionValidator) matchDerivedChoiceSpan(base, derived []Particle, after []int, lower int) (int, error) {
+func (v contentRestrictionValidator) matchDerivedChoiceSpan(base, derived []contentParticle, after []int, lower int) (int, error) {
 	next := lower
 	for _, particle := range derived {
 		boundary, err := v.matchChoiceSpanBranch(base, after, lower, particle)
@@ -121,7 +121,7 @@ func (v contentRestrictionValidator) matchDerivedChoiceSpan(base, derived []Part
 	return next, nil
 }
 
-func (v contentRestrictionValidator) matchChoiceSpanBranch(base []Particle, after []int, start int, derived Particle) (int, error) {
+func (v contentRestrictionValidator) matchChoiceSpanBranch(base []contentParticle, after []int, start int, derived contentParticle) (int, error) {
 	for i := start; i < len(base); i++ {
 		allowed, err := v.choiceBranchRestricts(base[i], derived)
 		if err != nil {

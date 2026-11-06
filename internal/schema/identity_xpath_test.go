@@ -10,7 +10,7 @@ func TestParseIdentityPaths(t *testing.T) {
 	t.Parallel()
 
 	resolver := identityNameResolverStub{
-		namespaces: map[string]NamespaceID{"p": 2},
+		namespaces: map[string]namespaceID{"p": 2},
 		qnames: map[string]QName{
 			":row":   {Local: 1},
 			":code":  {Local: 2},
@@ -18,7 +18,7 @@ func TestParseIdentityPaths(t *testing.T) {
 		},
 	}
 
-	paths, err := ParseIdentityPaths(". | .// child::row / code | p:*", resolver)
+	paths, err := parseIdentityPaths(". | .// child::row / code | p:*", resolver)
 	if err != nil {
 		t.Fatalf("ParseIdentityPaths() error = %v", err)
 	}
@@ -40,7 +40,7 @@ func TestParseIdentityFieldPaths(t *testing.T) {
 	t.Parallel()
 
 	resolver := identityNameResolverStub{
-		namespaces: map[string]NamespaceID{"p": 2},
+		namespaces: map[string]namespaceID{"p": 2},
 		qnames: map[string]QName{
 			":row":  {Local: 1},
 			":id":   {Local: 2},
@@ -48,14 +48,14 @@ func TestParseIdentityFieldPaths(t *testing.T) {
 		},
 	}
 
-	paths, err := ParseIdentityFieldPaths(". | row/@p:ref | attribute::p:*", resolver)
+	paths, err := parseIdentityFieldPaths(". | row/@p:ref | attribute::p:*", resolver)
 	if err != nil {
 		t.Fatalf("ParseIdentityFieldPaths() error = %v", err)
 	}
 	if len(paths) != 3 {
 		t.Fatalf("path count = %d, want 3", len(paths))
 	}
-	if !identityFieldPathProgramRead(paths[0]).Self() || paths[0].Attribute != NoQName() {
+	if !identityFieldPathProgramRead(paths[0]).Self() || paths[0].Attribute != noQName() {
 		t.Fatalf("first field path = %#v, want self", paths[0])
 	}
 	if !paths[1].Attr || paths[1].Attribute != resolver.qnames["p:ref"] || len(paths[1].Steps) != 1 || paths[1].Steps[0].Name != resolver.qnames[":row"] {
@@ -98,7 +98,7 @@ func TestParseIdentityPathShapes(t *testing.T) {
 		{xpath: "./*", want: []shape{{steps: 1}}},
 	}
 	for _, tt := range selectors {
-		paths, err := ParseIdentityPaths(tt.xpath, resolver)
+		paths, err := parseIdentityPaths(tt.xpath, resolver)
 		if err != nil {
 			t.Fatalf("ParseIdentityPaths(%q) error = %v", tt.xpath, err)
 		}
@@ -127,7 +127,7 @@ func TestParseIdentityPathShapes(t *testing.T) {
 		{xpath: ".//@id", want: shape{descendant: true}, attr: true},
 	}
 	for _, tt := range fields {
-		paths, err := ParseIdentityFieldPaths(tt.xpath, resolver)
+		paths, err := parseIdentityFieldPaths(tt.xpath, resolver)
 		if err != nil {
 			t.Fatalf("ParseIdentityFieldPaths(%q) error = %v", tt.xpath, err)
 		}
@@ -139,7 +139,7 @@ func TestParseIdentityPathShapes(t *testing.T) {
 		if got != tt.want || path.Attr != tt.attr {
 			t.Fatalf("ParseIdentityFieldPaths(%q) = %+v attr %v, want %+v attr %v", tt.xpath, got, path.Attr, tt.want, tt.attr)
 		}
-		wantAttribute := NoQName()
+		wantAttribute := noQName()
 		if tt.attr {
 			wantAttribute = resolver.qnames[":id"]
 		}
@@ -162,7 +162,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "empty selector branch",
 			parse: func() error {
-				_, err := ParseIdentityPaths("| a", resolver)
+				_, err := parseIdentityPaths("| a", resolver)
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -171,7 +171,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "empty field branch",
 			parse: func() error {
-				_, err := ParseIdentityFieldPaths("| @a", resolver)
+				_, err := parseIdentityFieldPaths("| @a", resolver)
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -180,7 +180,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "trailing slash after self",
 			parse: func() error {
-				_, err := ParseIdentityPaths("./", resolver)
+				_, err := parseIdentityPaths("./", resolver)
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -189,7 +189,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "empty step between names",
 			parse: func() error {
-				_, err := ParseIdentityPaths("a//a", resolver)
+				_, err := parseIdentityPaths("a//a", resolver)
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -198,7 +198,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "descendant prefix without step",
 			parse: func() error {
-				_, err := ParseIdentityPaths(".//", resolver)
+				_, err := parseIdentityPaths(".//", resolver)
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -207,7 +207,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "empty step between self steps",
 			parse: func() error {
-				_, err := ParseIdentityPaths("./ /.", resolver)
+				_, err := parseIdentityPaths("./ /.", resolver)
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -216,7 +216,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "field trailing slash after self",
 			parse: func() error {
-				_, err := ParseIdentityFieldPaths("./", resolver)
+				_, err := parseIdentityFieldPaths("./", resolver)
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -225,7 +225,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "invalid child axis",
 			parse: func() error {
-				_, err := ParseIdentityPaths("child::", resolver)
+				_, err := parseIdentityPaths("child::", resolver)
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -234,7 +234,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "child axis requires node test",
 			parse: func() error {
-				_, err := ParseIdentityPaths("child :: .", resolver)
+				_, err := parseIdentityPaths("child :: .", resolver)
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -243,7 +243,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "field child axis requires node test",
 			parse: func() error {
-				_, err := ParseIdentityFieldPaths("child::.", resolver)
+				_, err := parseIdentityFieldPaths("child::.", resolver)
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -252,7 +252,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "invalid attribute axis",
 			parse: func() error {
-				_, err := ParseIdentityFieldPaths("attribute::", resolver)
+				_, err := parseIdentityFieldPaths("attribute::", resolver)
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -261,7 +261,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "attribute in selector",
 			parse: func() error {
-				_, err := ParseIdentityPaths("@*", resolver)
+				_, err := parseIdentityPaths("@*", resolver)
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -270,7 +270,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "invalid QName",
 			parse: func() error {
-				_, err := ParseIdentityFieldPaths("t: *", resolver)
+				_, err := parseIdentityFieldPaths("t: *", resolver)
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -279,7 +279,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "unbound wildcard prefix",
 			parse: func() error {
-				_, err := ParseIdentityFieldPaths("@p:*", resolver)
+				_, err := parseIdentityFieldPaths("@p:*", resolver)
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -296,11 +296,11 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 }
 
 type identityNameResolverStub struct {
-	namespaces map[string]NamespaceID
+	namespaces map[string]namespaceID
 	qnames     map[string]QName
 }
 
-func (s identityNameResolverStub) ResolveIdentityQName(parts QNameParts) (QName, error) {
+func (s identityNameResolverStub) ResolveIdentityQName(parts qNameParts) (QName, error) {
 	key := ":" + parts.Local
 	if parts.Prefixed {
 		key = parts.Prefix + ":" + parts.Local
@@ -312,7 +312,7 @@ func (s identityNameResolverStub) ResolveIdentityQName(parts QNameParts) (QName,
 	return q, nil
 }
 
-func (s identityNameResolverStub) ResolveIdentityWildcardNamespace(prefix string) (NamespaceID, error) {
+func (s identityNameResolverStub) ResolveIdentityWildcardNamespace(prefix string) (namespaceID, error) {
 	ns, ok := s.namespaces[prefix]
 	if !ok {
 		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "unbound QName prefix "+prefix)

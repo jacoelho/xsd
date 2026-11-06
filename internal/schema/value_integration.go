@@ -2,6 +2,7 @@ package schema
 
 import (
 	"errors"
+	"strconv"
 
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/xsderrors"
@@ -31,6 +32,8 @@ func newSchemaValueBuilder(limits Limits) *value.Builder {
 		MaxTypes:            uint32(maxTypes),
 		MaxStorageBytes:     maxStorage,
 		MaxConstructionWork: maxWork,
+		MaxPatternWork:      limits.MaxSchemaPatternWork,
+		MaxTotalPatternWork: limits.MaxSchemaTotalPatternWork,
 	})
 }
 
@@ -84,23 +87,33 @@ func (c *compiler) ensureValueBuilder() *value.Builder {
 	return c.rt.valueBuilder
 }
 
-func valueBuilderError(err error) error {
-	if err == nil {
+// schemaValueError is the single translation of value-owned evaluation
+// failures into compile diagnostics. Precedence follows the validate-side
+// model: metadata, then limits (aggregate pattern work, per-literal pattern
+// work, any other limit), then unsupported. Unclassified failures keep
+// their reason under code, so no raw error escapes compilation.
+func schemaValueError(limits Limits, code xsderrors.Code, subject string, err error) error {
+	switch {
+	case err == nil:
 		return nil
+	case errors.Is(err, value.ErrMetadata):
+		return xsderrors.InternalInvariant(subject + ": " + err.Error())
+	case errors.Is(err, value.ErrPatternTotalLimit):
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, subject+": MaxSchemaTotalPatternWork="+strconv.FormatUint(limits.MaxSchemaTotalPatternWork, 10)+" exceeded")
+	case errors.Is(err, value.ErrPatternLimit):
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, subject+": MaxSchemaPatternWork="+strconv.FormatUint(limits.MaxSchemaPatternWork, 10)+" exceeded")
+	case errors.Is(err, value.ErrLimit):
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, subject+": "+err.Error())
+	case xsderrors.IsUnsupported(err):
+		return err
 	}
-	if errors.Is(err, value.ErrLimit) {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, err.Error())
+	if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
+		return err
 	}
-	if errors.Is(err, value.ErrFacet) {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, err.Error())
-	}
-	if errors.Is(err, value.ErrMetadata) {
-		return xsderrors.InternalInvariant(err.Error())
-	}
-	return err
+	return xsderrors.SchemaCompile(code, subject+": "+err.Error())
 }
 
-func (c *compiler) completeValueType(id SimpleTypeID, st SimpleType) error {
+func (c *compiler) completeValueType(id SimpleTypeID, st simpleType) error {
 	if id < value.BuiltinTypeCount {
 		return nil
 	}
@@ -120,7 +133,7 @@ func (c *compiler) completeValueType(id SimpleTypeID, st SimpleType) error {
 		}
 	}
 	if err := builder.Complete(id, spec); err != nil {
-		return valueBuilderError(err)
+		return schemaValueError(c.limits, xsderrors.CodeSchemaFacet, "simple type", err)
 	}
 	constrained, ok := builder.UnionHasFacets(id)
 	if !ok {
@@ -130,7 +143,7 @@ func (c *compiler) completeValueType(id SimpleTypeID, st SimpleType) error {
 	return nil
 }
 
-func (c *compiler) validateValue(id SimpleTypeID, lexical string, resolve value.QNameResolver, needs value.Needs) (value.Value, []ResolvedValueName, error) {
+func (c *compiler) validateValue(id SimpleTypeID, lexical string, resolve value.QNameResolver, needs value.Needs) (value.Value, []resolvedValueName, error) {
 	recorder := valueConstraintResolver{resolve: resolve}
 	resolver := value.Resolver{Notation: func(namespace, local string) bool {
 		q, ok := c.rt.lookupQName(namespace, local)
@@ -141,10 +154,6 @@ func (c *compiler) validateValue(id SimpleTypeID, lexical string, resolve value.
 	}
 	validated, err := c.ensureValueBuilder().Validate(id, lexical, resolver, needs, nil)
 	return validated, recorder.names, err
-}
-
-func (c *compiler) validateValueLiteral(id SimpleTypeID, lexical string, resolve value.QNameResolver) (value.Value, []ResolvedValueName, error) {
-	return c.validateValue(id, lexical, resolve, value.NeedCanonical|value.NeedIdentity)
 }
 
 // ValueProgram returns the immutable value program used by validation.

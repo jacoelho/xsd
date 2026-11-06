@@ -9,7 +9,7 @@ import (
 func TestElementFrameUsesEffectiveTypeAndDeclarationConstraint(t *testing.T) {
 	t.Parallel()
 
-	program, err := value.NewBuilder(value.BuilderOptions{}).Seal()
+	program, err := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 	if err != nil {
 		t.Fatalf("value.Builder.Seal() error = %v", err)
 	}
@@ -18,7 +18,7 @@ func TestElementFrameUsesEffectiveTypeAndDeclarationConstraint(t *testing.T) {
 	if !ok {
 		t.Fatal("missing builtin integer type")
 	}
-	modelID := ContentModelID(1)
+	modelID := contentModelID(1)
 	rt := &Schema{program: schemaProgram{
 		Value:                 program,
 		SimpleTypeUnavailable: make([]bool, value.BuiltinTypeCount),
@@ -27,16 +27,16 @@ func TestElementFrameUsesEffectiveTypeAndDeclarationConstraint(t *testing.T) {
 			{
 				contentModel: modelID,
 				textType:     stringID,
-				contentKind:  ContentSimple,
+				contentKind:  contentSimple,
 			},
 		},
-		CompiledModels: testCompiledModelReads([]CompiledModel{
+		CompiledModels: testCompiledModelReads([]compiledModel{
 			{},
 			{Start: 7, AllBitLen: 2},
 		}),
-		Elements: newElementReadTable([]ElementDecl{
+		Elements: newElementReadTable([]elementDecl{
 			{Type: SimpleRef(stringID)},
-			{Type: SimpleRef(integerID), Fixed: &ValueConstraint{}},
+			{Type: SimpleRef(integerID), Fixed: &valueConstraint{}},
 		}),
 	}}
 
@@ -75,7 +75,7 @@ func TestElementFrameUsesEffectiveTypeAndDeclarationConstraint(t *testing.T) {
 }
 
 func TestSchemaReadsRejectInvalidSimpleContent(t *testing.T) {
-	program, sealErr := value.NewBuilder(value.BuilderOptions{}).Seal()
+	program, sealErr := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 	if sealErr != nil {
 		t.Fatal(sealErr)
 	}
@@ -84,9 +84,9 @@ func TestSchemaReadsRejectInvalidSimpleContent(t *testing.T) {
 		Value:                 program,
 		SimpleTypeUnavailable: make([]bool, value.BuiltinTypeCount),
 		ComplexTypes: []complexTypeRead{
-			{contentModel: NoContentModel, textType: NoSimpleType, contentKind: ContentSimple},
-			{contentModel: NoContentModel, textType: stringID, contentKind: ContentSimple},
-			{contentModel: NoContentModel, textType: stringID, contentKind: ContentEmpty},
+			{contentModel: noContentModel, textType: NoSimpleType, contentKind: contentSimple},
+			{contentModel: noContentModel, textType: stringID, contentKind: contentSimple},
+			{contentModel: noContentModel, textType: stringID, contentKind: contentEmpty},
 		},
 	}}
 	for _, id := range []ComplexTypeID{0} {

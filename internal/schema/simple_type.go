@@ -7,15 +7,15 @@ import (
 	"github.com/jacoelho/xsd/internal/vocab"
 )
 
-// SimpleType is compiler-owned schema declaration metadata. ValueSpec is the
+// simpleType is compiler-owned schema declaration metadata. ValueSpec is the
 // sole owner of all simple-type semantics and derivation edges; schema keeps
 // only declaration facts and derived construction metadata.
-type SimpleType struct {
+type simpleType struct {
 	ValueSpec value.TypeSpec
 	Name      QName
 	Final     DerivationMask
 	Missing   bool
-	Scope     DeclarationScope
+	Scope     declarationScope
 
 	// Union admission derives this from completed members; restrictions preserve it.
 	unionContainsList bool
@@ -23,29 +23,29 @@ type SimpleType struct {
 	unionHasFacets bool
 }
 
-// SimpleTypeByID returns the declaration at id when it is within types.
-func SimpleTypeByID(types []SimpleType, id SimpleTypeID) (*SimpleType, bool) {
-	if !ValidSimpleTypeID(id, len(types)) {
+// simpleTypeByID returns the declaration at id when it is within types.
+func simpleTypeByID(types []simpleType, id SimpleTypeID) (*simpleType, bool) {
+	if !validSimpleTypeID(id, len(types)) {
 		return nil, false
 	}
 	return &types[id], true
 }
 
-// UsableSimpleType returns a present, non-missing declaration at id.
-func UsableSimpleType(types []SimpleType, id SimpleTypeID) (*SimpleType, bool) {
-	st, ok := SimpleTypeByID(types, id)
+// usableSimpleType returns a present, non-missing declaration at id.
+func usableSimpleType(types []simpleType, id SimpleTypeID) (*simpleType, bool) {
+	st, ok := simpleTypeByID(types, id)
 	if !ok || st.Missing {
 		return nil, false
 	}
 	return st, true
 }
 
-// MissingSimpleTypeLocalName returns the local name used for unavailable types.
-func MissingSimpleTypeLocalName() string { return "missing" }
+// missingSimpleTypeLocalName returns the local name used for unavailable types.
+func missingSimpleTypeLocalName() string { return "missing" }
 
-// MissingSimpleType creates the unavailable-type sentinel declaration.
-func MissingSimpleType(name QName, base SimpleTypeID) SimpleType {
-	return SimpleType{
+// missingSimpleType creates the unavailable-type sentinel declaration.
+func missingSimpleType(name QName, base SimpleTypeID) simpleType {
+	return simpleType{
 		Name:    name,
 		Missing: true,
 		ValueSpec: value.TypeSpec{
@@ -56,30 +56,18 @@ func MissingSimpleType(name QName, base SimpleTypeID) SimpleType {
 	}
 }
 
-// ValidWhitespaceRestriction reports whether next preserves the base type's
-// whiteSpace restriction.
-func ValidWhitespaceRestriction(base, next value.WhitespaceMode) bool {
-	if base == value.WhitespaceCollapse {
-		return next == value.WhitespaceCollapse
-	}
-	if base == value.WhitespaceReplace {
-		return next != value.WhitespacePreserve
-	}
-	return true
-}
-
-// OrderedFacetStep only records duplicate/exclusive source facets. Typed
+// orderedFacetStep only records duplicate/exclusive source facets. Typed
 // bound ordering and derivation are checked by value.Builder.
-type OrderedFacetStep struct {
+type orderedFacetStep struct {
 	MinInclusive bool
 	MinExclusive bool
 	MaxInclusive bool
 	MaxExclusive bool
 }
 
-// ValidateOrderedFacetStep rejects duplicate inclusive/exclusive bounds in a
+// validateOrderedFacetStep rejects duplicate inclusive/exclusive bounds in a
 // single source restriction step.
-func ValidateOrderedFacetStep(step OrderedFacetStep) error {
+func validateOrderedFacetStep(step orderedFacetStep) error {
 	if step.MinInclusive && step.MinExclusive {
 		return errors.New("minInclusive and minExclusive cannot both be specified")
 	}
@@ -89,14 +77,14 @@ func ValidateOrderedFacetStep(step OrderedFacetStep) error {
 	return nil
 }
 
-// ValidateSimpleTypeFinalAllows checks whether derivation is allowed by final.
-func ValidateSimpleTypeFinalAllows(final, derivation DerivationMask) error {
-	if !ValidSimpleFinalMask(final) {
+// validateSimpleTypeFinalAllows checks whether derivation is allowed by final.
+func validateSimpleTypeFinalAllows(final, derivation DerivationMask) error {
+	if !validSimpleFinalMask(final) {
 		return errors.New("simple type final mask is invalid")
 	}
 	//nolint:exhaustive // only simple-type derivation kinds are valid here.
 	switch derivation {
-	case DerivationRestriction, DerivationList, DerivationUnion:
+	case DerivationRestriction, derivationList, derivationUnion:
 	default:
 		return errors.New("simple type final derivation is invalid")
 	}
@@ -111,9 +99,9 @@ func simpleTypeFinalDerivationName(derivation DerivationMask) string {
 	switch derivation {
 	case DerivationRestriction:
 		return vocab.XSDElemRestriction
-	case DerivationList:
+	case derivationList:
 		return vocab.XSDElemList
-	case DerivationUnion:
+	case derivationUnion:
 		return vocab.XSDElemUnion
 	default:
 		return "derivation"

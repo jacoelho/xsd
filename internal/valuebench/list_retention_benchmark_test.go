@@ -33,7 +33,7 @@ func BenchmarkProgramListRetention(b *testing.B) {
 
 func benchmarkListProgram(b *testing.B, facets value.FacetSpec) (*value.Program, value.TypeID) {
 	b.Helper()
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	spec := value.TypeSpec{
 		Variety:           value.List,
 		Primitive:         value.PrimitiveString,
@@ -60,7 +60,7 @@ func benchmarkListProgram(b *testing.B, facets value.FacetSpec) (*value.Program,
 
 func benchmarkNestedListEnumerationProgram(b *testing.B) (*value.Program, value.TypeID) {
 	b.Helper()
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	listID, err := builder.Reserve()
 	if err != nil {
 		b.Fatalf("Reserve() error = %v", err)
@@ -121,14 +121,14 @@ func benchmarkNestedListEnumerationProgram(b *testing.B) (*value.Program, value.
 
 func benchmarkListRetention(b *testing.B, program *value.Program, id value.TypeID, input string, wantError error) {
 	b.Helper()
-	if _, err := program.Validate(id, input, value.Resolver{}, 0, 1<<40, nil); !errors.Is(err, wantError) {
+	if _, err := program.Validate(id, input, value.Resolver{}, 0, value.EvaluationLimits{Work: 1 << 40, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); !errors.Is(err, wantError) {
 		b.Fatalf("Validate() error = %v, want %v", err, wantError)
 	}
 	b.ReportAllocs()
 	b.SetBytes(int64(len(input)))
 	failures := 0
 	for b.Loop() {
-		if _, err := program.Validate(id, input, value.Resolver{}, 0, 1<<40, nil); err != nil {
+		if _, err := program.Validate(id, input, value.Resolver{}, 0, value.EvaluationLimits{Work: 1 << 40, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 			failures++
 		}
 	}

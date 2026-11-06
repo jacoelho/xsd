@@ -113,7 +113,7 @@ func namespaceBenchmarkStarts(depth int, declarations namespaceBenchmarkDeclarat
 		if declarations == namespaceBenchmarkDeclarations {
 			starts[i].Attr = []Attr{{
 				Name:  xml.Name{Space: "xmlns", Local: "p" + strconv.Itoa(i)},
-				Value: "urn:" + strconv.Itoa(i),
+				value: "urn:" + strconv.Itoa(i),
 			}}
 		}
 	}
@@ -127,7 +127,7 @@ func namespaceBenchmarkDefaultStarts(depth int, shadow namespaceBenchmarkShadowM
 		if i == 0 || shadow == namespaceBenchmarkShadowed {
 			starts[i].Attr = []Attr{{
 				Name:  xml.Name{Local: "xmlns"},
-				Value: fmt.Sprintf("urn:default:%d", i),
+				value: fmt.Sprintf("urn:default:%d", i),
 			}}
 		}
 	}
@@ -212,8 +212,8 @@ func newScratchOppFixture(b *testing.B, widths []int, failure string) scratchOpp
 	b.Helper()
 	fixture := scratchOppFixture{}
 	root := StartElement{Name: xml.Name{Local: "root"}, Attr: []Attr{
-		{Name: xml.Name{Space: "xmlns", Local: "p"}, Value: scratchOppParentURI},
-		{Name: xml.Name{Space: "xmlns", Local: "q"}, Value: scratchOppParentURI},
+		{Name: xml.Name{Space: "xmlns", Local: "p"}, value: scratchOppParentURI},
+		{Name: xml.Name{Space: "xmlns", Local: "q"}, value: scratchOppParentURI},
 	}}
 	parent, name, err := fixture.namespaces.StartStream(&root, &fixture.values)
 	if err != nil {
@@ -226,16 +226,16 @@ func newScratchOppFixture(b *testing.B, widths []int, failure string) scratchOpp
 	fixture.saved = fixture.namespaces.Context()
 	if failure != "" {
 		attrs := []Attr{
-			{Name: xml.Name{Space: "xmlns", Local: "p"}, Value: "urn:shadow"},
-			{Name: xml.Name{Space: "xmlns", Local: "q"}, Value: "urn:shadow"},
+			{Name: xml.Name{Space: "xmlns", Local: "p"}, value: "urn:shadow"},
+			{Name: xml.Name{Space: "xmlns", Local: "q"}, value: "urn:shadow"},
 		}
 		attrs = append(attrs, scratchOppAttributes(16)...)
 		event := scratchOppEvent{}
 		if failure == "duplicate" {
-			attrs = append(attrs, Attr{Name: xml.Name{Space: "q", Local: "a0"}, Value: "value"})
+			attrs = append(attrs, Attr{Name: xml.Name{Space: "q", Local: "a0"}, value: "value"})
 			event.wantError = "duplicate attribute {urn:shadow}a0"
 		} else {
-			attrs = append(attrs, Attr{Name: xml.Name{Space: "missing", Local: "bad"}, Value: "value"})
+			attrs = append(attrs, Attr{Name: xml.Name{Space: "missing", Local: "bad"}, value: "value"})
 			event.wantError = "unbound namespace prefix missing"
 		}
 		event.lexical = attrs
@@ -256,7 +256,7 @@ func scratchOppAttributes(width int) []Attr {
 		if i%2 != 0 {
 			prefix = "q"
 		}
-		attrs[i] = Attr{Name: xml.Name{Space: prefix, Local: "a" + strconv.Itoa(i)}, Value: "value"}
+		attrs[i] = Attr{Name: xml.Name{Space: prefix, Local: "a" + strconv.Itoa(i)}, value: "value"}
 	}
 	return attrs
 }
@@ -302,7 +302,7 @@ func assertScratchOppFailure(b *testing.B, event *scratchOppEvent, start StartEl
 		b.Fatalf("failure = %q, want %q", err, event.wantError)
 	}
 	for i, attr := range start.Attr {
-		if attr.Name != event.lexical[i].Name || attr.Value != event.lexical[i].Value {
+		if attr.Name != event.lexical[i].Name || attr.value != event.lexical[i].value {
 			b.Fatalf("failed attribute %d changed: %#v", i, attr)
 		}
 	}
@@ -315,7 +315,7 @@ func assertScratchOppSuccess(b *testing.B, event *scratchOppEvent, start StartEl
 	}
 	for i, attr := range start.Attr {
 		want := xml.Name{Space: scratchOppParentURI, Local: "a" + strconv.Itoa(i)}
-		if attr.Name != want || attr.Value != "value" {
+		if attr.Name != want || attr.value != "value" {
 			b.Fatalf("admitted attribute %d = %#v, want %#v with value", i, attr, want)
 		}
 	}

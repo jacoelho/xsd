@@ -8,7 +8,7 @@ import (
 )
 
 func BenchmarkPublishedRawUnionLateMember(b *testing.B) {
-	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	booleanID, err := builder.Reserve()
 	if err != nil {
 		b.Fatalf("Reserve() error = %v", err)
@@ -61,14 +61,14 @@ func BenchmarkPublishedRawUnionLateMember(b *testing.B) {
 	raw := []byte("value")
 	b.ReportAllocs()
 	for b.Loop() {
-		if _, err := program.ValidateBytes(unionID, raw, valuepkg.Resolver{}, 0, 16<<20, nil); err != nil {
+		if _, err := program.ValidateBytes(unionID, raw, valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkPublishedUnionRejectedMember(b *testing.B) {
-	pattern, err := xsdregex.Compile(`[0-9]+`, xsdregex.CompileOptions{})
+	pattern, err := xsdregex.Compile(`[0-9]+`)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -111,7 +111,7 @@ func BenchmarkPublishedUnionRejectedMember(b *testing.B) {
 		}},
 	} {
 		b.Run(fixture.name, func(b *testing.B) {
-			builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+			builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 			firstID, reserveErr := builder.Reserve()
 			if reserveErr != nil {
 				b.Fatal(reserveErr)
@@ -142,11 +142,11 @@ func BenchmarkPublishedUnionRejectedMember(b *testing.B) {
 					validate := func(needs valuepkg.Needs) (valuepkg.Value, error) {
 						switch api {
 						case "bytes":
-							return program.ValidateBytes(unionID, raw, valuepkg.Resolver{}, needs, 16<<20, &scratch)
+							return program.ValidateBytes(unionID, raw, valuepkg.Resolver{}, needs, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 						case "admitted":
-							return program.ValidateAdmitted(unionID, fixture.input, valuepkg.Resolver{}, needs, 16<<20, &scratch)
+							return program.ValidateAdmitted(unionID, fixture.input, valuepkg.Resolver{}, needs, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 						default:
-							return program.Validate(unionID, fixture.input, valuepkg.Resolver{}, needs, 16<<20, &scratch)
+							return program.Validate(unionID, fixture.input, valuepkg.Resolver{}, needs, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 						}
 					}
 					projected, validationErr := validate(valuepkg.NeedCanonical | valuepkg.NeedIdentity)

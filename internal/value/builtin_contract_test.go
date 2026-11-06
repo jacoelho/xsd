@@ -8,7 +8,7 @@ import (
 
 func TestBuiltinValueContracts(t *testing.T) {
 	t.Parallel()
-	program, err := value.NewBuilder(value.BuilderOptions{}).Seal()
+	program, err := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +107,7 @@ func TestBuiltinValueContracts(t *testing.T) {
 				t.Fatalf("missing builtin %q", tc.typ)
 			}
 			for _, needs := range []value.Needs{0, value.NeedCanonical | value.NeedIdentity} {
-				_, err := program.Validate(id, tc.lexical, resolver, needs, 16<<20, nil)
+				_, err := program.Validate(id, tc.lexical, resolver, needs, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 				if (err == nil) != tc.valid {
 					t.Errorf("Validate(%q, needs=%d) = %v, valid = %v", tc.lexical, needs, err, tc.valid)
 				}
@@ -118,7 +118,7 @@ func TestBuiltinValueContracts(t *testing.T) {
 
 func TestForwardBaseRetainsFacets(t *testing.T) {
 	t.Parallel()
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	derived, reserveErr := builder.Reserve()
 	if reserveErr != nil {
 		t.Fatal(reserveErr)
@@ -141,17 +141,17 @@ func TestForwardBaseRetainsFacets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := program.Validate(derived, "9", value.Resolver{}, 0, 16<<20, nil); err == nil {
+	if _, err := program.Validate(derived, "9", value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err == nil {
 		t.Fatal("derived type accepted value below inherited bound")
 	}
-	if _, err := program.Validate(derived, "10", value.Resolver{}, 0, 16<<20, nil); err != nil {
+	if _, err := program.Validate(derived, "10", value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestValueEqualityUsesValueSpace(t *testing.T) {
 	t.Parallel()
-	program, err := value.NewBuilder(value.BuilderOptions{}).Seal()
+	program, err := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,11 +171,11 @@ func TestValueEqualityUsesValueSpace(t *testing.T) {
 			t.Parallel()
 			leftID, _ := value.BuiltinTypeID(tc.leftType)
 			rightID, _ := value.BuiltinTypeID(tc.rightType)
-			left, err := program.Validate(leftID, tc.left, value.Resolver{}, value.NeedIdentity, 16<<20, nil)
+			left, err := program.Validate(leftID, tc.left, value.Resolver{}, value.NeedIdentity, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
-			right, err := program.Validate(rightID, tc.right, value.Resolver{}, value.NeedIdentity, 16<<20, nil)
+			right, err := program.Validate(rightID, tc.right, value.Resolver{}, value.NeedIdentity, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -187,7 +187,7 @@ func TestValueEqualityUsesValueSpace(t *testing.T) {
 }
 
 func TestBuiltinEntityUnionFallback(t *testing.T) {
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	entity, _ := value.BuiltinTypeID("ENTITY")
 	stringID := value.BuiltinType(value.PrimitiveString)
 	id, err := builder.Reserve()
@@ -204,9 +204,9 @@ func TestBuiltinEntityUnionFallback(t *testing.T) {
 	for _, bytesInput := range []bool{false, true} {
 		var got value.Value
 		if bytesInput {
-			got, err = program.ValidateBytes(id, []byte("name"), value.Resolver{}, value.NeedCanonical, 16<<20, nil)
+			got, err = program.ValidateBytes(id, []byte("name"), value.Resolver{}, value.NeedCanonical, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		} else {
-			got, err = program.Validate(id, "name", value.Resolver{}, value.NeedCanonical, 16<<20, nil)
+			got, err = program.Validate(id, "name", value.Resolver{}, value.NeedCanonical, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		}
 		if err != nil || got.Type() != id || got.SelectedType() != stringID || got.CanonicalText() != "name" {
 			t.Fatalf("bytes=%t: union value=%#v, error=%v; want string fallback", bytesInput, got, err)

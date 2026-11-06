@@ -11,7 +11,7 @@ import (
 // BenchmarkPaddedValue measures collapse-whitespace values that carry only
 // leading and trailing XML whitespace, as indented element content does.
 func BenchmarkPaddedValue(b *testing.B) {
-	program, err := value.NewBuilder(value.BuilderOptions{}).Seal()
+	program, err := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -41,7 +41,7 @@ func BenchmarkPaddedValue(b *testing.B) {
 				b.ReportAllocs()
 				b.SetBytes(int64(len(raw)))
 				for b.Loop() {
-					if _, err := program.ValidateBytes(id, raw, value.Resolver{}, 0, 16<<20, nil); err != nil {
+					if _, err := program.ValidateBytes(id, raw, value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 						b.Fatal(err)
 					}
 				}
@@ -64,7 +64,7 @@ func requirePaddedValues(b *testing.B, program *value.Program, id value.TypeID, 
 	b.Helper()
 	local, invalid := typ.local, typ.invalid
 	canonical := func(text string) string {
-		got, err := program.ValidateBytes(id, []byte(text), value.Resolver{}, value.NeedCanonical, 16<<20, nil)
+		got, err := program.ValidateBytes(id, []byte(text), value.Resolver{}, value.NeedCanonical, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		if err != nil {
 			b.Fatalf("%s %q: %v", local, text, err)
 		}
@@ -80,7 +80,7 @@ func requirePaddedValues(b *testing.B, program *value.Program, id value.TypeID, 
 		return
 	}
 	reject := func(text string) error {
-		_, err := program.ValidateBytes(id, []byte(text), value.Resolver{}, 0, 16<<20, nil)
+		_, err := program.ValidateBytes(id, []byte(text), value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		if err == nil {
 			b.Fatalf("%s %q accepted, want rejection", local, text)
 		}
@@ -112,7 +112,7 @@ func BenchmarkListTrailingSpace(b *testing.B) {
 		{name: "trailing", text: exact + " "},
 	}
 	for _, shape := range shapes {
-		got, err := program.Validate(id, shape.text, value.Resolver{}, value.NeedCanonical, 1<<40, nil)
+		got, err := program.Validate(id, shape.text, value.Resolver{}, value.NeedCanonical, value.EvaluationLimits{Work: 1 << 40, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		if err != nil {
 			b.Fatalf("%s: %v", shape.name, err)
 		}
@@ -125,7 +125,7 @@ func BenchmarkListTrailingSpace(b *testing.B) {
 			b.ReportAllocs()
 			b.SetBytes(int64(len(shape.text)))
 			for b.Loop() {
-				if _, err := program.Validate(id, shape.text, value.Resolver{}, 0, 1<<40, nil); err != nil {
+				if _, err := program.Validate(id, shape.text, value.Resolver{}, 0, value.EvaluationLimits{Work: 1 << 40, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 					b.Fatal(err)
 				}
 			}

@@ -13,31 +13,31 @@ func TestParseQNameParts(t *testing.T) {
 	tests := []struct {
 		name    string
 		lexical string
-		want    QNameParts
+		want    qNameParts
 		wantMsg string
 	}{
 		{
 			name:    "unprefixed",
 			lexical: " name ",
-			want:    QNameParts{Local: "name"},
+			want:    qNameParts{Local: "name"},
 		},
 		{
 			name:    "prefixed",
 			lexical: "p:name",
-			want:    QNameParts{Prefix: "p", Local: "name", Prefixed: true},
+			want:    qNameParts{Prefix: "p", Local: "name", Prefixed: true},
 		},
-		{name: "empty", lexical: " ", wantMsg: invalidQNameMessagePrefix},
-		{name: "bad unprefixed", lexical: "1bad", wantMsg: invalidQNameMessagePrefix + "1bad"},
-		{name: "bad prefixed", lexical: "p:1bad", wantMsg: invalidQNameMessagePrefix + "p:1bad"},
-		{name: "missing prefix", lexical: ":name", wantMsg: invalidQNameMessagePrefix + ":name"},
-		{name: "missing local", lexical: "p:", wantMsg: invalidQNameMessagePrefix + "p:"},
-		{name: "multiple colons", lexical: "p:a:b", wantMsg: invalidQNameMessagePrefix + "p:a:b"},
+		{name: "empty", lexical: " ", wantMsg: invalidQNameMessagePrefix + `""`},
+		{name: "bad unprefixed", lexical: "1bad", wantMsg: invalidQNameMessagePrefix + "\"1bad\""},
+		{name: "bad prefixed", lexical: "p:1bad", wantMsg: invalidQNameMessagePrefix + "\"p:1bad\""},
+		{name: "missing prefix", lexical: ":name", wantMsg: invalidQNameMessagePrefix + "\":name\""},
+		{name: "missing local", lexical: "p:", wantMsg: invalidQNameMessagePrefix + "\"p:\""},
+		{name: "multiple colons", lexical: "p:a:b", wantMsg: invalidQNameMessagePrefix + "\"p:a:b\""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := ParseQNameParts(tt.lexical)
+			got, err := parseQNameParts(tt.lexical)
 			if tt.wantMsg == "" {
 				if err != nil {
 					t.Fatalf("ParseQNameParts() error = %v", err)

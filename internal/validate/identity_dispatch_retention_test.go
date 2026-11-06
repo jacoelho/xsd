@@ -213,6 +213,9 @@ func identityDispatchRetentionStateForTest(e *identityEvaluation) identityDispat
 
 func validateUnclosedIdentityDocument(t *testing.T, session *Session, document string) {
 	t.Helper()
+	// This helper drives the parser directly, bypassing the validate entry
+	// that resets the document account.
+	session.session.patternTotal.Reset(session.session.limits.InstanceTotalPatternWork)
 	if err := session.session.resetParser(strings.NewReader(document)); err != nil {
 		t.Fatal(err)
 	}

@@ -38,7 +38,7 @@ func TestParserNamesAcrossReadCuts(t *testing.T) {
 					start.StartOffset != 6 || start.EndOffset != test.startEnd || start.Line != 1 || start.Column != 7 {
 					t.Fatalf("start = %+v, %v", start, err)
 				}
-				if len(start.Start.Attr) != 1 || start.Start.Attr[0].Name != (xml.Name{Local: "z"}) || start.Start.Attr[0].Value != "v" {
+				if len(start.Start.Attr) != 1 || start.Start.Attr[0].Name != (xml.Name{Local: "z"}) || parser.attrValue(&start.Start.Attr[0]) != "v" {
 					t.Fatalf("attributes = %+v", start.Start.Attr)
 				}
 				end, err := parser.next()
@@ -113,7 +113,7 @@ func TestParserNamePromotionChargesOnce(t *testing.T) {
 				}
 			}
 			_, err := parser.next()
-			if limit == 3 && !IsTokenLimit(err) || limit == 4 && err != nil {
+			if limit == 3 && !isLimit(err, LimitTokenBytes) || limit == 4 && err != nil {
 				t.Fatalf("fragmented=%v limit=%d: %v", fragmented, limit, err)
 			}
 			parser.detach()
@@ -127,7 +127,7 @@ func TestParserNamePromotionChargesOnce(t *testing.T) {
 		}
 		token, err := reader.Next()
 		if limit < int64(len(name)) {
-			if token != nil || !IsTokenLimit(err) {
+			if token != nil || !isLimit(err, LimitTokenBytes) {
 				t.Fatalf("short allowance = %v, %v", token, err)
 			}
 		} else if err != nil || token.Start.Name.Local != name {
@@ -238,7 +238,7 @@ func TestReaderWarmNameStillChargesAndPreservesReadErrors(t *testing.T) {
 	if err := reader.Reset(strings.NewReader("<warm/>"), Config{Limits: Limits{MaxTokenBytes: 3}}); err != nil {
 		t.Fatal(err)
 	}
-	if token, err := reader.Next(); token != nil || !IsTokenLimit(err) {
+	if token, err := reader.Next(); token != nil || !isLimit(err, LimitTokenBytes) {
 		t.Fatalf("warm name limit = %v, %v", token, err)
 	}
 	readErr := errors.New("warm name read failed")
@@ -340,7 +340,7 @@ func TestParserInvalidQNameFailurePrecedence(t *testing.T) {
 		}
 		_, err := parser.next()
 		if limit == 3 {
-			if !IsTokenLimit(err) {
+			if !isLimit(err, LimitTokenBytes) {
 				t.Fatalf("insufficient allowance: %v", err)
 			}
 		} else if err == nil || err.Error() != "invalid XML qualified name" {
@@ -384,7 +384,7 @@ func TestParserLaterInvalidQNameFailurePrecedence(t *testing.T) {
 				check  func(error) bool
 				expect string
 			}{
-				{input: split(document, nil), limit: int64(len(name) - 1), check: IsTokenLimit, expect: "token limit"},
+				{input: split(document, nil), limit: int64(len(name) - 1), check: func(err error) bool { return isLimit(err, LimitTokenBytes) }, expect: "token limit"},
 				{input: split(document, nil), limit: int64(len(name)), check: func(err error) bool {
 					return err != nil && err.Error() == "invalid XML qualified name"
 				}, expect: "invalid XML qualified name"},

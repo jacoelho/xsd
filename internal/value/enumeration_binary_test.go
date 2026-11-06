@@ -13,7 +13,7 @@ func TestRawStringEnumerationMembershipAcrossShapes(t *testing.T) {
 		for _, shape := range []string{"short", "commonprefix", "reversed"} {
 			t.Run(fmt.Sprintf("%d/%s", size, shape), func(t *testing.T) {
 				values := testStringEnumerationValues(size, shape)
-				builder := NewBuilder(BuilderOptions{})
+				builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 				id, err := builder.Reserve()
 				if err != nil {
 					t.Fatalf("Reserve() error = %v", err)
@@ -46,7 +46,7 @@ func TestRawStringEnumerationMembershipAcrossShapes(t *testing.T) {
 				} {
 					t.Run(tc.name, func(t *testing.T) {
 						raw := []byte(tc.input)
-						_, err := program.ValidateBytes(id, raw, Resolver{}, 0, 16<<20, nil)
+						_, err := program.ValidateBytes(id, raw, Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 						if (err == nil) != tc.valid {
 							t.Fatalf("ValidateBytes(%q) error = %v, valid = %t", tc.input, err, tc.valid)
 						}
@@ -57,7 +57,7 @@ func TestRawStringEnumerationMembershipAcrossShapes(t *testing.T) {
 				}
 				raw := []byte(values[len(values)-1])
 				if allocs := testing.AllocsPerRun(100, func() {
-					if _, err := program.ValidateBytes(id, raw, Resolver{}, 0, 16<<20, nil); err != nil {
+					if _, err := program.ValidateBytes(id, raw, Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: sequentialPatternTotal}, nil); err != nil {
 						t.Fatal(err)
 					}
 				}); allocs != 0 {
@@ -74,7 +74,7 @@ func TestLargeRawStringEnumerationRetainsDuplicateAndEmpty(t *testing.T) {
 		values = append(values, fmt.Sprintf("v%02d", i))
 	}
 	values = append(values, "v10")
-	builder := NewBuilder(BuilderOptions{})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := builder.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -101,7 +101,7 @@ func TestLargeRawStringEnumerationRetainsDuplicateAndEmpty(t *testing.T) {
 		{input: "v63", valid: true},
 		{input: "v64", valid: false},
 	} {
-		_, err := program.ValidateBytes(id, []byte(tc.input), Resolver{}, 0, 16<<20, nil)
+		_, err := program.ValidateBytes(id, []byte(tc.input), Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		if (err == nil) != tc.valid {
 			t.Fatalf("ValidateBytes(%q) error = %v, valid = %t", tc.input, err, tc.valid)
 		}
@@ -120,7 +120,7 @@ func TestLargeInheritedRawStringEnumerationKeepsGroupOwnership(t *testing.T) {
 	derivedValues := append([]string(nil), baseValues...)
 	derivedValues = append(derivedValues, "v10")
 
-	builder := NewBuilder(BuilderOptions{})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	base, err := builder.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -166,16 +166,16 @@ func TestLargeInheritedRawStringEnumerationKeepsGroupOwnership(t *testing.T) {
 		t.Fatalf("enumeration groups = (%d, %d), want inherited base plus owned group", len(baseType.facets.enumGroups), len(derivedType.facets.enumGroups))
 	}
 	for _, input := range []string{"z", "", "v10"} {
-		if _, err := program.ValidateBytes(base, []byte(input), Resolver{}, 0, 16<<20, nil); err != nil {
+		if _, err := program.ValidateBytes(base, []byte(input), Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 			t.Fatalf("base ValidateBytes(%q) error = %v", input, err)
 		}
 	}
 	for _, input := range []string{"z", "", "v10"} {
-		if _, err := program.ValidateBytes(derived, []byte(input), Resolver{}, 0, 16<<20, nil); err != nil {
+		if _, err := program.ValidateBytes(derived, []byte(input), Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 			t.Fatalf("derived ValidateBytes(%q) error = %v", input, err)
 		}
 	}
-	if _, err := program.ValidateBytes(derived, []byte("v64"), Resolver{}, 0, 16<<20, nil); !errors.Is(err, ErrFacet) {
+	if _, err := program.ValidateBytes(derived, []byte("v64"), Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); !errors.Is(err, ErrFacet) {
 		t.Fatalf("derived ValidateBytes(%q) error = %v, want ErrFacet", "v64", err)
 	}
 }
@@ -192,14 +192,14 @@ func TestBase64CanonicalReadiness(t *testing.T) {
 		{name: "no padding", raw: "YWJj", canonical: "YWJj", length: 3},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := ParseBinaryValue(PrimitiveBase64Binary, tc.raw, PrimitiveNeedCanonical)
+			got, err := parseBinaryValue(PrimitiveBase64Binary, tc.raw, primitiveNeedCanonical)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if got.Canonical != tc.canonical || got.Length != tc.length || !got.canonicalReady {
 				t.Fatalf("ParseBinaryValue() = %#v, want canonical=%q length=%d ready", got, tc.canonical, tc.length)
 			}
-			unprojected, err := ParseBinaryValue(PrimitiveBase64Binary, tc.raw, 0)
+			unprojected, err := parseBinaryValue(PrimitiveBase64Binary, tc.raw, 0)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -208,13 +208,13 @@ func TestBase64CanonicalReadiness(t *testing.T) {
 			}
 		})
 	}
-	if _, err := ParseBinaryValue(PrimitiveBase64Binary, "YR==", PrimitiveNeedCanonical); err == nil {
+	if _, err := parseBinaryValue(PrimitiveBase64Binary, "YR==", primitiveNeedCanonical); err == nil {
 		t.Fatal("ParseBinaryValue accepted nonzero base64 pad bits")
 	}
 }
 
 func TestBase64EnumerationCompactsDocumentValueOnce(t *testing.T) {
-	builder := NewBuilder(BuilderOptions{})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := builder.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -233,28 +233,28 @@ func TestBase64EnumerationCompactsDocumentValueOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, input := range []string{"YQ==", " Y\n Q == ", "YQ=="} {
-		if _, validationErr := program.Validate(id, input, Resolver{}, 0, 16<<20, nil); validationErr != nil {
+		if _, validationErr := program.Validate(id, input, Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); validationErr != nil {
 			t.Fatalf("Validate(%q) error = %v", input, validationErr)
 		}
 	}
-	canonical, err := program.Validate(id, " Y\n Q == ", Resolver{}, NeedCanonical|NeedIdentity, 16<<20, nil)
+	canonical, err := program.Validate(id, " Y\n Q == ", Resolver{}, NeedCanonical|NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if canonical.CanonicalText() != "YQ==" || canonical.IdentityKey() != PrimitiveIdentityKey(PrimitiveBase64Binary, "YQ==") {
 		t.Fatalf("projections = (%q, %q), want compact base64 projections", canonical.CanonicalText(), canonical.IdentityKey())
 	}
-	plain, err := program.Validate(id, "YQ==", Resolver{}, NeedIdentity, 16<<20, nil)
+	plain, err := program.Validate(id, "YQ==", Resolver{}, NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !canonical.Equal(plain) {
 		t.Fatal("equivalent base64 values were not equal")
 	}
-	if _, err := program.Validate(id, "YQ==", Resolver{}, 0, 4, nil); !errors.Is(err, ErrLimit) {
+	if _, err := program.Validate(id, "YQ==", Resolver{}, 0, EvaluationLimits{Work: 4, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); !errors.Is(err, ErrLimit) {
 		t.Fatalf("runtime work below lexical charge = %v, want ErrLimit", err)
 	}
-	if _, err := program.Validate(id, "YQ==", Resolver{}, 0, 5, nil); err != nil {
+	if _, err := program.Validate(id, "YQ==", Resolver{}, 0, EvaluationLimits{Work: 5, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 		t.Fatalf("runtime work at lexical charge = %v", err)
 	}
 }
@@ -301,7 +301,7 @@ func TestBase64EnumerationPreparationOwnsDocumentValue(t *testing.T) {
 }
 
 func TestBase64ListEnumerationPreparesRetainedItems(t *testing.T) {
-	builder := NewBuilder(BuilderOptions{})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	itemID, err := builder.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -331,7 +331,7 @@ func TestBase64ListEnumerationPreparesRetainedItems(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	budget, err := newEvaluationBudget(16 << 20)
+	budget, err := newEvaluationBudget(EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -354,7 +354,7 @@ func TestBase64ListEnumerationPreparesRetainedItems(t *testing.T) {
 }
 
 func TestBase64EnumerationPreparesSelectedNestedUnionListLeaves(t *testing.T) {
-	builder := NewBuilder(BuilderOptions{})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	base64ID, err := builder.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -428,7 +428,7 @@ func TestBase64EnumerationPreparesSelectedNestedUnionListLeaves(t *testing.T) {
 		literalCanonical[i] = literal.items[i].atom.lexical.Canonical
 	}
 
-	budget, err := newEvaluationBudget(16 << 20)
+	budget, err := newEvaluationBudget(EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -449,14 +449,14 @@ func TestBase64EnumerationPreparesSelectedNestedUnionListLeaves(t *testing.T) {
 			t.Fatalf("document item %d = %#v, want prepared base64", i, value.items[i])
 		}
 	}
-	got, err := program.Validate(outerID, " YQ==  Zg== ", Resolver{}, NeedCanonical, 16<<20, nil)
+	got, err := program.Validate(outerID, " YQ==  Zg== ", Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatalf("public nested union/list validation error = %v", err)
 	}
 	if got.SelectedType() != listID || got.CanonicalText() != "YQ== Zg==" {
 		t.Fatalf("public value = (selected=%d, canonical=%q), want list %d and compact list", got.SelectedType(), got.CanonicalText(), listID)
 	}
-	if _, err := program.Validate(outerID, "YQ== nope", Resolver{}, 0, 16<<20, nil); !errors.Is(err, ErrFacet) {
+	if _, err := program.Validate(outerID, "YQ== nope", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); !errors.Is(err, ErrFacet) {
 		t.Fatalf("mixed base64/string list error = %v, want ErrFacet", err)
 	}
 	for i := range literal.items {
@@ -467,7 +467,7 @@ func TestBase64EnumerationPreparesSelectedNestedUnionListLeaves(t *testing.T) {
 }
 
 func TestInheritedBase64EnumerationKeepsLiteralsImmutable(t *testing.T) {
-	builder := NewBuilder(BuilderOptions{})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	baseID, err := builder.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -519,7 +519,7 @@ func TestInheritedBase64EnumerationKeepsLiteralsImmutable(t *testing.T) {
 		literals = append(literals, group.literals[0].atom.lexical.Canonical)
 	}
 	for _, input := range []string{"YQ==", " Y\n Q == "} {
-		got, err := program.Validate(derivedID, input, Resolver{}, NeedCanonical, 16<<20, nil)
+		got, err := program.Validate(derivedID, input, Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		if err != nil {
 			t.Fatalf("Validate(%q) error = %v", input, err)
 		}
@@ -539,7 +539,7 @@ func TestBinaryValueCanonicalReadyFitsSupportedLayouts(t *testing.T) {
 	if unsafe.Sizeof(uintptr(0)) == 8 {
 		want = 24
 	}
-	if got := unsafe.Sizeof(BinaryValue{}); got > want {
+	if got := unsafe.Sizeof(binaryValue{}); got > want {
 		t.Fatalf("BinaryValue size = %d, want at most %d for pointer size %d", got, want, unsafe.Sizeof(uintptr(0)))
 	}
 	if unsafe.Sizeof(uintptr(0)) == 8 && unsafe.Sizeof(parsedValue{}) > 648 {
@@ -583,7 +583,7 @@ func testStringEnumerationMiss(shape string) string {
 }
 
 func TestBase64EmptyEnumerationAndRecovery(t *testing.T) {
-	builder := NewBuilder(BuilderOptions{})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := builder.Reserve()
 	if err != nil {
 		t.Fatal(err)
@@ -605,9 +605,9 @@ func TestBase64EmptyEnumerationAndRecovery(t *testing.T) {
 		for _, input := range []string{"", " \t\r\n", "YQ==", ""} {
 			var got Value
 			if bytes {
-				got, err = program.ValidateBytes(id, []byte(input), Resolver{}, NeedCanonical, 16<<20, &scratch)
+				got, err = program.ValidateBytes(id, []byte(input), Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 			} else {
-				got, err = program.Validate(id, input, Resolver{}, NeedCanonical, 16<<20, &scratch)
+				got, err = program.Validate(id, input, Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 			}
 			if input == "YQ==" {
 				if !errors.Is(err, ErrFacet) {
@@ -622,7 +622,7 @@ func TestBase64EmptyEnumerationAndRecovery(t *testing.T) {
 
 func TestExplicitBase64EnumerationPreservesUnionSelection(t *testing.T) {
 	for _, base64First := range []bool{true, false} {
-		builder := NewBuilder(BuilderOptions{})
+		builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 		id, err := builder.Reserve()
 		if err != nil {
 			t.Fatal(err)
@@ -647,9 +647,9 @@ func TestExplicitBase64EnumerationPreservesUnionSelection(t *testing.T) {
 			for _, input := range []string{"YQ==", " Y Q == "} {
 				var got Value
 				if bytes {
-					got, err = program.ValidateBytes(id, []byte(input), Resolver{}, NeedCanonical, 16<<20, nil)
+					got, err = program.ValidateBytes(id, []byte(input), Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 				} else {
-					got, err = program.Validate(id, input, Resolver{}, NeedCanonical, 16<<20, nil)
+					got, err = program.Validate(id, input, Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 				}
 				if !base64First {
 					if !errors.Is(err, ErrFacet) {
@@ -664,7 +664,7 @@ func TestExplicitBase64EnumerationPreservesUnionSelection(t *testing.T) {
 }
 
 func TestBase64PaddingAdmissionContract(t *testing.T) {
-	program, err := NewBuilder(BuilderOptions{}).Seal()
+	program, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -678,7 +678,7 @@ func TestBase64PaddingAdmissionContract(t *testing.T) {
 		{name: "whitespace between pads", lexical: "YQ= \t=", canonical: "YQ==", length: 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			parsed, parseErr := ParseBinaryValue(PrimitiveBase64Binary, tc.lexical, PrimitiveNeedCanonical)
+			parsed, parseErr := parseBinaryValue(PrimitiveBase64Binary, tc.lexical, primitiveNeedCanonical)
 			if tc.message != "" {
 				if parseErr == nil || parseErr.Error() != tc.message {
 					t.Fatalf("ParseBinaryValue error = %v, want %q", parseErr, tc.message)
@@ -691,9 +691,9 @@ func TestBase64PaddingAdmissionContract(t *testing.T) {
 					var got Value
 					var validationErr error
 					if bytesInput {
-						got, validationErr = program.ValidateBytes(id, []byte(tc.lexical), Resolver{}, needs, 16<<20, nil)
+						got, validationErr = program.ValidateBytes(id, []byte(tc.lexical), Resolver{}, needs, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 					} else {
-						got, validationErr = program.Validate(id, tc.lexical, Resolver{}, needs, 16<<20, nil)
+						got, validationErr = program.Validate(id, tc.lexical, Resolver{}, needs, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 					}
 					if tc.message != "" {
 						if validationErr == nil || !strings.HasSuffix(validationErr.Error(), tc.message) {
@@ -715,12 +715,12 @@ func TestBase64PaddingAdmissionContract(t *testing.T) {
 
 func TestBinaryParserRejectsMisplacedPaddingAndInvalidAlphabet(t *testing.T) {
 	for _, input := range []string{"Y=Q=", "A@=="} {
-		for _, needs := range []PrimitiveValueNeed{0, PrimitiveNeedCanonical} {
-			got, err := ParseBinaryValue(PrimitiveBase64Binary, input, needs)
+		for _, needs := range []primitiveValueNeed{0, primitiveNeedCanonical} {
+			got, err := parseBinaryValue(PrimitiveBase64Binary, input, needs)
 			if err == nil || err.Error() != "invalid base64Binary" {
 				t.Fatalf("input=%q needs=%d error = %v, want invalid base64Binary", input, needs, err)
 			}
-			if got != (BinaryValue{}) {
+			if got != (binaryValue{}) {
 				t.Fatalf("input=%q needs=%d value = %#v, want zero after failure", input, needs, got)
 			}
 		}

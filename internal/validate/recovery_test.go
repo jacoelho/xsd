@@ -71,7 +71,7 @@ func TestRecoveryLimitReached(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := RecoveryLimitReached(tt.count, tt.limit)
+			got := recoveryLimitReached(tt.count, tt.limit)
 			if got != tt.want {
 				t.Fatalf("RecoveryLimitReached(%d, %d) = %v, want %v", tt.count, tt.limit, got, tt.want)
 			}

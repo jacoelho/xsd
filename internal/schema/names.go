@@ -5,17 +5,18 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
 var (
-	// ErrNameLimit reports that the configured total name limit was exceeded.
-	ErrNameLimit = xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema name limit exceeded")
-	// ErrNamespaceLimit reports that namespace IDs exceeded the runtime ID range.
-	ErrNamespaceLimit = xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema namespace limit exceeded")
-	// ErrLocalNameLimit reports that local-name IDs exceeded the runtime ID range.
-	ErrLocalNameLimit = xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema local-name limit exceeded")
+	// errNameLimit reports that the configured total name limit was exceeded.
+	errNameLimit = xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema name limit exceeded")
+	// errNamespaceLimit reports that namespace IDs exceeded the runtime ID range.
+	errNamespaceLimit = xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema namespace limit exceeded")
+	// errLocalNameLimit reports that local-name IDs exceeded the runtime ID range.
+	errLocalNameLimit = xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema local-name limit exceeded")
 )
 
 // ExpandedName is a namespace URI and local-name pair.
@@ -24,10 +25,10 @@ type ExpandedName struct {
 	Local     string
 }
 
-// NameTable interns namespace URIs and local names for a runtime schema.
-type NameTable struct {
-	nsIndex    map[string]NamespaceID
-	localIndex map[string]LocalNameID
+// nameTable interns namespace URIs and local names for a runtime schema.
+type nameTable struct {
+	nsIndex    map[string]namespaceID
+	localIndex map[string]localNameID
 	namespaces []string
 	locals     []string
 	maxNames   int
@@ -35,13 +36,13 @@ type NameTable struct {
 
 // nameReadView is a validation view over frozen runtime names.
 type nameReadView struct {
-	nsIndex    map[string]NamespaceID
-	localIndex map[string]LocalNameID
+	nsIndex    map[string]namespaceID
+	localIndex map[string]localNameID
 	namespaces []string
 }
 
 // newNameReadView returns an owned immutable read view of names.
-func newNameReadView(names *NameTable) nameReadView {
+func newNameReadView(names *nameTable) nameReadView {
 	if names == nil {
 		return nameReadView{}
 	}
@@ -59,7 +60,7 @@ func (v nameReadView) LookupQName(ns, local string) (QName, bool) {
 		return QName{}, false
 	}
 	if ns == "" {
-		return QName{Namespace: EmptyNamespaceID, Local: localID}, true
+		return QName{Namespace: emptyNamespaceID, Local: localID}, true
 	}
 	nsID, ok := v.nsIndex[ns]
 	if !ok {
@@ -69,7 +70,7 @@ func (v nameReadView) LookupQName(ns, local string) (QName, bool) {
 }
 
 // Namespace returns the URI for id, or "" when id is not valid.
-func (v nameReadView) Namespace(id NamespaceID) string {
+func (v nameReadView) Namespace(id namespaceID) string {
 	if !validRuntimeID(uint32(id), len(v.namespaces)) {
 		return ""
 	}
@@ -86,9 +87,9 @@ var requiredRuntimeNamespaces = []string{
 
 var requiredRuntimeNames = builtinXSIAttributeNames()
 
-// NewRuntimeNameTable returns a runtime name table seeded with required XML
+// newRuntimeNameTable returns a runtime name table seeded with required XML
 // Schema namespaces and XSI attribute names.
-func NewRuntimeNameTable(maxNames int) (NameTable, error) {
+func newRuntimeNameTable(maxNames int) (nameTable, error) {
 	return newBoundedNameTable(
 		maxNames,
 		requiredRuntimeNamespaces,
@@ -98,38 +99,38 @@ func NewRuntimeNameTable(maxNames int) (NameTable, error) {
 	)
 }
 
-// NewNameTable returns a name table seeded with required runtime names.
-// Every table reserves EmptyNamespaceID for the empty namespace independently
+// newNameTable returns a name table seeded with required runtime names.
+// Every table reserves emptyNamespaceID for the empty namespace independently
 // of the caller's seed order.
-func NewNameTable(maxNames int, requiredNamespaces []string, requiredNames []ExpandedName) (NameTable, error) {
+func newNameTable(maxNames int, requiredNamespaces []string, requiredNames []ExpandedName) (nameTable, error) {
 	return newBoundedNameTable(maxNames, requiredNamespaces, requiredNames, len(requiredNamespaces), len(requiredNames))
 }
 
-func newBoundedNameTable(maxNames int, requiredNamespaces []string, requiredNames []ExpandedName, namespaceCap, localCap int) (NameTable, error) {
+func newBoundedNameTable(maxNames int, requiredNamespaces []string, requiredNames []ExpandedName, namespaceCap, localCap int) (nameTable, error) {
 	namespaceCap = max(1, namespaceCap, len(requiredNamespaces))
 	localCap = max(localCap, len(requiredNames))
-	n := NameTable{
-		nsIndex:    make(map[string]NamespaceID, namespaceCap),
-		localIndex: make(map[string]LocalNameID, localCap),
+	n := nameTable{
+		nsIndex:    make(map[string]namespaceID, namespaceCap),
+		localIndex: make(map[string]localNameID, localCap),
 		namespaces: make([]string, 0, namespaceCap),
 		locals:     make([]string, 0, localCap),
 		maxNames:   maxNames,
 	}
-	interner := NewNameInterner(&n)
+	interner := newNameInterner(&n)
 	if _, err := interner.InternNamespace(vocab.EmptyNamespaceURI); err != nil {
-		return NameTable{}, err
+		return nameTable{}, err
 	}
 	for _, uri := range requiredNamespaces {
 		if uri == vocab.EmptyNamespaceURI {
 			continue
 		}
 		if _, err := interner.InternNamespace(uri); err != nil {
-			return NameTable{}, err
+			return nameTable{}, err
 		}
 	}
 	for _, name := range requiredNames {
 		if _, err := interner.InternQName(name.Namespace, name.Local); err != nil {
-			return NameTable{}, err
+			return nameTable{}, err
 		}
 	}
 	return n, nil
@@ -137,13 +138,13 @@ func newBoundedNameTable(maxNames int, requiredNamespaces []string, requiredName
 
 func runtimeNameLocalCapacity() int {
 	return len(requiredRuntimeNames) +
-		BuiltinSimpleTypeCount() +
+		builtinSimpleTypeCount() +
 		1 // xs:anyType
 }
 
 // Clone returns a deep copy of n.
-func (n *NameTable) Clone() NameTable {
-	return NameTable{
+func (n *nameTable) Clone() nameTable {
+	return nameTable{
 		nsIndex:    maps.Clone(n.nsIndex),
 		localIndex: maps.Clone(n.localIndex),
 		namespaces: slices.Clone(n.namespaces),
@@ -153,13 +154,13 @@ func (n *NameTable) Clone() NameTable {
 }
 
 // NameCount returns the total number of interned namespace URIs and local names.
-func (n *NameTable) NameCount() int {
+func (n *nameTable) NameCount() int {
 	return len(n.namespaces) + len(n.locals)
 }
 
-// ValidateRuntimeNameTable validates runtime name-table shape and required
+// validateRuntimeNameTable validates runtime name-table shape and required
 // runtime namespace/name seeds.
-func ValidateRuntimeNameTable(n *NameTable) error {
+func validateRuntimeNameTable(n *nameTable) error {
 	if n == nil {
 		return errors.New("runtime name table is missing")
 	}
@@ -167,8 +168,8 @@ func ValidateRuntimeNameTable(n *NameTable) error {
 }
 
 // Validate reports whether n is internally consistent and contains required names.
-func (n *NameTable) Validate(requiredNamespaces []string, requiredNames []ExpandedName) error {
-	if n == nil || len(n.namespaces) == 0 || n.namespaces[EmptyNamespaceID] != vocab.EmptyNamespaceURI {
+func (n *nameTable) Validate(requiredNamespaces []string, requiredNames []ExpandedName) error {
+	if n == nil || len(n.namespaces) == 0 || n.namespaces[emptyNamespaceID] != vocab.EmptyNamespaceURI {
 		return errors.New("name table must reserve namespace zero for the empty namespace")
 	}
 	if len(n.nsIndex) != len(n.namespaces) {
@@ -189,10 +190,10 @@ func (n *NameTable) Validate(requiredNamespaces []string, requiredNames []Expand
 	return n.validateRequiredNames(requiredNames)
 }
 
-func (n *NameTable) validateNamespaceIndex() error {
+func (n *nameTable) validateNamespaceIndex() error {
 	for i, uri := range n.namespaces {
 		id, ok := n.nsIndex[uri]
-		if !ok || id != NamespaceID(i) {
+		if !ok || id != namespaceID(i) {
 			return errors.New("name table namespace index does not match namespace slice")
 		}
 	}
@@ -204,10 +205,10 @@ func (n *NameTable) validateNamespaceIndex() error {
 	return nil
 }
 
-func (n *NameTable) validateLocalIndex() error {
+func (n *nameTable) validateLocalIndex() error {
 	for i, local := range n.locals {
 		id, ok := n.localIndex[local]
-		if !ok || id != LocalNameID(i) {
+		if !ok || id != localNameID(i) {
 			return errors.New("name table local index does not match local slice")
 		}
 	}
@@ -219,7 +220,7 @@ func (n *NameTable) validateLocalIndex() error {
 	return nil
 }
 
-func (n *NameTable) validateRequiredNamespaces(required []string) error {
+func (n *nameTable) validateRequiredNamespaces(required []string) error {
 	for _, uri := range required {
 		id, ok := n.LookupNamespace(uri)
 		if !ok || n.Namespace(id) != uri {
@@ -229,7 +230,7 @@ func (n *NameTable) validateRequiredNamespaces(required []string) error {
 	return nil
 }
 
-func (n *NameTable) validateRequiredNames(required []ExpandedName) error {
+func (n *nameTable) validateRequiredNames(required []ExpandedName) error {
 	for _, name := range required {
 		q, ok := n.LookupQName(name.Namespace, name.Local)
 		if !ok || !n.ValidQName(q) {
@@ -240,36 +241,36 @@ func (n *NameTable) validateRequiredNames(required []ExpandedName) error {
 }
 
 // ValidQName reports whether q indexes interned namespace and local names.
-func (n *NameTable) ValidQName(q QName) bool {
+func (n *nameTable) ValidQName(q QName) bool {
 	return validRuntimeID(uint32(q.Namespace), len(n.namespaces)) &&
 		validRuntimeID(uint32(q.Local), len(n.locals))
 }
 
 // ValidNamespaceID reports whether id indexes an interned namespace URI.
-func (n *NameTable) ValidNamespaceID(id NamespaceID) bool {
+func (n *nameTable) ValidNamespaceID(id namespaceID) bool {
 	return validRuntimeID(uint32(id), len(n.namespaces))
 }
 
 // LookupNamespace returns the interned namespace ID for uri.
-func (n *NameTable) LookupNamespace(uri string) (NamespaceID, bool) {
+func (n *nameTable) LookupNamespace(uri string) (namespaceID, bool) {
 	id, ok := n.nsIndex[uri]
 	return id, ok
 }
 
 // LookupLocal returns the interned local-name ID for local.
-func (n *NameTable) LookupLocal(local string) (LocalNameID, bool) {
+func (n *nameTable) LookupLocal(local string) (localNameID, bool) {
 	id, ok := n.localIndex[local]
 	return id, ok
 }
 
 // LookupQName returns the interned QName for ns and local.
-func (n *NameTable) LookupQName(ns, local string) (QName, bool) {
+func (n *nameTable) LookupQName(ns, local string) (QName, bool) {
 	if ns == "" {
 		localID, ok := n.LookupLocal(local)
 		if !ok {
 			return QName{}, false
 		}
-		return QName{Namespace: EmptyNamespaceID, Local: localID}, true
+		return QName{Namespace: emptyNamespaceID, Local: localID}, true
 	}
 	nsID, ok := n.LookupNamespace(ns)
 	if !ok {
@@ -283,7 +284,7 @@ func (n *NameTable) LookupQName(ns, local string) (QName, bool) {
 }
 
 // Namespace returns the URI for id, or "" when id is not valid.
-func (n *NameTable) Namespace(id NamespaceID) string {
+func (n *nameTable) Namespace(id namespaceID) string {
 	if !n.ValidNamespaceID(id) {
 		return ""
 	}
@@ -291,30 +292,30 @@ func (n *NameTable) Namespace(id NamespaceID) string {
 }
 
 // Local returns the local name for id, or "" when id is not valid.
-func (n *NameTable) Local(id LocalNameID) string {
+func (n *nameTable) Local(id localNameID) string {
 	if !validRuntimeID(uint32(id), len(n.locals)) {
 		return ""
 	}
 	return n.locals[id]
 }
 
-// Format returns q formatted as an expanded XML name.
-func (n *NameTable) Format(q QName) string {
-	return FormatExpandedName(n.Namespace(q.Namespace), n.Local(q.Local))
+// Format returns q as a bounded, escaped expanded name for diagnostics.
+func (n *nameTable) Format(q QName) string {
+	return diagnostictext.ExpandedName(n.Namespace(q.Namespace), n.Local(q.Local))
 }
 
-// NameInterner interns names into a NameTable.
-type NameInterner struct {
-	table *NameTable
+// nameInterner interns names into a nameTable.
+type nameInterner struct {
+	table *nameTable
 }
 
-// NewNameInterner returns an interner that writes to table.
-func NewNameInterner(table *NameTable) NameInterner {
-	return NameInterner{table: table}
+// newNameInterner returns an interner that writes to table.
+func newNameInterner(table *nameTable) nameInterner {
+	return nameInterner{table: table}
 }
 
 // InternNamespace interns uri and returns its namespace ID.
-func (n NameInterner) InternNamespace(uri string) (NamespaceID, error) {
+func (n nameInterner) InternNamespace(uri string) (namespaceID, error) {
 	table := n.table
 	if id, ok := table.nsIndex[uri]; ok {
 		return id, nil
@@ -332,7 +333,7 @@ func (n NameInterner) InternNamespace(uri string) (NamespaceID, error) {
 }
 
 // InternQName interns ns and local and returns the corresponding QName.
-func (n NameInterner) InternQName(ns, local string) (QName, error) {
+func (n nameInterner) InternQName(ns, local string) (QName, error) {
 	table := n.table
 	nsID, nsOK := table.nsIndex[ns]
 	localID, localOK := table.localIndex[local]
@@ -367,26 +368,26 @@ func (n NameInterner) InternQName(ns, local string) (QName, error) {
 	return QName{Namespace: nsID, Local: localID}, nil
 }
 
-func (n *NameTable) checkLimit(need int) error {
+func (n *nameTable) checkLimit(need int) error {
 	if n.maxNames <= 0 || need <= 0 {
 		return nil
 	}
 	if n.NameCount()+need > n.maxNames {
-		return ErrNameLimit
+		return errNameLimit
 	}
 	return nil
 }
 
-func nextNamespaceID(n int) (NamespaceID, error) {
+func nextNamespaceID(n int) (namespaceID, error) {
 	if n < 0 || uint64(n) >= uint64(invalidID) {
-		return 0, ErrNamespaceLimit
+		return 0, errNamespaceLimit
 	}
-	return NamespaceID(n), nil
+	return namespaceID(n), nil
 }
 
-func nextLocalNameID(n int) (LocalNameID, error) {
+func nextLocalNameID(n int) (localNameID, error) {
 	if n < 0 || uint64(n) >= uint64(invalidID) {
-		return 0, ErrLocalNameLimit
+		return 0, errLocalNameLimit
 	}
-	return LocalNameID(n), nil
+	return localNameID(n), nil
 }

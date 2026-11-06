@@ -8,40 +8,40 @@ import (
 )
 
 func TestRuntimePublicationCloneHelpersDoNotAliasMutableState(t *testing.T) {
-	wildcards := []Wildcard{{
-		Namespaces: []NamespaceID{1, 2},
+	wildcards := []wildcardRuntime{{
+		Namespaces: []namespaceID{1, 2},
 		Mode:       WildcardList,
-		Process:    ProcessStrict,
+		Process:    processStrict,
 	}}
-	clonedWildcard := CloneWildcard(wildcards[0])
+	clonedWildcard := cloneWildcard(wildcards[0])
 	wildcards[0].Namespaces[0] = 9
 	if clonedWildcard.Namespaces[0] != 1 {
 		t.Fatalf("CloneWildcard aliased namespace slice: %#v", clonedWildcard.Namespaces)
 	}
 
-	occurs := Occurrence{Min: 1, Max: 1}
-	models := []ContentModel{{
-		Particles: []Particle{ElementParticle(1, occurs)},
+	occurs := occurrence{Min: 1, Max: 1}
+	models := []contentModelNode{{
+		Particles: []contentParticle{elementParticle(1, occurs)},
 		Occurs:    occurs,
-		Kind:      ModelSequence,
+		Kind:      modelSequence,
 	}}
-	clonedModel := CloneContentModel(models[0])
+	clonedModel := cloneContentModel(models[0])
 	models[0].Particles[0].Element = 9
 	if clonedModel.Particles[0].Element != 1 {
 		t.Fatalf("CloneContentModel aliased particle slice: %#v", clonedModel)
 	}
 
-	simpleDerivation := SimpleTypeDerivation{Union: []SimpleTypeID{1, 2}}
-	clonedSimpleDerivation := CloneSimpleTypeDerivation(simpleDerivation)
+	simpleDerivation := simpleTypeDerivation{Union: []SimpleTypeID{1, 2}}
+	clonedSimpleDerivation := cloneSimpleTypeDerivation(simpleDerivation)
 	simpleDerivation.Union[0] = 9
 	if clonedSimpleDerivation.Union[0] != 1 {
 		t.Fatalf("CloneSimpleTypeDerivation aliased union slice: %#v", clonedSimpleDerivation.Union)
 	}
 
-	valueConstraintIdentity := ValueConstraintIdentity{
-		ResolvedNames: []ResolvedValueName{{Lexical: "p:item"}},
+	valueConstraintIdentity := constraintIdentity{
+		ResolvedNames: []resolvedValueName{{Lexical: "p:item"}},
 	}
-	clonedValueConstraintIdentity := CloneValueConstraintIdentity(valueConstraintIdentity)
+	clonedValueConstraintIdentity := cloneValueConstraintIdentity(valueConstraintIdentity)
 	valueConstraintIdentity.ResolvedNames[0].Lexical = "p:other"
 	if clonedValueConstraintIdentity.ResolvedNames[0].Lexical != "p:item" {
 		t.Fatalf("CloneValueConstraintIdentity aliased resolved-name slice: %#v", clonedValueConstraintIdentity.ResolvedNames)
@@ -50,7 +50,7 @@ func TestRuntimePublicationCloneHelpersDoNotAliasMutableState(t *testing.T) {
 
 func TestValueConstraintSimpleTypeOwnsUnionCopy(t *testing.T) {
 	t.Parallel()
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := builder.Reserve()
 	if err != nil {
 		t.Fatal(err)

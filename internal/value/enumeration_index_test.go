@@ -53,7 +53,7 @@ func testPreservedStringEnumeration(literals []LiteralSpec) TypeSpec {
 // before it, and seals the program.
 func testEnumerationChain(t *testing.T, specs ...TypeSpec) (*Program, []TypeID) {
 	t.Helper()
-	builder := NewBuilder(BuilderOptions{})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	ids := make([]TypeID, len(specs))
 	for i, spec := range specs {
 		id, err := builder.Reserve()
@@ -91,15 +91,15 @@ var enumerationValidators = []struct {
 	validate func(p *Program, id TypeID, input string) error
 }{
 	{name: "string", validate: func(p *Program, id TypeID, input string) error {
-		_, err := p.Validate(id, input, Resolver{}, 0, 16<<20, nil)
+		_, err := p.Validate(id, input, Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		return err
 	}},
 	{name: "admitted", validate: func(p *Program, id TypeID, input string) error {
-		_, err := p.ValidateAdmitted(id, input, Resolver{}, 0, 16<<20, nil)
+		_, err := p.ValidateAdmitted(id, input, Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		return err
 	}},
 	{name: "bytes", validate: func(p *Program, id TypeID, input string) error {
-		_, err := p.ValidateBytes(id, []byte(input), Resolver{}, 0, 16<<20, nil)
+		_, err := p.ValidateBytes(id, []byte(input), Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		return err
 	}},
 }
@@ -362,7 +362,7 @@ func TestEnumerationChainGroupsEachEnforced(t *testing.T) {
 			{name: "inside every base group", literals: names(span(3, 11)...), valid: true},
 			{name: "outside the nearest base group", literals: names(append([]int{2}, span(4, 11)...)...)},
 		} {
-			builder := NewBuilder(BuilderOptions{})
+			builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 			base := NoType
 			for _, literals := range [][]string{a, b} {
 				id, err := builder.Reserve()

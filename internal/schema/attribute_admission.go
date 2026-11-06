@@ -6,16 +6,16 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// AttributeUseMode identifies the lexical xs:attribute use mode.
-type AttributeUseMode uint8
+// attributeUseMode identifies the lexical xs:attribute use mode.
+type attributeUseMode uint8
 
 const (
-	// AttributeUseOptional is the default attribute-use mode.
-	AttributeUseOptional AttributeUseMode = iota
-	// AttributeUseRequired records use="required".
-	AttributeUseRequired
-	// AttributeUseProhibited records use="prohibited".
-	AttributeUseProhibited
+	// attributeUseOptional is the default attribute-use mode.
+	attributeUseOptional attributeUseMode = iota
+	// attributeUseRequired records use="required".
+	attributeUseRequired
+	// attributeUseProhibited records use="prohibited".
+	attributeUseProhibited
 )
 
 const (
@@ -24,46 +24,46 @@ const (
 	attributeUseProhibitedLexical = "prohibited"
 )
 
-// AttributeUseValueConstraintAdmission is the compile-time projection needed to
+// attributeUseValueConstraintAdmission is the compile-time projection needed to
 // validate attribute-use value-constraint placement.
-type AttributeUseValueConstraintAdmission struct {
-	Mode                   AttributeUseMode
+type attributeUseValueConstraintAdmission struct {
+	Mode                   attributeUseMode
 	HasDefault             bool
 	HasFixed               bool
 	ReferencedDeclHasFixed bool
 }
 
-// AttributeUseFixedValueAdmission is the compile-time projection needed to
+// attributeUseFixedValueAdmission is the compile-time projection needed to
 // validate fixed-value preservation against a referenced declaration.
-type AttributeUseFixedValueAdmission struct {
-	Fixed               ValueConstraintIdentity
-	ReferencedDeclFixed ValueConstraintIdentity
+type attributeUseFixedValueAdmission struct {
+	Fixed               constraintIdentity
+	ReferencedDeclFixed constraintIdentity
 }
 
-// ParseAttributeUseMode parses an xs:attribute use value.
-func ParseAttributeUseMode(mode string) (AttributeUseMode, error) {
+// parseAttributeUseMode parses an xs:attribute use value.
+func parseAttributeUseMode(mode string) (attributeUseMode, error) {
 	switch mode {
 	case attributeUseOptionalLexical:
-		return AttributeUseOptional, nil
+		return attributeUseOptional, nil
 	case attributeUseRequiredLexical:
-		return AttributeUseRequired, nil
+		return attributeUseRequired, nil
 	case attributeUseProhibitedLexical:
-		return AttributeUseProhibited, nil
+		return attributeUseProhibited, nil
 	default:
-		return AttributeUseOptional, errors.New("invalid attribute use " + mode)
+		return attributeUseOptional, errors.New("invalid attribute use " + mode)
 	}
 }
 
-// ValidateAttributeUseValueConstraintAdmission validates compile-time
+// validateAttributeUseValueConstraintAdmission validates compile-time
 // default/fixed placement for one attribute use.
-func ValidateAttributeUseValueConstraintAdmission(admission AttributeUseValueConstraintAdmission) error {
+func validateAttributeUseValueConstraintAdmission(admission attributeUseValueConstraintAdmission) error {
 	switch admission.Mode {
-	case AttributeUseOptional:
-	case AttributeUseRequired:
+	case attributeUseOptional:
+	case attributeUseRequired:
 		if admission.HasDefault {
 			return errors.New("required attribute cannot have default")
 		}
-	case AttributeUseProhibited:
+	case attributeUseProhibited:
 		if admission.HasDefault {
 			return errors.New("prohibited attribute cannot have default")
 		}
@@ -79,37 +79,37 @@ func ValidateAttributeUseValueConstraintAdmission(admission AttributeUseValueCon
 	return nil
 }
 
-// ValidateAttributeUseFixedValueAdmission validates fixed-value preservation
+// validateAttributeUseFixedValueAdmission validates fixed-value preservation
 // for an attribute use that references a fixed declaration.
-func ValidateAttributeUseFixedValueAdmission(admission AttributeUseFixedValueAdmission) error {
+func validateAttributeUseFixedValueAdmission(admission attributeUseFixedValueAdmission) error {
 	if admission.ReferencedDeclFixed.Present &&
 		admission.Fixed.Present &&
-		!FixedValueConstraintEqual(admission.ReferencedDeclFixed, admission.Fixed) {
+		!fixedValueConstraintEqual(admission.ReferencedDeclFixed, admission.Fixed) {
 		return errors.New("attribute use fixed value conflicts with fixed attribute declaration")
 	}
 	return nil
 }
 
-// ValidateElementDeclValueConstraintAdmission validates compile-time
+// validateElementDeclValueConstraintAdmission validates compile-time
 // default/fixed placement for one element declaration.
-func ValidateElementDeclValueConstraintAdmission(constraint DeclarationValueConstraint) error {
+func validateElementDeclValueConstraintAdmission(constraint declarationValueConstraint) error {
 	switch constraint {
-	case DeclarationValueConstraintNone, DeclarationValueConstraintDefault, DeclarationValueConstraintFixed:
+	case declarationValueConstraintNone, declarationValueConstraintDefault, declarationValueConstraintFixed:
 		return nil
-	case DeclarationValueConstraintConflict:
+	case declarationValueConstraintConflict:
 		return errors.New("element cannot have both default and fixed")
 	default:
 		return xsderrors.InternalInvariant("element declaration has unknown value constraint")
 	}
 }
 
-// ValidateAttributeDeclValueConstraintAdmission validates compile-time
+// validateAttributeDeclValueConstraintAdmission validates compile-time
 // default/fixed placement for one attribute declaration.
-func ValidateAttributeDeclValueConstraintAdmission(constraint DeclarationValueConstraint) error {
+func validateAttributeDeclValueConstraintAdmission(constraint declarationValueConstraint) error {
 	switch constraint {
-	case DeclarationValueConstraintNone, DeclarationValueConstraintDefault, DeclarationValueConstraintFixed:
+	case declarationValueConstraintNone, declarationValueConstraintDefault, declarationValueConstraintFixed:
 		return nil
-	case DeclarationValueConstraintConflict:
+	case declarationValueConstraintConflict:
 		return errors.New("attribute cannot have both default and fixed")
 	default:
 		return xsderrors.InternalInvariant("attribute declaration has unknown value constraint")

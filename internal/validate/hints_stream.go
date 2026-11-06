@@ -6,16 +6,16 @@ import (
 )
 
 // RecordAttributes records any XSI schema-location hints in attrs.
-func (h *SchemaLocationHints) RecordAttributes(attrs []xmlstream.Attr, reader *xmlstream.Reader, limits schemaLocationHintLimits, ctx StartContext) error {
+func (h *schemaLocationHintSet) RecordAttributes(attrs []xmlstream.Attr, reader *xmlstream.Reader, limits schemaLocationHintLimits, ctx startContext) error {
 	var delta schemaLocationHintDelta
 	for i := range attrs {
 		attr := &attrs[i]
-		if !IsSchemaLocationHintName(attr.Name) {
+		if !isSchemaLocationHintName(attr.Name) {
 			continue
 		}
-		value, err := schemaLocationHintValue(attr, reader)
+		value, err := reader.AttrValue(attr)
 		if err != nil {
-			return err
+			return xsderrors.InternalInvariant("instance reader skipped attribute value")
 		}
 		if err := h.stageAttribute(attr.Name, value, limits, ctx, &delta); err != nil {
 			return err
@@ -28,18 +28,4 @@ func (h *SchemaLocationHints) RecordAttributes(attrs []xmlstream.Attr, reader *x
 	working.commitNamespaceHints(delta.namespaces, delta.namespaceBytes)
 	*h = working
 	return nil
-}
-
-func schemaLocationHintValue(attr *xmlstream.Attr, reader *xmlstream.Reader) (string, error) {
-	if !attr.HasBorrowedValue() {
-		return attr.Value, nil
-	}
-	if reader == nil {
-		return "", xsderrors.InternalInvariant("borrowed XML attribute requires a reader")
-	}
-	value, ok := reader.MaterializeValue(attr)
-	if !ok {
-		return "", xsderrors.InternalInvariant("XML attribute value is unavailable")
-	}
-	return value, nil
 }

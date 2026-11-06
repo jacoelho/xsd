@@ -17,6 +17,9 @@ func initializeSessionForTest(s *session, rt *xsdSchema.Schema, opts Options) er
 		return err
 	}
 	initializeSession(s, rt, limits)
+	// Tests drive start/end handlers directly, bypassing the validate entry
+	// that normally resets the document account.
+	s.patternTotal.Reset(limits.InstanceTotalPatternWork)
 	return nil
 }
 

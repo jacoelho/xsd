@@ -177,7 +177,7 @@ func TestSessionStartStagesParentInvalidationUntilCommit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	prepared, err := s.doc.PrepareStart(&s.reader, 2, 1)
+	prepared, err := s.doc.PrepareStart(&s.reader, s.limits, 2, 1)
 	if err != nil {
 		t.Fatal(err)
 	}

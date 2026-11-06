@@ -15,7 +15,7 @@ type Pattern = xsdregex.Pattern
 
 // CardinalityFacet is the source and effective form of an optional
 // non-negative facet value.
-type CardinalityFacet = FacetCardinalityValue
+type CardinalityFacet = facetCardinalityValue
 
 // LiteralSpec is a source lexical value used by a bound or enumeration facet.
 // Type selects the value space that owns the literal. NoType means the
@@ -72,6 +72,14 @@ type BuilderOptions struct {
 	MaxTypes            uint32
 	MaxStorageBytes     uint64
 	MaxConstructionWork uint64
+	// MaxPatternWork bounds regular-expression matching while evaluating one
+	// compiler literal. There is no default: zero makes literal evaluation
+	// return ErrMetadata.
+	MaxPatternWork uint64
+	// MaxTotalPatternWork bounds regular-expression matching across every
+	// literal this Builder evaluates. There is no default: zero makes literal
+	// evaluation return ErrMetadata.
+	MaxTotalPatternWork uint64
 }
 
 const (
@@ -91,8 +99,11 @@ type Builder struct {
 	maxStorage          uint64
 	storageUsed         uint64
 	maxConstructionWork uint64
-	prepaidSlots        int
-	maxTypes            uint32
+	maxPatternWork      uint64
+	// patternTotal is the only compile-time pattern account; Validate and Complete charge every evaluation to it.
+	patternTotal PatternAccount
+	prepaidSlots int
+	maxTypes     uint32
 }
 
 // NewBuilder creates a value-program builder. All XSD simple builtins occupy
@@ -114,12 +125,15 @@ func NewBuilder(options BuilderOptions) *Builder {
 	if work == 0 {
 		work = defaultConstructionWork
 	}
-	return &Builder{
+	b := &Builder{
 		program:             &Program{maxDepth: depth},
 		maxTypes:            types,
 		maxStorage:          storage,
 		maxConstructionWork: work,
+		maxPatternWork:      options.MaxPatternWork,
 	}
+	b.patternTotal.Reset(options.MaxTotalPatternWork)
+	return b
 }
 
 // Reserve allocates one stable user-type ID. The slot remains incomplete until
@@ -210,7 +224,7 @@ func (b *Builder) Complete(id TypeID, spec TypeSpec) error {
 			b.storageUsed -= charge
 		}
 	}()
-	if err := b.program.compileFacets(id, spec.Facets, b.maxConstructionWork); err != nil {
+	if err := b.program.compileFacets(id, spec.Facets, EvaluationLimits{Work: b.maxConstructionWork, PatternWork: b.maxPatternWork, PatternTotal: &b.patternTotal}); err != nil {
 		return err
 	}
 	b.program.types[i].needsQName = b.program.typeNeedsQName(id, nil, 0)
@@ -379,7 +393,7 @@ func (b *Builder) recordDependencyDepth(id, ref TypeID, depth *uint16) error {
 
 // completionState exists only during construction; Seal drops the table once
 // every slot is committed. Reserved slots are invisible to lookups. An
-// in-progress slot is visible to evaluation, InputRequirements and TypeView
+// in-progress slot is visible to evaluation, InputRequirements and typeView
 // (provisional metadata), while queries documented as "completed" require a
 // committed slot.
 type completionState uint8
@@ -602,9 +616,10 @@ func (p *Program) inheritedWhitespace(base TypeID, fallback WhitespaceMode) Whit
 }
 
 // compileFacets evaluates all bound and enumeration literals of one type under
-// one fresh construction work budget.
-func (p *Program) compileFacets(id TypeID, source FacetSpec, workLimit uint64) error {
-	budget, err := newEvaluationBudget(workLimit)
+// one fresh construction work budget. Each literal starts its own pattern
+// budget.
+func (p *Program) compileFacets(id TypeID, source FacetSpec, limits EvaluationLimits) error {
+	budget, err := newEvaluationBudget(limits)
 	if err != nil {
 		return err
 	}
@@ -700,6 +715,7 @@ func (p *Program) compileBound(id TypeID, t *typeDef, source BoundFacet, budget 
 		literalType = id
 	}
 	var v parsedValue
+	budget.beginPatternValue()
 	_, err := p.eval(literalType, source.Lexical, evalOptions{
 		resolver:      source.Resolver,
 		enforceFacets: false,
@@ -719,11 +735,11 @@ func (p *Program) compileBound(id TypeID, t *typeDef, source BoundFacet, budget 
 }
 
 func (p *Program) timeBoundDayOffset(spec *typeDef, literalType TypeID, lexical string, value atomicValue) (int8, error) {
-	if spec.primitive != PrimitiveTime {
+	if spec.primitive != primitiveTime {
 		return 0, nil
 	}
 	normalized := normalize(lexical, effectiveWhitespace(p, literalType))
-	raw, err := ParseTimeRawValue(normalized)
+	raw, err := parseTimeRawValue(normalized)
 	if err != nil {
 		return 0, err
 	}
@@ -754,6 +770,7 @@ func (p *Program) compileEnumeration(id TypeID, source FacetSpec, own *facetProg
 		// containing type's facets are skipped until its effective program is
 		// installed; evalUnion and evalListField still enforce child facets.
 		var v parsedValue
+		budget.beginPatternValue()
 		_, err := p.eval(literalType, entry.Lexical, evalOptions{
 			resolver:           entry.Resolver,
 			needs:              NeedCanonical | NeedIdentity,
@@ -906,7 +923,7 @@ func validateEffectiveFacetShape(f facetProgram) error {
 
 func validBoundPair(lower, upper boundValue) bool {
 	relation, ok := compareAtomic(&lower.value, &upper.value)
-	if !ok || relation == OrderedFacetGreater || relation == OrderedFacetEqual && lower.exclusive != upper.exclusive {
+	if !ok || relation == orderedFacetGreater || relation == orderedFacetEqual && lower.exclusive != upper.exclusive {
 		return false
 	}
 	// Schema consistency permits empty value spaces and does not prohibit
@@ -915,10 +932,10 @@ func validBoundPair(lower, upper boundValue) bool {
 }
 
 func validateTypeSpecShape(spec TypeSpec) error {
-	if !spec.Whitespace.valid() || spec.Variety > Union || spec.Builtin > BuiltinEntity {
+	if !spec.Whitespace.valid() || spec.Variety > Union || spec.Builtin > builtinEntity {
 		return ErrMetadata
 	}
-	if spec.Variety == Atomic && !ValidPrimitiveKind(spec.Primitive) {
+	if spec.Variety == Atomic && !validPrimitiveKind(spec.Primitive) {
 		return ErrMetadata
 	}
 	return nil

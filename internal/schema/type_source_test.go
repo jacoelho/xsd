@@ -30,8 +30,8 @@ func TestValidateAttributeTypeSource(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateAttributeTypeSource(AttributeTypeSource{
-				Type:               LexicalAttribute{Present: tt.hasAttr},
+			err := validateAttributeTypeSource(attributeTypeSource{
+				Type:               lexicalAttribute{Present: tt.hasAttr},
 				HasSimpleTypeChild: tt.hasChild,
 			})
 			if tt.wantMessage != "" {
@@ -64,8 +64,8 @@ func TestValidateSimpleRestrictionTypeSource(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateSimpleRestrictionTypeSource(SimpleRestrictionTypeSource{
-				Base:               LexicalAttribute{Present: tt.hasAttr},
+			err := validateSimpleRestrictionTypeSource(simpleRestrictionTypeSource{
+				Base:               lexicalAttribute{Present: tt.hasAttr},
 				HasSimpleTypeChild: tt.hasChild,
 			})
 			if tt.wantMessage != "" {
@@ -98,8 +98,8 @@ func TestValidateSimpleListItemTypeSource(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateSimpleListItemTypeSource(SimpleListItemTypeSource{
-				ItemType:           LexicalAttribute{Present: tt.hasAttr},
+			err := validateSimpleListItemTypeSource(simpleListItemTypeSource{
+				ItemType:           lexicalAttribute{Present: tt.hasAttr},
 				HasSimpleTypeChild: tt.hasChild,
 			})
 			if tt.wantMessage != "" {

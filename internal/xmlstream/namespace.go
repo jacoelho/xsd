@@ -127,9 +127,9 @@ func (s *stack) StartStream(start *StartElement, values *cache) (frame, xml.Name
 }
 
 func (s *stack) appendStreamBinding(attr *Attr, values *cache) error {
-	value, available := attr.materializeValue(values)
-	if !available {
-		return errors.New("namespace declaration requires an attribute value cache")
+	value, err := attr.attrValue(values)
+	if err != nil {
+		return err
 	}
 	return s.appendBinding(attr.Name, value)
 }

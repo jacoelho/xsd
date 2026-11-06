@@ -29,7 +29,7 @@ func FuzzXSDRegexSyntax(f *testing.F) {
 		if len(source) > 512 || !utf8.ValidString(source) {
 			return
 		}
-		pattern, err := Compile(source, CompileOptions{})
+		pattern, err := Compile(source)
 		if err != nil {
 			diagnostic, ok := errors.AsType[*Error](err)
 			if !ok || (diagnostic.Kind != ErrorSyntax && diagnostic.Kind != ErrorLimit) {
@@ -40,7 +40,7 @@ func FuzzXSDRegexSyntax(f *testing.F) {
 		if pattern == nil {
 			t.Fatal("Compile returned nil pattern without error")
 		}
-		if _, err := pattern.MatchStringWithScratch("", MatchOptions{}, nil); err != nil && !IsLimit(err) {
+		if _, _, err := pattern.MatchStringWithScratch("", unlimitedWork, nil); err != nil && !IsLimit(err) {
 			t.Fatalf("MatchString(%q) returned unclassified error %T: %v", source, err, err)
 		}
 	})

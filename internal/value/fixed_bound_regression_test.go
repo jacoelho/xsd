@@ -24,7 +24,7 @@ func TestFacetContractUsesNewestInheritedBoundForFixedFacet(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			builder := value.NewBuilder(value.BuilderOptions{})
+			builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 			base, err := builder.Reserve()
 			if err != nil {
 				t.Fatalf("Reserve() error = %v", err)
@@ -77,7 +77,7 @@ func TestFacetContractCarriesFixedBoundThroughUnchangedRestriction(t *testing.T)
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			builder := value.NewBuilder(value.BuilderOptions{})
+			builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 			base, err := builder.Reserve()
 			if err != nil {
 				t.Fatalf("Reserve() error = %v", err)

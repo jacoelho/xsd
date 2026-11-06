@@ -9,9 +9,9 @@ import (
 	"time"
 )
 
-func durationForTest(t *testing.T, text string) DurationValue {
+func durationForTest(t *testing.T, text string) durationValue {
 	t.Helper()
-	d, err := ParseDurationValue(text)
+	d, err := parseDurationValue(text)
 	if err != nil {
 		t.Fatalf("ParseDurationValue(%q): %v", text, err)
 	}
@@ -31,18 +31,18 @@ func TestDurationLexicalSpace(t *testing.T) {
 		"PT.5S", "P1S", "PT1Y", "P1Dgarbage", "P١D", " P1D", "P1D ",
 	}
 	for _, input := range valid {
-		if err := ValidateDurationLexical(input); err != nil {
+		if err := validateDurationLexical(input); err != nil {
 			t.Errorf("valid duration %q: %v", input, err)
 		}
-		if err := ValidateDurationLexical([]byte(input)); err != nil {
+		if err := validateDurationLexical([]byte(input)); err != nil {
 			t.Errorf("valid byte duration %q: %v", input, err)
 		}
 	}
 	for _, input := range invalid {
-		if err := ValidateDurationLexical(input); err == nil {
+		if err := validateDurationLexical(input); err == nil {
 			t.Errorf("accepted invalid duration %q", input)
 		}
-		if err := ValidateDurationLexical([]byte(input)); err == nil {
+		if err := validateDurationLexical([]byte(input)); err == nil {
 			t.Errorf("accepted invalid byte duration %q", input)
 		}
 	}
@@ -56,7 +56,7 @@ func TestDurationEqualityAndIdentity(t *testing.T) {
 		{"PT9223372036854775808S", "PT9223372036854775808.000S"},
 	} {
 		a, b := durationForTest(t, pair[0]), durationForTest(t, pair[1])
-		if !EqualDurationValues(a, b) {
+		if !equalDurationValues(a, b) {
 			t.Errorf("durations differ: %s and %s", pair[0], pair[1])
 		}
 		if durationIdentityCanonical(a) != durationIdentityCanonical(b) {
@@ -65,7 +65,7 @@ func TestDurationEqualityAndIdentity(t *testing.T) {
 	}
 	for _, pair := range [][2]string{{"P1Y", "P365D"}, {"-PT0.5S", "PT0.5S"}} {
 		a, b := durationForTest(t, pair[0]), durationForTest(t, pair[1])
-		if EqualDurationValues(a, b) || durationIdentityCanonical(a) == durationIdentityCanonical(b) {
+		if equalDurationValues(a, b) || durationIdentityCanonical(a) == durationIdentityCanonical(b) {
 			t.Errorf("distinct durations conflated: %s and %s", pair[0], pair[1])
 		}
 	}
@@ -74,29 +74,29 @@ func TestDurationEqualityAndIdentity(t *testing.T) {
 func TestDurationPartialOrder(t *testing.T) {
 	for _, tc := range []struct {
 		a, b string
-		want OrderedFacetRelation
+		want orderedFacetRelation
 	}{
-		{"P1Y", "P364D", OrderedFacetGreater},
-		{"-PT0.5S", "PT0.5S", OrderedFacetLess},
-		{"PT0.5S", "-PT0.5S", OrderedFacetGreater},
-		{"-P1MT0.10S", "-P28DT0.1001S", OrderedFacetIncomparable},
-		{"P1Y", "P365D", OrderedFacetIncomparable},
-		{"P1Y", "P366D", OrderedFacetIncomparable},
-		{"P1Y", "P367D", OrderedFacetLess},
-		{"P1M", "P27D", OrderedFacetGreater},
-		{"P1M", "P28D", OrderedFacetIncomparable},
-		{"P1M", "P30D", OrderedFacetIncomparable},
-		{"P1M", "P32D", OrderedFacetLess},
-		{"PT0.10000000000000000001S", "PT0.10000000000000000002S", OrderedFacetLess},
-		{"-PT0.4S", "-PT0.5S", OrderedFacetGreater},
-		{"P400Y", "P146097D", OrderedFacetEqual},
-		{"P400000000000000000000Y", "P146097000000000000000000D", OrderedFacetEqual},
-		{"-P400000000000000000000Y", "-P146097000000000000000000D", OrderedFacetEqual},
-		{"P400000000000000000000YT0.1S", "P146097000000000000000000D", OrderedFacetGreater},
-		{"-P400000000000000000000YT0.1S", "-P146097000000000000000000D", OrderedFacetLess},
+		{"P1Y", "P364D", orderedFacetGreater},
+		{"-PT0.5S", "PT0.5S", orderedFacetLess},
+		{"PT0.5S", "-PT0.5S", orderedFacetGreater},
+		{"-P1MT0.10S", "-P28DT0.1001S", orderedFacetIncomparable},
+		{"P1Y", "P365D", orderedFacetIncomparable},
+		{"P1Y", "P366D", orderedFacetIncomparable},
+		{"P1Y", "P367D", orderedFacetLess},
+		{"P1M", "P27D", orderedFacetGreater},
+		{"P1M", "P28D", orderedFacetIncomparable},
+		{"P1M", "P30D", orderedFacetIncomparable},
+		{"P1M", "P32D", orderedFacetLess},
+		{"PT0.10000000000000000001S", "PT0.10000000000000000002S", orderedFacetLess},
+		{"-PT0.4S", "-PT0.5S", orderedFacetGreater},
+		{"P400Y", "P146097D", orderedFacetEqual},
+		{"P400000000000000000000Y", "P146097000000000000000000D", orderedFacetEqual},
+		{"-P400000000000000000000Y", "-P146097000000000000000000D", orderedFacetEqual},
+		{"P400000000000000000000YT0.1S", "P146097000000000000000000D", orderedFacetGreater},
+		{"-P400000000000000000000YT0.1S", "-P146097000000000000000000D", orderedFacetLess},
 	} {
 		a, b := durationForTest(t, tc.a), durationForTest(t, tc.b)
-		if got := CompareDurationValues(a, b); got != tc.want {
+		if got := compareDurationValues(a, b); got != tc.want {
 			t.Errorf("CompareDurationValues(%s, %s) = %v, want %v", tc.a, tc.b, got, tc.want)
 		}
 	}
@@ -109,11 +109,11 @@ func TestDurationArbitraryMagnitude(t *testing.T) {
 	a := durationForTest(t, "P400"+zeroes+"Y")
 	b := durationForTest(t, "P146097"+zeroes+"D")
 	// A complete 400-year Gregorian cycle always has exactly 146097 days.
-	if got := CompareDurationValues(a, b); got != OrderedFacetEqual {
+	if got := compareDurationValues(a, b); got != orderedFacetEqual {
 		t.Fatalf("large Gregorian cycle order = %v, want equal", got)
 	}
 	zero := durationForTest(t, "PT"+strings.Repeat("0", 100_000)+"S")
-	if !EqualDurationValues(zero, DurationValue{}) {
+	if !equalDurationValues(zero, durationValue{}) {
 		t.Fatal("large lexical zero differs from zero duration")
 	}
 }
@@ -160,18 +160,18 @@ func TestDurationReferenceOrderingAgainstCalendar(t *testing.T) {
 		ad, bd := rng.IntN(1000), rng.IntN(1000)
 		a, b := calendarDuration(t, am, ad), calendarDuration(t, bm, bd)
 		var expected int
-		want := OrderedFacetEqual
+		want := orderedFacetEqual
 		for i, ref := range refs {
 			x := ref.AddDate(0, am, signedDurationDays(am, ad))
 			y := ref.AddDate(0, bm, signedDurationDays(bm, bd))
 			n := x.Compare(y)
 			if i > 0 && n != expected {
-				want = OrderedFacetIncomparable
+				want = orderedFacetIncomparable
 				break
 			}
 			expected, want = n, orderedFacetRelationFromInt(n)
 		}
-		if got := CompareDurationValues(a, b); got != want {
+		if got := compareDurationValues(a, b); got != want {
 			t.Fatalf("calendar order for months %d/%d days %d/%d = %v, want %v", am, bm, ad, bd, got, want)
 		}
 	}
@@ -184,7 +184,7 @@ func signedDurationDays(months, days int) int {
 	return days
 }
 
-func calendarDuration(t *testing.T, months, days int) DurationValue {
+func calendarDuration(t *testing.T, months, days int) durationValue {
 	t.Helper()
 	sign := ""
 	if months < 0 {
@@ -198,7 +198,7 @@ func BenchmarkDurationParse(b *testing.B) {
 		b.Run(input, func(b *testing.B) {
 			b.ReportAllocs()
 			for b.Loop() {
-				if _, err := ParseDurationValue(input); err != nil {
+				if _, err := parseDurationValue(input); err != nil {
 					b.Fatal(err)
 				}
 			}

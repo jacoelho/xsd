@@ -44,7 +44,7 @@ func TestValueConstraintQNameContextIsRepeatableAndPrefixBounded(t *testing.T) {
 	if err := validateValueConstraintQNameContext(
 		" \tp:x q:y x p:z\n",
 		context,
-		[]ResolvedValueName{{Lexical: "p:x", NS: "urn:p", Local: "x"}},
+		[]resolvedValueName{{Lexical: "p:x", NS: "urn:p", Local: "x"}},
 	); err != nil {
 		t.Fatalf("validateValueConstraintQNameContext() = %v", err)
 	}
@@ -69,7 +69,7 @@ func TestValueConstraintQNameContextPreservesUnresolvedPrefixes(t *testing.T) {
 
 func TestValueConstraintReadCopiesQNameContext(t *testing.T) {
 	value := testQNameValue(t, "urn:p")
-	vc := &ValueConstraint{
+	vc := &valueConstraint{
 		Lexical:      "p:item",
 		Canonical:    value.CanonicalText(),
 		Value:        value,
@@ -94,14 +94,14 @@ func TestValueConstraintQNameContextAuditMatchesResolvedProof(t *testing.T) {
 	if err := validateValueConstraintQNameContext(
 		"p:item",
 		context,
-		[]ResolvedValueName{{Lexical: "p:item", NS: "urn:p", Local: "item"}},
+		[]resolvedValueName{{Lexical: "p:item", NS: "urn:p", Local: "item"}},
 	); err != nil {
 		t.Fatalf("valid proof rejected: %v", err)
 	}
 	if err := validateValueConstraintQNameContext(
 		"p:item",
 		context,
-		[]ResolvedValueName{{Lexical: "p:item", NS: "urn:other", Local: "item"}},
+		[]resolvedValueName{{Lexical: "p:item", NS: "urn:other", Local: "item"}},
 	); err == nil || !strings.Contains(err.Error(), "disagrees") {
 		t.Fatalf("inconsistent proof error = %v", err)
 	}
@@ -109,8 +109,8 @@ func TestValueConstraintQNameContextAuditMatchesResolvedProof(t *testing.T) {
 
 func TestValueConstraintIdentityIncludesQNameContextOnly(t *testing.T) {
 	value := testQNameValue(t, "urn:p")
-	base := &ValueConstraint{
-		ResolvedNames: []ResolvedValueName{{Lexical: "p:item", NS: "urn:p", Local: "item"}},
+	base := &valueConstraint{
+		ResolvedNames: []resolvedValueName{{Lexical: "p:item", NS: "urn:p", Local: "item"}},
 		Lexical:       "p:item",
 		Canonical:     value.CanonicalText(),
 		Value:         value,
@@ -118,16 +118,16 @@ func TestValueConstraintIdentityIncludesQNameContextOnly(t *testing.T) {
 	}
 	other := cloneValueConstraint(base)
 	other.qnameContext.bindings[0].namespace = "urn:other"
-	baseIdentity := NewValueConstraintIdentity(base)
-	otherIdentity := NewValueConstraintIdentity(other)
+	baseIdentity := newValueConstraintIdentity(base)
+	otherIdentity := newValueConstraintIdentity(other)
 	base.qnameContext.bindings[0].namespace = "urn:mutated"
 	if got, ok := baseIdentity.qnameContext.ResolveQName("p:item"); !ok || got.Namespace != "urn:p" {
 		t.Fatalf("identity aliased compiler QName context: %+v, %v", got, ok)
 	}
-	if ValueConstraintIdentityEqual(baseIdentity, otherIdentity) {
+	if valueConstraintIdentityEqual(baseIdentity, otherIdentity) {
 		t.Fatal("ValueConstraintIdentityEqual() ignored QName context")
 	}
-	if !FixedValueConstraintEqual(baseIdentity, otherIdentity) {
+	if !fixedValueConstraintEqual(baseIdentity, otherIdentity) {
 		t.Fatal("FixedValueConstraintEqual() made QName context part of semantic value equality")
 	}
 }

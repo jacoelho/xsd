@@ -49,7 +49,7 @@ func assertCanonicalAttributeDiagnostic(t *testing.T, err error, want string) {
 
 func TestCheckReferenceAttributes(t *testing.T) {
 	t.Parallel()
-	reference := schemaQNameAttribute{Lexical: LexicalAttribute{Value: "Target", Present: true}}
+	reference := schemaQNameAttribute{Lexical: lexicalAttribute{Value: "Target", Present: true}}
 	for _, fixture := range []struct {
 		name        string
 		check       func(*schemaNode) error
@@ -60,33 +60,33 @@ func TestCheckReferenceAttributes(t *testing.T) {
 	}{
 		{
 			name: "element ref accepts occurrence attrs", check: checkElementRefAttributes, local: elementChild,
-			source: &schemaElementSource{Ref: reference, MinOccurs: LexicalAttribute{Present: true}, MaxOccurs: LexicalAttribute{Present: true}},
+			source: &schemaElementSource{Ref: reference, MinOccurs: lexicalAttribute{Present: true}, MaxOccurs: lexicalAttribute{Present: true}},
 			attrs:  []string{"id", "ref", "minOccurs", "maxOccurs"},
 		},
 		{
 			name: "element ref rejects type", check: checkElementRefAttributes, local: elementChild,
-			source: &schemaElementSource{Ref: reference, Type: schemaQNameAttribute{Lexical: LexicalAttribute{Value: "xs:string", Present: true}}},
-			attrs:  []string{"ref", "type"}, wantMessage: "element ref cannot have attribute type",
+			source: &schemaElementSource{Ref: reference, Type: schemaQNameAttribute{Lexical: lexicalAttribute{Value: "xs:string", Present: true}}},
+			attrs:  []string{"ref", "type"}, wantMessage: "element ref cannot have attribute \"type\"",
 		},
 		{
 			name: "attribute ref accepts value constraint attrs", check: checkAttributeRefSource, local: attributeChild,
-			source: &schemaAttributeSource{Ref: reference, Use: LexicalAttribute{Present: true}, Default: LexicalAttribute{Present: true}, Fixed: LexicalAttribute{Present: true}},
+			source: &schemaAttributeSource{Ref: reference, Use: lexicalAttribute{Present: true}, Default: lexicalAttribute{Present: true}, Fixed: lexicalAttribute{Present: true}},
 			attrs:  []string{"id", "ref", "use", "default", "fixed"},
 		},
 		{
 			name: "attribute ref rejects form", check: checkAttributeRefSource, local: attributeChild,
-			source: &schemaAttributeSource{Ref: reference, Form: LexicalAttribute{Present: true}},
-			attrs:  []string{"ref", "form"}, wantMessage: "attribute ref cannot have attribute form",
+			source: &schemaAttributeSource{Ref: reference, Form: lexicalAttribute{Present: true}},
+			attrs:  []string{"ref", "form"}, wantMessage: "attribute ref cannot have attribute \"form\"",
 		},
 		{
 			name: "group occurrence accepts occurrence attrs", check: checkGroupOccurrenceAttributes, local: groupChild,
-			source: &schemaGroupSource{Ref: reference, MinOccurs: LexicalAttribute{Present: true}, MaxOccurs: LexicalAttribute{Present: true}},
+			source: &schemaGroupSource{Ref: reference, MinOccurs: lexicalAttribute{Present: true}, MaxOccurs: lexicalAttribute{Present: true}},
 			attrs:  []string{"id", "ref", "minOccurs", "maxOccurs"},
 		},
 		{
 			name: "group occurrence rejects name", check: checkGroupOccurrenceAttributes, local: groupChild,
-			source: &schemaGroupSource{Global: schemaGlobalSource{Name: LexicalAttribute{Present: true}}, Ref: reference},
-			attrs:  []string{"ref", "name"}, wantMessage: "group cannot have attribute name",
+			source: &schemaGroupSource{Global: schemaGlobalSource{Name: lexicalAttribute{Present: true}}, Ref: reference},
+			attrs:  []string{"ref", "name"}, wantMessage: "group cannot have attribute \"name\"",
 		},
 	} {
 		t.Run(fixture.name, func(t *testing.T) {
@@ -109,7 +109,7 @@ func TestReferenceAttributeDiagnosticPriority(t *testing.T) {
     <xs:sequence>
       <xs:element ref="Target" form="" type="xs:string"/>
     </xs:sequence>
-  </xs:complexType>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "element ref cannot have attribute type", wantLine: 4, wantCol: 7},
+  </xs:complexType>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "element ref cannot have attribute \"type\"", wantLine: 4, wantCol: 7},
 			path: []string{complexTypeChild, sequenceChild, elementChild}, check: checkElementRefAttributes,
 		},
 		{
@@ -117,19 +117,19 @@ func TestReferenceAttributeDiagnosticPriority(t *testing.T) {
     <xs:sequence>
       <xs:element ref="Target" type="xs:string" form=""/>
     </xs:sequence>
-  </xs:complexType>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "element ref cannot have attribute type", wantLine: 4, wantCol: 7},
+  </xs:complexType>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "element ref cannot have attribute \"type\"", wantLine: 4, wantCol: 7},
 			path: []string{complexTypeChild, sequenceChild, elementChild}, check: checkElementRefAttributes,
 		},
 		{
 			start: schemaStartFixture{name: "attribute name wins reverse XML order", body: `  <xs:complexType name="T">
     <xs:attribute ref="Target" form="" name="Local"/>
-  </xs:complexType>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "attribute ref cannot have attribute name", wantLine: 3, wantCol: 5},
+  </xs:complexType>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "attribute ref cannot have attribute \"name\"", wantLine: 3, wantCol: 5},
 			path: []string{complexTypeChild, attributeChild}, check: checkAttributeRefSource,
 		},
 		{
 			start: schemaStartFixture{name: "attribute name wins matching XML order", body: `  <xs:complexType name="T">
     <xs:attribute ref="Target" name="Local" form=""/>
-  </xs:complexType>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "attribute ref cannot have attribute name", wantLine: 3, wantCol: 5},
+  </xs:complexType>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "attribute ref cannot have attribute \"name\"", wantLine: 3, wantCol: 5},
 			path: []string{complexTypeChild, attributeChild}, check: checkAttributeRefSource,
 		},
 	} {
@@ -190,7 +190,7 @@ func TestCheckRawSchemaAttributes(t *testing.T) {
 			name:        "schema rejects unrelated attribute",
 			element:     "schema",
 			attrs:       []string{"type"},
-			wantMessage: "schema cannot have attribute type",
+			wantMessage: "\"schema\" cannot have attribute \"type\"",
 		},
 		{
 			name:    "element accepts declaration and occurrence attributes",
@@ -201,7 +201,7 @@ func TestCheckRawSchemaAttributes(t *testing.T) {
 			name:        "attribute rejects nillable",
 			element:     "attribute",
 			attrs:       []string{"name", "nillable"},
-			wantMessage: "attribute cannot have attribute nillable",
+			wantMessage: "\"attribute\" cannot have attribute \"nillable\"",
 		},
 		{
 			name:    "ordinary facet accepts fixed",
@@ -212,19 +212,19 @@ func TestCheckRawSchemaAttributes(t *testing.T) {
 			name:        "pattern rejects fixed",
 			element:     "pattern",
 			attrs:       []string{"value", "fixed"},
-			wantMessage: "pattern cannot have attribute fixed",
+			wantMessage: "\"pattern\" cannot have attribute \"fixed\"",
 		},
 		{
 			name:        "enumeration rejects fixed",
 			element:     "enumeration",
 			attrs:       []string{"value", "fixed"},
-			wantMessage: "enumeration cannot have attribute fixed",
+			wantMessage: "\"enumeration\" cannot have attribute \"fixed\"",
 		},
 		{
 			name:        "facet rejects unknown attribute",
 			element:     "maxLength",
 			attrs:       []string{"value", "ref"},
-			wantMessage: "maxLength cannot have attribute ref",
+			wantMessage: "\"maxLength\" cannot have attribute \"ref\"",
 		},
 		{
 			name:    "unknown xsd element remains permissive",
@@ -250,7 +250,7 @@ func TestCheckRawSchemaAttributes(t *testing.T) {
 
 func TestCheckLocalElementAttributes(t *testing.T) {
 	t.Parallel()
-	present := LexicalAttribute{Present: true}
+	present := lexicalAttribute{Present: true}
 	name := schemaGlobalSource{Name: present}
 	for _, fixture := range []struct {
 		name        string
@@ -274,7 +274,7 @@ func TestCheckLocalElementAttributes(t *testing.T) {
 
 func TestCheckLocalTypeAttributes(t *testing.T) {
 	t.Parallel()
-	present := LexicalAttribute{Present: true}
+	present := lexicalAttribute{Present: true}
 	for _, fixture := range []struct {
 		name        string
 		check       func(*schemaNode) error
@@ -309,37 +309,37 @@ func TestValidateUseSources(t *testing.T) {
 		wantMessage string
 	}{
 		{name: "local element name", validate: func() error {
-			return ValidateLocalElementSource(NameReferenceSource{Name: LexicalAttribute{Present: true}})
+			return validateLocalElementSource(nameReferenceSource{Name: lexicalAttribute{Present: true}})
 		}},
 		{name: "local element ref", validate: func() error {
-			return ValidateLocalElementSource(NameReferenceSource{Reference: LexicalAttribute{Present: true}})
+			return validateLocalElementSource(nameReferenceSource{Reference: lexicalAttribute{Present: true}})
 		}},
 		{
 			name:        "local element missing",
-			validate:    func() error { return ValidateLocalElementSource(NameReferenceSource{}) },
+			validate:    func() error { return validateLocalElementSource(nameReferenceSource{}) },
 			wantMessage: "local element missing name or ref",
 		},
 		{name: "attribute name", validate: func() error {
-			return ValidateAttributeUseSource(NameReferenceSource{Name: LexicalAttribute{Present: true}})
+			return validateAttributeUseSource(nameReferenceSource{Name: lexicalAttribute{Present: true}})
 		}},
 		{name: "attribute ref", validate: func() error {
-			return ValidateAttributeUseSource(NameReferenceSource{Reference: LexicalAttribute{Present: true}})
+			return validateAttributeUseSource(nameReferenceSource{Reference: lexicalAttribute{Present: true}})
 		}},
 		{
 			name:        "attribute missing",
-			validate:    func() error { return ValidateAttributeUseSource(NameReferenceSource{}) },
+			validate:    func() error { return validateAttributeUseSource(nameReferenceSource{}) },
 			wantMessage: "attribute missing name or ref",
 		},
-		{name: "attribute group ref", validate: func() error { return ValidateAttributeGroupUseSource(LexicalAttribute{Present: true}) }},
+		{name: "attribute group ref", validate: func() error { return validateAttributeGroupUseSource(lexicalAttribute{Present: true}) }},
 		{
 			name:        "attribute group missing",
-			validate:    func() error { return ValidateAttributeGroupUseSource(LexicalAttribute{}) },
+			validate:    func() error { return validateAttributeGroupUseSource(lexicalAttribute{}) },
 			wantMessage: "attributeGroup use missing ref",
 		},
-		{name: "group ref", validate: func() error { return ValidateGroupUseSource(LexicalAttribute{Present: true}) }},
+		{name: "group ref", validate: func() error { return validateGroupUseSource(lexicalAttribute{Present: true}) }},
 		{
 			name:        "group missing",
-			validate:    func() error { return ValidateGroupUseSource(LexicalAttribute{}) },
+			validate:    func() error { return validateGroupUseSource(lexicalAttribute{}) },
 			wantMessage: "group use missing ref",
 		},
 	}

@@ -8,7 +8,7 @@ import (
 )
 
 func TestListEnumerationRetainsCompleteValueOrNoItems(t *testing.T) {
-	builder := NewBuilder(BuilderOptions{})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	listID, err := builder.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -51,7 +51,7 @@ func TestListEnumerationRetainsCompleteValueOrNoItems(t *testing.T) {
 		{name: "above demand", lexical: "a a", wantCount: 2, wantLength: 0, wantCap: 0},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			budget, err := newEvaluationBudget(1 << 20)
+			budget, err := newEvaluationBudget(EvaluationLimits{Work: 1 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -67,11 +67,11 @@ func TestListEnumerationRetainsCompleteValueOrNoItems(t *testing.T) {
 }
 
 func TestListEnumerationStillValidatesItemsPastRetentionBound(t *testing.T) {
-	pattern, err := xsdregex.Compile("a", xsdregex.CompileOptions{})
+	pattern, err := xsdregex.Compile("a")
 	if err != nil {
 		t.Fatal(err)
 	}
-	builder := NewBuilder(BuilderOptions{})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	itemID, err := builder.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -108,7 +108,7 @@ func TestListEnumerationStillValidatesItemsPastRetentionBound(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = program.Validate(listID, "a b", Resolver{}, 0, 16<<20, nil)
+	_, err = program.Validate(listID, "a b", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err == nil || !strings.Contains(err.Error(), "pattern facet failed") {
 		t.Fatalf("Validate oversized list error = %v, want item pattern failure", err)
 	}
@@ -137,7 +137,7 @@ func TestUnionListMemberFirstSuccessCannotFallThroughAfterOuterEnumeration(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := program.Validate(unionID, "01", Resolver{}, 0, 16<<20, nil); err == nil {
+	if _, err := program.Validate(unionID, "01", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err == nil {
 		t.Fatal("Validate(\"01\") succeeded; list selection must fail the outer enumeration")
 	}
 }
@@ -165,7 +165,7 @@ func TestUnionOuterScalarEnumerationDoesNotFallThroughListFirstSuccess(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := program.Validate(unionID, "01", Resolver{}, 0, 16<<20, nil); err == nil {
+	if _, err := program.Validate(unionID, "01", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err == nil {
 		t.Fatal("Validate(\"01\") succeeded; outer enumeration must see the selected list value")
 	}
 }
@@ -192,7 +192,7 @@ func TestUnionFallsBackAfterListEnumerationFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	value, err := program.Validate(unionID, "02", Resolver{}, 0, 16<<20, nil)
+	value, err := program.Validate(unionID, "02", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatalf("Validate(\"02\"): %v", err)
 	}
@@ -224,7 +224,7 @@ func TestUnionScalarEnumerationAcceptsFallbackAfterListEnumerationFailure(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	value, err := program.Validate(unionID, "02", Resolver{}, 0, 16<<20, nil)
+	value, err := program.Validate(unionID, "02", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatalf("Validate(\"02\"): %v", err)
 	}
@@ -246,11 +246,11 @@ func listWithPattern(t *testing.T, patternSource string) (*Builder, TypeID) {
 
 func listWithPatternSpec(t *testing.T, patternSource string, literal *LiteralSpec) (*Builder, TypeID) {
 	t.Helper()
-	pattern, err := xsdregex.Compile(patternSource, xsdregex.CompileOptions{})
+	pattern, err := xsdregex.Compile(patternSource)
 	if err != nil {
 		t.Fatal(err)
 	}
-	builder := NewBuilder(BuilderOptions{})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	itemID, err := builder.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)

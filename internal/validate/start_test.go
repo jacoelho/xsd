@@ -22,11 +22,11 @@ func TestResolveRuntimeName(t *testing.T) {
 	if !ok {
 		t.Fatal("compiled runtime is missing known name")
 	}
-	got := ResolveRuntimeName(rt, xml.Name{Local: "known"})
+	got := resolveRuntimeName(rt, xml.Name{Local: "known"})
 	if !got.Known || got.Name != known || got.NS != "" || got.Local != "known" {
 		t.Fatalf("ResolveRuntimeName() known = %+v", got)
 	}
-	got = ResolveRuntimeName(rt, xml.Name{Space: "urn:missing", Local: "unknown"})
+	got = resolveRuntimeName(rt, xml.Name{Space: "urn:missing", Local: "unknown"})
 	if got.Known || got.NS != "urn:missing" || got.Local != "unknown" {
 		t.Fatalf("ResolveRuntimeName() unknown = %+v", got)
 	}
@@ -66,7 +66,7 @@ func TestResolveLexicalQName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, gotOK := ResolveLexicalQName(tt.lexical, lookup)
+			got, gotOK := resolveLexicalQName(tt.lexical, lookup)
 			if got.Namespace != tt.wantNS || got.Local != tt.wantLocal || gotOK != tt.wantOK {
 				t.Fatalf("ResolveLexicalQName() = (%q, %q, %v), want (%q, %q, %v)",
 					got.Namespace, got.Local, gotOK, tt.wantNS, tt.wantLocal, tt.wantOK)
@@ -94,7 +94,7 @@ func TestParseXSINil(t *testing.T) {
 		{"", false, false},
 	}
 	for _, tt := range tests {
-		value, ok := ParseXSINil(tt.lexical)
+		value, ok := parseXSINil(tt.lexical)
 		if value != tt.value || ok != tt.ok {
 			t.Errorf("ParseXSINil(%q) = (%v, %v), want (%v, %v)", tt.lexical, value, ok, tt.value, tt.ok)
 		}
@@ -183,11 +183,11 @@ func TestSessionStartOwnsXSITypeAndNilPolicy(t *testing.T) {
 }
 
 func xsiAttr(local, value string) xmlstream.Attr {
-	return xmlstream.Attr{Name: xml.Name{Space: vocab.XSINamespaceURI, Local: local}, Value: value}
+	return xmlstream.NewAttr(xml.Name{Space: vocab.XSINamespaceURI, Local: local}, value)
 }
 
 func startAttr(ns, local, value string) xmlstream.Attr {
-	return xmlstream.Attr{Name: xml.Name{Space: ns, Local: local}, Value: value}
+	return xmlstream.NewAttr(xml.Name{Space: ns, Local: local}, value)
 }
 
 func startAttrs(attrs ...xmlstream.Attr) []xmlstream.Attr {

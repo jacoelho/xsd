@@ -264,8 +264,8 @@ func ownedCopies(tok *xmlstream.Token, attr *xmlstream.Attr, reader *xmlstream.R
  state.data = append(state.data, tok.Data...)
  copy(state.data, tok.Data)
  state.value = reader.InternBytes(tok.Data)
- value, ok := reader.MaterializeValue(attr)
- state.value, state.flag = value, ok
+ value, err := reader.AttrValue(attr)
+ state.value, state.flag = value, err == nil
  state.name = tok.Start.Name
  state.count = tok.Line
  state.count = int(tok.Data[0])

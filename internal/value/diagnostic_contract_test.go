@@ -10,7 +10,7 @@ import (
 )
 
 func TestTerminalFacetDiagnostics(t *testing.T) {
-	pattern, err := xsdregex.Compile(`[0-9]+`, xsdregex.CompileOptions{})
+	pattern, err := xsdregex.Compile(`[0-9]+`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func TestTerminalFacetDiagnostics(t *testing.T) {
 }
 
 func TestUnionRejectedMemberDiagnosticsAreTerminal(t *testing.T) {
-	pattern, err := xsdregex.Compile(`[0-9]+`, xsdregex.CompileOptions{})
+	pattern, err := xsdregex.Compile(`[0-9]+`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func TestUnionRejectedMemberDiagnosticsAreTerminal(t *testing.T) {
 		{name: "list length", input: "1 2 3", firstAccepted: "1 2", first: value.TypeSpec{Variety: value.List, Base: value.NoType, ListItem: integer, Whitespace: value.WhitespaceCollapse, WhitespacePresent: true, Facets: value.FacetSpec{Length: value.CardinalityFacet{Value: 2, Present: true}}}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			builder := value.NewBuilder(value.BuilderOptions{})
+			builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 			first := completeCanonicalProjectionType(t, builder, test.first)
 			fallback := value.BuiltinType(value.PrimitiveString)
 			union := completeCanonicalProjectionType(t, builder, value.TypeSpec{Variety: value.Union, Base: value.NoType, ListItem: value.NoType, Union: []value.TypeID{first, fallback}})
@@ -122,7 +122,7 @@ func TestUnionRejectedMemberDiagnosticsAreTerminal(t *testing.T) {
 }
 
 func TestTerminalLexicalAndUnionDiagnostics(t *testing.T) {
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	integer, _ := value.BuiltinTypeID("integer")
 	union := completeCanonicalProjectionType(t, builder, value.TypeSpec{Variety: value.Union, Base: value.NoType, ListItem: value.NoType, Union: []value.TypeID{value.BuiltinType(value.PrimitiveBoolean), integer}})
 	list := completeCanonicalProjectionType(t, builder, value.TypeSpec{Variety: value.List, Base: value.NoType, ListItem: integer, Whitespace: value.WhitespaceCollapse, WhitespacePresent: true})
@@ -145,14 +145,14 @@ func TestTerminalLexicalAndUnionDiagnostics(t *testing.T) {
 			}
 		}
 	}
-	_, limitErr := program.Validate(union, strings.Repeat("x", 50), value.Resolver{}, 0, 1, nil)
+	_, limitErr := program.Validate(union, strings.Repeat("x", 50), value.Resolver{}, 0, value.EvaluationLimits{Work: 1, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if !errors.Is(limitErr, value.ErrLimit) {
 		t.Fatalf("work error = %v, want terminal limit", limitErr)
 	}
 }
 
 func TestConstrainedUnionDiagnostic(t *testing.T) {
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	member := func(literal string) value.TypeID {
 		return completeCanonicalProjectionType(t, builder, atomicFacetType(value.PrimitiveString, value.FacetSpec{Enumeration: []value.LiteralSpec{{Lexical: literal, Type: value.NoType}}}))
 	}
@@ -184,7 +184,7 @@ func TestConstrainedUnionDiagnostic(t *testing.T) {
 }
 
 func TestListItemFacetDiagnostic(t *testing.T) {
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	item := completeCanonicalProjectionType(t, builder, atomicFacetType(value.PrimitiveString, value.FacetSpec{Length: value.CardinalityFacet{Value: 1, Present: true}}))
 	list := completeCanonicalProjectionType(t, builder, value.TypeSpec{Variety: value.List, Base: value.NoType, ListItem: item, Whitespace: value.WhitespaceCollapse, WhitespacePresent: true, Facets: value.FacetSpec{Length: value.CardinalityFacet{Value: 2, Present: true}}})
 	program, err := builder.Seal()
@@ -216,10 +216,10 @@ func TestListItemFacetDiagnostic(t *testing.T) {
 func diagnosticValidate(program *value.Program, id value.TypeID, input, api string, needs value.Needs) (value.Value, error) {
 	switch api {
 	case "bytes":
-		return program.ValidateBytes(id, []byte(input), value.Resolver{}, needs, 16<<20, nil)
+		return program.ValidateBytes(id, []byte(input), value.Resolver{}, needs, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	case "admitted":
-		return program.ValidateAdmitted(id, input, value.Resolver{}, needs, 16<<20, nil)
+		return program.ValidateAdmitted(id, input, value.Resolver{}, needs, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	default:
-		return program.Validate(id, input, value.Resolver{}, needs, 16<<20, nil)
+		return program.Validate(id, input, value.Resolver{}, needs, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	}
 }

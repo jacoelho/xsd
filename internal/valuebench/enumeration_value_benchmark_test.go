@@ -51,7 +51,7 @@ func enumerationValueProgram(tb testing.TB, kind enumerationValueKind, size, ste
 	if !ok {
 		tb.Fatalf("BuiltinTypeID(%q) missing", kind.base)
 	}
-	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	complete := func(spec valuepkg.TypeSpec) valuepkg.TypeID {
 		id, err := builder.Reserve()
 		if err != nil {
@@ -106,7 +106,7 @@ func BenchmarkEnumerationValueKindValidation(b *testing.B) {
 				b.Run(fmt.Sprintf("%s/n_%d/%s", kind.name, size, position), func(b *testing.B) {
 					b.ReportAllocs()
 					for b.Loop() {
-						_, err := program.ValidateBytes(id, raw, valuepkg.Resolver{}, 0, 16<<20, nil)
+						_, err := program.ValidateBytes(id, raw, valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 						if (err != nil) != wantFacet || (wantFacet && !errors.Is(err, valuepkg.ErrFacet)) {
 							b.Fatalf("ValidateBytes(%q) error = %v, want facet=%t", raw, err, wantFacet)
 						}
@@ -163,7 +163,7 @@ func BenchmarkEnumerationValueKeyLongQName(b *testing.B) {
 		for i := range literals {
 			literals[i] = valuepkg.LiteralSpec{Lexical: fmt.Sprintf("a:l%d", i), Type: valuepkg.NoType, Resolver: resolver}
 		}
-		builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+		builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 		id, err := builder.Reserve()
 		if err != nil {
 			b.Fatalf("Reserve() error = %v", err)
@@ -182,7 +182,7 @@ func BenchmarkEnumerationValueKeyLongQName(b *testing.B) {
 		b.Run(fmt.Sprintf("n_%d/last", size), func(b *testing.B) {
 			b.ReportAllocs()
 			for b.Loop() {
-				if _, err := program.Validate(id, input, resolver, 0, 16<<20, nil); err != nil {
+				if _, err := program.Validate(id, input, resolver, 0, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 					b.Fatalf("Validate(%q) error = %v", input, err)
 				}
 			}

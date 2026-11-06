@@ -12,18 +12,18 @@ func TestCompleteContentModelKinds(t *testing.T) {
 
 	for _, tt := range []struct {
 		name  string
-		model CompiledModel
+		model compiledModel
 		want  ContentCompletionStatus
 	}{
-		{name: "empty", model: CompiledModel{Kind: CompiledModelEmpty}, want: ContentCompletionComplete},
-		{name: "any", model: CompiledModel{Kind: CompiledModelAny}, want: ContentCompletionComplete},
-		{name: "all", model: CompiledModel{Kind: CompiledModelAll, Empty: true}, want: ContentCompletionComplete},
-		{name: "DFA", model: CompiledModel{Kind: CompiledModelDFA, Rows: []CompiledModelRow{{Accept: true}}}, want: ContentCompletionComplete},
-		{name: "invalid", model: CompiledModel{Kind: CompiledModelKind(99)}, want: ContentCompletionInvalid},
+		{name: "empty", model: compiledModel{Kind: compiledModelEmpty}, want: ContentCompletionComplete},
+		{name: "any", model: compiledModel{Kind: compiledModelAny}, want: ContentCompletionComplete},
+		{name: "all", model: compiledModel{Kind: compiledModelAll, Empty: true}, want: ContentCompletionComplete},
+		{name: "DFA", model: compiledModel{Kind: compiledModelDFA, Rows: []compiledModelRow{{Accept: true}}}, want: ContentCompletionComplete},
+		{name: "invalid", model: compiledModel{Kind: compiledModelKind(99)}, want: ContentCompletionInvalid},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			rt := publishedContentSchema(contentSchemaFixture{models: map[ContentModelID]CompiledModel{0: tt.model}})
+			rt := publishedContentSchema(contentSchemaFixture{models: map[contentModelID]compiledModel{0: tt.model}})
 			got := rt.CompleteContent(ContentState{model: 0, present: true}, &ContentScratch{})
 			if got != tt.want {
 				t.Fatalf("CompleteContent(%s) = %v, want %v", tt.name, got, tt.want)
@@ -46,20 +46,20 @@ func TestDFARowIndexEnabledState(t *testing.T) {
 func TestCompiledCountingException(t *testing.T) {
 	t.Parallel()
 
-	p := ElementParticle(1, Occurrence{Min: 1, Max: 1})
-	row := CompiledModelRow{
+	p := elementParticle(1, occurrence{Min: 1, Max: 1})
+	row := compiledModelRow{
 		Counted:       true,
 		CountParticle: p,
 		Min:           2,
 		Max:           2,
 	}
-	loop := CompiledModelEdge{Particle: p, To: 0}
-	exit := CompiledModelEdge{Particle: p, To: 1}
-	if !CompiledCountingException(0, row, loop, exit) {
+	loop := compiledModelEdge{Particle: p, To: 0}
+	exit := compiledModelEdge{Particle: p, To: 1}
+	if !compiledCountingException(0, row, loop, exit) {
 		t.Fatal("CompiledCountingException() rejected loop/exit pair")
 	}
 	row.Unbounded = true
-	if CompiledCountingException(0, row, loop, exit) {
+	if compiledCountingException(0, row, loop, exit) {
 		t.Fatal("CompiledCountingException() accepted unbounded row")
 	}
 }
@@ -71,14 +71,14 @@ func TestIndexCompiledModelRows(t *testing.T) {
 	headName := QName{Local: 1}
 	subName := QName{Local: 10}
 	elementNames := map[ElementID]QName{head: headName}
-	one := Occurrence{Min: 1, Max: 1}
-	edges := []CompiledModelEdge{
-		{Particle: ElementParticle(head, one), To: 1},
-		{Particle: WildcardParticle(1, one), To: 1},
+	one := occurrence{Min: 1, Max: 1}
+	edges := []compiledModelEdge{
+		{Particle: elementParticle(head, one), To: 1},
+		{Particle: wildcardParticle(1, one), To: 1},
 	}
 	for id := ElementID(2); len(edges) < compiledDFARowIndexMinEdges; id++ {
-		elementNames[id] = QName{Local: LocalNameID(id)}
-		edges = append(edges, CompiledModelEdge{Particle: ElementParticle(id, one), To: 1})
+		elementNames[id] = QName{Local: localNameID(id)}
+		edges = append(edges, compiledModelEdge{Particle: elementParticle(id, one), To: 1})
 	}
 	rt := dfaRowIndexFixture{
 		elementNames: elementNames,
@@ -86,9 +86,9 @@ func TestIndexCompiledModelRows(t *testing.T) {
 			head: {subName: ElementID(2)},
 		},
 	}
-	model := CompiledModel{
-		Kind: CompiledModelDFA,
-		Rows: []CompiledModelRow{
+	model := compiledModel{
+		Kind: compiledModelDFA,
+		Rows: []compiledModelRow{
 			{Edges: edges},
 			{Edges: edges[:compiledDFARowIndexMinEdges-1]},
 		},
@@ -117,12 +117,12 @@ func TestIndexCompiledModelsRowsBoundsSubstitutionExpansion(t *testing.T) {
 	t.Parallel()
 
 	const head = ElementID(1)
-	one := Occurrence{Min: 1, Max: 1}
+	one := occurrence{Min: 1, Max: 1}
 	elementNames := map[ElementID]QName{head: {Local: 1}}
-	edges := []CompiledModelEdge{{Particle: ElementParticle(head, one), To: 1}}
+	edges := []compiledModelEdge{{Particle: elementParticle(head, one), To: 1}}
 	for id := ElementID(2); len(edges) < compiledDFARowIndexMinEdges; id++ {
-		elementNames[id] = QName{Local: LocalNameID(id)}
-		edges = append(edges, CompiledModelEdge{Particle: ElementParticle(id, one), To: 1})
+		elementNames[id] = QName{Local: localNameID(id)}
+		edges = append(edges, compiledModelEdge{Particle: elementParticle(id, one), To: 1})
 	}
 	rt := dfaRowIndexFixture{
 		elementNames: elementNames,
@@ -133,13 +133,13 @@ func TestIndexCompiledModelsRowsBoundsSubstitutionExpansion(t *testing.T) {
 			},
 		},
 	}
-	models := []CompiledModel{{
-		Kind: CompiledModelDFA,
-		Rows: []CompiledModelRow{{Edges: edges}},
+	models := []compiledModel{{
+		Kind: compiledModelDFA,
+		Rows: []compiledModelRow{{Edges: edges}},
 	}}
 	budgetExceeded := errors.New("content work exceeded")
 	remaining := 10 // model + row + eight edges; expansion must charge more.
-	err := IndexCompiledModelsRows(rt.build(), models, func(steps int) error {
+	err := indexCompiledModelsRows(rt.build(), models, func(steps int) error {
 		remaining -= steps
 		if remaining < 0 {
 			return budgetExceeded
@@ -157,22 +157,22 @@ func TestIndexCompiledModelsRowsBoundsSubstitutionExpansion(t *testing.T) {
 func TestIndexCompiledModelRowsKeepsLinearScanForDuplicateNames(t *testing.T) {
 	t.Parallel()
 
-	one := Occurrence{Min: 1, Max: 1}
+	one := occurrence{Min: 1, Max: 1}
 	duplicateName := QName{Local: 1}
 	elementNames := map[ElementID]QName{
 		1: duplicateName,
 		2: duplicateName,
 	}
-	var edges []CompiledModelEdge
+	var edges []compiledModelEdge
 	for id := ElementID(1); len(edges) < compiledDFARowIndexMinEdges; id++ {
 		if _, ok := elementNames[id]; !ok {
-			elementNames[id] = QName{Local: LocalNameID(id)}
+			elementNames[id] = QName{Local: localNameID(id)}
 		}
-		edges = append(edges, CompiledModelEdge{Particle: ElementParticle(id, one), To: 1})
+		edges = append(edges, compiledModelEdge{Particle: elementParticle(id, one), To: 1})
 	}
-	model := CompiledModel{
-		Kind: CompiledModelDFA,
-		Rows: []CompiledModelRow{{Edges: edges}},
+	model := compiledModel{
+		Kind: compiledModelDFA,
+		Rows: []compiledModelRow{{Edges: edges}},
 	}
 	if err := newDFARowIndexAnalysis((dfaRowIndexFixture{elementNames: elementNames}).build(), unlimitedContentModelWork).indexModel(&model); err != nil {
 		t.Fatalf("IndexCompiledModelRows() error = %v", err)
@@ -185,14 +185,14 @@ func TestIndexCompiledModelRowsKeepsLinearScanForDuplicateNames(t *testing.T) {
 func TestIndexCompiledModelRowsRejectsInvalidElement(t *testing.T) {
 	t.Parallel()
 
-	one := Occurrence{Min: 1, Max: 1}
-	edges := make([]CompiledModelEdge, compiledDFARowIndexMinEdges)
+	one := occurrence{Min: 1, Max: 1}
+	edges := make([]compiledModelEdge, compiledDFARowIndexMinEdges)
 	for i := range edges {
-		edges[i] = CompiledModelEdge{Particle: ElementParticle(ElementID(i+1), one), To: 1}
+		edges[i] = compiledModelEdge{Particle: elementParticle(ElementID(i+1), one), To: 1}
 	}
-	model := CompiledModel{
-		Kind: CompiledModelDFA,
-		Rows: []CompiledModelRow{{Edges: edges}},
+	model := compiledModel{
+		Kind: compiledModelDFA,
+		Rows: []compiledModelRow{{Edges: edges}},
 	}
 	err := newDFARowIndexAnalysis((dfaRowIndexFixture{}).build(), unlimitedContentModelWork).indexModel(&model)
 	if err == nil || !strings.Contains(err.Error(), "compiled content model index references invalid element") {
@@ -204,8 +204,8 @@ type dfaRowIndexFixture struct {
 	elementNames       map[ElementID]QName
 	substitutionIDs    map[ElementID][]ElementID
 	substitutionByName map[ElementID]map[QName]ElementID
-	contentModels      map[ContentModelID]ContentModel
-	wildcards          map[WildcardID]Wildcard
+	contentModels      map[contentModelID]contentModelNode
+	wildcards          map[WildcardID]wildcardRuntime
 }
 
 func TestIndexCompiledModelsRowsAdmissionFailureAllowsRetry(t *testing.T) {
@@ -213,28 +213,28 @@ func TestIndexCompiledModelsRowsAdmissionFailureAllowsRetry(t *testing.T) {
 	budgetFailure := errors.New("index work unavailable")
 	for _, tc := range []struct {
 		name string
-		work ContentModelWork
+		work contentModelWork
 	}{
 		{name: "missing work"},
 		{name: "failed admission", work: func(int) error { return budgetFailure }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			one := Occurrence{Min: 1, Max: 1}
+			one := occurrence{Min: 1, Max: 1}
 			elementNames := map[ElementID]QName{
 				1: {Local: 1}, 2: {Local: 2}, 3: {Local: 3}, 4: {Local: 4},
 				5: {Local: 5}, 6: {Local: 6}, 7: {Local: 7}, 8: {Local: 8},
 			}
-			edges := make([]CompiledModelEdge, 8)
+			edges := make([]compiledModelEdge, 8)
 			for i := range edges {
-				edges[i] = CompiledModelEdge{Particle: ElementParticle(ElementID(i+1), one), To: 1}
+				edges[i] = compiledModelEdge{Particle: elementParticle(ElementID(i+1), one), To: 1}
 			}
 			build := (dfaRowIndexFixture{elementNames: elementNames}).build()
-			models := []CompiledModel{{Kind: CompiledModelDFA, Rows: []CompiledModelRow{{Edges: edges}, {Accept: true}}}}
-			want := []CompiledModel{{Kind: CompiledModelDFA, Rows: []CompiledModelRow{
-				{Edges: append([]CompiledModelEdge(nil), edges...)}, {Accept: true},
+			models := []compiledModel{{Kind: compiledModelDFA, Rows: []compiledModelRow{{Edges: edges}, {Accept: true}}}}
+			want := []compiledModel{{Kind: compiledModelDFA, Rows: []compiledModelRow{
+				{Edges: append([]compiledModelEdge(nil), edges...)}, {Accept: true},
 			}}}
-			err := IndexCompiledModelsRows(build, models, tc.work)
+			err := indexCompiledModelsRows(build, models, tc.work)
 			if tc.work == nil {
 				if err == nil {
 					t.Fatalf("missing work error = %v, want required-budget error", err)
@@ -245,7 +245,7 @@ func TestIndexCompiledModelsRowsAdmissionFailureAllowsRetry(t *testing.T) {
 			if !reflect.DeepEqual(models, want) {
 				t.Fatalf("admission failure changed compiled models: got %#v, want %#v", models, want)
 			}
-			if err := IndexCompiledModelsRows(build, models, unlimitedContentModelWork); err != nil {
+			if err := indexCompiledModelsRows(build, models, unlimitedContentModelWork); err != nil {
 				t.Fatalf("retry error = %v", err)
 			}
 			for _, entry := range []struct {

@@ -51,8 +51,8 @@ type bitsetNFA struct {
 // its frame stays live during bitset allocation and enlarges that allocation
 // call chain; reopen only with evidence of non-increasing stack retention,
 // which removing intermediate records and preserving field layout do not give.
-func compileNFA(root *node, options CompileOptions) (compiledNFA, error) {
-	c := nfaCompiler{limit: options.MaxStates}
+func compileNFA(root *node, options compileLimits) (compiledNFA, error) {
+	c := nfaCompiler{limit: options.states}
 	rootFragment, err := c.compile(root)
 	if err != nil {
 		return compiledNFA{}, err

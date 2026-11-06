@@ -10,17 +10,17 @@ func TestNewIdentityConstraintDoesNotAliasInputPaths(t *testing.T) {
 	attrName := QName{Namespace: 1, Local: 3}
 	parentName := QName{Namespace: 1, Local: 4}
 	replacement := QName{Namespace: 2, Local: 5}
-	selector := []IdentityPath{{
+	selector := []identityPath{{
 		Steps: []IdentityStep{{Name: selectorName}},
 	}}
-	fields := []IdentityField{{
-		Paths: []IdentityFieldPath{
+	fields := []identityField{{
+		Paths: []identityFieldPath{
 			{Steps: []IdentityStep{{Name: elementName}}},
 			{Attr: true, Attribute: attrName, Steps: []IdentityStep{{Name: parentName}}},
 		},
 	}}
 
-	ic := NewIdentityConstraint(IdentityKey, QName{Namespace: 1, Local: 6}, NoIdentityConstraint, selector, fields)
+	ic := newIdentityConstraint(IdentityKey, QName{Namespace: 1, Local: 6}, NoIdentityConstraint, selector, fields)
 
 	selector[0].Steps[0].Name = replacement
 	fields[0].Paths[0].Steps[0].Name = replacement

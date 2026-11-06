@@ -17,18 +17,18 @@ type schemaBuild struct {
 	// valueBuilder owns canonical simple-type construction until publication.
 	// It is private compiler state and never escapes as a mutable object.
 	valueBuilder          *value.Builder
-	Substitutions         SubstitutionTable
-	Models                []ContentModel
-	AttributeUseSets      []AttributeUseSet
-	Wildcards             []Wildcard
-	CompiledModels        []CompiledModel
-	SimpleTypes           []SimpleType
+	Substitutions         substitutionTable
+	Models                []contentModelNode
+	AttributeUseSets      []attributeUseSet
+	Wildcards             []wildcardRuntime
+	CompiledModels        []compiledModel
+	SimpleTypes           []simpleType
 	simpleTypeUnavailable []bool
-	Attributes            []AttributeDecl
-	Elements              []ElementDecl
-	Identities            []IdentityConstraint
-	ComplexTypes          []ComplexType
-	Names                 NameTable
+	Attributes            []attributeDecl
+	Elements              []elementDecl
+	Identities            []identityConstraintSpec
+	ComplexTypes          []complexTypeMetadata
+	Names                 nameTable
 	AnyType               ComplexTypeID
 }
 
@@ -44,7 +44,7 @@ type schemaProgram struct {
 	GlobalAttributes map[QName]AttributeID
 	Value            *value.Program
 	Elements         elementReadTable
-	Substitutions    SubstitutionTable
+	Substitutions    substitutionTable
 	Names            nameReadView
 	// SimpleTypeUnavailable preserves the compiler's optional-import recovery
 	// fact. The value program owns all other simple-type metadata.
@@ -58,11 +58,11 @@ type schemaProgram struct {
 }
 
 type complexTypeRead struct {
-	attributeUseSet AttributeUseSetID
-	contentModel    ContentModelID
+	attributeUseSet attributeUseSetID
+	contentModel    contentModelID
 	textType        SimpleTypeID
 	block           DerivationMask
-	contentKind     ContentKind
+	contentKind     complexContentVariety
 	flags           complexTypeReadFlags
 }
 
@@ -74,7 +74,7 @@ const (
 
 // newComplexTypeReads points each type at published[i], its model's index in
 // the published content-model table.
-func newComplexTypeReads(types []ComplexType, published []ContentModelID) []complexTypeRead {
+func newComplexTypeReads(types []complexTypeMetadata, published []contentModelID) []complexTypeRead {
 	reads := make([]complexTypeRead, len(types))
 	for i := range types {
 		reads[i] = newComplexTypeRead(types[i], published[i])
@@ -82,7 +82,7 @@ func newComplexTypeReads(types []ComplexType, published []ContentModelID) []comp
 	return reads
 }
 
-func newComplexTypeRead(ct ComplexType, contentModel ContentModelID) complexTypeRead {
+func newComplexTypeRead(ct complexTypeMetadata, contentModel contentModelID) complexTypeRead {
 	var flags complexTypeReadFlags
 	if ct.Abstract {
 		flags |= complexTypeReadAbstract
@@ -126,7 +126,7 @@ type Schema struct {
 
 // TypeName returns a compiler-owned type name.
 func (rt *schemaBuild) TypeName(t TypeID) QName {
-	name, ok := TypeNameByID(rt.SimpleTypes, rt.ComplexTypes, t)
+	name, ok := typeNameByID(rt.SimpleTypes, rt.ComplexTypes, t)
 	if !ok {
 		panic("invalid runtime type ID")
 	}
@@ -142,7 +142,7 @@ func (rt *schemaBuild) spendTypeDerivationWork(steps int) error {
 
 // SimpleTypeFinal returns compiler-owned simple-type final constraints.
 func (rt *schemaBuild) SimpleTypeFinal(id SimpleTypeID) (DerivationMask, bool) {
-	st, ok := UsableSimpleType(rt.SimpleTypes, id)
+	st, ok := usableSimpleType(rt.SimpleTypes, id)
 	if !ok {
 		return 0, false
 	}
@@ -150,26 +150,26 @@ func (rt *schemaBuild) SimpleTypeFinal(id SimpleTypeID) (DerivationMask, bool) {
 }
 
 // SimpleTypeDerivation returns compiler-owned simple-type derivation metadata.
-func (rt *schemaBuild) SimpleTypeDerivation(id SimpleTypeID) (SimpleTypeDerivation, bool) {
-	st, ok := UsableSimpleType(rt.SimpleTypes, id)
+func (rt *schemaBuild) SimpleTypeDerivation(id SimpleTypeID) (simpleTypeDerivation, bool) {
+	st, ok := usableSimpleType(rt.SimpleTypes, id)
 	if !ok {
-		return SimpleTypeDerivation{}, false
+		return simpleTypeDerivation{}, false
 	}
 	return newSimpleTypeDerivationForSimpleType(*st), true
 }
 
 // ComplexTypeDerivation returns compiler-owned complex-type derivation metadata.
-func (rt *schemaBuild) ComplexTypeDerivation(id ComplexTypeID) (ComplexTypeDerivation, bool) {
-	ct, ok := ComplexTypeByID(rt.ComplexTypes, id)
+func (rt *schemaBuild) ComplexTypeDerivation(id ComplexTypeID) (complexTypeDerivation, bool) {
+	ct, ok := complexTypeByID(rt.ComplexTypes, id)
 	if !ok {
-		return ComplexTypeDerivation{}, false
+		return complexTypeDerivation{}, false
 	}
 	return newComplexTypeDerivationForComplexType(*ct), true
 }
 
 // ElementName returns a compiler-owned element name by ID.
 func (rt *schemaBuild) ElementName(id ElementID) (QName, bool) {
-	decl, ok := ElementDeclByID(rt.Elements, id)
+	decl, ok := elementDeclByID(rt.Elements, id)
 	if !ok {
 		return QName{}, false
 	}
@@ -177,16 +177,16 @@ func (rt *schemaBuild) ElementName(id ElementID) (QName, bool) {
 }
 
 // ElementRestriction returns compiler-owned particle-restriction metadata.
-func (rt *schemaBuild) ElementRestriction(id ElementID) (ParticleRestrictionElement, bool) {
-	if !ValidElementID(id, len(rt.Elements)) {
-		return ParticleRestrictionElement{}, false
+func (rt *schemaBuild) ElementRestriction(id ElementID) (particleRestrictionElement, bool) {
+	if !validElementID(id, len(rt.Elements)) {
+		return particleRestrictionElement{}, false
 	}
 	decl := rt.Elements[id]
-	return ParticleRestrictionElement{
+	return particleRestrictionElement{
 		Identities: borrowedIdentityConstraintIDs(decl.Identity),
 		Type:       decl.Type,
 		Block:      decl.Block,
-		Fixed:      NewValueConstraintIdentity(decl.Fixed),
+		Fixed:      newValueConstraintIdentity(decl.Fixed),
 		Scope:      decl.Scope,
 		Nillable:   decl.Nillable,
 	}, true
