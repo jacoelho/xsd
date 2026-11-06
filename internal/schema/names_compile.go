@@ -6,8 +6,8 @@ import (
 	"slices"
 )
 
-// SortedQNames returns map keys ordered by expanded name text.
-func SortedQNames[T any](m map[QName]T, names NameTable) []QName {
+// sortedQNames returns map keys ordered by expanded name text.
+func sortedQNames[T any](m map[QName]T, names nameTable) []QName {
 	return slices.SortedFunc(maps.Keys(m), func(a, b QName) int {
 		aNS := names.Namespace(a.Namespace)
 		bNS := names.Namespace(b.Namespace)

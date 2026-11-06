@@ -4,28 +4,28 @@ import (
 	"errors"
 )
 
-// CompiledModelKind identifies the runtime representation used for a compiled
+// compiledModelKind identifies the runtime representation used for a compiled
 // content model.
-type CompiledModelKind uint8
+type compiledModelKind uint8
 
 const (
-	// CompiledModelEmpty is the compiled representation for empty content.
-	CompiledModelEmpty CompiledModelKind = iota
-	// CompiledModelAny is the compiled representation for xs:anyType content.
-	CompiledModelAny
-	// CompiledModelAll is the compiled representation for xs:all content.
-	CompiledModelAll
-	// CompiledModelDFA is the compiled DFA representation.
-	CompiledModelDFA
+	// compiledModelEmpty is the compiled representation for empty content.
+	compiledModelEmpty compiledModelKind = iota
+	// compiledModelAny is the compiled representation for xs:anyType content.
+	compiledModelAny
+	// compiledModelAll is the compiled representation for xs:all content.
+	compiledModelAll
+	// compiledModelDFA is the compiled DFA representation.
+	compiledModelDFA
 )
 
-// CompiledModel stores a runtime-ready content model.
-type CompiledModel struct {
-	Rows      []CompiledModelRow
-	All       []CompiledAllTerm
+// compiledModel stores a runtime-ready content model.
+type compiledModel struct {
+	Rows      []compiledModelRow
+	All       []compiledAllTerm
 	Start     uint32
 	AllBitLen uint32
-	Kind      CompiledModelKind
+	Kind      compiledModelKind
 	Empty     bool
 }
 
@@ -38,11 +38,11 @@ func (idx dfaRowIndex) enabled() bool {
 	return idx.nameToEdge != nil
 }
 
-// CompiledModelRow stores a compiled DFA state.
-type CompiledModelRow struct {
-	Edges         []CompiledModelEdge
+// compiledModelRow stores a compiled DFA state.
+type compiledModelRow struct {
+	Edges         []compiledModelEdge
 	index         dfaRowIndex
-	CountParticle Particle
+	CountParticle contentParticle
 	Min           uint32
 	Max           uint32
 	Accept        bool
@@ -50,22 +50,22 @@ type CompiledModelRow struct {
 	Unbounded     bool
 }
 
-// CompiledModelEdge stores one transition in a compiled DFA row.
-type CompiledModelEdge struct {
-	Particle Particle
+// compiledModelEdge stores one transition in a compiled DFA row.
+type compiledModelEdge struct {
+	Particle contentParticle
 	To       uint32
 }
 
-// CompiledAllTerm stores one xs:all term in compiled form.
-type CompiledAllTerm struct {
-	Particle Particle
+// compiledAllTerm stores one xs:all term in compiled form.
+type compiledAllTerm struct {
+	Particle contentParticle
 	Required bool
 }
 
-// SameCompiledParticle reports whether two compiled particles reference the
-// same runtime term. Occurrence and nested model IDs are intentionally ignored:
+// sameCompiledParticle reports whether two compiled particles reference the
+// same runtime term. occurrence and nested model IDs are intentionally ignored:
 // compiled transitions contain direct element or wildcard particles.
-func SameCompiledParticle(a, b Particle) bool {
+func sameCompiledParticle(a, b contentParticle) bool {
 	return a.Kind == b.Kind && a.Element == b.Element && a.Wildcard == b.Wildcard
 }
 
@@ -73,13 +73,13 @@ const compiledDFARowIndexMinEdges = 8
 
 type dfaRowIndexAnalysis struct {
 	rt      *schemaBuild
-	work    ContentModelWork
+	work    contentModelWork
 	entries map[ElementID][]QName
 }
 
-// IndexCompiledModelsRows builds row indexes for a model table and
+// indexCompiledModelsRows builds row indexes for a model table and
 // reuses each substitution head's expanded entries across the table.
-func IndexCompiledModelsRows(rt *schemaBuild, models []CompiledModel, work ContentModelWork) error {
+func indexCompiledModelsRows(rt *schemaBuild, models []compiledModel, work contentModelWork) error {
 	if err := requireContentModelWork(work); err != nil {
 		return err
 	}
@@ -95,7 +95,7 @@ func IndexCompiledModelsRows(rt *schemaBuild, models []CompiledModel, work Conte
 	return nil
 }
 
-func newDFARowIndexAnalysis(rt *schemaBuild, work ContentModelWork) *dfaRowIndexAnalysis {
+func newDFARowIndexAnalysis(rt *schemaBuild, work contentModelWork) *dfaRowIndexAnalysis {
 	return &dfaRowIndexAnalysis{
 		rt:      rt,
 		work:    work,
@@ -103,8 +103,8 @@ func newDFARowIndexAnalysis(rt *schemaBuild, work ContentModelWork) *dfaRowIndex
 	}
 }
 
-func (a *dfaRowIndexAnalysis) indexModel(model *CompiledModel) error {
-	if model.Kind != CompiledModelDFA {
+func (a *dfaRowIndexAnalysis) indexModel(model *compiledModel) error {
+	if model.Kind != compiledModelDFA {
 		return nil
 	}
 	for i := range model.Rows {
@@ -118,7 +118,7 @@ func (a *dfaRowIndexAnalysis) indexModel(model *CompiledModel) error {
 	return nil
 }
 
-func (a *dfaRowIndexAnalysis) indexRow(row *CompiledModelRow) error {
+func (a *dfaRowIndexAnalysis) indexRow(row *compiledModelRow) error {
 	if len(row.Edges) < compiledDFARowIndexMinEdges {
 		return nil
 	}
@@ -144,15 +144,15 @@ func (a *dfaRowIndexAnalysis) indexEdge(
 	index map[QName]uint32,
 	wildcards *[]uint32,
 	position uint32,
-	edge CompiledModelEdge,
+	edge compiledModelEdge,
 ) (bool, error) {
 	switch edge.Particle.Kind {
-	case ParticleElement:
+	case particleElement:
 		return a.indexElementEdge(index, position, edge.Particle.Element)
-	case ParticleWildcard:
+	case particleWildcard:
 		*wildcards = append(*wildcards, position)
 		return true, nil
-	case ParticleModel:
+	case particleModel:
 		return false, nil
 	default:
 		return false, errors.New("compiled content model index has invalid edge particle")
@@ -211,13 +211,13 @@ func indexEdgeName(index map[QName]uint32, name QName, pos uint32) bool {
 	return true
 }
 
-// CompiledCountingException reports whether overlapping counted-row edges are
+// compiledCountingException reports whether overlapping counted-row edges are
 // the one deterministic loop/exit pair produced for a fixed repeated particle.
-func CompiledCountingException(index uint32, row CompiledModelRow, a, b CompiledModelEdge) bool {
+func compiledCountingException(index uint32, row compiledModelRow, a, b compiledModelEdge) bool {
 	if !row.Counted || row.Unbounded || row.Min != row.Max {
 		return false
 	}
-	aLoop := a.To == index && SameCompiledParticle(a.Particle, row.CountParticle)
-	bLoop := b.To == index && SameCompiledParticle(b.Particle, row.CountParticle)
+	aLoop := a.To == index && sameCompiledParticle(a.Particle, row.CountParticle)
+	bLoop := b.To == index && sameCompiledParticle(b.Particle, row.CountParticle)
 	return (aLoop && b.To != index) || (bLoop && a.To != index)
 }

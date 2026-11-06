@@ -5,94 +5,94 @@ import (
 	"fmt"
 )
 
-// DerivationKind identifies how a complex type derives from its base.
-type DerivationKind uint8
+// derivationKind identifies how a complex type derives from its base.
+type derivationKind uint8
 
 const (
-	// DerivationKindNone is used only for xs:anyType.
-	DerivationKindNone DerivationKind = iota
-	// DerivationKindRestriction records derivation by restriction.
-	DerivationKindRestriction
-	// DerivationKindExtension records derivation by extension.
-	DerivationKindExtension
+	// derivationKindNone is used only for xs:anyType.
+	derivationKindNone derivationKind = iota
+	// derivationKindRestriction records derivation by restriction.
+	derivationKindRestriction
+	// derivationKindExtension records derivation by extension.
+	derivationKindExtension
 )
 
-// ValidDerivationKind reports whether kind is a known complex-type derivation kind.
-func ValidDerivationKind(kind DerivationKind) bool {
+// validDerivationKind reports whether kind is a known complex-type derivation kind.
+func validDerivationKind(kind derivationKind) bool {
 	switch kind {
-	case DerivationKindNone, DerivationKindRestriction, DerivationKindExtension:
+	case derivationKindNone, derivationKindRestriction, derivationKindExtension:
 		return true
 	default:
 		return false
 	}
 }
 
-// ContentKind identifies the complex type {content type} variety.
-type ContentKind uint8
+// complexContentVariety identifies the complex type {content type} variety.
+type complexContentVariety uint8
 
 const (
-	// ContentElementOnly is element-only complex content.
-	ContentElementOnly ContentKind = iota
-	// ContentMixed is mixed complex content.
-	ContentMixed
-	// ContentSimple is simple content.
-	ContentSimple
-	// ContentEmpty is empty complex content. It permits neither character nor
-	// element information items. The zero value remains ContentElementOnly so
+	// contentElementOnly is element-only complex content.
+	contentElementOnly complexContentVariety = iota
+	// contentMixed is mixed complex content.
+	contentMixed
+	// contentSimple is simple content.
+	contentSimple
+	// contentEmpty is empty complex content. It permits neither character nor
+	// element information items. The zero value remains contentElementOnly so
 	// compiler and test fixtures that use an omitted kind retain their meaning.
-	ContentEmpty
+	contentEmpty
 )
 
 // Mixed reports whether content permits character text mixed with elements.
-func (k ContentKind) Mixed() bool {
-	return k == ContentMixed
+func (k complexContentVariety) Mixed() bool {
+	return k == contentMixed
 }
 
 // Simple reports whether content is simple content.
-func (k ContentKind) Simple() bool {
-	return k == ContentSimple
+func (k complexContentVariety) Simple() bool {
+	return k == contentSimple
 }
 
-// ValidContentKind reports whether kind is a known complex-type content kind.
-func ValidContentKind(kind ContentKind) bool {
+// validContentKind reports whether kind is a known complex-type content kind.
+func validContentKind(kind complexContentVariety) bool {
 	switch kind {
-	case ContentElementOnly, ContentMixed, ContentSimple, ContentEmpty:
+	case contentElementOnly, contentMixed, contentSimple, contentEmpty:
 		return true
 	default:
 		return false
 	}
 }
 
-// ComplexType stores compiled complex-type runtime metadata.
-type ComplexType struct {
+// complexTypeMetadata stores compiled complex-type runtime metadata.
+type complexTypeMetadata struct {
 	Name        QName
 	Base        TypeID
-	Content     ContentModelID
-	Attrs       AttributeUseSetID
+	Content     contentModelID
+	Attrs       attributeUseSetID
 	TextType    SimpleTypeID
-	ContentKind ContentKind
+	ContentKind complexContentVariety
 	Abstract    bool
-	Derivation  DerivationKind
+	Derivation  derivationKind
 	// ExplicitDerivation is true when Derivation came from an xs:extension or
 	// xs:restriction element. Plain complex types are implicit restrictions of
 	// xs:anyType and keep local attribute wildcard provenance.
 	ExplicitDerivation bool
 	Block              DerivationMask
 	Final              DerivationMask
-	Scope              DeclarationScope
+	Scope              declarationScope
 }
 
-// ComplexTypeByID resolves a complex type ID against a complex-type table.
-func ComplexTypeByID(types []ComplexType, id ComplexTypeID) (*ComplexType, bool) {
-	if !ValidComplexTypeID(id, len(types)) {
+// complexTypeByID resolves a complex type ID against a complex-type table.
+func complexTypeByID(types []complexTypeMetadata, id ComplexTypeID) (*complexTypeMetadata, bool) {
+	if !validComplexTypeID(id, len(types)) {
 		return nil, false
 	}
 	return &types[id], true
 }
 
-// ComplexTypeRefLimits are table sizes used to validate complex-type
+// complexTypeRefLimits are table sizes used to validate complex-type
 // references in a frozen runtime schema.
-type ComplexTypeRefLimits struct {
+type complexTypeRefLimits struct {
 	SimpleTypeCount      int
 	ComplexTypeCount     int
 	AttributeUseSetCount int
@@ -100,23 +100,23 @@ type ComplexTypeRefLimits struct {
 }
 
 // Mixed reports whether the complex type permits mixed character content.
-func (ct ComplexType) Mixed() bool {
+func (ct complexTypeMetadata) Mixed() bool {
 	return ct.ContentKind.Mixed()
 }
 
 // SimpleContent reports whether the complex type has simple content.
-func (ct ComplexType) SimpleContent() bool {
+func (ct complexTypeMetadata) SimpleContent() bool {
 	return ct.ContentKind.Simple()
 }
 
-// ValidateComplexTypeRuntime validates complex-type metadata that can be
+// validateComplexTypeRuntime validates complex-type metadata that can be
 // expressed in runtime vocabulary.
-func ValidateComplexTypeRuntime(
-	names *NameTable,
+func validateComplexTypeRuntime(
+	names *nameTable,
 	id ComplexTypeID,
-	ct ComplexType,
-	models []ContentModel,
-	limits ComplexTypeRefLimits,
+	ct complexTypeMetadata,
+	models []contentModelNode,
+	limits complexTypeRefLimits,
 ) error {
 	if err := validateComplexTypeShape(names, ct); err != nil {
 		return err
@@ -127,29 +127,29 @@ func ValidateComplexTypeRuntime(
 	return validateComplexTypeContent(ct, models, limits.SimpleTypeCount)
 }
 
-func validateComplexTypeShape(names *NameTable, ct ComplexType) error {
+func validateComplexTypeShape(names *nameTable, ct complexTypeMetadata) error {
 	if names == nil || !names.ValidQName(ct.Name) {
 		return errors.New("complex type references invalid name")
 	}
-	if !ValidContentKind(ct.ContentKind) {
+	if !validContentKind(ct.ContentKind) {
 		return errors.New("complex type has invalid content kind")
 	}
-	if !ValidDerivationKind(ct.Derivation) {
+	if !validDerivationKind(ct.Derivation) {
 		return errors.New("complex type has invalid derivation kind")
 	}
-	if !ValidComplexBlockMask(ct.Block) {
+	if !validComplexBlockMask(ct.Block) {
 		return errors.New("complex type block mask contains invalid derivation")
 	}
-	if !ValidComplexFinalMask(ct.Final) {
+	if !validComplexFinalMask(ct.Final) {
 		return errors.New("complex type final mask contains invalid derivation")
 	}
-	if ct.ExplicitDerivation && ct.Derivation == DerivationKindNone {
+	if ct.ExplicitDerivation && ct.Derivation == derivationKindNone {
 		return errors.New("complex type marks explicit derivation without derivation kind")
 	}
 	return nil
 }
 
-func validateComplexTypeReferences(id ComplexTypeID, ct ComplexType, models []ContentModel, limits ComplexTypeRefLimits) error {
+func validateComplexTypeReferences(id ComplexTypeID, ct complexTypeMetadata, models []contentModelNode, limits complexTypeRefLimits) error {
 	if ct.Base == (TypeID{}) {
 		if id != limits.AnyType {
 			return errors.New("complex type has no base type")
@@ -157,36 +157,36 @@ func validateComplexTypeReferences(id ComplexTypeID, ct ComplexType, models []Co
 	} else if !validTypeID(ct.Base, limits.SimpleTypeCount, limits.ComplexTypeCount) {
 		return errors.New("complex type references invalid base")
 	}
-	if !ValidContentModelID(ct.Content, len(models)) {
+	if !validContentModelID(ct.Content, len(models)) {
 		return errors.New("complex type references invalid content model")
 	}
-	if !ValidAttributeUseSetID(ct.Attrs, limits.AttributeUseSetCount) {
+	if !validAttributeUseSetID(ct.Attrs, limits.AttributeUseSetCount) {
 		return errors.New("complex type references invalid attribute use set")
 	}
 	return nil
 }
 
-func validateComplexTypeContent(ct ComplexType, models []ContentModel, simpleTypeCount int) error {
+func validateComplexTypeContent(ct complexTypeMetadata, models []contentModelNode, simpleTypeCount int) error {
 	if ct.SimpleContent() {
 		return validateSimpleComplexTypeContent(ct, models, simpleTypeCount)
 	}
 	if ct.TextType != NoSimpleType {
 		return errors.New("complex type stores text type without simple content")
 	}
-	if ct.ContentKind == ContentEmpty {
+	if ct.ContentKind == contentEmpty {
 		model := models[ct.Content]
-		if model.Kind != ModelEmpty || model.Mixed {
+		if model.Kind != modelEmpty || model.Mixed {
 			return errors.New("empty complex type must reference a non-mixed empty content model")
 		}
 	}
 	return nil
 }
 
-func validateSimpleComplexTypeContent(ct ComplexType, models []ContentModel, simpleTypeCount int) error {
-	if !ValidSimpleTypeID(ct.TextType, simpleTypeCount) {
+func validateSimpleComplexTypeContent(ct complexTypeMetadata, models []contentModelNode, simpleTypeCount int) error {
+	if !validSimpleTypeID(ct.TextType, simpleTypeCount) {
 		return errors.New("complex type references invalid text type")
 	}
-	if models[ct.Content].Kind != ModelEmpty {
+	if models[ct.Content].Kind != modelEmpty {
 		return errors.New("complex type simple content must have empty content model")
 	}
 	return nil
@@ -200,7 +200,7 @@ const (
 	complexTypeGraphChecked
 )
 
-func validateComplexTypeGraph(types []ComplexType) error {
+func validateComplexTypeGraph(types []complexTypeMetadata) error {
 	state := make([]complexTypeGraphState, len(types))
 	stack := make([]ComplexTypeID, 0, min(len(types), 1_024))
 	for root := range types {
@@ -216,7 +216,7 @@ func validateComplexTypeGraph(types []ComplexType) error {
 	return nil
 }
 
-func walkComplexTypeGraph(types []ComplexType, state []complexTypeGraphState, stack *[]ComplexTypeID) error {
+func walkComplexTypeGraph(types []complexTypeMetadata, state []complexTypeGraphState, stack *[]ComplexTypeID) error {
 	for len(*stack) != 0 {
 		if err := advanceComplexTypeGraph(types, state, stack); err != nil {
 			return err
@@ -225,7 +225,7 @@ func walkComplexTypeGraph(types []ComplexType, state []complexTypeGraphState, st
 	return nil
 }
 
-func advanceComplexTypeGraph(types []ComplexType, state []complexTypeGraphState, stack *[]ComplexTypeID) error {
+func advanceComplexTypeGraph(types []complexTypeMetadata, state []complexTypeGraphState, stack *[]ComplexTypeID) error {
 	last := len(*stack) - 1
 	id := (*stack)[last]
 	base := types[id].Base
@@ -242,8 +242,8 @@ func advanceComplexTypeGraph(types []ComplexType, state []complexTypeGraphState,
 	}
 }
 
-func advanceComplexTypeBase(types []ComplexType, state []complexTypeGraphState, stack *[]ComplexTypeID, id, baseID ComplexTypeID) error {
-	if !ValidComplexTypeID(baseID, len(types)) {
+func advanceComplexTypeBase(types []complexTypeMetadata, state []complexTypeGraphState, stack *[]ComplexTypeID, id, baseID ComplexTypeID) error {
+	if !validComplexTypeID(baseID, len(types)) {
 		return errors.New("complex type graph references invalid base")
 	}
 	switch state[baseID] {
@@ -262,10 +262,10 @@ func advanceComplexTypeBase(types []ComplexType, state []complexTypeGraphState, 
 	}
 }
 
-// ValidateComplexTypeDerivationRuntime validates derivation-mode rules common
+// validateComplexTypeDerivationRuntime validates derivation-mode rules common
 // to complex types derived from a complex-type base. Simple-base derivation
-// rules are validated by ValidateComplexTypeSimpleBaseExtensionRuntime.
-func ValidateComplexTypeDerivationRuntime(anyType, id ComplexTypeID, ct ComplexType) error {
+// rules are validated by validateComplexTypeSimpleBaseExtensionRuntime.
+func validateComplexTypeDerivationRuntime(anyType, id ComplexTypeID, ct complexTypeMetadata) error {
 	if id == anyType {
 		return nil
 	}
@@ -273,15 +273,15 @@ func ValidateComplexTypeDerivationRuntime(anyType, id ComplexTypeID, ct ComplexT
 		return nil
 	}
 	switch ct.Derivation {
-	case DerivationKindExtension:
+	case derivationKindExtension:
 		if !ct.ExplicitDerivation {
 			return errors.New("complex extension is not marked explicit")
 		}
-	case DerivationKindRestriction:
+	case derivationKindRestriction:
 		if !ct.ExplicitDerivation && ct.Base != ComplexRef(anyType) {
 			return errors.New("complex restriction is not marked explicit")
 		}
-	case DerivationKindNone:
+	case derivationKindNone:
 		return errors.New("non-anyType complex type has no derivation")
 	default:
 		return errors.New("complex type has invalid derivation kind")
@@ -289,20 +289,20 @@ func ValidateComplexTypeDerivationRuntime(anyType, id ComplexTypeID, ct ComplexT
 	return nil
 }
 
-// ComplexTypeDerivationBaseID returns the complex base ID for a derivation
+// complexTypeDerivationBaseID returns the complex base ID for a derivation
 // whose base must be a complex type.
-func ComplexTypeDerivationBaseID(base TypeID, complexTypeCount int) (ComplexTypeID, error) {
+func complexTypeDerivationBaseID(base TypeID, complexTypeCount int) (ComplexTypeID, error) {
 	baseID, ok := base.Complex()
-	if !ok || !ValidComplexTypeID(baseID, complexTypeCount) {
-		return NoComplexType, errors.New("complex type derivation references non-complex base")
+	if !ok || !validComplexTypeID(baseID, complexTypeCount) {
+		return noComplexType, errors.New("complex type derivation references non-complex base")
 	}
 	return baseID, nil
 }
 
-// ValidateComplexTypeFinalAllows validates that a complex-type final mask
+// validateComplexTypeFinalAllows validates that a complex-type final mask
 // admits one complex derivation step.
-func ValidateComplexTypeFinalAllows(final, derivation DerivationMask) error {
-	if !ValidComplexFinalMask(final) {
+func validateComplexTypeFinalAllows(final, derivation DerivationMask) error {
+	if !validComplexFinalMask(final) {
 		return errors.New("complex type final mask contains invalid derivation")
 	}
 	// DerivationMask is a bitmask; only single complex-derivation bits are valid here.
@@ -322,14 +322,14 @@ func ValidateComplexTypeFinalAllows(final, derivation DerivationMask) error {
 	return nil
 }
 
-// ValidateComplexTypeExtensionRuntime validates complex-type extension rules
+// validateComplexTypeExtensionRuntime validates complex-type extension rules
 // that do not depend on attribute-use value-constraint equality.
-func ValidateComplexTypeExtensionRuntime(rt *schemaBuild, base, derived ComplexType, anyType ComplexTypeID) error {
-	if err := ValidateComplexTypeFinalAllows(base.Final, DerivationExtension); err != nil {
+func validateComplexTypeExtensionRuntime(rt *schemaBuild, base, derived complexTypeMetadata, anyType ComplexTypeID) error {
+	if err := validateComplexTypeFinalAllows(base.Final, DerivationExtension); err != nil {
 		return err
 	}
 	if base.SimpleContent() {
-		if !derived.SimpleContent() || derived.TextType != base.TextType || !contentModelKind(rt, derived.Content, ModelEmpty) {
+		if !derived.SimpleContent() || derived.TextType != base.TextType || !contentModelKind(rt, derived.Content, modelEmpty) {
 			return errors.New("complex simple-content extension shape does not match base")
 		}
 		return nil
@@ -340,7 +340,7 @@ func ValidateComplexTypeExtensionRuntime(rt *schemaBuild, base, derived ComplexT
 	if base.Mixed() && !derived.Mixed() && derived.Base != ComplexRef(anyType) {
 		return errors.New("complex extension drops mixed base content")
 	}
-	if !ComplexContentExtendsBase(rt, base.Content, derived.Content) {
+	if !complexContentExtendsBase(rt, base.Content, derived.Content) {
 		return errors.New("complex extension content does not preserve base content")
 	}
 	return nil
@@ -349,8 +349,8 @@ func ValidateComplexTypeExtensionRuntime(rt *schemaBuild, base, derived ComplexT
 // Extension after restriction must retain the attribute obligations of the
 // ancestor whose base is anyType (cos-ct-extends 1.5). Intermediate restrictions
 // can be discarded by the required two-step reconstruction; they are not anchors.
-func validateComplexExtensionAttributeAncestry(rt *schemaBuild, derived ComplexType) error {
-	if derived.Derivation != DerivationKindExtension {
+func validateComplexExtensionAttributeAncestry(rt *schemaBuild, derived complexTypeMetadata) error {
+	if derived.Derivation != derivationKindExtension {
 		return nil
 	}
 	anchor, restricted, err := complexExtensionAttributeAnchor(rt, derived.Base)
@@ -363,7 +363,7 @@ func validateComplexExtensionAttributeAncestry(rt *schemaBuild, derived ComplexT
 	return validateExtensionAnchorAttributes(rt, anchor.Attrs, derived.Attrs)
 }
 
-func complexExtensionAttributeAnchor(rt *schemaBuild, base TypeID) (*ComplexType, bool, error) {
+func complexExtensionAttributeAnchor(rt *schemaBuild, base TypeID) (*complexTypeMetadata, bool, error) {
 	current := base
 	restricted := false
 	for range len(rt.ComplexTypes) {
@@ -379,13 +379,13 @@ func complexExtensionAttributeAnchor(rt *schemaBuild, base TypeID) (*ComplexType
 		if ancestor.Base == ComplexRef(rt.AnyType) {
 			return ancestor, restricted, nil
 		}
-		restricted = restricted || ancestor.Derivation == DerivationKindRestriction
+		restricted = restricted || ancestor.Derivation == derivationKindRestriction
 		current = ancestor.Base
 	}
 	return nil, false, errors.New("extension ancestry contains a cycle")
 }
 
-func validateExtensionAnchorAttributes(rt *schemaBuild, anchorID, derivedID AttributeUseSetID) error {
+func validateExtensionAnchorAttributes(rt *schemaBuild, anchorID, derivedID attributeUseSetID) error {
 	anchor := rt.AttributeUseSets[anchorID]
 	derived := rt.AttributeUseSets[derivedID]
 	for _, use := range anchor.Uses {
@@ -399,17 +399,17 @@ func validateExtensionAnchorAttributes(rt *schemaBuild, anchorID, derivedID Attr
 			}
 			continue
 		}
-		if err := ValidateAttributeUseRestriction(rt, use, derived.Uses[slot]); err != nil {
+		if err := validateAttributeUseRestriction(rt, use, derived.Uses[slot]); err != nil {
 			return fmt.Errorf("extension attribute %s violates original ancestor: %w", rt.formatName(use.Name), err)
 		}
 	}
 	return nil
 }
 
-// ValidateComplexTypeSimpleBaseExtensionRuntime validates complex-type
+// validateComplexTypeSimpleBaseExtensionRuntime validates complex-type
 // extension rules for complex types derived from a simple-type base.
-func ValidateComplexTypeSimpleBaseExtensionRuntime(rt *schemaBuild, base SimpleTypeID, derived ComplexType) error {
-	if derived.Derivation != DerivationKindExtension {
+func validateComplexTypeSimpleBaseExtensionRuntime(rt *schemaBuild, base SimpleTypeID, derived complexTypeMetadata) error {
+	if derived.Derivation != derivationKindExtension {
 		return errors.New("complex type with simple base is not an extension")
 	}
 	if !derived.ExplicitDerivation {
@@ -419,36 +419,36 @@ func ValidateComplexTypeSimpleBaseExtensionRuntime(rt *schemaBuild, base SimpleT
 	if !ok {
 		return errors.New("complex type references invalid simple base")
 	}
-	if err := ValidateSimpleBaseComplexExtensionFinalAllows(baseFinal); err != nil {
+	if err := validateSimpleBaseComplexExtensionFinalAllows(baseFinal); err != nil {
 		return err
 	}
-	if !derived.SimpleContent() || derived.TextType != base || !contentModelKind(rt, derived.Content, ModelEmpty) {
+	if !derived.SimpleContent() || derived.TextType != base || !contentModelKind(rt, derived.Content, modelEmpty) {
 		return errors.New("complex type simple-base extension shape is invalid")
 	}
 	return nil
 }
 
-// ValidateComplexTypeRestrictionRuntime validates complex-type restriction
+// validateComplexTypeRestrictionRuntime validates complex-type restriction
 // rules that do not depend on content-particle restriction traversal or
 // attribute-use-set validation.
-func ValidateComplexTypeRestrictionRuntime(
+func validateComplexTypeRestrictionRuntime(
 	rt *schemaBuild,
-	analysis *ContentModelAnalysis,
-	base, derived ComplexType,
+	analysis *contentModelAnalysis,
+	base, derived complexTypeMetadata,
 	work func(int) error,
 ) error {
-	if err := ValidateComplexTypeFinalAllows(base.Final, DerivationRestriction); err != nil {
+	if err := validateComplexTypeFinalAllows(base.Final, DerivationRestriction); err != nil {
 		return err
 	}
 	if derived.SimpleContent() {
-		allowed, err := SimpleContentDerivationBaseAllowed(analysis, base, DerivationKindRestriction)
+		allowed, err := simpleContentDerivationBaseAllowed(analysis, base, derivationKindRestriction)
 		if err != nil {
 			return err
 		}
 		if !allowed {
 			return errors.New("complex simple-content restriction base is not simple or emptiable mixed")
 		}
-		return ValidateSimpleContentRestrictionTextType(rt, derived.TextType, base.TextType, work)
+		return validateSimpleContentRestrictionTextType(rt, derived.TextType, base.TextType, work)
 	}
 	if base.SimpleContent() {
 		return errors.New("complex content restriction drops simple base content")
@@ -456,9 +456,9 @@ func ValidateComplexTypeRestrictionRuntime(
 	return nil
 }
 
-// ValidateSimpleContentRestrictionTextType validates that a simple-content
+// validateSimpleContentRestrictionTextType validates that a simple-content
 // restriction text type is derived from its simple-content base text type.
-func ValidateSimpleContentRestrictionTextType(
+func validateSimpleContentRestrictionTextType(
 	rt *schemaBuild,
 	derived, base SimpleTypeID,
 	work func(int) error,
@@ -478,23 +478,23 @@ func ValidateSimpleContentRestrictionTextType(
 
 // Only the immediate built-in anyType base exempts restriction clause 4.3;
 // equal wildcard shapes, shared wildcard IDs and anyType ancestry do not.
-func validateComplexRestrictionAttributeWildcard(rt *schemaBuild, ct ComplexType) error {
-	if ct.Derivation != DerivationKindRestriction {
+func validateComplexRestrictionAttributeWildcard(rt *schemaBuild, ct complexTypeMetadata) error {
+	if ct.Derivation != derivationKindRestriction {
 		return nil
 	}
 	derivedID := rt.AttributeUseSets[ct.Attrs].Wildcard
 	if derivedID == NoWildcard || ct.Base == ComplexRef(rt.AnyType) {
 		return nil
 	}
-	baseID, err := ComplexTypeDerivationBaseID(ct.Base, len(rt.ComplexTypes))
+	baseID, err := complexTypeDerivationBaseID(ct.Base, len(rt.ComplexTypes))
 	if err != nil {
 		return err
 	}
 	base := rt.AttributeUseSets[rt.ComplexTypes[baseID].Attrs]
-	if !ValidWildcardID(base.Wildcard, len(rt.Wildcards)) {
+	if !validWildcardID(base.Wildcard, len(rt.Wildcards)) {
 		return errors.New("attribute wildcard restriction requires base wildcard")
 	}
-	if !ValidWildcardID(derivedID, len(rt.Wildcards)) {
+	if !validWildcardID(derivedID, len(rt.Wildcards)) {
 		return errors.New("attribute wildcard restriction references invalid wildcard")
 	}
 	// Read only admitted scalars; the cloning lookup would copy namespaces.
@@ -504,23 +504,23 @@ func validateComplexRestrictionAttributeWildcard(rt *schemaBuild, ct ComplexType
 	return nil
 }
 
-// ValidateSimpleBaseComplexExtensionFinalAllows validates the final-mask rule
+// validateSimpleBaseComplexExtensionFinalAllows validates the final-mask rule
 // for a complex type extending a simple type through simpleContent.
-func ValidateSimpleBaseComplexExtensionFinalAllows(final DerivationMask) error {
+func validateSimpleBaseComplexExtensionFinalAllows(final DerivationMask) error {
 	if final&DerivationExtension != 0 {
 		return errors.New("complex type extension is blocked by simple base final")
 	}
 	return nil
 }
 
-// SimpleContentDerivationBaseAllowed reports whether a simpleContent derivation
+// simpleContentDerivationBaseAllowed reports whether a simpleContent derivation
 // may use base. Restrictions may derive simple content from an emptiable mixed
 // complex base; extensions require an existing simple-content base.
-func SimpleContentDerivationBaseAllowed(analysis *ContentModelAnalysis, base ComplexType, derivation DerivationKind) (bool, error) {
+func simpleContentDerivationBaseAllowed(analysis *contentModelAnalysis, base complexTypeMetadata, derivation derivationKind) (bool, error) {
 	if base.SimpleContent() {
 		return true, nil
 	}
-	if derivation != DerivationKindRestriction || !base.Mixed() {
+	if derivation != derivationKindRestriction || !base.Mixed() {
 		return false, nil
 	}
 	if analysis == nil {
@@ -529,25 +529,25 @@ func SimpleContentDerivationBaseAllowed(analysis *ContentModelAnalysis, base Com
 	return analysis.ModelEmptiable(base.Content)
 }
 
-// ComplexContentMixedDerivationBaseAllowed reports whether a complexContent
+// complexContentMixedDerivationBaseAllowed reports whether a complexContent
 // derivation with mixed=true may derive from base.
-func ComplexContentMixedDerivationBaseAllowed(base ComplexType, derivation DerivationKind) bool {
+func complexContentMixedDerivationBaseAllowed(base complexTypeMetadata, derivation derivationKind) bool {
 	if base.Mixed() {
 		return true
 	}
-	return derivation == DerivationKindExtension && base.ContentKind == ContentEmpty
+	return derivation == derivationKindExtension && base.ContentKind == contentEmpty
 }
 
-// ValidateComplexContentMixedDerivationBase validates complexContent mixed
+// validateComplexContentMixedDerivationBase validates complexContent mixed
 // derivation admission against the compiled base type.
-func ValidateComplexContentMixedDerivationBase(base ComplexType, derivation DerivationKind, content ContentKind) error {
-	if content.Mixed() && !ComplexContentMixedDerivationBaseAllowed(base, derivation) {
+func validateComplexContentMixedDerivationBase(base complexTypeMetadata, derivation derivationKind, content complexContentVariety) error {
+	if content.Mixed() && !complexContentMixedDerivationBaseAllowed(base, derivation) {
 		return errors.New("complexContent mixed derivation requires mixed base")
 	}
 	return nil
 }
 
-func contentModelKind(rt *schemaBuild, id ContentModelID, kind ModelKind) bool {
-	model, ok := ContentModelByID(rt.Models, id)
+func contentModelKind(rt *schemaBuild, id contentModelID, kind modelKind) bool {
+	model, ok := contentModelByID(rt.Models, id)
 	return ok && model.Kind == kind
 }

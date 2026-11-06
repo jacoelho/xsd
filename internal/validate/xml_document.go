@@ -147,6 +147,7 @@ func (d *xmlDocument[P]) clearCurrentPayload() {
 
 func (d *xmlDocument[P]) PrepareStart(
 	reader *xmlstream.Reader,
+	limits Limits,
 	line, col int,
 ) (preparedXMLStart, error) {
 	handle, element, err := reader.Start()
@@ -154,10 +155,7 @@ func (d *xmlDocument[P]) PrepareStart(
 		if errors.Is(err, xmlstream.ErrMultipleRoots) {
 			return preparedXMLStart{}, validation(d.context(line, col), xsderrors.CodeValidationXML, msgMultipleRoots)
 		}
-		if boundary, ok := errors.AsType[*xmlstream.Error](err); ok && boundary != nil && boundary.Kind == xmlstream.ErrorDepth {
-			return preparedXMLStart{}, validation(d.context(line, col), xsderrors.CodeValidationLimit, depthLimitMessage(boundary.Cause))
-		}
-		return preparedXMLStart{}, validation(d.context(line, col), xsderrors.CodeValidationXML, err.Error())
+		return preparedXMLStart{}, streamError(err, d.context(line, col), limits)
 	}
 	return preparedXMLStart{name: element, handle: handle}, nil
 }
@@ -226,7 +224,7 @@ func (d *xmlDocument[P]) CommitEnd(reader *xmlstream.Reader) error {
 func (d *xmlDocument[P]) Complete(reader *xmlstream.Reader) error {
 	if err := reader.Complete(); err != nil {
 		if errors.Is(err, xmlstream.ErrNoRoot) {
-			return validation(StartContext{}, xsderrors.CodeValidationXML, msgNoRoot)
+			return validation(startContext{}, xsderrors.CodeValidationXML, msgNoRoot)
 		}
 		if errors.Is(err, xmlstream.ErrUnclosedElements) {
 			return validation(d.context(0, 0), xsderrors.CodeValidationXML, msgUnclosedElement)
@@ -655,6 +653,6 @@ func (s *documentPathStore) reset(maxRetainedCap int) {
 	}
 }
 
-func (d *xmlDocument[P]) context(line, col int) StartContext {
-	return StartContext{document: d, Line: line, Column: col}
+func (d *xmlDocument[P]) context(line, col int) startContext {
+	return startContext{document: d, Line: line, Column: col}
 }

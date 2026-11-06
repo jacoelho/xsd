@@ -19,7 +19,7 @@ type FloatValue struct {
 }
 
 // ParseFloatValue parses normalized as an XML Schema float/double primitive value.
-func ParseFloatValue(kind PrimitiveKind, normalized string, needs PrimitiveValueNeed) (FloatValue, error) {
+func ParseFloatValue(kind PrimitiveKind, normalized string, needs primitiveValueNeed) (FloatValue, error) {
 	bits, ok := floatBits(kind)
 	if !ok {
 		return FloatValue{}, errors.New(msgInvalidFloatPrimitive)
@@ -29,28 +29,28 @@ func ParseFloatValue(kind PrimitiveKind, normalized string, needs PrimitiveValue
 		return FloatValue{}, err
 	}
 	out := FloatValue{Value: value}
-	if needs.Has(PrimitiveNeedCanonical) {
+	if needs.Has(primitiveNeedCanonical) {
 		out.Canonical = formatFloatCanonical(value, bits)
 	}
 	return out, nil
 }
 
-// EqualFloatValues reports XML Schema equality for float/double values.
-func EqualFloatValues(a, b float64) bool {
+// equalFloatValues reports XML Schema equality for float/double values.
+func equalFloatValues(a, b float64) bool {
 	return a == b || math.IsNaN(a) && math.IsNaN(b)
 }
 
-// FloatRelation compares two float/double values for ordered facet restriction checks.
-func FloatRelation(got, base float64) OrderedFacetRelation {
+// floatRelation compares two float/double values for ordered facet restriction checks.
+func floatRelation(got, base float64) orderedFacetRelation {
 	switch {
-	case EqualFloatValues(got, base):
-		return OrderedFacetEqual
+	case equalFloatValues(got, base):
+		return orderedFacetEqual
 	case got < base:
-		return OrderedFacetLess
+		return orderedFacetLess
 	case got > base:
-		return OrderedFacetGreater
+		return orderedFacetGreater
 	default:
-		return OrderedFacetIncomparable
+		return orderedFacetIncomparable
 	}
 }
 
@@ -141,8 +141,8 @@ func floatBits(kind PrimitiveKind) (int, bool) {
 	case PrimitiveDouble:
 		return 64, true
 	case PrimitiveString, PrimitiveBoolean, PrimitiveDecimal, PrimitiveDuration,
-		PrimitiveDateTime, PrimitiveTime, PrimitiveDate,
-		PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth,
+		PrimitiveDateTime, primitiveTime, primitiveDate,
+		primitiveGYearMonth, primitiveGYear, primitiveGMonthDay, primitiveGDay, primitiveGMonth,
 		PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
 		return 0, false
 	default:

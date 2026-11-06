@@ -282,9 +282,12 @@ func (s *parserBenchmarkSample) addToken(token Token, reader *Reader, attributeM
 
 func parserBenchmarkMaterializeAttr(reader *Reader, attr *Attr) string {
 	if reader == nil {
-		return attr.Value
+		return attr.value
 	}
-	value, _ := reader.MaterializeValue(attr)
+	value, err := reader.AttrValue(attr)
+	if err != nil {
+		panic(err)
+	}
 	return value
 }
 

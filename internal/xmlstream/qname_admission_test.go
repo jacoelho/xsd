@@ -127,7 +127,7 @@ var qnameSites = []qnameSite{
 			if err != nil {
 				return xml.Name{}, err
 			}
-			if len(token.Start.Attr) != 1 || token.Start.Attr[0].Value != "v" {
+			if len(token.Start.Attr) != 1 || parser.attrValue(&token.Start.Attr[0]) != "v" {
 				return xml.Name{}, errUnexpectedAttributes
 			}
 			return token.Start.Attr[0].Name, nil

@@ -4,7 +4,9 @@ import (
 	"encoding/xml"
 	"errors"
 	"io"
+	"strconv"
 
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/internal/xmlstream"
@@ -16,7 +18,7 @@ type schemaDocument struct {
 	arena      []*schemaNode
 	name       string
 	key        string
-	defaults   SchemaDefaults
+	defaults   schemaDefaults
 	references []schemaReference
 	nodes      int
 }
@@ -50,7 +52,7 @@ func nodeKey(n *schemaNode, ctx *schemaSetDocument) schemaNodeKey {
 	return schemaNodeKey{doc: n.doc, id: n.id, view: view}
 }
 
-func schemaGlobalName(source *schemaSemanticSource) (LexicalAttribute, bool) {
+func schemaGlobalName(source *schemaSemanticSource) (lexicalAttribute, bool) {
 	switch source := source.kind.(type) {
 	case *schemaSimpleTypeSource:
 		return source.Global.Name, true
@@ -67,7 +69,7 @@ func schemaGlobalName(source *schemaSemanticSource) (LexicalAttribute, bool) {
 	case *schemaNotationSource:
 		return source.Global.Name, true
 	default:
-		return LexicalAttribute{}, false
+		return lexicalAttribute{}, false
 	}
 }
 
@@ -79,17 +81,32 @@ type schemaAttribute struct {
 	Value string
 }
 
-func schemaAttributesStream(element xml.Name, attrs []xmlstream.Attr) []schemaAttribute {
+// schemaAttrValue reads attr through reader. The schema reader never skips
+// values, so a failure is an invariant violation.
+func schemaAttrValue(reader *xmlstream.Reader, attr *xmlstream.Attr) (string, error) {
+	value, err := reader.AttrValue(attr)
+	if err != nil {
+		return "", xsderrors.InternalInvariant("schema reader skipped attribute value")
+	}
+	return value, nil
+}
+
+func schemaAttributesStream(reader *xmlstream.Reader, element xml.Name, attrs []xmlstream.Attr) ([]schemaAttribute, error) {
 	if len(attrs) == 0 {
-		return nil
+		return nil, nil
 	}
 	out := make([]schemaAttribute, 0, len(attrs))
-	for _, attr := range attrs {
-		if normalized, ok := normalizeSchemaAttribute(element, attr.Name, attr.Value); ok {
+	for i := range attrs {
+		attr := &attrs[i]
+		value, err := schemaAttrValue(reader, attr)
+		if err != nil {
+			return nil, err
+		}
+		if normalized, ok := normalizeSchemaAttribute(element, attr.Name, value); ok {
 			out = append(out, normalized)
 		}
 	}
-	return out
+	return out, nil
 }
 
 func normalizeSchemaAttribute(element, name xml.Name, value string) (schemaAttribute, bool) {
@@ -150,33 +167,51 @@ func parseSchemaDocument(name, key string, input io.Reader, limits Limits, parse
 	return doc, nil
 }
 
-func parseDocumentDefaultsNode(root *schemaNode) (SchemaDefaults, error) {
+func parseDocumentDefaultsNode(root *schemaNode) (schemaDefaults, error) {
 	if root == nil {
-		return SchemaDefaults{}, xsderrors.InternalInvariant("schema defaults require a parsed root")
+		return schemaDefaults{}, xsderrors.InternalInvariant("schema defaults require a parsed root")
 	}
 	source, ok := root.semantic.kind.(*schemaDocumentSource)
 	if !ok || source == nil {
-		return SchemaDefaults{}, withSchemaCompileLocation(root, xsderrors.InternalInvariant("schema defaults require a typed document source"))
+		return schemaDefaults{}, withSchemaCompileLocation(root, xsderrors.InternalInvariant("schema defaults require a typed document source"))
 	}
-	defaults, err := ParseSchemaDefaults(*source)
+	defaults, err := parseSchemaDefaults(*source)
 	return defaults, withSchemaCompileLocation(root, err)
 }
 
-func schemaReaderError(err error) error {
-	return schemaStreamError(0, 0, err)
+func schemaReaderError(err error, limits Limits) error {
+	return schemaStreamError(0, 0, err, limits)
 }
 
-func schemaStreamError(line, col int, err error) error {
+func schemaStreamError(line, col int, err error, limits Limits) error {
 	if boundary, ok := errors.AsType[*xmlstream.Error](err); ok && boundary != nil && boundary.Line > 0 {
 		line, col = boundary.Line, boundary.Column
 	}
 	if feature, ok := xmlstream.UnsupportedFeatureOf(err); ok {
 		return unsupportedSchemaFeature(feature, err)
 	}
-	if xmlstream.IsTokenLimit(err) || xmlstream.IsAttributeLimit(err) {
-		return schemaParseAt(line, col, xsderrors.CodeSchemaLimit, err.Error(), err)
+	if limit, ok := xmlstream.LimitOf(err); ok {
+		return schemaReaderLimitError(limit, line, col, err, limits)
 	}
 	return schemaParseAt(line, col, xsderrors.CodeSchemaXML, "invalid schema XML", err)
+}
+
+// schemaReaderLimitError maps every reader limit to the schema option that
+// configured it. The schema reader sets no input-byte limit.
+func schemaReaderLimitError(limit xmlstream.Limit, line, col int, err error, limits Limits) error {
+	var option string
+	var configured int64
+	switch limit {
+	case xmlstream.LimitTokenBytes:
+		option, configured = "MaxSchemaTokenBytes", limits.MaxSchemaTokenBytes
+	case xmlstream.LimitAttrs:
+		option, configured = "MaxSchemaAttributes", int64(limits.MaxSchemaAttributes)
+	case xmlstream.LimitDepth:
+		option, configured = "MaxSchemaDepth", int64(limits.MaxSchemaDepth)
+	case xmlstream.LimitInputBytes:
+		return xsderrors.InternalInvariant("schema reader has no input limit")
+	}
+	return schemaParseAt(line, col, xsderrors.CodeSchemaLimit, option+"="+strconv.FormatInt(configured, 10)+" exceeded", err)
 }
 
 func unsupportedSchemaFeature(feature xmlstream.UnsupportedFeature, err error) error {
@@ -198,34 +233,6 @@ func schemaNodeIDFor(index int) (schemaNodeID, error) {
 		return 0, errors.New("schema node ID space exhausted")
 	}
 	return schemaNodeID(index), nil
-}
-
-func checkSchemaStartElementLimitStream(start xmlstream.StartElement, limits Limits, line, col int) error {
-	if limits.MaxSchemaTokenBytes <= 0 {
-		return nil
-	}
-	size := int64(len(start.Name.Space) + len(start.Name.Local))
-	if err := checkSchemaTokenLimit(size, limits, line, col, "schema XML start element exceeds configured limit"); err != nil {
-		return err
-	}
-	for _, attr := range start.Attr {
-		if err := checkSchemaTokenLimit(int64(len(attr.Value)), limits, line, col, "schema XML attribute value exceeds configured limit"); err != nil {
-			return err
-		}
-		size += int64(len(attr.Name.Space) + len(attr.Name.Local) + len(attr.Value))
-		if err := checkSchemaTokenLimit(size, limits, line, col, "schema XML start element exceeds configured limit"); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func checkSchemaTokenLimit(size int64, limits Limits, line, col int, msg string) error {
-	if limits.MaxSchemaTokenBytes > 0 && size > limits.MaxSchemaTokenBytes {
-		limitErr := schemaParseAt(line, col, xsderrors.CodeSchemaLimit, msg, nil)
-		return limitErr
-	}
-	return nil
 }
 
 func (n *schemaSyntaxNode) attr(local string) (string, bool) {
@@ -257,7 +264,7 @@ func (n *schemaSyntaxNode) resolveQName(lexical string) (xml.Name, error) {
 	}
 	ns, ok := n.NS.Lookup(parts.Prefix)
 	if !ok {
-		return xml.Name{}, schemaCompileAt(n, xsderrors.CodeSchemaReference, "unbound QName prefix "+parts.Prefix)
+		return xml.Name{}, schemaCompileAt(n, xsderrors.CodeSchemaReference, "unbound QName prefix "+diagnostictext.Quote(parts.Prefix))
 	}
 	return xml.Name{Space: ns, Local: parts.Local}, nil
 }

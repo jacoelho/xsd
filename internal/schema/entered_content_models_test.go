@@ -94,15 +94,15 @@ func TestSchemaProgramWorkIgnoresWhichModelsAreEntered(t *testing.T) {
 func TestEnterContentModelsMapsEveryTypeToItsPublishedModel(t *testing.T) {
 	t.Parallel()
 
-	kinds := func(kinds ...CompiledModelKind) []CompiledModel {
-		models := make([]CompiledModel, len(kinds))
+	kinds := func(kinds ...compiledModelKind) []compiledModel {
+		models := make([]compiledModel, len(kinds))
 		for i, kind := range kinds {
 			models[i].Kind = kind
 		}
 		return models
 	}
-	types := func(contents ...ContentModelID) []ComplexType {
-		types := make([]ComplexType, len(contents))
+	types := func(contents ...contentModelID) []complexTypeMetadata {
+		types := make([]complexTypeMetadata, len(contents))
 		for i, content := range contents {
 			types[i].Content = content
 		}
@@ -110,25 +110,25 @@ func TestEnterContentModelsMapsEveryTypeToItsPublishedModel(t *testing.T) {
 	}
 	for _, test := range []struct {
 		name          string
-		models        []CompiledModel
-		types         []ComplexType
-		wantModels    []ContentModelID
-		wantPublished []ContentModelID
+		models        []compiledModel
+		types         []complexTypeMetadata
+		wantModels    []contentModelID
+		wantPublished []contentModelID
 	}{
 		{
 			// Empty roots fold to the lowest empty ID; unentered models drop.
 			name:          "empty roots share the lowest empty model",
-			models:        kinds(CompiledModelEmpty, CompiledModelAll, CompiledModelEmpty, CompiledModelDFA, CompiledModelEmpty),
+			models:        kinds(compiledModelEmpty, compiledModelAll, compiledModelEmpty, compiledModelDFA, compiledModelEmpty),
 			types:         types(2, 1, 0, 3, 1, 4),
-			wantModels:    []ContentModelID{0, 1, 3},
-			wantPublished: []ContentModelID{0, 1, 0, 2, 1, 0},
+			wantModels:    []contentModelID{0, 1, 3},
+			wantPublished: []contentModelID{0, 1, 0, 2, 1, 0},
 		},
 		{
 			name:          "no empty models",
-			models:        kinds(CompiledModelDFA, CompiledModelAll, CompiledModelAny),
+			models:        kinds(compiledModelDFA, compiledModelAll, compiledModelAny),
 			types:         types(2, 2, 0),
-			wantModels:    []ContentModelID{0, 2},
-			wantPublished: []ContentModelID{1, 1, 0},
+			wantModels:    []contentModelID{0, 2},
+			wantPublished: []contentModelID{1, 1, 0},
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {

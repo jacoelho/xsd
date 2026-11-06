@@ -1,6 +1,9 @@
 package xmlstream
 
-import "encoding/xml"
+import (
+	"encoding/xml"
+	"errors"
+)
 
 // StartElement is a parsed XML start element.
 type StartElement struct {
@@ -15,44 +18,47 @@ type EndElement struct {
 	Name xml.Name
 }
 
-// Attr may hold a parser-owned raw value. raw is valid only through the current
-// token. Callers that retain a value must use Reader.MaterializeValue before
-// advancing the parser, then retain only the returned owned string.
+// ErrAttrValueSkipped reports that an attribute value was validated but not
+// retained because Config.SkipOrdinaryAttrValues was set.
+var ErrAttrValueSkipped = errors.New("xmlstream: attribute value skipped by reader configuration")
+
+// Attr is a parsed attribute. A parser-produced value may be backed by raw
+// parser storage that is valid only through the current token; read it with
+// Reader.AttrValue, which returns an owned string. Values built with NewAttr
+// are owned from construction.
 type Attr struct {
 	// Name is lexical before Reader.Start and expanded after successful
 	// namespace admission. Namespace declarations use the XMLNS namespace URI
 	// in the expanded form.
-	Name  xml.Name
-	Value string
-	raw   []byte
+	Name    xml.Name
+	value   string
+	raw     []byte
+	skipped bool
 }
 
-// StringValue returns the attribute value as an owned string. It must be called
-// while the token that produced a raw-backed attribute is still current.
-func (a *Attr) stringValue(cache *cache) string {
-	if a.Value == "" && len(a.raw) != 0 {
-		a.Value = cache.Intern(a.raw)
+// NewAttr returns an attribute whose value is owned; AttrValue returns value without consulting the cache.
+func NewAttr(name xml.Name, value string) Attr {
+	return Attr{Name: name, value: value}
+}
+
+// attrValue returns the owned value, materializing raw parser storage through
+// cache on first use.
+func (a *Attr) attrValue(cache *cache) (string, error) {
+	if a.skipped {
+		return "", ErrAttrValueSkipped
 	}
-	return a.Value
-}
-
-// MaterializeValue returns the attribute value as an owned string when cache
-// can materialize any parser-owned storage.
-func (a *Attr) materializeValue(cache *cache) (string, bool) {
-	if a.HasBorrowedValue() && cache == nil {
-		return "", false
+	if a.value == "" && len(a.raw) != 0 {
+		a.value = cache.Intern(a.raw)
 	}
-	return a.stringValue(cache), true
+	return a.value, nil
 }
 
-// HasBorrowedValue reports whether the value is parser-owned.
-func (a *Attr) HasBorrowedValue() bool {
-	return len(a.raw) != 0
-}
-
-// RawValue returns the borrowed raw value when one is available. Repository
-// boundary checks restrict the result to the validation fast path; it must not
-// be retained or used after the parser advances.
+// RawValue returns the parser-owned raw value for a parser-produced attribute
+// whose value was retained. It reports (nil, false) for skipped, empty and
+// owned values. The result is valid only while the attribute's token is
+// current and must not be retained; tests/stream_boundary_test.go
+// (TestXMLStreamBorrowedValuesStayEphemeral) guards that boundary. Callers that
+// need the value beyond the token use Reader.AttrValue.
 func (a *Attr) RawValue() ([]byte, bool) {
 	if len(a.raw) == 0 {
 		return nil, false

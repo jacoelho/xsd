@@ -194,7 +194,7 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
       <xs:whiteSpace value="preserve"/>
     </xs:restriction>
   </xs:simpleType>
-</xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 5, column: 7},
+</xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 3, column: 3, messageContains: "whiteSpace"},
 		{name: "simple restriction lower pair precedes upper pair", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="Limited">
     <xs:restriction base="xs:decimal">
@@ -325,13 +325,13 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
 </xs:schema>`, code: xsderrors.CodeSchemaIdentity, line: 3, column: 26},
 		{name: "element reference", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:complexType name="container"><xs:sequence>
   <xs:element type="t:T" substitutionGroup="s:H" ref="r:R"/>
-</xs:sequence></xs:complexType></xs:schema>`, code: xsderrors.CodeSchemaReference, line: 2, column: 3, messageContains: "prefix r"},
+</xs:sequence></xs:complexType></xs:schema>`, code: xsderrors.CodeSchemaReference, line: 2, column: 3, messageContains: "prefix \"r\""},
 		{name: "element substitution", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:complexType name="container"><xs:sequence>
   <xs:element type="t:T" substitutionGroup="s:H" ref="xs:string"/>
-</xs:sequence></xs:complexType></xs:schema>`, code: xsderrors.CodeSchemaReference, line: 2, column: 3, messageContains: "prefix s"},
+</xs:sequence></xs:complexType></xs:schema>`, code: xsderrors.CodeSchemaReference, line: 2, column: 3, messageContains: "prefix \"s\""},
 		{name: "attribute reference", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:complexType name="container">
   <xs:attribute type="t:T" ref="r:R"/>
-</xs:complexType></xs:schema>`, code: xsderrors.CodeSchemaReference, line: 2, column: 3, messageContains: "prefix r"},
+</xs:complexType></xs:schema>`, code: xsderrors.CodeSchemaReference, line: 2, column: 3, messageContains: "prefix \"r\""},
 		{name: "empty type", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="value" type=""/></xs:schema>`, code: xsderrors.CodeSchemaReference, line: 2, column: 3},
 		{name: "unknown-model", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:f="urn:foreign">
@@ -649,7 +649,7 @@ func TestSchemaSetReferenceRules(t *testing.T) {
 			},
 			category: xsderrors.CategorySchemaParse,
 			code:     xsderrors.CodeSchemaRead,
-			message:  "read schema broken.xsd",
+			message:  `read schema "broken.xsd"`,
 		},
 		{
 			name: "include missing location",
@@ -721,7 +721,7 @@ func TestSchemaSetReferenceRules(t *testing.T) {
 			},
 			category: xsderrors.CategorySchemaCompile,
 			code:     xsderrors.CodeSchemaReference,
-			message:  "namespace is not imported: urn:b",
+			message:  `namespace is not imported: "urn:b"`,
 			line:     2,
 		},
 	}
@@ -1963,7 +1963,7 @@ func TestResolvedSourceNameAndResolverErrorsRemainStructured(t *testing.T) {
 				return source.Source{}, errors.New("resolver failed")
 			},
 			category: xsderrors.CategorySchemaParse,
-			message:  "resolve schema child.xsd",
+			message:  `resolve schema "child.xsd"`,
 		},
 	}
 	for _, tt := range tests {
@@ -2758,9 +2758,9 @@ func TestUnionCanonicalizesRepeatedFlattenedMembers(t *testing.T) {
 		names = append(names, build.Names.Format(build.SimpleTypes[member].Name))
 	}
 	want := []string{
-		"{http://www.w3.org/2001/XMLSchema}int",
-		"{http://www.w3.org/2001/XMLSchema}string",
-		"{http://www.w3.org/2001/XMLSchema}boolean",
+		`"{http://www.w3.org/2001/XMLSchema}int"`,
+		`"{http://www.w3.org/2001/XMLSchema}string"`,
+		`"{http://www.w3.org/2001/XMLSchema}boolean"`,
 	}
 	if !slices.Equal(names, want) {
 		t.Fatalf("outer flattened member order = %v, want %v", names, want)
@@ -3402,6 +3402,34 @@ func TestCompileOptionsSchemaXMLLimits(t *testing.T) {
 	_, err = xsdSchema.Compile(xsdSchema.Options{MaxSchemaTokenBytes: 128}, []source.Source{source.Bytes("schema.xsd", []byte(textSchema))})
 	expectCategoryCode(t, err, xsderrors.CategorySchemaParse, xsderrors.CodeSchemaLimit)
 
+	t.Run("token forms", func(t *testing.T) {
+		const head = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"`
+		pad := func(n int) string { return strings.Repeat("x", n) }
+		// Each form exceeds the 128-byte limit with n=200; the at-limit
+		// boundary is covered by the cases above.
+		forms := map[string]func(n int) string{
+			"start element names and values": func(n int) string {
+				return head + `><xs:annotation a="` + pad(n) + `" b="` + pad(n) + `"/></xs:schema>`
+			},
+			"element text": func(n int) string {
+				return head + `><xs:annotation><xs:documentation>` + pad(n) + `</xs:documentation></xs:annotation></xs:schema>`
+			},
+			"processing instruction": func(n int) string {
+				return head + `><?t ` + pad(n) + `?></xs:schema>`
+			},
+		}
+		for name, build := range forms {
+			t.Run(name, func(t *testing.T) {
+				opts := xsdSchema.Options{MaxSchemaTokenBytes: 128}
+				_, tokenErr := xsdSchema.Compile(opts, []source.Source{source.Bytes("big.xsd", []byte(build(200)))})
+				expectCategoryCode(t, tokenErr, xsderrors.CategorySchemaParse, xsderrors.CodeSchemaLimit)
+				if !strings.Contains(tokenErr.Error(), "MaxSchemaTokenBytes=128") {
+					t.Fatalf("error %q does not name MaxSchemaTokenBytes=128", tokenErr)
+				}
+			})
+		}
+	})
+
 	t.Run("opaque cumulative text", func(t *testing.T) {
 		for _, test := range []struct {
 			name        string
@@ -3948,7 +3976,7 @@ func TestGlobalAttributeTypeRequiresSimpleType(t *testing.T) {
 </xs:schema>`
 	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("kind.xsd", []byte(invalid))})
 	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
-	if !ok || diagnostic.Category() != xsderrors.CategorySchemaCompile || diagnostic.Code() != xsderrors.CodeSchemaReference || diagnostic.Message() != "unknown simple type C" {
+	if !ok || diagnostic.Category() != xsderrors.CategorySchemaCompile || diagnostic.Code() != xsderrors.CodeSchemaReference || diagnostic.Message() != `unknown simple type "C"` {
 		t.Fatalf("Compile(complex attribute type) = %v; want schema reference error for unknown simple type C", err)
 	}
 	if diagnostic.Path() != "kind.xsd" || diagnostic.Line() != 4 || diagnostic.Column() != 5 {

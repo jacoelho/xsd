@@ -2,8 +2,8 @@ package schema
 
 import "errors"
 
-// ValidateIdentityConstraints validates canonical identity-constraint metadata.
-func ValidateIdentityConstraints(names *NameTable, identities []IdentityConstraint) error {
+// validateIdentityConstraints validates canonical identity-constraint metadata.
+func validateIdentityConstraints(names *nameTable, identities []identityConstraintSpec) error {
 	if names == nil {
 		return errors.New("identity constraints require name table")
 	}
@@ -15,7 +15,7 @@ func ValidateIdentityConstraints(names *NameTable, identities []IdentityConstrai
 	return nil
 }
 
-func validateIdentityConstraintOwnership(elements []ElementDecl, identityCount int) error {
+func validateIdentityConstraintOwnership(elements []elementDecl, identityCount int) error {
 	owned := make([]bool, identityCount)
 	for _, element := range elements {
 		if err := markOwnedIdentityConstraints(owned, element.Identity); err != nil {
@@ -32,7 +32,7 @@ func validateIdentityConstraintOwnership(elements []ElementDecl, identityCount i
 
 func markOwnedIdentityConstraints(owned []bool, identities []IdentityConstraintID) error {
 	for _, id := range identities {
-		if !ValidIdentityConstraintID(id, len(owned)) {
+		if !validIdentityConstraintID(id, len(owned)) {
 			return errors.New("element declaration references invalid identity constraint")
 		}
 		if owned[id] {
@@ -43,7 +43,7 @@ func markOwnedIdentityConstraints(owned []bool, identities []IdentityConstraintI
 	return nil
 }
 
-func validateIdentityConstraint(names *NameTable, identities []IdentityConstraint, ic IdentityConstraint) error {
+func validateIdentityConstraint(names *nameTable, identities []identityConstraintSpec, ic identityConstraintSpec) error {
 	if !names.ValidQName(ic.Name) {
 		return errors.New("identity constraint references invalid name")
 	}
@@ -62,7 +62,7 @@ func validateIdentityConstraint(names *NameTable, identities []IdentityConstrain
 	return validateIdentityFieldPaths(names, ic.Fields)
 }
 
-func validateIdentityConstraintKind(identities []IdentityConstraint, ic IdentityConstraint) error {
+func validateIdentityConstraintKind(identities []identityConstraintSpec, ic identityConstraintSpec) error {
 	switch ic.Kind {
 	case IdentityUnique, IdentityKey:
 		if ic.Refer != NoIdentityConstraint {
@@ -76,8 +76,8 @@ func validateIdentityConstraintKind(identities []IdentityConstraint, ic Identity
 	}
 }
 
-func validateIdentityKeyRef(identities []IdentityConstraint, ic IdentityConstraint) error {
-	if !ValidIdentityConstraintID(ic.Refer, len(identities)) {
+func validateIdentityKeyRef(identities []identityConstraintSpec, ic identityConstraintSpec) error {
+	if !validIdentityConstraintID(ic.Refer, len(identities)) {
 		return errors.New("keyref identity constraint references invalid key")
 	}
 	ref := identities[ic.Refer]
@@ -90,7 +90,7 @@ func validateIdentityKeyRef(identities []IdentityConstraint, ic IdentityConstrai
 	return nil
 }
 
-func validateIdentitySelectorPaths(names *NameTable, paths []IdentityPath) error {
+func validateIdentitySelectorPaths(names *nameTable, paths []identityPath) error {
 	for _, path := range paths {
 		if !validIdentityPath(names, path) {
 			return errors.New("identity selector references invalid name")
@@ -99,7 +99,7 @@ func validateIdentitySelectorPaths(names *NameTable, paths []IdentityPath) error
 	return nil
 }
 
-func validateIdentityFieldPaths(names *NameTable, fields []IdentityField) error {
+func validateIdentityFieldPaths(names *nameTable, fields []identityField) error {
 	for _, field := range fields {
 		if len(field.Paths) == 0 {
 			return errors.New("identity field has no paths")
@@ -111,7 +111,7 @@ func validateIdentityFieldPaths(names *NameTable, fields []IdentityField) error 
 	return nil
 }
 
-func validateIdentityFieldPathSet(names *NameTable, paths []IdentityFieldPath) error {
+func validateIdentityFieldPathSet(names *nameTable, paths []identityFieldPath) error {
 	for _, path := range paths {
 		if !validIdentityFieldPath(names, path) {
 			return errors.New("identity field path has invalid shape")
@@ -120,39 +120,39 @@ func validateIdentityFieldPathSet(names *NameTable, paths []IdentityFieldPath) e
 	return nil
 }
 
-func validIdentityPath(names *NameTable, path IdentityPath) bool {
+func validIdentityPath(names *nameTable, path identityPath) bool {
 	return validIdentitySteps(names, path.Steps)
 }
 
-func validIdentityFieldPath(names *NameTable, path IdentityFieldPath) bool {
+func validIdentityFieldPath(names *nameTable, path identityFieldPath) bool {
 	if !validIdentityAttributePath(names, path) {
 		return false
 	}
 	return validIdentitySteps(names, path.Steps)
 }
 
-func validIdentityAttributePath(names *NameTable, path IdentityFieldPath) bool {
+func validIdentityAttributePath(names *nameTable, path identityFieldPath) bool {
 	if !path.Attr {
 		return !path.AttrWildcard &&
 			!path.AttrNamespaceSet &&
-			path.Attribute == NoQName() &&
-			path.AttrNamespace == EmptyNamespaceID
+			path.Attribute == noQName() &&
+			path.AttrNamespace == emptyNamespaceID
 	}
 	if !path.AttrWildcard {
 		return !path.AttrNamespaceSet &&
-			path.AttrNamespace == EmptyNamespaceID &&
+			path.AttrNamespace == emptyNamespaceID &&
 			names.ValidQName(path.Attribute)
 	}
-	if path.Attribute != NoQName() {
+	if path.Attribute != noQName() {
 		return false
 	}
 	if !path.AttrNamespaceSet {
-		return path.AttrNamespace == EmptyNamespaceID
+		return path.AttrNamespace == emptyNamespaceID
 	}
 	return names.ValidNamespaceID(path.AttrNamespace)
 }
 
-func validIdentitySteps(names *NameTable, steps []IdentityStep) bool {
+func validIdentitySteps(names *nameTable, steps []IdentityStep) bool {
 	for _, step := range steps {
 		if !validIdentityStep(names, step) {
 			return false
@@ -161,17 +161,17 @@ func validIdentitySteps(names *NameTable, steps []IdentityStep) bool {
 	return true
 }
 
-func validIdentityStep(names *NameTable, step IdentityStep) bool {
+func validIdentityStep(names *nameTable, step IdentityStep) bool {
 	if !step.Wildcard {
 		return !step.NamespaceSet &&
-			step.Namespace == EmptyNamespaceID &&
+			step.Namespace == emptyNamespaceID &&
 			names.ValidQName(step.Name)
 	}
-	if step.Name != NoQName() {
+	if step.Name != noQName() {
 		return false
 	}
 	if !step.NamespaceSet {
-		return step.Namespace == EmptyNamespaceID
+		return step.Namespace == emptyNamespaceID
 	}
 	return names.ValidNamespaceID(step.Namespace)
 }

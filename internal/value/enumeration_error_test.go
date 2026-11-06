@@ -69,11 +69,11 @@ func TestEnumerationDiagnostic(t *testing.T) {
 					var err error
 					switch api {
 					case "string":
-						_, err = program.Validate(id, test.input, resolver, 0, 16<<20, nil)
+						_, err = program.Validate(id, test.input, resolver, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 					case "bytes":
-						_, err = program.ValidateBytes(id, []byte(test.input), resolver, 0, 16<<20, nil)
+						_, err = program.ValidateBytes(id, []byte(test.input), resolver, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 					case "admitted":
-						_, err = program.ValidateAdmitted(id, test.input, resolver, 0, 16<<20, nil)
+						_, err = program.ValidateAdmitted(id, test.input, resolver, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 					}
 					if !errors.Is(err, value.ErrFacet) {
 						t.Fatalf("validation error = %v, want facet failure", err)
@@ -93,12 +93,12 @@ func TestEnumerationDiagnosticOwnsBorrowedInput(t *testing.T) {
 	program, id := enumerationDiagnosticProgram(t, spec)
 	raw := []byte("bad")
 	var scratch value.Scratch
-	_, err := program.ValidateBytes(id, raw, value.Resolver{}, 0, 16<<20, &scratch)
+	_, err := program.ValidateBytes(id, raw, value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 	if !errors.Is(err, value.ErrFacet) {
 		t.Fatalf("validation error = %v, want facet failure", err)
 	}
 	copy(raw, "new")
-	if _, validErr := program.ValidateBytes(id, []byte("ok"), value.Resolver{}, 0, 16<<20, &scratch); validErr != nil {
+	if _, validErr := program.ValidateBytes(id, []byte("ok"), value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch); validErr != nil {
 		t.Fatal(validErr)
 	}
 	if got, want := err.Error(), `value "bad" is not one of ["ok"]`; got != want {
@@ -108,7 +108,7 @@ func TestEnumerationDiagnosticOwnsBorrowedInput(t *testing.T) {
 
 func enumerationDiagnosticProgram(t *testing.T, spec value.TypeSpec) (*value.Program, value.TypeID) {
 	t.Helper()
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := builder.Reserve()
 	if err != nil {
 		t.Fatal(err)

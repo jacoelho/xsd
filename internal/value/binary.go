@@ -8,29 +8,29 @@ import (
 	"github.com/jacoelho/xsd/internal/lex"
 )
 
-// BinaryValue is the value-space projection for binary primitive values.
-type BinaryValue lexicalValue
+// binaryValue is the value-space projection for binary primitive values.
+type binaryValue lexicalValue
 
-// ParseBinaryValue parses normalized as an XML Schema binary primitive value.
-func ParseBinaryValue(kind PrimitiveKind, normalized string, needs PrimitiveValueNeed) (BinaryValue, error) {
+// parseBinaryValue parses normalized as an XML Schema binary primitive value.
+func parseBinaryValue(kind PrimitiveKind, normalized string, needs primitiveValueNeed) (binaryValue, error) {
 	switch kind {
 	case PrimitiveHexBinary:
 		return parseHexBinaryValue(normalized, needs)
 	case PrimitiveBase64Binary:
 		return parseBase64BinaryValue(normalized, needs)
 	case PrimitiveString, PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble,
-		PrimitiveDuration, PrimitiveDateTime, PrimitiveTime, PrimitiveDate,
-		PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth,
+		PrimitiveDuration, PrimitiveDateTime, primitiveTime, primitiveDate,
+		primitiveGYearMonth, primitiveGYear, primitiveGMonthDay, primitiveGDay, primitiveGMonth,
 		PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
-		return BinaryValue{}, errors.New(msgInvalidBinaryPrimitive)
+		return binaryValue{}, errors.New(msgInvalidBinaryPrimitive)
 	default:
 	}
-	return BinaryValue{}, errors.New(msgInvalidBinaryPrimitive)
+	return binaryValue{}, errors.New(msgInvalidBinaryPrimitive)
 }
 
-// ValidateHexBinaryLexical validates raw as an XML Schema hexBinary lexical
+// validateHexBinaryLexical validates raw as an XML Schema hexBinary lexical
 // value.
-func ValidateHexBinaryLexical[T byteText](raw T) error {
+func validateHexBinaryLexical[T byteText](raw T) error {
 	if len(raw)%2 != 0 {
 		return errors.New(msgInvalidHexBinary)
 	}
@@ -42,49 +42,49 @@ func ValidateHexBinaryLexical[T byteText](raw T) error {
 	return nil
 }
 
-func parseHexBinaryValue(normalized string, needs PrimitiveValueNeed) (BinaryValue, error) {
+func parseHexBinaryValue(normalized string, needs primitiveValueNeed) (binaryValue, error) {
 	length, err := hexBinaryLength(normalized)
 	if err != nil {
-		return BinaryValue{}, err
+		return binaryValue{}, err
 	}
 	canonical := normalized
-	if needs.Has(PrimitiveNeedCanonical) {
+	if needs.Has(primitiveNeedCanonical) {
 		canonical = strings.ToUpper(normalized)
 	}
-	return BinaryValue{Canonical: canonical, Length: length}, nil
+	return binaryValue{Canonical: canonical, Length: length}, nil
 }
 
 func hexBinaryLength(normalized string) (uint32, error) {
-	if err := ValidateHexBinaryLexical(normalized); err != nil {
+	if err := validateHexBinaryLexical(normalized); err != nil {
 		return 0, err
 	}
 	return checkedUint32(len(normalized)/2, msgHexBinaryLengthLimit)
 }
 
-// ValidateBase64BinaryLexical validates raw as an XML Schema base64Binary
+// validateBase64BinaryLexical validates raw as an XML Schema base64Binary
 // lexical value.
-func ValidateBase64BinaryLexical[T byteText](raw T) error {
+func validateBase64BinaryLexical[T byteText](raw T) error {
 	_, err := scanBase64BinaryLexical(raw)
 	return err
 }
 
-func parseBase64BinaryValue(normalized string, needs PrimitiveValueNeed) (BinaryValue, error) {
+func parseBase64BinaryValue(normalized string, needs primitiveValueNeed) (binaryValue, error) {
 	scan, err := scanBase64BinaryLexical(normalized)
 	if err != nil {
-		return BinaryValue{}, err
+		return binaryValue{}, err
 	}
 	length, err := checkedUint32(scan.cleanLen/4*3-scan.pads, msgBase64BinaryLengthLimit)
 	if err != nil {
-		return BinaryValue{}, err
+		return binaryValue{}, err
 	}
-	if needs.Has(PrimitiveNeedCanonical) {
-		return BinaryValue{
+	if needs.Has(primitiveNeedCanonical) {
+		return binaryValue{
 			Canonical:      removeXMLWhitespace(normalized),
 			Length:         length,
 			canonicalReady: true,
 		}, nil
 	}
-	return BinaryValue{Canonical: normalized, Length: length}, nil
+	return binaryValue{Canonical: normalized, Length: length}, nil
 }
 
 func decodeBase64Binary(normalized string) ([]byte, error) {

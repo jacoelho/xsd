@@ -7,6 +7,7 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/source"
 	"github.com/jacoelho/xsd/internal/uriref"
 	"github.com/jacoelho/xsd/internal/vocab"
@@ -420,7 +421,7 @@ func classifySchemaAcquireResult(name string, result source.ReadResult, readLimi
 	if result.LimitExceeded || source.IsSchemaLimitError(result.Err) {
 		return false, xsderrors.WithLocation(name, 0, 0, result.Err)
 	}
-	readErr := xsderrors.SchemaParse(xsderrors.CodeSchemaRead, "read schema "+name, result.Err)
+	readErr := xsderrors.SchemaParse(xsderrors.CodeSchemaRead, "read schema "+diagnostictext.Quote(name), result.Err)
 	return false, xsderrors.WithLocation(name, 0, 0, readErr)
 }
 
@@ -506,7 +507,7 @@ func (l *schemaSetLoader) validateLoadedSourceBytes(item schemaLoadRequest, key 
 		return err
 	}
 	if !useCached && (schemaContent{bytes: result.Bytes, digest: result.Digest}) != loaded.content {
-		identityErr := xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "schema source identity resolves to different document content: "+key)
+		identityErr := xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "schema source identity resolves to different document content: "+diagnostictext.Quote(key))
 		if item.ref != nil {
 			identityErr = withSchemaReferenceLocation(item, identityErr)
 		} else {
@@ -598,7 +599,7 @@ func schemaResolutionError(request schemaLoadRequest, err error) error {
 		line, column = node.line, node.column
 	}
 	return xsderrors.WithLocation(request.source.Name(), line, column,
-		xsderrors.SchemaParse(xsderrors.CodeSchemaRead, "resolve schema "+request.ref.location.Raw(), err))
+		xsderrors.SchemaParse(xsderrors.CodeSchemaRead, "resolve schema "+diagnostictext.Quote(request.ref.location.Raw()), err))
 }
 
 // bindUnopenedReference handles a resolver answer that names an identity but
@@ -1121,5 +1122,5 @@ func checkReferenceNamespace(n *schemaNode, ctx *schemaSetDocument, name xml.Nam
 	if namespace == vocab.XSDNamespaceURI || namespace == vocab.XSINamespaceURI || namespace == ctx.effectiveTargetNS || ctx.imports[namespace] {
 		return namespace, nil
 	}
-	return "", schemaCompileAt(n, xsderrors.CodeSchemaReference, "namespace is not imported: "+namespace)
+	return "", schemaCompileAt(n, xsderrors.CodeSchemaReference, "namespace is not imported: "+diagnostictext.Quote(namespace))
 }

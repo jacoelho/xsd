@@ -5,16 +5,16 @@ import (
 )
 
 func TestNameTableLimitStopsGrowthAfterFirstFailure(t *testing.T) {
-	seed, err := NewRuntimeNameTable(0)
+	seed, err := newRuntimeNameTable(0)
 	if err != nil {
 		t.Fatalf("NewNameTable() error = %v", err)
 	}
-	names, err := NewRuntimeNameTable(seed.NameCount() + 1)
+	names, err := newRuntimeNameTable(seed.NameCount() + 1)
 	if err != nil {
 		t.Fatalf("NewNameTable() with limit error = %v", err)
 	}
 	base := names.NameCount()
-	interner := NewNameInterner(&names)
+	interner := newNameInterner(&names)
 
 	if _, err := interner.InternQName("urn:new", "new"); err == nil {
 		t.Fatal("InternQName() succeeded")
@@ -34,11 +34,11 @@ func TestNameTableLimitStopsGrowthAfterFirstFailure(t *testing.T) {
 func TestSortedQNamesOrdersByExpandedName(t *testing.T) {
 	t.Parallel()
 
-	names, err := NewRuntimeNameTable(0)
+	names, err := newRuntimeNameTable(0)
 	if err != nil {
 		t.Fatalf("NewNameTable() error = %v", err)
 	}
-	interner := NewNameInterner(&names)
+	interner := newNameInterner(&names)
 	bBeta, err := interner.InternQName("urn:b", "beta")
 	if err != nil {
 		t.Fatalf("InternQName(b beta) error = %v", err)
@@ -51,7 +51,7 @@ func TestSortedQNamesOrdersByExpandedName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("InternQName(a alpha) error = %v", err)
 	}
-	got := SortedQNames(map[QName]bool{
+	got := sortedQNames(map[QName]bool{
 		bBeta:  true,
 		aZulu:  true,
 		aAlpha: true,

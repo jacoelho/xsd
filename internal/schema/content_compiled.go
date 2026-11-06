@@ -9,7 +9,7 @@ import (
 
 // ContentState is the mutable validation state for one compiled content model.
 type ContentState struct {
-	model   ContentModelID
+	model   contentModelID
 	state   uint32
 	count   uint32
 	present bool
@@ -17,7 +17,7 @@ type ContentState struct {
 
 // HasModel reports whether state references a compiled content model.
 func (st ContentState) HasModel() bool {
-	return st.present && st.model != NoContentModel
+	return st.present && st.model != noContentModel
 }
 
 // ContentScratch is the caller-owned all-group occurrence bit storage for one
@@ -153,8 +153,8 @@ const (
 	ContentTransitionInvalid ContentTransitionStatus = iota
 	// ContentTransitionNoMatch reports a valid state with no matching transition.
 	ContentTransitionNoMatch
-	// ContentTransitionMatched reports a valid, uncommitted matching transition.
-	ContentTransitionMatched
+	// contentTransitionMatched reports a valid, uncommitted matching transition.
+	contentTransitionMatched
 )
 
 // ContentCompletionStatus reports whether a content-model state may end.
@@ -163,14 +163,14 @@ type ContentCompletionStatus uint8
 const (
 	// ContentCompletionInvalid reports invalid published metadata or state.
 	ContentCompletionInvalid ContentCompletionStatus = iota
-	// ContentCompletionIncomplete reports a valid state that may not end.
-	ContentCompletionIncomplete
+	// contentCompletionIncomplete reports a valid state that may not end.
+	contentCompletionIncomplete
 	// ContentCompletionComplete reports a valid state that may end.
 	ContentCompletionComplete
 )
 
-// ContentFrame is the initial validation state for one element frame.
-type ContentFrame struct {
+// contentFrame is the initial validation state for one element frame.
+type contentFrame struct {
 	state  ContentState
 	allLen int
 }
@@ -181,7 +181,7 @@ type compiledModelRead struct {
 	All       []compiledAllTermRead
 	Start     uint32
 	AllBitLen uint32
-	Kind      CompiledModelKind
+	Kind      compiledModelKind
 	Empty     bool
 }
 
@@ -239,10 +239,10 @@ type compiledAllTermRead struct {
 type compiledParticleRead struct {
 	Element  ElementID
 	Wildcard WildcardID
-	Kind     ParticleKind
+	Kind     particleKind
 }
 
-func newCompiledParticleRead(p Particle) compiledParticleRead {
+func newCompiledParticleRead(p contentParticle) compiledParticleRead {
 	return compiledParticleRead{Element: p.Element, Wildcard: p.Wildcard, Kind: p.Kind}
 }
 
@@ -251,10 +251,10 @@ func newCompiledParticleRead(p Particle) compiledParticleRead {
 type enteredContent struct {
 	// Models holds the source IDs of the entered models, ascending and
 	// deduplicated; it is the published table's order.
-	Models []ContentModelID
+	Models []contentModelID
 	// Published is parallel to the complex types: the published index of the
 	// model each type enters.
-	Published []ContentModelID
+	Published []contentModelID
 }
 
 // enterContentModels derives the entered models from the complex types.
@@ -264,14 +264,14 @@ type enteredContent struct {
 // lowest such ID and publication keeps one row for them; projection work is
 // still charged per compiled model. Publication audits have already proved
 // that every root indexes the compiled table.
-func enterContentModels(types []ComplexType, models []CompiledModel) enteredContent {
+func enterContentModels(types []complexTypeMetadata, models []compiledModel) enteredContent {
 	roots := contentRoots(types, models)
 	entered := slices.Clone(roots)
 	slices.Sort(entered)
 	entered = slices.Compact(entered)
-	position := make([]ContentModelID, len(models))
+	position := make([]contentModelID, len(models))
 	for index, id := range entered {
-		position[id] = ContentModelID(index) // #nosec G115 -- entered holds at most one ID per complex type, and complex-type IDs are uint32.
+		position[id] = contentModelID(index) // #nosec G115 -- entered holds at most one ID per complex type, and complex-type IDs are uint32.
 	}
 	// Every root is in entered, so each type reads its own model's position.
 	published := roots
@@ -283,21 +283,21 @@ func enterContentModels(types []ComplexType, models []CompiledModel) enteredCont
 
 // contentRoots returns each complex type's root model, with empty roots folded
 // to the lowest empty root ID.
-func contentRoots(types []ComplexType, models []CompiledModel) []ContentModelID {
-	roots := make([]ContentModelID, len(types))
-	empty := NoContentModel
+func contentRoots(types []complexTypeMetadata, models []compiledModel) []contentModelID {
+	roots := make([]contentModelID, len(types))
+	empty := noContentModel
 	for i := range types {
 		id := types[i].Content
 		roots[i] = id
-		if models[id].Kind == CompiledModelEmpty && id < empty {
+		if models[id].Kind == compiledModelEmpty && id < empty {
 			empty = id
 		}
 	}
-	if empty == NoContentModel {
+	if empty == noContentModel {
 		return roots
 	}
 	for i, id := range roots {
-		if models[id].Kind == CompiledModelEmpty {
+		if models[id].Kind == compiledModelEmpty {
 			roots[i] = empty
 		}
 	}
@@ -307,7 +307,7 @@ func contentRoots(types []ComplexType, models []CompiledModel) []ContentModelID 
 // newCompiledModelReads publishes the entered models in entered order.
 // Projection work is still charged for every compiled model, so admission does
 // not depend on which models validation can enter.
-func newCompiledModelReads(models []CompiledModel, entered []ContentModelID, work ContentModelWork) ([]compiledModelRead, bool, error) {
+func newCompiledModelReads(models []compiledModel, entered []contentModelID, work contentModelWork) ([]compiledModelRead, bool, error) {
 	if err := requireContentModelWork(work); err != nil {
 		return nil, false, err
 	}
@@ -333,7 +333,7 @@ func newCompiledModelReads(models []CompiledModel, entered []ContentModelID, wor
 // into one cleared scratch map, which nothing retains.
 //
 //nolint:gocognit // Keep source-order charging, entered-slot pairing, and scratch reuse in one pass.
-func indexAllContentModels(models []CompiledModel, entered []ContentModelID, reads []compiledModelRead, rt *schemaBuild, work ContentModelWork) error {
+func indexAllContentModels(models []compiledModel, entered []contentModelID, reads []compiledModelRead, rt *schemaBuild, work contentModelWork) error {
 	if err := requireContentModelWork(work); err != nil {
 		return err
 	}
@@ -342,12 +342,12 @@ func indexAllContentModels(models []CompiledModel, entered []ContentModelID, rea
 	next := 0
 	for i := range models {
 		slot := -1
-		if next < len(entered) && entered[next] == ContentModelID(i) {
+		if next < len(entered) && entered[next] == contentModelID(i) {
 			slot = next
 			next++
 		}
 		model := &models[i]
-		if model.Kind != CompiledModelAll || len(model.All) < compiledDFARowIndexMinEdges {
+		if model.Kind != compiledModelAll || len(model.All) < compiledDFARowIndexMinEdges {
 			continue
 		}
 		if err := spendContentModelWorkN(analysis.work, len(model.All)); err != nil {
@@ -378,9 +378,9 @@ func indexAllContentModels(models []CompiledModel, entered []ContentModelID, rea
 // indexAllContentTerms fills the empty map index with terms' names after the
 // caller has charged one unit per term. It reports false when a term cannot be
 // indexed, leaving index partly filled.
-func indexAllContentTerms(index map[QName]uint32, terms []CompiledAllTerm, analysis *dfaRowIndexAnalysis) (bool, error) {
+func indexAllContentTerms(index map[QName]uint32, terms []compiledAllTerm, analysis *dfaRowIndexAnalysis) (bool, error) {
 	for i, term := range terms {
-		if term.Particle.Kind != ParticleElement {
+		if term.Particle.Kind != particleElement {
 			return false, errors.New("all-group index requires element particles")
 		}
 		indexed, err := analysis.indexElementEdge(index, uint32(i), term.Particle.Element)
@@ -403,7 +403,7 @@ type compiledModelReadBuilder struct {
 	allOffset  int
 }
 
-func newCompiledModelReadBuilder(models []CompiledModel, entered []ContentModelID) compiledModelReadBuilder {
+func newCompiledModelReadBuilder(models []compiledModel, entered []contentModelID) compiledModelReadBuilder {
 	rowCount, edgeCount, allCount := compiledModelReadCounts(models, entered)
 	return compiledModelReadBuilder{
 		rows:  make([]compiledModelRowRead, rowCount),
@@ -412,7 +412,7 @@ func newCompiledModelReadBuilder(models []CompiledModel, entered []ContentModelI
 	}
 }
 
-func (b *compiledModelReadBuilder) readModel(model CompiledModel) (compiledModelRead, bool) {
+func (b *compiledModelReadBuilder) readModel(model compiledModel) (compiledModelRead, bool) {
 	rows, mayHaveDenseRows := b.readRows(model.Rows)
 	return compiledModelRead{
 		Rows:      rows,
@@ -421,10 +421,10 @@ func (b *compiledModelReadBuilder) readModel(model CompiledModel) (compiledModel
 		AllBitLen: model.AllBitLen,
 		Kind:      model.Kind,
 		Empty:     model.Empty,
-	}, model.Kind == CompiledModelDFA && mayHaveDenseRows
+	}, model.Kind == compiledModelDFA && mayHaveDenseRows
 }
 
-func (b *compiledModelReadBuilder) readRows(source []CompiledModelRow) ([]compiledModelRowRead, bool) {
+func (b *compiledModelReadBuilder) readRows(source []compiledModelRow) ([]compiledModelRowRead, bool) {
 	if len(source) == 0 {
 		return nil, false
 	}
@@ -439,7 +439,7 @@ func (b *compiledModelReadBuilder) readRows(source []CompiledModelRow) ([]compil
 	return rows, mayHaveDenseRows
 }
 
-func (b *compiledModelReadBuilder) readRow(row CompiledModelRow) compiledModelRowRead {
+func (b *compiledModelReadBuilder) readRow(row compiledModelRow) compiledModelRowRead {
 	index, kind := newPublishedDFAMapIndex(row.index)
 	return compiledModelRowRead{
 		Edges:         b.readEdges(row.Edges),
@@ -454,7 +454,7 @@ func (b *compiledModelReadBuilder) readRow(row CompiledModelRow) compiledModelRo
 	}
 }
 
-func (b *compiledModelReadBuilder) readEdges(source []CompiledModelEdge) []compiledModelEdgeRead {
+func (b *compiledModelReadBuilder) readEdges(source []compiledModelEdge) []compiledModelEdgeRead {
 	if len(source) == 0 {
 		return nil
 	}
@@ -467,7 +467,7 @@ func (b *compiledModelReadBuilder) readEdges(source []CompiledModelEdge) []compi
 	return edges
 }
 
-func (b *compiledModelReadBuilder) readAll(source []CompiledAllTerm) []compiledAllTermRead {
+func (b *compiledModelReadBuilder) readAll(source []compiledAllTerm) []compiledAllTermRead {
 	if len(source) == 0 {
 		return nil
 	}
@@ -480,7 +480,7 @@ func (b *compiledModelReadBuilder) readAll(source []CompiledAllTerm) []compiledA
 	return all
 }
 
-func chargeCompiledModelProjectionWork(models []CompiledModel, work ContentModelWork) error {
+func chargeCompiledModelProjectionWork(models []compiledModel, work contentModelWork) error {
 	for _, model := range models {
 		if err := spendContentModelWork(work); err != nil {
 			return err
@@ -495,7 +495,7 @@ func chargeCompiledModelProjectionWork(models []CompiledModel, work ContentModel
 	return nil
 }
 
-func chargeCompiledModelRows(rows []CompiledModelRow, work ContentModelWork) error {
+func chargeCompiledModelRows(rows []compiledModelRow, work contentModelWork) error {
 	for _, row := range rows {
 		if err := spendContentModelWork(work); err != nil {
 			return err
@@ -510,7 +510,7 @@ func chargeCompiledModelRows(rows []CompiledModelRow, work ContentModelWork) err
 	return nil
 }
 
-func spendContentModelWorkN(work ContentModelWork, count int) error {
+func spendContentModelWorkN(work contentModelWork, count int) error {
 	for range count {
 		if err := spendContentModelWork(work); err != nil {
 			return err
@@ -519,7 +519,7 @@ func spendContentModelWorkN(work ContentModelWork, count int) error {
 	return nil
 }
 
-func compiledModelReadCounts(models []CompiledModel, entered []ContentModelID) (rows, edges, all int) {
+func compiledModelReadCounts(models []compiledModel, entered []contentModelID) (rows, edges, all int) {
 	for _, id := range entered {
 		model := &models[id]
 		rows = addCompiledModelReadCount(rows, len(model.Rows))
@@ -543,22 +543,22 @@ func sameCompiledParticleRead(a, b compiledParticleRead) bool {
 }
 
 // ContentState returns the initial mutable content-model state for the frame.
-func (f ContentFrame) ContentState() ContentState {
+func (f contentFrame) ContentState() ContentState {
 	return f.state
 }
 
 // AllBitLen returns the number of all-group bit words required by the frame.
-func (f ContentFrame) AllBitLen() int {
+func (f contentFrame) AllBitLen() int {
 	return f.allLen
 }
 
-func (rt *Schema) contentFrameForModel(modelID ContentModelID) (ContentFrame, bool) {
-	frame := ContentFrame{state: ContentState{model: modelID, present: true}}
-	if modelID == NoContentModel {
+func (rt *Schema) contentFrameForModel(modelID contentModelID) (contentFrame, bool) {
+	frame := contentFrame{state: ContentState{model: modelID, present: true}}
+	if modelID == noContentModel {
 		return frame, true
 	}
-	if !ValidContentModelID(modelID, len(rt.program.CompiledModels)) {
-		return ContentFrame{}, false
+	if !validContentModelID(modelID, len(rt.program.CompiledModels)) {
+		return contentFrame{}, false
 	}
 	model := rt.program.CompiledModels[modelID]
 	frame.state.state = model.Start
@@ -572,18 +572,18 @@ func (rt *Schema) NextContent(st ContentState, in ContentInput, scratch *Content
 	if !st.HasModel() {
 		return ContentTransition{}, ContentTransitionInvalid
 	}
-	if !ValidContentModelID(st.model, len(rt.program.CompiledModels)) {
+	if !validContentModelID(st.model, len(rt.program.CompiledModels)) {
 		return ContentTransition{}, ContentTransitionInvalid
 	}
 	model := &rt.program.CompiledModels[st.model]
 	switch model.Kind {
-	case CompiledModelAny:
-		return newContentTransition(st, st, rt.matchPublishedAnyContent(in)), ContentTransitionMatched
-	case CompiledModelAll:
+	case compiledModelAny:
+		return newContentTransition(st, st, rt.matchPublishedAnyContent(in)), contentTransitionMatched
+	case compiledModelAll:
 		return rt.nextPublishedAllContent(st, model, in, scratch)
-	case CompiledModelDFA:
+	case compiledModelDFA:
 		return rt.nextPublishedDFAContent(st, model, in)
-	case CompiledModelEmpty:
+	case compiledModelEmpty:
 		return ContentTransition{}, ContentTransitionNoMatch
 	default:
 	}
@@ -606,16 +606,16 @@ func (rt *Schema) CompleteContent(st ContentState, scratch *ContentScratch) Cont
 	if !st.HasModel() {
 		return ContentCompletionInvalid
 	}
-	if !ValidContentModelID(st.model, len(rt.program.CompiledModels)) {
+	if !validContentModelID(st.model, len(rt.program.CompiledModels)) {
 		return ContentCompletionInvalid
 	}
 	model := &rt.program.CompiledModels[st.model]
 	switch model.Kind {
-	case CompiledModelEmpty, CompiledModelAny:
+	case compiledModelEmpty, compiledModelAny:
 		return ContentCompletionComplete
-	case CompiledModelAll:
+	case compiledModelAll:
 		return completePublishedAllContent(model, scratch)
-	case CompiledModelDFA:
+	case compiledModelDFA:
 		return completePublishedDFAContent(st, model)
 	default:
 		return ContentCompletionInvalid
@@ -653,7 +653,7 @@ func (rt *Schema) nextPublishedAllContent(st ContentState, model *compiledModelR
 		transition := newContentTransition(st, st, match)
 		transition.allIndex = i
 		transition.markAll = true
-		return transition, ContentTransitionMatched
+		return transition, contentTransitionMatched
 	}
 	return ContentTransition{}, ContentTransitionNoMatch
 }
@@ -673,7 +673,7 @@ func (rt *Schema) nextIndexedAllContent(st ContentState, model *compiledModelRea
 		return ContentTransition{}, ContentTransitionNoMatch
 	}
 	seen, valid := scratch.AllSeen(int(i))
-	if !valid || !ValidUint32Index(i, len(model.All)) {
+	if !valid || !validUint32Index(i, len(model.All)) {
 		return ContentTransition{}, ContentTransitionInvalid
 	}
 	if seen {
@@ -689,7 +689,7 @@ func (rt *Schema) nextIndexedAllContent(st ContentState, model *compiledModelRea
 	transition := newContentTransition(st, st, match)
 	transition.allIndex = int(i)
 	transition.markAll = true
-	return transition, ContentTransitionMatched
+	return transition, contentTransitionMatched
 }
 
 func completePublishedAllContent(model *compiledModelRead, scratch *ContentScratch) ContentCompletionStatus {
@@ -701,7 +701,7 @@ func completePublishedAllContent(model *compiledModelRead, scratch *ContentScrat
 		return ContentCompletionComplete
 	}
 	if empty || missingRequired {
-		return ContentCompletionIncomplete
+		return contentCompletionIncomplete
 	}
 	return ContentCompletionComplete
 }
@@ -726,7 +726,7 @@ func inspectPublishedAllContent(model *compiledModelRead, scratch *ContentScratc
 }
 
 func (rt *Schema) nextPublishedDFAContent(st ContentState, model *compiledModelRead, in ContentInput) (ContentTransition, ContentTransitionStatus) {
-	if !ValidUint32Index(st.state, len(model.Rows)) {
+	if !validUint32Index(st.state, len(model.Rows)) {
 		return ContentTransition{}, ContentTransitionInvalid
 	}
 	row := &model.Rows[st.state]
@@ -748,7 +748,7 @@ func (rt *Schema) nextPublishedDFAContent(st ContentState, model *compiledModelR
 		if !ok {
 			continue
 		}
-		return newContentTransition(st, next, match), ContentTransitionMatched
+		return newContentTransition(st, next, match), contentTransitionMatched
 	}
 	return ContentTransition{}, ContentTransitionNoMatch
 }
@@ -773,18 +773,18 @@ func (rt *Schema) nextPublishedDenseDFAContent(st ContentState, model *compiledM
 	if !ok {
 		return ContentTransition{}, ContentTransitionNoMatch
 	}
-	return newContentTransition(st, next, match), ContentTransitionMatched
+	return newContentTransition(st, next, match), contentTransitionMatched
 }
 
 func completePublishedDFAContent(st ContentState, model *compiledModelRead) ContentCompletionStatus {
-	if !ValidUint32Index(st.state, len(model.Rows)) {
+	if !validUint32Index(st.state, len(model.Rows)) {
 		return ContentCompletionInvalid
 	}
 	row := &model.Rows[st.state]
 	if row.Accept && (!row.Counted || st.count >= row.Min) {
 		return ContentCompletionComplete
 	}
-	return ContentCompletionIncomplete
+	return contentCompletionIncomplete
 }
 
 func (rt *Schema) nextPublishedIndexedDFAContent(st ContentState, model *compiledModelRead, row *compiledModelRowRead, idx publishedDFAIndex, in ContentInput) (ContentTransition, ContentTransitionStatus) {
@@ -806,7 +806,7 @@ func (rt *Schema) nextPublishedIndexedDFAContent(st ContentState, model *compile
 		if !ok {
 			continue
 		}
-		return newContentTransition(st, next, match), ContentTransitionMatched
+		return newContentTransition(st, next, match), contentTransitionMatched
 	}
 }
 
@@ -843,14 +843,14 @@ func (c *publishedDFACandidates) next() (int, bool) {
 
 func (rt *Schema) matchPublishedDirectParticle(p compiledParticleRead, in ContentInput) (contentMatch, bool) {
 	switch p.Kind {
-	case ParticleElement:
+	case particleElement:
 		return rt.matchPublishedElementParticle(p.Element, in)
-	case ParticleWildcard:
-		if !ValidWildcardID(p.Wildcard, len(rt.program.Wildcards)) {
+	case particleWildcard:
+		if !validWildcardID(p.Wildcard, len(rt.program.Wildcards)) {
 			return contentMatch{}, false
 		}
 		return rt.matchPublishedWildcardParticle(rt.program.Wildcards[p.Wildcard], in), true
-	case ParticleModel:
+	case particleModel:
 		return contentMatch{}, false
 	default:
 	}
@@ -879,7 +879,7 @@ func (rt *Schema) matchPublishedWildcardParticle(w WildcardView, in ContentInput
 		return contentMatch{}
 	}
 	switch w.Process() {
-	case ProcessStrict:
+	case processStrict:
 		return rt.matchPublishedStrictWildcard(in)
 	case ProcessSkip:
 		return skipContentMatch()

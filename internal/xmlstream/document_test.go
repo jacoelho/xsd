@@ -282,7 +282,7 @@ func TestReaderBoundedDiscardChargesCommentPayloadWithoutRetainingIt(t *testing.
 			if _, _, err := reader.Start(); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := reader.Next(); err == nil || !IsTokenLimit(err) {
+			if _, err := reader.Next(); err == nil || !isLimit(err, LimitTokenBytes) {
 				t.Fatalf("Next() = %v, want comment token limit", err)
 			}
 			if cap(reader.parser.directive) != 0 {
@@ -524,8 +524,8 @@ func TestReaderDepthAndParserLimitsAreTyped(t *testing.T) {
 		t.Fatal("Start() accepted depth beyond limit")
 	} else {
 		boundaryErr, ok := errors.AsType[*Error](err)
-		if !ok || boundaryErr.Kind != ErrorDepth {
-			t.Fatalf("depth error = %T %v, want ErrorDepth", err, err)
+		if !ok || boundaryErr.Kind != ErrorLimit || !isLimit(err, LimitDepth) {
+			t.Fatalf("depth error = %T %v, want ErrorLimit/LimitDepth", err, err)
 		}
 	}
 	if reader.Depth() != 1 {
@@ -557,9 +557,9 @@ func TestReaderMaterializesBorrowedAttributeBeforeAdvance(t *testing.T) {
 	if len(tok.Start.Attr) != 1 {
 		t.Fatalf("attribute count = %d, want 1", len(tok.Start.Attr))
 	}
-	value, ok := reader.MaterializeValue(&tok.Start.Attr[0])
-	if !ok || value != "value" {
-		t.Fatalf("MaterializeValue() = %q, %v", value, ok)
+	value, err := reader.AttrValue(&tok.Start.Attr[0])
+	if err != nil || value != "value" {
+		t.Fatalf("AttrValue() = %q, %v", value, err)
 	}
 	if _, _, err := reader.Start(); err != nil {
 		t.Fatal(err)
@@ -598,9 +598,9 @@ func TestReaderSkipsOrdinaryAttributeValuesWhileRetainingNamespaceValues(t *test
 					continue
 				}
 				if want == "" {
-					text, ok := reader.MaterializeValue(&token.Start.Attr[i])
-					if retained || raw != nil || !ok || text != "" {
-						t.Fatalf("empty attribute %d = %q/%v, %q/%v", i, raw, retained, text, ok)
+					text, err := reader.AttrValue(&token.Start.Attr[i])
+					if retained || raw != nil || err != nil || text != "" {
+						t.Fatalf("empty attribute %d = %q/%v, %q/%v", i, raw, retained, text, err)
 					}
 					continue
 				}
@@ -677,7 +677,7 @@ func TestReaderSkipOrdinaryAttributeValuesStillEnforcesTokenLimit(t *testing.T) 
 					}
 				} else {
 					boundary, ok := errors.AsType[*Error](err)
-					if token != nil || !ok || boundary.Kind != ErrorLimit || !IsTokenLimit(err) || boundary.Line != 1 || boundary.Column != 6 {
+					if token != nil || !ok || boundary.Kind != ErrorLimit || !isLimit(err, LimitTokenBytes) || boundary.Line != 1 || boundary.Column != 6 {
 						t.Fatalf("below admission = %v, %#v, want token limit at 1:6", token, boundary)
 					}
 				}

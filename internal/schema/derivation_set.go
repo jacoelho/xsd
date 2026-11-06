@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/lex"
 
 	"github.com/jacoelho/xsd/internal/vocab"
@@ -9,9 +10,9 @@ import (
 
 const derivationAll = "#all"
 
-// ParseDerivationSet parses an XSD block/final derivation set and returns
+// parseDerivationSet parses an XSD block/final derivation set and returns
 // compile diagnostics for invalid lexical values.
-func ParseDerivationSet(value, label string, allowed DerivationMask) (DerivationMask, error) {
+func parseDerivationSet(value, label string, allowed DerivationMask) (DerivationMask, error) {
 	parser := derivationSetParser{label: label, allowed: allowed}
 	for token := range lex.XMLFieldsSeq(value) {
 		if err := parser.add(token); err != nil {
@@ -40,10 +41,10 @@ func (p *derivationSetParser) add(token string) error {
 	}
 	bit, ok := compileDerivationToken(token)
 	if !ok {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "invalid "+p.label+" value "+token)
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "invalid "+p.label+" value "+diagnostictext.Quote(token))
 	}
 	if p.allowed&bit == 0 {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, p.label+" cannot contain "+token)
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, p.label+" cannot contain "+diagnostictext.Quote(token))
 	}
 	p.mask |= bit
 	return nil
@@ -68,11 +69,11 @@ func compileDerivationToken(token string) (DerivationMask, bool) {
 	case vocab.XSDElemRestriction:
 		return DerivationRestriction, true
 	case "substitution":
-		return DerivationSubstitution, true
+		return derivationSubstitution, true
 	case vocab.XSDElemList:
-		return DerivationList, true
+		return derivationList, true
 	case vocab.XSDElemUnion:
-		return DerivationUnion, true
+		return derivationUnion, true
 	default:
 		return 0, false
 	}

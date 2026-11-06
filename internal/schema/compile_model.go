@@ -3,19 +3,20 @@ package schema
 import (
 	"encoding/xml"
 
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-func (c *compiler) contentModel(id ContentModelID, msg string) (ContentModel, error) {
-	model, ok := ContentModelByID(c.rt.Models, id)
+func (c *compiler) contentModel(id contentModelID, msg string) (contentModelNode, error) {
+	model, ok := contentModelByID(c.rt.Models, id)
 	if !ok {
-		return ContentModel{}, xsderrors.InternalInvariant(msg)
+		return contentModelNode{}, xsderrors.InternalInvariant(msg)
 	}
 	return model, nil
 }
 
-func (c *compiler) compileModel(n *schemaNode, ctx *schemaSetDocument) (ContentModelID, error) {
+func (c *compiler) compileModel(n *schemaNode, ctx *schemaSetDocument) (contentModelID, error) {
 	if source := semanticSource[*schemaGroupSource](&n.semantic); source != nil && source.Ref.Lexical.Present {
 		return c.compileModelGroupRef(n, ctx, source.Ref.Name)
 	}
@@ -24,97 +25,97 @@ func (c *compiler) compileModel(n *schemaNode, ctx *schemaSetDocument) (ContentM
 	}
 	occurs, err := parseOccurs(n, c.limits)
 	if err != nil {
-		return NoContentModel, err
+		return noContentModel, err
 	}
 	if (n.local == vocab.XSDElemSequence || n.local == vocab.XSDElemChoice) && occurs.Max == 0 && !occurs.Unbounded {
 		if err := c.spendComponentDependency(n); err != nil {
-			return NoContentModel, err
+			return noContentModel, err
 		}
 		// Cache only the parent's absence. Its descendants retain their own
 		// obligations after active group expansion unwinds.
-		c.modelDone[nodeKey(n, ctx)] = NoContentModel
+		c.modelDone[nodeKey(n, ctx)] = noContentModel
 		c.deferredModelChildren = append(c.deferredModelChildren, schemaComponent{ctx: ctx, id: n.id})
-		return NoContentModel, nil
+		return noContentModel, nil
 	}
 	return c.compileModelComponent(n, ctx, occurs)
 }
 
-func (c *compiler) compileModelComponent(n *schemaNode, ctx *schemaSetDocument, occurs Occurrence) (ContentModelID, error) {
+func (c *compiler) compileModelComponent(n *schemaNode, ctx *schemaSetDocument, occurs occurrence) (contentModelID, error) {
 	if dependencyErr := c.spendComponentDependency(n); dependencyErr != nil {
-		return NoContentModel, dependencyErr
+		return noContentModel, dependencyErr
 	}
 	leave, err := c.enterComponent(n)
 	if err != nil {
-		return NoContentModel, err
+		return noContentModel, err
 	}
 	defer leave()
-	id, err := c.addModelAt(ContentModel{}, n)
+	id, err := c.addModelAt(contentModelNode{}, n)
 	if err != nil {
-		return NoContentModel, err
+		return noContentModel, err
 	}
 	c.modelDone[nodeKey(n, ctx)] = id
 	c.compilingModel[nodeKey(n, ctx)] = true
 	defer delete(c.compilingModel, nodeKey(n, ctx))
 	m, err := c.compileModelValue(n, ctx, occurs)
 	if err != nil {
-		return NoContentModel, err
+		return noContentModel, err
 	}
 	c.completeModel(id, m)
 	return id, nil
 }
 
-func (c *compiler) existingModel(n *schemaNode, ctx *schemaSetDocument) (ContentModelID, bool, error) {
+func (c *compiler) existingModel(n *schemaNode, ctx *schemaSetDocument) (contentModelID, bool, error) {
 	id, ok := c.modelDone[nodeKey(n, ctx)]
 	if !ok {
-		return NoContentModel, false, nil
+		return noContentModel, false, nil
 	}
 	if !c.compilingModel[nodeKey(n, ctx)] {
 		return id, true, nil
 	}
-	err := SchemaComponentRecursionError(SchemaComponentModelGroup, "")
-	return NoContentModel, true, withSchemaCompileLocation(n, err)
+	err := schemaComponentRecursionError(schemaComponentModelGroup, "")
+	return noContentModel, true, withSchemaCompileLocation(n, err)
 }
 
-func (c *compiler) compileModelValue(n *schemaNode, ctx *schemaSetDocument, occurs Occurrence) (ContentModel, error) {
+func (c *compiler) compileModelValue(n *schemaNode, ctx *schemaSetDocument, occurs occurrence) (contentModelNode, error) {
 	kind, err := modelKindForNode(n)
 	if err != nil {
-		return ContentModel{}, err
+		return contentModelNode{}, err
 	}
-	if kind == ModelAll {
-		if err := ValidateAllModelOccurrence(occurs); err != nil {
-			return ContentModel{}, withSchemaCompileLocation(n, err)
+	if kind == modelAll {
+		if err := validateAllModelOccurrence(occurs); err != nil {
+			return contentModelNode{}, withSchemaCompileLocation(n, err)
 		}
 	}
-	m := ContentModel{Kind: kind, Occurs: occurs}
+	m := contentModelNode{Kind: kind, Occurs: occurs}
 	if err := c.compileModelChildren(n, ctx, &m); err != nil {
-		return ContentModel{}, err
+		return contentModelNode{}, err
 	}
 	return m, nil
 }
 
-func (c *compiler) compileModelGroupRef(n *schemaNode, ctx *schemaSetDocument, ref xml.Name) (ContentModelID, error) {
+func (c *compiler) compileModelGroupRef(n *schemaNode, ctx *schemaSetDocument, ref xml.Name) (contentModelID, error) {
 	occurs, err := parseOccurs(n, c.limits)
 	if err != nil {
-		return NoContentModel, err
+		return noContentModel, err
 	}
 	// A zero-occurrence reference has no particle and therefore no term to resolve.
 	if occurs.Max == 0 && !occurs.Unbounded {
-		return NoContentModel, nil
+		return noContentModel, nil
 	}
 	source, err := c.resolveModelGroupRef(n, ctx, ref)
 	if err != nil {
-		return NoContentModel, err
+		return noContentModel, err
 	}
 	if c.compilingModel[nodeKey(source.modelNode, source.raw.ctx)] {
-		err = SchemaComponentRecursionError(SchemaComponentModelGroup, c.rt.formatName(source.q))
-		return NoContentModel, withSchemaCompileLocation(source.modelNode, err)
+		err = schemaComponentRecursionError(schemaComponentModelGroup, c.rt.formatName(source.q))
+		return noContentModel, withSchemaCompileLocation(source.modelNode, err)
 	}
 	if dependencyErr := c.spendComponentDependency(n); dependencyErr != nil {
-		return NoContentModel, dependencyErr
+		return noContentModel, dependencyErr
 	}
 	id, err := c.compileModel(source.modelNode, source.raw.ctx)
 	if err != nil {
-		return NoContentModel, err
+		return noContentModel, err
 	}
 	return c.applyModelGroupOccurrence(n, id, occurs)
 }
@@ -133,7 +134,7 @@ func (c *compiler) resolveModelGroupRef(n *schemaNode, ctx *schemaSetDocument, r
 	label := c.rt.formatName(q)
 	raw, ok := c.groupComponents[q]
 	if !ok {
-		return modelGroupRefSource{}, withSchemaCompileLocation(n, SchemaComponentMissingError(SchemaComponentModelGroup, label))
+		return modelGroupRefSource{}, withSchemaCompileLocation(n, schemaComponentMissingError(schemaComponentModelGroup, label))
 	}
 	modelNode, err := checkTopLevelGroupChildren(raw.sourceNode())
 	if err != nil {
@@ -142,31 +143,31 @@ func (c *compiler) resolveModelGroupRef(n *schemaNode, ctx *schemaSetDocument, r
 	return modelGroupRefSource{raw: raw, q: q, modelNode: modelNode}, nil
 }
 
-func (c *compiler) applyModelGroupOccurrence(n *schemaNode, id ContentModelID, occurs Occurrence) (ContentModelID, error) {
+func (c *compiler) applyModelGroupOccurrence(n *schemaNode, id contentModelID, occurs occurrence) (contentModelID, error) {
 	if occurs.IsExactlyOne() {
 		return id, nil
 	}
 	model, err := c.contentModel(id, "model group reference resolved missing content model")
 	if err != nil {
-		return NoContentModel, err
+		return noContentModel, err
 	}
-	if model.Kind == ModelAll {
-		if err := ValidateAllModelOccurrence(occurs); err != nil {
-			return NoContentModel, withSchemaCompileLocation(n, err)
+	if model.Kind == modelAll {
+		if err := validateAllModelOccurrence(occurs); err != nil {
+			return noContentModel, withSchemaCompileLocation(n, err)
 		}
 	}
 	model.Occurs = occurs
 	return c.addModelAt(model, n)
 }
 
-func modelKindForNode(n *schemaNode) (ModelKind, error) {
+func modelKindForNode(n *schemaNode) (modelKind, error) {
 	if kind, ok := schemaModelKind(n); ok {
 		return kind, nil
 	}
 	return 0, withSchemaCompileLocation(n, xsderrors.InternalInvariant("model node has no typed model kind"))
 }
 
-func (c *compiler) compileModelChildren(n *schemaNode, ctx *schemaSetDocument, m *ContentModel) error {
+func (c *compiler) compileModelChildren(n *schemaNode, ctx *schemaSetDocument, m *contentModelNode) error {
 	for child := range n.xsdChildren() {
 		if child.local == vocab.XSDElemAnnotation {
 			continue
@@ -178,54 +179,54 @@ func (c *compiler) compileModelChildren(n *schemaNode, ctx *schemaSetDocument, m
 	return nil
 }
 
-func (c *compiler) appendModelChild(m *ContentModel, child *schemaNode, ctx *schemaSetDocument) error {
+func (c *compiler) appendModelChild(m *contentModelNode, child *schemaNode, ctx *schemaSetDocument) error {
 	switch child.local {
 	case vocab.XSDElemElement:
 		p, err := c.compileElementParticle(child, ctx)
 		if err != nil {
 			return err
 		}
-		return withSchemaCompileLocation(child, AppendParticle(m, p))
+		return withSchemaCompileLocation(child, appendParticle(m, p))
 	case vocab.XSDElemAny:
 		p, err := c.compileWildcardParticle(child, ctx)
 		if err != nil {
 			return err
 		}
-		return withSchemaCompileLocation(child, AppendParticle(m, p))
+		return withSchemaCompileLocation(child, appendParticle(m, p))
 	case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll, vocab.XSDElemGroup:
 		return c.appendNestedModelChild(m, child, ctx)
 	}
 	return withSchemaCompileLocation(child, xsderrors.InternalInvariant("model child has no supported typed schema kind"))
 }
 
-func (c *compiler) compileNestedModelChild(child *schemaNode, ctx *schemaSetDocument, parent ModelKind) (ContentModelID, ContentModel, error) {
+func (c *compiler) compileNestedModelChild(child *schemaNode, ctx *schemaSetDocument, parent modelKind) (contentModelID, contentModelNode, error) {
 	admission, err := modelChildAdmissionForNode(child)
 	if err != nil {
-		return NoContentModel, ContentModel{}, err
+		return noContentModel, contentModelNode{}, err
 	}
 	if admissionErr := validateModelGroupChildAtNode(child, parent, admission); admissionErr != nil {
-		return NoContentModel, ContentModel{}, admissionErr
+		return noContentModel, contentModelNode{}, admissionErr
 	}
 	id, err := c.compileModel(child, ctx)
-	if err != nil || id == NoContentModel {
-		return id, ContentModel{}, err
+	if err != nil || id == noContentModel {
+		return id, contentModelNode{}, err
 	}
 	model, err := c.contentModel(id, "nested model child references missing content model")
 	if err != nil {
-		return NoContentModel, ContentModel{}, err
+		return noContentModel, contentModelNode{}, err
 	}
-	if err := validateModelGroupChildAtNode(child, parent, ModelChildAdmissionForModelKind(model.Kind)); err != nil {
-		return NoContentModel, ContentModel{}, err
+	if err := validateModelGroupChildAtNode(child, parent, modelChildAdmissionForModelKind(model.Kind)); err != nil {
+		return noContentModel, contentModelNode{}, err
 	}
 	return id, model, nil
 }
 
-func (c *compiler) appendNestedModelChild(m *ContentModel, child *schemaNode, ctx *schemaSetDocument) error {
+func (c *compiler) appendNestedModelChild(m *contentModelNode, child *schemaNode, ctx *schemaSetDocument) error {
 	childModelID, childModel, err := c.compileNestedModelChild(child, ctx, m.Kind)
-	if err != nil || childModelID == NoContentModel {
+	if err != nil || childModelID == noContentModel {
 		return err
 	}
-	if AppendFlattenedModelChild(m, childModel) {
+	if appendFlattenedModelChild(m, childModel) {
 		return nil
 	}
 	p, ok, err := c.modelParticle(childModelID)
@@ -235,7 +236,7 @@ func (c *compiler) appendNestedModelChild(m *ContentModel, child *schemaNode, ct
 	if !ok {
 		return nil
 	}
-	return withSchemaCompileLocation(child, AppendParticle(m, p))
+	return withSchemaCompileLocation(child, appendParticle(m, p))
 }
 
 // compileDeferredModelChildren gives descendants of a zero-count sequence or
@@ -259,7 +260,7 @@ func (c *compiler) compileDeferredModelChildren(source schemaComponent) error {
 		case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll, vocab.XSDElemGroup:
 			_, _, err = c.compileNestedModelChild(child, source.ctx, kind)
 		default:
-			return schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "invalid model group child "+child.local)
+			return schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "invalid model group child "+diagnostictext.Quote(child.local))
 		}
 		if err != nil {
 			return err
@@ -268,26 +269,26 @@ func (c *compiler) compileDeferredModelChildren(source schemaComponent) error {
 	return nil
 }
 
-func validateModelGroupChildAtNode(n *schemaNode, parent ModelKind, child ModelChildAdmission) error {
-	return withSchemaCompileLocation(n, ValidateModelGroupChildAdmission(parent, child))
+func validateModelGroupChildAtNode(n *schemaNode, parent modelKind, child modelChildAdmission) error {
+	return withSchemaCompileLocation(n, validateModelGroupChildAdmission(parent, child))
 }
 
-func modelChildAdmissionForNode(n *schemaNode) (ModelChildAdmission, error) {
+func modelChildAdmissionForNode(n *schemaNode) (modelChildAdmission, error) {
 	switch n.local {
 	case vocab.XSDElemElement:
-		return ModelChildAdmission{Kind: ModelChildElement}, nil
+		return modelChildAdmission{Kind: modelChildElement}, nil
 	case vocab.XSDElemAny:
-		return ModelChildAdmission{Kind: ModelChildWildcard}, nil
+		return modelChildAdmission{Kind: modelChildWildcard}, nil
 	case vocab.XSDElemGroup:
-		return ModelChildAdmission{Kind: ModelChildModel}, nil
+		return modelChildAdmission{Kind: modelChildModel}, nil
 	case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll:
 		kind, ok := schemaModelKind(n)
 		if !ok {
-			return ModelChildAdmission{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("model group node has no typed model kind"))
+			return modelChildAdmission{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("model group node has no typed model kind"))
 		}
-		return ModelChildAdmissionForModelKind(kind), nil
+		return modelChildAdmissionForModelKind(kind), nil
 	}
-	return ModelChildAdmission{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("model child has no typed schema kind"))
+	return modelChildAdmission{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("model child has no typed schema kind"))
 }
 
 func validateModelOccurrence(n *schemaNode, limits Limits) error {
@@ -301,37 +302,37 @@ func validateModelOccurrence(n *schemaNode, limits Limits) error {
 		return err
 	}
 	if n.local == vocab.XSDElemAll {
-		if err := ValidateAllModelOccurrence(occurs); err != nil {
+		if err := validateAllModelOccurrence(occurs); err != nil {
 			return withSchemaCompileLocation(n, err)
 		}
 	}
 	return validateModelGroupSyntax(n, limits)
 }
 
-func (c *compiler) modelParticle(id ContentModelID) (Particle, bool, error) {
+func (c *compiler) modelParticle(id contentModelID) (contentParticle, bool, error) {
 	model, err := c.contentModel(id, "model particle references missing content model")
 	if err != nil {
-		return Particle{}, false, err
+		return contentParticle{}, false, err
 	}
 	occurs := model.Occurs
 	if occurs.Max == 0 && !occurs.Unbounded {
-		return Particle{}, false, nil
+		return contentParticle{}, false, nil
 	}
 	modelID := id
 	if !occurs.IsExactlyOne() {
 		normalized := model
-		normalized.Occurs = Occurrence{Min: 1, Max: 1}
+		normalized.Occurs = occurrence{Min: 1, Max: 1}
 		var err error
 		modelID, err = c.addModelAt(normalized, c.modelSources[id])
 		if err != nil {
-			return Particle{}, false, err
+			return contentParticle{}, false, err
 		}
 	}
-	return ModelParticle(modelID, occurs), true, nil
+	return modelParticle(modelID, occurs), true, nil
 }
 
-func (c *compiler) validateComplexExtensionModelAdmission(baseID ComplexTypeID, base ComplexType, ext ContentModelID, contentKind ContentKind) error {
-	return ValidateComplexExtensionModelAdmission(&c.rt, ComplexExtensionModelAdmission{
+func (c *compiler) validateComplexExtensionModelAdmission(baseID ComplexTypeID, base complexTypeMetadata, ext contentModelID, contentKind complexContentVariety) error {
+	return validateComplexExtensionModelAdmission(&c.rt, complexExtensionModelAdmission{
 		Extension:     ext,
 		BaseContent:   base.Content,
 		BaseIsAnyType: baseID == c.rt.AnyType,
@@ -340,24 +341,24 @@ func (c *compiler) validateComplexExtensionModelAdmission(baseID ComplexTypeID, 
 	})
 }
 
-func parseOccurs(n *schemaNode, limits Limits) (Occurrence, error) {
+func parseOccurs(n *schemaNode, limits Limits) (occurrence, error) {
 	attrs, err := occurrenceAttrs(n)
 	if err != nil {
-		return Occurrence{}, withSchemaCompileLocation(n, err)
+		return occurrence{}, withSchemaCompileLocation(n, err)
 	}
-	occurs, err := ParseOccurrence(attrs, limits)
+	occurs, err := parseOccurrence(attrs, limits)
 	if err != nil {
-		return Occurrence{}, withSchemaCompileLocation(n, err)
+		return occurrence{}, withSchemaCompileLocation(n, err)
 	}
 	return occurs, nil
 }
 
-func occurrenceAttrs(n *schemaNode) (OccurrenceAttrs, error) {
+func occurrenceAttrs(n *schemaNode) (rawOccurrence, error) {
 	source := n.semantic.particle()
 	if source == nil {
-		return OccurrenceAttrs{}, xsderrors.InternalInvariant("particle node has no typed particle source")
+		return rawOccurrence{}, xsderrors.InternalInvariant("particle node has no typed particle source")
 	}
-	return OccurrenceAttrs{
+	return rawOccurrence{
 		MinOccurs:    source.MinOccurs.Value,
 		MaxOccurs:    source.MaxOccurs.Value,
 		HasMinOccurs: source.MinOccurs.Present,

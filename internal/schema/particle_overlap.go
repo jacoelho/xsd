@@ -2,25 +2,25 @@ package schema
 
 import "errors"
 
-// ContentModelAnalysis is the bounded owner of content-model emptiability,
+// contentModelAnalysis is the bounded owner of content-model emptiability,
 // count-range, substitution-name, and particle-overlap facts.
-type ContentModelAnalysis struct {
+type contentModelAnalysis struct {
 	rt        *schemaBuild
 	models    *restrictionModelView
-	work      ContentModelWork
+	work      contentModelWork
 	names     map[ElementID]particleAcceptedNames
-	emptiable map[ContentModelID]bool
-	ranges    map[ContentModelID]Occurrence
-	emptyPath map[ContentModelID]bool
-	rangePath map[ContentModelID]bool
+	emptiable map[contentModelID]bool
+	ranges    map[contentModelID]occurrence
+	emptyPath map[contentModelID]bool
+	rangePath map[contentModelID]bool
 }
 
-func (a *ContentModelAnalysis) contentModel(id ContentModelID) (ContentModel, bool) {
+func (a *contentModelAnalysis) contentModel(id contentModelID) (contentModelNode, bool) {
 	if a.models != nil {
 		return a.models.model(id)
 	}
-	if !ValidContentModelID(id, len(a.rt.Models)) {
-		return ContentModel{}, false
+	if !validContentModelID(id, len(a.rt.Models)) {
+		return contentModelNode{}, false
 	}
 	// Analysis borrows model children without mutation, just like its private
 	// restriction view; defensive copies belong to component read boundaries.
@@ -32,35 +32,35 @@ type particleAcceptedNames struct {
 	ordered []QName
 }
 
-// NewContentModelAnalysis creates a reusable bounded analysis context.
-func NewContentModelAnalysis(rt *schemaBuild, work ContentModelWork) (*ContentModelAnalysis, error) {
+// newContentModelAnalysis creates a reusable bounded analysis context.
+func newContentModelAnalysis(rt *schemaBuild, work contentModelWork) (*contentModelAnalysis, error) {
 	if rt == nil {
 		return nil, errors.New("content model analysis runtime is nil")
 	}
 	if err := requireContentModelWork(work); err != nil {
 		return nil, err
 	}
-	return &ContentModelAnalysis{
+	return &contentModelAnalysis{
 		rt:        rt,
 		work:      work,
 		names:     make(map[ElementID]particleAcceptedNames),
-		emptiable: make(map[ContentModelID]bool),
-		ranges:    make(map[ContentModelID]Occurrence),
-		emptyPath: make(map[ContentModelID]bool),
-		rangePath: make(map[ContentModelID]bool),
+		emptiable: make(map[contentModelID]bool),
+		ranges:    make(map[contentModelID]occurrence),
+		emptyPath: make(map[contentModelID]bool),
+		rangePath: make(map[contentModelID]bool),
 	}, nil
 }
 
 // ParticleEmptiable reports whether p accepts an empty sequence, charging and
 // memoizing every nested-model derivation.
-func (a *ContentModelAnalysis) ParticleEmptiable(p Particle) (bool, error) {
+func (a *contentModelAnalysis) ParticleEmptiable(p contentParticle) (bool, error) {
 	return a.cachedParticleEmptiable(p)
 }
 
 // ModelEmptiable reports whether a model accepts an empty sequence, charging
 // and memoizing every nested-model derivation.
-func (a *ContentModelAnalysis) ModelEmptiable(id ContentModelID) (bool, error) {
-	if id == NoContentModel {
+func (a *contentModelAnalysis) ModelEmptiable(id contentModelID) (bool, error) {
+	if id == noContentModel {
 		return true, nil
 	}
 	return a.cachedModelEmptiable(id)
@@ -68,143 +68,143 @@ func (a *ContentModelAnalysis) ModelEmptiable(id ContentModelID) (bool, error) {
 
 // ModelCountRange derives the number of elements a model can consume,
 // charging and memoizing every nested-model derivation.
-func (a *ContentModelAnalysis) ModelCountRange(id ContentModelID) (Occurrence, error) {
-	if id == NoContentModel {
-		return Occurrence{}, nil
+func (a *contentModelAnalysis) ModelCountRange(id contentModelID) (occurrence, error) {
+	if id == noContentModel {
+		return occurrence{}, nil
 	}
 	return a.cachedModelCountRange(id)
 }
 
 // ParticleCountRange derives the number of elements p can consume, charging
 // and memoizing every nested-model derivation.
-func (a *ContentModelAnalysis) ParticleCountRange(p Particle) (Occurrence, error) {
+func (a *contentModelAnalysis) ParticleCountRange(p contentParticle) (occurrence, error) {
 	if err := spendContentModelWork(a.work); err != nil {
-		return Occurrence{}, err
+		return occurrence{}, err
 	}
-	var term Occurrence
+	var term occurrence
 	switch p.Kind {
-	case ParticleElement, ParticleWildcard:
-		term = Occurrence{Min: 1, Max: 1}
-	case ParticleModel:
+	case particleElement, particleWildcard:
+		term = occurrence{Min: 1, Max: 1}
+	case particleModel:
 		var err error
 		term, err = a.ModelCountRange(p.Model)
 		if err != nil {
-			return Occurrence{}, err
+			return occurrence{}, err
 		}
 	}
-	return MultiplyOccurrence(term, p.Occurs), nil
+	return multiplyOccurrence(term, p.Occurs), nil
 }
 
-func (a *ContentModelAnalysis) cachedModelCountRange(id ContentModelID) (Occurrence, error) {
+func (a *contentModelAnalysis) cachedModelCountRange(id contentModelID) (occurrence, error) {
 	if result, ok := a.ranges[id]; ok {
 		return result, nil
 	}
 	if a.rangePath[id] {
-		return Occurrence{}, errors.New("content model count analysis contains a cycle")
+		return occurrence{}, errors.New("content model count analysis contains a cycle")
 	}
 	if err := spendContentModelWork(a.work); err != nil {
-		return Occurrence{}, err
+		return occurrence{}, err
 	}
 	model, ok := a.contentModel(id)
 	if !ok {
-		return Occurrence{}, errors.New("content model count analysis references missing content model")
+		return occurrence{}, errors.New("content model count analysis references missing content model")
 	}
 	a.rangePath[id] = true
 	defer delete(a.rangePath, id)
 	term, err := a.modelTermCountRange(model)
 	if err != nil {
-		return Occurrence{}, err
+		return occurrence{}, err
 	}
-	result := MultiplyOccurrence(term, model.Occurs)
+	result := multiplyOccurrence(term, model.Occurs)
 	a.ranges[id] = result
 	return result, nil
 }
 
-func (a *ContentModelAnalysis) modelTermCountRange(model ContentModel) (Occurrence, error) {
+func (a *contentModelAnalysis) modelTermCountRange(model contentModelNode) (occurrence, error) {
 	switch model.Kind {
-	case ModelEmpty:
-		return Occurrence{}, nil
-	case ModelAny:
-		return Occurrence{Unbounded: true}, nil
-	case ModelSequence, ModelAll:
+	case modelEmpty:
+		return occurrence{}, nil
+	case modelAny:
+		return occurrence{Unbounded: true}, nil
+	case modelSequence, modelAll:
 		return a.sequenceCountRange(model.Particles)
-	case ModelChoice:
+	case modelChoice:
 		return a.choiceCountRange(model.Particles)
 	}
-	return Occurrence{}, nil
+	return occurrence{}, nil
 }
 
-func (a *ContentModelAnalysis) sequenceCountRange(particles []Particle) (Occurrence, error) {
-	var result Occurrence
+func (a *contentModelAnalysis) sequenceCountRange(particles []contentParticle) (occurrence, error) {
+	var result occurrence
 	for _, particle := range particles {
 		child, err := a.ParticleCountRange(particle)
 		if err != nil {
-			return Occurrence{}, err
+			return occurrence{}, err
 		}
-		result = AddOccurrenceRanges(result, child)
+		result = addOccurrenceRanges(result, child)
 	}
 	return result, nil
 }
 
-func (a *ContentModelAnalysis) choiceCountRange(particles []Particle) (Occurrence, error) {
-	var result Occurrence
+func (a *contentModelAnalysis) choiceCountRange(particles []contentParticle) (occurrence, error) {
+	var result occurrence
 	for i, particle := range particles {
 		child, err := a.ParticleCountRange(particle)
 		if err != nil {
-			return Occurrence{}, err
+			return occurrence{}, err
 		}
 		if i == 0 {
 			result = child
 		} else {
-			result = UnionOccurrenceRanges(result, child)
+			result = unionOccurrenceRanges(result, child)
 		}
 	}
 	return result, nil
 }
 
 // Overlap reports one element name accepted by both particles.
-func (a *ContentModelAnalysis) Overlap(left, right Particle) (QName, bool, error) {
+func (a *contentModelAnalysis) Overlap(left, right contentParticle) (QName, bool, error) {
 	if err := spendContentModelWork(a.work); err != nil {
 		return QName{}, false, err
 	}
 	switch {
-	case left.Kind == ParticleModel:
+	case left.Kind == particleModel:
 		return a.modelStartOverlap(left.Model, right)
-	case right.Kind == ParticleModel:
+	case right.Kind == particleModel:
 		return a.modelStartOverlap(right.Model, left)
-	case left.Kind == ParticleWildcard && right.Kind == ParticleWildcard:
+	case left.Kind == particleWildcard && right.Kind == particleWildcard:
 		return a.wildcardOverlap(left.Wildcard, right.Wildcard)
 	default:
 		return a.elementParticleOverlap(left, right)
 	}
 }
 
-func (a *ContentModelAnalysis) wildcardOverlap(left, right WildcardID) (QName, bool, error) {
-	leftWildcard, leftOK := WildcardByID(a.rt.Wildcards, left)
-	rightWildcard, rightOK := WildcardByID(a.rt.Wildcards, right)
-	return QName{}, leftOK && rightOK && WildcardsOverlap(leftWildcard, rightWildcard), nil
+func (a *contentModelAnalysis) wildcardOverlap(left, right WildcardID) (QName, bool, error) {
+	leftWildcard, leftOK := wildcardByID(a.rt.Wildcards, left)
+	rightWildcard, rightOK := wildcardByID(a.rt.Wildcards, right)
+	return QName{}, leftOK && rightOK && wildcardsOverlap(leftWildcard, rightWildcard), nil
 }
 
-func (a *ContentModelAnalysis) elementParticleOverlap(left, right Particle) (QName, bool, error) {
-	if left.Kind == ParticleElement {
+func (a *contentModelAnalysis) elementParticleOverlap(left, right contentParticle) (QName, bool, error) {
+	if left.Kind == particleElement {
 		if name, ok, err := a.elementOverlap(left.Element, right); ok || err != nil {
 			return name, ok, err
 		}
 	}
-	if right.Kind == ParticleElement {
+	if right.Kind == particleElement {
 		return a.elementOverlap(right.Element, left)
 	}
 	return QName{}, false, nil
 }
 
-func (a *ContentModelAnalysis) modelStartOverlap(id ContentModelID, particle Particle) (QName, bool, error) {
+func (a *contentModelAnalysis) modelStartOverlap(id contentModelID, particle contentParticle) (QName, bool, error) {
 	model, ok := a.contentModel(id)
 	if !ok {
 		return QName{}, false, errors.New("content model overlap analysis references missing content model")
 	}
 	switch model.Kind {
-	case ModelAll, ModelChoice, ModelSequence:
-	case ModelEmpty, ModelAny:
+	case modelAll, modelChoice, modelSequence:
+	case modelEmpty, modelAny:
 		return QName{}, false, nil
 	default:
 		overlaps := false
@@ -228,37 +228,37 @@ type modelStartParticleMatch struct {
 	stop    bool
 }
 
-func (a *ContentModelAnalysis) modelStartParticleOverlap(
-	kind ModelKind,
-	child, particle Particle,
+func (a *contentModelAnalysis) modelStartParticleOverlap(
+	kind modelKind,
+	child, particle contentParticle,
 ) (modelStartParticleMatch, error) {
 	if err := spendContentModelWork(a.work); err != nil {
 		return modelStartParticleMatch{}, err
 	}
 	name, overlap, err := a.Overlap(child, particle)
-	if overlap || err != nil || kind != ModelSequence {
+	if overlap || err != nil || kind != modelSequence {
 		return modelStartParticleMatch{name: name, overlap: overlap}, err
 	}
 	emptiable, err := a.cachedParticleEmptiable(child)
 	return modelStartParticleMatch{stop: !emptiable}, err
 }
 
-func (a *ContentModelAnalysis) elementOverlap(id ElementID, particle Particle) (QName, bool, error) {
+func (a *contentModelAnalysis) elementOverlap(id ElementID, particle contentParticle) (QName, bool, error) {
 	accepted, ok, err := a.acceptedNames(id)
 	if err != nil || !ok {
 		return QName{}, false, err
 	}
 	switch particle.Kind {
-	case ParticleElement:
+	case particleElement:
 		return a.acceptedElementOverlap(accepted, particle.Element)
-	case ParticleWildcard:
+	case particleWildcard:
 		return a.acceptedWildcardOverlap(accepted, particle.Wildcard)
-	case ParticleModel:
+	case particleModel:
 	}
 	return QName{}, false, nil
 }
 
-func (a *ContentModelAnalysis) acceptedElementOverlap(accepted particleAcceptedNames, id ElementID) (QName, bool, error) {
+func (a *contentModelAnalysis) acceptedElementOverlap(accepted particleAcceptedNames, id ElementID) (QName, bool, error) {
 	other, ok, err := a.acceptedNames(id)
 	if err != nil || !ok {
 		return QName{}, false, err
@@ -274,8 +274,8 @@ func (a *ContentModelAnalysis) acceptedElementOverlap(accepted particleAcceptedN
 	return QName{}, false, nil
 }
 
-func (a *ContentModelAnalysis) acceptedWildcardOverlap(accepted particleAcceptedNames, id WildcardID) (QName, bool, error) {
-	wildcard, ok := WildcardByID(a.rt.Wildcards, id)
+func (a *contentModelAnalysis) acceptedWildcardOverlap(accepted particleAcceptedNames, id WildcardID) (QName, bool, error) {
+	wildcard, ok := wildcardByID(a.rt.Wildcards, id)
 	if !ok {
 		return QName{}, false, nil
 	}
@@ -283,14 +283,14 @@ func (a *ContentModelAnalysis) acceptedWildcardOverlap(accepted particleAccepted
 		if err := spendContentModelWork(a.work); err != nil {
 			return QName{}, false, err
 		}
-		if WildcardAllowsNamespace(wildcard, name.Namespace) {
+		if wildcardAllowsNamespace(wildcard, name.Namespace) {
 			return name, true, nil
 		}
 	}
 	return QName{}, false, nil
 }
 
-func (a *ContentModelAnalysis) acceptedNames(id ElementID) (particleAcceptedNames, bool, error) {
+func (a *contentModelAnalysis) acceptedNames(id ElementID) (particleAcceptedNames, bool, error) {
 	if accepted, ok := a.names[id]; ok {
 		return accepted, true, nil
 	}
@@ -316,7 +316,7 @@ func (a *ContentModelAnalysis) acceptedNames(id ElementID) (particleAcceptedName
 
 type particleAcceptedNameCollector struct {
 	err      error
-	analysis *ContentModelAnalysis
+	analysis *contentModelAnalysis
 	accepted *particleAcceptedNames
 	head     ElementID
 }
@@ -341,20 +341,20 @@ func (c *particleAcceptedNameCollector) collect(member ElementID) bool {
 	return true
 }
 
-func (a *ContentModelAnalysis) cachedParticleEmptiable(particle Particle) (bool, error) {
+func (a *contentModelAnalysis) cachedParticleEmptiable(particle contentParticle) (bool, error) {
 	if err := spendContentModelWork(a.work); err != nil {
 		return false, err
 	}
 	if particle.Occurs.Min == 0 {
 		return true, nil
 	}
-	if particle.Kind != ParticleModel {
+	if particle.Kind != particleModel {
 		return false, nil
 	}
 	return a.ModelEmptiable(particle.Model)
 }
 
-func (a *ContentModelAnalysis) cachedModelEmptiable(id ContentModelID) (bool, error) {
+func (a *contentModelAnalysis) cachedModelEmptiable(id contentModelID) (bool, error) {
 	if result, ok := a.emptiable[id]; ok {
 		return result, nil
 	}
@@ -378,23 +378,23 @@ func (a *ContentModelAnalysis) cachedModelEmptiable(id ContentModelID) (bool, er
 	return result, nil
 }
 
-func (a *ContentModelAnalysis) modelEmptiableValue(model ContentModel) (bool, error) {
-	if model.Occurs.Min == 0 || model.Kind == ModelEmpty || model.Kind == ModelAny {
+func (a *contentModelAnalysis) modelEmptiableValue(model contentModelNode) (bool, error) {
+	if model.Occurs.Min == 0 || model.Kind == modelEmpty || model.Kind == modelAny {
 		return true, nil
 	}
 	switch model.Kind {
-	case ModelSequence, ModelAll:
+	case modelSequence, modelAll:
 		return a.allParticlesEmptiable(model.Particles)
-	case ModelChoice:
+	case modelChoice:
 		return a.anyParticleEmptiable(model.Particles)
-	case ModelEmpty, ModelAny:
+	case modelEmpty, modelAny:
 		return false, nil
 	default:
 	}
 	return false, nil
 }
 
-func (a *ContentModelAnalysis) allParticlesEmptiable(particles []Particle) (bool, error) {
+func (a *contentModelAnalysis) allParticlesEmptiable(particles []contentParticle) (bool, error) {
 	for _, particle := range particles {
 		emptiable, err := a.cachedParticleEmptiable(particle)
 		if err != nil {
@@ -407,7 +407,7 @@ func (a *ContentModelAnalysis) allParticlesEmptiable(particles []Particle) (bool
 	return true, nil
 }
 
-func (a *ContentModelAnalysis) anyParticleEmptiable(particles []Particle) (bool, error) {
+func (a *contentModelAnalysis) anyParticleEmptiable(particles []contentParticle) (bool, error) {
 	for _, particle := range particles {
 		emptiable, err := a.cachedParticleEmptiable(particle)
 		if err != nil {

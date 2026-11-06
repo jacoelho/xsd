@@ -11,7 +11,7 @@ func TestNamespaceMatchEndRestoresShadowedBinding(t *testing.T) {
 
 	rootStart := StartElement{
 		Name: xml.Name{Space: "p", Local: "root"},
-		Attr: []Attr{{Name: xml.Name{Space: "xmlns", Local: "p"}, Value: "urn:root"}},
+		Attr: []Attr{{Name: xml.Name{Space: "xmlns", Local: "p"}, value: "urn:root"}},
 	}
 	rootFrame, root, err := namespaceStack.StartStream(&rootStart, &values)
 	if err != nil {
@@ -23,7 +23,7 @@ func TestNamespaceMatchEndRestoresShadowedBinding(t *testing.T) {
 
 	childStart := StartElement{
 		Name: xml.Name{Space: "p", Local: "child"},
-		Attr: []Attr{{Name: xml.Name{Space: "xmlns", Local: "p"}, Value: "urn:child"}},
+		Attr: []Attr{{Name: xml.Name{Space: "xmlns", Local: "p"}, value: "urn:child"}},
 	}
 	childFrame, child, err := namespaceStack.StartStream(&childStart, &values)
 	if err != nil {
@@ -72,7 +72,7 @@ func TestNamespaceDefaultLookupUsesShadowAndRollback(t *testing.T) {
 
 	rootStart := StartElement{
 		Name: xml.Name{Local: "root"},
-		Attr: []Attr{{Name: xml.Name{Local: "xmlns"}, Value: "urn:root"}},
+		Attr: []Attr{{Name: xml.Name{Local: "xmlns"}, value: "urn:root"}},
 	}
 	rootFrame, root, err := namespaceStack.StartStream(&rootStart, &values)
 	if err != nil {
@@ -87,7 +87,7 @@ func TestNamespaceDefaultLookupUsesShadowAndRollback(t *testing.T) {
 
 	childStart := StartElement{
 		Name: xml.Name{Local: "child"},
-		Attr: []Attr{{Name: xml.Name{Local: "xmlns"}, Value: "urn:child"}},
+		Attr: []Attr{{Name: xml.Name{Local: "xmlns"}, value: "urn:child"}},
 	}
 	childFrame, child, err := namespaceStack.StartStream(&childStart, &values)
 	if err != nil {
@@ -115,9 +115,9 @@ func TestNamespaceDefaultLookupUsesShadowAndRollback(t *testing.T) {
 	failedStart := StartElement{
 		Name: xml.Name{Local: "failed"},
 		Attr: []Attr{
-			{Name: xml.Name{Local: "xmlns"}, Value: "urn:failed"},
-			{Name: xml.Name{Local: "x"}, Value: "1"},
-			{Name: xml.Name{Local: "x"}, Value: "2"},
+			{Name: xml.Name{Local: "xmlns"}, value: "urn:failed"},
+			{Name: xml.Name{Local: "x"}, value: "1"},
+			{Name: xml.Name{Local: "x"}, value: "2"},
 		},
 	}
 	if _, _, err := namespaceStack.StartStream(&failedStart, &values); err == nil {
@@ -136,7 +136,7 @@ func TestNamespaceContextRetainsDefaultBindingAfterStackMutation(t *testing.T) {
 	var values cache
 	rootStart := StartElement{
 		Name: xml.Name{Local: "root"},
-		Attr: []Attr{{Name: xml.Name{Local: "xmlns"}, Value: "urn:root"}},
+		Attr: []Attr{{Name: xml.Name{Local: "xmlns"}, value: "urn:root"}},
 	}
 	rootFrame, _, err := namespaceStack.StartStream(&rootStart, &values)
 	if err != nil {
@@ -145,7 +145,7 @@ func TestNamespaceContextRetainsDefaultBindingAfterStackMutation(t *testing.T) {
 	context := namespaceStack.Context()
 	childStart := StartElement{
 		Name: xml.Name{Local: "child"},
-		Attr: []Attr{{Name: xml.Name{Local: "xmlns"}, Value: "urn:child"}},
+		Attr: []Attr{{Name: xml.Name{Local: "xmlns"}, value: "urn:child"}},
 	}
 	childFrame, _, err := namespaceStack.StartStream(&childStart, &values)
 	if err != nil {

@@ -58,7 +58,8 @@ func TestCompileOptionsFacadeForwardsEveryField(t *testing.T) {
 	typ := reflect.TypeFor[xsd.CompileOptions]()
 	for i := range typ.NumField() {
 		field := typ.Field(i)
-		if field.Name == "MaxFiniteOccurs" {
+		// Unsigned limits have no negative error to forward.
+		if field.Type.Kind() == reflect.Uint64 {
 			continue
 		}
 		t.Run(field.Name, func(t *testing.T) {

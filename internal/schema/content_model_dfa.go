@@ -19,39 +19,39 @@ type dfaDeterministicState struct {
 
 type dfaTransitionSet struct {
 	Configs  []dfaConfig
-	Particle Particle
+	Particle contentParticle
 }
 
 type particleTermKey struct {
 	Element  ElementID
 	Wildcard WildcardID
-	Kind     ParticleKind
+	Kind     particleKind
 }
 
-func (b *dfaBuilder) compileDeterministicModel(id ContentModelID, start uint32) (CompiledModel, error) {
+func (b *dfaBuilder) compileDeterministicModel(id contentModelID, start uint32) (compiledModel, error) {
 	caps, capsErr := b.counterCaps()
 	if capsErr != nil {
-		return CompiledModel{}, capsErr
+		return compiledModel{}, capsErr
 	}
 	compilation := deterministicModelCompilation{
 		builder: b, caps: caps, states: make(map[string]uint32),
 	}
 	startID, err := compilation.start(start)
 	if err != nil {
-		return CompiledModel{}, err
+		return compiledModel{}, err
 	}
 	if err := compilation.compileRows(); err != nil {
-		return CompiledModel{}, err
+		return compiledModel{}, err
 	}
 	if err := b.c.checkCompiledRowsUPA(compilation.rows); err != nil {
-		return CompiledModel{}, err
+		return compiledModel{}, err
 	}
-	_, ok := ContentModelByID(b.c.rt.Models, id)
+	_, ok := contentModelByID(b.c.rt.Models, id)
 	if !ok {
-		return CompiledModel{}, xsderrors.InternalInvariant("content model DFA references missing content model")
+		return compiledModel{}, xsderrors.InternalInvariant("content model DFA references missing content model")
 	}
-	return CompiledModel{
-		Kind:  CompiledModelDFA,
+	return compiledModel{
+		Kind:  compiledModelDFA,
 		Rows:  compilation.rows,
 		Start: startID,
 		Empty: compilation.rows[startID].Accept,
@@ -63,7 +63,7 @@ type deterministicModelCompilation struct {
 	caps    []uint32
 	states  map[string]uint32
 	queue   []dfaDeterministicState
-	rows    []CompiledModelRow
+	rows    []compiledModelRow
 }
 
 func (c *deterministicModelCompilation) start(start uint32) (uint32, error) {
@@ -119,28 +119,28 @@ func (c *deterministicModelCompilation) compileRows() error {
 	return nil
 }
 
-func (b *dfaBuilder) deterministicRow(state dfaDeterministicState, caps []uint32, stateID func(dfaDeterministicState) (uint32, error)) (CompiledModelRow, error) {
-	var row CompiledModelRow
+func (b *dfaBuilder) deterministicRow(state dfaDeterministicState, caps []uint32, stateID func(dfaDeterministicState) (uint32, error)) (compiledModelRow, error) {
+	var row compiledModelRow
 	groups := make(map[particleTermKey]*dfaTransitionSet)
 	for _, config := range state.Configs {
 		if err := b.collectDeterministicConfig(&row, groups, config, caps); err != nil {
-			return CompiledModelRow{}, err
+			return compiledModelRow{}, err
 		}
 	}
 	if err := b.c.work.spend(len(groups)); err != nil {
-		return CompiledModelRow{}, err
+		return compiledModelRow{}, err
 	}
 	keys := sortedParticleTermKeys(groups)
 	for _, key := range keys {
 		if err := b.appendDeterministicTransition(&row, groups[key], stateID); err != nil {
-			return CompiledModelRow{}, err
+			return compiledModelRow{}, err
 		}
 	}
 	return row, nil
 }
 
-func (b *dfaBuilder) collectDeterministicConfig(row *CompiledModelRow, groups map[particleTermKey]*dfaTransitionSet, config dfaConfig, caps []uint32) error {
-	if !ValidUint32Index(config.State, len(b.rows)) {
+func (b *dfaBuilder) collectDeterministicConfig(row *compiledModelRow, groups map[particleTermKey]*dfaTransitionSet, config dfaConfig, caps []uint32) error {
+	if !validUint32Index(config.State, len(b.rows)) {
 		return xsderrors.InternalInvariant("content model DFA state out of range")
 	}
 	source := b.rows[config.State]
@@ -153,7 +153,7 @@ func (b *dfaBuilder) collectDeterministicConfig(row *CompiledModelRow, groups ma
 	return b.collectDeterministicEdges(groups, source.Edges, config, caps)
 }
 
-func (b *dfaBuilder) collectDeterministicAccept(row *CompiledModelRow, accepts []dfaAccept, config dfaConfig, caps []uint32) error {
+func (b *dfaBuilder) collectDeterministicAccept(row *compiledModelRow, accepts []dfaAccept, config dfaConfig, caps []uint32) error {
 	for _, accept := range accepts {
 		if err := b.c.work.spend(len(accept.Guards)); err != nil {
 			return err
@@ -208,7 +208,7 @@ func sortedParticleTermKeys(groups map[particleTermKey]*dfaTransitionSet) []part
 	return keys
 }
 
-func (b *dfaBuilder) appendDeterministicTransition(row *CompiledModelRow, group *dfaTransitionSet, stateID func(dfaDeterministicState) (uint32, error)) error {
+func (b *dfaBuilder) appendDeterministicTransition(row *compiledModelRow, group *dfaTransitionSet, stateID func(dfaDeterministicState) (uint32, error)) error {
 	if err := b.spendDFAConfigs(group.Configs); err != nil {
 		return err
 	}
@@ -220,7 +220,7 @@ func (b *dfaBuilder) appendDeterministicTransition(row *CompiledModelRow, group 
 	if err != nil {
 		return err
 	}
-	row.Edges = append(row.Edges, CompiledModelEdge{Particle: group.Particle, To: to})
+	row.Edges = append(row.Edges, compiledModelEdge{Particle: group.Particle, To: to})
 	return nil
 }
 
@@ -267,7 +267,7 @@ func (b *dfaBuilder) spendDFAConfigs(configs []dfaConfig) error {
 
 func addCounterCaps(caps []uint32, guards []compiledGuard) {
 	for _, guard := range guards {
-		if !ValidUint32Index(guard.Slot, len(caps)) || guard.N == 0 {
+		if !validUint32Index(guard.Slot, len(caps)) || guard.N == 0 {
 			continue
 		}
 		caps[guard.Slot] = max(caps[guard.Slot], guard.N-1)
@@ -284,7 +284,7 @@ func dfaGuardsOK(counters, caps []uint32, guards []compiledGuard) bool {
 }
 
 func dfaGuardOK(counters, caps []uint32, guard compiledGuard) bool {
-	if !ValidUint32Index(guard.Slot, len(counters)) || !ValidUint32Index(guard.Slot, len(caps)) {
+	if !validUint32Index(guard.Slot, len(counters)) || !validUint32Index(guard.Slot, len(caps)) {
 		return false
 	}
 	count := counters[guard.Slot]
@@ -301,7 +301,7 @@ func dfaGuardOK(counters, caps []uint32, guard compiledGuard) bool {
 func applyDFAActions(counters, caps []uint32, actions []compiledAction) ([]uint32, error) {
 	out := slices.Clone(counters)
 	for _, action := range actions {
-		if !ValidUint32Index(action.Slot, len(out)) {
+		if !validUint32Index(action.Slot, len(out)) {
 			return nil, xsderrors.InternalInvariant("content model DFA action references invalid counter")
 		}
 		switch action.Kind {
@@ -357,13 +357,13 @@ func dfaConfigStateKey(configs []dfaConfig) string {
 	return string(b)
 }
 
-func particleTermKeyOf(p Particle) particleTermKey {
+func particleTermKeyOf(p contentParticle) particleTermKey {
 	switch p.Kind {
-	case ParticleElement:
+	case particleElement:
 		return particleTermKey{Kind: p.Kind, Element: p.Element}
-	case ParticleWildcard:
+	case particleWildcard:
 		return particleTermKey{Kind: p.Kind, Wildcard: p.Wildcard}
-	case ParticleModel:
+	case particleModel:
 		return particleTermKey{Kind: p.Kind, Element: p.Element, Wildcard: p.Wildcard}
 	default:
 	}

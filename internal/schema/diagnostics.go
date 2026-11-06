@@ -21,14 +21,14 @@ func newDiagnosticNames(build *schemaBuild) diagnosticNames {
 		names.identities[i] = identity.Name
 	}
 	for i, typ := range build.SimpleTypes {
-		names.simpleTypes[i] = NoQName()
-		if typ.Scope == DeclarationScopeGlobal {
+		names.simpleTypes[i] = noQName()
+		if typ.Scope == declarationScopeGlobal {
 			names.simpleTypes[i] = typ.Name
 		}
 	}
 	for i, typ := range build.ComplexTypes {
-		names.complexTypes[i] = NoQName()
-		if typ.Scope == DeclarationScopeGlobal {
+		names.complexTypes[i] = noQName()
+		if typ.Scope == declarationScopeGlobal {
 			names.complexTypes[i] = typ.Name
 		}
 	}
@@ -56,7 +56,7 @@ func (rt *Schema) DiagnosticElementName(id ElementID) (ExpandedName, bool) {
 
 // DiagnosticIdentityName returns the expanded declaration name on failure.
 func (rt *Schema) DiagnosticIdentityName(id IdentityConstraintID) (ExpandedName, bool) {
-	if rt == nil || !ValidIdentityConstraintID(id, len(rt.program.DiagnosticNames.identities)) {
+	if rt == nil || !validIdentityConstraintID(id, len(rt.program.DiagnosticNames.identities)) {
 		return ExpandedName{}, false
 	}
 	return rt.diagnosticName(rt.program.DiagnosticNames.identities[id])
@@ -69,13 +69,13 @@ func (rt *Schema) DiagnosticTypeName(id TypeID) (ExpandedName, bool) {
 		return ExpandedName{}, false
 	}
 	if simple, ok := id.Simple(); ok {
-		if !ValidSimpleTypeID(simple, len(rt.program.DiagnosticNames.simpleTypes)) {
+		if !validSimpleTypeID(simple, len(rt.program.DiagnosticNames.simpleTypes)) {
 			return ExpandedName{}, false
 		}
 		return rt.diagnosticName(rt.program.DiagnosticNames.simpleTypes[simple])
 	}
 	if complexID, ok := id.Complex(); ok {
-		if !ValidComplexTypeID(complexID, len(rt.program.DiagnosticNames.complexTypes)) {
+		if !validComplexTypeID(complexID, len(rt.program.DiagnosticNames.complexTypes)) {
 			return ExpandedName{}, false
 		}
 		return rt.diagnosticName(rt.program.DiagnosticNames.complexTypes[complexID])
@@ -89,7 +89,7 @@ type ContentExpectation struct {
 	Name              ExpandedName
 	ExcludedNamespace string
 	Namespaces        []string
-	WildcardMode      WildcardMode
+	WildcardMode      wildcardMode
 	IsWildcard        bool
 	MoreNamespaces    bool
 }
@@ -119,12 +119,12 @@ type contentExpectationProjection struct {
 	remaining int
 }
 
-// ContentExpectationPurpose selects the failure being explained.
-type ContentExpectationPurpose uint8
+// contentExpectationPurpose selects the failure being explained.
+type contentExpectationPurpose uint8
 
 const (
 	// ExpectedNextChild explains an unexpected child at the current state.
-	ExpectedNextChild ContentExpectationPurpose = iota
+	ExpectedNextChild contentExpectationPurpose = iota
 	// MissingRequiredContent explains why the current content cannot end.
 	MissingRequiredContent
 )
@@ -134,8 +134,8 @@ const (
 // incomplete content. DFA alternatives retain their existing occurrence guards.
 // At most 256 edges, all terms, and raw substitution entries are inspected.
 // valid distinguishes invalid metadata from a valid state with no alternatives.
-func (rt *Schema) ExpectedContent(state ContentState, scratch *ContentScratch, purpose ContentExpectationPurpose) (result ContentExpectations, valid bool) {
-	if !state.HasModel() || !ValidContentModelID(state.model, len(rt.program.CompiledModels)) {
+func (rt *Schema) ExpectedContent(state ContentState, scratch *ContentScratch, purpose contentExpectationPurpose) (result ContentExpectations, valid bool) {
+	if !state.HasModel() || !validContentModelID(state.model, len(rt.program.CompiledModels)) {
 		return result, false
 	}
 	if purpose != ExpectedNextChild && purpose != MissingRequiredContent {
@@ -144,14 +144,14 @@ func (rt *Schema) ExpectedContent(state ContentState, scratch *ContentScratch, p
 	projection := contentExpectationProjection{schema: rt, remaining: 256}
 	model := &rt.program.CompiledModels[state.model]
 	switch model.Kind {
-	case CompiledModelEmpty:
+	case compiledModelEmpty:
 		return result, true
-	case CompiledModelAny:
+	case compiledModelAny:
 		projection.add(ContentExpectation{IsWildcard: true, WildcardMode: WildcardAny})
 		return projection.result, true
-	case CompiledModelAll:
+	case compiledModelAll:
 		valid = projection.allContent(model, scratch, purpose)
-	case CompiledModelDFA:
+	case compiledModelDFA:
 		valid = projection.dfaContent(state, model)
 	default:
 		return result, false
@@ -162,7 +162,7 @@ func (rt *Schema) ExpectedContent(state ContentState, scratch *ContentScratch, p
 	return projection.result, true
 }
 
-func (p *contentExpectationProjection) allContent(model *compiledModelRead, scratch *ContentScratch, purpose ContentExpectationPurpose) bool {
+func (p *contentExpectationProjection) allContent(model *compiledModelRead, scratch *ContentScratch, purpose contentExpectationPurpose) bool {
 	for index, term := range model.All {
 		if p.result.More || !p.spend() {
 			return true
@@ -174,7 +174,7 @@ func (p *contentExpectationProjection) allContent(model *compiledModelRead, scra
 	return true
 }
 
-func (p *contentExpectationProjection) allTerm(term compiledAllTermRead, index int, scratch *ContentScratch, purpose ContentExpectationPurpose) bool {
+func (p *contentExpectationProjection) allTerm(term compiledAllTermRead, index int, scratch *ContentScratch, purpose contentExpectationPurpose) bool {
 	seen, valid := scratch.AllSeen(index)
 	if !valid {
 		return false
@@ -186,7 +186,7 @@ func (p *contentExpectationProjection) allTerm(term compiledAllTermRead, index i
 }
 
 func (p *contentExpectationProjection) dfaContent(state ContentState, model *compiledModelRead) bool {
-	if !ValidUint32Index(state.state, len(model.Rows)) {
+	if !validUint32Index(state.state, len(model.Rows)) {
 		return false
 	}
 	for _, edge := range model.Rows[state.state].Edges {
@@ -201,7 +201,7 @@ func (p *contentExpectationProjection) dfaContent(state ContentState, model *com
 }
 
 func (p *contentExpectationProjection) dfaEdge(state ContentState, model *compiledModelRead, edge compiledModelEdgeRead) bool {
-	if !ValidUint32Index(edge.To, len(model.Rows)) {
+	if !validUint32Index(edge.To, len(model.Rows)) {
 		return false
 	}
 	if _, valid := nextPublishedDFAState(state, model, edge); !valid {
@@ -233,10 +233,10 @@ func (p *contentExpectationProjection) add(item ContentExpectation) {
 }
 func (p *contentExpectationProjection) particle(particle compiledParticleRead) bool {
 	switch particle.Kind {
-	case ParticleElement:
+	case particleElement:
 		return p.element(particle.Element)
-	case ParticleWildcard:
-		if !ValidWildcardID(particle.Wildcard, len(p.schema.program.Wildcards)) {
+	case particleWildcard:
+		if !validWildcardID(particle.Wildcard, len(p.schema.program.Wildcards)) {
 			return false
 		}
 		wildcard := p.schema.program.Wildcards[particle.Wildcard]
@@ -246,7 +246,7 @@ func (p *contentExpectationProjection) particle(particle compiledParticleRead) b
 		count := min(len(wildcard.namespaces), diagnostictext.MaxAlternatives)
 		p.add(ContentExpectation{IsWildcard: true, WildcardMode: wildcard.mode, ExcludedNamespace: wildcard.otherThan, Namespaces: slices.Clone(wildcard.namespaces[:count]), MoreNamespaces: count < len(wildcard.namespaces)})
 		return true
-	case ParticleModel:
+	case particleModel:
 		return false
 	}
 	return false

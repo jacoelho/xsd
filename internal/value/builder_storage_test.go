@@ -51,7 +51,7 @@ func TestBuilderReserveCapacityChargesSlotAdmission(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			builder := NewBuilder(BuilderOptions{MaxStorageBytes: test.maxStorage})
+			builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxStorageBytes: test.maxStorage})
 			err := builder.ReserveCapacity(test.userTypes)
 			if test.wantErr {
 				if !errors.Is(err, ErrLimit) {
@@ -99,7 +99,7 @@ func TestBuilderReserveCapacityChargesSlotAdmission(t *testing.T) {
 func TestBuilderReserveCapacityFailureCanBeRetried(t *testing.T) {
 	t.Parallel()
 
-	builder := NewBuilder(BuilderOptions{MaxStorageBytes: typeStorageBase})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxStorageBytes: typeStorageBase})
 	if err := builder.ReserveCapacity(2); !errors.Is(err, ErrLimit) {
 		t.Fatalf("initial ReserveCapacity() error = %v, want ErrLimit", err)
 	}
@@ -121,7 +121,7 @@ func TestBuilderReserveCapacityFailureCanBeRetried(t *testing.T) {
 func TestBuilderReserveCapacityKeepsCompletionStateAfterReserve(t *testing.T) {
 	t.Parallel()
 
-	builder := NewBuilder(BuilderOptions{MaxStorageBytes: 2 * typeStorageBase})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxStorageBytes: 2 * typeStorageBase})
 	first, err := builder.Reserve()
 	if err != nil {
 		t.Fatal(err)
@@ -148,7 +148,7 @@ func TestBuilderReserveCapacityKeepsCompletionStateAfterReserve(t *testing.T) {
 func TestBuilderReserveCompleteConsumesReservedSlotWithoutDoubleCharge(t *testing.T) {
 	t.Parallel()
 
-	builder := NewBuilder(BuilderOptions{MaxStorageBytes: typeStorageBase})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxStorageBytes: typeStorageBase})
 	if err := builder.ReserveCapacity(1); err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +177,7 @@ func TestBuilderReserveCompleteChargesMetadataOnce(t *testing.T) {
 	t.Run("reserve and complete", func(t *testing.T) {
 		t.Parallel()
 
-		builder := NewBuilder(BuilderOptions{MaxStorageBytes: maxStorage})
+		builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxStorageBytes: maxStorage})
 		for i := range 2 {
 			id, err := builder.Reserve()
 			if err != nil {
@@ -204,7 +204,7 @@ func TestBuilderCompletedTypesWithPreallocationChargeMetadataOnce(t *testing.T) 
 	if !ok {
 		t.Fatal("metadata type storage overflowed")
 	}
-	builder := NewBuilder(BuilderOptions{MaxStorageBytes: 2 * storage})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxStorageBytes: 2 * storage})
 	if err := builder.ReserveCapacity(2); err != nil {
 		t.Fatalf("ReserveCapacity() = %v", err)
 	}
@@ -232,7 +232,7 @@ func TestBuilderCompleteFailureCanRetryWithoutExtraCharge(t *testing.T) {
 	if !ok {
 		t.Fatal("metadata type storage overflowed")
 	}
-	builder := NewBuilder(BuilderOptions{MaxStorageBytes: storage})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxStorageBytes: storage})
 	id, err := builder.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() = %v", err)
@@ -254,7 +254,7 @@ func TestBuilderCompleteFailureCanRetryWithoutExtraCharge(t *testing.T) {
 func TestBuilderReserveCapacityRepeatedAdmissionIsIncremental(t *testing.T) {
 	t.Parallel()
 
-	builder := NewBuilder(BuilderOptions{MaxStorageBytes: 2 * typeStorageBase})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxStorageBytes: 2 * typeStorageBase})
 	if err := builder.ReserveCapacity(1); err != nil {
 		t.Fatal(err)
 	}
@@ -295,7 +295,7 @@ func TestBuilderReserveCapacityGrowsToRequestedTargetAfterSlack(t *testing.T) {
 
 	const firstTarget = 100
 	const secondTarget = 200
-	builder := NewBuilder(BuilderOptions{MaxStorageBytes: secondTarget * typeStorageBase})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxStorageBytes: secondTarget * typeStorageBase})
 	if err := builder.ReserveCapacity(firstTarget); err != nil {
 		t.Fatal(err)
 	}
@@ -309,7 +309,7 @@ func TestBuilderReserveCapacityGrowsToRequestedTargetAfterSlack(t *testing.T) {
 
 func TestBuilderCompletionRequiresCompletedDependencies(t *testing.T) {
 	t.Parallel()
-	builder := NewBuilder(BuilderOptions{})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	derived, reserveErr := builder.Reserve()
 	if reserveErr != nil {
 		t.Fatal(reserveErr)
@@ -355,29 +355,29 @@ func TestBuilderCompletionRequiresCompletedDependencies(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := program.Validate(derived, "9", Resolver{}, 0, 16<<20, nil); !errors.Is(err, ErrFacet) {
+	if _, err := program.Validate(derived, "9", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); !errors.Is(err, ErrFacet) {
 		t.Fatalf("derived value below inherited bound = %v, want ErrFacet", err)
 	}
-	if _, err := program.Validate(derived, "10", Resolver{}, 0, 16<<20, nil); err != nil {
+	if _, err := program.Validate(derived, "10", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 		t.Fatalf("derived value at inherited bound = %v", err)
 	}
-	if got, err := program.Validate(neighbor, "unchanged", Resolver{}, NeedCanonical, 16<<20, nil); err != nil || got.CanonicalText() != "unchanged" {
+	if got, err := program.Validate(neighbor, "unchanged", Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil || got.CanonicalText() != "unchanged" {
 		t.Fatalf("published neighbor = %q, %v", got.CanonicalText(), err)
 	}
 }
 
 func TestBuilderCompleteOwnsSourceMetadata(t *testing.T) {
 	t.Parallel()
-	pattern, patternErr := xsdregex.Compile("true", xsdregex.CompileOptions{})
+	pattern, patternErr := xsdregex.Compile("true")
 	if patternErr != nil {
 		t.Fatal(patternErr)
 	}
-	replacement, replacementErr := xsdregex.Compile("false", xsdregex.CompileOptions{})
+	replacement, replacementErr := xsdregex.Compile("false")
 	if replacementErr != nil {
 		t.Fatal(replacementErr)
 	}
 	spec := TypeSpec{Variety: Union, Whitespace: WhitespaceCollapse, WhitespacePresent: true, Base: NoType, ListItem: NoType, Union: []TypeID{builtinBoolean, builtinDecimal}, Facets: FacetSpec{Patterns: [][]*Pattern{{pattern}}, Enumeration: []LiteralSpec{{Lexical: "true", Type: NoType}}}}
-	builder := NewBuilder(BuilderOptions{})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, reserveErr := builder.Reserve()
 	if reserveErr != nil {
 		t.Fatal(reserveErr)
@@ -398,10 +398,10 @@ func TestBuilderCompleteOwnsSourceMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, err := program.Validate(id, "true", Resolver{}, NeedCanonical, 16<<20, nil); err != nil || got.CanonicalText() != "true" || got.SelectedType() != builtinBoolean {
+	if got, err := program.Validate(id, "true", Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil || got.CanonicalText() != "true" || got.SelectedType() != builtinBoolean {
 		t.Fatalf("published original value = canonical %q selected %d error %v, want true/boolean", got.CanonicalText(), got.SelectedType(), err)
 	}
-	if _, err := program.Validate(id, "false", Resolver{}, 0, 16<<20, nil); !errors.Is(err, ErrFacet) {
+	if _, err := program.Validate(id, "false", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); !errors.Is(err, ErrFacet) {
 		t.Fatalf("published replacement value = %v, want ErrFacet", err)
 	}
 }
@@ -420,7 +420,7 @@ func TestProgramBoundLiteralTypeAdmissionAndRetry(t *testing.T) {
 		{"decimal first union", "decimal-first", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			b := NewBuilder(BuilderOptions{})
+			b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 			complete := func(spec TypeSpec) TypeID {
 				t.Helper()
 				id, reserveErr := b.Reserve()
@@ -480,16 +480,16 @@ func TestProgramBoundLiteralTypeAdmissionAndRetry(t *testing.T) {
 			if sealErr != nil {
 				t.Fatal(sealErr)
 			}
-			if _, validationErr := p.Validate(id, "1", Resolver{}, 0, 16<<20, nil); validationErr != nil {
+			if _, validationErr := p.Validate(id, "1", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); validationErr != nil {
 				t.Fatalf("Validate(boundary) = %v", validationErr)
 			}
-			if _, validationErr := p.ValidateBytes(id, []byte("1"), Resolver{}, 0, 16<<20, nil); validationErr != nil {
+			if _, validationErr := p.ValidateBytes(id, []byte("1"), Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); validationErr != nil {
 				t.Fatalf("ValidateBytes(boundary) = %v", validationErr)
 			}
-			if _, validationErr := p.Validate(id, "0", Resolver{}, 0, 16<<20, nil); !errors.Is(validationErr, ErrFacet) || !strings.Contains(validationErr.Error(), "minInclusive") {
+			if _, validationErr := p.Validate(id, "0", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); !errors.Is(validationErr, ErrFacet) || !strings.Contains(validationErr.Error(), "minInclusive") {
 				t.Fatalf("Validate(below bound) = %v, want minInclusive facet rejection", validationErr)
 			}
-			if _, validationErr := p.ValidateBytes(id, []byte("0"), Resolver{}, 0, 16<<20, nil); !errors.Is(validationErr, ErrFacet) || !strings.Contains(validationErr.Error(), "minInclusive") {
+			if _, validationErr := p.ValidateBytes(id, []byte("0"), Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); !errors.Is(validationErr, ErrFacet) || !strings.Contains(validationErr.Error(), "minInclusive") {
 				t.Fatalf("ValidateBytes(below bound) = %v, want minInclusive facet rejection", validationErr)
 			}
 		})

@@ -7,17 +7,17 @@ import (
 )
 
 func TestNameIDAllocatorsReserveAbsentSentinel(t *testing.T) {
-	names, err := NewNameTable(0, testRequiredNamespaces, testRequiredNames)
+	names, err := newNameTable(0, testRequiredNamespaces, testRequiredNames)
 	if err != nil {
 		t.Fatalf("NewNameTable() error = %v", err)
 	}
-	if names.ValidQName(NoQName()) {
+	if names.ValidQName(noQName()) {
 		t.Fatal("NameTable.ValidQName() accepted NoQName()")
 	}
-	if _, err := nextNamespaceID(-1); !errors.Is(err, ErrNamespaceLimit) {
+	if _, err := nextNamespaceID(-1); !errors.Is(err, errNamespaceLimit) {
 		t.Fatalf("nextNamespaceID(-1) error = %v, want ErrNamespaceLimit", err)
 	}
-	if _, err := nextLocalNameID(-1); !errors.Is(err, ErrLocalNameLimit) {
+	if _, err := nextLocalNameID(-1); !errors.Is(err, errLocalNameLimit) {
 		t.Fatalf("nextLocalNameID(-1) error = %v, want ErrLocalNameLimit", err)
 	}
 	if strconv.IntSize <= 32 {
@@ -27,16 +27,16 @@ func TestNameIDAllocatorsReserveAbsentSentinel(t *testing.T) {
 	if id, err := nextNamespaceID(int(sentinel - 1)); err != nil || uint64(id) != sentinel-1 {
 		t.Fatalf("nextNamespaceID(invalidID-1) = %d, %v", id, err)
 	}
-	if _, err := nextNamespaceID(int(sentinel)); !errors.Is(err, ErrNamespaceLimit) {
+	if _, err := nextNamespaceID(int(sentinel)); !errors.Is(err, errNamespaceLimit) {
 		t.Fatalf("nextNamespaceID(invalidID) error = %v, want ErrNamespaceLimit", err)
 	}
 	if id, err := nextLocalNameID(int(sentinel - 1)); err != nil || uint64(id) != sentinel-1 {
 		t.Fatalf("nextLocalNameID(invalidID-1) = %d, %v", id, err)
 	}
-	if _, err := nextLocalNameID(int(sentinel)); !errors.Is(err, ErrLocalNameLimit) {
+	if _, err := nextLocalNameID(int(sentinel)); !errors.Is(err, errLocalNameLimit) {
 		t.Fatalf("nextLocalNameID(invalidID) error = %v, want ErrLocalNameLimit", err)
 	}
-	if _, err := nextLocalNameID(int(sentinel)); !errors.Is(err, ErrLocalNameLimit) {
+	if _, err := nextLocalNameID(int(sentinel)); !errors.Is(err, errLocalNameLimit) {
 		t.Fatalf("nextLocalNameID(local exhausted) error = %v, want ErrLocalNameLimit", err)
 	}
 }
@@ -54,7 +54,7 @@ var testRequiredNames = []ExpandedName{
 
 func TestNameTableOwnsEmptyNamespaceIdentity(t *testing.T) {
 	for _, namespaces := range [][]string{nil, {"urn:other"}, {"urn:other", ""}, {"", "urn:other", ""}} {
-		names, err := NewNameTable(0, namespaces, []ExpandedName{{Local: "item"}})
+		names, err := newNameTable(0, namespaces, []ExpandedName{{Local: "item"}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -62,8 +62,8 @@ func TestNameTableOwnsEmptyNamespaceIdentity(t *testing.T) {
 		if !ok || names.Namespace(name.Namespace) != "" {
 			t.Fatalf("unqualified name with seeds %q resolves to %q, found %v", namespaces, names.Namespace(name.Namespace), ok)
 		}
-		if name.Namespace != EmptyNamespaceID {
-			t.Fatalf("empty namespace ID = %d, want %d", name.Namespace, EmptyNamespaceID)
+		if name.Namespace != emptyNamespaceID {
+			t.Fatalf("empty namespace ID = %d, want %d", name.Namespace, emptyNamespaceID)
 		}
 		view := newNameReadView(&names)
 		frozen, ok := view.LookupQName("", "item")
@@ -77,18 +77,18 @@ func TestNameTableOwnsEmptyNamespaceIdentity(t *testing.T) {
 }
 
 func TestNameTableChargesRequiredEmptyNamespace(t *testing.T) {
-	if _, err := NewNameTable(1, []string{"urn:other"}, nil); !errors.Is(err, ErrNameLimit) {
+	if _, err := newNameTable(1, []string{"urn:other"}, nil); !errors.Is(err, errNameLimit) {
 		t.Fatalf("one-slot table = %v, want name limit for two namespaces", err)
 	}
-	if _, err := NewNameTable(2, []string{"urn:other"}, nil); err != nil {
+	if _, err := newNameTable(2, []string{"urn:other"}, nil); err != nil {
 		t.Fatalf("two-slot table = %v, want success", err)
 	}
 }
 
 func TestNameTableValidationRejectsMisplacedEmptyNamespace(t *testing.T) {
-	names := NameTable{
+	names := nameTable{
 		namespaces: []string{"urn:other", ""},
-		nsIndex:    map[string]NamespaceID{"urn:other": 0, "": 1},
+		nsIndex:    map[string]namespaceID{"urn:other": 0, "": 1},
 	}
 	if err := names.Validate(nil, nil); err == nil {
 		t.Fatal("Validate accepted an empty namespace with a nonzero ID")
@@ -98,25 +98,25 @@ func TestNameTableValidationRejectsMisplacedEmptyNamespace(t *testing.T) {
 func TestNameTableLimitStopsGrowthAfterFailure(t *testing.T) {
 	t.Parallel()
 
-	seed, err := NewNameTable(0, testRequiredNamespaces, testRequiredNames)
+	seed, err := newNameTable(0, testRequiredNamespaces, testRequiredNames)
 	if err != nil {
 		t.Fatalf("NewNameTable() error = %v", err)
 	}
-	names, err := NewNameTable(seed.NameCount()+1, testRequiredNamespaces, testRequiredNames)
+	names, err := newNameTable(seed.NameCount()+1, testRequiredNamespaces, testRequiredNames)
 	if err != nil {
 		t.Fatalf("NewNameTable() with limit error = %v", err)
 	}
 	base := names.NameCount()
-	interner := NewNameInterner(&names)
+	interner := newNameInterner(&names)
 
-	if _, err := interner.InternQName("urn:new", "new"); !errors.Is(err, ErrNameLimit) {
+	if _, err := interner.InternQName("urn:new", "new"); !errors.Is(err, errNameLimit) {
 		t.Fatalf("InternQName() error = %v, want ErrNameLimit", err)
 	}
 	if got := names.NameCount(); got != base {
 		t.Fatalf("name count after first failure = %d, want %d", got, base)
 	}
 
-	if _, err := interner.InternQName("urn:other", "other"); !errors.Is(err, ErrNameLimit) {
+	if _, err := interner.InternQName("urn:other", "other"); !errors.Is(err, errNameLimit) {
 		t.Fatalf("second InternQName() error = %v, want ErrNameLimit", err)
 	}
 	if got := names.NameCount(); got != base {
@@ -127,7 +127,7 @@ func TestNameTableLimitStopsGrowthAfterFailure(t *testing.T) {
 func TestNameTableValidateRejectsInconsistentIndexes(t *testing.T) {
 	t.Parallel()
 
-	names, err := NewNameTable(0, testRequiredNamespaces, testRequiredNames)
+	names, err := newNameTable(0, testRequiredNamespaces, testRequiredNames)
 	if err != nil {
 		t.Fatalf("NewNameTable() error = %v", err)
 	}
@@ -139,7 +139,7 @@ func TestNameTableValidateRejectsInconsistentIndexes(t *testing.T) {
 	}
 
 	staleNamespace := names.Clone()
-	staleNamespace.nsIndex[XSDNamespaceURI] = EmptyNamespaceID
+	staleNamespace.nsIndex[XSDNamespaceURI] = emptyNamespaceID
 	if err := staleNamespace.Validate(testRequiredNamespaces, testRequiredNames); err == nil {
 		t.Fatal("Validate() accepted stale namespace reverse map")
 	}
@@ -148,11 +148,11 @@ func TestNameTableValidateRejectsInconsistentIndexes(t *testing.T) {
 func TestRuntimeNameTableIncludesRequiredSeeds(t *testing.T) {
 	t.Parallel()
 
-	names, err := NewRuntimeNameTable(0)
+	names, err := newRuntimeNameTable(0)
 	if err != nil {
 		t.Fatalf("NewRuntimeNameTable() error = %v", err)
 	}
-	if err := ValidateRuntimeNameTable(&names); err != nil {
+	if err := validateRuntimeNameTable(&names); err != nil {
 		t.Fatalf("ValidateRuntimeNameTable() error = %v", err)
 	}
 	for _, uri := range []string{
@@ -179,7 +179,7 @@ func TestRuntimeNameTableIncludesRequiredSeeds(t *testing.T) {
 
 	missing := names.Clone()
 	delete(missing.localIndex, "type")
-	if err := ValidateRuntimeNameTable(&missing); err == nil {
+	if err := validateRuntimeNameTable(&missing); err == nil {
 		t.Fatal("ValidateRuntimeNameTable() accepted missing required name")
 	}
 }
@@ -187,12 +187,12 @@ func TestRuntimeNameTableIncludesRequiredSeeds(t *testing.T) {
 func TestNameTableCloneDoesNotAlias(t *testing.T) {
 	t.Parallel()
 
-	names, err := NewNameTable(0, testRequiredNamespaces, testRequiredNames)
+	names, err := newNameTable(0, testRequiredNamespaces, testRequiredNames)
 	if err != nil {
 		t.Fatalf("NewNameTable() error = %v", err)
 	}
 	clone := names.Clone()
-	interner := NewNameInterner(&names)
+	interner := newNameInterner(&names)
 	if _, err := interner.InternQName("urn:new", "new"); err != nil {
 		t.Fatalf("InternQName() error = %v", err)
 	}

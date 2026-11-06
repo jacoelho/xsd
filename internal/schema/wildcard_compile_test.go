@@ -12,8 +12,8 @@ func TestParseWildcard(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		attrs      WildcardAttrs
-		wantMode   WildcardMode
+		attrs      wildcardAttrs
+		wantMode   wildcardMode
 		wantNS     []string
 		wantOther  string
 		wantProc   ProcessContents
@@ -23,44 +23,44 @@ func TestParseWildcard(t *testing.T) {
 		{
 			name:       "defaults to any strict",
 			wantMode:   WildcardAny,
-			wantProc:   ProcessStrict,
+			wantProc:   processStrict,
 			wantNoName: true,
 		},
 		{
 			name: "other uses target namespace",
-			attrs: WildcardAttrs{
+			attrs: wildcardAttrs{
 				Namespace:       "##other",
 				TargetNamespace: "urn:t",
 				HasNamespace:    true,
 			},
 			wantMode:  WildcardOther,
 			wantOther: "urn:t",
-			wantProc:  ProcessStrict,
+			wantProc:  processStrict,
 		},
 		{
 			name: "local",
-			attrs: WildcardAttrs{
+			attrs: wildcardAttrs{
 				Namespace:    "##local",
 				HasNamespace: true,
 			},
 			wantMode:   WildcardLocal,
-			wantProc:   ProcessStrict,
+			wantProc:   processStrict,
 			wantNoName: true,
 		},
 		{
 			name: "target namespace",
-			attrs: WildcardAttrs{
+			attrs: wildcardAttrs{
 				Namespace:       "##targetNamespace",
 				TargetNamespace: "urn:t",
 				HasNamespace:    true,
 			},
 			wantMode: WildcardTargetNamespace,
 			wantNS:   []string{"urn:t"},
-			wantProc: ProcessStrict,
+			wantProc: processStrict,
 		},
 		{
 			name: "list normalizes XML whitespace and duplicates",
-			attrs: WildcardAttrs{
+			attrs: wildcardAttrs{
 				Namespace:          "urn:b\t##local\nurn:a\rurn:b ##targetNamespace",
 				ProcessContents:    "lax",
 				TargetNamespace:    "urn:t",
@@ -73,7 +73,7 @@ func TestParseWildcard(t *testing.T) {
 		},
 		{
 			name: "invalid reserved namespace token",
-			attrs: WildcardAttrs{
+			attrs: wildcardAttrs{
 				Namespace:    "urn:a ##bogus",
 				HasNamespace: true,
 			},
@@ -81,7 +81,7 @@ func TestParseWildcard(t *testing.T) {
 		},
 		{
 			name: "invalid anyURI namespace",
-			attrs: WildcardAttrs{
+			attrs: wildcardAttrs{
 				Namespace:    "urn:a %zz",
 				HasNamespace: true,
 			},
@@ -89,7 +89,7 @@ func TestParseWildcard(t *testing.T) {
 		},
 		{
 			name: "invalid process contents",
-			attrs: WildcardAttrs{
+			attrs: wildcardAttrs{
 				ProcessContents:    "open",
 				HasProcessContents: true,
 			},
@@ -101,15 +101,15 @@ func TestParseWildcard(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			names, nameErr := NewNameTable(64, []string{EmptyNamespaceURI}, nil)
+			names, nameErr := newNameTable(64, []string{EmptyNamespaceURI}, nil)
 			if nameErr != nil {
 				t.Fatal(nameErr)
 			}
-			interner := NewNameInterner(&names)
+			interner := newNameInterner(&names)
 			if tt.wantNoName {
-				interner = NameInterner{}
+				interner = nameInterner{}
 			}
-			got, err := ParseWildcard(interner, tt.attrs)
+			got, err := parseWildcard(interner, tt.attrs)
 			if tt.wantCode != "" {
 				expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, tt.wantCode)
 				return
@@ -124,7 +124,7 @@ func TestParseWildcard(t *testing.T) {
 				t.Fatalf("OtherThan = %d, want namespace %q", got.OtherThan, tt.wantOther)
 			}
 			if tt.wantNS != nil {
-				var want []NamespaceID
+				var want []namespaceID
 				for _, uri := range tt.wantNS {
 					want = append(want, wildcardNamespaceIDForTest(t, &names, uri))
 				}
@@ -139,11 +139,11 @@ func TestParseWildcard(t *testing.T) {
 func TestParseWildcardRequiresNamespaceInternerWhenInterning(t *testing.T) {
 	t.Parallel()
 
-	_, err := ParseWildcard(NameInterner{}, WildcardAttrs{Namespace: "##other", HasNamespace: true})
+	_, err := parseWildcard(nameInterner{}, wildcardAttrs{Namespace: "##other", HasNamespace: true})
 	expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 }
 
-func wildcardNamespaceIDForTest(t *testing.T, names *NameTable, uri string) NamespaceID {
+func wildcardNamespaceIDForTest(t *testing.T, names *nameTable, uri string) namespaceID {
 	t.Helper()
 	id, ok := names.LookupNamespace(uri)
 	if !ok {
@@ -153,7 +153,7 @@ func wildcardNamespaceIDForTest(t *testing.T, names *NameTable, uri string) Name
 }
 func TestParseWildcardZeroInternerPreservesTokenErrors(t *testing.T) {
 	for _, namespace := range []string{"##bogus", "%zz"} {
-		_, err := ParseWildcard(NameInterner{}, WildcardAttrs{Namespace: namespace, HasNamespace: true})
+		_, err := parseWildcard(nameInterner{}, wildcardAttrs{Namespace: namespace, HasNamespace: true})
 		expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaInvalidAttribute)
 	}
 }

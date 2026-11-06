@@ -24,8 +24,8 @@ func TestCheckIdentityConstraintChildren(t *testing.T) {
 		{
 			name: "selector and field",
 			children: []identityChildFixture{
-				{local: selectorChild, xpath: LexicalAttribute{Value: "row", Present: true}},
-				{local: fieldChild, xpath: LexicalAttribute{Value: "@id", Present: true}},
+				{local: selectorChild, xpath: lexicalAttribute{Value: "row", Present: true}},
+				{local: fieldChild, xpath: lexicalAttribute{Value: "@id", Present: true}},
 			},
 			wantSelector: 0, wantFields: []int{1},
 		},
@@ -33,9 +33,9 @@ func TestCheckIdentityConstraintChildren(t *testing.T) {
 			name: "annotation selector and fields",
 			children: []identityChildFixture{
 				{local: annotationChild},
-				{local: selectorChild, xpath: LexicalAttribute{Value: "row", Present: true}, children: []string{annotationChild}},
-				{local: fieldChild, xpath: LexicalAttribute{Value: "@id", Present: true}},
-				{local: fieldChild, xpath: LexicalAttribute{Value: "code", Present: true}},
+				{local: selectorChild, xpath: lexicalAttribute{Value: "row", Present: true}, children: []string{annotationChild}},
+				{local: fieldChild, xpath: lexicalAttribute{Value: "@id", Present: true}},
+				{local: fieldChild, xpath: lexicalAttribute{Value: "code", Present: true}},
 			},
 			wantSelector: 1, wantFields: []int{2, 3},
 		},
@@ -53,7 +53,7 @@ func TestCheckIdentityConstraintChildren(t *testing.T) {
 		{
 			name: "annotation after selector",
 			children: []identityChildFixture{
-				{local: selectorChild, xpath: LexicalAttribute{Value: "row", Present: true}},
+				{local: selectorChild, xpath: lexicalAttribute{Value: "row", Present: true}},
 				{local: annotationChild},
 			},
 			wantChild:   1,
@@ -64,8 +64,8 @@ func TestCheckIdentityConstraintChildren(t *testing.T) {
 		{
 			name: "duplicate selector",
 			children: []identityChildFixture{
-				{local: selectorChild, xpath: LexicalAttribute{Value: "row", Present: true}},
-				{local: selectorChild, xpath: LexicalAttribute{Value: "row", Present: true}},
+				{local: selectorChild, xpath: lexicalAttribute{Value: "row", Present: true}},
+				{local: selectorChild, xpath: lexicalAttribute{Value: "row", Present: true}},
 			},
 			wantChild:   1,
 			wantNested:  -1,
@@ -75,7 +75,7 @@ func TestCheckIdentityConstraintChildren(t *testing.T) {
 		{
 			name: "field before selector",
 			children: []identityChildFixture{
-				{local: fieldChild, xpath: LexicalAttribute{Value: "@id", Present: true}},
+				{local: fieldChild, xpath: lexicalAttribute{Value: "@id", Present: true}},
 			},
 			wantChild:   0,
 			wantNested:  -1,
@@ -90,7 +90,7 @@ func TestCheckIdentityConstraintChildren(t *testing.T) {
 			wantChild:   0,
 			wantNested:  -1,
 			wantCode:    xsderrors.CodeSchemaContentModel,
-			wantMessage: "invalid identity constraint child element",
+			wantMessage: "invalid identity constraint child \"element\"",
 		},
 		{
 			name: "missing selector",
@@ -105,7 +105,7 @@ func TestCheckIdentityConstraintChildren(t *testing.T) {
 		{
 			name: "missing fields",
 			children: []identityChildFixture{
-				{local: selectorChild, xpath: LexicalAttribute{Value: "row", Present: true}},
+				{local: selectorChild, xpath: lexicalAttribute{Value: "row", Present: true}},
 			},
 			wantChild:   -1,
 			wantNested:  -1,
@@ -120,39 +120,39 @@ func TestCheckIdentityConstraintChildren(t *testing.T) {
 			wantChild:   0,
 			wantNested:  -1,
 			wantCode:    xsderrors.CodeSchemaIdentity,
-			wantMessage: "selector missing xpath",
+			wantMessage: "\"selector\" missing xpath",
 		},
 		{
 			name: "field empty xpath",
 			children: []identityChildFixture{
-				{local: selectorChild, xpath: LexicalAttribute{Value: "row", Present: true}},
-				{local: fieldChild, xpath: LexicalAttribute{Present: true}},
+				{local: selectorChild, xpath: lexicalAttribute{Value: "row", Present: true}},
+				{local: fieldChild, xpath: lexicalAttribute{Present: true}},
 			},
 			wantChild:   1,
 			wantNested:  -1,
 			wantCode:    xsderrors.CodeSchemaIdentity,
-			wantMessage: "field xpath is empty",
+			wantMessage: "\"field\" xpath is empty",
 		},
 		{
 			name: "selector rejects non annotation child",
 			children: []identityChildFixture{
-				{local: selectorChild, xpath: LexicalAttribute{Value: "row", Present: true}, children: []string{"field"}},
+				{local: selectorChild, xpath: lexicalAttribute{Value: "row", Present: true}, children: []string{"field"}},
 			},
 			wantChild:   0,
 			wantNested:  0,
 			wantCode:    xsderrors.CodeSchemaContentModel,
-			wantMessage: "selector can contain only annotation",
+			wantMessage: "\"selector\" can contain only annotation",
 		},
 		{
 			name: "field rejects duplicate annotation",
 			children: []identityChildFixture{
-				{local: selectorChild, xpath: LexicalAttribute{Value: "row", Present: true}},
-				{local: fieldChild, xpath: LexicalAttribute{Value: "@id", Present: true}, children: []string{annotationChild, annotationChild}},
+				{local: selectorChild, xpath: lexicalAttribute{Value: "row", Present: true}},
+				{local: fieldChild, xpath: lexicalAttribute{Value: "@id", Present: true}, children: []string{annotationChild, annotationChild}},
 			},
 			wantChild:   1,
 			wantNested:  1,
 			wantCode:    xsderrors.CodeSchemaContentModel,
-			wantMessage: "field can contain at most one annotation",
+			wantMessage: "\"field\" can contain at most one annotation",
 		},
 	}
 	for _, tt := range tests {
@@ -199,7 +199,7 @@ func TestCheckIdentityConstraintChildren(t *testing.T) {
 
 type identityChildFixture struct {
 	local    string
-	xpath    LexicalAttribute
+	xpath    lexicalAttribute
 	children []string
 }
 

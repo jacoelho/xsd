@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
@@ -49,8 +50,8 @@ const (
 	simpleContentExtensionCannotContainSimpleType = "simpleContent extension cannot contain simpleType"
 )
 
-// ChildRule classifies one child element kind inside a schema component.
-type ChildRule struct {
+// childRule classifies one child element kind inside a schema component.
+type childRule struct {
 	Match        func(local string) bool
 	ForbiddenMsg string
 	OrderMsg     string
@@ -60,58 +61,60 @@ type ChildRule struct {
 	Terminal     bool
 }
 
-// ChildOrder describes the permitted children of one schema component:
+// childOrder describes the permitted children of one schema component:
 // optional leading annotations followed by ordered sections of rules.
-type ChildOrder struct {
+type childOrder struct {
+	// InvalidMsg receives the offending child name already quoted by
+	// diagnostictext.
 	InvalidMsg         func(local string) string
 	AnnotationFirstMsg string
-	Rules              []ChildRule
+	Rules              []childRule
 	SingleAnnotation   bool
 }
 
-// ChildOrderError identifies the child index that violated an order rule.
-type ChildOrderError struct {
+// childOrderError identifies the child index that violated an order rule.
+type childOrderError struct {
 	Message string
 	Index   int
 }
 
-func (e *ChildOrderError) Error() string {
+func (e *childOrderError) Error() string {
 	if e == nil {
 		return nilErrorString
 	}
 	return e.Message
 }
 
-// ContentDerivationKind identifies the xs:extension/xs:restriction choice in a
+// contentDerivationKind identifies the xs:extension/xs:restriction choice in a
 // simpleContent or complexContent container.
-type ContentDerivationKind uint8
+type contentDerivationKind uint8
 
 const (
-	// ContentDerivationNone represents a missing or invalid derivation child.
-	ContentDerivationNone ContentDerivationKind = iota
-	// ContentDerivationExtension represents an xs:extension derivation child.
-	ContentDerivationExtension
-	// ContentDerivationRestriction represents an xs:restriction derivation child.
-	ContentDerivationRestriction
+	// contentDerivationNone represents a missing or invalid derivation child.
+	contentDerivationNone contentDerivationKind = iota
+	// contentDerivationExtension represents an xs:extension derivation child.
+	contentDerivationExtension
+	// contentDerivationRestriction represents an xs:restriction derivation child.
+	contentDerivationRestriction
 )
 
-func (k ContentDerivationKind) String() string {
+func (k contentDerivationKind) String() string {
 	switch k {
-	case ContentDerivationExtension:
+	case contentDerivationExtension:
 		return extensionChild
-	case ContentDerivationRestriction:
+	case contentDerivationRestriction:
 		return restrictionChild
-	case ContentDerivationNone:
+	case contentDerivationNone:
 		return ""
 	default:
 	}
 	return ""
 }
 
-var simpleTypeChildOrder = ChildOrder{
+var simpleTypeChildOrder = childOrder{
 	AnnotationFirstMsg: "simpleType annotation must be first",
 	SingleAnnotation:   true,
-	Rules: []ChildRule{
+	Rules: []childRule{
 		{
 			Match:  matchChildLocal(restrictionChild, listChild, unionChild),
 			MaxOne: true,
@@ -138,9 +141,9 @@ var simpleRestrictionChildOrder = simpleDerivationOrder(simpleDerivationRestrict
 var simpleListChildOrder = simpleDerivationOrder(simpleDerivationList)
 var simpleUnionChildOrder = simpleDerivationOrder(simpleDerivationUnion)
 
-var complexTypeChildOrder = ChildOrder{
+var complexTypeChildOrder = childOrder{
 	AnnotationFirstMsg: "complexType" + annotationMustBeFirstSuffix,
-	Rules: []ChildRule{
+	Rules: []childRule{
 		{
 			Match:    matchChildLocal(simpleContent, complexContent),
 			Level:    0,
@@ -181,9 +184,9 @@ var elementRefChildOrder = annotationOnlyChildOrder("element ref")
 var attributeRefChildOrder = annotationOnlyChildOrder("attribute ref")
 var attributeGroupUseChildOrder = annotationOnlyChildOrder("attributeGroup use")
 var groupUseChildOrder = annotationOnlyChildOrder("group use")
-var attributeGroupDeclarationChildOrder = ChildOrder{
+var attributeGroupDeclarationChildOrder = childOrder{
 	AnnotationFirstMsg: "attributeGroup annotation must be first",
-	Rules: []ChildRule{
+	Rules: []childRule{
 		{
 			Match:    matchChildLocal(attributeChild, attributeGroup),
 			Level:    0,
@@ -198,9 +201,9 @@ var attributeGroupDeclarationChildOrder = ChildOrder{
 	},
 	InvalidMsg: func(local string) string { return "invalid attribute use child " + local },
 }
-var attributeDeclarationChildOrder = ChildOrder{
+var attributeDeclarationChildOrder = childOrder{
 	AnnotationFirstMsg: "attribute annotation must precede simpleType",
-	Rules: []ChildRule{
+	Rules: []childRule{
 		{
 			Match:  matchChildLocal(simpleTypeChild),
 			MaxOne: true,
@@ -209,9 +212,9 @@ var attributeDeclarationChildOrder = ChildOrder{
 	},
 	InvalidMsg: func(local string) string { return "invalid attribute child " + local },
 }
-var elementDeclarationChildOrder = ChildOrder{
+var elementDeclarationChildOrder = childOrder{
 	AnnotationFirstMsg: "element annotation must be first",
-	Rules: []ChildRule{
+	Rules: []childRule{
 		{
 			Match:    matchChildLocal(simpleTypeChild, complexTypeChild),
 			Level:    0,
@@ -227,18 +230,18 @@ var elementDeclarationChildOrder = ChildOrder{
 	InvalidMsg: func(local string) string { return "invalid element child " + local },
 }
 
-// ContentDerivationBase owns the lexical and presence state of a required base
+// contentDerivationBase owns the lexical and presence state of a required base
 // attribute together with the grammar context used in its diagnostic.
-type ContentDerivationBase struct {
+type contentDerivationBase struct {
 	Container  string
 	Derivation string
 	Lexical    string
 	Present    bool
 }
 
-// ValidateContentDerivationBase validates that a content derivation has its
+// validateContentDerivationBase validates that a content derivation has its
 // required base attribute.
-func ValidateContentDerivationBase(base ContentDerivationBase) error {
+func validateContentDerivationBase(base contentDerivationBase) error {
 	if base.Present {
 		return nil
 	}
@@ -246,29 +249,29 @@ func ValidateContentDerivationBase(base ContentDerivationBase) error {
 }
 
 var (
-	modelGroupChildRules = []ChildRule{
+	modelGroupChildRules = []childRule{
 		{
 			Match: matchChildLocal(elementChild, sequenceChild, choiceChild, allChild, groupChild, anyChild),
 		},
 	}
-	sequenceModelGroupChildOrder = ChildOrder{
+	sequenceModelGroupChildOrder = childOrder{
 		AnnotationFirstMsg: sequenceChild + annotationMustBeFirstSuffix,
 		Rules:              modelGroupChildRules,
 		InvalidMsg:         invalidModelGroupChild,
 	}
-	choiceModelGroupChildOrder = ChildOrder{
+	choiceModelGroupChildOrder = childOrder{
 		AnnotationFirstMsg: choiceChild + annotationMustBeFirstSuffix,
 		Rules:              modelGroupChildRules,
 		InvalidMsg:         invalidModelGroupChild,
 	}
-	allModelGroupChildOrder = ChildOrder{
+	allModelGroupChildOrder = childOrder{
 		AnnotationFirstMsg: allChild + annotationMustBeFirstSuffix,
 		Rules:              modelGroupChildRules,
 		InvalidMsg:         invalidModelGroupChild,
 	}
 )
 
-func modelGroupChildOrder(parent string) ChildOrder {
+func modelGroupChildOrder(parent string) childOrder {
 	switch parent {
 	case sequenceChild:
 		return sequenceModelGroupChildOrder
@@ -277,7 +280,7 @@ func modelGroupChildOrder(parent string) ChildOrder {
 	case allChild:
 		return allModelGroupChildOrder
 	default:
-		return ChildOrder{
+		return childOrder{
 			AnnotationFirstMsg: parent + annotationMustBeFirstSuffix,
 			Rules:              modelGroupChildRules,
 			InvalidMsg:         invalidModelGroupChild,
@@ -295,9 +298,9 @@ type childOrderState struct {
 	maxLevelSeen      int
 }
 
-func (s *childOrderState) accept(index int, child string, order ChildOrder) error {
+func (s *childOrderState) accept(index int, child string, order childOrder) error {
 	if s.terminalSeen {
-		return childOrderError(index, order.InvalidMsg(child))
+		return newChildOrderError(index, order.InvalidMsg(diagnostictext.Quote(child)))
 	}
 	if child == annotationChild {
 		return s.acceptAnnotation(index, order)
@@ -305,33 +308,33 @@ func (s *childOrderState) accept(index int, child string, order ChildOrder) erro
 	return s.acceptRule(index, child, order)
 }
 
-func (s *childOrderState) acceptAnnotation(index int, order ChildOrder) error {
+func (s *childOrderState) acceptAnnotation(index int, order childOrder) error {
 	if s.nonAnnotationSeen || order.SingleAnnotation && s.annotationSeen {
-		return childOrderError(index, order.AnnotationFirstMsg)
+		return newChildOrderError(index, order.AnnotationFirstMsg)
 	}
 	s.annotationSeen = true
 	return nil
 }
 
-func (s *childOrderState) acceptRule(index int, child string, order ChildOrder) error {
+func (s *childOrderState) acceptRule(index int, child string, order childOrder) error {
 	ruleIndex := childRuleIndex(child, order.Rules)
 	if ruleIndex < 0 {
-		return childOrderError(index, order.InvalidMsg(child))
+		return newChildOrderError(index, order.InvalidMsg(diagnostictext.Quote(child)))
 	}
 	rule := order.Rules[ruleIndex]
 	if rule.ForbiddenMsg != "" {
-		return childOrderError(index, rule.ForbiddenMsg)
+		return newChildOrderError(index, rule.ForbiddenMsg)
 	}
 	s.nonAnnotationSeen = true
 	if s.maxLevelSeen > rule.Level {
-		return childOrderError(index, rule.OrderMsg)
+		return newChildOrderError(index, rule.OrderMsg)
 	}
 	bit, err := childRuleSeenBit(ruleIndex)
 	if err != nil {
 		return err
 	}
 	if s.seen&bit != 0 && rule.MaxOne {
-		return childOrderError(index, rule.DupMsg)
+		return newChildOrderError(index, rule.DupMsg)
 	}
 	s.seen |= bit
 	s.maxLevelSeen = max(s.maxLevelSeen, rule.Level)
@@ -339,7 +342,7 @@ func (s *childOrderState) acceptRule(index int, child string, order ChildOrder) 
 	return nil
 }
 
-func childRuleIndex(child string, rules []ChildRule) int {
+func childRuleIndex(child string, rules []childRule) int {
 	for i, rule := range rules {
 		if rule.Match(child) {
 			return i
@@ -355,11 +358,11 @@ func childRuleSeenBit(idx int) (uint64, error) {
 	return uint64(1) << idx, nil
 }
 
-func childOrderError(index int, msg string) error {
-	return &ChildOrderError{Index: index, Message: msg}
+func newChildOrderError(index int, msg string) error {
+	return &childOrderError{Index: index, Message: msg}
 }
 
-func simpleDerivationOrder(kind simpleDerivationKind) ChildOrder {
+func simpleDerivationOrder(kind simpleDerivationKind) childOrder {
 	var derivation string
 	var singleChild bool
 	var allowFacets bool
@@ -378,7 +381,7 @@ func simpleDerivationOrder(kind simpleDerivationKind) ChildOrder {
 	default:
 		panic("unknown simple derivation kind")
 	}
-	rules := []ChildRule{
+	rules := []childRule{
 		{
 			Match:    matchChildLocal(simpleTypeChild),
 			Level:    0,
@@ -388,12 +391,12 @@ func simpleDerivationOrder(kind simpleDerivationKind) ChildOrder {
 		},
 	}
 	if allowFacets {
-		rules = append(rules, ChildRule{
+		rules = append(rules, childRule{
 			Match: isFacetChild,
 			Level: 1,
 		})
 	}
-	return ChildOrder{
+	return childOrder{
 		AnnotationFirstMsg: derivation + annotationMustBeFirstSuffix,
 		SingleAnnotation:   true,
 		Rules:              rules,
@@ -401,10 +404,10 @@ func simpleDerivationOrder(kind simpleDerivationKind) ChildOrder {
 	}
 }
 
-func derivationContainerOrder(label string) ChildOrder {
-	return ChildOrder{
+func derivationContainerOrder(label string) childOrder {
+	return childOrder{
 		AnnotationFirstMsg: label + annotationMustBeFirstSuffix,
-		Rules: []ChildRule{
+		Rules: []childRule{
 			{
 				Match:  matchChildLocal(extensionChild, restrictionChild),
 				MaxOne: true,
@@ -415,8 +418,8 @@ func derivationContainerOrder(label string) ChildOrder {
 	}
 }
 
-func simpleContentDerivationOrder(derivation string) ChildOrder {
-	rules := []ChildRule{
+func simpleContentDerivationOrder(derivation string) childOrder {
+	rules := []childRule{
 		{
 			Match:    matchChildLocal(simpleTypeChild),
 			Level:    0,
@@ -437,7 +440,7 @@ func simpleContentDerivationOrder(derivation string) ChildOrder {
 		},
 	}
 	if derivation == restrictionChild {
-		rules = append(rules, ChildRule{
+		rules = append(rules, childRule{
 			Match:    isFacetChild,
 			Level:    1,
 			OrderMsg: simpleContentFacetOutOfOrder,
@@ -445,7 +448,7 @@ func simpleContentDerivationOrder(derivation string) ChildOrder {
 	} else {
 		rules[0].ForbiddenMsg = simpleContentExtensionCannotContainSimpleType
 	}
-	return ChildOrder{
+	return childOrder{
 		AnnotationFirstMsg: derivation + annotationMustBeFirstSuffix,
 		Rules:              rules,
 		InvalidMsg: func(local string) string {
@@ -454,10 +457,10 @@ func simpleContentDerivationOrder(derivation string) ChildOrder {
 	}
 }
 
-func complexContentDerivationOrder(derivation string) ChildOrder {
-	return ChildOrder{
+func complexContentDerivationOrder(derivation string) childOrder {
+	return childOrder{
 		AnnotationFirstMsg: derivation + annotationMustBeFirstSuffix,
-		Rules: []ChildRule{
+		Rules: []childRule{
 			{
 				Match:    matchChildLocal(sequenceChild, choiceChild, allChild, groupChild),
 				Level:    0,
@@ -481,8 +484,8 @@ func complexContentDerivationOrder(derivation string) ChildOrder {
 	}
 }
 
-func annotationOnlyChildOrder(label string) ChildOrder {
-	return ChildOrder{
+func annotationOnlyChildOrder(label string) childOrder {
+	return childOrder{
 		AnnotationFirstMsg: label + " can contain at most one annotation",
 		SingleAnnotation:   true,
 		InvalidMsg:         func(string) string { return label + " can contain only annotation" },

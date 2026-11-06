@@ -6,9 +6,9 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// SchemaNodeNames describes one schema node enough for compile-owned name
+// schemaNodeNames describes one schema node enough for compile-owned name
 // syntax validation.
-type SchemaNodeNames struct {
+type schemaNodeNames struct {
 	Local       string
 	ParentLocal string
 	ID          string
@@ -19,18 +19,18 @@ type SchemaNodeNames struct {
 	HasName     bool
 }
 
-// ValidateSchemaTargetNamespace validates the raw xs:schema targetNamespace
+// validateSchemaTargetNamespace validates the raw xs:schema targetNamespace
 // attribute value.
-func ValidateSchemaTargetNamespace(target LexicalAttribute) error {
+func validateSchemaTargetNamespace(target lexicalAttribute) error {
 	if target.Present && target.Value == "" {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "schema targetNamespace cannot be empty")
 	}
 	return nil
 }
 
-// ValidateSchemaNodeNames validates schema node id/name syntax and name
+// validateSchemaNodeNames validates schema node id/name syntax and name
 // placement rules.
-func ValidateSchemaNodeNames(node SchemaNodeNames) error {
+func validateSchemaNodeNames(node schemaNodeNames) error {
 	if !node.XSD {
 		return nil
 	}

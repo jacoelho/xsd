@@ -104,7 +104,7 @@ func recordReader(input io.Reader, config Config, maxTokens int) ([]recordedToke
 		if maxTokens > 0 && len(tokens) == maxTokens {
 			return tokens, errRecordedTokenLimit
 		}
-		tokens = append(tokens, recordToken(tok))
+		tokens = append(tokens, recordToken(&reader, tok))
 		switch tok.Kind {
 		case KindStart:
 			handle, _, err := reader.Start()
@@ -126,7 +126,7 @@ func recordReader(input io.Reader, config Config, maxTokens int) ([]recordedToke
 	}
 }
 
-func recordToken(tok *Token) recordedToken {
+func recordToken(reader *Reader, tok *Token) recordedToken {
 	record := recordedToken{
 		data:        string(tok.Data),
 		directive:   string(tok.Directive),
@@ -141,8 +141,13 @@ func recordToken(tok *Token) recordedToken {
 	case KindStart:
 		record.name = tok.Start.Name
 		var attrs strings.Builder
-		for _, attr := range tok.Start.Attr {
-			fmt.Fprintf(&attrs, "%s:%s=%q;", attr.Name.Space, attr.Name.Local, attr.Value)
+		for i := range tok.Start.Attr {
+			attr := &tok.Start.Attr[i]
+			value, err := reader.AttrValue(attr)
+			if err != nil {
+				value = "<" + err.Error() + ">"
+			}
+			fmt.Fprintf(&attrs, "%s:%s=%q;", attr.Name.Space, attr.Name.Local, value)
 		}
 		record.attrs = attrs.String()
 	case KindEnd:

@@ -89,7 +89,7 @@ func changeConsistencyLocalType(t *testing.T, build *schemaBuild, local, builtin
 		t.Fatalf("missing builtin type %q", builtin)
 	}
 	for id, declaration := range build.Elements {
-		if declaration.Name == name && declaration.Scope == DeclarationScopeNonGlobal {
+		if declaration.Name == name && declaration.Scope == declarationScopeNonGlobal {
 			build.Elements[id].Type = typ
 			return ElementID(id), declaration.Type
 		}

@@ -9,12 +9,12 @@ import (
 func TestCheckContentModelsUPAChargesSharedModelForEachRoot(t *testing.T) {
 	t.Parallel()
 
-	one := Occurrence{Min: 1, Max: 1}
-	rt := compiledModelFixture{models: map[ContentModelID]ContentModel{
-		0: {Kind: ModelChoice, Occurs: one, Particles: []Particle{ModelParticle(2, one)}},
-		1: {Kind: ModelChoice, Occurs: one, Particles: []Particle{ModelParticle(2, one)}},
-		2: {Kind: ModelChoice, Occurs: one, Particles: []Particle{ModelParticle(3, one)}},
-		3: {Kind: ModelEmpty},
+	one := occurrence{Min: 1, Max: 1}
+	rt := compiledModelFixture{models: map[contentModelID]contentModelNode{
+		0: {Kind: modelChoice, Occurs: one, Particles: []contentParticle{modelParticle(2, one)}},
+		1: {Kind: modelChoice, Occurs: one, Particles: []contentParticle{modelParticle(2, one)}},
+		2: {Kind: modelChoice, Occurs: one, Particles: []contentParticle{modelParticle(3, one)}},
+		3: {Kind: modelEmpty},
 	}}
 	// Root traversal charges are 6+6+4+2: each of roots 0 and 1 visits
 	// model 2 and then model 3, root 2 visits model 3, and root 3 is empty.
@@ -31,7 +31,7 @@ func TestCheckContentModelsUPAChargesSharedModelForEachRoot(t *testing.T) {
 			t.Parallel()
 			work := newWorkBudget(contentModelWorkBudget, tt.limit)
 			analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-			err := CheckContentModelsUPA(nil, rt.build(), 4, &work, analysis)
+			err := checkContentModelsUPA(nil, rt.build(), 4, &work, analysis)
 			if tt.err {
 				expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 				return
@@ -52,7 +52,7 @@ func TestDFAFollowStateLookupChargesCacheHits(t *testing.T) {
 			c:         &contentModelCompiler{work: &work},
 			follow:    map[int][]dfaEntry{0: {{Pos: 0}}},
 			states:    make(map[string]uint32),
-			positions: []Particle{ElementParticle(1, Occurrence{Min: 1, Max: 1})},
+			positions: []contentParticle{elementParticle(1, occurrence{Min: 1, Max: 1})},
 			limit:     1,
 		}
 		return b

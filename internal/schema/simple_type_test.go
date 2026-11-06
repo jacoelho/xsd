@@ -11,7 +11,7 @@ func TestMissingSimpleType(t *testing.T) {
 
 	name := QName{Namespace: 1, Local: 2}
 	const base SimpleTypeID = 3
-	got := MissingSimpleType(name, base)
+	got := missingSimpleType(name, base)
 	if got.Name != name || !got.Missing ||
 		got.ValueSpec.Variety != value.Atomic ||
 		got.ValueSpec.Primitive != value.PrimitiveString ||
@@ -20,24 +20,24 @@ func TestMissingSimpleType(t *testing.T) {
 		got.ValueSpec.Base != base || got.ValueSpec.ListItem != value.NoType {
 		t.Fatalf("MissingSimpleType() = %+v", got)
 	}
-	if MissingSimpleTypeLocalName() != "missing" {
-		t.Fatalf("MissingSimpleTypeLocalName() = %q", MissingSimpleTypeLocalName())
+	if missingSimpleTypeLocalName() != "missing" {
+		t.Fatalf("MissingSimpleTypeLocalName() = %q", missingSimpleTypeLocalName())
 	}
 }
 
 func TestSimpleTypeByID(t *testing.T) {
 	t.Parallel()
 
-	types := []SimpleType{
+	types := []simpleType{
 		{Name: QName{Local: 1}},
 		{Name: QName{Local: 2}},
 	}
-	got, ok := SimpleTypeByID(types, 1)
+	got, ok := simpleTypeByID(types, 1)
 	if !ok || got.Name != types[1].Name {
 		t.Fatalf("SimpleTypeByID(valid) = %+v, %v; want type 1, true", got, ok)
 	}
 	for _, id := range []SimpleTypeID{NoSimpleType, 2} {
-		got, ok := SimpleTypeByID(types, id)
+		got, ok := simpleTypeByID(types, id)
 		if ok || got != nil {
 			t.Fatalf("SimpleTypeByID(%d) = %+v, %v; want nil, false", id, got, ok)
 		}
@@ -47,17 +47,17 @@ func TestSimpleTypeByID(t *testing.T) {
 func TestUsableSimpleTypeRejectsMissingSentinel(t *testing.T) {
 	t.Parallel()
 
-	types := []SimpleType{
+	types := []simpleType{
 		{Name: QName{Local: 1}},
-		MissingSimpleType(QName{Local: 2}, 0),
+		missingSimpleType(QName{Local: 2}, 0),
 	}
-	if got, ok := UsableSimpleType(types, 0); !ok || got.Name != types[0].Name {
+	if got, ok := usableSimpleType(types, 0); !ok || got.Name != types[0].Name {
 		t.Fatalf("UsableSimpleType(valid) = %+v, %v; want type 0, true", got, ok)
 	}
-	if got, ok := UsableSimpleType(types, 1); ok || got != nil {
+	if got, ok := usableSimpleType(types, 1); ok || got != nil {
 		t.Fatalf("UsableSimpleType(missing) = %+v, %v; want nil, false", got, ok)
 	}
-	if got, ok := UsableSimpleType(types, NoSimpleType); ok || got != nil {
+	if got, ok := usableSimpleType(types, NoSimpleType); ok || got != nil {
 		t.Fatalf("UsableSimpleType(invalid) = %+v, %v; want nil, false", got, ok)
 	}
 }
@@ -77,11 +77,11 @@ func TestValidateSimpleTypeFinalAllows(t *testing.T) {
 		},
 		{
 			name:       "list allowed",
-			derivation: DerivationList,
+			derivation: derivationList,
 		},
 		{
 			name:       "union allowed",
-			derivation: DerivationUnion,
+			derivation: derivationUnion,
 		},
 		{
 			name:       "restriction blocked",
@@ -91,14 +91,14 @@ func TestValidateSimpleTypeFinalAllows(t *testing.T) {
 		},
 		{
 			name:       "list blocked",
-			final:      DerivationList | DerivationUnion,
-			derivation: DerivationList,
+			final:      derivationList | derivationUnion,
+			derivation: derivationList,
 			wantErr:    "simple type final blocks list",
 		},
 		{
 			name:       "union blocked",
-			final:      DerivationUnion,
-			derivation: DerivationUnion,
+			final:      derivationUnion,
+			derivation: derivationUnion,
 			wantErr:    "simple type final blocks union",
 		},
 		{
@@ -117,7 +117,7 @@ func TestValidateSimpleTypeFinalAllows(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateSimpleTypeFinalAllows(tt.final, tt.derivation)
+			err := validateSimpleTypeFinalAllows(tt.final, tt.derivation)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateSimpleTypeFinalAllows() error = %v", err)

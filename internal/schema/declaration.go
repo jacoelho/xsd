@@ -6,34 +6,34 @@ import (
 	"github.com/jacoelho/xsd/internal/vocab"
 )
 
-// DeclRefLimits are table sizes used to validate declaration references in a
+// declRefLimits are table sizes used to validate declaration references in a
 // frozen runtime schema.
-type DeclRefLimits struct {
+type declRefLimits struct {
 	SimpleTypeCount  int
 	ComplexTypeCount int
 	ElementCount     int
 }
 
-// DeclarationScope records whether a compiler-owned declaration must have an
+// declarationScope records whether a compiler-owned declaration must have an
 // exact global registry binding. Publication erases this construction
 // provenance from validation-facing read projections.
-type DeclarationScope uint8
+type declarationScope uint8
 
 const (
-	// DeclarationScopeInvalid is the unset construction-provenance state.
-	DeclarationScopeInvalid DeclarationScope = iota
-	// DeclarationScopeNonGlobal identifies local, anonymous, sentinel, or
+	// declarationScopeInvalid is the unset construction-provenance state.
+	declarationScopeInvalid declarationScope = iota
+	// declarationScopeNonGlobal identifies local, anonymous, sentinel, or
 	// compiler-synthetic declarations without a global registry binding.
-	DeclarationScopeNonGlobal
-	// DeclarationScopeGlobal identifies declarations requiring an exact global
+	declarationScopeNonGlobal
+	// declarationScopeGlobal identifies declarations requiring an exact global
 	// registry binding.
-	DeclarationScopeGlobal
+	declarationScopeGlobal
 )
 
-// ElementDecl is the runtime record for one element declaration.
-type ElementDecl struct {
-	Default   *ValueConstraint
-	Fixed     *ValueConstraint
+// elementDecl is the runtime record for one element declaration.
+type elementDecl struct {
+	Default   *valueConstraint
+	Fixed     *valueConstraint
 	Identity  []IdentityConstraintID
 	Type      TypeID
 	Name      QName
@@ -42,48 +42,48 @@ type ElementDecl struct {
 	Abstract  bool
 	Block     DerivationMask
 	Final     DerivationMask
-	Scope     DeclarationScope
+	Scope     declarationScope
 }
 
-// ElementDeclByID resolves an element declaration ID against an element table.
-func ElementDeclByID(decls []ElementDecl, id ElementID) (*ElementDecl, bool) {
-	if !ValidElementID(id, len(decls)) {
+// elementDeclByID resolves an element declaration ID against an element table.
+func elementDeclByID(decls []elementDecl, id ElementID) (*elementDecl, bool) {
+	if !validElementID(id, len(decls)) {
 		return nil, false
 	}
 	return &decls[id], true
 }
 
-// ElementTypeByID resolves an element declaration's type against an element
+// elementTypeByID resolves an element declaration's type against an element
 // table.
-func ElementTypeByID(decls []ElementDecl, id ElementID) (TypeID, bool) {
-	decl, ok := ElementDeclByID(decls, id)
+func elementTypeByID(decls []elementDecl, id ElementID) (TypeID, bool) {
+	decl, ok := elementDeclByID(decls, id)
 	if !ok {
 		return TypeID{}, false
 	}
 	return decl.Type, true
 }
 
-// AttributeDecl is the runtime record for one attribute declaration.
-type AttributeDecl struct {
-	Default *ValueConstraint
-	Fixed   *ValueConstraint
+// attributeDecl is the runtime record for one attribute declaration.
+type attributeDecl struct {
+	Default *valueConstraint
+	Fixed   *valueConstraint
 	Name    QName
 	Type    SimpleTypeID
 }
 
-// ValidateElementDeclRuntime validates element declaration metadata that can be
+// validateElementDeclRuntime validates element declaration metadata that can be
 // expressed in runtime vocabulary.
-func ValidateElementDeclRuntime(names *NameTable, decl ElementDecl, limits DeclRefLimits) error {
+func validateElementDeclRuntime(names *nameTable, decl elementDecl, limits declRefLimits) error {
 	if names == nil || !names.ValidQName(decl.Name) || !validTypeID(decl.Type, limits.SimpleTypeCount, limits.ComplexTypeCount) {
 		return errors.New("element declaration references invalid name or type")
 	}
-	if !ValidElementBlockMask(decl.Block) {
+	if !validElementBlockMask(decl.Block) {
 		return errors.New("element declaration block mask contains invalid derivation")
 	}
-	if !ValidElementFinalMask(decl.Final) {
+	if !validElementFinalMask(decl.Final) {
 		return errors.New("element declaration final mask contains invalid derivation")
 	}
-	if decl.SubstHead != NoElement && !ValidElementID(decl.SubstHead, limits.ElementCount) {
+	if decl.SubstHead != NoElement && !validElementID(decl.SubstHead, limits.ElementCount) {
 		return errors.New("element declaration references invalid substitution head")
 	}
 	if decl.Default != nil && decl.Fixed != nil {
@@ -92,10 +92,10 @@ func ValidateElementDeclRuntime(names *NameTable, decl ElementDecl, limits DeclR
 	return nil
 }
 
-// ValidateAttributeDeclRuntime validates attribute declaration metadata that can
+// validateAttributeDeclRuntime validates attribute declaration metadata that can
 // be expressed in runtime vocabulary.
-func ValidateAttributeDeclRuntime(names *NameTable, decl AttributeDecl, limits DeclRefLimits) error {
-	if names == nil || !names.ValidQName(decl.Name) || !ValidSimpleTypeID(decl.Type, limits.SimpleTypeCount) {
+func validateAttributeDeclRuntime(names *nameTable, decl attributeDecl, limits declRefLimits) error {
+	if names == nil || !names.ValidQName(decl.Name) || !validSimpleTypeID(decl.Type, limits.SimpleTypeCount) {
 		return errors.New("attribute declaration references invalid name or type")
 	}
 	if err := validateAttributeName(names, decl.Name); err != nil {
@@ -112,8 +112,8 @@ func ValidateAttributeDeclRuntime(names *NameTable, decl AttributeDecl, limits D
 	return nil
 }
 
-// ValidateAttributeDeclName validates reserved attribute declaration names.
-func ValidateAttributeDeclName(names *NameTable, name QName) error {
+// validateAttributeDeclName validates reserved attribute declaration names.
+func validateAttributeDeclName(names *nameTable, name QName) error {
 	if err := validateAttributeName(names, name); err != nil {
 		return err
 	}
@@ -123,7 +123,7 @@ func ValidateAttributeDeclName(names *NameTable, name QName) error {
 	return nil
 }
 
-func validateAttributeName(names *NameTable, name QName) error {
+func validateAttributeName(names *nameTable, name QName) error {
 	if names == nil || !names.ValidQName(name) {
 		return errors.New("attribute declaration references invalid name")
 	}
@@ -133,58 +133,58 @@ func validateAttributeName(names *NameTable, name QName) error {
 	return nil
 }
 
-// DeclarationValueConstraint classifies the value constraints on a
+// declarationValueConstraint classifies the value constraints on a
 // declaration.
-type DeclarationValueConstraint uint8
+type declarationValueConstraint uint8
 
 const (
-	// DeclarationValueConstraintNone means the declaration has no constraint.
-	DeclarationValueConstraintNone DeclarationValueConstraint = iota
-	// DeclarationValueConstraintDefault means the declaration has a default.
-	DeclarationValueConstraintDefault
-	// DeclarationValueConstraintFixed means the declaration has a fixed value.
-	DeclarationValueConstraintFixed
-	// DeclarationValueConstraintConflict means both mutually exclusive
+	// declarationValueConstraintNone means the declaration has no constraint.
+	declarationValueConstraintNone declarationValueConstraint = iota
+	// declarationValueConstraintDefault means the declaration has a default.
+	declarationValueConstraintDefault
+	// declarationValueConstraintFixed means the declaration has a fixed value.
+	declarationValueConstraintFixed
+	// declarationValueConstraintConflict means both mutually exclusive
 	// constraints were supplied.
-	DeclarationValueConstraintConflict
+	declarationValueConstraintConflict
 )
 
-func (c DeclarationValueConstraint) present() bool {
-	return c == DeclarationValueConstraintDefault || c == DeclarationValueConstraintFixed
+func (c declarationValueConstraint) present() bool {
+	return c == declarationValueConstraintDefault || c == declarationValueConstraintFixed
 }
 
-// DeclarationValueConstraintOf classifies declaration value-constraint values.
-func DeclarationValueConstraintOf[T any](defaultValue, fixedValue *T) DeclarationValueConstraint {
+// declarationValueConstraintOf classifies declaration value-constraint values.
+func declarationValueConstraintOf[T any](defaultValue, fixedValue *T) declarationValueConstraint {
 	switch {
 	case defaultValue != nil && fixedValue != nil:
-		return DeclarationValueConstraintConflict
+		return declarationValueConstraintConflict
 	case defaultValue != nil:
-		return DeclarationValueConstraintDefault
+		return declarationValueConstraintDefault
 	case fixedValue != nil:
-		return DeclarationValueConstraintFixed
+		return declarationValueConstraintFixed
 	default:
-		return DeclarationValueConstraintNone
+		return declarationValueConstraintNone
 	}
 }
 
-// ValidateElementDeclValueConstraintRuntime validates element declaration
+// validateElementDeclValueConstraintRuntime validates element declaration
 // value-constraint rules that depend on the constraint's simple owner type.
-func ValidateElementDeclValueConstraintRuntime(rt *schemaBuild, typ SimpleTypeID, constraint DeclarationValueConstraint) error {
+func validateElementDeclValueConstraintRuntime(rt *schemaBuild, typ SimpleTypeID, constraint declarationValueConstraint) error {
 	return validateDeclValueConstraintIdentity(rt, typ, constraint, "ID-typed element declaration stores value constraint")
 }
 
-// ValidateAttributeDeclValueConstraintRuntime validates attribute declaration
+// validateAttributeDeclValueConstraintRuntime validates attribute declaration
 // value-constraint rules that depend on the declaration's simple type.
-func ValidateAttributeDeclValueConstraintRuntime(rt *schemaBuild, typ SimpleTypeID, constraint DeclarationValueConstraint) error {
+func validateAttributeDeclValueConstraintRuntime(rt *schemaBuild, typ SimpleTypeID, constraint declarationValueConstraint) error {
 	return validateDeclValueConstraintIdentity(rt, typ, constraint, "ID-typed attribute declaration stores value constraint")
 }
 
-func validateDeclValueConstraintIdentity(rt *schemaBuild, typ SimpleTypeID, constraint DeclarationValueConstraint, msg string) error {
+func validateDeclValueConstraintIdentity(rt *schemaBuild, typ SimpleTypeID, constraint declarationValueConstraint, msg string) error {
 	switch constraint {
-	case DeclarationValueConstraintNone:
+	case declarationValueConstraintNone:
 		return nil
-	case DeclarationValueConstraintDefault, DeclarationValueConstraintFixed:
-	case DeclarationValueConstraintConflict:
+	case declarationValueConstraintDefault, declarationValueConstraintFixed:
+	case declarationValueConstraintConflict:
 		return errors.New("declaration stores conflicting value constraints")
 	default:
 		return errors.New("declaration value constraint kind is unknown")

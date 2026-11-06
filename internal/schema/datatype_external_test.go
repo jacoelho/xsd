@@ -10,14 +10,14 @@ import (
 func TestDecimalAndIntegerCanonicalValuesDiverge(t *testing.T) {
 	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)
 	rt := engineRuntime(t, engine)
-	decimal, err := rt.ValueProgram().Validate(builtinSimpleTypeID(t, rt, "decimal"), "5", value.Resolver{}, value.NeedCanonical, 16<<20, nil)
+	decimal, err := rt.ValueProgram().Validate(builtinSimpleTypeID(t, rt, "decimal"), "5", value.Resolver{}, value.NeedCanonical, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatalf("ValueProgram.Validate(decimal) error = %v", err)
 	}
 	if decimal.CanonicalText() != "5.0" {
 		t.Fatalf("decimal canonical = %q, want 5.0", decimal.CanonicalText())
 	}
-	integer, err := rt.ValueProgram().Validate(builtinSimpleTypeID(t, rt, "int"), "05", value.Resolver{}, value.NeedCanonical, 16<<20, nil)
+	integer, err := rt.ValueProgram().Validate(builtinSimpleTypeID(t, rt, "int"), "05", value.Resolver{}, value.NeedCanonical, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatalf("ValueProgram.Validate(int) error = %v", err)
 	}

@@ -16,42 +16,42 @@ func typedAttributeMaskFor(local string) uint64 {
 	return 0
 }
 
-// NameReferenceSource keeps the name and reference attributes of a declaration
+// nameReferenceSource keeps the name and reference attributes of a declaration
 // together for source admission.
-type NameReferenceSource struct {
-	Name      LexicalAttribute
-	Reference LexicalAttribute
+type nameReferenceSource struct {
+	Name      lexicalAttribute
+	Reference lexicalAttribute
 }
 
-// ValidateLocalElementSource validates that a local xs:element has a name or
+// validateLocalElementSource validates that a local xs:element has a name or
 // reference source.
-func ValidateLocalElementSource(source NameReferenceSource) error {
+func validateLocalElementSource(source nameReferenceSource) error {
 	if !source.Name.Present && !source.Reference.Present {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "local element missing name or ref")
 	}
 	return nil
 }
 
-// ValidateAttributeUseSource validates that an xs:attribute use has a name or
+// validateAttributeUseSource validates that an xs:attribute use has a name or
 // reference source.
-func ValidateAttributeUseSource(source NameReferenceSource) error {
+func validateAttributeUseSource(source nameReferenceSource) error {
 	if !source.Name.Present && !source.Reference.Present {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "attribute missing name or ref")
 	}
 	return nil
 }
 
-// ValidateAttributeGroupUseSource validates that an xs:attributeGroup use has
+// validateAttributeGroupUseSource validates that an xs:attributeGroup use has
 // a ref source.
-func ValidateAttributeGroupUseSource(reference LexicalAttribute) error {
+func validateAttributeGroupUseSource(reference lexicalAttribute) error {
 	if !reference.Present {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "attributeGroup use missing ref")
 	}
 	return nil
 }
 
-// ValidateGroupUseSource validates that an xs:group use has a ref source.
-func ValidateGroupUseSource(reference LexicalAttribute) error {
+// validateGroupUseSource validates that an xs:group use has a ref source.
+func validateGroupUseSource(reference lexicalAttribute) error {
 	if !reference.Present {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "group use missing ref")
 	}

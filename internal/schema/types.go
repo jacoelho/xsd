@@ -4,25 +4,25 @@ import "github.com/jacoelho/xsd/internal/value"
 
 const invalidID = ^uint32(0)
 
-// NamespaceID indexes a namespace URI in a runtime name table.
-type NamespaceID uint32
+// namespaceID indexes a namespace URI in a runtime name table.
+type namespaceID uint32
 
-// LocalNameID indexes a local name in a runtime name table.
-type LocalNameID uint32
+// localNameID indexes a local name in a runtime name table.
+type localNameID uint32
 
 // QName identifies an expanded XML name through runtime name-table IDs.
 type QName struct {
-	Namespace NamespaceID
-	Local     LocalNameID
+	Namespace namespaceID
+	Local     localNameID
 }
 
-// NoQName returns the absent QName sentinel used in runtime identity paths.
-func NoQName() QName {
-	return QName{Namespace: NamespaceID(invalidID), Local: LocalNameID(invalidID)}
+// noQName returns the absent QName sentinel used in runtime identity paths.
+func noQName() QName {
+	return QName{Namespace: namespaceID(invalidID), Local: localNameID(invalidID)}
 }
 
-// EmptyNamespaceID is the name-table ID for the empty namespace URI.
-const EmptyNamespaceID NamespaceID = 0
+// emptyNamespaceID is the name-table ID for the empty namespace URI.
+const emptyNamespaceID namespaceID = 0
 
 // SimpleTypeID is the canonical value-program type ID. Schema declarations
 // use the same ID space so compiler, value validation, and published reads do
@@ -38,11 +38,11 @@ type ElementID uint32
 // AttributeID indexes an attribute declaration in a runtime schema.
 type AttributeID uint32
 
-// ContentModelID indexes a content model in a runtime schema.
-type ContentModelID uint32
+// contentModelID indexes a content model in a runtime schema.
+type contentModelID uint32
 
-// AttributeUseSetID indexes an attribute-use set in a runtime schema.
-type AttributeUseSetID uint32
+// attributeUseSetID indexes an attribute-use set in a runtime schema.
+type attributeUseSetID uint32
 
 // WildcardID indexes a wildcard in a runtime schema.
 type WildcardID uint32
@@ -70,69 +70,69 @@ const (
 	DerivationExtension DerivationMask = 1 << iota
 	// DerivationRestriction blocks or records derivation by restriction.
 	DerivationRestriction
-	// DerivationSubstitution blocks element substitution.
-	DerivationSubstitution
-	// DerivationList blocks derivation by list.
-	DerivationList
-	// DerivationUnion blocks derivation by union.
-	DerivationUnion
+	// derivationSubstitution blocks element substitution.
+	derivationSubstitution
+	// derivationList blocks derivation by list.
+	derivationList
+	// derivationUnion blocks derivation by union.
+	derivationUnion
 )
 
 const (
-	// DerivationComplexMask is the derivation set allowed for complex-type block/final.
-	DerivationComplexMask = DerivationExtension | DerivationRestriction
-	// DerivationBlockDefaultMask is the derivation set allowed for schema blockDefault.
-	DerivationBlockDefaultMask = DerivationExtension | DerivationRestriction | DerivationSubstitution
-	// DerivationFinalDefaultMask is the derivation set allowed for schema finalDefault.
-	DerivationFinalDefaultMask = DerivationExtension | DerivationRestriction | DerivationList | DerivationUnion
-	// DerivationSimpleFinalMask is the derivation set allowed for simple-type final.
-	DerivationSimpleFinalMask = DerivationRestriction | DerivationList | DerivationUnion
+	// derivationComplexMask is the derivation set allowed for complex-type block/final.
+	derivationComplexMask = DerivationExtension | DerivationRestriction
+	// derivationBlockDefaultMask is the derivation set allowed for schema blockDefault.
+	derivationBlockDefaultMask = DerivationExtension | DerivationRestriction | derivationSubstitution
+	// derivationFinalDefaultMask is the derivation set allowed for schema finalDefault.
+	derivationFinalDefaultMask = DerivationExtension | DerivationRestriction | derivationList | derivationUnion
+	// derivationSimpleFinalMask is the derivation set allowed for simple-type final.
+	derivationSimpleFinalMask = DerivationRestriction | derivationList | derivationUnion
 )
 
-// ValidElementBlockMask reports whether mask is valid for an element block.
-func ValidElementBlockMask(mask DerivationMask) bool {
-	return mask&^DerivationBlockDefaultMask == 0
+// validElementBlockMask reports whether mask is valid for an element block.
+func validElementBlockMask(mask DerivationMask) bool {
+	return mask&^derivationBlockDefaultMask == 0
 }
 
-// ValidElementFinalMask reports whether mask is valid for an element final.
-func ValidElementFinalMask(mask DerivationMask) bool {
-	return mask&^DerivationComplexMask == 0
+// validElementFinalMask reports whether mask is valid for an element final.
+func validElementFinalMask(mask DerivationMask) bool {
+	return mask&^derivationComplexMask == 0
 }
 
-// ValidComplexBlockMask reports whether mask is valid for a complex-type block.
-func ValidComplexBlockMask(mask DerivationMask) bool {
-	return mask&^DerivationComplexMask == 0
+// validComplexBlockMask reports whether mask is valid for a complex-type block.
+func validComplexBlockMask(mask DerivationMask) bool {
+	return mask&^derivationComplexMask == 0
 }
 
-// ValidComplexFinalMask reports whether mask is valid for a complex-type final.
-func ValidComplexFinalMask(mask DerivationMask) bool {
-	return mask&^DerivationComplexMask == 0
+// validComplexFinalMask reports whether mask is valid for a complex-type final.
+func validComplexFinalMask(mask DerivationMask) bool {
+	return mask&^derivationComplexMask == 0
 }
 
-// ValidSimpleFinalMask reports whether mask is valid for a simple-type final.
-func ValidSimpleFinalMask(mask DerivationMask) bool {
-	return mask&^DerivationSimpleFinalMask == 0
+// validSimpleFinalMask reports whether mask is valid for a simple-type final.
+func validSimpleFinalMask(mask DerivationMask) bool {
+	return mask&^derivationSimpleFinalMask == 0
 }
 
 const (
 	// NoSimpleType is the absent simple-type sentinel.
 	NoSimpleType = value.NoType
-	// NoComplexType is the absent complex-type sentinel.
-	NoComplexType ComplexTypeID = ComplexTypeID(invalidID)
+	// noComplexType is the absent complex-type sentinel.
+	noComplexType ComplexTypeID = ComplexTypeID(invalidID)
 	// NoElement is the absent element-declaration sentinel.
 	NoElement ElementID = ElementID(invalidID)
-	// NoContentModel is the absent content-model sentinel.
-	NoContentModel ContentModelID = ContentModelID(invalidID)
-	// NoAttributeUseSet is the absent attribute-use-set sentinel.
-	NoAttributeUseSet AttributeUseSetID = AttributeUseSetID(invalidID)
+	// noContentModel is the absent content-model sentinel.
+	noContentModel contentModelID = contentModelID(invalidID)
+	// noAttributeUseSet is the absent attribute-use-set sentinel.
+	noAttributeUseSet attributeUseSetID = attributeUseSetID(invalidID)
 	// NoWildcard is the absent wildcard sentinel.
 	NoWildcard WildcardID = WildcardID(invalidID)
 	// NoIdentityConstraint is the absent identity-constraint sentinel.
 	NoIdentityConstraint IdentityConstraintID = IdentityConstraintID(invalidID)
 )
 
-// NewUint32Index returns n as a uint32 index when it is representable.
-func NewUint32Index(n int) (uint32, bool) {
+// newUint32Index returns n as a uint32 index when it is representable.
+func newUint32Index(n int) (uint32, bool) {
 	if n < 0 || uint64(n) > uint64(^uint32(0)) {
 		return 0, false
 	}
@@ -147,7 +147,7 @@ func newRuntimeID(n int) (uint32, bool) {
 }
 
 func validRuntimeID(id uint32, n int) bool {
-	return id != invalidID && ValidUint32Index(id, n)
+	return id != invalidID && validUint32Index(id, n)
 }
 
 func validRuntimeIDTableLength(n int) bool {
@@ -199,66 +199,66 @@ func (t TypeID) Simple() (SimpleTypeID, bool) {
 // Complex returns the complex-type ID if t references a complex type.
 func (t TypeID) Complex() (ComplexTypeID, bool) {
 	if !t.IsComplex() {
-		return NoComplexType, false
+		return noComplexType, false
 	}
 	return ComplexTypeID(t.id), true
 }
 
 func validTypeID(typ TypeID, simpleCount, complexCount int) bool {
 	if id, ok := typ.Simple(); ok {
-		return ValidSimpleTypeID(id, simpleCount)
+		return validSimpleTypeID(id, simpleCount)
 	}
 	if id, ok := typ.Complex(); ok {
-		return ValidComplexTypeID(id, complexCount)
+		return validComplexTypeID(id, complexCount)
 	}
 	return false
 }
 
-// ValidUint32Index reports whether id is a valid index into a slice of length n.
-func ValidUint32Index(id uint32, n int) bool {
+// validUint32Index reports whether id is a valid index into a slice of length n.
+func validUint32Index(id uint32, n int) bool {
 	if n < 0 {
 		return false
 	}
 	return uint64(id) < uint64(n)
 }
 
-// ValidSimpleTypeID reports whether id indexes a simple-type table of length n.
-func ValidSimpleTypeID(id SimpleTypeID, n int) bool {
+// validSimpleTypeID reports whether id indexes a simple-type table of length n.
+func validSimpleTypeID(id SimpleTypeID, n int) bool {
 	return validRuntimeID(uint32(id), n)
 }
 
-// ValidComplexTypeID reports whether id indexes a complex-type table of length n.
-func ValidComplexTypeID(id ComplexTypeID, n int) bool {
+// validComplexTypeID reports whether id indexes a complex-type table of length n.
+func validComplexTypeID(id ComplexTypeID, n int) bool {
 	return validRuntimeID(uint32(id), n)
 }
 
-// ValidElementID reports whether id indexes an element-declaration table of length n.
-func ValidElementID(id ElementID, n int) bool {
+// validElementID reports whether id indexes an element-declaration table of length n.
+func validElementID(id ElementID, n int) bool {
 	return validRuntimeID(uint32(id), n)
 }
 
-// ValidAttributeID reports whether id indexes an attribute-declaration table of length n.
-func ValidAttributeID(id AttributeID, n int) bool {
+// validAttributeID reports whether id indexes an attribute-declaration table of length n.
+func validAttributeID(id AttributeID, n int) bool {
 	return validRuntimeID(uint32(id), n)
 }
 
-// ValidContentModelID reports whether id indexes a content-model table of length n.
-func ValidContentModelID(id ContentModelID, n int) bool {
+// validContentModelID reports whether id indexes a content-model table of length n.
+func validContentModelID(id contentModelID, n int) bool {
 	return validRuntimeID(uint32(id), n)
 }
 
-// ValidAttributeUseSetID reports whether id indexes an attribute-use-set table of length n.
-func ValidAttributeUseSetID(id AttributeUseSetID, n int) bool {
+// validAttributeUseSetID reports whether id indexes an attribute-use-set table of length n.
+func validAttributeUseSetID(id attributeUseSetID, n int) bool {
 	return validRuntimeID(uint32(id), n)
 }
 
-// ValidWildcardID reports whether id indexes a wildcard table of length n.
-func ValidWildcardID(id WildcardID, n int) bool {
+// validWildcardID reports whether id indexes a wildcard table of length n.
+func validWildcardID(id WildcardID, n int) bool {
 	return validRuntimeID(uint32(id), n)
 }
 
-// ValidIdentityConstraintID reports whether id indexes an identity-constraint table of length n.
-func ValidIdentityConstraintID(id IdentityConstraintID, n int) bool {
+// validIdentityConstraintID reports whether id indexes an identity-constraint table of length n.
+func validIdentityConstraintID(id IdentityConstraintID, n int) bool {
 	return validRuntimeID(uint32(id), n)
 }
 
@@ -275,28 +275,28 @@ func (n RuntimeName) Label() string {
 	if n.Known || n.NS == "" {
 		return n.Local
 	}
-	return FormatExpandedName(n.NS, n.Local)
+	return formatExpandedName(n.NS, n.Local)
 }
 
-// FormatExpandedName formats a namespace URI and local name as an expanded XML name.
-func FormatExpandedName(ns, local string) string {
+// formatExpandedName formats a namespace URI and local name as an expanded XML name.
+func formatExpandedName(ns, local string) string {
 	if ns == "" {
 		return local
 	}
 	return "{" + ns + "}" + local
 }
 
-// IdentityConstraint is canonical construction metadata for an XSD identity constraint.
-type IdentityConstraint struct {
-	Selector []IdentityPath
-	Fields   []IdentityField
+// identityConstraintSpec is canonical construction metadata for an XSD identity constraint.
+type identityConstraintSpec struct {
+	Selector []identityPath
+	Fields   []identityField
 	Name     QName
 	Refer    IdentityConstraintID
 	Kind     IdentityKind
 }
 
-// IdentityPath is one parsed selector XPath branch.
-type IdentityPath struct {
+// identityPath is one parsed selector XPath branch.
+type identityPath struct {
 	Steps      []IdentityStep
 	Descendant bool
 }
@@ -306,19 +306,19 @@ type IdentityStep struct {
 	Name         QName
 	Wildcard     bool
 	NamespaceSet bool
-	Namespace    NamespaceID
+	Namespace    namespaceID
 }
 
-// IdentityField is one identity field with all parsed XPath alternatives.
-type IdentityField struct {
-	Paths []IdentityFieldPath
+// identityField is one identity field with all parsed XPath alternatives.
+type identityField struct {
+	Paths []identityFieldPath
 }
 
-// IdentityFieldPath is one parsed field XPath branch.
-type IdentityFieldPath struct {
+// identityFieldPath is one parsed field XPath branch.
+type identityFieldPath struct {
 	Steps            []IdentityStep
 	Attribute        QName
-	AttrNamespace    NamespaceID
+	AttrNamespace    namespaceID
 	Descendant       bool
 	Attr             bool
 	AttrWildcard     bool

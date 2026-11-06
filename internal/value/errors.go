@@ -16,13 +16,23 @@ var ErrMetadata = errors.New("value program metadata is invalid")
 // ErrLimit reports a bounded value-program construction or evaluation limit.
 var ErrLimit = errors.New("value program limit exceeded")
 
+// ErrPatternLimit reports that one value exhausted its pattern-matching work
+// budget (EvaluationLimits.PatternWork). It wraps ErrLimit, so generic limit
+// handling still classifies it.
+var ErrPatternLimit = fmt.Errorf("pattern match work limit exceeded: %w", ErrLimit)
+
+// ErrPatternTotalLimit reports that the caller-owned PatternAccount shared
+// across evaluations was exhausted. It wraps ErrLimit and is distinct from
+// ErrPatternLimit.
+var ErrPatternTotalLimit = fmt.Errorf("aggregate pattern match work limit exceeded: %w", ErrLimit)
+
 // ErrFacet classifies a value that fails an effective facet. The concrete
 // error text remains available for diagnostics.
 var ErrFacet = errors.New("value facet failed")
 
-// IsUnsupported reports whether err is an unsupported datatype operation,
+// isUnsupported reports whether err is an unsupported datatype operation,
 // preserving the structured diagnostic supplied by the owning package.
-func IsUnsupported(err error) bool { return xsderrors.IsUnsupported(err) }
+func isUnsupported(err error) bool { return xsderrors.IsUnsupported(err) }
 
 type facetError string
 
@@ -181,7 +191,7 @@ func (e *valueDiagnosticError) Is(target error) bool {
 // retained literals and pure equality, and pattern failures describe every
 // group rather than rematching to guess which one failed.
 func describeValueFailure[T byteText](program *Program, id TypeID, lexical T, parsed *parsedValue, cause error) error {
-	if errors.Is(cause, ErrLimit) || errors.Is(cause, ErrMetadata) || IsUnsupported(cause) {
+	if errors.Is(cause, ErrLimit) || errors.Is(cause, ErrMetadata) || isUnsupported(cause) {
 		return cause
 	}
 	t, ok := program.typeDef(id)
@@ -246,15 +256,15 @@ func diagnosticTypeName(program *Program, id TypeID) string {
 	switch t.builtin {
 	case BuiltinInteger:
 		builtin = builtinInteger
-	case BuiltinName:
+	case builtinNameLexical:
 		builtin = builtinName
-	case BuiltinNCName:
+	case builtinNCNameLexical:
 		builtin = builtinNCName
-	case BuiltinNMTOKEN:
+	case builtinNMTOKENLexical:
 		builtin = builtinNMTOKEN
-	case BuiltinLanguage:
+	case builtinLanguageLexical:
 		builtin = builtinLanguage
-	case BuiltinEntity:
+	case builtinEntity:
 		builtin = builtinENTITY
 	case BuiltinNone:
 	}
@@ -526,7 +536,7 @@ func failedLowerBoundDiagnostic[T byteText](t *typeDef, lexical T, parsed *parse
 	for i := range t.facets.lower {
 		bound := &t.facets.lower[i]
 		relation, ok := compareAtomic(&parsed.atom, &bound.value)
-		if !ok || !OrderedFacetLowerBoundAccepts(bound.exclusive, relation) {
+		if !ok || !orderedFacetLowerBoundAccepts(bound.exclusive, relation) {
 			name := diagnosticBoundName("min", bound)
 			return boundDiagnostic(t, lexical, name, bound)
 		}
@@ -541,7 +551,7 @@ func failedOrderedBoundDiagnostic[T byteText](t *typeDef, lexical T, parsed *par
 	for i := range t.facets.upper {
 		bound := &t.facets.upper[i]
 		relation, ok := compareAtomic(&parsed.atom, &bound.value)
-		if !ok || !OrderedFacetUpperBoundAccepts(bound.exclusive, relation) {
+		if !ok || !orderedFacetUpperBoundAccepts(bound.exclusive, relation) {
 			name := diagnosticBoundName("max", bound)
 			return boundDiagnostic(t, lexical, name, bound)
 		}
@@ -560,22 +570,22 @@ func diagnosticBoundValue(builtin BuiltinKind, atom *atomicValue) string {
 	case PrimitiveFloat, PrimitiveDouble:
 		bits, _ := floatBits(atom.kind)
 		return diagnostictext.Quote(formatFloatCanonical(atom.float, bits))
-	case PrimitiveDate:
+	case primitiveDate:
 		return diagnostictext.Quote((DateValue{point: atom.temporal.instant, hasTZ: atom.temporal.hasTZ}).CanonicalText())
 	case PrimitiveDateTime:
 		return diagnostictext.Quote(DateTimeValue(atom.temporal).CanonicalText())
 	case PrimitiveDuration:
 		return diagnosticDuration(atom.duration)
-	case PrimitiveString, PrimitiveBoolean, PrimitiveDecimal, PrimitiveTime,
-		PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay,
-		PrimitiveGMonth, PrimitiveHexBinary, PrimitiveBase64Binary,
+	case PrimitiveString, PrimitiveBoolean, PrimitiveDecimal, primitiveTime,
+		primitiveGYearMonth, primitiveGYear, primitiveGMonthDay, primitiveGDay,
+		primitiveGMonth, PrimitiveHexBinary, PrimitiveBase64Binary,
 		PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
 		return diagnostictext.Quote(atomicCanonical(builtin, atom, ""))
 	}
 	return "the declared bound"
 }
 
-func diagnosticDuration(duration DurationValue) string {
+func diagnosticDuration(duration durationValue) string {
 	months, seconds := duration.coordinates()
 	negative := duration.negativeFrac
 	if strings.HasPrefix(months.text(), "-") {

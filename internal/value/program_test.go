@@ -8,7 +8,7 @@ import (
 )
 
 func TestProgramReservesBuiltinsAndEvaluatesDecimalFacets(t *testing.T) {
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := b.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -35,24 +35,24 @@ func TestProgramReservesBuiltinsAndEvaluatesDecimalFacets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	v, err := p.Validate(id, " 2.00 ", Resolver{}, NeedCanonical|NeedIdentity, 16<<20, nil)
+	v, err := p.Validate(id, " 2.00 ", Resolver{}, NeedCanonical|NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if v.CanonicalText() != "2.0" || v.IdentityKey() == "" {
 		t.Fatalf("unexpected projections: canonical=%q identity=%q", v.CanonicalText(), v.IdentityKey())
 	}
-	if _, err := p.Validate(id, "4", Resolver{}, NeedCanonical, 16<<20, nil); err == nil {
+	if _, err := p.Validate(id, "4", Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err == nil {
 		t.Fatal("exclusive upper facet should reject boundary")
 	}
 }
 
 func TestProgramListUnionAndPatternGroups(t *testing.T) {
-	pattern, err := xsdregex.Compile(".*2.*", xsdregex.CompileOptions{})
+	pattern, err := xsdregex.Compile(".*2.*")
 	if err != nil {
 		t.Fatal(err)
 	}
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	item, err := b.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -102,24 +102,24 @@ func TestProgramListUnionAndPatternGroups(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	v, err := p.Validate(list, " 1.0\t2.0 ", Resolver{}, NeedCanonical|NeedIdentity, 16<<20, nil)
+	v, err := p.Validate(list, " 1.0\t2.0 ", Resolver{}, NeedCanonical|NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if v.CanonicalText() != "1.0 2.0" {
 		t.Fatalf("unexpected list canonical=%q", v.CanonicalText())
 	}
-	v, err = p.Validate(union, "2", Resolver{}, NeedCanonical, 16<<20, nil)
+	v, err = p.Validate(union, "2", Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil || v.SelectedType() != item {
 		t.Fatalf("union selection = %d, err=%v; want %d", v.SelectedType(), err, item)
 	}
-	if _, err := p.Validate(union, "no-two", Resolver{}, NeedCanonical, 16<<20, nil); err == nil {
+	if _, err := p.Validate(union, "no-two", Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err == nil {
 		t.Fatal("pattern group should reject a nonmatching union value")
 	}
 }
 
 func TestProgramListEnumerationRetainsOnlyFacetComparisonState(t *testing.T) {
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	item, err := b.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -157,16 +157,16 @@ func TestProgramListEnumerationRetainsOnlyFacetComparisonState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := p.Validate(list, "1 2", Resolver{}, 0, 16<<20, nil); err != nil {
+	if _, err := p.Validate(list, "1 2", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 		t.Fatalf("list enumeration rejected equal value-space spelling: %v", err)
 	}
-	if _, err := p.Validate(list, "1 3", Resolver{}, 0, 16<<20, nil); err == nil {
+	if _, err := p.Validate(list, "1 3", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err == nil {
 		t.Fatal("list enumeration accepted a different value")
 	}
 }
 
 func TestProgramListDoesNotTreatUnicodeBytesAsWhitespace(t *testing.T) {
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	item, err := b.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -201,13 +201,13 @@ func TestProgramListDoesNotTreatUnicodeBytesAsWhitespace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := p.Validate(list, "a\u0120b", Resolver{}, 0, 16<<20, nil); err != nil {
+	if _, err := p.Validate(list, "a\u0120b", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 		t.Fatalf("Unicode list item was split as whitespace: %v", err)
 	}
 }
 
 func TestProgramDoesNotMaterializeUnrequestedProjections(t *testing.T) {
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := b.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -227,7 +227,7 @@ func TestProgramDoesNotMaterializeUnrequestedProjections(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	v, err := p.Validate(id, "2.00", Resolver{}, 0, 16<<20, nil)
+	v, err := p.Validate(id, "2.00", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -237,7 +237,7 @@ func TestProgramDoesNotMaterializeUnrequestedProjections(t *testing.T) {
 }
 
 func TestProgramRejectsInvalidUTF8AndXMLCharacters(t *testing.T) {
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := b.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -257,16 +257,16 @@ func TestProgramRejectsInvalidUTF8AndXMLCharacters(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := p.Validate(id, string([]byte{0xff}), Resolver{}, 0, 16<<20, nil); err == nil {
+	if _, err := p.Validate(id, string([]byte{0xff}), Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err == nil {
 		t.Fatal("invalid UTF-8 was accepted")
 	}
-	if _, err := p.Validate(id, "a\x00b", Resolver{}, 0, 16<<20, nil); err == nil {
+	if _, err := p.Validate(id, "a\x00b", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err == nil {
 		t.Fatal("invalid XML character was accepted")
 	}
 }
 
 func TestProgramEqualRequiresExplicitIdentityProjection(t *testing.T) {
-	stringBuilder := NewBuilder(BuilderOptions{})
+	stringBuilder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	stringID, err := stringBuilder.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -301,22 +301,22 @@ func TestProgramEqualRequiresExplicitIdentityProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stringValue, err := p.Validate(stringID, "1", Resolver{}, NeedCanonical|NeedIdentity, 16<<20, nil)
+	stringValue, err := p.Validate(stringID, "1", Resolver{}, NeedCanonical|NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	decimalValue, err := p.Validate(decimalID, "1", Resolver{}, NeedCanonical|NeedIdentity, 16<<20, nil)
+	decimalValue, err := p.Validate(decimalID, "1", Resolver{}, NeedCanonical|NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if stringValue.Equal(decimalValue) {
 		t.Fatal("string and decimal values with equal canonical text compared equal")
 	}
-	empty, err := p.Validate(stringID, "", Resolver{}, NeedIdentity, 16<<20, nil)
+	empty, err := p.Validate(stringID, "", Resolver{}, NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	otherEmpty, err := p.Validate(stringID, "", Resolver{}, NeedIdentity, 16<<20, nil)
+	otherEmpty, err := p.Validate(stringID, "", Resolver{}, NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -329,7 +329,7 @@ func TestProgramEqualRequiresExplicitIdentityProjection(t *testing.T) {
 // atomic value, and lists are equal when their items are, so empty lists of
 // any item type are equal.
 func TestListIdentityKeysAgreeWithEquality(t *testing.T) {
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	complete := func(spec TypeSpec) TypeID {
 		t.Helper()
 		id, err := b.Reserve()
@@ -351,7 +351,7 @@ func TestListIdentityKeysAgreeWithEquality(t *testing.T) {
 	}
 	validate := func(id TypeID, lexical string) Value {
 		t.Helper()
-		v, err := p.Validate(id, lexical, Resolver{}, NeedIdentity, 16<<20, nil)
+		v, err := p.Validate(id, lexical, Resolver{}, NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		if err != nil {
 			t.Fatalf("Validate(%q) error = %v", lexical, err)
 		}
@@ -385,7 +385,7 @@ func TestListIdentityKeysAgreeWithEquality(t *testing.T) {
 }
 
 func TestProgramCompilesForwardBaseFacetsBeforeDerived(t *testing.T) {
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	derivedID, reserveErr := b.Reserve()
 	if reserveErr != nil {
 		t.Fatal(reserveErr)
@@ -414,13 +414,13 @@ func TestProgramCompilesForwardBaseFacetsBeforeDerived(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = p.Validate(derivedID, "9", Resolver{}, 0, 16<<20, nil); err == nil {
+	if _, err = p.Validate(derivedID, "9", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err == nil {
 		t.Fatal("derived type accepted value below forward base bound")
 	}
 }
 
 func TestProgramDepthLimitIsExplicit(t *testing.T) {
-	b := NewBuilder(BuilderOptions{MaxDepth: 1})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxDepth: 1})
 	union, reserveErr := b.Reserve()
 	if reserveErr != nil {
 		t.Fatal(reserveErr)
@@ -435,7 +435,7 @@ func TestProgramDepthLimitIsExplicit(t *testing.T) {
 	if err := b.Complete(union, TypeSpec{Variety: Union, Base: NoType, ListItem: NoType, Union: []TypeID{future}, Whitespace: WhitespacePreserve, WhitespacePresent: true}); !errors.Is(err, ErrLimit) {
 		t.Fatalf("Complete error = %v, want ErrLimit", err)
 	}
-	b = NewBuilder(BuilderOptions{MaxDepth: 1})
+	b = NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxDepth: 1})
 	id, reserveErr := b.Reserve()
 	if reserveErr != nil {
 		t.Fatalf("Reserve() error = %v", reserveErr)
@@ -455,13 +455,13 @@ func TestProgramDepthLimitIsExplicit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := p.Validate(id, "x", Resolver{}, 0, 16<<20, nil); !errors.Is(err, ErrLimit) {
+	if _, err := p.Validate(id, "x", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); !errors.Is(err, ErrLimit) {
 		t.Fatalf("Validate error = %v, want ErrLimit", err)
 	}
 }
 
 func TestProgramEvaluationWorkLimitCountsUnionAttempts(t *testing.T) {
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := b.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -481,17 +481,17 @@ func TestProgramEvaluationWorkLimitCountsUnionAttempts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := p.Validate(id, "x", Resolver{}, 0, 4, nil); !errors.Is(err, ErrLimit) {
+	if _, err := p.Validate(id, "x", Resolver{}, 0, EvaluationLimits{Work: 4, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); !errors.Is(err, ErrLimit) {
 		t.Fatalf("Validate over union work budget = %v, want ErrLimit", err)
 	}
 }
 
 func TestProgramBoundsFacetDependencyDepthAndStorage(t *testing.T) {
-	if _, err := NewBuilder(BuilderOptions{MaxTypes: uint32(BuiltinTypeCount) - 1}).Seal(); !errors.Is(err, ErrLimit) {
+	if _, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxTypes: uint32(BuiltinTypeCount) - 1}).Seal(); !errors.Is(err, ErrLimit) {
 		t.Fatalf("Seal below builtin type budget = %v, want ErrLimit", err)
 	}
 
-	b := NewBuilder(BuilderOptions{MaxDepth: 1})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxDepth: 1})
 	derived, err := b.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -545,7 +545,7 @@ func TestProgramBoundsFacetDependencyDepthAndStorage(t *testing.T) {
 	}
 
 	emptyLiterals := make([]LiteralSpec, 64)
-	b = NewBuilder(BuilderOptions{MaxStorageBytes: 512 + 32*uint64(len(emptyLiterals)) - 1})
+	b = NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxStorageBytes: 512 + 32*uint64(len(emptyLiterals)) - 1})
 	fixtureType25, reserveErr25 := b.Reserve()
 	if reserveErr25 != nil {
 		t.Fatalf("Reserve() error = %v", reserveErr25)
@@ -564,7 +564,7 @@ func TestProgramBoundsFacetDependencyDepthAndStorage(t *testing.T) {
 }
 
 func TestProgramRejectsMissingUnionMember(t *testing.T) {
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	reservedID, reserveErr := b.Reserve()
 	if reserveErr != nil {
 		t.Fatalf("Reserve() error = %v", reserveErr)
@@ -582,7 +582,7 @@ func TestProgramRejectsMissingUnionMember(t *testing.T) {
 }
 
 func TestProgramQNameLengthFacetIsAlwaysSatisfied(t *testing.T) {
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := b.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -606,11 +606,11 @@ func TestProgramQNameLengthFacetIsAlwaysSatisfied(t *testing.T) {
 	resolve := Resolver{QName: func(string) (ExpandedName, bool) {
 		return ExpandedName{Namespace: "urn:test", Local: "long-local"}, true
 	}}
-	if _, err := p.Validate(id, "p:long-local", resolve, 0, 16<<20, nil); err != nil {
+	if _, err := p.Validate(id, "p:long-local", resolve, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 		t.Fatalf("QName length facet rejected valid QName: %v", err)
 	}
 
-	b = NewBuilder(BuilderOptions{})
+	b = NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	reservedID, reserveErr := b.Reserve()
 	if reserveErr != nil {
 		t.Fatalf("Reserve() error = %v", reserveErr)
@@ -629,11 +629,11 @@ func TestProgramQNameLengthFacetIsAlwaysSatisfied(t *testing.T) {
 }
 
 func TestProgramAcceptsCompiledXSDRegexPattern(t *testing.T) {
-	pattern, err := xsdregex.Compile("a+", xsdregex.CompileOptions{})
+	pattern, err := xsdregex.Compile("a+")
 	if err != nil {
 		t.Fatal(err)
 	}
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := b.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -656,10 +656,10 @@ func TestProgramAcceptsCompiledXSDRegexPattern(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := p.Validate(id, "aaa", Resolver{}, NeedCanonical, 16<<20, nil); err != nil {
+	if _, err := p.Validate(id, "aaa", Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := p.Validate(id, "b", Resolver{}, NeedCanonical, 16<<20, nil); err == nil {
+	if _, err := p.Validate(id, "b", Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err == nil {
 		t.Fatal("compiled XSD pattern should reject b")
 	}
 }
@@ -674,7 +674,7 @@ func TestProgramQNameAndNotationResolver(t *testing.T) {
 		},
 		Notation: func(ns, local string) bool { return ns == "urn:test" && local == "item" },
 	}
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	qname, err := b.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -695,18 +695,18 @@ func TestProgramQNameAndNotationResolver(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	q, err := p.Validate(qname, "p:item", resolve, NeedCanonical, 16<<20, nil)
+	q, err := p.Validate(qname, "p:item", resolve, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil || q.CanonicalText() != "{urn:test}item" {
 		t.Fatalf("QName = %q, err=%v", q.CanonicalText(), err)
 	}
-	n, err := p.Validate(notation, "p:item", resolve, NeedCanonical, 16<<20, nil)
+	n, err := p.Validate(notation, "p:item", resolve, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil || n.CanonicalText() != "{urn:test}item" {
 		t.Fatalf("NOTATION = %q, err=%v", n.CanonicalText(), err)
 	}
 }
 
 func TestProgramNotationOnlyResolverValidatesAndStoresExpandedName(t *testing.T) {
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	notation, err := b.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -731,7 +731,7 @@ func TestProgramNotationOnlyResolverValidatesAndStoresExpandedName(t *testing.T)
 			return namespace == "" && (local == "item" || local == "other")
 		},
 	}
-	item, err := p.Validate(notation, "item", resolve, NeedCanonical|NeedIdentity, 16<<20, nil)
+	item, err := p.Validate(notation, "item", resolve, NeedCanonical|NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatalf("declared unqualified NOTATION = %v", err)
 	}
@@ -742,11 +742,11 @@ func TestProgramNotationOnlyResolverValidatesAndStoresExpandedName(t *testing.T)
 		t.Fatalf("NOTATION resolver calls = %q, want [/item]", resolved)
 	}
 
-	same, err := p.Validate(notation, "item", resolve, NeedCanonical|NeedIdentity, 16<<20, nil)
+	same, err := p.Validate(notation, "item", resolve, NeedCanonical|NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatalf("same unqualified NOTATION = %v", err)
 	}
-	other, err := p.Validate(notation, "other", resolve, NeedCanonical|NeedIdentity, 16<<20, nil)
+	other, err := p.Validate(notation, "other", resolve, NeedCanonical|NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatalf("different declared unqualified NOTATION = %v", err)
 	}
@@ -758,16 +758,16 @@ func TestProgramNotationOnlyResolverValidatesAndStoresExpandedName(t *testing.T)
 	}
 
 	undeclared := Resolver{Notation: func(string, string) bool { return false }}
-	if _, err := p.Validate(notation, "item", undeclared, 0, 16<<20, nil); err == nil {
+	if _, err := p.Validate(notation, "item", undeclared, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err == nil {
 		t.Fatal("undeclared unqualified NOTATION was accepted")
 	}
-	if _, err := p.Validate(notation, "p:item", resolve, 0, 16<<20, nil); err == nil {
+	if _, err := p.Validate(notation, "p:item", resolve, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err == nil {
 		t.Fatal("prefixed NOTATION was accepted without a QName resolver")
 	}
 }
 
 func TestIncrementalBuilderValidatesCompletedTypesBeforeSeal(t *testing.T) {
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	base, err := b.Reserve()
 	if err != nil {
 		t.Fatal(err)
@@ -807,13 +807,13 @@ func TestIncrementalBuilderValidatesCompletedTypesBeforeSeal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = p.Validate(derived, "2", Resolver{}, 0, 16<<20, nil); err != nil {
+	if _, err = p.Validate(derived, "2", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 		t.Fatalf("Validate sealed derived = %v", err)
 	}
 }
 
 func TestUnionPreservesEarlierUnsupportedMemberError(t *testing.T) {
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	entity, ok := BuiltinTypeID("ENTITY")
 	if !ok {
 		t.Fatal("missing ENTITY builtin")
@@ -834,7 +834,7 @@ func TestUnionPreservesEarlierUnsupportedMemberError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := p.Validate(id, "name", Resolver{}, 0, 16<<20, nil); !IsUnsupported(err) {
+	if _, err := p.Validate(id, "name", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); !isUnsupported(err) {
 		t.Fatalf("union error = %v, want unsupported member error", err)
 	}
 }

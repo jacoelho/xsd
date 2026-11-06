@@ -43,6 +43,15 @@ type ValidateOptions struct {
 	// simple value. Each visited lexical byte and evaluation visit consumes one
 	// work unit. Zero uses the finite default.
 	MaxInstanceValueWork uint64
+	// MaxInstancePatternWork limits regular-expression matching work for one
+	// simple value, across all pattern facets, list items and union members;
+	// units are defined in docs/RESOURCE_LIMITS.md (Pattern matching cost).
+	// Zero uses the finite default.
+	MaxInstancePatternWork uint64
+	// MaxInstanceTotalPatternWork caps regular-expression matching work summed
+	// over all values of one document; units are in docs/RESOURCE_LIMITS.md
+	// (Pattern matching cost). Zero uses the default.
+	MaxInstanceTotalPatternWork uint64
 }
 
 // Session validates XML instance documents against one Engine.

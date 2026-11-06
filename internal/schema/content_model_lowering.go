@@ -1,50 +1,51 @@
 package schema
 
 import (
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// ComplexExtensionModelAdmission is the compile-time projection needed to
+// complexExtensionModelAdmission is the compile-time projection needed to
 // validate an extension model before it is appended to its base content.
-type ComplexExtensionModelAdmission struct {
-	Extension     ContentModelID
-	BaseContent   ContentModelID
+type complexExtensionModelAdmission struct {
+	Extension     contentModelID
+	BaseContent   contentModelID
 	BaseIsAnyType bool
 	BaseMixed     bool
 	Mixed         bool
 }
 
-// ComplexExtensionContentAdmission is the compile-time projection needed before
+// complexExtensionContentAdmission is the compile-time projection needed before
 // an extension model is lowered.
-type ComplexExtensionContentAdmission struct {
+type complexExtensionContentAdmission struct {
 	BaseSimpleContent bool
 	HasModelChild     bool
 }
 
-// ModelChildKind is the compile-time projection of the child term being
+// modelChildKind is the compile-time projection of the child term being
 // admitted into a model group.
-type ModelChildKind uint8
+type modelChildKind uint8
 
 const (
-	// ModelChildElement admits an element particle.
-	ModelChildElement ModelChildKind = iota
-	// ModelChildModel admits a nested model group particle.
-	ModelChildModel
-	// ModelChildWildcard admits a wildcard particle.
-	ModelChildWildcard
+	// modelChildElement admits an element particle.
+	modelChildElement modelChildKind = iota
+	// modelChildModel admits a nested model group particle.
+	modelChildModel
+	// modelChildWildcard admits a wildcard particle.
+	modelChildWildcard
 )
 
-// ModelChildAdmission is the compile-time projection needed to validate a
+// modelChildAdmission is the compile-time projection needed to validate a
 // model group child without exposing schema syntax to internal compile code.
-type ModelChildAdmission struct {
-	Kind      ModelChildKind
-	ModelKind ModelKind
+type modelChildAdmission struct {
+	Kind      modelChildKind
+	ModelKind modelKind
 }
 
-// AddContentModelFunc appends a generated content model to the compiler's
+// addContentModelFunc appends a generated content model to the compiler's
 // mutable runtime model table.
-type AddContentModelFunc func(ContentModel) (ContentModelID, error)
+type addContentModelFunc func(contentModelNode) (contentModelID, error)
 
 type modelTextKind uint8
 
@@ -54,160 +55,160 @@ const (
 	modelTextMixed
 )
 
-// ModelKindForLocal classifies an XSD model-group element local name.
-func ModelKindForLocal(local string) (ModelKind, error) {
+// modelKindForLocal classifies an XSD model-group element local name.
+func modelKindForLocal(local string) (modelKind, error) {
 	switch local {
 	case vocab.XSDElemSequence:
-		return ModelSequence, nil
+		return modelSequence, nil
 	case vocab.XSDElemChoice:
-		return ModelChoice, nil
+		return modelChoice, nil
 	case vocab.XSDElemAll:
-		return ModelAll, nil
+		return modelAll, nil
 	default:
-		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "unsupported model "+local)
+		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "unsupported model "+diagnostictext.Quote(local))
 	}
 }
 
-// ModelChildAdmissionForModelKind classifies a compiled nested model group.
-func ModelChildAdmissionForModelKind(kind ModelKind) ModelChildAdmission {
-	return ModelChildAdmission{Kind: ModelChildModel, ModelKind: kind}
+// modelChildAdmissionForModelKind classifies a compiled nested model group.
+func modelChildAdmissionForModelKind(kind modelKind) modelChildAdmission {
+	return modelChildAdmission{Kind: modelChildModel, ModelKind: kind}
 }
 
-// ValidateModelGroupChildAdmission validates compile-time model group child
+// validateModelGroupChildAdmission validates compile-time model group child
 // admission rules.
-func ValidateModelGroupChildAdmission(parent ModelKind, child ModelChildAdmission) error {
-	if parent == ModelAll && child.Kind != ModelChildElement {
+func validateModelGroupChildAdmission(parent modelKind, child modelChildAdmission) error {
+	if parent == modelAll && child.Kind != modelChildElement {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "xs:all can contain only element particles")
 	}
-	if child.Kind == ModelChildModel && child.ModelKind == ModelAll {
+	if child.Kind == modelChildModel && child.ModelKind == modelAll {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "xs:all cannot be nested in model groups")
 	}
 	return nil
 }
 
-// AppendParticle applies compile-time particle admission rules and appends p to
+// appendParticle applies compile-time particle admission rules and appends p to
 // model. Zero-count particles are omitted from the lowered model.
-func AppendParticle(model *ContentModel, p Particle) error {
-	if err := ValidateModelGroupChildAdmission(model.Kind, ModelChildAdmission{Kind: modelParticleChildKind(p)}); err != nil {
+func appendParticle(model *contentModelNode, p contentParticle) error {
+	if err := validateModelGroupChildAdmission(model.Kind, modelChildAdmission{Kind: modelParticleChildKind(p)}); err != nil {
 		return err
 	}
 	if p.Occurs.Max == 0 && !p.Occurs.Unbounded {
 		return nil
 	}
-	if model.Kind == ModelAll && (p.Occurs.Unbounded || p.Occurs.Max > 1) {
+	if model.Kind == modelAll && (p.Occurs.Unbounded || p.Occurs.Max > 1) {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, "xs:all particles cannot repeat")
 	}
 	model.Particles = append(model.Particles, p)
 	return nil
 }
 
-func modelParticleChildKind(p Particle) ModelChildKind {
+func modelParticleChildKind(p contentParticle) modelChildKind {
 	switch p.Kind {
-	case ParticleElement:
-		return ModelChildElement
-	case ParticleWildcard:
-		return ModelChildWildcard
-	case ParticleModel:
-		return ModelChildModel
+	case particleElement:
+		return modelChildElement
+	case particleWildcard:
+		return modelChildWildcard
+	case particleModel:
+		return modelChildModel
 	default:
 	}
-	return ModelChildModel
+	return modelChildModel
 }
 
-// ValidateComplexExtensionModelAdmission validates compile-time complex-content
+// validateComplexExtensionModelAdmission validates compile-time complex-content
 // extension model admission rules.
-func ValidateComplexExtensionModelAdmission(rt *schemaBuild, admission ComplexExtensionModelAdmission) error {
+func validateComplexExtensionModelAdmission(rt *schemaBuild, admission complexExtensionModelAdmission) error {
 	if !admission.BaseIsAnyType && admission.BaseMixed && !admission.Mixed {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "complexContent extension cannot drop mixed base content")
 	}
-	extension, ok := ContentModelByID(rt.Models, admission.Extension)
+	extension, ok := contentModelByID(rt.Models, admission.Extension)
 	if !ok {
 		return xsderrors.InternalInvariant("complex extension references missing extension content model")
 	}
-	if extension.Kind == ModelAll && !ModelHasNoParticles(rt, admission.BaseContent) {
+	if extension.Kind == modelAll && !modelHasNoParticles(rt, admission.BaseContent) {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "complexContent extension cannot use xs:all")
 	}
-	if admission.BaseContent == NoContentModel {
+	if admission.BaseContent == noContentModel {
 		return nil
 	}
-	base, ok := ContentModelByID(rt.Models, admission.BaseContent)
+	base, ok := contentModelByID(rt.Models, admission.BaseContent)
 	if !ok {
 		return xsderrors.InternalInvariant("complex extension references missing base content model")
 	}
-	if base.Kind == ModelAll && len(base.Particles) != 0 {
+	if base.Kind == modelAll && len(base.Particles) != 0 {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "complexContent extension cannot add particles to xs:all base")
 	}
 	return nil
 }
 
-// ValidateComplexExtensionContentAdmission validates compile-time complex-content
+// validateComplexExtensionContentAdmission validates compile-time complex-content
 // extension admission rules that are knowable before model lowering.
-func ValidateComplexExtensionContentAdmission(admission ComplexExtensionContentAdmission) error {
+func validateComplexExtensionContentAdmission(admission complexExtensionContentAdmission) error {
 	if admission.BaseSimpleContent && admission.HasModelChild {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "complexContent extension cannot add particles to simple content")
 	}
 	return nil
 }
 
-// ExtendSequenceModel lowers a complex-content extension by combining base and
+// extendSequenceModel lowers a complex-content extension by combining base and
 // extension content into a sequence model when both sides contribute particles.
-func ExtendSequenceModel(rt *schemaBuild, add AddContentModelFunc, baseID, extID ContentModelID) (ContentModelID, error) {
-	if baseID == NoContentModel {
+func extendSequenceModel(rt *schemaBuild, add addContentModelFunc, baseID, extID contentModelID) (contentModelID, error) {
+	if baseID == noContentModel {
 		return extID, nil
 	}
-	base, ok := ContentModelByID(rt.Models, baseID)
+	base, ok := contentModelByID(rt.Models, baseID)
 	if !ok {
-		return NoContentModel, xsderrors.InternalInvariant("sequence extension references missing base content model")
+		return noContentModel, xsderrors.InternalInvariant("sequence extension references missing base content model")
 	}
-	ext, ok := ContentModelByID(rt.Models, extID)
+	ext, ok := contentModelByID(rt.Models, extID)
 	if !ok {
-		return NoContentModel, xsderrors.InternalInvariant("sequence extension references missing extension content model")
+		return noContentModel, xsderrors.InternalInvariant("sequence extension references missing extension content model")
 	}
 	textKind := modelTextElementOnly
 	if base.Mixed || ext.Mixed {
 		textKind = modelTextMixed
 	}
-	if ModelHasNoParticles(rt, baseID) {
+	if modelHasNoParticles(rt, baseID) {
 		return modelWithTextKind(rt, add, extID, textKind)
 	}
-	if ModelHasNoParticles(rt, extID) {
+	if modelHasNoParticles(rt, extID) {
 		return modelWithTextKind(rt, add, baseID, textKind)
 	}
-	m := ContentModel{Kind: ModelSequence, Occurs: Occurrence{Min: 1, Max: 1}, Mixed: textKind == modelTextMixed}
+	m := contentModelNode{Kind: modelSequence, Occurs: occurrence{Min: 1, Max: 1}, Mixed: textKind == modelTextMixed}
 	if err := appendSequenceExtensionOperand(rt, add, &m, baseID, base); err != nil {
-		return NoContentModel, err
+		return noContentModel, err
 	}
 	if err := appendSequenceExtensionOperand(rt, add, &m, extID, ext); err != nil {
-		return NoContentModel, err
+		return noContentModel, err
 	}
 	return add(m)
 }
 
-func appendSequenceExtensionOperand(rt *schemaBuild, add AddContentModelFunc, target *ContentModel, id ContentModelID, model ContentModel) error {
-	if model.Kind == ModelSequence && model.Occurs.IsExactlyOne() {
+func appendSequenceExtensionOperand(rt *schemaBuild, add addContentModelFunc, target *contentModelNode, id contentModelID, model contentModelNode) error {
+	if model.Kind == modelSequence && model.Occurs.IsExactlyOne() {
 		target.Particles = append(target.Particles, model.Particles...)
 		return nil
 	}
-	return AppendModelParticle(rt, add, target, id)
+	return appendModelParticle(rt, add, target, id)
 }
 
-func modelWithTextKind(rt *schemaBuild, add AddContentModelFunc, id ContentModelID, textKind modelTextKind) (ContentModelID, error) {
+func modelWithTextKind(rt *schemaBuild, add addContentModelFunc, id contentModelID, textKind modelTextKind) (contentModelID, error) {
 	var mixed bool
 	switch textKind {
 	case modelTextElementOnly:
 	case modelTextMixed:
 		mixed = true
 	case modelTextInvalid:
-		return NoContentModel, xsderrors.InternalInvariant("invalid model text kind")
+		return noContentModel, xsderrors.InternalInvariant("invalid model text kind")
 	default:
-		return NoContentModel, xsderrors.InternalInvariant("unknown model text kind")
+		return noContentModel, xsderrors.InternalInvariant("unknown model text kind")
 	}
-	if id == NoContentModel {
+	if id == noContentModel {
 		return id, nil
 	}
-	model, ok := ContentModelByID(rt.Models, id)
+	model, ok := contentModelByID(rt.Models, id)
 	if !ok {
-		return NoContentModel, xsderrors.InternalInvariant("model mixed update references missing content model")
+		return noContentModel, xsderrors.InternalInvariant("model mixed update references missing content model")
 	}
 	if model.Mixed == mixed {
 		return id, nil
@@ -216,10 +217,10 @@ func modelWithTextKind(rt *schemaBuild, add AddContentModelFunc, id ContentModel
 	return add(model)
 }
 
-// AppendModelParticle appends a model particle for id when the referenced
+// appendModelParticle appends a model particle for id when the referenced
 // model can contribute content.
-func AppendModelParticle(rt *schemaBuild, add AddContentModelFunc, model *ContentModel, id ContentModelID) error {
-	p, ok, err := CompileModelParticle(rt, add, id)
+func appendModelParticle(rt *schemaBuild, add addContentModelFunc, model *contentModelNode, id contentModelID) error {
+	p, ok, err := compileModelParticle(rt, add, id)
 	if err != nil || !ok {
 		return err
 	}
@@ -227,45 +228,45 @@ func AppendModelParticle(rt *schemaBuild, add AddContentModelFunc, model *Conten
 	return nil
 }
 
-// CompileModelParticle lowers a referenced content model into a particle. Repeated
+// compileModelParticle lowers a referenced content model into a particle. Repeated
 // model references are normalized through a generated exactly-one model slot.
-func CompileModelParticle(rt *schemaBuild, add AddContentModelFunc, id ContentModelID) (Particle, bool, error) {
-	model, ok := ContentModelByID(rt.Models, id)
+func compileModelParticle(rt *schemaBuild, add addContentModelFunc, id contentModelID) (contentParticle, bool, error) {
+	model, ok := contentModelByID(rt.Models, id)
 	if !ok {
-		return Particle{}, false, xsderrors.InternalInvariant("model particle references missing content model")
+		return contentParticle{}, false, xsderrors.InternalInvariant("model particle references missing content model")
 	}
 	occurs := model.Occurs
 	if occurs.Max == 0 && !occurs.Unbounded {
-		return Particle{}, false, nil
+		return contentParticle{}, false, nil
 	}
 	modelID := id
 	if !occurs.IsExactlyOne() {
 		normalized := model
-		normalized.Occurs = Occurrence{Min: 1, Max: 1}
+		normalized.Occurs = occurrence{Min: 1, Max: 1}
 		var err error
 		modelID, err = add(normalized)
 		if err != nil {
-			return Particle{}, false, err
+			return contentParticle{}, false, err
 		}
 	}
-	return ModelParticle(modelID, occurs), true, nil
+	return modelParticle(modelID, occurs), true, nil
 }
 
-// AppendFlattenedModelChild removes pointless groups only. Language-equivalent
+// appendFlattenedModelChild removes pointless groups only. Language-equivalent
 // occurrence multiplication can erase a structural restriction boundary.
-func AppendFlattenedModelChild(model *ContentModel, child ContentModel) bool {
-	if model.Kind == ModelChoice && child.Kind == ModelChoice && child.Occurs.IsExactlyOne() {
+func appendFlattenedModelChild(model *contentModelNode, child contentModelNode) bool {
+	if model.Kind == modelChoice && child.Kind == modelChoice && child.Occurs.IsExactlyOne() {
 		model.Particles = append(model.Particles, child.Particles...)
 		return true
 	}
-	if model.Kind != ModelSequence {
+	if model.Kind != modelSequence {
 		return false
 	}
-	if (child.Kind == ModelSequence || child.Kind == ModelChoice) && len(child.Particles) == 1 && child.Occurs.IsExactlyOne() {
+	if (child.Kind == modelSequence || child.Kind == modelChoice) && len(child.Particles) == 1 && child.Occurs.IsExactlyOne() {
 		model.Particles = append(model.Particles, child.Particles[0])
 		return true
 	}
-	if child.Kind == ModelSequence && len(child.Particles) > 1 && child.Occurs.IsExactlyOne() {
+	if child.Kind == modelSequence && len(child.Particles) > 1 && child.Occurs.IsExactlyOne() {
 		model.Particles = append(model.Particles, child.Particles...)
 		return true
 	}

@@ -4,7 +4,9 @@ import (
 	"encoding/xml"
 	"errors"
 	"io"
+	"strconv"
 
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/internal/xmlstream"
@@ -57,7 +59,7 @@ func parseTypedSchemaSourceDocument(name, key string, input io.Reader, limits Li
 		CommentMode: xmlstream.CommentModeBoundedDiscard,
 		EmitPI:      true,
 	}); err != nil {
-		return nil, xsderrors.WithLocation(name, 0, 0, schemaReaderError(err))
+		return nil, xsderrors.WithLocation(name, 0, 0, schemaReaderError(err, limits))
 	}
 	defer parser.Detach()
 	state := typedSchemaParseState{parser: parser, doc: doc, limits: limits}
@@ -90,7 +92,7 @@ func (s *typedSchemaParseState) parse() error {
 		}
 		if err != nil {
 			line, col := s.parser.Pos()
-			return schemaStreamError(line, col, err)
+			return schemaStreamError(line, col, err, s.limits)
 		}
 		if err := s.handleToken(tok); err != nil {
 			return err
@@ -112,24 +114,22 @@ func (s *typedSchemaParseState) handleToken(tok *xmlstream.Token) error {
 		return s.chars(tok.Data, tok.Line, tok.Column)
 	case xmlstream.KindComment:
 		return xsderrors.InternalInvariant("schema parser received a comment token despite comment discard mode")
-	case xmlstream.KindPI:
-		return s.validateProcessingInstruction(tok.Data, tok.Directive, tok.Line, tok.Column)
-	default:
+	default: // processing instructions are ignored.
 		return nil
 	}
 }
 
 func (s *typedSchemaParseState) start(start xmlstream.StartElement, line, col int) error {
-	if err := s.validateStartLimits(start, line, col); err != nil {
+	if err := s.validateStartLimits(line, col); err != nil {
 		return err
 	}
 	namespaceFrame, element, err := s.parser.Start()
 	if err != nil {
-		return schemaParseAt(line, col, xsderrors.CodeSchemaXML, "invalid schema XML", err)
+		return schemaStreamError(line, col, err, s.limits)
 	}
-	if startErr := prepareTypedStart(&start, element, s.limits, line, col); startErr != nil {
-		return s.abortStart(namespaceFrame, startErr)
-	}
+	// start is a by-value view of the current token; only the copied element
+	// name is normalized and no borrowed token data is retained.
+	start.Name = element
 
 	parent := s.parentFrame()
 	if rootErr := s.validateRootStart(parent, line, col); rootErr != nil {
@@ -142,7 +142,10 @@ func (s *typedSchemaParseState) start(start xmlstream.StartElement, line, col in
 	}
 
 	s.nodes++
-	syntax := s.startSyntax(start, line, col)
+	syntax, err := s.startSyntax(start, line, col)
+	if err != nil {
+		return s.abortStart(namespaceFrame, err)
+	}
 	frame := typedSchemaParseFrame{name: start.Name, namespace: namespaceFrame, syntax: syntax, opaque: opaque}
 	if err := s.admitTypedFrame(frame, line, col); err != nil {
 		return s.abortStart(namespaceFrame, err)
@@ -187,14 +190,6 @@ func (s *typedSchemaParseState) admitTypedFrame(initial typedSchemaParseFrame, l
 	return nil
 }
 
-func prepareTypedStart(start *xmlstream.StartElement, element xml.Name, limits Limits, line, col int) error {
-	// start is a by-value semantic view of the current token. Reader.Start has
-	// already expanded the shared attribute slice in place; only the copied
-	// element name is normalized here, and no borrowed token data is retained.
-	start.Name = element
-	return checkSchemaStartElementLimitStream(*start, limits, line, col)
-}
-
 func (s *typedSchemaParseState) validateRootStart(parent *typedSchemaParseFrame, line, col int) error {
 	if parent == nil && s.root != nil {
 		return schemaParseAt(line, col, xsderrors.CodeSchemaRoot, "schema document has multiple roots", nil)
@@ -202,15 +197,19 @@ func (s *typedSchemaParseState) validateRootStart(parent *typedSchemaParseFrame,
 	return nil
 }
 
-func (s *typedSchemaParseState) startSyntax(start xmlstream.StartElement, line, col int) schemaSyntaxNode {
+func (s *typedSchemaParseState) startSyntax(start xmlstream.StartElement, line, col int) (schemaSyntaxNode, error) {
+	attrs, err := schemaAttributesStream(s.parser, start.Name, start.Attr)
+	if err != nil {
+		return schemaSyntaxNode{}, err
+	}
 	return schemaSyntaxNode{
 		doc:    s.doc,
 		Name:   start.Name,
 		NS:     s.parser.Context(),
-		Attrs:  schemaAttributesStream(start.Name, start.Attr),
+		Attrs:  attrs,
 		Line:   line,
 		Column: col,
-	}
+	}, nil
 }
 
 func admitTypedStart(n *schemaSyntaxNode, parent *typedSchemaParseFrame) error {
@@ -229,15 +228,9 @@ func (s *typedSchemaParseState) recordTypedID(node *schemaNode, syntax *schemaSy
 	}
 }
 
-func (s *typedSchemaParseState) validateStartLimits(start xmlstream.StartElement, line, col int) error {
+func (s *typedSchemaParseState) validateStartLimits(line, col int) error {
 	if s.nodes >= s.limits.MaxSchemaInstantiatedNodes {
 		return schemaParseAt(line, col, xsderrors.CodeSchemaLimit, "schema nodes exceed MaxSchemaInstantiatedNodes", nil)
-	}
-	if s.limits.MaxSchemaDepth > 0 && len(s.stack)+1 > s.limits.MaxSchemaDepth {
-		return schemaParseAt(line, col, xsderrors.CodeSchemaLimit, "schema XML nesting exceeds configured limit", nil)
-	}
-	if s.limits.MaxSchemaAttributes > 0 && len(start.Attr) > s.limits.MaxSchemaAttributes {
-		return schemaParseAt(line, col, xsderrors.CodeSchemaLimit, "schema XML attributes exceed configured limit", nil)
 	}
 	return nil
 }
@@ -319,7 +312,7 @@ func (s *typedSchemaParseState) admitRootChild(parent *typedSchemaParseFrame, na
 		s.rootSawDeclaration = true
 	}
 	if (name.Local == includeChild || name.Local == importChild) && s.rootSawDeclaration {
-		return schemaCompileAt(syntax, xsderrors.CodeSchemaContentModel, "xs:"+name.Local+" must precede global declarations")
+		return schemaCompileAt(syntax, xsderrors.CodeSchemaContentModel, "xs:"+diagnostictext.Quote(name.Local)+" must precede global declarations")
 	}
 	return nil
 }
@@ -336,7 +329,7 @@ func admitStart(n *schemaSyntaxNode, parent xml.Name) error {
 		return admitRootStart(n)
 	}
 	if n.Name.Space != vocab.XSDNamespaceURI {
-		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "foreign element "+n.Name.Local+" is not allowed in schema grammar")
+		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "foreign element "+diagnostictext.Quote(n.Name.Local)+" is not allowed in schema grammar")
 	}
 	if parent.Space == vocab.XSDNamespaceURI && parent.Local == annotationChild && typedAnnotationEnvelope(n.Name) {
 		return admitAnnotationEnvelopeStart(n, parent)
@@ -491,7 +484,7 @@ func rejectInvalidSchemaTextTyped(n *schemaNode) error {
 		return nil
 	}
 	if n.hasNonWhitespaceText {
-		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "xs:"+n.local+" cannot contain text")
+		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "xs:"+diagnostictext.Quote(n.local)+" cannot contain text")
 	}
 	return nil
 }
@@ -521,7 +514,7 @@ func checkSchemaAnnotationNode(n *schemaNode) error {
 			return schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "schema component cannot contain multiple annotations")
 		}
 		if seenNonAnnotation {
-			return schemaCompileAt(child, xsderrors.CodeSchemaContentModel, n.local+" annotation must be first")
+			return schemaCompileAt(child, xsderrors.CodeSchemaContentModel, diagnostictext.Quote(n.local)+" annotation must be first")
 		}
 		seenAnnotation = true
 	}
@@ -529,16 +522,15 @@ func checkSchemaAnnotationNode(n *schemaNode) error {
 }
 
 func (s *typedSchemaParseState) chars(t []byte, line, col int) error {
-	if err := checkSchemaTokenLimit(int64(len(t)), s.limits, line, col, "schema XML text exceeds configured limit"); err != nil {
-		return err
-	}
 	if len(s.stack) == 0 {
 		return nil
 	}
 	last := len(s.stack) - 1
 	s.stack[last].textBytes += int64(len(t))
-	if err := checkSchemaTokenLimit(s.stack[last].textBytes, s.limits, line, col, "schema XML text exceeds configured limit"); err != nil {
-		return err
+	// The reader enforces per-token bytes; only text accumulated across
+	// tokens within one element is invisible to it.
+	if limit := s.limits.MaxSchemaTokenBytes; limit > 0 && s.stack[last].textBytes > limit {
+		return schemaParseAt(line, col, xsderrors.CodeSchemaLimit, "MaxSchemaTokenBytes="+strconv.FormatInt(limit, 10)+" exceeded: schema element character data too large", nil)
 	}
 	if s.stack[last].node == nil || s.stack[last].opaque {
 		return nil
@@ -547,10 +539,6 @@ func (s *typedSchemaParseState) chars(t []byte, line, col int) error {
 		s.stack[last].node.hasNonWhitespaceText = true
 	}
 	return nil
-}
-
-func (s *typedSchemaParseState) validateProcessingInstruction(target, content []byte, line, col int) error {
-	return checkSchemaTokenLimit(int64(len(target)+len(content)), s.limits, line, col, "schema XML processing instruction exceeds configured limit")
 }
 
 func (s *typedSchemaParseState) abortStart(frame xmlstream.Handle, cause error) error {
@@ -567,7 +555,7 @@ func (s *typedSchemaParseState) validateIDs() error {
 	seen := make(map[string]bool, len(s.ids))
 	for _, id := range s.ids {
 		if seen[id.value] {
-			return schemaCompileAt(id.node, xsderrors.CodeSchemaInvalidAttribute, "duplicate schema id "+id.value)
+			return schemaCompileAt(id.node, xsderrors.CodeSchemaInvalidAttribute, "duplicate schema id "+diagnostictext.Quote(id.value))
 		}
 		seen[id.value] = true
 	}

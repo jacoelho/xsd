@@ -11,30 +11,30 @@ import (
 func TestValidateBuiltinDeclarationCounts(t *testing.T) {
 	t.Parallel()
 
-	valid := BuiltinDeclarationCounts{
-		SimpleTypes:      BuiltinSimpleTypeCount(),
+	valid := builtinDeclarationCounts{
+		SimpleTypes:      builtinSimpleTypeCount(),
 		Attributes:       4,
-		ComplexTypes:     BuiltinComplexTypeCount(),
+		ComplexTypes:     builtinComplexTypeCount(),
 		Wildcards:        1,
 		AttributeUseSets: 1,
 		Models:           1,
 	}
-	if err := ValidateBuiltinDeclarationCounts(valid); err != nil {
+	if err := validateBuiltinDeclarationCounts(valid); err != nil {
 		t.Fatalf("ValidateBuiltinDeclarationCounts(valid) error = %v", err)
 	}
-	for name, mutate := range map[string]func(*BuiltinDeclarationCounts){
-		"simple types":   func(c *BuiltinDeclarationCounts) { c.SimpleTypes-- },
-		"attributes":     func(c *BuiltinDeclarationCounts) { c.Attributes-- },
-		"complex types":  func(c *BuiltinDeclarationCounts) { c.ComplexTypes-- },
-		"wildcards":      func(c *BuiltinDeclarationCounts) { c.Wildcards = 0 },
-		"attribute sets": func(c *BuiltinDeclarationCounts) { c.AttributeUseSets = 0 },
-		"models":         func(c *BuiltinDeclarationCounts) { c.Models = 0 },
+	for name, mutate := range map[string]func(*builtinDeclarationCounts){
+		"simple types":   func(c *builtinDeclarationCounts) { c.SimpleTypes-- },
+		"attributes":     func(c *builtinDeclarationCounts) { c.Attributes-- },
+		"complex types":  func(c *builtinDeclarationCounts) { c.ComplexTypes-- },
+		"wildcards":      func(c *builtinDeclarationCounts) { c.Wildcards = 0 },
+		"attribute sets": func(c *builtinDeclarationCounts) { c.AttributeUseSets = 0 },
+		"models":         func(c *builtinDeclarationCounts) { c.Models = 0 },
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			counts := valid
 			mutate(&counts)
-			if err := ValidateBuiltinDeclarationCounts(counts); err == nil {
+			if err := validateBuiltinDeclarationCounts(counts); err == nil {
 				t.Fatal("ValidateBuiltinDeclarationCounts() unexpectedly succeeded")
 			}
 		})
@@ -77,7 +77,7 @@ func TestBuiltinXSIAttributeDeclarations(t *testing.T) {
 		t.Fatal("missing xsi:schemaLocation declaration")
 	}
 	list := c.rt.SimpleTypes[c.rt.Attributes[id].Type]
-	if list.Scope != DeclarationScopeNonGlobal {
+	if list.Scope != declarationScopeNonGlobal {
 		t.Fatal("schemaLocation list must be anonymous")
 	}
 	view, ok := c.rt.valueBuilder.TypeView(c.rt.Attributes[id].Type)
@@ -110,12 +110,12 @@ func TestPublicationRejectsIntrinsicXSIAttributeDrift(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			id, err := NextAttributeID(len(b.Attributes))
+			id, err := nextAttributeID(len(b.Attributes))
 			if err != nil {
 				t.Fatal(err)
 			}
 			b.GlobalAttributes[q] = id
-			b.Attributes = append(b.Attributes, AttributeDecl{Name: q, Type: value.BuiltinType(value.PrimitiveBoolean)})
+			b.Attributes = append(b.Attributes, attributeDecl{Name: q, Type: value.BuiltinType(value.PrimitiveBoolean)})
 		},
 		"list item": func(_ *testing.T, b *schemaBuild, _ QName, _ AttributeID) {
 			b.SimpleTypes[builtinSchemaLocationTypeID].ValueSpec.ListItem = value.BuiltinType(value.PrimitiveString)

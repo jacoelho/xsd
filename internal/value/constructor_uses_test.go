@@ -25,7 +25,7 @@ func TestConstructorUsesAvailabilityAndLifetime(t *testing.T) {
 		}
 	}
 	assertUses(value.ConstructorUses{})
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	anySimple := value.AnySimpleTypeID
 	boolean := value.BuiltinType(value.PrimitiveBoolean)
 	reserved, err := builder.Reserve()
@@ -89,7 +89,7 @@ func TestConstructorUsesAvailabilityAndLifetime(t *testing.T) {
 
 func TestConstructorUsesExcludesProvisionalCompletion(t *testing.T) {
 	t.Parallel()
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := builder.Reserve()
 	if err != nil {
 		t.Fatal(err)

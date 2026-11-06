@@ -2,19 +2,19 @@ package schema
 
 import "github.com/jacoelho/xsd/xsderrors"
 
-func (c *compiler) compileWildcardParticle(n *schemaNode, ctx *schemaSetDocument) (Particle, error) {
+func (c *compiler) compileWildcardParticle(n *schemaNode, ctx *schemaSetDocument) (contentParticle, error) {
 	if err := checkAnyParticleChildren(n); err != nil {
-		return Particle{}, err
+		return contentParticle{}, err
 	}
 	id, err := c.compileWildcard(n, ctx)
 	if err != nil {
-		return Particle{}, err
+		return contentParticle{}, err
 	}
 	occurs, err := parseOccurs(n, c.limits)
 	if err != nil {
-		return Particle{}, err
+		return contentParticle{}, err
 	}
-	return WildcardParticle(id, occurs), nil
+	return wildcardParticle(id, occurs), nil
 }
 
 func (c *compiler) compileAttributeWildcard(n *schemaNode, ctx *schemaSetDocument) (WildcardID, error) {
@@ -31,7 +31,7 @@ func (c *compiler) compileWildcard(n *schemaNode, ctx *schemaSetDocument) (Wildc
 	}
 	ns, hasNS := source.Namespace.Value, source.Namespace.Present
 	process, hasProcess := source.ProcessContents.Value, source.ProcessContents.Present
-	w, err := ParseWildcard(NewNameInterner(&c.rt.Names), WildcardAttrs{
+	w, err := parseWildcard(newNameInterner(&c.rt.Names), wildcardAttrs{
 		Namespace:          ns,
 		ProcessContents:    process,
 		TargetNamespace:    ctx.effectiveTargetNS,
@@ -44,13 +44,13 @@ func (c *compiler) compileWildcard(n *schemaNode, ctx *schemaSetDocument) (Wildc
 	return c.appendWildcard(w)
 }
 
-// Wildcard returns compiler-owned wildcard metadata for internal compile
+// wildcardRuntime returns compiler-owned wildcard metadata for internal compile
 // helpers.
-func (c *compiler) Wildcard(id WildcardID) (Wildcard, bool) {
-	return WildcardByID(c.rt.Wildcards, id)
+func (c *compiler) Wildcard(id WildcardID) (wildcardRuntime, bool) {
+	return wildcardByID(c.rt.Wildcards, id)
 }
 
 // AddWildcard stores wildcard metadata produced by internal compile helpers.
-func (c *compiler) AddWildcard(w Wildcard) (WildcardID, error) {
+func (c *compiler) AddWildcard(w wildcardRuntime) (WildcardID, error) {
 	return c.appendWildcard(w)
 }

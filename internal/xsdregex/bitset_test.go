@@ -29,10 +29,9 @@ func TestBitsetMatchExactLimits(t *testing.T) {
 		options MatchOptions
 		limited bool
 	}{
-		{"at-work", MatchOptions{MaxWork: 27}, false},
-		{"below-work", MatchOptions{MaxWork: 26}, true},
-		{"at-states", MatchOptions{MaxStates: 4}, false},
-		{"below-states", MatchOptions{MaxStates: 3}, true},
+		// 27 units of transition and closure work plus 3 input bytes.
+		{"at-work", MatchOptions{MaxWork: 30}, false},
+		{"below-work", MatchOptions{MaxWork: 29}, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -41,9 +40,9 @@ func TestBitsetMatchExactLimits(t *testing.T) {
 				var matched bool
 				var err error
 				if bytes {
-					matched, err = pattern.MatchBytesWithScratch([]byte("aab"), tc.options, &scratch)
+					matched, _, err = pattern.MatchBytesWithScratch([]byte("aab"), tc.options, &scratch)
 				} else {
-					matched, err = pattern.MatchStringWithScratch("aab", tc.options, &scratch)
+					matched, _, err = pattern.MatchStringWithScratch("aab", tc.options, &scratch)
 				}
 				if tc.limited {
 					if !IsLimit(err) {

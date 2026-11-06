@@ -3,7 +3,7 @@ package schema
 // ElementTextContent summarizes whether character data is allowed in one
 // element frame.
 type ElementTextContent struct {
-	kind        ContentKind
+	kind        complexContentVariety
 	fixed       bool
 	constrained bool
 }
@@ -18,7 +18,7 @@ func (c ElementTextContent) AllowsMixedContent() bool {
 // empty variety. Empty content rejects every non-empty character information
 // item, including XML whitespace; zero-length CDATA has no such item.
 func (c ElementTextContent) IsEmptyContent() bool {
-	return c.kind == ContentEmpty
+	return c.kind == contentEmpty
 }
 
 // HasFixedElementValue reports whether a fixed element constraint requires

@@ -81,7 +81,7 @@ func TestCheckXMLWellFormedHonorsParserLimits(t *testing.T) {
 		message string
 	}{
 		{xml: `<root a="1" b="2"/>`, opts: Options{MaxInstanceAttributes: 1}, message: "MaxInstanceAttributes=1"},
-		{xml: `<root><v/></root>`, opts: Options{MaxInstanceDepth: 1}, message: "nesting exceeds 1 element limit"},
+		{xml: `<root><v/></root>`, opts: Options{MaxInstanceDepth: 1}, message: "MaxInstanceDepth=1"},
 		{xml: `<root>text</root>`, opts: Options{MaxInstanceTokenBytes: 1}, message: "MaxInstanceTokenBytes=1"},
 		{xml: `<r a="12" b="34"/>`, opts: Options{MaxInstanceTokenBytes: 6}, message: "MaxInstanceTokenBytes=6"},
 		{xml: `<root>text</root>`, opts: Options{MaxInstanceBytes: 4}, message: "MaxInstanceBytes=4"},

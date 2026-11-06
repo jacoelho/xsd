@@ -31,20 +31,20 @@ const (
 	PrimitiveDuration
 	// PrimitiveDateTime is the xs:dateTime primitive value space.
 	PrimitiveDateTime
-	// PrimitiveTime is the xs:time primitive value space.
-	PrimitiveTime
-	// PrimitiveDate is the xs:date primitive value space.
-	PrimitiveDate
-	// PrimitiveGYearMonth is the xs:gYearMonth primitive value space.
-	PrimitiveGYearMonth
-	// PrimitiveGYear is the xs:gYear primitive value space.
-	PrimitiveGYear
-	// PrimitiveGMonthDay is the xs:gMonthDay primitive value space.
-	PrimitiveGMonthDay
-	// PrimitiveGDay is the xs:gDay primitive value space.
-	PrimitiveGDay
-	// PrimitiveGMonth is the xs:gMonth primitive value space.
-	PrimitiveGMonth
+	// primitiveTime is the xs:time primitive value space.
+	primitiveTime
+	// primitiveDate is the xs:date primitive value space.
+	primitiveDate
+	// primitiveGYearMonth is the xs:gYearMonth primitive value space.
+	primitiveGYearMonth
+	// primitiveGYear is the xs:gYear primitive value space.
+	primitiveGYear
+	// primitiveGMonthDay is the xs:gMonthDay primitive value space.
+	primitiveGMonthDay
+	// primitiveGDay is the xs:gDay primitive value space.
+	primitiveGDay
+	// primitiveGMonth is the xs:gMonth primitive value space.
+	primitiveGMonth
 	// PrimitiveHexBinary is the xs:hexBinary primitive value space.
 	PrimitiveHexBinary
 	// PrimitiveBase64Binary is the xs:base64Binary primitive value space.
@@ -57,8 +57,8 @@ const (
 	PrimitiveNotation
 )
 
-// ValidPrimitiveKind reports whether kind names a supported primitive family.
-func ValidPrimitiveKind(kind PrimitiveKind) bool {
+// validPrimitiveKind reports whether kind names a supported primitive family.
+func validPrimitiveKind(kind PrimitiveKind) bool {
 	return kind <= PrimitiveNotation
 }
 
@@ -96,16 +96,16 @@ const (
 	BuiltinNone BuiltinKind = iota
 	// BuiltinInteger applies integer-family lexical rules.
 	BuiltinInteger
-	// BuiltinName applies xs:Name lexical rules.
-	BuiltinName
-	// BuiltinNCName applies xs:NCName lexical rules.
-	BuiltinNCName
-	// BuiltinNMTOKEN applies xs:NMTOKEN lexical rules.
-	BuiltinNMTOKEN
-	// BuiltinLanguage applies xs:language lexical rules.
-	BuiltinLanguage
-	// BuiltinEntity applies xs:ENTITY lexical rules.
-	BuiltinEntity
+	// builtinNameLexical applies xs:Name lexical rules.
+	builtinNameLexical
+	// builtinNCNameLexical applies xs:NCName lexical rules.
+	builtinNCNameLexical
+	// builtinNMTOKENLexical applies xs:NMTOKEN lexical rules.
+	builtinNMTOKENLexical
+	// builtinLanguageLexical applies xs:language lexical rules.
+	builtinLanguageLexical
+	// builtinEntity applies xs:ENTITY lexical rules.
+	builtinEntity
 )
 
 // FacetMask records the facet families present on a type.
@@ -154,21 +154,21 @@ const (
 // Has reports whether n includes every bit in want.
 func (n Needs) Has(want Needs) bool { return n&want != 0 }
 
-// PrimitiveValueNeed reports which projections a primitive parser must
+// primitiveValueNeed reports which projections a primitive parser must
 // retain for the enclosing value evaluation.
-type PrimitiveValueNeed uint8
+type primitiveValueNeed uint8
 
 const (
-	// PrimitiveNeedCanonical asks a primitive parser to retain canonical text.
-	PrimitiveNeedCanonical PrimitiveValueNeed = 1 << iota
-	// PrimitiveNeedLength asks a primitive parser to retain its length.
-	PrimitiveNeedLength
-	// PrimitiveNeedIdentity asks a primitive parser to retain identity data.
-	PrimitiveNeedIdentity
+	// primitiveNeedCanonical asks a primitive parser to retain canonical text.
+	primitiveNeedCanonical primitiveValueNeed = 1 << iota
+	// primitiveNeedLength asks a primitive parser to retain its length.
+	primitiveNeedLength
+	// primitiveNeedIdentity asks a primitive parser to retain identity data.
+	primitiveNeedIdentity
 )
 
 // Has reports whether n includes every primitive projection in want.
-func (n PrimitiveValueNeed) Has(want PrimitiveValueNeed) bool { return n&want != 0 }
+func (n primitiveValueNeed) Has(want primitiveValueNeed) bool { return n&want != 0 }
 
 // ExpandedName is the namespace URI and local-name pair returned by QName
 // resolution. It is also the value-space payload retained for QName and
@@ -193,13 +193,49 @@ type Resolver struct {
 // Scratch is caller-owned reusable matcher state. It may be reused
 // sequentially, but not concurrently, across Validate calls.
 type Scratch struct {
-	pattern        xsdregex.Scratch
-	PatternOptions xsdregex.MatchOptions
+	pattern xsdregex.Scratch
+}
+
+// PatternAccount is caller-owned pattern work shared by many top-level
+// evaluations. Program.Validate mutates it through the pointer in
+// EvaluationLimits; one account must not be used by concurrent evaluations,
+// and it must be passed by pointer from its owner at each call, never
+// snapshotted. A zero account has a zero limit and makes evaluation return
+// ErrMetadata.
+type PatternAccount struct{ limit, used uint64 }
+
+// Reset sets the account's limit and clears its usage.
+func (a *PatternAccount) Reset(limit uint64) {
+	a.limit, a.used = limit, 0
+}
+
+// Limit returns the account's limit; a nil account has none.
+func (a *PatternAccount) Limit() uint64 {
+	if a == nil {
+		return 0
+	}
+	return a.limit
+}
+
+// EvaluationLimits bound one top-level value evaluation. Every field must be
+// positive and PatternTotal must be non-nil with a positive limit; otherwise
+// evaluation returns ErrMetadata, even for programs without patterns.
+//
+// Work bounds type-graph traversal: each visited lexical value costs its byte
+// length plus one. PatternWork bounds regular-expression matching across all
+// pattern facets, list items and union attempts of the evaluation, in the
+// units documented on xsdregex.MatchOptions. Exhausting it yields
+// ErrPatternLimit. PatternTotal additionally bounds pattern work summed over
+// every evaluation that shares the account; exhausting it yields
+// ErrPatternTotalLimit.
+type EvaluationLimits struct {
+	PatternTotal *PatternAccount
+	Work         uint64
+	PatternWork  uint64
 }
 
 // Reset clears reusable matcher storage while retaining only bounded
-// capacity. PatternOptions is caller configuration and therefore survives
-// the reset.
+// capacity.
 func (s *Scratch) Reset(maxRetainedRunes int) {
 	if s == nil {
 		return
@@ -207,33 +243,33 @@ func (s *Scratch) Reset(maxRetainedRunes int) {
 	s.pattern.Reset(maxRetainedRunes)
 }
 
-// OrderedFacetRelation compares one value against another. Incomparable is
+// orderedFacetRelation compares one value against another. Incomparable is
 // required for the partial orders of duration and timezone-absent temporals.
-type OrderedFacetRelation uint8
+type orderedFacetRelation uint8
 
 const (
-	// OrderedFacetLess means the left value is below the right value.
-	OrderedFacetLess OrderedFacetRelation = iota
-	// OrderedFacetEqual means the values are equal in the ordered value space.
-	OrderedFacetEqual
-	// OrderedFacetGreater means the left value is above the right value.
-	OrderedFacetGreater
-	// OrderedFacetIncomparable means the primitive's order is partial.
-	OrderedFacetIncomparable
+	// orderedFacetLess means the left value is below the right value.
+	orderedFacetLess orderedFacetRelation = iota
+	// orderedFacetEqual means the values are equal in the ordered value space.
+	orderedFacetEqual
+	// orderedFacetGreater means the left value is above the right value.
+	orderedFacetGreater
+	// orderedFacetIncomparable means the primitive's order is partial.
+	orderedFacetIncomparable
 )
 
-func orderedFacetRelationFromInt(n int) OrderedFacetRelation {
+func orderedFacetRelationFromInt(n int) orderedFacetRelation {
 	switch {
 	case n < 0:
-		return OrderedFacetLess
+		return orderedFacetLess
 	case n > 0:
-		return OrderedFacetGreater
+		return orderedFacetGreater
 	default:
-		return OrderedFacetEqual
+		return orderedFacetEqual
 	}
 }
 
-func (r OrderedFacetRelation) valid() bool { return r <= OrderedFacetIncomparable }
+func (r orderedFacetRelation) valid() bool { return r <= orderedFacetIncomparable }
 
 // compareFraction is the single fraction order for decimal, temporal and
 // duration digits. Fractions are normalized without trailing zeroes, and empty
@@ -248,44 +284,44 @@ type byteText interface {
 	~string | ~[]byte
 }
 
-// OrderedFacetLowerBoundAccepts reports whether relation satisfies an admitted
+// orderedFacetLowerBoundAccepts reports whether relation satisfies an admitted
 // lower bound with the given exclusivity.
-func OrderedFacetLowerBoundAccepts(exclusive bool, relation OrderedFacetRelation) bool {
+func orderedFacetLowerBoundAccepts(exclusive bool, relation orderedFacetRelation) bool {
 	if !relation.valid() {
 		return false
 	}
-	return relation == OrderedFacetGreater || relation == OrderedFacetEqual && !exclusive
+	return relation == orderedFacetGreater || relation == orderedFacetEqual && !exclusive
 }
 
-// OrderedFacetUpperBoundAccepts reports whether relation satisfies an admitted
+// orderedFacetUpperBoundAccepts reports whether relation satisfies an admitted
 // upper bound with the given exclusivity.
-func OrderedFacetUpperBoundAccepts(exclusive bool, relation OrderedFacetRelation) bool {
+func orderedFacetUpperBoundAccepts(exclusive bool, relation orderedFacetRelation) bool {
 	if !relation.valid() {
 		return false
 	}
-	return relation == OrderedFacetLess || relation == OrderedFacetEqual && !exclusive
+	return relation == orderedFacetLess || relation == orderedFacetEqual && !exclusive
 }
 
-// OrderedFacetLowerRestricts reports whether an admitted derived lower bound
+// orderedFacetLowerRestricts reports whether an admitted derived lower bound
 // narrows an admitted base lower bound.
-func OrderedFacetLowerRestricts(derivedExclusive, baseExclusive bool, relation OrderedFacetRelation) bool {
+func orderedFacetLowerRestricts(derivedExclusive, baseExclusive bool, relation orderedFacetRelation) bool {
 	if !relation.valid() {
 		return false
 	}
-	return relation == OrderedFacetGreater || relation == OrderedFacetEqual && (derivedExclusive || !baseExclusive)
+	return relation == orderedFacetGreater || relation == orderedFacetEqual && (derivedExclusive || !baseExclusive)
 }
 
-// OrderedFacetUpperRestricts reports whether an admitted derived upper bound
+// orderedFacetUpperRestricts reports whether an admitted derived upper bound
 // narrows an admitted base upper bound.
-func OrderedFacetUpperRestricts(derivedExclusive, baseExclusive bool, relation OrderedFacetRelation) bool {
+func orderedFacetUpperRestricts(derivedExclusive, baseExclusive bool, relation orderedFacetRelation) bool {
 	if !relation.valid() {
 		return false
 	}
-	return relation == OrderedFacetLess || relation == OrderedFacetEqual && (derivedExclusive || !baseExclusive)
+	return relation == orderedFacetLess || relation == orderedFacetEqual && (derivedExclusive || !baseExclusive)
 }
 
-// FacetCardinalityValue is an optional unsigned facet value.
-type FacetCardinalityValue struct {
+// facetCardinalityValue is an optional unsigned facet value.
+type facetCardinalityValue struct {
 	Value   uint32
 	Present bool
 }

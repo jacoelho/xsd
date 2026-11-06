@@ -11,29 +11,29 @@ import (
 func TestAppendParticle(t *testing.T) {
 	t.Parallel()
 
-	one := Occurrence{Min: 1, Max: 1}
-	zero := Occurrence{}
-	repeated := Occurrence{Min: 1, Max: 2}
-	unbounded := Occurrence{Min: 0, Unbounded: true}
+	one := occurrence{Min: 1, Max: 1}
+	zero := occurrence{}
+	repeated := occurrence{Min: 1, Max: 2}
+	unbounded := occurrence{Min: 0, Unbounded: true}
 
 	tests := []struct {
 		name      string
-		modelKind ModelKind
-		occurs    Occurrence
-		particle  func(Occurrence) Particle
+		modelKind modelKind
+		occurs    occurrence
+		particle  func(occurrence) contentParticle
 		wantLen   int
 		wantCode  xsderrors.Code
 	}{
-		{name: "omits zero count", modelKind: ModelSequence, occurs: zero},
-		{name: "sequence accepts repeating particle", modelKind: ModelSequence, occurs: repeated, wantLen: 1},
-		{name: "all accepts non-repeating particle", modelKind: ModelAll, occurs: one, wantLen: 1},
-		{name: "all rejects finite repeated particle", modelKind: ModelAll, occurs: repeated, wantCode: xsderrors.CodeSchemaOccurrence},
-		{name: "all rejects unbounded particle", modelKind: ModelAll, occurs: unbounded, wantCode: xsderrors.CodeSchemaOccurrence},
+		{name: "omits zero count", modelKind: modelSequence, occurs: zero},
+		{name: "sequence accepts repeating particle", modelKind: modelSequence, occurs: repeated, wantLen: 1},
+		{name: "all accepts non-repeating particle", modelKind: modelAll, occurs: one, wantLen: 1},
+		{name: "all rejects finite repeated particle", modelKind: modelAll, occurs: repeated, wantCode: xsderrors.CodeSchemaOccurrence},
+		{name: "all rejects unbounded particle", modelKind: modelAll, occurs: unbounded, wantCode: xsderrors.CodeSchemaOccurrence},
 		{
 			name:      "all rejects wildcard particle",
-			modelKind: ModelAll,
+			modelKind: modelAll,
 			occurs:    one,
-			particle:  func(occurs Occurrence) Particle { return WildcardParticle(1, occurs) },
+			particle:  func(occurs occurrence) contentParticle { return wildcardParticle(1, occurs) },
 			wantCode:  xsderrors.CodeSchemaContentModel,
 		},
 	}
@@ -42,14 +42,14 @@ func TestAppendParticle(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			model := ContentModel{Kind: tt.modelKind, Occurs: one}
-			particle := func(occurs Occurrence) Particle {
-				return ElementParticle(1, occurs)
+			model := contentModelNode{Kind: tt.modelKind, Occurs: one}
+			particle := func(occurs occurrence) contentParticle {
+				return elementParticle(1, occurs)
 			}
 			if tt.particle != nil {
 				particle = tt.particle
 			}
-			err := AppendParticle(&model, particle(tt.occurs))
+			err := appendParticle(&model, particle(tt.occurs))
 			if tt.wantCode != "" {
 				expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, tt.wantCode)
 				return
@@ -69,49 +69,49 @@ func TestValidateModelGroupChildAdmission(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		parent   ModelKind
-		child    ModelChildAdmission
+		parent   modelKind
+		child    modelChildAdmission
 		wantCode xsderrors.Code
 	}{
 		{
 			name:   "sequence accepts element child",
-			parent: ModelSequence,
-			child:  ModelChildAdmission{Kind: ModelChildElement},
+			parent: modelSequence,
+			child:  modelChildAdmission{Kind: modelChildElement},
 		},
 		{
 			name:   "all accepts element child",
-			parent: ModelAll,
-			child:  ModelChildAdmission{Kind: ModelChildElement},
+			parent: modelAll,
+			child:  modelChildAdmission{Kind: modelChildElement},
 		},
 		{
 			name:     "all rejects wildcard child",
-			parent:   ModelAll,
-			child:    ModelChildAdmission{Kind: ModelChildWildcard},
+			parent:   modelAll,
+			child:    modelChildAdmission{Kind: modelChildWildcard},
 			wantCode: xsderrors.CodeSchemaContentModel,
 		},
 		{
 			name:     "all rejects nested model child",
-			parent:   ModelAll,
-			child:    ModelChildAdmission{Kind: ModelChildModel, ModelKind: ModelSequence},
+			parent:   modelAll,
+			child:    modelChildAdmission{Kind: modelChildModel, ModelKind: modelSequence},
 			wantCode: xsderrors.CodeSchemaContentModel,
 		},
 		{
 			name:     "sequence rejects all model child",
-			parent:   ModelSequence,
-			child:    ModelChildAdmission{Kind: ModelChildModel, ModelKind: ModelAll},
+			parent:   modelSequence,
+			child:    modelChildAdmission{Kind: modelChildModel, ModelKind: modelAll},
 			wantCode: xsderrors.CodeSchemaContentModel,
 		},
 		{
 			name:   "sequence accepts sequence model child",
-			parent: ModelSequence,
-			child:  ModelChildAdmission{Kind: ModelChildModel, ModelKind: ModelSequence},
+			parent: modelSequence,
+			child:  modelChildAdmission{Kind: modelChildModel, ModelKind: modelSequence},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateModelGroupChildAdmission(tt.parent, tt.child)
+			err := validateModelGroupChildAdmission(tt.parent, tt.child)
 			if tt.wantCode != "" {
 				expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, tt.wantCode)
 				return
@@ -128,19 +128,19 @@ func TestModelKindForLocal(t *testing.T) {
 
 	tests := []struct {
 		local       string
-		want        ModelKind
+		want        modelKind
 		wantMessage string
 	}{
-		{local: sequenceChild, want: ModelSequence},
-		{local: choiceChild, want: ModelChoice},
-		{local: allChild, want: ModelAll},
-		{local: elementChild, wantMessage: "unsupported model element"},
+		{local: sequenceChild, want: modelSequence},
+		{local: choiceChild, want: modelChoice},
+		{local: allChild, want: modelAll},
+		{local: elementChild, wantMessage: "unsupported model \"element\""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.local, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := ModelKindForLocal(tt.local)
+			got, err := modelKindForLocal(tt.local)
 			if tt.wantMessage != "" {
 				expectSchemaContentModelMessage(t, err, tt.wantMessage)
 				return
@@ -161,16 +161,16 @@ func TestModelChildAdmissionForNode(t *testing.T) {
 	tests := []struct {
 		local       string
 		source      schemaSemanticKind
-		want        ModelChildAdmission
+		want        modelChildAdmission
 		wantMessage string
 	}{
-		{local: "element", source: &schemaElementSource{}, want: ModelChildAdmission{Kind: ModelChildElement}},
-		{local: "any", source: &schemaWildcardSource{}, want: ModelChildAdmission{Kind: ModelChildWildcard}},
-		{local: "group", source: &schemaGroupSource{}, want: ModelChildAdmission{Kind: ModelChildModel}},
-		{local: "sequence", source: &schemaModelSource{Kind: ModelSequence}, want: ModelChildAdmission{Kind: ModelChildModel, ModelKind: ModelSequence}},
-		{local: "choice", source: &schemaModelSource{Kind: ModelChoice}, want: ModelChildAdmission{Kind: ModelChildModel, ModelKind: ModelChoice}},
-		{local: "all", source: &schemaModelSource{Kind: ModelAll}, want: ModelChildAdmission{Kind: ModelChildModel, ModelKind: ModelAll}},
-		{local: "attribute", source: &schemaAttributeSource{}, wantMessage: "invalid model group child attribute"},
+		{local: "element", source: &schemaElementSource{}, want: modelChildAdmission{Kind: modelChildElement}},
+		{local: "any", source: &schemaWildcardSource{}, want: modelChildAdmission{Kind: modelChildWildcard}},
+		{local: "group", source: &schemaGroupSource{}, want: modelChildAdmission{Kind: modelChildModel}},
+		{local: "sequence", source: &schemaModelSource{Kind: modelSequence}, want: modelChildAdmission{Kind: modelChildModel, ModelKind: modelSequence}},
+		{local: "choice", source: &schemaModelSource{Kind: modelChoice}, want: modelChildAdmission{Kind: modelChildModel, ModelKind: modelChoice}},
+		{local: "all", source: &schemaModelSource{Kind: modelAll}, want: modelChildAdmission{Kind: modelChildModel, ModelKind: modelAll}},
+		{local: "attribute", source: &schemaAttributeSource{}, wantMessage: "invalid model group child \"attribute\""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.local, func(t *testing.T) {
@@ -179,7 +179,7 @@ func TestModelChildAdmissionForNode(t *testing.T) {
 			doc := &schemaDocument{name: "model-child.xsd"}
 			child := &schemaNode{doc: doc, id: 1, local: tt.local, semantic: schemaSemanticSource{kind: tt.source}, line: 4, column: 5}
 			if tt.wantMessage != "" {
-				parent := &schemaNode{doc: doc, local: "sequence", semantic: schemaSemanticSource{kind: &schemaModelSource{Kind: ModelSequence}}, children: []schemaNodeID{1}, line: 2, column: 3}
+				parent := &schemaNode{doc: doc, local: "sequence", semantic: schemaSemanticSource{kind: &schemaModelSource{Kind: modelSequence}}, children: []schemaNodeID{1}, line: 2, column: 3}
 				doc.arena = []*schemaNode{parent, child}
 				err := validateModelGroupSyntax(parent, Limits{})
 				expectSchemaContentModelMessage(t, err, tt.wantMessage)
@@ -217,78 +217,78 @@ func expectSchemaContentModelMessage(t *testing.T, err error, message string) {
 func TestAppendFlattenedModelChild(t *testing.T) {
 	t.Parallel()
 
-	one := Occurrence{Min: 1, Max: 1}
-	optional := Occurrence{Min: 0, Max: 1}
-	modelRepeat := Occurrence{Min: 2, Max: 3}
-	modelOptionalRepeat := Occurrence{Min: 0, Max: 2}
-	particleRepeat := Occurrence{Min: 2, Max: 3}
-	a := ElementParticle(1, one)
-	b := ElementParticle(2, one)
+	one := occurrence{Min: 1, Max: 1}
+	optional := occurrence{Min: 0, Max: 1}
+	modelRepeat := occurrence{Min: 2, Max: 3}
+	modelOptionalRepeat := occurrence{Min: 0, Max: 2}
+	particleRepeat := occurrence{Min: 2, Max: 3}
+	a := elementParticle(1, one)
+	b := elementParticle(2, one)
 
 	tests := []struct {
 		name       string
-		parentKind ModelKind
-		child      ContentModel
+		parentKind modelKind
+		child      contentModelNode
 		want       bool
 		wantLen    int
-		wantOccurs Occurrence
+		wantOccurs occurrence
 	}{
 		{
 			name:       "choice flattens exactly-one choice child",
-			parentKind: ModelChoice,
-			child:      ContentModel{Kind: ModelChoice, Occurs: one, Particles: []Particle{a, b}},
+			parentKind: modelChoice,
+			child:      contentModelNode{Kind: modelChoice, Occurs: one, Particles: []contentParticle{a, b}},
 			want:       true,
 			wantLen:    2,
 			wantOccurs: one,
 		},
 		{
 			name:       "choice keeps repeated choice child nested",
-			parentKind: ModelChoice,
-			child:      ContentModel{Kind: ModelChoice, Occurs: modelRepeat, Particles: []Particle{a}},
+			parentKind: modelChoice,
+			child:      contentModelNode{Kind: modelChoice, Occurs: modelRepeat, Particles: []contentParticle{a}},
 		},
 		{
 			name:       "sequence keeps repeated singleton model nested",
-			parentKind: ModelSequence,
-			child:      ContentModel{Kind: ModelSequence, Occurs: modelRepeat, Particles: []Particle{a}},
+			parentKind: modelSequence,
+			child:      contentModelNode{Kind: modelSequence, Occurs: modelRepeat, Particles: []contentParticle{a}},
 		},
 		{
 			name:       "sequence keeps repeated model around optional particle nested",
-			parentKind: ModelSequence,
-			child: ContentModel{
-				Kind:      ModelChoice,
+			parentKind: modelSequence,
+			child: contentModelNode{
+				Kind:      modelChoice,
 				Occurs:    modelRepeat,
-				Particles: []Particle{ElementParticle(1, optional)},
+				Particles: []contentParticle{elementParticle(1, optional)},
 			},
 		},
 		{
 			name:       "sequence flattens unit singleton preserving repeated child",
-			parentKind: ModelSequence,
-			child:      ContentModel{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(1, particleRepeat)}},
+			parentKind: modelSequence,
+			child:      contentModelNode{Kind: modelSequence, Occurs: one, Particles: []contentParticle{elementParticle(1, particleRepeat)}},
 			want:       true,
 			wantLen:    1,
 			wantOccurs: particleRepeat,
 		},
 		{
 			name:       "sequence keeps unsafe optional repeated single particle nested",
-			parentKind: ModelSequence,
-			child: ContentModel{
-				Kind:      ModelSequence,
+			parentKind: modelSequence,
+			child: contentModelNode{
+				Kind:      modelSequence,
 				Occurs:    modelOptionalRepeat,
-				Particles: []Particle{ElementParticle(1, particleRepeat)},
+				Particles: []contentParticle{elementParticle(1, particleRepeat)},
 			},
 		},
 		{
 			name:       "sequence flattens exactly-one multi-particle sequence",
-			parentKind: ModelSequence,
-			child:      ContentModel{Kind: ModelSequence, Occurs: one, Particles: []Particle{a, b}},
+			parentKind: modelSequence,
+			child:      contentModelNode{Kind: modelSequence, Occurs: one, Particles: []contentParticle{a, b}},
 			want:       true,
 			wantLen:    2,
 			wantOccurs: one,
 		},
 		{
 			name:       "all keeps sequence child nested",
-			parentKind: ModelAll,
-			child:      ContentModel{Kind: ModelSequence, Occurs: one, Particles: []Particle{a}},
+			parentKind: modelAll,
+			child:      contentModelNode{Kind: modelSequence, Occurs: one, Particles: []contentParticle{a}},
 		},
 	}
 
@@ -296,9 +296,9 @@ func TestAppendFlattenedModelChild(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			model := ContentModel{Kind: tt.parentKind, Occurs: one}
-			before := CloneContentModel(model)
-			got := AppendFlattenedModelChild(&model, tt.child)
+			model := contentModelNode{Kind: tt.parentKind, Occurs: one}
+			before := cloneContentModel(model)
+			got := appendFlattenedModelChild(&model, tt.child)
 			if got != tt.want {
 				t.Fatalf("AppendFlattenedModelChild() = %v, want %v", got, tt.want)
 			}
@@ -318,49 +318,49 @@ func TestAppendFlattenedModelChild(t *testing.T) {
 func TestModelParticleNormalizesRepeatedModel(t *testing.T) {
 	t.Parallel()
 
-	repeated := Occurrence{Min: 2, Max: 3}
-	rt := newContentModelLoweringRuntime([]ContentModel{{
-		Kind:   ModelSequence,
+	repeated := occurrence{Min: 2, Max: 3}
+	rt := newContentModelLoweringRuntime([]contentModelNode{{
+		Kind:   modelSequence,
 		Occurs: repeated,
-		Particles: []Particle{
-			ElementParticle(1, Occurrence{Min: 1, Max: 1}),
+		Particles: []contentParticle{
+			elementParticle(1, occurrence{Min: 1, Max: 1}),
 		},
 	}})
-	p, ok, err := CompileModelParticle(rt.build(), rt.addModel, 0)
+	p, ok, err := compileModelParticle(rt.build(), rt.addModel, 0)
 	if err != nil {
 		t.Fatalf("ModelParticle() error = %v", err)
 	}
-	if !ok || p.Kind != ParticleModel || p.Model != 1 || p.Occurs != repeated {
+	if !ok || p.Kind != particleModel || p.Model != 1 || p.Occurs != repeated {
 		t.Fatalf("ModelParticle() = %+v, %v; want normalized model particle", p, ok)
 	}
 	if len(rt.models) != 2 || !rt.models[1].Occurs.IsExactlyOne() {
 		t.Fatalf("normalized model = %#v, want appended exactly-one model", rt.models)
 	}
 
-	zero := ContentModel{Kind: ModelSequence, Occurs: Occurrence{}}
-	rt = newContentModelLoweringRuntime([]ContentModel{zero})
-	p, ok, err = CompileModelParticle(rt.build(), rt.addModel, 0)
-	if err != nil || ok || p != (Particle{}) {
+	zero := contentModelNode{Kind: modelSequence, Occurs: occurrence{}}
+	rt = newContentModelLoweringRuntime([]contentModelNode{zero})
+	p, ok, err = compileModelParticle(rt.build(), rt.addModel, 0)
+	if err != nil || ok || p != (contentParticle{}) {
 		t.Fatalf("ModelParticle(zero) = %+v, %v, %v; want no particle", p, ok, err)
 	}
 
 	rt = newContentModelLoweringRuntime(nil)
-	err = AppendModelParticle(rt.build(), rt.addModel, &ContentModel{}, 0)
+	err = appendModelParticle(rt.build(), rt.addModel, &contentModelNode{}, 0)
 	expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 }
 
 func TestExtendSequenceModel(t *testing.T) {
 	t.Parallel()
 
-	one := Occurrence{Min: 1, Max: 1}
-	baseParticle := ElementParticle(1, one)
-	extParticle := ElementParticle(2, one)
+	one := occurrence{Min: 1, Max: 1}
+	baseParticle := elementParticle(1, one)
+	extParticle := elementParticle(2, one)
 
-	rt := newContentModelLoweringRuntime([]ContentModel{
-		{Kind: ModelSequence, Occurs: one, Particles: []Particle{baseParticle}, Mixed: true},
-		{Kind: ModelChoice, Occurs: one, Particles: []Particle{extParticle}},
+	rt := newContentModelLoweringRuntime([]contentModelNode{
+		{Kind: modelSequence, Occurs: one, Particles: []contentParticle{baseParticle}, Mixed: true},
+		{Kind: modelChoice, Occurs: one, Particles: []contentParticle{extParticle}},
 	})
-	id, err := ExtendSequenceModel(rt.build(), rt.addModel, 0, 1)
+	id, err := extendSequenceModel(rt.build(), rt.addModel, 0, 1)
 	if err != nil {
 		t.Fatalf("ExtendSequenceModel() error = %v", err)
 	}
@@ -368,18 +368,18 @@ func TestExtendSequenceModel(t *testing.T) {
 		t.Fatalf("ExtendSequenceModel() id = %d, want appended model 2", id)
 	}
 	got := rt.models[id]
-	if got.Kind != ModelSequence || !got.Mixed || len(got.Particles) != 2 {
+	if got.Kind != modelSequence || !got.Mixed || len(got.Particles) != 2 {
 		t.Fatalf("extended model = %#v, want mixed sequence with two particles", got)
 	}
-	if got.Particles[0] != baseParticle || got.Particles[1].Kind != ParticleModel {
+	if got.Particles[0] != baseParticle || got.Particles[1].Kind != particleModel {
 		t.Fatalf("extended particles = %#v, want base particle then extension model particle", got.Particles)
 	}
 
-	rt = newContentModelLoweringRuntime([]ContentModel{
-		{Kind: ModelEmpty, Occurs: one, Mixed: true},
-		{Kind: ModelSequence, Occurs: one, Particles: []Particle{extParticle}},
+	rt = newContentModelLoweringRuntime([]contentModelNode{
+		{Kind: modelEmpty, Occurs: one, Mixed: true},
+		{Kind: modelSequence, Occurs: one, Particles: []contentParticle{extParticle}},
 	})
-	id, err = ExtendSequenceModel(rt.build(), rt.addModel, 0, 1)
+	id, err = extendSequenceModel(rt.build(), rt.addModel, 0, 1)
 	if err != nil {
 		t.Fatalf("ExtendSequenceModel(empty base) error = %v", err)
 	}
@@ -388,78 +388,78 @@ func TestExtendSequenceModel(t *testing.T) {
 	}
 
 	rt = newContentModelLoweringRuntime(nil)
-	_, err = ExtendSequenceModel(rt.build(), rt.addModel, 0, 1)
+	_, err = extendSequenceModel(rt.build(), rt.addModel, 0, 1)
 	expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 }
 
 func TestValidateComplexExtensionModelAdmission(t *testing.T) {
 	t.Parallel()
 
-	one := Occurrence{Min: 1, Max: 1}
-	empty := ContentModel{Kind: ModelEmpty, Occurs: one}
-	sequence := ContentModel{
-		Kind:      ModelSequence,
+	one := occurrence{Min: 1, Max: 1}
+	empty := contentModelNode{Kind: modelEmpty, Occurs: one}
+	sequence := contentModelNode{
+		Kind:      modelSequence,
 		Occurs:    one,
-		Particles: []Particle{ElementParticle(1, one)},
+		Particles: []contentParticle{elementParticle(1, one)},
 	}
-	all := ContentModel{
-		Kind:      ModelAll,
+	all := contentModelNode{
+		Kind:      modelAll,
 		Occurs:    one,
-		Particles: []Particle{ElementParticle(1, one)},
+		Particles: []contentParticle{elementParticle(1, one)},
 	}
-	rt := complexExtensionModelFixture{models: []ContentModel{empty, sequence, all}}
+	rt := complexExtensionModelFixture{models: []contentModelNode{empty, sequence, all}}
 	tests := []struct {
 		name      string
-		admission ComplexExtensionModelAdmission
+		admission complexExtensionModelAdmission
 		wantCat   xsderrors.Category
 		wantCode  xsderrors.Code
 	}{
 		{
 			name: "valid sequence extension",
-			admission: ComplexExtensionModelAdmission{
-				BaseContent: ContentModelID(0),
-				Extension:   ContentModelID(1),
+			admission: complexExtensionModelAdmission{
+				BaseContent: contentModelID(0),
+				Extension:   contentModelID(1),
 			},
 		},
 		{
 			name: "anyType mixed base can become element-only",
-			admission: ComplexExtensionModelAdmission{
-				BaseContent:   ContentModelID(1),
-				Extension:     ContentModelID(1),
+			admission: complexExtensionModelAdmission{
+				BaseContent:   contentModelID(1),
+				Extension:     contentModelID(1),
 				BaseIsAnyType: true,
 				BaseMixed:     true,
 			},
 		},
 		{
 			name: "mixed base drop",
-			admission: ComplexExtensionModelAdmission{
-				BaseContent: ContentModelID(1),
-				Extension:   ContentModelID(1),
+			admission: complexExtensionModelAdmission{
+				BaseContent: contentModelID(1),
+				Extension:   contentModelID(1),
 				BaseMixed:   true,
 			},
 			wantCode: xsderrors.CodeSchemaContentModel,
 		},
 		{
 			name: "all extension with non-empty base",
-			admission: ComplexExtensionModelAdmission{
-				BaseContent: ContentModelID(1),
-				Extension:   ContentModelID(2),
+			admission: complexExtensionModelAdmission{
+				BaseContent: contentModelID(1),
+				Extension:   contentModelID(2),
 			},
 			wantCode: xsderrors.CodeSchemaContentModel,
 		},
 		{
 			name: "all base with extension particles",
-			admission: ComplexExtensionModelAdmission{
-				BaseContent: ContentModelID(2),
-				Extension:   ContentModelID(1),
+			admission: complexExtensionModelAdmission{
+				BaseContent: contentModelID(2),
+				Extension:   contentModelID(1),
 			},
 			wantCode: xsderrors.CodeSchemaContentModel,
 		},
 		{
 			name: "missing extension model",
-			admission: ComplexExtensionModelAdmission{
-				BaseContent: ContentModelID(0),
-				Extension:   ContentModelID(9),
+			admission: complexExtensionModelAdmission{
+				BaseContent: contentModelID(0),
+				Extension:   contentModelID(9),
 			},
 			wantCat:  xsderrors.CategoryInternal,
 			wantCode: xsderrors.CodeInternalInvariant,
@@ -469,7 +469,7 @@ func TestValidateComplexExtensionModelAdmission(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateComplexExtensionModelAdmission(rt.build(), tt.admission)
+			err := validateComplexExtensionModelAdmission(rt.build(), tt.admission)
 			if tt.wantCode != "" {
 				wantCat := tt.wantCat
 				if wantCat == "" {
@@ -490,14 +490,14 @@ func TestValidateComplexExtensionContentAdmission(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		admission ComplexExtensionContentAdmission
+		admission complexExtensionContentAdmission
 		wantCode  xsderrors.Code
 	}{
-		{name: "complex base with model child", admission: ComplexExtensionContentAdmission{HasModelChild: true}},
-		{name: "simple content base without model child", admission: ComplexExtensionContentAdmission{BaseSimpleContent: true}},
+		{name: "complex base with model child", admission: complexExtensionContentAdmission{HasModelChild: true}},
+		{name: "simple content base without model child", admission: complexExtensionContentAdmission{BaseSimpleContent: true}},
 		{
 			name: "simple content base with model child",
-			admission: ComplexExtensionContentAdmission{
+			admission: complexExtensionContentAdmission{
 				BaseSimpleContent: true,
 				HasModelChild:     true,
 			},
@@ -508,7 +508,7 @@ func TestValidateComplexExtensionContentAdmission(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateComplexExtensionContentAdmission(tt.admission)
+			err := validateComplexExtensionContentAdmission(tt.admission)
 			if tt.wantCode != "" {
 				expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, tt.wantCode)
 				return
@@ -521,31 +521,31 @@ func TestValidateComplexExtensionContentAdmission(t *testing.T) {
 }
 
 type complexExtensionModelFixture struct {
-	models []ContentModel
+	models []contentModelNode
 }
 
 type contentModelLoweringFixture struct {
-	models []ContentModel
+	models []contentModelNode
 }
 
-func newContentModelLoweringRuntime(models []ContentModel) *contentModelLoweringFixture {
+func newContentModelLoweringRuntime(models []contentModelNode) *contentModelLoweringFixture {
 	return &contentModelLoweringFixture{models: cloneContentModels(models)}
 }
 
-func cloneContentModels(models []ContentModel) []ContentModel {
-	out := make([]ContentModel, len(models))
+func cloneContentModels(models []contentModelNode) []contentModelNode {
+	out := make([]contentModelNode, len(models))
 	for i, model := range models {
-		out[i] = CloneContentModel(model)
+		out[i] = cloneContentModel(model)
 	}
 	return out
 }
 
-func (s *contentModelLoweringFixture) addModel(model ContentModel) (ContentModelID, error) {
-	id, err := NextContentModelID(len(s.models))
+func (s *contentModelLoweringFixture) addModel(model contentModelNode) (contentModelID, error) {
+	id, err := nextContentModelID(len(s.models))
 	if err != nil {
-		return NoContentModel, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content model limit exceeded")
+		return noContentModel, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content model limit exceeded")
 	}
-	s.models = append(s.models, CloneContentModel(model))
+	s.models = append(s.models, cloneContentModel(model))
 	return id, nil
 }
 

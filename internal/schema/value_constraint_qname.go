@@ -92,7 +92,7 @@ func (c *valueConstraintQNameContext) ResolveQName(lexical string) (valuepkg.Exp
 // exact application spelling and the accepted datatype proof. The proof may
 // be empty: prospective contexts deliberately cover string-first unions and
 // untyped anyType constraints that did not resolve a QName during admission.
-func validateValueConstraintQNameContext(application string, context *valueConstraintQNameContext, names []ResolvedValueName) error {
+func validateValueConstraintQNameContext(application string, context *valueConstraintQNameContext, names []resolvedValueName) error {
 	if context == nil {
 		return errors.New("value constraint QName context is missing")
 	}
@@ -100,7 +100,7 @@ func validateValueConstraintQNameContext(application string, context *valueConst
 	if err := validateValueConstraintQNameBindings(expected, context.bindings); err != nil {
 		return err
 	}
-	return validateValueConstraintQNameProof(context, names)
+	return validateValueConstraintQNameProof(application, context, names)
 }
 
 func valueConstraintQNamePrefixes(application string) map[string]struct{} {
@@ -112,6 +112,18 @@ func valueConstraintQNamePrefixes(application string) map[string]struct{} {
 		}
 	}
 	return expected
+}
+
+// valueConstraintQNameFields returns the distinct fields of application text
+// that are valid QNames.
+func valueConstraintQNameFields(application string) map[string]struct{} {
+	fields := make(map[string]struct{})
+	for field := range lex.XMLFieldsSeq(application) {
+		if lex.SplitQName(field).Valid {
+			fields[field] = struct{}{}
+		}
+	}
+	return fields
 }
 
 func validateValueConstraintQNameBindings(expected map[string]struct{}, bindings []valueConstraintQNameBinding) error {
@@ -132,8 +144,16 @@ func validateValueConstraintQNameBindings(expected map[string]struct{}, bindings
 	return nil
 }
 
-func validateValueConstraintQNameProof(context *valueConstraintQNameContext, names []ResolvedValueName) error {
+// validateValueConstraintQNameProof checks that each proof entry names a QName
+// field of the application text and resolves identically in the retained
+// context; the check is structural and evaluates nothing. Membership only: a
+// union retry can record one field more than once.
+func validateValueConstraintQNameProof(application string, context *valueConstraintQNameContext, names []resolvedValueName) error {
+	fields := valueConstraintQNameFields(application)
 	for _, entry := range names {
+		if _, ok := fields[entry.Lexical]; !ok {
+			return errors.New("resolved name proof is not used by the value constraint")
+		}
 		parts := resolvedValueNameLexicalParts(entry.Lexical)
 		if !parts.Valid {
 			return errors.New("resolved name proof is not a valid QName")

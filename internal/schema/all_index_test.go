@@ -9,20 +9,20 @@ import (
 func TestAllContentIndexBoundsSubstitutionWork(t *testing.T) {
 	t.Parallel()
 	const head = ElementID(1)
-	allTerms := func(first ElementID) []CompiledAllTerm {
-		terms := make([]CompiledAllTerm, compiledDFARowIndexMinEdges)
+	allTerms := func(first ElementID) []compiledAllTerm {
+		terms := make([]compiledAllTerm, compiledDFARowIndexMinEdges)
 		for i := range terms {
-			terms[i].Particle = Particle{Kind: ParticleElement, Element: first + ElementID(i)}
+			terms[i].Particle = contentParticle{Kind: particleElement, Element: first + ElementID(i)}
 		}
 		return terms
 	}
 	// substituted's head expands to extra names; plain has none.
-	substituted := CompiledModel{Kind: CompiledModelAll, All: allTerms(1)}
-	plain := CompiledModel{Kind: CompiledModelAll, All: allTerms(31)}
+	substituted := compiledModel{Kind: compiledModelAll, All: allTerms(1)}
+	plain := compiledModel{Kind: compiledModelAll, All: allTerms(31)}
 	names := make(map[ElementID]QName)
-	for _, model := range []CompiledModel{substituted, plain} {
+	for _, model := range []compiledModel{substituted, plain} {
 		for _, term := range model.All {
-			names[term.Particle.Element] = QName{Local: LocalNameID(term.Particle.Element)}
+			names[term.Particle.Element] = QName{Local: localNameID(term.Particle.Element)}
 		}
 	}
 	source := dfaRowIndexFixture{
@@ -32,7 +32,7 @@ func TestAllContentIndexBoundsSubstitutionWork(t *testing.T) {
 		},
 	}
 	exhausted := errors.New("content work exhausted")
-	index := func(models []CompiledModel, entered []ContentModelID) ([]compiledModelRead, error) {
+	index := func(models []compiledModel, entered []contentModelID) ([]compiledModelRead, error) {
 		reads := make([]compiledModelRead, len(entered))
 		remaining := compiledDFARowIndexMinEdges
 		err := indexAllContentModels(models, entered, reads, source.build(), func(steps int) error {
@@ -44,19 +44,19 @@ func TestAllContentIndexBoundsSubstitutionWork(t *testing.T) {
 		})
 		return reads, err
 	}
-	if reads, err := index([]CompiledModel{plain}, []ContentModelID{0}); err != nil || reads[0].allNames == nil {
+	if reads, err := index([]compiledModel{plain}, []contentModelID{0}); err != nil || reads[0].allNames == nil {
 		t.Fatalf("plain index = %v, installed %v; want it to fit the budget", err, reads[0].allNames != nil)
 	}
 	for _, tt := range []struct {
 		name    string
-		models  []CompiledModel
-		entered []ContentModelID
+		models  []compiledModel
+		entered []contentModelID
 	}{
-		{name: "entered", models: []CompiledModel{substituted}, entered: []ContentModelID{0}},
+		{name: "entered", models: []compiledModel{substituted}, entered: []contentModelID{0}},
 		// Validation never enters the substituted model, but its index work
 		// is still charged, so its exhaustion fails publication although the
 		// entered model alone fits.
-		{name: "unentered before entered", models: []CompiledModel{substituted, plain}, entered: []ContentModelID{1}},
+		{name: "unentered before entered", models: []compiledModel{substituted, plain}, entered: []contentModelID{1}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
@@ -75,42 +75,42 @@ func TestAllContentIndexBoundsSubstitutionWork(t *testing.T) {
 
 func TestAllContentIndexStaysWithItsPublishedModel(t *testing.T) {
 	t.Parallel()
-	large := func(first ElementID) CompiledModel {
-		terms := make([]CompiledAllTerm, compiledDFARowIndexMinEdges)
+	large := func(first ElementID) compiledModel {
+		terms := make([]compiledAllTerm, compiledDFARowIndexMinEdges)
 		for i := range terms {
-			terms[i].Particle = Particle{Kind: ParticleElement, Element: first + ElementID(i)}
+			terms[i].Particle = contentParticle{Kind: particleElement, Element: first + ElementID(i)}
 		}
-		return CompiledModel{Kind: CompiledModelAll, All: terms}
+		return compiledModel{Kind: compiledModelAll, All: terms}
 	}
 	// unindexable repeats one element at two positions, so its names cannot
 	// be indexed although it is large enough.
 	unindexable := large(41)
 	unindexable.All[1].Particle.Element = unindexable.All[0].Particle.Element
-	small := CompiledModel{Kind: CompiledModelAll, All: large(61).All[:compiledDFARowIndexMinEdges-1]}
-	dfa := CompiledModel{Kind: CompiledModelDFA, Rows: []CompiledModelRow{{Accept: true}}}
+	small := compiledModel{Kind: compiledModelAll, All: large(61).All[:compiledDFARowIndexMinEdges-1]}
+	dfa := compiledModel{Kind: compiledModelDFA, Rows: []compiledModelRow{{Accept: true}}}
 	for _, tt := range []struct {
 		name    string
-		models  []CompiledModel
-		entered []ContentModelID
+		models  []compiledModel
+		entered []contentModelID
 		// indexed lists the entered models whose slots carry their own index.
-		indexed []ContentModelID
+		indexed []contentModelID
 	}{
 		{
 			// Unentered large all-groups lead and trail the entered ones, and
 			// entered models that carry no index sit between indexed ones.
 			name:    "mixed",
-			models:  []CompiledModel{large(1), dfa, large(11), small, unindexable, large(21), large(31)},
-			entered: []ContentModelID{1, 2, 3, 4, 5},
-			indexed: []ContentModelID{2, 5},
+			models:  []compiledModel{large(1), dfa, large(11), small, unindexable, large(21), large(31)},
+			entered: []contentModelID{1, 2, 3, 4, 5},
+			indexed: []contentModelID{2, 5},
 		},
-		{name: "entered last", models: []CompiledModel{large(1), large(11)}, entered: []ContentModelID{1}, indexed: []ContentModelID{1}},
+		{name: "entered last", models: []compiledModel{large(1), large(11)}, entered: []contentModelID{1}, indexed: []contentModelID{1}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			names := make(map[ElementID]QName)
 			for _, model := range tt.models {
 				for _, term := range model.All {
-					names[term.Particle.Element] = QName{Local: LocalNameID(term.Particle.Element)}
+					names[term.Particle.Element] = QName{Local: localNameID(term.Particle.Element)}
 				}
 			}
 			reads := make([]compiledModelRead, len(tt.entered))

@@ -14,8 +14,8 @@ func TestGlobalLookupHelpers(t *testing.T) {
 	types := map[QName]TypeID{qnames["simple"]: SimpleRef(0)}
 	derivations := newTypeDerivationReadForTest(
 		t,
-		[]SimpleType{testSimpleType(valuepkg.Atomic, NoSimpleType)},
-		[]ComplexType{{Derivation: DerivationKindNone}},
+		[]simpleType{testSimpleType(valuepkg.Atomic, NoSimpleType)},
+		[]complexTypeMetadata{{Derivation: derivationKindNone}},
 	)
 	if typ, ok := globalTypeByName(types, derivations, qnames["simple"]); !ok || typ != SimpleRef(0) {
 		t.Fatalf("GlobalTypeByName() = %v, %v; want simple 0, true", typ, ok)
@@ -24,19 +24,19 @@ func TestGlobalLookupHelpers(t *testing.T) {
 		t.Fatalf("GlobalTypeByName(invalid) = %v, %v; want zero, false", typ, ok)
 	}
 	attributeDecls := []AttributeDeclRead{{}}
-	if id, ok, valid := GlobalAttributeByName(attributes, attributeDecls, qnames["attr"]); !ok || !valid || id != 0 {
+	if id, ok, valid := globalAttributeByName(attributes, attributeDecls, qnames["attr"]); !ok || !valid || id != 0 {
 		t.Fatalf("GlobalAttributeByName() = %v, %v, %v; want 0, true, true", id, ok, valid)
 	}
-	if id, ok, valid := GlobalAttributeByName(attributes, attributeDecls, qnames["other"]); ok || !valid || id != 0 {
+	if id, ok, valid := globalAttributeByName(attributes, attributeDecls, qnames["other"]); ok || !valid || id != 0 {
 		t.Fatalf("GlobalAttributeByName(missing) = %v, %v, %v; want 0, false, true", id, ok, valid)
 	}
-	if id, ok, valid := GlobalAttributeByName(map[QName]AttributeID{qnames["attr"]: 99}, attributeDecls, qnames["attr"]); ok || valid || id != 0 {
+	if id, ok, valid := globalAttributeByName(map[QName]AttributeID{qnames["attr"]: 99}, attributeDecls, qnames["attr"]); ok || valid || id != 0 {
 		t.Fatalf("GlobalAttributeByName(invalid) = %v, %v, %v; want 0, false, false", id, ok, valid)
 	}
-	if got, ok := TypeNameByID([]SimpleType{{Name: qnames["simple"]}}, nil, SimpleRef(0)); !ok || got != qnames["simple"] {
+	if got, ok := typeNameByID([]simpleType{{Name: qnames["simple"]}}, nil, SimpleRef(0)); !ok || got != qnames["simple"] {
 		t.Fatalf("TypeNameByID(simple) = %v, %v; want simple name, true", got, ok)
 	}
-	if got, ok := TypeNameByID(nil, []ComplexType{{Name: qnames["complex"]}}, ComplexRef(0)); !ok || got != qnames["complex"] {
+	if got, ok := typeNameByID(nil, []complexTypeMetadata{{Name: qnames["complex"]}}, ComplexRef(0)); !ok || got != qnames["complex"] {
 		t.Fatalf("TypeNameByID(complex) = %v, %v; want complex name, true", got, ok)
 	}
 }
@@ -56,10 +56,10 @@ func TestNotationReadMap(t *testing.T) {
 	}
 }
 
-func runtimeGlobalsFixture(t *testing.T) (NameTable, map[string]QName) {
+func runtimeGlobalsFixture(t *testing.T) (nameTable, map[string]QName) {
 	t.Helper()
 
-	names, err := NewNameTable(16, []string{EmptyNamespaceURI}, []ExpandedName{
+	names, err := newNameTable(16, []string{EmptyNamespaceURI}, []ExpandedName{
 		{Namespace: EmptyNamespaceURI, Local: "attr"},
 		{Namespace: EmptyNamespaceURI, Local: "elem"},
 		{Namespace: EmptyNamespaceURI, Local: "simple"},

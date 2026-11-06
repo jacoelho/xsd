@@ -355,13 +355,78 @@ func TestSourcePackageImportGraph(t *testing.T) {
 	)
 }
 
+const cmdModule = "github.com/jacoelho/xsd"
+
+var cmdImportAllowlist = map[string][]string{
+	cmdModule + "/cmd/wasmxsd": {cmdModule, cmdModule + "/xsderrors", cmdModule + "/internal/format", cmdModule + "/internal/validate"},
+	cmdModule + "/cmd/xmllint": {cmdModule, cmdModule + "/xsderrors"},
+	cmdModule + "/cmd/xsdweb":  {},
+}
+
+// checkCmdImports reports repository imports of a cmd package outside its
+// allowlist, and cmd packages with no allowlist entry.
+func checkCmdImports(pkg string, imports []string, allow map[string][]string) []string {
+	allowed, ok := allow[pkg]
+	if !ok {
+		return []string{pkg + " has no entry in the cmd import allowlist"}
+	}
+	var problems []string
+	for _, imp := range imports {
+		if imp != cmdModule && !strings.HasPrefix(imp, cmdModule+"/") {
+			continue
+		}
+		if !slices.Contains(allowed, imp) {
+			problems = append(problems, pkg+" imports "+imp)
+		}
+	}
+	return problems
+}
+
+func TestCheckCmdImports(t *testing.T) {
+	m := cmdModule
+	tests := []struct {
+		name    string
+		pkg     string
+		imports []string
+		want    int
+	}{
+		{"xmllint internal/validate", m + "/cmd/xmllint", []string{m, m + "/internal/validate"}, 1},
+		{"wasmxsd internal/schema", m + "/cmd/wasmxsd", []string{m + "/internal/schema"}, 1},
+		{"wasmxsd allowed", m + "/cmd/wasmxsd", []string{"fmt", m + "/internal/validate", m + "/internal/format"}, 0},
+		{"xsdweb internal", m + "/cmd/xsdweb", []string{m + "/internal/format"}, 1},
+		{"unknown cmd", m + "/cmd/new", nil, 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := checkCmdImports(tt.pkg, tt.imports, cmdImportAllowlist); len(got) != tt.want {
+				t.Fatalf("checkCmdImports() = %v, want %d problems", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCmdImportEdges(t *testing.T) {
+	for _, env := range [][]string{nil, {"GOOS=js", "GOARCH=wasm"}} {
+		for path, pkg := range listPackagesEnv(t, env, "./cmd/...") {
+			for _, problem := range checkCmdImports(path, pkg.Imports, cmdImportAllowlist) {
+				t.Errorf("%s (env %v)", problem, env)
+			}
+		}
+	}
+}
+
 func listPackages(t *testing.T, patterns ...string) map[string]listedPackage {
+	t.Helper()
+	return listPackagesEnv(t, nil, patterns...)
+}
+
+func listPackagesEnv(t *testing.T, env []string, patterns ...string) map[string]listedPackage {
 	t.Helper()
 	args := append([]string{"list", "-json"}, patterns...)
 	//nolint:gosec // test-controlled go list patterns only.
 	cmd := exec.CommandContext(t.Context(), "go", args...)
 	cmd.Dir = repoRoot(t)
-	cmd.Env = append(os.Environ(), "GOWORK=off")
+	cmd.Env = append(append(os.Environ(), "GOWORK=off"), env...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("go %s failed: %v\n%s", strings.Join(args, " "), err, out)

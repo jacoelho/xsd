@@ -472,7 +472,7 @@ func TestIdentityReporterAbortPreservesPendingSelections(t *testing.T) {
 	}
 }
 
-func startIdentityRetryElement(tb testing.TB, evaluation *identityEvaluation, local string, ctx StartContext) {
+func startIdentityRetryElement(tb testing.TB, evaluation *identityEvaluation, local string, ctx startContext) {
 	tb.Helper()
 	name, ok := evaluation.rt.LookupQName("", local)
 	if !ok {
@@ -493,7 +493,7 @@ func startIdentityRetryElement(tb testing.TB, evaluation *identityEvaluation, lo
 	}
 }
 
-func captureIdentityRetryAttribute(tb testing.TB, evaluation *identityEvaluation, local, lexical string, ctx StartContext) {
+func captureIdentityRetryAttribute(tb testing.TB, evaluation *identityEvaluation, local, lexical string, ctx startContext) {
 	tb.Helper()
 	name, ok := evaluation.rt.LookupQName("", local)
 	if !ok {

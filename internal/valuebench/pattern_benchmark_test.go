@@ -10,7 +10,7 @@ import (
 )
 
 func BenchmarkSimplePatternVariableNoMatchGroupScratch(b *testing.B) {
-	pattern, err := xsdregex.Compile(`[a-z]{0,}[a-z]{0,}x`, xsdregex.CompileOptions{})
+	pattern, err := xsdregex.Compile(`[a-z]{0,}[a-z]{0,}x`)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -18,7 +18,7 @@ func BenchmarkSimplePatternVariableNoMatchGroupScratch(b *testing.B) {
 	for i := range patterns {
 		patterns[i] = pattern
 	}
-	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := builder.Reserve()
 	if err != nil {
 		b.Fatalf("Reserve() error = %v", err)
@@ -41,13 +41,13 @@ func BenchmarkSimplePatternVariableNoMatchGroupScratch(b *testing.B) {
 	}
 	input := strings.Repeat("a", 4096)
 	var scratch valuepkg.Scratch
-	if _, err := program.Validate(id, input, valuepkg.Resolver{}, 0, 16<<20, &scratch); !errors.Is(err, valuepkg.ErrFacet) {
+	if _, err := program.Validate(id, input, valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch); !errors.Is(err, valuepkg.ErrFacet) {
 		b.Fatalf("pattern validation = %v; want %v", err, valuepkg.ErrFacet)
 	}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		if _, err := program.Validate(id, input, valuepkg.Resolver{}, 0, 16<<20, &scratch); !errors.Is(err, valuepkg.ErrFacet) {
+		if _, err := program.Validate(id, input, valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch); !errors.Is(err, valuepkg.ErrFacet) {
 			b.Fatalf("pattern validation = %v; want %v", err, valuepkg.ErrFacet)
 		}
 	}

@@ -17,7 +17,7 @@ func BenchmarkAuditBase64FixedEquality(b *testing.B) {
 				input = auditBase64Whitespace(canonical)
 			}
 			inputBytes := []byte(input)
-			literal, err := program.Validate(id, canonical, valuepkg.Resolver{}, valuepkg.NeedCanonical|valuepkg.NeedIdentity, 16<<20, nil)
+			literal, err := program.Validate(id, canonical, valuepkg.Resolver{}, valuepkg.NeedCanonical|valuepkg.NeedIdentity, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			if err != nil {
 				b.Fatalf("fixed literal validation bytes=%d/%s: %v", payloadSize, spelling, err)
 			}
@@ -55,7 +55,7 @@ func BenchmarkAuditBase64EnumerationConstruction(b *testing.B) {
 				b.Helper()
 				b.ReportAllocs()
 				b.SetBytes(int64(payloadSize * groupSize))
-				warmupBuilder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+				warmupBuilder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 				warmupID, err := warmupBuilder.Reserve()
 				if err != nil {
 					b.Fatalf("Reserve() error = %v", err)
@@ -73,12 +73,12 @@ func BenchmarkAuditBase64EnumerationConstruction(b *testing.B) {
 				if err != nil {
 					b.Fatal(err)
 				}
-				if _, err := warmupProgram.Validate(warmupID, literals[0].Lexical, valuepkg.Resolver{}, 0, 16<<20, nil); err != nil {
+				if _, err := warmupProgram.Validate(warmupID, literals[0].Lexical, valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 					b.Fatalf("warmup validation: %v", err)
 				}
 				b.ResetTimer()
 				for b.Loop() {
-					builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+					builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 					id, err := builder.Reserve()
 					if err != nil {
 						b.Fatalf("Reserve() error = %v", err)
@@ -104,7 +104,7 @@ func BenchmarkAuditBase64EnumerationConstruction(b *testing.B) {
 
 func auditBase64BuiltinProgram(tb testing.TB) (*valuepkg.Program, valuepkg.TypeID) {
 	tb.Helper()
-	program, err := valuepkg.NewBuilder(valuepkg.BuilderOptions{}).Seal()
+	program, err := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 	if err != nil {
 		tb.Fatal(err)
 	}
@@ -118,9 +118,9 @@ func auditBase64BuiltinProgram(tb testing.TB) (*valuepkg.Program, valuepkg.TypeI
 func validateBase64BenchmarkValue(program *valuepkg.Program, id valuepkg.TypeID, input string, inputBytes []byte, api string) (valuepkg.Value, error) {
 	const needs = valuepkg.NeedCanonical | valuepkg.NeedIdentity
 	if api == "bytes" {
-		return program.ValidateBytes(id, inputBytes, valuepkg.Resolver{}, needs, 16<<20, nil)
+		return program.ValidateBytes(id, inputBytes, valuepkg.Resolver{}, needs, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	}
-	return program.Validate(id, input, valuepkg.Resolver{}, needs, 16<<20, nil)
+	return program.Validate(id, input, valuepkg.Resolver{}, needs, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 }
 
 func auditBase64LiteralSpecs(payloadSize, groupSize int) []valuepkg.LiteralSpec {

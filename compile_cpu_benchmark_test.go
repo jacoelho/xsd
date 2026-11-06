@@ -666,7 +666,7 @@ func checkSchemaIDEngine(tb testing.TB, e *xsd.Engine, err error, f schemaIDFixt
 func checkSchemaIDDuplicate(tb testing.TB, e *xsd.Engine, err error) {
 	tb.Helper()
 	d, ok := errors.AsType[*xsderrors.Error](err)
-	if e != nil || !ok || d.Category() != xsderrors.CategorySchemaCompile || d.Code() != xsderrors.CodeSchemaInvalidAttribute || d.Message() != "duplicate schema id id000" || d.Path() != "LateDuplicate512.xsd" || d.Line() != 513 || d.Column() != 1 || d.Cause() != nil {
+	if e != nil || !ok || d.Category() != xsderrors.CategorySchemaCompile || d.Code() != xsderrors.CodeSchemaInvalidAttribute || d.Message() != `duplicate schema id "id000"` || d.Path() != "LateDuplicate512.xsd" || d.Line() != 513 || d.Column() != 1 || d.Cause() != nil {
 		tb.Fatalf("late duplicate: engine=%v diagnostic=%#v error=%v", e, d, err)
 	}
 }
@@ -754,7 +754,7 @@ func checkComplexDerivationRoutes(tb testing.TB, engine *xsd.Engine) {
 		tb.Fatalf("unrelated complex member accepted for string head: engine=%v err=%v", failed, err)
 	}
 	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
-	if !ok || diagnostic.Category() != xsderrors.CategorySchemaCompile || diagnostic.Code() != xsderrors.CodeSchemaReference || diagnostic.Message() != "substitution group member memberS type C8 is not derived from head headS type {http://www.w3.org/2001/XMLSchema}string" {
+	if !ok || diagnostic.Category() != xsderrors.CategorySchemaCompile || diagnostic.Code() != xsderrors.CodeSchemaReference || diagnostic.Message() != `substitution group member "memberS" type "C8" is not derived from head "headS" type "{http://www.w3.org/2001/XMLSchema}string"` {
 		tb.Fatalf("incompatible substitution diagnostic: %v", err)
 	}
 }

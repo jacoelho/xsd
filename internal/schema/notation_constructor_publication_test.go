@@ -17,7 +17,7 @@ func TestPublicationChecksCanonicalNotationConstructorEdges(t *testing.T) {
 			}
 			notation := value.BuiltinType(value.PrimitiveNotation)
 			stringType := value.BuiltinType(value.PrimitiveString)
-			typ := SimpleType{Name: name, ValueSpec: value.TypeSpec{
+			typ := simpleType{Name: name, ValueSpec: value.TypeSpec{
 				Base: value.AnySimpleTypeID, Variety: variety, Primitive: value.PrimitiveString,
 				Whitespace: value.WhitespaceCollapse, WhitespacePresent: true, ListItem: value.NoType,
 			}}

@@ -11,45 +11,45 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// AttributeWildcardDerivation identifies how an attribute wildcard was derived.
-type AttributeWildcardDerivation uint8
+// attributeWildcardDerivation identifies how an attribute wildcard was derived.
+type attributeWildcardDerivation uint8
 
 const (
-	// AttributeWildcardNone records a locally declared or absent wildcard.
-	AttributeWildcardNone AttributeWildcardDerivation = iota
-	// AttributeWildcardRestriction records wildcard derivation by restriction.
-	AttributeWildcardRestriction
-	// AttributeWildcardExtension records wildcard derivation by extension.
-	AttributeWildcardExtension
+	// attributeWildcardNone records a locally declared or absent wildcard.
+	attributeWildcardNone attributeWildcardDerivation = iota
+	// attributeWildcardRestriction records wildcard derivation by restriction.
+	attributeWildcardRestriction
+	// attributeWildcardExtension records wildcard derivation by extension.
+	attributeWildcardExtension
 )
 
-// ValidAttributeWildcardDerivation reports whether kind is a known attribute
+// validAttributeWildcardDerivation reports whether kind is a known attribute
 // wildcard derivation kind.
-func ValidAttributeWildcardDerivation(kind AttributeWildcardDerivation) bool {
+func validAttributeWildcardDerivation(kind attributeWildcardDerivation) bool {
 	switch kind {
-	case AttributeWildcardNone, AttributeWildcardRestriction, AttributeWildcardExtension:
+	case attributeWildcardNone, attributeWildcardRestriction, attributeWildcardExtension:
 		return true
 	default:
 		return false
 	}
 }
 
-// AttributeUseSet is the runtime record for one attribute-use set.
-type AttributeUseSet struct {
+// attributeUseSet is the runtime record for one attribute-use set.
+type attributeUseSet struct {
 	Index            map[QName]uint32
-	Uses             []AttributeUse
+	Uses             []attributeUse
 	Wildcard         WildcardID
 	WildcardBase     WildcardID
 	WildcardDeclared WildcardID
-	WildcardDerive   AttributeWildcardDerivation
+	WildcardDerive   attributeWildcardDerivation
 }
 
-// AttributeUse is the construction record for one attribute use. Copies retain
+// attributeUse is the construction record for one attribute use. Copies retain
 // componentID for set union; publication discards this compiler-local identity.
 // Prohibitions remain source-name directives and never enter this record.
-type AttributeUse struct {
-	Default     *ValueConstraint
-	Fixed       *ValueConstraint
+type attributeUse struct {
+	Default     *valueConstraint
+	Fixed       *valueConstraint
 	Name        QName
 	Type        SimpleTypeID
 	componentID uint32
@@ -95,7 +95,7 @@ func attributeUseSetReadHasSingleUse(s AttributeUseSetRead) bool {
 	return ok && slot == 0
 }
 
-func newAttributeUseSetReads(names *NameTable, sets []AttributeUseSet, values *valuepkg.Builder) ([]AttributeUseSetRead, error) {
+func newAttributeUseSetReads(names *nameTable, sets []attributeUseSet, values *valuepkg.Builder) ([]AttributeUseSetRead, error) {
 	out := make([]AttributeUseSetRead, len(sets))
 	for i := range sets {
 		read, err := newAttributeUseSetRead(names, &sets[i], values)
@@ -111,7 +111,7 @@ func newAttributeUseSetReads(names *NameTable, sets []AttributeUseSet, values *v
 // restriction. HasIDUse comes only from completed value-builder input
 // requirements; missing metadata is an invariant error, never a cue to scan
 // raw type specifications or ancestry.
-func newAttributeUseSetRead(names *NameTable, set *AttributeUseSet, values *valuepkg.Builder) (AttributeUseSetRead, error) {
+func newAttributeUseSetRead(names *nameTable, set *attributeUseSet, values *valuepkg.Builder) (AttributeUseSetRead, error) {
 	uses := make([]AttributeUseRead, len(set.Uses))
 	var required, valueConstraints []uint32
 	var hasIDUse bool
@@ -169,7 +169,7 @@ func (s AttributeUseSetRead) DeclaredUse(name QName) (AttributeUseRead, int, boo
 		return AttributeUseRead{}, -1, false
 	}
 	slot, ok := s.index[name]
-	if !ok || !ValidUint32Index(slot, len(s.uses)) || s.uses[slot].name != name {
+	if !ok || !validUint32Index(slot, len(s.uses)) || s.uses[slot].name != name {
 		return AttributeUseRead{}, -1, false
 	}
 	return s.uses[slot], int(slot), true
@@ -205,7 +205,7 @@ type AttributeUseRead struct {
 
 // newAttributeUseRead returns an immutable validation read projection for one
 // attribute use.
-func newAttributeUseRead(names *NameTable, use AttributeUse) AttributeUseRead {
+func newAttributeUseRead(names *nameTable, use attributeUse) AttributeUseRead {
 	// Adopted WG correction 4363 (I-007 in docs/spec/INTERPRETATIONS.md)
 	// makes XSI constraints inapplicable during
 	// validation. Keep them on construction records for schema correctness and
@@ -276,7 +276,7 @@ type AttributeDeclRead struct {
 
 // newAttributeDeclRead returns an immutable validation read projection for one
 // global attribute declaration.
-func newAttributeDeclRead(decl AttributeDecl) AttributeDeclRead {
+func newAttributeDeclRead(decl attributeDecl) AttributeDeclRead {
 	fixed, hasFixed := newValueConstraintReadFromConstraint(decl.Fixed)
 	return AttributeDeclRead{
 		name:     decl.Name,
@@ -288,7 +288,7 @@ func newAttributeDeclRead(decl AttributeDecl) AttributeDeclRead {
 
 // newAttributeDeclReadsForDecls returns immutable validation read projections
 // for frozen global attribute declarations.
-func newAttributeDeclReadsForDecls(decls []AttributeDecl) []AttributeDeclRead {
+func newAttributeDeclReadsForDecls(decls []attributeDecl) []AttributeDeclRead {
 	out := make([]AttributeDeclRead, len(decls))
 	for i := range decls {
 		out[i] = newAttributeDeclRead(decls[i])
@@ -298,7 +298,7 @@ func newAttributeDeclReadsForDecls(decls []AttributeDecl) []AttributeDeclRead {
 
 // attributeDeclReadByID returns the validation read projection for id.
 func attributeDeclReadByID(reads []AttributeDeclRead, id AttributeID) (AttributeDeclRead, bool) {
-	if !ValidAttributeID(id, len(reads)) {
+	if !validAttributeID(id, len(reads)) {
 		return AttributeDeclRead{}, false
 	}
 	return reads[id], true
@@ -319,10 +319,10 @@ func (d AttributeDeclRead) FixedValue() (ValueConstraintRead, bool) {
 	return d.fixed, d.hasFixed
 }
 
-// ValidateAttributeUseSetRecord validates attribute-use set metadata directly
+// validateAttributeUseSetRecord validates attribute-use set metadata directly
 // from runtime records.
-func ValidateAttributeUseSetRecord(names *NameTable, rt *schemaBuild, set AttributeUseSet) error {
-	if err := ValidateAttributeWildcardProvenance(rt, set); err != nil {
+func validateAttributeUseSetRecord(names *nameTable, rt *schemaBuild, set attributeUseSet) error {
+	if err := validateAttributeWildcardProvenance(rt, set); err != nil {
 		return err
 	}
 	if len(set.Index) != len(set.Uses) {
@@ -338,13 +338,13 @@ func ValidateAttributeUseSetRecord(names *NameTable, rt *schemaBuild, set Attrib
 }
 
 type attributeUseSetAudit struct {
-	names   *NameTable
+	names   *nameTable
 	rt      *schemaBuild
-	set     AttributeUseSet
+	set     attributeUseSet
 	idAttrs int
 }
 
-func (a *attributeUseSetAudit) validateUse(index int, use AttributeUse) error {
+func (a *attributeUseSetAudit) validateUse(index int, use attributeUse) error {
 	carriesID, err := validateAttributeUseRuntime(a.names, a.rt, a.set.Index, index, use)
 	if err != nil || !carriesID {
 		return err
@@ -359,11 +359,11 @@ func (a *attributeUseSetAudit) validateUse(index int, use AttributeUse) error {
 	return nil
 }
 
-// ValidateAttributeUseRestriction validates one derived attribute use against
+// validateAttributeUseRestriction validates one derived attribute use against
 // its base use. Attached constraints remain immutable during derivation calls.
-func ValidateAttributeUseRestriction(
+func validateAttributeUseRestriction(
 	rt *schemaBuild,
-	base, derived AttributeUse,
+	base, derived attributeUse,
 ) error {
 	if base.Required && !derived.Required {
 		return errors.New("required attribute cannot become optional by restriction")
@@ -381,18 +381,18 @@ func ValidateAttributeUseRestriction(
 	if !typeDerived {
 		return errors.New("restricted attribute type is not derived from base")
 	}
-	if base.Fixed != nil && !FixedValueConstraintEqual(NewValueConstraintIdentity(base.Fixed), NewValueConstraintIdentity(derived.Fixed)) {
+	if base.Fixed != nil && !fixedValueConstraintEqual(newValueConstraintIdentity(base.Fixed), newValueConstraintIdentity(derived.Fixed)) {
 		return errors.New("fixed attribute constraint must be preserved by restriction")
 	}
 	return nil
 }
 
-// ValidateAttributeUseSetRestriction validates pairwise use restrictions,
+// validateAttributeUseSetRestriction validates pairwise use restrictions,
 // new-use wildcard allowance and wildcard provenance.
-func ValidateAttributeUseSetRestriction(
+func validateAttributeUseSetRestriction(
 	rt *schemaBuild,
-	base, derived AttributeUseSet,
-	binding AttributeWildcardBinding,
+	base, derived attributeUseSet,
+	binding attributeWildcardBinding,
 ) error {
 	if err := validateBaseAttributeUseRestrictions(rt, base.Uses, derived.Uses); err != nil {
 		return err
@@ -403,20 +403,20 @@ func ValidateAttributeUseSetRestriction(
 	return validateRestrictedAttributeWildcard(rt, base, derived, binding)
 }
 
-// AttributeWildcardBinding identifies whether restriction wildcard provenance
+// attributeWildcardBinding identifies whether restriction wildcard provenance
 // is required for an explicit derivation.
-type AttributeWildcardBinding uint8
+type attributeWildcardBinding uint8
 
 const (
-	// AttributeWildcardUnbound omits explicit wildcard provenance binding.
-	AttributeWildcardUnbound AttributeWildcardBinding = iota
-	// AttributeWildcardBound requires explicit wildcard provenance binding.
-	AttributeWildcardBound
+	// attributeWildcardUnbound omits explicit wildcard provenance binding.
+	attributeWildcardUnbound attributeWildcardBinding = iota
+	// attributeWildcardBound requires explicit wildcard provenance binding.
+	attributeWildcardBound
 )
 
 func validateBaseAttributeUseRestrictions(
 	rt *schemaBuild,
-	base, derived []AttributeUse,
+	base, derived []attributeUse,
 ) error {
 	for _, use := range base {
 		next, ok := attributeUseByName(derived, use.Name)
@@ -424,7 +424,7 @@ func validateBaseAttributeUseRestrictions(
 			return errors.New("complex restriction omits required base attribute")
 		}
 		if ok {
-			if err := ValidateAttributeUseRestriction(rt, use, next); err != nil {
+			if err := validateAttributeUseRestriction(rt, use, next); err != nil {
 				return fmt.Errorf("complex restriction attribute use is invalid: %w", err)
 			}
 		}
@@ -434,8 +434,8 @@ func validateBaseAttributeUseRestrictions(
 
 func validateNewRestrictedAttributeUses(
 	rt *schemaBuild,
-	base, derived []AttributeUse,
-	baseWildcard AttributeUseSet,
+	base, derived []attributeUse,
+	baseWildcard attributeUseSet,
 ) error {
 	for _, use := range derived {
 		if _, ok := attributeUseByName(base, use.Name); ok {
@@ -444,8 +444,8 @@ func validateNewRestrictedAttributeUses(
 		if baseWildcard.Wildcard == NoWildcard {
 			return errors.New("complex restriction adds attribute outside base wildcard")
 		}
-		wildcard, ok := WildcardByID(rt.Wildcards, baseWildcard.Wildcard)
-		if !ok || !WildcardAllowsNamespace(wildcard, use.Name.Namespace) {
+		wildcard, ok := wildcardByID(rt.Wildcards, baseWildcard.Wildcard)
+		if !ok || !wildcardAllowsNamespace(wildcard, use.Name.Namespace) {
 			return errors.New("complex restriction adds attribute outside base wildcard")
 		}
 	}
@@ -454,34 +454,34 @@ func validateNewRestrictedAttributeUses(
 
 func validateRestrictedAttributeWildcard(
 	rt *schemaBuild,
-	base, derived AttributeUseSet,
-	binding AttributeWildcardBinding,
+	base, derived attributeUseSet,
+	binding attributeWildcardBinding,
 ) error {
 	switch binding {
-	case AttributeWildcardUnbound:
-		if derived.WildcardDerive != AttributeWildcardNone {
+	case attributeWildcardUnbound:
+		if derived.WildcardDerive != attributeWildcardNone {
 			return errors.New("implicit complex type stores derived attribute wildcard provenance")
 		}
 		return nil
-	case AttributeWildcardBound:
-		return ValidateAttributeWildcardDerivation(rt, base, derived, AttributeWildcardRestriction)
+	case attributeWildcardBound:
+		return validateAttributeWildcardDerivation(rt, base, derived, attributeWildcardRestriction)
 	default:
 		return errors.New("attribute wildcard binding is invalid")
 	}
 }
 
-func attributeUseByName(uses []AttributeUse, name QName) (AttributeUse, bool) {
+func attributeUseByName(uses []attributeUse, name QName) (attributeUse, bool) {
 	for _, use := range uses {
 		if use.Name == name {
 			return use, true
 		}
 	}
-	return AttributeUse{}, false
+	return attributeUse{}, false
 }
 
-// ValidateAttributeUseSetExtension validates that every base attribute use is
+// validateAttributeUseSetExtension validates that every base attribute use is
 // preserved unchanged by a complex-type extension.
-func ValidateAttributeUseSetExtension(base, derived AttributeUseSet) error {
+func validateAttributeUseSetExtension(base, derived attributeUseSet) error {
 	for _, use := range base.Uses {
 		next, ok := attributeUseByName(derived.Uses, use.Name)
 		if !ok || !attributeUseExtensionEqual(use, next) {
@@ -491,20 +491,20 @@ func ValidateAttributeUseSetExtension(base, derived AttributeUseSet) error {
 	return nil
 }
 
-func attributeUseExtensionEqual(a, b AttributeUse) bool {
+func attributeUseExtensionEqual(a, b attributeUse) bool {
 	return a.Name == b.Name &&
 		a.Type == b.Type &&
-		ValueConstraintIdentityEqual(NewValueConstraintIdentity(a.Default), NewValueConstraintIdentity(b.Default)) &&
-		ValueConstraintIdentityEqual(NewValueConstraintIdentity(a.Fixed), NewValueConstraintIdentity(b.Fixed)) &&
+		valueConstraintIdentityEqual(newValueConstraintIdentity(a.Default), newValueConstraintIdentity(b.Default)) &&
+		valueConstraintIdentityEqual(newValueConstraintIdentity(a.Fixed), newValueConstraintIdentity(b.Fixed)) &&
 		a.Required == b.Required
 }
 
 func validateAttributeUseRuntime(
-	names *NameTable,
+	names *nameTable,
 	rt *schemaBuild,
 	index map[QName]uint32,
 	i int,
-	use AttributeUse,
+	use attributeUse,
 ) (carriesID bool, err error) {
 	carriesID, ok := rt.SimpleTypeCarriesID(use.Type)
 	if names == nil || !names.ValidQName(use.Name) || !ok {
@@ -530,12 +530,12 @@ func uint32Index(i int) (uint32, bool) {
 	return uint32(i), true
 }
 
-// ValidateAttributeWildcardDerivation validates a derived use-set wildcard's
+// validateAttributeWildcardDerivation validates a derived use-set wildcard's
 // binding to its owning type's base and derivation.
-func ValidateAttributeWildcardDerivation(
+func validateAttributeWildcardDerivation(
 	rt *schemaBuild,
-	base, derived AttributeUseSet,
-	expected AttributeWildcardDerivation,
+	base, derived attributeUseSet,
+	expected attributeWildcardDerivation,
 ) error {
 	if derived.WildcardDerive != expected {
 		return errors.New("attribute wildcard derivation does not match owning type")
@@ -543,12 +543,12 @@ func ValidateAttributeWildcardDerivation(
 	if derived.WildcardBase != base.Wildcard {
 		return errors.New("attribute wildcard base does not match owning type")
 	}
-	return ValidateAttributeWildcardProvenance(rt, derived)
+	return validateAttributeWildcardProvenance(rt, derived)
 }
 
-// ValidateAttributeWildcardProvenance validates a use-set wildcard against its
+// validateAttributeWildcardProvenance validates a use-set wildcard against its
 // stored base/declared/derivation provenance.
-func ValidateAttributeWildcardProvenance(rt *schemaBuild, state AttributeUseSet) error {
+func validateAttributeWildcardProvenance(rt *schemaBuild, state attributeUseSet) error {
 	if err := validateAttributeWildcardID(rt, state.Wildcard, "attribute use set references invalid wildcard"); err != nil {
 		return err
 	}
@@ -558,23 +558,23 @@ func ValidateAttributeWildcardProvenance(rt *schemaBuild, state AttributeUseSet)
 	if err := validateAttributeWildcardID(rt, state.WildcardDeclared, "attribute use set references invalid declared wildcard"); err != nil {
 		return err
 	}
-	if !ValidAttributeWildcardDerivation(state.WildcardDerive) {
+	if !validAttributeWildcardDerivation(state.WildcardDerive) {
 		return errors.New("attribute use set has invalid wildcard derivation")
 	}
 	switch state.WildcardDerive {
-	case AttributeWildcardNone:
+	case attributeWildcardNone:
 		if state.WildcardBase != NoWildcard || state.Wildcard != state.WildcardDeclared {
 			return errors.New("attribute wildcard does not match declared wildcard")
 		}
-	case AttributeWildcardRestriction:
+	case attributeWildcardRestriction:
 		return validateAttributeWildcardRestriction(rt, state)
-	case AttributeWildcardExtension:
+	case attributeWildcardExtension:
 		return validateAttributeWildcardExtension(rt, state)
 	}
 	return nil
 }
 
-func validateAttributeWildcardRestriction(rt *schemaBuild, state AttributeUseSet) error {
+func validateAttributeWildcardRestriction(rt *schemaBuild, state attributeUseSet) error {
 	if state.WildcardDeclared == NoWildcard {
 		if state.Wildcard != NoWildcard {
 			return errors.New("attribute wildcard restriction stores undeclared wildcard")
@@ -584,11 +584,11 @@ func validateAttributeWildcardRestriction(rt *schemaBuild, state AttributeUseSet
 	if state.WildcardBase == NoWildcard {
 		return errors.New("attribute wildcard restriction has no base wildcard")
 	}
-	declared, ok := WildcardByID(rt.Wildcards, state.WildcardDeclared)
+	declared, ok := wildcardByID(rt.Wildcards, state.WildcardDeclared)
 	if !ok {
 		return errors.New("attribute use set references invalid declared wildcard")
 	}
-	base, ok := WildcardByID(rt.Wildcards, state.WildcardBase)
+	base, ok := wildcardByID(rt.Wildcards, state.WildcardBase)
 	if !ok {
 		return errors.New("attribute use set references invalid base wildcard")
 	}
@@ -598,7 +598,7 @@ func validateAttributeWildcardRestriction(rt *schemaBuild, state AttributeUseSet
 	return nil
 }
 
-func validateAttributeWildcardExtension(rt *schemaBuild, state AttributeUseSet) error {
+func validateAttributeWildcardExtension(rt *schemaBuild, state attributeUseSet) error {
 	switch {
 	case state.WildcardBase == NoWildcard:
 		return validateAttributeWildcardExtensionWithoutBase(state)
@@ -609,34 +609,34 @@ func validateAttributeWildcardExtension(rt *schemaBuild, state AttributeUseSet) 
 	}
 }
 
-func validateAttributeWildcardExtensionWithoutBase(state AttributeUseSet) error {
+func validateAttributeWildcardExtensionWithoutBase(state attributeUseSet) error {
 	if state.Wildcard != state.WildcardDeclared {
 		return errors.New("attribute wildcard extension without base does not match declared wildcard")
 	}
 	return nil
 }
 
-func validateAttributeWildcardExtensionWithoutDeclaration(state AttributeUseSet) error {
+func validateAttributeWildcardExtensionWithoutDeclaration(state attributeUseSet) error {
 	if state.Wildcard != state.WildcardBase {
 		return errors.New("attribute wildcard extension does not inherit base wildcard")
 	}
 	return nil
 }
 
-func validateAttributeWildcardExtensionUnion(rt *schemaBuild, state AttributeUseSet) error {
-	declared, ok := WildcardByID(rt.Wildcards, state.WildcardDeclared)
+func validateAttributeWildcardExtensionUnion(rt *schemaBuild, state attributeUseSet) error {
+	declared, ok := wildcardByID(rt.Wildcards, state.WildcardDeclared)
 	if !ok {
 		return errors.New("attribute use set references invalid declared wildcard")
 	}
-	base, ok := WildcardByID(rt.Wildcards, state.WildcardBase)
+	base, ok := wildcardByID(rt.Wildcards, state.WildcardBase)
 	if !ok {
 		return errors.New("attribute use set references invalid base wildcard")
 	}
-	actual, ok := WildcardByID(rt.Wildcards, state.Wildcard)
+	actual, ok := wildcardByID(rt.Wildcards, state.Wildcard)
 	if !ok {
 		return errors.New("attribute use set references invalid wildcard")
 	}
-	union, err := UnionWildcard(declared, base, declared.Process)
+	union, err := unionWildcard(declared, base, declared.Process)
 	if err != nil {
 		return errors.New("attribute wildcard extension cannot be rederived")
 	}
@@ -650,13 +650,13 @@ func validateAttributeWildcardID(rt *schemaBuild, id WildcardID, msg string) err
 	if id == NoWildcard {
 		return nil
 	}
-	if _, ok := WildcardByID(rt.Wildcards, id); !ok {
+	if _, ok := wildcardByID(rt.Wildcards, id); !ok {
 		return errors.New(msg)
 	}
 	return nil
 }
 
-func wildcardsEqual(a, b Wildcard) bool {
+func wildcardsEqual(a, b wildcardRuntime) bool {
 	return a.Mode == b.Mode &&
 		a.Process == b.Process &&
 		a.OtherThan == b.OtherThan &&

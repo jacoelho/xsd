@@ -44,13 +44,13 @@ func TestRuntimeNameLabel(t *testing.T) {
 func TestValidUint32Index(t *testing.T) {
 	t.Parallel()
 
-	if !ValidUint32Index(2, 3) {
+	if !validUint32Index(2, 3) {
 		t.Fatal("2 should be a valid index into length 3")
 	}
-	if ValidUint32Index(3, 3) {
+	if validUint32Index(3, 3) {
 		t.Fatal("3 should not be a valid index into length 3")
 	}
-	if ValidUint32Index(0, -1) {
+	if validUint32Index(0, -1) {
 		t.Fatal("negative length should reject all indexes")
 	}
 }
@@ -65,43 +65,43 @@ func TestTypedIDValidators(t *testing.T) {
 	}{
 		{
 			name:   "simple type",
-			valid:  func(id uint32, n int) bool { return ValidSimpleTypeID(SimpleTypeID(id), n) },
-			absent: func(n int) bool { return ValidSimpleTypeID(NoSimpleType, n) },
+			valid:  func(id uint32, n int) bool { return validSimpleTypeID(SimpleTypeID(id), n) },
+			absent: func(n int) bool { return validSimpleTypeID(NoSimpleType, n) },
 		},
 		{
 			name:   "complex type",
-			valid:  func(id uint32, n int) bool { return ValidComplexTypeID(ComplexTypeID(id), n) },
-			absent: func(n int) bool { return ValidComplexTypeID(NoComplexType, n) },
+			valid:  func(id uint32, n int) bool { return validComplexTypeID(ComplexTypeID(id), n) },
+			absent: func(n int) bool { return validComplexTypeID(noComplexType, n) },
 		},
 		{
 			name:   "element",
-			valid:  func(id uint32, n int) bool { return ValidElementID(ElementID(id), n) },
-			absent: func(n int) bool { return ValidElementID(NoElement, n) },
+			valid:  func(id uint32, n int) bool { return validElementID(ElementID(id), n) },
+			absent: func(n int) bool { return validElementID(NoElement, n) },
 		},
 		{
 			name:   "attribute",
-			valid:  func(id uint32, n int) bool { return ValidAttributeID(AttributeID(id), n) },
-			absent: func(n int) bool { return ValidAttributeID(AttributeID(invalidID), n) },
+			valid:  func(id uint32, n int) bool { return validAttributeID(AttributeID(id), n) },
+			absent: func(n int) bool { return validAttributeID(AttributeID(invalidID), n) },
 		},
 		{
 			name:   "content model",
-			valid:  func(id uint32, n int) bool { return ValidContentModelID(ContentModelID(id), n) },
-			absent: func(n int) bool { return ValidContentModelID(NoContentModel, n) },
+			valid:  func(id uint32, n int) bool { return validContentModelID(contentModelID(id), n) },
+			absent: func(n int) bool { return validContentModelID(noContentModel, n) },
 		},
 		{
 			name:   "attribute use set",
-			valid:  func(id uint32, n int) bool { return ValidAttributeUseSetID(AttributeUseSetID(id), n) },
-			absent: func(n int) bool { return ValidAttributeUseSetID(NoAttributeUseSet, n) },
+			valid:  func(id uint32, n int) bool { return validAttributeUseSetID(attributeUseSetID(id), n) },
+			absent: func(n int) bool { return validAttributeUseSetID(noAttributeUseSet, n) },
 		},
 		{
 			name:   "wildcard",
-			valid:  func(id uint32, n int) bool { return ValidWildcardID(WildcardID(id), n) },
-			absent: func(n int) bool { return ValidWildcardID(NoWildcard, n) },
+			valid:  func(id uint32, n int) bool { return validWildcardID(WildcardID(id), n) },
+			absent: func(n int) bool { return validWildcardID(NoWildcard, n) },
 		},
 		{
 			name:   "identity constraint",
-			valid:  func(id uint32, n int) bool { return ValidIdentityConstraintID(IdentityConstraintID(id), n) },
-			absent: func(n int) bool { return ValidIdentityConstraintID(NoIdentityConstraint, n) },
+			valid:  func(id uint32, n int) bool { return validIdentityConstraintID(IdentityConstraintID(id), n) },
+			absent: func(n int) bool { return validIdentityConstraintID(NoIdentityConstraint, n) },
 		},
 	}
 	for _, tt := range tests {
@@ -160,11 +160,11 @@ func TestElementIndexIDRejectsAbsentSentinel(t *testing.T) {
 func TestNewUint32Index(t *testing.T) {
 	t.Parallel()
 
-	id, ok := NewUint32Index(int(^uint32(0)))
+	id, ok := newUint32Index(int(^uint32(0)))
 	if !ok || id != ^uint32(0) {
 		t.Fatalf("NewUint32Index(max uint32) = %d, %v, want max uint32, true", id, ok)
 	}
-	if _, ok := NewUint32Index(-1); ok {
+	if _, ok := newUint32Index(-1); ok {
 		t.Fatal("negative index should fail")
 	}
 }
@@ -179,7 +179,7 @@ func TestTypeID(t *testing.T) {
 	if got, ok := SimpleRef(simple).Simple(); !ok || got != simple {
 		t.Fatalf("SimpleRef(%d).Simple() = %d, %v; want %d, true", simple, got, ok, simple)
 	}
-	if got, ok := SimpleRef(simple).Complex(); ok || got != NoComplexType {
+	if got, ok := SimpleRef(simple).Complex(); ok || got != noComplexType {
 		t.Fatalf("SimpleRef(%d).Complex() = %d, %v; want NoComplexType, false", simple, got, ok)
 	}
 
@@ -235,13 +235,13 @@ func TestValidTypeID(t *testing.T) {
 }
 
 func TestNoQNameReturnsIndependentValue(t *testing.T) {
-	first := NoQName()
-	first.Namespace = EmptyNamespaceID
+	first := noQName()
+	first.Namespace = emptyNamespaceID
 	first.Local = 0
-	if first == NoQName() {
+	if first == noQName() {
 		t.Fatal("mutating returned QName did not change the caller-owned value")
 	}
-	if second := NoQName(); second.Namespace != NamespaceID(invalidID) || second.Local != LocalNameID(invalidID) {
+	if second := noQName(); second.Namespace != namespaceID(invalidID) || second.Local != localNameID(invalidID) {
 		t.Fatalf("NoQName() after caller mutation = %+v", second)
 	}
 }
@@ -252,9 +252,9 @@ func TestDerivationMaskBitsAreDistinct(t *testing.T) {
 	bits := []DerivationMask{
 		DerivationExtension,
 		DerivationRestriction,
-		DerivationSubstitution,
-		DerivationList,
-		DerivationUnion,
+		derivationSubstitution,
+		derivationList,
+		derivationUnion,
 	}
 	var seen DerivationMask
 	for _, bit := range bits {
@@ -277,18 +277,18 @@ func TestDerivationMaskClasses(t *testing.T) {
 		mask  DerivationMask
 		valid bool
 	}{
-		{name: "element block allows substitution", mask: DerivationSubstitution, valid: true, check: ValidElementBlockMask},
-		{name: "element block rejects list", mask: DerivationList, check: ValidElementBlockMask},
-		{name: "element final allows extension restriction", mask: DerivationComplexMask, valid: true, check: ValidElementFinalMask},
-		{name: "element final rejects union", mask: DerivationUnion, check: ValidElementFinalMask},
-		{name: "complex block allows complex mask", mask: DerivationComplexMask, valid: true, check: ValidComplexBlockMask},
-		{name: "complex block rejects substitution", mask: DerivationSubstitution, check: ValidComplexBlockMask},
-		{name: "complex final allows complex mask", mask: DerivationComplexMask, valid: true, check: ValidComplexFinalMask},
-		{name: "complex final rejects list", mask: DerivationList, check: ValidComplexFinalMask},
-		{name: "simple final allows simple mask", mask: DerivationSimpleFinalMask, valid: true, check: ValidSimpleFinalMask},
-		{name: "simple final rejects extension", mask: DerivationExtension, check: ValidSimpleFinalMask},
-		{name: "final default allows simple and complex derivations", mask: DerivationFinalDefaultMask, valid: true, check: func(mask DerivationMask) bool {
-			return mask&^DerivationFinalDefaultMask == 0
+		{name: "element block allows substitution", mask: derivationSubstitution, valid: true, check: validElementBlockMask},
+		{name: "element block rejects list", mask: derivationList, check: validElementBlockMask},
+		{name: "element final allows extension restriction", mask: derivationComplexMask, valid: true, check: validElementFinalMask},
+		{name: "element final rejects union", mask: derivationUnion, check: validElementFinalMask},
+		{name: "complex block allows complex mask", mask: derivationComplexMask, valid: true, check: validComplexBlockMask},
+		{name: "complex block rejects substitution", mask: derivationSubstitution, check: validComplexBlockMask},
+		{name: "complex final allows complex mask", mask: derivationComplexMask, valid: true, check: validComplexFinalMask},
+		{name: "complex final rejects list", mask: derivationList, check: validComplexFinalMask},
+		{name: "simple final allows simple mask", mask: derivationSimpleFinalMask, valid: true, check: validSimpleFinalMask},
+		{name: "simple final rejects extension", mask: DerivationExtension, check: validSimpleFinalMask},
+		{name: "final default allows simple and complex derivations", mask: derivationFinalDefaultMask, valid: true, check: func(mask DerivationMask) bool {
+			return mask&^derivationFinalDefaultMask == 0
 		}},
 	}
 	for _, tt := range tests {

@@ -66,7 +66,7 @@ func (c *xmlWellFormedChecker) checkToken(tok *xmlstream.Token) error {
 }
 
 func (c *xmlWellFormedChecker) start(line, col int) error {
-	translated, err := c.doc.PrepareStart(&c.reader, line, col)
+	translated, err := c.doc.PrepareStart(&c.reader, c.limits, line, col)
 	if err != nil {
 		return err
 	}
@@ -83,8 +83,5 @@ func (c *xmlWellFormedChecker) end(line, col int) error {
 
 func (c *xmlWellFormedChecker) streamError(err error) error {
 	line, col := streamErrorPosition(&c.reader, err)
-	if limitErr := instanceLimitError(err, c.doc.context(line, col), c.limits); limitErr != nil {
-		return limitErr
-	}
-	return StreamError(line, col, c.doc.PathString(), err)
+	return streamError(err, c.doc.context(line, col), c.limits)
 }

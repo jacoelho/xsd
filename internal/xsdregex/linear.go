@@ -42,9 +42,9 @@ const (
 	linearStackStates = 2 * (linearStackRunes + 1)
 )
 
-func compileLinear(root *node, options CompileOptions) (*linearPattern, bool) {
+func compileLinear(root *node, options compileLimits) (*linearPattern, bool) {
 	collector := linearCollector{pattern: &linearPattern{}}
-	if !collector.visit(root) || !linearAtomsWithinLimit(collector.pattern.atoms, options.MaxStates) {
+	if !collector.visit(root) || !linearAtomsWithinLimit(collector.pattern.atoms, options.states) {
 		return nil, false
 	}
 	linear := collector.pattern
@@ -135,52 +135,32 @@ func linearLiteral(atoms []linearAtom) (string, bool) {
 	return literal.String(), true
 }
 
-func (p *linearPattern) matchString(input string, options MatchOptions, scratch *Scratch) (bool, error) {
+// matchString and matchBytes run with budget already charged for the input
+// bytes; they charge the per-row work of the dynamic program on top of it.
+func (p *linearPattern) matchString(input string, budget *matchBudget, scratch *Scratch) (bool, error) {
 	if p.literal {
-		var budget matchBudget
-		budget.limit = options.MaxWork
-		if err := budget.step(uint64(len(input))); err != nil {
-			return false, err
-		}
 		return input == p.literalText, nil
 	}
 	if len(input) <= linearStackRunes || scratch == nil {
-		return p.matchLinearNoScratch(linearInput{stringInput: input}, options)
+		return p.matchLinearNoScratch(linearInput{stringInput: input}, budget)
 	}
-	runes, err := decodeLinearString(input, options.MaxStates, &scratch.linearRunes)
-	if err != nil {
-		return false, err
-	}
-	states, err := prepareLinearStates(len(runes), options, scratch.linearStates)
-	if err != nil {
-		return false, err
-	}
+	runes := decodeLinearString(input, &scratch.linearRunes)
+	states := prepareLinearStates(len(runes), scratch.linearStates)
 	scratch.linearStates = states
-	return p.matchPreparedRunes(runes, options, states)
+	return p.matchPreparedRunes(runes, budget, states)
 }
 
-func (p *linearPattern) matchBytes(input []byte, options MatchOptions, scratch *Scratch) (bool, error) {
+func (p *linearPattern) matchBytes(input []byte, budget *matchBudget, scratch *Scratch) (bool, error) {
 	if p.literal {
-		var budget matchBudget
-		budget.limit = options.MaxWork
-		if err := budget.step(uint64(len(input))); err != nil {
-			return false, err
-		}
 		return bytes.Equal(input, p.literalBytes), nil
 	}
 	if len(input) <= linearStackRunes || scratch == nil {
-		return p.matchLinearNoScratch(linearInput{bytesInput: input, isBytes: true}, options)
+		return p.matchLinearNoScratch(linearInput{bytesInput: input, isBytes: true}, budget)
 	}
-	runes, err := decodeLinearBytes(input, options.MaxStates, &scratch.linearRunes)
-	if err != nil {
-		return false, err
-	}
-	states, err := prepareLinearStates(len(runes), options, scratch.linearStates)
-	if err != nil {
-		return false, err
-	}
+	runes := decodeLinearBytes(input, &scratch.linearRunes)
+	states := prepareLinearStates(len(runes), scratch.linearStates)
 	scratch.linearStates = states
-	return p.matchPreparedRunes(runes, options, states)
+	return p.matchPreparedRunes(runes, budget, states)
 }
 
 // linearInput is the runtime-tagged string/byte carrier for the linear
@@ -194,28 +174,18 @@ type linearInput struct {
 	isBytes     bool
 }
 
-func (p *linearPattern) matchLinearNoScratch(input linearInput, options MatchOptions) (bool, error) {
+func (p *linearPattern) matchLinearNoScratch(input linearInput, budget *matchBudget) (bool, error) {
 	var runes [linearStackRunes]rune
 	if input.length() > cap(runes) {
-		runeCount, limit := countLinearInput(input, options.MaxStates)
-		if limit {
-			return false, &Error{Kind: ErrorLimit, Offset: -1, What: matchStateLimitError}
-		}
-		if runeCount > cap(runes) {
+		if runeCount := countLinearInput(input); runeCount > cap(runes) {
 			decoded := make([]rune, runeCount)
-			decodedCount, err := decodeLinearInput(input, options.MaxStates, decoded)
-			if err != nil {
-				return false, err
-			}
-			return p.matchRunes(decoded[:decodedCount], options, nil)
+			decodeLinearInput(input, decoded)
+			return p.matchRunes(decoded, budget, nil)
 		}
 	}
-	decodedCount, err := decodeLinearInput(input, options.MaxStates, runes[:])
-	if err != nil {
-		return false, err
-	}
+	decodedCount := decodeLinearInput(input, runes[:])
 	var states [linearStackStates]bool
-	return p.matchRunes(runes[:decodedCount], options, states[:0])
+	return p.matchRunes(runes[:decodedCount], budget, states[:0])
 }
 
 func (input linearInput) length() int {
@@ -225,20 +195,14 @@ func (input linearInput) length() int {
 	return len(input.stringInput)
 }
 
-func countLinearInput(input linearInput, maxStates uint64) (int, bool) {
+func countLinearInput(input linearInput) int {
 	count := 0
 	for offset := 0; offset < input.length(); {
-		if uint64(count) >= maxStates {
-			return 0, true
-		}
 		_, size := input.runeAt(offset)
 		count++
 		offset += size
 	}
-	if uint64(count) >= maxStates {
-		return 0, true
-	}
-	return count, false
+	return count
 }
 
 func (input linearInput) runeAt(offset int) (rune, int) {
@@ -248,62 +212,46 @@ func (input linearInput) runeAt(offset int) (rune, int) {
 	return utf8.DecodeRuneInString(input.stringInput[offset:])
 }
 
-func decodeLinearInput(input linearInput, maxStates uint64, dst []rune) (int, error) {
+// decodeLinearInput fills dst, which must hold every rune of input.
+func decodeLinearInput(input linearInput, dst []rune) int {
 	count := 0
 	for offset := 0; offset < input.length(); {
-		if uint64(count) >= maxStates {
-			return 0, &Error{Kind: ErrorLimit, Offset: -1, What: matchStateLimitError}
-		}
 		value, size := input.runeAt(offset)
 		dst[count] = value
 		count++
 		offset += size
 	}
-	return count, nil
+	return count
 }
 
-func decodeLinearString(input string, maxStates uint64, dst *[]rune) ([]rune, error) {
+func decodeLinearString(input string, dst *[]rune) []rune {
 	runes := (*dst)[:0]
 	for offset := 0; offset < len(input); {
-		if uint64(len(runes)) >= maxStates {
-			return nil, &Error{Kind: ErrorLimit, Offset: -1, What: matchStateLimitError}
-		}
 		value, size := utf8.DecodeRuneInString(input[offset:])
 		runes = append(runes, value)
 		offset += size
 	}
 	*dst = runes
-	return runes, nil
+	return runes
 }
 
-func decodeLinearBytes(input []byte, maxStates uint64, dst *[]rune) ([]rune, error) {
+func decodeLinearBytes(input []byte, dst *[]rune) []rune {
 	runes := (*dst)[:0]
 	for offset := 0; offset < len(input); {
-		if uint64(len(runes)) >= maxStates {
-			return nil, &Error{Kind: ErrorLimit, Offset: -1, What: matchStateLimitError}
-		}
 		value, size := utf8.DecodeRune(input[offset:])
 		runes = append(runes, value)
 		offset += size
 	}
 	*dst = runes
-	return runes, nil
+	return runes
 }
 
-func (p *linearPattern) matchRunes(runes []rune, options MatchOptions, states []bool) (bool, error) {
-	buffer, err := prepareLinearStates(len(runes), options, states)
-	if err != nil {
-		return false, err
-	}
-	return p.matchPreparedRunes(runes, options, buffer)
+func (p *linearPattern) matchRunes(runes []rune, budget *matchBudget, states []bool) (bool, error) {
+	return p.matchPreparedRunes(runes, budget, prepareLinearStates(len(runes), states))
 }
 
-func (p *linearPattern) matchPreparedRunes(runes []rune, options MatchOptions, states []bool) (bool, error) {
+func (p *linearPattern) matchPreparedRunes(runes []rune, budget *matchBudget, states []bool) (bool, error) {
 	rowSize := len(runes) + 1
-	budget := matchBudget{limit: options.MaxWork}
-	if err := budget.step(uint64(len(runes))); err != nil {
-		return false, err
-	}
 	if p.fixed {
 		state := linearMatchState{budget: budget}
 		// Preserve the general linear quota even when an exact-count mismatch
@@ -345,30 +293,19 @@ func (p *linearPattern) matchFixedRunes(runes []rune) bool {
 }
 
 type linearMatchState struct {
+	budget *matchBudget
 	prev   []bool
 	next   []bool
-	budget matchBudget
 }
 
-func prepareLinearStates(runeCount int, options MatchOptions, states []bool) ([]bool, error) {
-	maxInt := int(^uint(0) >> 1)
-	if runeCount == maxInt {
-		return nil, &Error{Kind: ErrorLimit, Offset: -1, What: matchStateLimitError}
-	}
-	rowSize := runeCount + 1
-	if rowSize > maxInt/2 {
-		return nil, &Error{Kind: ErrorLimit, Offset: -1, What: matchStateLimitError}
-	}
-	if uint64(rowSize) > options.MaxStates { //nolint:gosec // rowSize is non-negative and int-sized
-		return nil, &Error{Kind: ErrorLimit, Offset: -1, What: matchStateLimitError}
-	}
-	size := 2 * rowSize
+// prepareLinearStates sizes the two dynamic-programming rows. The row size is
+// bounded by the input length, which the caller has already charged.
+func prepareLinearStates(runeCount int, states []bool) []bool {
+	size := 2 * (runeCount + 1)
 	if cap(states) < size {
-		states = make([]bool, size)
-	} else {
-		states = states[:size]
+		return make([]bool, size)
 	}
-	return states, nil
+	return states[:size]
 }
 
 func (s *linearMatchState) advance(atom linearAtom, runes []rune, rowSize int) error {

@@ -7,43 +7,43 @@ import (
 )
 
 func TestProgramValueWorkLimitIsRequiredBeforeFastPaths(t *testing.T) {
-	p, err := NewBuilder(BuilderOptions{}).Seal()
+	p, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := p.Validate(builtinString, "", Resolver{}, 0, 0, nil); !errors.Is(err, ErrMetadata) {
+	if _, err := p.Validate(builtinString, "", Resolver{}, 0, EvaluationLimits{Work: 0, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); !errors.Is(err, ErrMetadata) {
 		t.Fatalf("Validate zero work limit = %v, want ErrMetadata", err)
 	}
-	if _, err := p.ValidateBytes(builtinString, nil, Resolver{}, 0, 0, nil); !errors.Is(err, ErrMetadata) {
+	if _, err := p.ValidateBytes(builtinString, nil, Resolver{}, 0, EvaluationLimits{Work: 0, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); !errors.Is(err, ErrMetadata) {
 		t.Fatalf("ValidateBytes zero work limit = %v, want ErrMetadata", err)
 	}
-	if _, admissionErr := p.ValidateAdmitted(builtinString, "x", Resolver{}, NeedCanonical, 0, nil); !errors.Is(admissionErr, ErrMetadata) {
+	if _, admissionErr := p.ValidateAdmitted(builtinString, "x", Resolver{}, NeedCanonical, EvaluationLimits{Work: 0, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); !errors.Is(admissionErr, ErrMetadata) {
 		t.Fatalf("ValidateAdmitted zero work limit = %v, want ErrMetadata", admissionErr)
 	}
-	accepted, admissionErr := p.ValidateAdmitted(builtinString, "x", Resolver{}, NeedCanonical, 2, nil)
+	accepted, admissionErr := p.ValidateAdmitted(builtinString, "x", Resolver{}, NeedCanonical, EvaluationLimits{Work: 2, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if admissionErr != nil || accepted.Type() != builtinString || accepted.SelectedType() != NoType || accepted.CanonicalText() != "x" {
 		t.Fatalf("ValidateAdmitted after rejection = type %d, selection %d, canonical %q, error %v; want string, NoType, x, nil", accepted.Type(), accepted.SelectedType(), accepted.CanonicalText(), admissionErr)
 	}
 }
 
 func TestProgramValueWorkLimitBoundsPlainStringAndResetsPerCall(t *testing.T) {
-	p, err := NewBuilder(BuilderOptions{}).Seal()
+	p, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := p.Validate(builtinString, "x", Resolver{}, 0, 1, nil); !errors.Is(err, ErrLimit) {
+	if _, err := p.Validate(builtinString, "x", Resolver{}, 0, EvaluationLimits{Work: 1, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); !errors.Is(err, ErrLimit) {
 		t.Fatalf("plain string below scalar charge = %v, want ErrLimit", err)
 	}
-	if _, err := p.Validate(builtinString, "x", Resolver{}, 0, 2, nil); err != nil {
+	if _, err := p.Validate(builtinString, "x", Resolver{}, 0, EvaluationLimits{Work: 2, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 		t.Fatalf("plain string at scalar charge = %v", err)
 	}
-	if _, err := p.Validate(builtinString, "x", Resolver{}, 0, 2, nil); err != nil {
+	if _, err := p.Validate(builtinString, "x", Resolver{}, 0, EvaluationLimits{Work: 2, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 		t.Fatalf("subsequent value reused work usage = %v", err)
 	}
 }
 
 func TestBuilderValueValidationUsesFreshConstructionBudget(t *testing.T) {
-	builder := NewBuilder(BuilderOptions{MaxConstructionWork: 2})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxConstructionWork: 2})
 	id, err := builder.Reserve()
 	if err != nil {
 		t.Fatal(err)
@@ -91,7 +91,7 @@ func TestBuilderFacetBatchSharesConstructionBudget(t *testing.T) {
 		{name: "above", limit: 5},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			builder := NewBuilder(BuilderOptions{MaxConstructionWork: test.limit})
+			builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxConstructionWork: test.limit})
 			reservedID, reserveErr := builder.Reserve()
 			if reserveErr != nil {
 				t.Fatalf("Reserve() error = %v", reserveErr)
@@ -114,7 +114,7 @@ func TestBuilderFacetBatchSharesConstructionBudget(t *testing.T) {
 }
 
 func TestBuilderCompleteGetsFreshFacetBudgetAfterFailure(t *testing.T) {
-	builder := NewBuilder(BuilderOptions{MaxConstructionWork: 4})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxConstructionWork: 4})
 	id, err := builder.Reserve()
 	if err != nil {
 		t.Fatal(err)
@@ -159,7 +159,7 @@ func TestEvaluationBudgetRejectsUsageOverflow(t *testing.T) {
 }
 
 func TestTemporalWorkLimitResetsPerCall(t *testing.T) {
-	p, err := NewBuilder(BuilderOptions{}).Seal()
+	p, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,16 +174,16 @@ func TestTemporalWorkLimitResetsPerCall(t *testing.T) {
 			raw := []byte(tc.lexical)
 			limit := uint64(len(tc.lexical))
 			for call := range 2 {
-				if _, err := p.Validate(tc.id, tc.lexical, Resolver{}, 0, limit, nil); !errors.Is(err, ErrLimit) {
+				if _, err := p.Validate(tc.id, tc.lexical, Resolver{}, 0, EvaluationLimits{Work: limit, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); !errors.Is(err, ErrLimit) {
 					t.Fatalf("string call %d error = %v, want ErrLimit", call, err)
 				}
-				if _, err := p.ValidateBytes(tc.id, raw, Resolver{}, 0, limit, nil); !errors.Is(err, ErrLimit) {
+				if _, err := p.ValidateBytes(tc.id, raw, Resolver{}, 0, EvaluationLimits{Work: limit, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); !errors.Is(err, ErrLimit) {
 					t.Fatalf("bytes call %d error = %v, want ErrLimit", call, err)
 				}
-				if _, err := p.Validate(tc.id, tc.lexical, Resolver{}, 0, limit+1, nil); err != nil {
+				if _, err := p.Validate(tc.id, tc.lexical, Resolver{}, 0, EvaluationLimits{Work: limit + 1, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 					t.Fatalf("string call %d at budget = %v", call, err)
 				}
-				if _, err := p.ValidateBytes(tc.id, raw, Resolver{}, 0, limit+1, nil); err != nil {
+				if _, err := p.ValidateBytes(tc.id, raw, Resolver{}, 0, EvaluationLimits{Work: limit + 1, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 					t.Fatalf("bytes call %d at budget = %v", call, err)
 				}
 			}
@@ -192,7 +192,7 @@ func TestTemporalWorkLimitResetsPerCall(t *testing.T) {
 }
 
 func TestBorrowedRawListBudgetRouting(t *testing.T) {
-	builder := NewBuilder(BuilderOptions{})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	listID, found := BuiltinTypeID("NMTOKENS")
 	if !found {
 		t.Fatal("missing NMTOKENS")
@@ -212,7 +212,7 @@ func TestBorrowedRawListBudgetRouting(t *testing.T) {
 	if sealErr != nil {
 		t.Fatal(sealErr)
 	}
-	projected, projectionErr := program.Validate(listID, "one", Resolver{}, NeedIdentity, 16<<20, nil)
+	projected, projectionErr := program.Validate(listID, "one", Resolver{}, NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if projectionErr != nil {
 		t.Fatal(projectionErr)
 	}
@@ -232,7 +232,7 @@ func TestBorrowedRawListBudgetRouting(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			raw := []byte("one")
-			got, validationErr := program.ValidateBytes(tc.id, raw, Resolver{}, 0, tc.limit, nil)
+			got, validationErr := program.ValidateBytes(tc.id, raw, Resolver{}, 0, EvaluationLimits{Work: tc.limit, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			clear(raw)
 			if !errors.Is(validationErr, tc.wantErr) {
 				t.Fatalf("budget %d error = %v, want %v", tc.limit, validationErr, tc.wantErr)

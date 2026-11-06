@@ -7,7 +7,7 @@ import (
 )
 
 func TestValueQualifiedNamesFollowAcceptedMembers(t *testing.T) {
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	union, err := b.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -52,7 +52,7 @@ func TestValueQualifiedNamesFollowAcceptedMembers(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			for _, needs := range []Needs{0, NeedCanonical, NeedIdentity, NeedCanonical | NeedIdentity} {
-				got, err := p.Validate(test.typ, test.lexical, resolver, needs, 16<<20, nil)
+				got, err := p.Validate(test.typ, test.lexical, resolver, needs, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -65,7 +65,7 @@ func TestValueQualifiedNamesFollowAcceptedMembers(t *testing.T) {
 }
 
 func TestProgramQualifiedPrimitiveIdentity(t *testing.T) {
-	p, err := NewBuilder(BuilderOptions{}).Seal()
+	p, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,11 +73,11 @@ func TestProgramQualifiedPrimitiveIdentity(t *testing.T) {
 		QName:    func(string) (ExpandedName, bool) { return ExpandedName{Namespace: "urn:test", Local: "item"}, true },
 		Notation: func(namespace, local string) bool { return namespace == "urn:test" && local == "item" },
 	}
-	qname, err := p.Validate(BuiltinType(PrimitiveQName), "p:item", resolver, NeedCanonical|NeedIdentity, 16<<20, nil)
+	qname, err := p.Validate(BuiltinType(PrimitiveQName), "p:item", resolver, NeedCanonical|NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	notation, err := p.Validate(BuiltinType(PrimitiveNotation), "p:item", resolver, NeedCanonical|NeedIdentity, 16<<20, nil)
+	notation, err := p.Validate(BuiltinType(PrimitiveNotation), "p:item", resolver, NeedCanonical|NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +102,7 @@ func TestProgramQualifiedUnionEnumeration(t *testing.T) {
 	}
 	undeclared := declared
 	undeclared.Notation = func(string, string) bool { return false }
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	union, err := b.Reserve()
 	if err != nil {
 		t.Fatal(err)
@@ -131,18 +131,18 @@ func TestProgramQualifiedUnionEnumeration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fallback, err := p.Validate(union, "p:item", undeclared, NeedCanonical|NeedIdentity, 16<<20, nil)
+	fallback, err := p.Validate(union, "p:item", undeclared, NeedCanonical|NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if fallback.Type() != union || fallback.SelectedType() != BuiltinType(PrimitiveQName) || !fallback.HasQualifiedNames() || fallback.CanonicalText() != "{urn:test}item" || fallback.IdentityKey() != "\x11\x1e{urn:test}item" {
 		t.Fatalf("QName fallback = %#v", fallback)
 	}
-	_, err = p.Validate(restricted, "p:item", undeclared, NeedCanonical|NeedIdentity, 16<<20, nil)
+	_, err = p.Validate(restricted, "p:item", undeclared, NeedCanonical|NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if !errors.Is(err, ErrFacet) {
 		t.Fatalf("cross-kind enumeration = %v, want enumeration facet failed", err)
 	}
-	accepted, err := p.Validate(restricted, "p:item", declared, NeedCanonical|NeedIdentity, 16<<20, nil)
+	accepted, err := p.Validate(restricted, "p:item", declared, NeedCanonical|NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +152,7 @@ func TestProgramQualifiedUnionEnumeration(t *testing.T) {
 }
 
 func TestProgramQualifiedResolverAdmission(t *testing.T) {
-	p, err := NewBuilder(BuilderOptions{}).Seal()
+	p, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 	if err != nil {
 		t.Fatal(err)
 	}

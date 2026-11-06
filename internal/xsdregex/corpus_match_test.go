@@ -71,18 +71,18 @@ func TestManifestRegexFixtures(t *testing.T) {
 			t.Fatalf("manifest case %q changed outcome: schema=%+v", entry.ID, entry.Schema)
 		}
 		pattern := readPatternValue(t, fixture.path)
-		compiled, err := Compile(pattern, CompileOptions{})
+		compiled, err := Compile(pattern)
 		if err != nil {
 			t.Fatalf("Compile(%q from %s) error = %v", pattern, fixture.path, err)
 		}
 		for _, input := range fixture.positive {
-			matched, err := compiled.MatchStringWithScratch(input, MatchOptions{}, nil)
+			matched, _, err := compiled.MatchStringWithScratch(input, unlimitedWork, nil)
 			if err != nil || !matched {
 				t.Errorf("%s: MatchString(%q) = %v, %v; want true", entry.ID, input, matched, err)
 			}
 		}
 		for _, input := range fixture.negative {
-			matched, err := compiled.MatchStringWithScratch(input, MatchOptions{}, nil)
+			matched, _, err := compiled.MatchStringWithScratch(input, unlimitedWork, nil)
 			if err != nil || matched {
 				t.Errorf("%s: MatchString(%q) = %v, %v; want false", entry.ID, input, matched, err)
 			}

@@ -4,9 +4,9 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// SchemaComponentKind identifies named schema components for compile-time
+// schemaComponentKind identifies named schema components for compile-time
 // reference diagnostics.
-type SchemaComponentKind uint8
+type schemaComponentKind uint8
 
 const (
 	schemaComponentSimpleTypeLabel     = "simple type"
@@ -20,58 +20,58 @@ const (
 )
 
 const (
-	// SchemaComponentSimpleType identifies global simple type declarations.
-	SchemaComponentSimpleType SchemaComponentKind = iota
-	// SchemaComponentComplexType identifies global complex type declarations.
-	SchemaComponentComplexType
-	// SchemaComponentAttribute identifies global attribute declarations.
-	SchemaComponentAttribute
-	// SchemaComponentElement identifies global element declarations.
-	SchemaComponentElement
-	// SchemaComponentAttributeGroup identifies global attribute group declarations.
-	SchemaComponentAttributeGroup
-	// SchemaComponentModelGroup identifies global model group declarations.
-	SchemaComponentModelGroup
-	// SchemaComponentType identifies global type references that may resolve to simple or complex types.
-	SchemaComponentType
+	// schemaComponentSimpleType identifies global simple type declarations.
+	schemaComponentSimpleType schemaComponentKind = iota
+	// schemaComponentComplexType identifies global complex type declarations.
+	schemaComponentComplexType
+	// schemaComponentAttribute identifies global attribute declarations.
+	schemaComponentAttribute
+	// schemaComponentElement identifies global element declarations.
+	schemaComponentElement
+	// schemaComponentAttributeGroup identifies global attribute group declarations.
+	schemaComponentAttributeGroup
+	// schemaComponentModelGroup identifies global model group declarations.
+	schemaComponentModelGroup
+	// schemaComponentType identifies global type references that may resolve to simple or complex types.
+	schemaComponentType
 )
 
-func (k SchemaComponentKind) missingLabel() string {
+func (k schemaComponentKind) missingLabel() string {
 	switch k {
-	case SchemaComponentSimpleType:
+	case schemaComponentSimpleType:
 		return schemaComponentSimpleTypeLabel
-	case SchemaComponentComplexType:
+	case schemaComponentComplexType:
 		return schemaComponentComplexTypeLabel
-	case SchemaComponentAttribute:
+	case schemaComponentAttribute:
 		return schemaComponentAttributeLabel
-	case SchemaComponentElement:
+	case schemaComponentElement:
 		return schemaComponentElementLabel
-	case SchemaComponentAttributeGroup:
+	case schemaComponentAttributeGroup:
 		return schemaComponentAttributeGroupLabel
-	case SchemaComponentModelGroup:
+	case schemaComponentModelGroup:
 		return schemaComponentModelGroupLabel
-	case SchemaComponentType:
+	case schemaComponentType:
 		return schemaComponentTypeLabel
 	default:
 		return schemaComponentLabel
 	}
 }
 
-func (k SchemaComponentKind) cycleLabel() string {
+func (k schemaComponentKind) cycleLabel() string {
 	switch k {
-	case SchemaComponentAttribute:
+	case schemaComponentAttribute:
 		return "attribute declaration"
-	case SchemaComponentElement:
+	case schemaComponentElement:
 		return "element declaration"
-	case SchemaComponentSimpleType, SchemaComponentComplexType, SchemaComponentAttributeGroup, SchemaComponentModelGroup, SchemaComponentType:
+	case schemaComponentSimpleType, schemaComponentComplexType, schemaComponentAttributeGroup, schemaComponentModelGroup, schemaComponentType:
 		return k.missingLabel()
 	default:
 	}
 	return k.missingLabel()
 }
 
-// AddSchemaComponent inserts one named schema component and rejects duplicates.
-func AddSchemaComponent[T any](components map[QName]T, name QName, component T, label string) error {
+// addSchemaComponent inserts one named schema component and rejects duplicates.
+func addSchemaComponent[T any](components map[QName]T, name QName, component T, label string) error {
 	if _, exists := components[name]; exists {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate schema component "+label)
 	}
@@ -79,36 +79,36 @@ func AddSchemaComponent[T any](components map[QName]T, name QName, component T, 
 	return nil
 }
 
-// SchemaComponentCycleError reports recursive compilation of one named schema
+// schemaComponentCycleError reports recursive compilation of one named schema
 // component.
-func SchemaComponentCycleError(kind SchemaComponentKind, label string) error {
+func schemaComponentCycleError(kind schemaComponentKind, label string) error {
 	return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "cyclic "+kind.cycleLabel()+" "+label)
 }
 
-// SchemaComponentRecursionError reports a recursive reference to one named
+// schemaComponentRecursionError reports a recursive reference to one named
 // schema component.
-func SchemaComponentRecursionError(kind SchemaComponentKind, label string) error {
+func schemaComponentRecursionError(kind schemaComponentKind, label string) error {
 	msg := "recursive " + kind.missingLabel()
-	if label != "" {
-		msg += " " + label
+	if label == "" {
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, msg)
 	}
-	return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, msg)
+	return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, msg+" "+label)
 }
 
-// SchemaComponentMissingError reports an unknown named schema component.
-func SchemaComponentMissingError(kind SchemaComponentKind, label string) error {
+// schemaComponentMissingError reports an unknown named schema component.
+func schemaComponentMissingError(kind schemaComponentKind, label string) error {
 	return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "unknown "+kind.missingLabel()+" "+label)
 }
 
-// SchemaTypeNameConflictError reports a name already present in the shared
+// schemaTypeNameConflictError reports a name already present in the shared
 // simple/complex type symbol space.
-func SchemaTypeNameConflictError(label string) error {
+func schemaTypeNameConflictError(label string) error {
 	return xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate type "+label)
 }
 
-// AddNotation inserts one top-level notation declaration and rejects
+// addNotation inserts one top-level notation declaration and rejects
 // duplicate notation names.
-func AddNotation(notations map[QName]bool, name QName, label string) error {
+func addNotation(notations map[QName]bool, name QName, label string) error {
 	if notations[name] {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate notation "+label)
 	}

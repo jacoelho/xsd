@@ -1,51 +1,52 @@
 package schema
 
 import (
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/lex"
 	valuepkg "github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// LexicalAttribute keeps an XML attribute's lexical value and presence state
+// lexicalAttribute keeps an XML attribute's lexical value and presence state
 // together after raw-node lookup.
-type LexicalAttribute struct {
+type lexicalAttribute struct {
 	Value   string
 	Present bool
 }
 
-// BooleanAttr is the raw attribute state needed to parse an XML Schema boolean
+// booleanAttr is the raw attribute state needed to parse an XML Schema boolean
 // attribute.
-type BooleanAttr struct {
+type booleanAttr struct {
 	Name     string
 	Value    string
 	HasValue bool
 	Default  bool
 }
 
-// ParseBooleanAttr parses an XML Schema boolean attribute value.
-func ParseBooleanAttr(attr BooleanAttr) (bool, error) {
+// parseBooleanAttr parses an XML Schema boolean attribute value.
+func parseBooleanAttr(attr booleanAttr) (bool, error) {
 	if !attr.HasValue {
 		return attr.Default, nil
 	}
 	parsed, err := valuepkg.ParseBooleanValue(lex.TrimXMLWhitespaceString(attr.Value))
 	if err != nil {
-		return false, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "invalid boolean attribute "+attr.Name)
+		return false, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "invalid boolean attribute "+diagnostictext.Quote(attr.Name))
 	}
 	return parsed, nil
 }
 
-// FormAttr is the raw attribute state needed to parse an XML Schema form
+// formAttr is the raw attribute state needed to parse an XML Schema form
 // attribute.
-type FormAttr struct {
+type formAttr struct {
 	Name             string
 	Value            string
 	HasValue         bool
 	DefaultQualified bool
 }
 
-// SchemaDefaults is the parsed xs:schema default state used by compilation.
-type SchemaDefaults struct {
+// schemaDefaults is the parsed xs:schema default state used by compilation.
+type schemaDefaults struct {
 	TargetNamespace    string
 	BlockDefault       DerivationMask
 	FinalDefault       DerivationMask
@@ -53,36 +54,36 @@ type SchemaDefaults struct {
 	AttributeQualified bool
 }
 
-// ParseSchemaDefaults validates and parses xs:schema target/default attributes.
-func ParseSchemaDefaults(attrs schemaDocumentSource) (SchemaDefaults, error) {
-	if err := ValidateSchemaTargetNamespace(attrs.TargetNamespace); err != nil {
-		return SchemaDefaults{}, err
+// parseSchemaDefaults validates and parses xs:schema target/default attributes.
+func parseSchemaDefaults(attrs schemaDocumentSource) (schemaDefaults, error) {
+	if err := validateSchemaTargetNamespace(attrs.TargetNamespace); err != nil {
+		return schemaDefaults{}, err
 	}
-	blockDefault, err := ParseDerivationSet(attrs.BlockDefault.Value, "schema blockDefault", DerivationBlockDefaultMask)
+	blockDefault, err := parseDerivationSet(attrs.BlockDefault.Value, "schema blockDefault", derivationBlockDefaultMask)
 	if err != nil {
-		return SchemaDefaults{}, err
+		return schemaDefaults{}, err
 	}
-	finalDefault, err := ParseDerivationSet(attrs.FinalDefault.Value, "schema finalDefault", DerivationFinalDefaultMask)
+	finalDefault, err := parseDerivationSet(attrs.FinalDefault.Value, "schema finalDefault", derivationFinalDefaultMask)
 	if err != nil {
-		return SchemaDefaults{}, err
+		return schemaDefaults{}, err
 	}
-	elementQualified, err := ParseFormDefaultAttr(FormAttr{
+	elementQualified, err := parseFormDefaultAttr(formAttr{
 		Name:     vocab.XSDAttrElementFormDefault,
 		Value:    attrs.ElementFormDefault.Value,
 		HasValue: attrs.ElementFormDefault.Present,
 	})
 	if err != nil {
-		return SchemaDefaults{}, err
+		return schemaDefaults{}, err
 	}
-	attributeQualified, err := ParseFormDefaultAttr(FormAttr{
+	attributeQualified, err := parseFormDefaultAttr(formAttr{
 		Name:     vocab.XSDAttrAttributeFormDefault,
 		Value:    attrs.AttributeFormDefault.Value,
 		HasValue: attrs.AttributeFormDefault.Present,
 	})
 	if err != nil {
-		return SchemaDefaults{}, err
+		return schemaDefaults{}, err
 	}
-	return SchemaDefaults{
+	return schemaDefaults{
 		TargetNamespace:    attrs.TargetNamespace.Value,
 		BlockDefault:       blockDefault,
 		FinalDefault:       finalDefault,
@@ -91,28 +92,22 @@ func ParseSchemaDefaults(attrs schemaDocumentSource) (SchemaDefaults, error) {
 	}, nil
 }
 
-// ParseFormDefaultAttr parses elementFormDefault/attributeFormDefault.
-func ParseFormDefaultAttr(attr FormAttr) (bool, error) {
-	return parseFormAttr(attr, func(value string) string {
-		return "invalid " + attr.Name + " value " + value
-	})
+// parseFormDefaultAttr parses elementFormDefault/attributeFormDefault.
+func parseFormDefaultAttr(attr formAttr) (bool, error) {
+	return parseFormAttr(attr, "invalid "+diagnostictext.Quote(attr.Name)+" value ")
 }
 
-// ParseElementFormAttr parses a local xs:element form attribute.
-func ParseElementFormAttr(attr FormAttr) (bool, error) {
-	return parseFormAttr(attr, func(value string) string {
-		return "invalid element form value " + value
-	})
+// parseElementFormAttr parses a local xs:element form attribute.
+func parseElementFormAttr(attr formAttr) (bool, error) {
+	return parseFormAttr(attr, "invalid element form value ")
 }
 
-// ParseAttributeFormAttr parses a local xs:attribute form attribute.
-func ParseAttributeFormAttr(attr FormAttr) (bool, error) {
-	return parseFormAttr(attr, func(value string) string {
-		return "invalid attribute form " + value
-	})
+// parseAttributeFormAttr parses a local xs:attribute form attribute.
+func parseAttributeFormAttr(attr formAttr) (bool, error) {
+	return parseFormAttr(attr, "invalid attribute form ")
 }
 
-func parseFormAttr(attr FormAttr, invalidMessage func(string) string) (bool, error) {
+func parseFormAttr(attr formAttr, invalidPrefix string) (bool, error) {
 	if !attr.HasValue {
 		return attr.DefaultQualified, nil
 	}
@@ -122,6 +117,6 @@ func parseFormAttr(attr FormAttr, invalidMessage func(string) string) (bool, err
 	case vocab.XSDValueUnqualified:
 		return false, nil
 	default:
-		return false, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, invalidMessage(attr.Value))
+		return false, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, invalidPrefix+diagnostictext.Quote(attr.Value))
 	}
 }

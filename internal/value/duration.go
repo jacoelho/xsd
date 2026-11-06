@@ -5,10 +5,10 @@ import (
 	"strings"
 )
 
-// DurationValue stores independent month and second coordinates. Ordinary
+// durationValue stores independent month and second coordinates. Ordinary
 // durations stay inline; promotion preserves arbitrary precision within the
 // caller's lexical byte bound. All retained promoted values are immutable.
-type DurationValue struct {
+type durationValue struct {
 	large        *durationLarge
 	frac         string
 	months       int64
@@ -21,34 +21,34 @@ type durationLarge struct {
 	seconds durationInteger
 }
 
-func (d DurationValue) coordinates() (months, seconds durationInteger) {
+func (d durationValue) coordinates() (months, seconds durationInteger) {
 	if d.large != nil {
 		return d.large.months, d.large.seconds
 	}
 	return durationInteger{small: d.months}, durationInteger{small: d.seconds}
 }
 
-// ParseDurationValue parses the XSD 1.0 duration lexical space in linear work
+// parseDurationValue parses the XSD 1.0 duration lexical space in linear work
 // and storage bounded by the lexical input length.
-func ParseDurationValue(s string) (DurationValue, error) {
+func parseDurationValue(s string) (durationValue, error) {
 	return parseDurationLexical(s)
 }
 
-// ValidateDurationLexical accepts the same lexical space as ParseDurationValue.
-func ValidateDurationLexical[T byteText](raw T) error {
+// validateDurationLexical accepts the same lexical space as parseDurationValue.
+func validateDurationLexical[T byteText](raw T) error {
 	_, err := parseDurationLexical(raw)
 	return err
 }
 
 //nolint:gocognit // One pass owns lexical state and malformed-input exits; helper splitting regressed the measured hot path.
-func parseDurationLexical[T byteText](raw T) (DurationValue, error) {
+func parseDurationLexical[T byteText](raw T) (durationValue, error) {
 	i := 0
 	negative := len(raw) != 0 && raw[0] == '-'
 	if negative {
 		i++
 	}
 	if i >= len(raw) || raw[i] != 'P' {
-		return DurationValue{}, errors.New(msgInvalidDuration)
+		return durationValue{}, errors.New(msgInvalidDuration)
 	}
 	i++
 	var state durationParser
@@ -59,7 +59,7 @@ func parseDurationLexical[T byteText](raw T) (DurationValue, error) {
 	for i < len(raw) {
 		if raw[i] == 'T' {
 			if state.time {
-				return DurationValue{}, errors.New(msgInvalidDuration)
+				return durationValue{}, errors.New(msgInvalidDuration)
 			}
 			state.time, state.stage = true, 3
 			i++
@@ -72,7 +72,7 @@ func parseDurationLexical[T byteText](raw T) (DurationValue, error) {
 			i++
 		}
 		if start == i {
-			return DurationValue{}, errors.New(msgInvalidDuration)
+			return durationValue{}, errors.New(msgInvalidDuration)
 		}
 		var wholeValue durationInteger
 		if whole.large {
@@ -90,7 +90,7 @@ func parseDurationLexical[T byteText](raw T) (DurationValue, error) {
 				i++
 			}
 			if i == fracStart {
-				return DurationValue{}, errors.New(msgInvalidDuration)
+				return durationValue{}, errors.New(msgInvalidDuration)
 			}
 			end := i
 			for end > fracStart && raw[end-1] == '0' {
@@ -99,13 +99,13 @@ func parseDurationLexical[T byteText](raw T) (DurationValue, error) {
 			frac = string(raw[fracStart:end])
 		}
 		if i == len(raw) {
-			return DurationValue{}, errors.New(msgInvalidDuration)
+			return durationValue{}, errors.New(msgInvalidDuration)
 		}
 		designator := raw[i]
 		i++
 		stage, factor := state.unit(designator)
 		if stage <= state.stage || hasFrac && designator != 'S' {
-			return DurationValue{}, errors.New(msgInvalidDuration)
+			return durationValue{}, errors.New(msgInvalidDuration)
 		}
 		if stage < 3 {
 			addDurationUnit(&state.months, wholeValue, factor)
@@ -118,13 +118,13 @@ func parseDurationLexical[T byteText](raw T) (DurationValue, error) {
 		}
 	}
 	if !state.seen || state.time && state.stage == 3 {
-		return DurationValue{}, errors.New(msgInvalidDuration)
+		return durationValue{}, errors.New(msgInvalidDuration)
 	}
 	months, seconds := state.months, state.seconds
 	if negative {
 		months, seconds = months.neg(), seconds.neg()
 	}
-	value := DurationValue{frac: state.frac, negativeFrac: negative && state.frac != ""}
+	value := durationValue{frac: state.frac, negativeFrac: negative && state.frac != ""}
 	if months.digits != "" || seconds.digits != "" {
 		value.large = &durationLarge{months: months, seconds: seconds}
 	} else {
@@ -184,15 +184,15 @@ func (p *durationParser) unit(unit byte) (stage int, factor int64) {
 	}
 }
 
-// EqualDurationValues compares the two independent value-space coordinates.
-func EqualDurationValues(a, b DurationValue) bool {
+// equalDurationValues compares the two independent value-space coordinates.
+func equalDurationValues(a, b durationValue) bool {
 	am, as := a.coordinates()
 	bm, bs := b.coordinates()
 	return compareDurationInteger(am, bm) == 0 && compareDurationInteger(as, bs) == 0 &&
 		a.negativeFrac == b.negativeFrac && a.frac == b.frac
 }
 
-func durationIdentityCanonical(value DurationValue) string {
+func durationIdentityCanonical(value durationValue) string {
 	months, seconds := value.coordinates()
 	sign := "+"
 	if value.negativeFrac {
@@ -201,9 +201,9 @@ func durationIdentityCanonical(value DurationValue) string {
 	return months.text() + "\x1f" + seconds.text() + "\x1f" + sign + value.frac
 }
 
-// CompareDurationValues implements the four-reference-date partial order in
+// compareDurationValues implements the four-reference-date partial order in
 // XSD 1.0 Part 2 §3.2.6.2. Gregorian cycles avoid intermediate year overflow.
-func CompareDurationValues(a, b DurationValue) OrderedFacetRelation {
+func compareDurationValues(a, b durationValue) orderedFacetRelation {
 	am, as := a.coordinates()
 	bm, bs := b.coordinates()
 	months := compareDurationInteger(am, bm)
@@ -217,7 +217,7 @@ func CompareDurationValues(a, b DurationValue) OrderedFacetRelation {
 	return compareDurationReferences(a, b)
 }
 
-func compareDurationSeconds(as, bs durationInteger, a, b DurationValue) int {
+func compareDurationSeconds(as, bs durationInteger, a, b durationValue) int {
 	if n := compareDurationInteger(as, bs); n != 0 {
 		return n
 	}
@@ -234,7 +234,7 @@ func compareDurationSeconds(as, bs durationInteger, a, b DurationValue) int {
 	return n
 }
 
-func compareDurationReferences(a, b DurationValue) OrderedFacetRelation {
+func compareDurationReferences(a, b durationValue) orderedFacetRelation {
 	refs := [...]struct{ year, month int64 }{{1696, 9}, {1697, 2}, {1903, 3}, {1903, 7}}
 	var relation int
 	for i, ref := range refs {
@@ -245,14 +245,14 @@ func compareDurationReferences(a, b DurationValue) OrderedFacetRelation {
 			n = compareFraction(af, bf)
 		}
 		if i > 0 && n != relation {
-			return OrderedFacetIncomparable
+			return orderedFacetIncomparable
 		}
 		relation = n
 	}
 	return orderedFacetRelationFromInt(relation)
 }
 
-func durationAtReference(d DurationValue, year, month int64) (durationInteger, string) {
+func durationAtReference(d durationValue, year, month int64) (durationInteger, string) {
 	months, seconds := d.coordinates()
 	months = months.add(durationInteger{small: year*12 + month - 1})
 	cycles, remainder := months.divFloor(4800)

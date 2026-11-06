@@ -23,7 +23,7 @@ func BenchmarkProgramUnionWhitespace(b *testing.B) {
 		{name: "replace-pattern", members: []value.TypeID{value.BuiltinType(value.PrimitiveString), value.BuiltinType(value.PrimitiveString)}, lexical: "hello\nworld", pattern: `[a-z ]+`, replace: true},
 	} {
 		b.Run(test.name, func(b *testing.B) {
-			builder := value.NewBuilder(value.BuilderOptions{})
+			builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 			members := test.members
 			if test.collapse || test.replace {
 				whitespace := value.WhitespaceCollapse
@@ -46,7 +46,7 @@ func BenchmarkProgramUnionWhitespace(b *testing.B) {
 			}
 			var facets value.FacetSpec
 			if test.pattern != "" {
-				pattern, err := xsdregex.Compile(test.pattern, xsdregex.CompileOptions{})
+				pattern, err := xsdregex.Compile(test.pattern)
 				if err != nil {
 					b.Fatal(err)
 				}
@@ -73,7 +73,7 @@ func BenchmarkProgramUnionWhitespace(b *testing.B) {
 			failures := 0
 			b.ReportAllocs()
 			for b.Loop() {
-				if _, err := program.Validate(id, test.lexical, value.Resolver{}, value.NeedCanonical, 16<<20, nil); err != nil {
+				if _, err := program.Validate(id, test.lexical, value.Resolver{}, value.NeedCanonical, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 					failures++
 				}
 			}

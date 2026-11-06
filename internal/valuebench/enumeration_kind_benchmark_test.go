@@ -108,7 +108,7 @@ func BenchmarkEnumerationKindValidation(b *testing.B) {
 					b.ReportAllocs()
 					b.SetBytes(int64(len(raw)))
 					for b.Loop() {
-						_, err := program.ValidateBytes(id, raw, valuepkg.Resolver{}, 0, 16<<20, nil)
+						_, err := program.ValidateBytes(id, raw, valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 						if (err != nil) != wantFacet || (wantFacet && !errors.Is(err, valuepkg.ErrFacet)) {
 							b.Fatalf("ValidateBytes(%q) error = %v, want facet=%t", raw, err, wantFacet)
 						}
@@ -128,7 +128,7 @@ func BenchmarkEnumerationKindCompile(b *testing.B) {
 			b.Run(fmt.Sprintf("%s/n_%d", kind.name, size), func(b *testing.B) {
 				b.ReportAllocs()
 				for b.Loop() {
-					builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+					builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 					id, err := builder.Reserve()
 					if err != nil {
 						b.Fatalf("Reserve() error = %v", err)
@@ -148,7 +148,7 @@ func BenchmarkEnumerationKindCompile(b *testing.B) {
 func enumerationKindProgram(tb testing.TB, kind enumerationKind, size int) (*valuepkg.Program, valuepkg.TypeID, []string) {
 	tb.Helper()
 	values := auditStringEnumerationLiterals(size, "short")
-	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := builder.Reserve()
 	if err != nil {
 		tb.Fatalf("Reserve() error = %v", err)
@@ -169,7 +169,7 @@ func enumerationKindProgram(tb testing.TB, kind enumerationKind, size int) (*val
 func requireEnumerationKind(tb testing.TB, kind enumerationKind, program *valuepkg.Program, id valuepkg.TypeID, values []string) {
 	tb.Helper()
 	validate := func(input string) error {
-		_, err := program.ValidateBytes(id, []byte(input), valuepkg.Resolver{}, 0, 16<<20, nil)
+		_, err := program.ValidateBytes(id, []byte(input), valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		return err
 	}
 	for _, value := range values {

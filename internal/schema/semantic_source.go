@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"iter"
 
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/xmlstream"
 
@@ -102,7 +103,7 @@ func (n *schemaNode) resolveQName(lexical string) (xml.Name, error) {
 	}
 	ns, ok := n.namespace.Lookup(parts.Prefix)
 	if !ok {
-		return xml.Name{}, schemaCompileAt(n, xsderrors.CodeSchemaReference, "unbound QName prefix "+parts.Prefix)
+		return xml.Name{}, schemaCompileAt(n, xsderrors.CodeSchemaReference, "unbound QName prefix "+diagnostictext.Quote(parts.Prefix))
 	}
 	return xml.Name{Space: ns, Local: parts.Local}, nil
 }
@@ -113,11 +114,11 @@ func (n *schemaNode) resolveQName(lexical string) (xml.Name, error) {
 // reference rules and intern the expanded name.
 type schemaQNameAttribute struct {
 	Name    xml.Name
-	Lexical LexicalAttribute
+	Lexical lexicalAttribute
 }
 
 type schemaQNameListAttribute struct {
-	Lexical LexicalAttribute
+	Lexical lexicalAttribute
 	Names   []xml.Name
 }
 
@@ -135,50 +136,50 @@ type semanticQNameProjection struct {
 // declarations. It is deliberately separate from schemaNode so capability
 // compilers consume typed fields rather than interpreting an XML tree.
 type schemaGlobalSource struct {
-	Name LexicalAttribute
+	Name lexicalAttribute
 }
 
 type schemaSimpleTypeSource struct {
 	Global schemaGlobalSource
-	Final  LexicalAttribute
+	Final  lexicalAttribute
 }
 
 type schemaFacetSource struct {
-	Value LexicalAttribute
-	Fixed LexicalAttribute
+	Value lexicalAttribute
+	Fixed lexicalAttribute
 }
 
 type schemaElementSource struct {
 	schemaParticleSource
 
 	Global            schemaGlobalSource
-	Default           LexicalAttribute
-	Fixed             LexicalAttribute
-	Form              LexicalAttribute
-	Nillable          LexicalAttribute
-	Abstract          LexicalAttribute
-	Block             LexicalAttribute
-	Final             LexicalAttribute
+	Default           lexicalAttribute
+	Fixed             lexicalAttribute
+	Form              lexicalAttribute
+	Nillable          lexicalAttribute
+	Abstract          lexicalAttribute
+	Block             lexicalAttribute
+	Final             lexicalAttribute
 	Type              schemaQNameAttribute
 	SubstitutionGroup schemaQNameAttribute
 }
 
 type schemaAttributeSource struct {
 	Global  schemaGlobalSource
-	Default LexicalAttribute
-	Fixed   LexicalAttribute
-	Form    LexicalAttribute
-	Use     LexicalAttribute
+	Default lexicalAttribute
+	Fixed   lexicalAttribute
+	Form    lexicalAttribute
+	Use     lexicalAttribute
 	Ref     schemaQNameAttribute
 	Type    schemaQNameAttribute
 }
 
 type schemaComplexTypeSource struct {
 	Global   schemaGlobalSource
-	Mixed    LexicalAttribute
-	Abstract LexicalAttribute
-	Block    LexicalAttribute
-	Final    LexicalAttribute
+	Mixed    lexicalAttribute
+	Abstract lexicalAttribute
+	Block    lexicalAttribute
+	Final    lexicalAttribute
 }
 
 type schemaBaseDerivationSource struct {
@@ -186,7 +187,7 @@ type schemaBaseDerivationSource struct {
 }
 
 type schemaComplexContentSource struct {
-	Mixed LexicalAttribute
+	Mixed lexicalAttribute
 }
 
 type schemaListDerivationSource struct {
@@ -201,8 +202,8 @@ type schemaUnionDerivationSource struct {
 // particles. It stores only particle vocabulary; declaration-specific fields
 // stay in their owning records above.
 type schemaParticleSource struct {
-	MinOccurs LexicalAttribute
-	MaxOccurs LexicalAttribute
+	MinOccurs lexicalAttribute
+	MaxOccurs lexicalAttribute
 	Ref       schemaQNameAttribute
 }
 
@@ -211,25 +212,25 @@ type schemaParticleSource struct {
 type schemaModelSource struct {
 	schemaParticleSource
 
-	Kind ModelKind
+	Kind modelKind
 }
 
 type schemaIdentitySource struct {
-	Name  LexicalAttribute
+	Name  lexicalAttribute
 	Refer schemaQNameAttribute
 }
 
 type schemaIdentityXPathSource struct {
-	XPath LexicalAttribute
+	XPath lexicalAttribute
 }
 
 type schemaWildcardSource struct {
 	schemaParticleSource
 
-	Namespace       LexicalAttribute
-	NotNamespace    LexicalAttribute
-	NotQName        LexicalAttribute
-	ProcessContents LexicalAttribute
+	Namespace       lexicalAttribute
+	NotNamespace    lexicalAttribute
+	NotQName        lexicalAttribute
+	ProcessContents lexicalAttribute
 }
 
 type schemaGroupSource struct {
@@ -244,23 +245,23 @@ type schemaAttributeGroupSource struct {
 }
 
 type schemaDocumentSource struct {
-	TargetNamespace      LexicalAttribute
-	Version              LexicalAttribute
-	FinalDefault         LexicalAttribute
-	BlockDefault         LexicalAttribute
-	ElementFormDefault   LexicalAttribute
-	AttributeFormDefault LexicalAttribute
+	TargetNamespace      lexicalAttribute
+	Version              lexicalAttribute
+	FinalDefault         lexicalAttribute
+	BlockDefault         lexicalAttribute
+	ElementFormDefault   lexicalAttribute
+	AttributeFormDefault lexicalAttribute
 }
 
 type schemaReferenceSource struct {
-	Namespace      LexicalAttribute
-	SchemaLocation LexicalAttribute
+	Namespace      lexicalAttribute
+	SchemaLocation lexicalAttribute
 }
 
 type schemaNotationSource struct {
 	Global schemaGlobalSource
-	Public LexicalAttribute
-	System LexicalAttribute
+	Public lexicalAttribute
+	System lexicalAttribute
 }
 
 // schemaSemanticSource is the typed source view for one schema node. Its
@@ -269,7 +270,7 @@ type schemaNotationSource struct {
 // IDs belong to parse-local uniqueness records; only xml:base is retained here.
 type schemaSemanticSource struct {
 	kind    schemaSemanticKind
-	XMLBase LexicalAttribute
+	XMLBase lexicalAttribute
 }
 
 // schemaSemanticKind is a closed tagged source variant. A node with compiler
@@ -400,7 +401,7 @@ var typedAttributeNames = [...]string{
 	vocab.XSDAttrSystem,
 }
 
-func schemaModelKind(n *schemaNode) (ModelKind, bool) {
+func schemaModelKind(n *schemaNode) (modelKind, bool) {
 	if n == nil {
 		return 0, false
 	}
@@ -511,7 +512,7 @@ func (syntax *schemaSyntaxNode) buildSemanticSource(n *schemaNode) error {
 	var s schemaSemanticSource
 	for _, attr := range syntax.Attrs {
 		if attr.Name.Space == vocab.XMLNamespaceURI && attr.Name.Local == vocab.XMLAttrBase {
-			s.XMLBase = LexicalAttribute{Value: attr.Value, Present: true}
+			s.XMLBase = lexicalAttribute{Value: attr.Value, Present: true}
 			continue
 		}
 	}
@@ -703,8 +704,8 @@ func buildSemanticKind(n *schemaSyntaxNode, qnames *semanticQNameProjection) sch
 	return nil
 }
 
-func mustModelKindForLocal(local string) ModelKind {
-	kind, err := ModelKindForLocal(local)
+func mustModelKindForLocal(local string) modelKind {
+	kind, err := modelKindForLocal(local)
 	if err != nil {
 		panic(err)
 	}

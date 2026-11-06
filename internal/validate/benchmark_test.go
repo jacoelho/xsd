@@ -14,7 +14,7 @@ import (
 func BenchmarkRecordIdentityValueIDREFS(b *testing.B) {
 	for _, refs := range []int{1, 10, 100, 1000} {
 		b.Run(fmt.Sprintf("refs_%d", refs), func(b *testing.B) {
-			program, err := value.NewBuilder(value.BuilderOptions{}).Seal()
+			program, err := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -22,7 +22,7 @@ func BenchmarkRecordIdentityValueIDREFS(b *testing.B) {
 			if !ok {
 				b.Fatal("BuiltinTypeID(IDREFS) failed")
 			}
-			validated, err := program.Validate(id, benchmarkIDREFS(refs), value.Resolver{}, value.NeedIdentity, defaultMaxInstanceValueWork, nil)
+			validated, err := program.Validate(id, benchmarkIDREFS(refs), value.Resolver{}, value.NeedIdentity, value.EvaluationLimits{Work: defaultMaxInstanceValueWork, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			if err != nil {
 				b.Fatal(err)
 			}

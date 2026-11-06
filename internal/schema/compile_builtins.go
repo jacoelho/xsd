@@ -10,7 +10,7 @@ func (c *compiler) addBuiltins() error {
 	// The value package owns the fixed type IDs and definitions. Schema keeps
 	// only declaration records needed for QName lookup, derivation policy, and
 	// publication; it never allocates or completes a value builtin.
-	c.rt.AnyType = NoComplexType
+	c.rt.AnyType = noComplexType
 	if err := c.addBuiltinSimpleTypes(); err != nil {
 		return err
 	}
@@ -25,7 +25,7 @@ func (c *compiler) addBuiltinXSIAttributes() error {
 	if err != nil {
 		return err
 	}
-	list := SimpleType{Name: name, ValueSpec: builtinSchemaLocationTypeSpec()}
+	list := simpleType{Name: name, ValueSpec: builtinSchemaLocationTypeSpec()}
 	id, err := c.addSimpleType(list)
 	if err != nil {
 		return err
@@ -41,7 +41,7 @@ func (c *compiler) addBuiltinXSIAttributes() error {
 		if err != nil {
 			return err
 		}
-		if _, err := c.registerGlobalAttribute(q, AttributeDecl{Name: q, Type: attribute.typ}); err != nil {
+		if _, err := c.registerGlobalAttribute(q, attributeDecl{Name: q, Type: attribute.typ}); err != nil {
 			return err
 		}
 	}
@@ -71,7 +71,7 @@ func (c *compiler) addBuiltinSimpleType(builder *value.Builder, id SimpleTypeID)
 	if !ok {
 		return xsderrors.InternalInvariant("canonical builtin type has no value metadata: " + name)
 	}
-	st := SimpleType{
+	st := simpleType{
 		ValueSpec: value.TypeSpec{
 			Variety:           view.Variety,
 			Primitive:         view.Primitive,
@@ -83,7 +83,7 @@ func (c *compiler) addBuiltinSimpleType(builder *value.Builder, id SimpleTypeID)
 			Union:             append([]value.TypeID(nil), view.Union...),
 		},
 		Name:  q,
-		Scope: DeclarationScopeGlobal,
+		Scope: declarationScopeGlobal,
 	}
 	got, err := c.addSimpleType(st)
 	if err != nil {
@@ -94,29 +94,29 @@ func (c *compiler) addBuiltinSimpleType(builder *value.Builder, id SimpleTypeID)
 	}
 	// addSimpleType starts declarations as non-global; builtins have global
 	// names fixed by the value program.
-	c.rt.SimpleTypes[id].Scope = DeclarationScopeGlobal
+	c.rt.SimpleTypes[id].Scope = declarationScopeGlobal
 	c.rt.GlobalTypes[q] = SimpleRef(id)
 	return nil
 }
 
 func (c *compiler) addBuiltinAnyType() error {
-	anyWildcard, err := c.appendWildcard(BuiltinAnyTypeWildcard())
+	anyWildcard, err := c.appendWildcard(builtinAnyTypeWildcard())
 	if err != nil {
 		return err
 	}
-	attrSet, err := c.addAttributeUseSet(BuiltinAnyTypeAttributeUseSet(anyWildcard))
+	attrSet, err := c.addAttributeUseSet(builtinAnyTypeAttributeUseSet(anyWildcard))
 	if err != nil {
 		return err
 	}
-	modelID, err := c.addModel(BuiltinAnyTypeContentModel())
+	modelID, err := c.addModel(builtinAnyTypeContentModel())
 	if err != nil {
 		return err
 	}
-	q, err := c.rt.internQName(vocab.XSDNamespaceURI, BuiltinAnyTypeLocalName())
+	q, err := c.rt.internQName(vocab.XSDNamespaceURI, builtinAnyTypeLocalName())
 	if err != nil {
 		return err
 	}
-	_, err = c.registerBuiltinAnyType(q, BuiltinAnyTypeComplexType(q, modelID, attrSet))
+	_, err = c.registerBuiltinAnyType(q, builtinAnyTypeComplexType(q, modelID, attrSet))
 	return err
 }
 
@@ -124,11 +124,11 @@ func (c *compiler) missingSimpleType() (SimpleTypeID, error) {
 	if c.missingSimple != NoSimpleType {
 		return c.missingSimple, nil
 	}
-	q, err := c.rt.internQName(vocab.EmptyNamespaceURI, MissingSimpleTypeLocalName())
+	q, err := c.rt.internQName(vocab.EmptyNamespaceURI, missingSimpleTypeLocalName())
 	if err != nil {
 		return NoSimpleType, err
 	}
-	typ := MissingSimpleType(q, value.AnySimpleTypeID)
+	typ := missingSimpleType(q, value.AnySimpleTypeID)
 	id, err := c.addSimpleType(typ)
 	if err != nil {
 		return NoSimpleType, err

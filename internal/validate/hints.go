@@ -11,10 +11,10 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// SchemaLocationHints accounts for distinct namespace names admitted from
+// schemaLocationHintSet accounts for distinct namespace names admitted from
 // instance location attributes. Retained names enforce document resource limits;
 // they do not participate in component selection.
-type SchemaLocationHints struct {
+type schemaLocationHintSet struct {
 	namespaces     map[string]struct{}
 	namespaceBytes int64
 }
@@ -29,14 +29,14 @@ type schemaLocationHintDelta struct {
 	namespaceBytes int64
 }
 
-func cloneSchemaLocationHints(h SchemaLocationHints) SchemaLocationHints {
-	return SchemaLocationHints{
+func cloneSchemaLocationHints(h schemaLocationHintSet) schemaLocationHintSet {
+	return schemaLocationHintSet{
 		namespaces:     maps.Clone(h.namespaces),
 		namespaceBytes: h.namespaceBytes,
 	}
 }
 
-func (h *SchemaLocationHints) stageAttribute(name xml.Name, value string, limits schemaLocationHintLimits, ctx StartContext, delta *schemaLocationHintDelta) error {
+func (h *schemaLocationHintSet) stageAttribute(name xml.Name, value string, limits schemaLocationHintLimits, ctx startContext, delta *schemaLocationHintDelta) error {
 	switch name.Local {
 	case vocab.XSIAttrSchemaLocation:
 		return h.stageNamespaceSchemaLocation(value, limits, ctx, delta)
@@ -48,7 +48,7 @@ func (h *SchemaLocationHints) stageAttribute(name xml.Name, value string, limits
 }
 
 // Has reports whether a schema-location hint was seen for ns.
-func (h *SchemaLocationHints) Has(ns string) bool {
+func (h *schemaLocationHintSet) Has(ns string) bool {
 	if h == nil {
 		return false
 	}
@@ -57,7 +57,7 @@ func (h *SchemaLocationHints) Has(ns string) bool {
 }
 
 // Reset clears retained hints, keeping the namespace map only when bounded.
-func (h *SchemaLocationHints) Reset(maxRetainedNamespaces int) {
+func (h *schemaLocationHintSet) Reset(maxRetainedNamespaces int) {
 	if h == nil {
 		return
 	}
@@ -69,7 +69,7 @@ func (h *SchemaLocationHints) Reset(maxRetainedNamespaces int) {
 	clear(h.namespaces)
 }
 
-func (h *SchemaLocationHints) stageNamespaceSchemaLocation(value string, limits schemaLocationHintLimits, ctx StartContext, delta *schemaLocationHintDelta) error {
+func (h *schemaLocationHintSet) stageNamespaceSchemaLocation(value string, limits schemaLocationHintLimits, ctx startContext, delta *schemaLocationHintDelta) error {
 	count, err := validateSchemaLocationFields(value, ctx)
 	if err != nil {
 		return err
@@ -80,7 +80,7 @@ func (h *SchemaLocationHints) stageNamespaceSchemaLocation(value string, limits 
 	return h.stageNamespaceHints(value, delta, limits, ctx)
 }
 
-func validateSchemaLocationFields(value string, ctx StartContext) (int, error) {
+func validateSchemaLocationFields(value string, ctx startContext) (int, error) {
 	count := 0
 	for field := range lex.XMLFieldsSeq(value) {
 		if _, err := uriref.Check(field); err != nil {
@@ -91,7 +91,7 @@ func validateSchemaLocationFields(value string, ctx StartContext) (int, error) {
 	return count, nil
 }
 
-func (h *SchemaLocationHints) stageNamespaceHints(value string, delta *schemaLocationHintDelta, limits schemaLocationHintLimits, ctx StartContext) error {
+func (h *schemaLocationHintSet) stageNamespaceHints(value string, delta *schemaLocationHintDelta, limits schemaLocationHintLimits, ctx startContext) error {
 	index := 0
 	for field := range lex.XMLFieldsSeq(value) {
 		if index%2 == 0 {
@@ -104,7 +104,7 @@ func (h *SchemaLocationHints) stageNamespaceHints(value string, delta *schemaLoc
 	return nil
 }
 
-func (h *SchemaLocationHints) stageNamespaceHint(ns string, delta *schemaLocationHintDelta, limits schemaLocationHintLimits, ctx StartContext) error {
+func (h *schemaLocationHintSet) stageNamespaceHint(ns string, delta *schemaLocationHintDelta, limits schemaLocationHintLimits, ctx startContext) error {
 	if _, exists := h.namespaces[ns]; exists {
 		return nil
 	}
@@ -127,7 +127,7 @@ func (h *SchemaLocationHints) stageNamespaceHint(ns string, delta *schemaLocatio
 	return nil
 }
 
-func (h *SchemaLocationHints) commitNamespaceHints(pending map[string]struct{}, pendingBytes int64) {
+func (h *schemaLocationHintSet) commitNamespaceHints(pending map[string]struct{}, pendingBytes int64) {
 	if len(pending) != 0 && h.namespaces == nil {
 		h.namespaces = make(map[string]struct{}, len(pending))
 	}
@@ -137,7 +137,7 @@ func (h *SchemaLocationHints) commitNamespaceHints(pending map[string]struct{}, 
 	h.namespaceBytes += pendingBytes
 }
 
-func (h *SchemaLocationHints) stageNoNamespaceSchemaLocation(value string, limits schemaLocationHintLimits, ctx StartContext, delta *schemaLocationHintDelta) error {
+func (h *schemaLocationHintSet) stageNoNamespaceSchemaLocation(value string, limits schemaLocationHintLimits, ctx startContext, delta *schemaLocationHintDelta) error {
 	value = lex.TrimXMLWhitespaceString(value)
 	if _, err := uriref.Check(value); err != nil {
 		return validation(ctx, xsderrors.CodeValidationAttribute, invalidURIMessage("xsi:noNamespaceSchemaLocation", value))
@@ -145,8 +145,8 @@ func (h *SchemaLocationHints) stageNoNamespaceSchemaLocation(value string, limit
 	return h.stageNamespaceHint("", delta, limits, ctx)
 }
 
-// IsSchemaLocationHintName reports whether name is an XSI schema-location hint.
-func IsSchemaLocationHintName(name xml.Name) bool {
+// isSchemaLocationHintName reports whether name is an XSI schema-location hint.
+func isSchemaLocationHintName(name xml.Name) bool {
 	return name.Space == vocab.XSINamespaceURI &&
 		(name.Local == vocab.XSIAttrSchemaLocation || name.Local == vocab.XSIAttrNoNamespaceSchemaLocation)
 }

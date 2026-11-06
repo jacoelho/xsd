@@ -93,7 +93,7 @@ func TestCDATAChunkTokenLimit(t *testing.T) {
 				if _, err := recordReader(rc.open(document), Config{Limits: Limits{MaxTokenBytes: test.pass}}, 0); err != nil {
 					t.Fatalf("%s: MaxTokenBytes=%d error = %v", rc.name, test.pass, err)
 				}
-				if _, err := recordReader(rc.open(document), Config{Limits: Limits{MaxTokenBytes: test.fail}}, 0); !IsTokenLimit(err) {
+				if _, err := recordReader(rc.open(document), Config{Limits: Limits{MaxTokenBytes: test.fail}}, 0); !isLimit(err, LimitTokenBytes) {
 					t.Fatalf("%s: MaxTokenBytes=%d error = %v, want token limit", rc.name, test.fail, err)
 				}
 			}

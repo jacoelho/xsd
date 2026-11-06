@@ -5,167 +5,167 @@ import (
 	"slices"
 )
 
-// ModelKind identifies the runtime content-model shape.
-type ModelKind uint8
+// modelKind identifies the runtime content-model shape.
+type modelKind uint8
 
 const (
-	// ModelEmpty is an empty content model.
-	ModelEmpty ModelKind = iota
-	// ModelAny is the builtin xs:anyType content model.
-	ModelAny
-	// ModelSequence is an xs:sequence content model.
-	ModelSequence
-	// ModelChoice is an xs:choice content model.
-	ModelChoice
-	// ModelAll is an xs:all content model.
-	ModelAll
+	// modelEmpty is an empty content model.
+	modelEmpty modelKind = iota
+	// modelAny is the builtin xs:anyType content model.
+	modelAny
+	// modelSequence is an xs:sequence content model.
+	modelSequence
+	// modelChoice is an xs:choice content model.
+	modelChoice
+	// modelAll is an xs:all content model.
+	modelAll
 )
 
-// ParticleKind identifies the active reference in a Particle.
-type ParticleKind uint8
+// particleKind identifies the active reference in a contentParticle.
+type particleKind uint8
 
 const (
-	// ParticleElement references an element declaration.
-	ParticleElement ParticleKind = iota
-	// ParticleModel references a nested content model.
-	ParticleModel
-	// ParticleWildcard references a wildcard.
-	ParticleWildcard
+	// particleElement references an element declaration.
+	particleElement particleKind = iota
+	// particleModel references a nested content model.
+	particleModel
+	// particleWildcard references a wildcard.
+	particleWildcard
 )
 
-// Occurrence stores min/max occurrence constraints.
-type Occurrence struct {
+// occurrence stores min/max occurrence constraints.
+type occurrence struct {
 	Min       uint32
 	Max       uint32
 	Unbounded bool
 }
 
 // IsExactlyOne reports whether the occurrence range is exactly 1..1.
-func (o Occurrence) IsExactlyOne() bool {
+func (o occurrence) IsExactlyOne() bool {
 	return o.Min == 1 && o.Max == 1 && !o.Unbounded
 }
 
-// ContentModel is a runtime content-model tree node.
-type ContentModel struct {
-	Particles []Particle
-	Occurs    Occurrence
-	Kind      ModelKind
+// contentModelNode is a runtime content-model tree node.
+type contentModelNode struct {
+	Particles []contentParticle
+	Occurs    occurrence
+	Kind      modelKind
 	Mixed     bool
 }
 
-// ContentModelByID resolves and clones a content model from a content-model
+// contentModelByID resolves and clones a content model from a content-model
 // table.
-func ContentModelByID(models []ContentModel, id ContentModelID) (ContentModel, bool) {
-	if !ValidContentModelID(id, len(models)) {
-		return ContentModel{}, false
+func contentModelByID(models []contentModelNode, id contentModelID) (contentModelNode, bool) {
+	if !validContentModelID(id, len(models)) {
+		return contentModelNode{}, false
 	}
-	return CloneContentModel(models[id]), true
+	return cloneContentModel(models[id]), true
 }
 
-// Particle is a tagged union: Kind selects which ID field is active.
-type Particle struct {
-	Kind     ParticleKind
-	Occurs   Occurrence
+// contentParticle is a tagged union: Kind selects which ID field is active.
+type contentParticle struct {
+	Kind     particleKind
+	Occurs   occurrence
 	Element  ElementID
-	Model    ContentModelID
+	Model    contentModelID
 	Wildcard WildcardID
 }
 
-// ContentModelRefLimits are table sizes used to validate cross-table particle
+// contentModelRefLimits are table sizes used to validate cross-table particle
 // references in a frozen runtime schema.
-type ContentModelRefLimits struct {
+type contentModelRefLimits struct {
 	ElementCount      int
 	ContentModelCount int
 	WildcardCount     int
 }
 
-// ParticleRestrictionElement is the element-declaration projection needed to
+// particleRestrictionElement is the element-declaration projection needed to
 // evaluate particle restriction over frozen runtime metadata.
-type ParticleRestrictionElement struct {
+type particleRestrictionElement struct {
 	Identities IdentityConstraintIDs
-	Fixed      ValueConstraintIdentity
+	Fixed      constraintIdentity
 	Type       TypeID
 	Block      DerivationMask
-	Scope      DeclarationScope
+	Scope      declarationScope
 	Nillable   bool
 }
 
-// ElementParticle returns an element particle with inactive fields pinned.
-func ElementParticle(id ElementID, occurs Occurrence) Particle {
-	return Particle{Kind: ParticleElement, Occurs: occurs, Element: id, Model: NoContentModel, Wildcard: NoWildcard}
+// elementParticle returns an element particle with inactive fields pinned.
+func elementParticle(id ElementID, occurs occurrence) contentParticle {
+	return contentParticle{Kind: particleElement, Occurs: occurs, Element: id, Model: noContentModel, Wildcard: NoWildcard}
 }
 
-// ModelParticle returns a model particle with inactive fields pinned.
-func ModelParticle(id ContentModelID, occurs Occurrence) Particle {
-	return Particle{Kind: ParticleModel, Occurs: occurs, Element: NoElement, Model: id, Wildcard: NoWildcard}
+// modelParticle returns a model particle with inactive fields pinned.
+func modelParticle(id contentModelID, occurs occurrence) contentParticle {
+	return contentParticle{Kind: particleModel, Occurs: occurs, Element: NoElement, Model: id, Wildcard: NoWildcard}
 }
 
-// WildcardParticle returns a wildcard particle with inactive fields pinned.
-func WildcardParticle(id WildcardID, occurs Occurrence) Particle {
-	return Particle{Kind: ParticleWildcard, Occurs: occurs, Element: NoElement, Model: NoContentModel, Wildcard: id}
+// wildcardParticle returns a wildcard particle with inactive fields pinned.
+func wildcardParticle(id WildcardID, occurs occurrence) contentParticle {
+	return contentParticle{Kind: particleWildcard, Occurs: occurs, Element: NoElement, Model: noContentModel, Wildcard: id}
 }
 
-// ValidateContentModelShape validates content-model metadata that does not
+// validateContentModelShape validates content-model metadata that does not
 // require cross-table ID lookup.
-func ValidateContentModelShape(model ContentModel) error {
+func validateContentModelShape(model contentModelNode) error {
 	if err := validateContentModelKindShape(model); err != nil {
 		return err
 	}
 	for _, particle := range model.Particles {
-		if err := ValidateParticleShape(particle); err != nil {
+		if err := validateParticleShape(particle); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func validateContentModelKindShape(model ContentModel) error {
+func validateContentModelKindShape(model contentModelNode) error {
 	switch model.Kind {
-	case ModelEmpty:
+	case modelEmpty:
 		return validateEmptyContentModelShape(model)
-	case ModelAny:
+	case modelAny:
 		return validateAnyContentModelShape(model)
-	case ModelSequence, ModelChoice:
+	case modelSequence, modelChoice:
 		return validateCompositorContentModelShape(model)
-	case ModelAll:
+	case modelAll:
 		return validateAllContentModelShape(model)
 	default:
 		return errors.New("content model has invalid kind")
 	}
 }
 
-func validateEmptyContentModelShape(model ContentModel) error {
-	if len(model.Particles) != 0 || model.Occurs != (Occurrence{}) {
+func validateEmptyContentModelShape(model contentModelNode) error {
+	if len(model.Particles) != 0 || model.Occurs != (occurrence{}) {
 		return errors.New("empty content model stores inactive fields")
 	}
 	return nil
 }
 
-func validateAnyContentModelShape(model ContentModel) error {
-	if len(model.Particles) != 0 || model.Occurs != (Occurrence{}) || !model.Mixed {
+func validateAnyContentModelShape(model contentModelNode) error {
+	if len(model.Particles) != 0 || model.Occurs != (occurrence{}) || !model.Mixed {
 		return errors.New("any content model has invalid shape")
 	}
 	return nil
 }
 
-func validateCompositorContentModelShape(model ContentModel) error {
+func validateCompositorContentModelShape(model contentModelNode) error {
 	if !validOccurrence(model.Occurs) {
 		return errors.New("content model occurrence is invalid")
 	}
 	return nil
 }
 
-func validateAllContentModelShape(model ContentModel) error {
+func validateAllContentModelShape(model contentModelNode) error {
 	if !validOccurrence(model.Occurs) || model.Occurs.Unbounded || model.Occurs.Max > 1 || model.Occurs.Min > 1 {
 		return errors.New("all content model occurrence is invalid")
 	}
 	return nil
 }
 
-// ValidateContentModelRuntime validates content-model shape and cross-table
+// validateContentModelRuntime validates content-model shape and cross-table
 // particle references.
-func ValidateContentModelRuntime(model ContentModel, limits ContentModelRefLimits) error {
-	if err := ValidateContentModelShape(model); err != nil {
+func validateContentModelRuntime(model contentModelNode, limits contentModelRefLimits) error {
+	if err := validateContentModelShape(model); err != nil {
 		return err
 	}
 	for _, particle := range model.Particles {
@@ -176,18 +176,18 @@ func ValidateContentModelRuntime(model ContentModel, limits ContentModelRefLimit
 	return nil
 }
 
-func validateParticleRuntimeReference(particle Particle, limits ContentModelRefLimits) error {
+func validateParticleRuntimeReference(particle contentParticle, limits contentModelRefLimits) error {
 	switch particle.Kind {
-	case ParticleElement:
-		if !ValidElementID(particle.Element, limits.ElementCount) {
+	case particleElement:
+		if !validElementID(particle.Element, limits.ElementCount) {
 			return errors.New("particle references invalid element")
 		}
-	case ParticleModel:
-		if !ValidContentModelID(particle.Model, limits.ContentModelCount) {
+	case particleModel:
+		if !validContentModelID(particle.Model, limits.ContentModelCount) {
 			return errors.New("particle references invalid content model")
 		}
-	case ParticleWildcard:
-		if !ValidWildcardID(particle.Wildcard, limits.WildcardCount) {
+	case particleWildcard:
+		if !validWildcardID(particle.Wildcard, limits.WildcardCount) {
 			return errors.New("particle references invalid wildcard")
 		}
 	default:
@@ -205,18 +205,18 @@ const (
 )
 
 type contentModelGraphFrame struct {
-	id   ContentModelID
+	id   contentModelID
 	next int
 }
 
-func validateContentModelGraph(models []ContentModel) error {
+func validateContentModelGraph(models []contentModelNode) error {
 	audit := contentModelGraphAudit{
 		models: models,
 		state:  make([]contentModelGraphState, len(models)),
 		stack:  make([]contentModelGraphFrame, 0, min(len(models), 1_024)),
 	}
 	for i := range models {
-		root := ContentModelID(i)
+		root := contentModelID(i)
 		if audit.state[root] == contentModelGraphChecked {
 			continue
 		}
@@ -228,12 +228,12 @@ func validateContentModelGraph(models []ContentModel) error {
 }
 
 type contentModelGraphAudit struct {
-	models []ContentModel
+	models []contentModelNode
 	state  []contentModelGraphState
 	stack  []contentModelGraphFrame
 }
 
-func (a *contentModelGraphAudit) validateRoot(root ContentModelID) error {
+func (a *contentModelGraphAudit) validateRoot(root contentModelID) error {
 	a.state[root] = contentModelGraphChecking
 	a.stack = appendDFSFrame(a.stack, contentModelGraphFrame{id: root}, len(a.models))
 	for len(a.stack) != 0 {
@@ -253,7 +253,7 @@ func (a *contentModelGraphAudit) advance() error {
 		a.stack = a.stack[:top]
 		return nil
 	}
-	if !ValidContentModelID(child, len(a.models)) {
+	if !validContentModelID(child, len(a.models)) {
 		return errors.New("content model graph references invalid model")
 	}
 	switch a.state[child] {
@@ -267,39 +267,39 @@ func (a *contentModelGraphAudit) advance() error {
 	return nil
 }
 
-func nextNestedContentModel(particles []Particle, next *int) (ContentModelID, bool) {
-	for *next < len(particles) && particles[*next].Kind != ParticleModel {
+func nextNestedContentModel(particles []contentParticle, next *int) (contentModelID, bool) {
+	for *next < len(particles) && particles[*next].Kind != particleModel {
 		*next++
 	}
 	if *next == len(particles) {
-		return NoContentModel, false
+		return noContentModel, false
 	}
 	child := particles[*next].Model
 	*next++
 	return child, true
 }
 
-// ComplexContentExtendsBase reports whether derived preserves base as the
+// complexContentExtendsBase reports whether derived preserves base as the
 // leading content of a complex-type extension.
-func ComplexContentExtendsBase(rt *schemaBuild, baseID, derivedID ContentModelID) bool {
-	if baseID == derivedID || ModelHasNoParticles(rt, baseID) {
+func complexContentExtendsBase(rt *schemaBuild, baseID, derivedID contentModelID) bool {
+	if baseID == derivedID || modelHasNoParticles(rt, baseID) {
 		return true
 	}
-	base, ok := ContentModelByID(rt.Models, baseID)
+	base, ok := contentModelByID(rt.Models, baseID)
 	if !ok {
 		return false
 	}
-	derived, ok := ContentModelByID(rt.Models, derivedID)
+	derived, ok := contentModelByID(rt.Models, derivedID)
 	if !ok {
 		return false
 	}
-	if derived.Kind != ModelSequence {
+	if derived.Kind != modelSequence {
 		return false
 	}
 	if !derived.Occurs.IsExactlyOne() {
 		return false
 	}
-	if base.Kind == ModelSequence && base.Occurs.IsExactlyOne() {
+	if base.Kind == modelSequence && base.Occurs.IsExactlyOne() {
 		return len(derived.Particles) >= len(base.Particles) &&
 			slices.Equal(derived.Particles[:len(base.Particles)], base.Particles)
 	}
@@ -307,11 +307,11 @@ func ComplexContentExtendsBase(rt *schemaBuild, baseID, derivedID ContentModelID
 		modelParticlePreservesBase(rt.Models, derived.Particles[0], baseID, base)
 }
 
-func modelParticlePreservesBase(models []ContentModel, particle Particle, baseID ContentModelID, base ContentModel) bool {
+func modelParticlePreservesBase(models []contentModelNode, particle contentParticle, baseID contentModelID, base contentModelNode) bool {
 	if base.Occurs.IsExactlyOne() {
-		return particle == ModelParticle(baseID, base.Occurs)
+		return particle == modelParticle(baseID, base.Occurs)
 	}
-	if particle.Kind != ParticleModel || particle.Occurs != base.Occurs || !ValidContentModelID(particle.Model, len(models)) {
+	if particle.Kind != particleModel || particle.Occurs != base.Occurs || !validContentModelID(particle.Model, len(models)) {
 		return false
 	}
 	// CompileModelParticle moves the base occurrence onto the reference and
@@ -321,45 +321,45 @@ func modelParticlePreservesBase(models []ContentModel, particle Particle, baseID
 		normalized.Mixed == base.Mixed && slices.Equal(normalized.Particles, base.Particles)
 }
 
-func spendContentModelWork(work ContentModelWork) error {
+func spendContentModelWork(work contentModelWork) error {
 	if err := requireContentModelWork(work); err != nil {
 		return err
 	}
 	return work(1)
 }
 
-func requireContentModelWork(work ContentModelWork) error {
+func requireContentModelWork(work contentModelWork) error {
 	if work == nil {
 		return errors.New("content-model work budget is required")
 	}
 	return nil
 }
 
-func validOccurrence(o Occurrence) bool {
+func validOccurrence(o occurrence) bool {
 	if o.Unbounded {
 		return o.Max == 0
 	}
 	return o.Max >= o.Min
 }
 
-// ValidateParticleShape validates particle metadata that does not require
+// validateParticleShape validates particle metadata that does not require
 // cross-table ID lookup.
-func ValidateParticleShape(p Particle) error {
+func validateParticleShape(p contentParticle) error {
 	if !validOccurrence(p.Occurs) {
 		return errors.New("particle occurrence is invalid")
 	}
 	switch p.Kind {
-	case ParticleElement, ParticleModel, ParticleWildcard:
+	case particleElement, particleModel, particleWildcard:
 	default:
 		return errors.New("particle has invalid kind")
 	}
-	if p.Kind != ParticleElement && p.Element != NoElement {
+	if p.Kind != particleElement && p.Element != NoElement {
 		return errors.New("particle stores element ID for non-element kind")
 	}
-	if p.Kind != ParticleModel && p.Model != NoContentModel {
+	if p.Kind != particleModel && p.Model != noContentModel {
 		return errors.New("particle stores content model ID for non-model kind")
 	}
-	if p.Kind != ParticleWildcard && p.Wildcard != NoWildcard {
+	if p.Kind != particleWildcard && p.Wildcard != NoWildcard {
 		return errors.New("particle stores wildcard ID for non-wildcard kind")
 	}
 	return nil

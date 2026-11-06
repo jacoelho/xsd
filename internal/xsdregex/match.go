@@ -82,25 +82,22 @@ func (b *matchBudget) step(units uint64) error {
 type nfaRunner struct {
 	pattern *Pattern
 	scratch *Scratch
-	options MatchOptions
-	budget  matchBudget
+	budget  *matchBudget
 	single  int
 	current uint64
 	scalar  bool
 	bitset  bool
 }
 
-func newRunner(pattern *Pattern, options MatchOptions, scratch *Scratch) (nfaRunner, error) {
+func newRunner(pattern *Pattern, budget *matchBudget, scratch *Scratch) (nfaRunner, error) {
 	if len(pattern.states) == 0 || pattern.start < 0 || pattern.start >= len(pattern.states) {
 		return nfaRunner{}, &Error{Kind: ErrorSyntax, Offset: -1, What: "invalid compiled pattern"}
 	}
-	budget := matchBudget{limit: options.MaxWork}
-	if err := prepareRunnerScratch(pattern, scratch, &budget); err != nil {
+	if err := prepareRunnerScratch(pattern, scratch); err != nil {
 		return nfaRunner{}, err
 	}
 	return nfaRunner{
 		pattern: pattern,
-		options: options,
 		scratch: scratch,
 		budget:  budget,
 		single:  -1,
@@ -108,19 +105,20 @@ func newRunner(pattern *Pattern, options MatchOptions, scratch *Scratch) (nfaRun
 	}, nil
 }
 
-func prepareRunnerScratch(pattern *Pattern, scratch *Scratch, budget *matchBudget) error {
+func prepareRunnerScratch(pattern *Pattern, scratch *Scratch) error {
 	if pattern.deterministic || pattern.bitset {
 		return nil
 	}
 	if scratch == nil {
 		return &Error{Kind: ErrorSyntax, Offset: -1, What: "missing matcher scratch"}
 	}
+	// Scratch growth and the generation-wraparound clear are uncharged: the
+	// fixed per-pattern state bound caps them, and charging them would make
+	// reported work depend on scratch history (regex.go: equal inputs report
+	// equal work).
 	if cap(scratch.seen) >= len(pattern.states) {
 		scratch.seen = scratch.seen[:len(pattern.states)]
 	} else {
-		if err := budget.step(uint64(len(pattern.states))); err != nil {
-			return &Error{Kind: ErrorLimit, Offset: -1, What: matchScratchLimitError}
-		}
 		scratch.seen = make([]uint32, len(pattern.states))
 	}
 	scratch.current = scratch.current[:0]
@@ -203,9 +201,6 @@ func (r *nfaRunner) processClosureJump(instruction instruction) error {
 }
 
 func (r *nfaRunner) processClosureTarget(dst *[]int, pc int) error {
-	if uint64(len(*dst)) >= r.options.MaxStates {
-		return &Error{Kind: ErrorLimit, Offset: -1, What: matchStateLimitError}
-	}
 	if err := r.budget.step(1); err != nil {
 		return err
 	}
@@ -220,9 +215,6 @@ func (r *nfaRunner) start() error {
 		return nil
 	}
 	if r.pattern.bitset {
-		if bitCount(r.pattern.startBits) > r.options.MaxStates {
-			return &Error{Kind: ErrorLimit, Offset: -1, What: matchStateLimitError}
-		}
 		r.current = r.pattern.startBits
 		return nil
 	}
@@ -253,9 +245,6 @@ func (r *nfaRunner) addPrecomputedTarget(dst *[]int, pc int) error {
 		return nil
 	}
 	r.scratch.seen[pc] = r.scratch.mark
-	if uint64(len(*dst)) >= r.options.MaxStates {
-		return &Error{Kind: ErrorLimit, Offset: -1, What: matchStateLimitError}
-	}
 	if err := r.budget.step(1); err != nil {
 		return err
 	}
@@ -288,9 +277,6 @@ func (r *nfaRunner) bitsetRune(value rune) error {
 		closure := r.pattern.closureBits[bit]
 		work += bitCount(closure)
 		next |= closure
-	}
-	if bitCount(next) > r.options.MaxStates {
-		return &Error{Kind: ErrorLimit, Offset: -1, What: matchStateLimitError}
 	}
 	if err := r.budget.step(work); err != nil {
 		return err
@@ -390,15 +376,26 @@ func (r *nfaRunner) accepts() (bool, error) {
 	return false, nil
 }
 
-func matchString(pattern *Pattern, input string, options MatchOptions, scratch *Scratch) (bool, error) {
+// matchString charges one unit per input byte before decoding or growing
+// scratch, so every path pays for the input it reads.
+func matchString(pattern *Pattern, input string, options MatchOptions, scratch *Scratch) (bool, uint64, error) {
+	budget := matchBudget{limit: options.MaxWork}
+	if err := budget.step(uint64(len(input))); err != nil {
+		return false, 0, err
+	}
+	matched, err := matchStringCharged(pattern, input, &budget, scratch)
+	return matched, budget.work, err
+}
+
+func matchStringCharged(pattern *Pattern, input string, budget *matchBudget, scratch *Scratch) (bool, error) {
 	if pattern.linear != nil {
-		return pattern.linear.matchString(input, options, scratch)
+		return pattern.linear.matchString(input, budget, scratch)
 	}
 	var owned Scratch
 	if scratch == nil {
 		scratch = &owned
 	}
-	runner, err := newRunner(pattern, options, scratch)
+	runner, err := newRunner(pattern, budget, scratch)
 	if err != nil {
 		return false, err
 	}
@@ -419,15 +416,24 @@ func matchString(pattern *Pattern, input string, options MatchOptions, scratch *
 	return runner.accepts()
 }
 
-func matchBytes(pattern *Pattern, input []byte, options MatchOptions, scratch *Scratch) (bool, error) {
+func matchBytes(pattern *Pattern, input []byte, options MatchOptions, scratch *Scratch) (bool, uint64, error) {
+	budget := matchBudget{limit: options.MaxWork}
+	if err := budget.step(uint64(len(input))); err != nil {
+		return false, 0, err
+	}
+	matched, err := matchBytesCharged(pattern, input, &budget, scratch)
+	return matched, budget.work, err
+}
+
+func matchBytesCharged(pattern *Pattern, input []byte, budget *matchBudget, scratch *Scratch) (bool, error) {
 	if pattern.linear != nil {
-		return pattern.linear.matchBytes(input, options, scratch)
+		return pattern.linear.matchBytes(input, budget, scratch)
 	}
 	var owned Scratch
 	if scratch == nil {
 		scratch = &owned
 	}
-	runner, err := newRunner(pattern, options, scratch)
+	runner, err := newRunner(pattern, budget, scratch)
 	if err != nil {
 		return false, err
 	}

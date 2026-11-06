@@ -36,7 +36,7 @@ func (c *compiler) compileSubstitutions() error {
 
 type substitutionCompilation struct {
 	compiler     *compiler
-	elements     []ElementDecl
+	elements     []elementDecl
 	children     [][]ElementID
 	indegree     []uint8
 	inheritsType []bool
@@ -72,7 +72,7 @@ func (s *substitutionCompilation) linkHead(memberQName QName) error {
 		return nil
 	}
 	member, ok := s.compiler.rt.GlobalElements[memberQName]
-	if !ok || !ValidElementID(member, len(s.elements)) {
+	if !ok || !validElementID(member, len(s.elements)) {
 		return xsderrors.InternalInvariant("substitution member was not compiled")
 	}
 	s.inheritsType[member] = elementUsesSubstitutionType(raw.sourceNode())
@@ -84,7 +84,7 @@ func (s *substitutionCompilation) linkHead(memberQName QName) error {
 	if !ok {
 		return nil
 	}
-	if !ValidElementID(head, len(s.elements)) {
+	if !validElementID(head, len(s.elements)) {
 		return xsderrors.InternalInvariant("substitution head was not compiled")
 	}
 	s.elements[member].SubstHead = head
@@ -146,7 +146,7 @@ func (s *substitutionCompilation) finalizeElementConstraints() error {
 }
 
 func (s *substitutionCompilation) finalizeElementConstraint(pending pendingElementConstraint) error {
-	if !ValidElementID(pending.element, len(s.elements)) {
+	if !validElementID(pending.element, len(s.elements)) {
 		return xsderrors.InternalInvariant("pending element constraint references invalid element")
 	}
 	decl := s.elements[pending.element]
@@ -154,11 +154,11 @@ func (s *substitutionCompilation) finalizeElementConstraint(pending pendingEleme
 		return xsderrors.InternalInvariant("pending element constraint targets finalized declaration")
 	}
 	switch pending.kind {
-	case DeclarationValueConstraintDefault:
-		decl.Default = &ValueConstraint{Lexical: pending.lexical}
-	case DeclarationValueConstraintFixed:
-		decl.Fixed = &ValueConstraint{Lexical: pending.lexical}
-	case DeclarationValueConstraintNone, DeclarationValueConstraintConflict:
+	case declarationValueConstraintDefault:
+		decl.Default = &valueConstraint{Lexical: pending.lexical}
+	case declarationValueConstraintFixed:
+		decl.Fixed = &valueConstraint{Lexical: pending.lexical}
+	case declarationValueConstraintNone, declarationValueConstraintConflict:
 		return xsderrors.InternalInvariant("pending element constraint has invalid kind")
 	default:
 		err := xsderrors.InternalInvariant("pending element constraint has invalid kind")
@@ -171,21 +171,21 @@ func (s *substitutionCompilation) finalizeElementConstraint(pending pendingEleme
 	return nil
 }
 
-func (c *compiler) substitutionTableError(err error, elements []ElementDecl) error {
-	if cycle, ok := errors.AsType[SubstitutionCycleError](err); ok {
+func (c *compiler) substitutionTableError(err error, elements []elementDecl) error {
+	if cycle, ok := errors.AsType[substitutionCycleError](err); ok {
 		name, nameOK := c.rt.ElementName(cycle.Element)
 		if nameOK {
 			return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "cyclic substitution group "+c.rt.formatName(name))
 		}
 	}
-	if limitErr, ok := errors.AsType[SubstitutionClosureLimitError](err); ok {
+	if limitErr, ok := errors.AsType[substitutionClosureLimitError](err); ok {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "substitution-group closure exceeds MaxSubstitutionClosureEntries ("+strconv.Itoa(limitErr.Limit)+")")
 	}
-	if membership, ok := errors.AsType[SubstitutionMembershipError](err); ok &&
-		ValidElementID(membership.Member, len(elements)) && ValidElementID(membership.Head, len(elements)) {
+	if membership, ok := errors.AsType[substitutionMembershipError](err); ok &&
+		validElementID(membership.Member, len(elements)) && validElementID(membership.Head, len(elements)) {
 		member := elements[membership.Member]
 		head := elements[membership.Head]
-		diagnostic := substitutionMembershipDiagnostic(membership.Cause, SubstitutionMembershipLabels{
+		diagnostic := substitutionMembershipDiagnostic(membership.Cause, substitutionMembershipLabels{
 			MemberName: c.rt.formatName(member.Name),
 			MemberType: c.rt.TypeLabel(member.Type),
 			HeadName:   c.rt.formatName(head.Name),
@@ -202,15 +202,15 @@ func (c *compiler) substitutionTableError(err error, elements []ElementDecl) err
 	return xsderrors.InternalInvariant(err.Error())
 }
 
-func substitutionCycleElement(start ElementID, elements []ElementDecl) (ElementID, error) {
+func substitutionCycleElement(start ElementID, elements []elementDecl) (ElementID, error) {
 	current := start
 	for range elements {
-		if !ValidElementID(current, len(elements)) {
+		if !validElementID(current, len(elements)) {
 			return NoElement, xsderrors.InternalInvariant("substitution cycle references invalid element")
 		}
 		current = elements[current].SubstHead
 	}
-	if !ValidElementID(current, len(elements)) {
+	if !validElementID(current, len(elements)) {
 		return NoElement, xsderrors.InternalInvariant("substitution residual does not lead to a cycle")
 	}
 	return current, nil
@@ -248,7 +248,7 @@ func (c *compiler) resolveTypeQName(q QName) (TypeID, error) {
 		}
 		return ComplexRef(id), nil
 	}
-	err := SchemaComponentMissingError(SchemaComponentType, c.rt.formatName(q))
+	err := schemaComponentMissingError(schemaComponentType, c.rt.formatName(q))
 	return TypeID{}, err
 }
 

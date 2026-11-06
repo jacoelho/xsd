@@ -10,7 +10,7 @@ import (
 )
 
 func BenchmarkPublishedRawStringEnumeration(b *testing.B) {
-	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := builder.Reserve()
 	if err != nil {
 		b.Fatalf("Reserve() error = %v", err)
@@ -31,7 +31,7 @@ func BenchmarkPublishedRawStringEnumeration(b *testing.B) {
 	raw := []byte("ready")
 	b.ReportAllocs()
 	for b.Loop() {
-		if _, err := program.ValidateBytes(id, raw, valuepkg.Resolver{}, 0, 16<<20, nil); err != nil {
+		if _, err := program.ValidateBytes(id, raw, valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -46,14 +46,14 @@ func BenchmarkPublishedRawNMTokensList(b *testing.B) {
 	raw := []byte("one two three")
 	b.ReportAllocs()
 	for b.Loop() {
-		if _, err := program.ValidateBytes(id, raw, valuepkg.Resolver{}, 0, 16<<20, nil); err != nil {
+		if _, err := program.ValidateBytes(id, raw, valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkPublishedRawIntegerBounds(b *testing.B) {
-	program, err := valuepkg.NewBuilder(valuepkg.BuilderOptions{}).Seal()
+	program, err := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func BenchmarkPublishedRawIntegerBounds(b *testing.B) {
 	raw := []byte("18446744073709551615")
 	b.ReportAllocs()
 	for b.Loop() {
-		if _, err := program.ValidateBytes(id, raw, valuepkg.Resolver{}, 0, 16<<20, nil); err != nil {
+		if _, err := program.ValidateBytes(id, raw, valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -69,7 +69,7 @@ func BenchmarkPublishedRawIntegerBounds(b *testing.B) {
 
 func mustBuiltinProgram(tb testing.TB, name string) (*valuepkg.Program, bool) {
 	tb.Helper()
-	program, err := valuepkg.NewBuilder(valuepkg.BuilderOptions{}).Seal()
+	program, err := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 	if err != nil {
 		tb.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func admittedNumericSpec(f admittedNumericFixture) valuepkg.TypeSpec {
 func BenchmarkAdmittedNumericBounds(b *testing.B) {
 	for _, fixture := range admittedNumericFixtures() {
 		b.Run(fixture.name, func(b *testing.B) {
-			builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+			builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 			id, err := builder.Reserve()
 			if err != nil {
 				b.Fatal(err)
@@ -126,7 +126,7 @@ func BenchmarkAdmittedNumericBounds(b *testing.B) {
 			var last valuepkg.Value
 			b.ReportAllocs()
 			for b.Loop() {
-				last, err = program.ValidateBytes(id, raw, valuepkg.Resolver{}, 0, 16<<20, &scratch)
+				last, err = program.ValidateBytes(id, raw, valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 				if err != nil {
 					b.Fatal(err)
 				}
@@ -164,7 +164,7 @@ func BenchmarkColdNumericBoundConstruction(b *testing.B) {
 
 func buildAdmittedNumericPair(specs [2]valuepkg.TypeSpec) (*valuepkg.Program, [2]valuepkg.TypeID, error) {
 	var ids [2]valuepkg.TypeID
-	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	for i, spec := range specs {
 		id, err := builder.Reserve()
 		if err != nil {
@@ -182,7 +182,7 @@ func buildAdmittedNumericPair(specs [2]valuepkg.TypeSpec) (*valuepkg.Program, [2
 func checkAdmittedNumericFixture(tb testing.TB, program *valuepkg.Program, id valuepkg.TypeID, f admittedNumericFixture, scratch *valuepkg.Scratch) {
 	tb.Helper()
 	for _, opponent := range f.opponents {
-		got, err := program.ValidateBytes(id, []byte(opponent.input), valuepkg.Resolver{}, 0, 16<<20, scratch)
+		got, err := program.ValidateBytes(id, []byte(opponent.input), valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, scratch)
 		if opponent.message != "" {
 			if err == nil || err.Error() != opponent.message {
 				tb.Fatalf("ValidateBytes(%q) = %v, want %q", opponent.input, err, opponent.message)
@@ -194,7 +194,7 @@ func checkAdmittedNumericFixture(tb testing.TB, program *valuepkg.Program, id va
 			checkRawPlanResult(tb, got, id)
 		}
 	}
-	got, err := program.ValidateBytes(id, []byte(f.input), valuepkg.Resolver{}, 0, 16<<20, scratch)
+	got, err := program.ValidateBytes(id, []byte(f.input), valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, scratch)
 	if err != nil {
 		tb.Fatal(err)
 	}
@@ -264,7 +264,7 @@ func BenchmarkCanonicalMagnitude(b *testing.B) {
 		}
 	})
 	b.Run("PresentZeroRaw", func(b *testing.B) {
-		builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+		builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 		id, err := builder.Reserve()
 		if err != nil {
 			b.Fatal(err)
@@ -282,7 +282,7 @@ func BenchmarkCanonicalMagnitude(b *testing.B) {
 		}
 		var scratch valuepkg.Scratch
 		for _, test := range []struct{ input, message string }{{"-.1", `value "-.1" does not satisfy minInclusive "0.0"`}, {".1", `value ".1" does not satisfy maxInclusive "0.0"`}, {"0", ""}} {
-			_, checkErr := program.ValidateBytes(id, []byte(test.input), valuepkg.Resolver{}, 0, 1<<20, &scratch)
+			_, checkErr := program.ValidateBytes(id, []byte(test.input), valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 1 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 			if test.message == "" {
 				if checkErr != nil {
 					b.Fatal(checkErr)
@@ -292,13 +292,13 @@ func BenchmarkCanonicalMagnitude(b *testing.B) {
 			}
 		}
 		raw := []byte("-000.0000")
-		got, err := program.ValidateBytes(id, raw, valuepkg.Resolver{}, 0, 1<<20, &scratch)
+		got, err := program.ValidateBytes(id, raw, valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 1 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 		if err != nil {
 			b.Fatal(err)
 		}
 		checkRawPlanResult(b, got, id)
 		for b.Loop() {
-			got, err = program.ValidateBytes(id, raw, valuepkg.Resolver{}, 0, 1<<20, &scratch)
+			got, err = program.ValidateBytes(id, raw, valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 1 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -322,7 +322,7 @@ func BenchmarkPublishedRawDecimalBounds(b *testing.B) {
 		{name: "UnsupportedFractionDigits", min: "0", max: "10", fraction: true, input: "1.25", message: `value "1.25" has 2 fractional digits; fractionDigits permits at most 1`},
 	} {
 		b.Run(test.name, func(b *testing.B) {
-			builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
+			builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 			id, err := builder.Reserve()
 			if err != nil {
 				b.Fatal(err)
@@ -351,7 +351,7 @@ func BenchmarkPublishedRawDecimalBounds(b *testing.B) {
 			raw := []byte(test.input)
 			var scratch valuepkg.Scratch
 			check := func(input, message string, facet bool) valuepkg.Value {
-				got, validationErr := program.ValidateBytes(id, []byte(input), valuepkg.Resolver{}, 0, 16<<20, &scratch)
+				got, validationErr := program.ValidateBytes(id, []byte(input), valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 				if message != "" {
 					if validationErr == nil || validationErr.Error() != message || facet && !errors.Is(validationErr, valuepkg.ErrFacet) {
 						b.Fatalf("ValidateBytes(%q) = %v, want %q", input, validationErr, message)
@@ -379,7 +379,7 @@ func BenchmarkPublishedRawDecimalBounds(b *testing.B) {
 			var last valuepkg.Value
 			b.ReportAllocs()
 			for b.Loop() {
-				last, err = program.ValidateBytes(id, raw, valuepkg.Resolver{}, 0, 16<<20, &scratch)
+				last, err = program.ValidateBytes(id, raw, valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 				if test.message == "" {
 					if err != nil {
 						b.Fatal(err)
@@ -410,7 +410,7 @@ type probeOppExpected struct {
 }
 
 func BenchmarkUnprojectedProbeOpposing(b *testing.B) {
-	program, err := valuepkg.NewBuilder(valuepkg.BuilderOptions{}).Seal()
+	program, err := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -432,11 +432,11 @@ func BenchmarkUnprojectedProbeOpposing(b *testing.B) {
 	} {
 		b.Run(tc.name, func(b *testing.B) {
 			var scratch valuepkg.Scratch
-			last, validationErr := program.ValidateBytes(tc.id, tc.raw, valuepkg.Resolver{}, tc.needs, tc.work, &scratch)
+			last, validationErr := program.ValidateBytes(tc.id, tc.raw, valuepkg.Resolver{}, tc.needs, valuepkg.EvaluationLimits{Work: tc.work, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 			checkProbeOppSuccess(b, last, validationErr, tc.id, tc.want)
 			b.ReportAllocs()
 			for b.Loop() {
-				last, validationErr = program.ValidateBytes(tc.id, tc.raw, valuepkg.Resolver{}, tc.needs, tc.work, &scratch)
+				last, validationErr = program.ValidateBytes(tc.id, tc.raw, valuepkg.Resolver{}, tc.needs, valuepkg.EvaluationLimits{Work: tc.work, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 			}
 			checkProbeOppSuccess(b, last, validationErr, tc.id, tc.want)
 		})
@@ -444,15 +444,15 @@ func BenchmarkUnprojectedProbeOpposing(b *testing.B) {
 	b.Run("limit_then_reuse_pair", func(b *testing.B) {
 		var scratch valuepkg.Scratch
 		raw := []byte("é")
-		failed, failedErr := program.ValidateBytes(stringID, raw, valuepkg.Resolver{}, 0, 2, &scratch)
-		passed, passedErr := program.ValidateBytes(stringID, raw, valuepkg.Resolver{}, 0, 3, &scratch)
+		failed, failedErr := program.ValidateBytes(stringID, raw, valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 2, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
+		passed, passedErr := program.ValidateBytes(stringID, raw, valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 3, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 		checkProbeOppFailure(b, failed, failedErr)
 		checkProbeOppSuccess(b, passed, passedErr, stringID, probeOppExpected{})
 		b.ReportAllocs()
 		// One operation is the full failure/success pair, each with a fresh call budget.
 		for b.Loop() {
-			failed, failedErr = program.ValidateBytes(stringID, raw, valuepkg.Resolver{}, 0, 2, &scratch)
-			passed, passedErr = program.ValidateBytes(stringID, raw, valuepkg.Resolver{}, 0, 3, &scratch)
+			failed, failedErr = program.ValidateBytes(stringID, raw, valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 2, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
+			passed, passedErr = program.ValidateBytes(stringID, raw, valuepkg.Resolver{}, 0, valuepkg.EvaluationLimits{Work: 3, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 		}
 		checkProbeOppFailure(b, failed, failedErr)
 		checkProbeOppSuccess(b, passed, passedErr, stringID, probeOppExpected{})

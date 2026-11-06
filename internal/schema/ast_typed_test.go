@@ -65,7 +65,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
     <xs:attribute/>
   </xs:include>`,
 			wantLine: 2, wantCol: 3, wantCode: xsderrors.CodeSchemaContentModel,
-			wantMsg: "xs:include cannot contain text",
+			wantMsg: "xs:\"include\" cannot contain text",
 		},
 		{
 			name: "import text before invalid child",
@@ -74,7 +74,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
     <xs:attribute/>
   </xs:import>`,
 			wantLine: 2, wantCol: 3, wantCode: xsderrors.CodeSchemaContentModel,
-			wantMsg: "xs:import cannot contain text",
+			wantMsg: "xs:\"import\" cannot contain text",
 		},
 		{
 			name: "include invalid child before duplicate annotation",
@@ -114,7 +114,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
     <xs:annotation/>
   </xs:complexType>`,
 			wantLine: 4, wantCol: 5, wantCode: xsderrors.CodeSchemaContentModel,
-			wantMsg: "complexType annotation must be first",
+			wantMsg: "\"complexType\" annotation must be first",
 		},
 		{
 			name: "include duplicate annotation before invalid child",
@@ -148,7 +148,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
 			name:     "annotation attribute start admission",
 			body:     `  <xs:annotation foo=""/>`,
 			wantLine: 2, wantCol: 3, wantCode: xsderrors.CodeSchemaInvalidAttribute,
-			wantMsg: "annotation cannot have attribute foo",
+			wantMsg: "\"annotation\" cannot have attribute \"foo\"",
 		},
 		{
 			name: "documentation language before include child grammar",

@@ -2,20 +2,20 @@ package schema
 
 import "slices"
 
-// NewDeclaredIdentityConstraint constructs a declared but not yet compiled
+// newDeclaredIdentityConstraint constructs a declared but not yet compiled
 // identity constraint placeholder.
-func NewDeclaredIdentityConstraint(name QName) IdentityConstraint {
-	return IdentityConstraint{Name: name, Refer: NoIdentityConstraint}
+func newDeclaredIdentityConstraint(name QName) identityConstraintSpec {
+	return identityConstraintSpec{Name: name, Refer: NoIdentityConstraint}
 }
 
-// NewIdentityConstraint owns parsed selector and field metadata.
-func NewIdentityConstraint(kind IdentityKind, name QName, refer IdentityConstraintID, selector []IdentityPath, fields []IdentityField) IdentityConstraint {
+// newIdentityConstraint owns parsed selector and field metadata.
+func newIdentityConstraint(kind IdentityKind, name QName, refer IdentityConstraintID, selector []identityPath, fields []identityField) identityConstraintSpec {
 	if kind != IdentityKeyRef {
 		refer = NoIdentityConstraint
 	}
-	selector = CloneIdentityPaths(selector)
-	fields = CloneIdentityFields(fields)
-	return IdentityConstraint{
+	selector = cloneIdentityPaths(selector)
+	fields = cloneIdentityFields(fields)
+	return identityConstraintSpec{
 		Selector: selector,
 		Fields:   fields,
 		Name:     name,
@@ -24,8 +24,8 @@ func NewIdentityConstraint(kind IdentityKind, name QName, refer IdentityConstrai
 	}
 }
 
-// CloneIdentityPaths deep-clones parsed identity selector path metadata.
-func CloneIdentityPaths(in []IdentityPath) []IdentityPath {
+// cloneIdentityPaths deep-clones parsed identity selector path metadata.
+func cloneIdentityPaths(in []identityPath) []identityPath {
 	out := slices.Clone(in)
 	for i := range out {
 		out[i].Steps = slices.Clone(in[i].Steps)
@@ -33,8 +33,8 @@ func CloneIdentityPaths(in []IdentityPath) []IdentityPath {
 	return out
 }
 
-// CloneIdentityFields deep-clones parsed identity field metadata.
-func CloneIdentityFields(in []IdentityField) []IdentityField {
+// cloneIdentityFields deep-clones parsed identity field metadata.
+func cloneIdentityFields(in []identityField) []identityField {
 	out := slices.Clone(in)
 	for i := range out {
 		out[i].Paths = cloneIdentityFieldPaths(in[i].Paths)
@@ -42,7 +42,7 @@ func CloneIdentityFields(in []IdentityField) []IdentityField {
 	return out
 }
 
-func cloneIdentityFieldPaths(in []IdentityFieldPath) []IdentityFieldPath {
+func cloneIdentityFieldPaths(in []identityFieldPath) []identityFieldPath {
 	out := slices.Clone(in)
 	for i := range out {
 		out[i] = cloneIdentityFieldPath(in[i])
@@ -50,7 +50,7 @@ func cloneIdentityFieldPaths(in []IdentityFieldPath) []IdentityFieldPath {
 	return out
 }
 
-func cloneIdentityFieldPath(in IdentityFieldPath) IdentityFieldPath {
+func cloneIdentityFieldPath(in identityFieldPath) identityFieldPath {
 	in.Steps = slices.Clone(in.Steps)
 	return in
 }

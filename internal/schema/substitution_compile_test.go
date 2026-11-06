@@ -10,53 +10,53 @@ import (
 func TestSubstitutionMembershipDiagnosticMapsRejectedEdges(t *testing.T) {
 	t.Parallel()
 
-	labels := SubstitutionMembershipLabels{
+	labels := substitutionMembershipLabels{
 		MemberName: "m",
 		MemberType: "memberType",
 		HeadName:   "h",
 		HeadType:   "headType",
 	}
 	rt := substitutionMembershipFixture{
-		complex: map[ComplexTypeID]ComplexTypeDerivation{
+		complex: map[ComplexTypeID]complexTypeDerivation{
 			0: {},
-			1: {Base: ComplexRef(0), Kind: DerivationKindExtension},
+			1: {Base: ComplexRef(0), Kind: derivationKindExtension},
 			2: {},
 		},
 	}
-	head := ElementDecl{Type: ComplexRef(0)}
+	head := elementDecl{Type: ComplexRef(0)}
 
 	tests := []struct {
 		name    string
-		head    ElementDecl
-		member  ElementDecl
+		head    elementDecl
+		member  elementDecl
 		message string
 		cause   error
 	}{
 		{
 			name:    "not derived",
 			head:    head,
-			member:  ElementDecl{Type: ComplexRef(2)},
+			member:  elementDecl{Type: ComplexRef(2)},
 			message: "substitution group member m type memberType is not derived from head h type headType",
-			cause:   ErrSubstitutionMemberTypeNotDerived,
+			cause:   errSubstitutionMemberTypeNotDerived,
 		},
 		{
 			name: "excluded derivation",
-			head: func() ElementDecl {
+			head: func() elementDecl {
 				h := head
 				h.Final = DerivationExtension
 				return h
 			}(),
-			member:  ElementDecl{Type: ComplexRef(1)},
+			member:  elementDecl{Type: ComplexRef(1)},
 			message: "substitution group member type uses excluded derivation",
-			cause:   ErrSubstitutionMemberTypeExcludedDerivation,
+			cause:   errSubstitutionMemberTypeExcludedDerivation,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, edgeErr := validateSubstitutionEdge(rt.build(), []ElementDecl{tt.head, tt.member}, 1, 0, unboundedTypeDerivationWork)
-			membership, ok := errors.AsType[SubstitutionMembershipError](edgeErr)
+			_, edgeErr := validateSubstitutionEdge(rt.build(), []elementDecl{tt.head, tt.member}, 1, 0, unboundedTypeDerivationWork)
+			membership, ok := errors.AsType[substitutionMembershipError](edgeErr)
 			if !errors.Is(edgeErr, tt.cause) || !ok || !errors.Is(membership.Cause, tt.cause) || membership.Member != 1 || membership.Head != 0 {
 				t.Fatalf("edge error = %#v, want %v for member1/head0", edgeErr, tt.cause)
 			}
@@ -76,8 +76,8 @@ func TestSubstitutionMembershipDiagnosticMapsRejectedEdges(t *testing.T) {
 }
 
 type substitutionMembershipFixture struct {
-	simple  map[SimpleTypeID]SimpleTypeDerivation
-	complex map[ComplexTypeID]ComplexTypeDerivation
+	simple  map[SimpleTypeID]simpleTypeDerivation
+	complex map[ComplexTypeID]complexTypeDerivation
 }
 
 func (f substitutionMembershipFixture) build() *schemaBuild {

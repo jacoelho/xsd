@@ -73,7 +73,7 @@ func TestSchemaNodeResolveQNameReturnsXMLName(t *testing.T) {
 	}{
 		{name: "default namespace", lexical: "item", want: xml.Name{Space: "urn:default", Local: "item"}},
 		{name: "prefixed namespace", lexical: "p:item", want: xml.Name{Space: "urn:prefixed", Local: "item"}},
-		{name: "unbound prefix", lexical: "missing:item", wantErr: "unbound QName prefix missing"},
+		{name: "unbound prefix", lexical: "missing:item", wantErr: `unbound QName prefix "missing"`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -311,7 +311,7 @@ func TestSchemaSemanticSourceTypesAllModelDispatch(t *testing.T) {
 	complexType := doc.node(rootElement.children[0])
 	all := doc.node(complexType.children[0])
 	model, ok := schemaModelKind(all)
-	if !ok || model != ModelAll {
+	if !ok || model != modelAll {
 		t.Fatalf("all model kind = %v, %v; want ModelAll, true", model, ok)
 	}
 	if semanticSource[*schemaModelSource](&all.semantic) == nil {
@@ -405,8 +405,8 @@ func TestSchemaQNameAdmissionRejectsInvalidReferences(t *testing.T) {
 			lexical string
 			message string
 		}{
-			{name: "malformed", lexical: "p:bad:name", message: "invalid QName p:bad:name"},
-			{name: "unbound", lexical: "missing:T", message: "unbound QName prefix missing"},
+			{name: "malformed", lexical: "p:bad:name", message: `invalid QName "p:bad:name"`},
+			{name: "unbound", lexical: "missing:T", message: `unbound QName prefix "missing"`},
 		} {
 			t.Run(category.name+"/"+failure.name, func(t *testing.T) {
 				t.Parallel()

@@ -17,7 +17,7 @@ var PublishSchema = publishSchema
 // ValidateBuildForTest checks construction invariants without consuming the
 // value builder, so fault-injection tests can validate then mutate a fixture.
 func ValidateBuildForTest(build *schemaBuild) error {
-	analysis, err := NewContentModelAnalysis(build, unlimitedContentModelWork)
+	analysis, err := newContentModelAnalysis(build, unlimitedContentModelWork)
 	if err != nil {
 		return err
 	}
@@ -119,3 +119,51 @@ func FreezeCompilerRuntimeForTest(c *Compiler) (*Schema, error) {
 func (rt *Schema) PublishedContentModelCountForTest() int {
 	return len(rt.program.CompiledModels)
 }
+
+// Aliases expose unexported identifiers to the external schema_test package.
+const (
+	CompiledModelAll          = compiledModelAll
+	ContentElementOnly        = contentElementOnly
+	DeclarationScopeGlobal    = declarationScopeGlobal
+	DeclarationScopeInvalid   = declarationScopeInvalid
+	DeclarationScopeNonGlobal = declarationScopeNonGlobal
+	DerivationList            = derivationList
+	DerivationSubstitution    = derivationSubstitution
+	ModelChoice               = modelChoice
+	ModelSequence             = modelSequence
+	NoAttributeUseSet         = noAttributeUseSet
+	NoContentModel            = noContentModel
+	ParticleElement           = particleElement
+	ProcessStrict             = processStrict
+)
+
+type (
+	AttributeUseSet   = attributeUseSet
+	CompiledModel     = compiledModel
+	ComplexType       = complexTypeMetadata
+	ContentKind       = complexContentVariety
+	ContentModel      = contentModelNode
+	ContentModelID    = contentModelID
+	DerivationKind    = derivationKind
+	ElementDecl       = elementDecl
+	IdentityField     = identityField
+	IdentityFieldPath = identityFieldPath
+	ModelKind         = modelKind
+	NameTable         = nameTable
+	NamespaceID       = namespaceID
+	Occurrence        = occurrence
+	Particle          = contentParticle
+	ResolvedValueName = resolvedValueName
+	SimpleType        = simpleType
+	ValueConstraint   = valueConstraint
+	Wildcard          = wildcardRuntime
+	WildcardMode      = wildcardMode
+)
+
+var (
+	FormatExpandedName         = formatExpandedName
+	ModelParticle              = modelParticle
+	NewNameInterner            = newNameInterner
+	NewValueConstraintIdentity = newValueConstraintIdentity
+	ValidIdentityConstraintID  = validIdentityConstraintID
+)

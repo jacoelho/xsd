@@ -349,7 +349,7 @@ func TestSchemaSetReportsPostOpenErrorsWithoutResolvingNextReference(t *testing.
 			_, err := Compile(Options{MaxSchemaTotalBytes: int64(len(rootData) + 1)},
 				[]source.Source{source.Bytes("root.xsd", rootData).WithResolver(resolver)})
 
-			if err == nil || !strings.Contains(err.Error(), "read schema a.xsd") {
+			if err == nil || !strings.Contains(err.Error(), `read schema "a.xsd"`) {
 				t.Fatalf("Compile() error = %v, want first post-open error", err)
 			}
 			if calls != 1 {

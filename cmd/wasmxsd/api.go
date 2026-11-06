@@ -93,13 +93,13 @@ func (a *validationAdapter) validateXMLData(xmlText, xsdText string) validateRes
 	engine, compileErr := a.compile(xsdText)
 	if compileErr != nil {
 		schemaErrors := collectErrors(compileErr, "xsd")
-		if xmlErr := validate.CheckXMLWellFormed(strings.NewReader(xmlText), validate.Options{}); xmlErr != nil {
+		if xmlErr := validate.CheckXMLWellFormed(strings.NewReader(xmlText), validate.Options(validateOptions())); xmlErr != nil {
 			xmlErrors := collectErrors(xmlErr, "xml")
 			return validationError(errors.Join(xmlErr, compileErr), append(xmlErrors, schemaErrors...))
 		}
 		return validationError(compileErr, schemaErrors)
 	}
-	err := engine.ValidateWithOptions(strings.NewReader(xmlText), xsd.ValidateOptions{MaxErrors: maxValidationErrors})
+	err := engine.ValidateWithOptions(strings.NewReader(xmlText), validateOptions())
 	if err != nil {
 		diagnostics := collectErrors(err, "xml")
 		if xsderrors.IsConclusiveValidation(err) {
@@ -108,6 +108,12 @@ func (a *validationAdapter) validateXMLData(xmlText, xsdText string) validateRes
 		return validationError(err, diagnostics)
 	}
 	return validateResponse{Status: statusValid}
+}
+
+// validateOptions is the one options value shared by schema-free XML checking
+// and schema validation, so a limit added to ValidateOptions applies to both.
+func validateOptions() xsd.ValidateOptions {
+	return xsd.ValidateOptions{MaxErrors: maxValidationErrors}
 }
 
 func (a *validationAdapter) compile(xsdText string) (*xsd.Engine, error) {

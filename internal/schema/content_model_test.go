@@ -12,17 +12,17 @@ import (
 func TestContentModelByID(t *testing.T) {
 	t.Parallel()
 
-	models := []ContentModel{
-		{Kind: ModelEmpty},
+	models := []contentModelNode{
+		{Kind: modelEmpty},
 		{
-			Kind:      ModelSequence,
-			Occurs:    Occurrence{Min: 1, Max: 1},
-			Particles: []Particle{ElementParticle(1, Occurrence{Min: 1, Max: 1})},
+			Kind:      modelSequence,
+			Occurs:    occurrence{Min: 1, Max: 1},
+			Particles: []contentParticle{elementParticle(1, occurrence{Min: 1, Max: 1})},
 		},
 	}
-	got, ok := ContentModelByID(models, 1)
+	got, ok := contentModelByID(models, 1)
 	if !ok ||
-		got.Kind != ModelSequence ||
+		got.Kind != modelSequence ||
 		!slices.Equal(got.Particles, models[1].Particles) {
 		t.Fatalf("ContentModelByID(valid) = %+v, %v; want cloned model 1, true", got, ok)
 	}
@@ -30,8 +30,8 @@ func TestContentModelByID(t *testing.T) {
 	if models[1].Particles[0].Element != 1 {
 		t.Fatalf("ContentModelByID aliased particle slice: %+v", models[1])
 	}
-	for _, id := range []ContentModelID{NoContentModel, 2} {
-		got, ok := ContentModelByID(models, id)
+	for _, id := range []contentModelID{noContentModel, 2} {
+		got, ok := contentModelByID(models, id)
 		if ok || got.Kind != 0 || len(got.Particles) != 0 {
 			t.Fatalf("ContentModelByID(%d) = %+v, %v; want zero, false", id, got, ok)
 		}
@@ -44,74 +44,74 @@ func TestValidateContentModelShape(t *testing.T) {
 	tests := []struct {
 		name    string
 		wantErr string
-		in      ContentModel
+		in      contentModelNode
 	}{
 		{
 			name: "empty",
-			in:   ContentModel{Kind: ModelEmpty},
+			in:   contentModelNode{Kind: modelEmpty},
 		},
 		{
 			name: "any",
-			in:   ContentModel{Kind: ModelAny, Mixed: true},
+			in:   contentModelNode{Kind: modelAny, Mixed: true},
 		},
 		{
 			name: "sequence",
-			in: ContentModel{
-				Kind:      ModelSequence,
-				Occurs:    Occurrence{Min: 1, Max: 1},
-				Particles: []Particle{ElementParticle(1, Occurrence{Min: 1, Max: 1})},
+			in: contentModelNode{
+				Kind:      modelSequence,
+				Occurs:    occurrence{Min: 1, Max: 1},
+				Particles: []contentParticle{elementParticle(1, occurrence{Min: 1, Max: 1})},
 			},
 		},
 		{
 			name: "choice",
-			in: ContentModel{
-				Kind:      ModelChoice,
-				Occurs:    Occurrence{Min: 0, Unbounded: true},
-				Particles: []Particle{ElementParticle(1, Occurrence{Min: 1, Max: 1})},
+			in: contentModelNode{
+				Kind:      modelChoice,
+				Occurs:    occurrence{Min: 0, Unbounded: true},
+				Particles: []contentParticle{elementParticle(1, occurrence{Min: 1, Max: 1})},
 			},
 		},
 		{
 			name: "all",
-			in: ContentModel{
-				Kind:      ModelAll,
-				Occurs:    Occurrence{Min: 0, Max: 1},
-				Particles: []Particle{ElementParticle(1, Occurrence{Min: 0, Max: 1})},
+			in: contentModelNode{
+				Kind:      modelAll,
+				Occurs:    occurrence{Min: 0, Max: 1},
+				Particles: []contentParticle{elementParticle(1, occurrence{Min: 0, Max: 1})},
 			},
 		},
 		{
 			name: "empty stores inactive fields",
-			in: ContentModel{
-				Kind:      ModelEmpty,
-				Particles: []Particle{ElementParticle(1, Occurrence{Min: 1, Max: 1})},
+			in: contentModelNode{
+				Kind:      modelEmpty,
+				Particles: []contentParticle{elementParticle(1, occurrence{Min: 1, Max: 1})},
 			},
 			wantErr: "empty content model stores inactive fields",
 		},
 		{
 			name:    "any requires mixed",
-			in:      ContentModel{Kind: ModelAny},
+			in:      contentModelNode{Kind: modelAny},
 			wantErr: "any content model has invalid shape",
 		},
 		{
 			name:    "sequence invalid occurrence",
-			in:      ContentModel{Kind: ModelSequence, Occurs: Occurrence{Min: 2, Max: 1}},
+			in:      contentModelNode{Kind: modelSequence, Occurs: occurrence{Min: 2, Max: 1}},
 			wantErr: "content model occurrence is invalid",
 		},
 		{
 			name:    "all cannot be unbounded",
-			in:      ContentModel{Kind: ModelAll, Occurs: Occurrence{Min: 0, Unbounded: true}},
+			in:      contentModelNode{Kind: modelAll, Occurs: occurrence{Min: 0, Unbounded: true}},
 			wantErr: "all content model occurrence is invalid",
 		},
 		{
 			name:    "invalid kind",
-			in:      ContentModel{Kind: ModelKind(99)},
+			in:      contentModelNode{Kind: modelKind(99)},
 			wantErr: "content model has invalid kind",
 		},
 		{
 			name: "particle shape",
-			in: ContentModel{
-				Kind:      ModelSequence,
-				Occurs:    Occurrence{Min: 1, Max: 1},
-				Particles: []Particle{{Kind: ParticleElement, Element: 1, Model: 2, Occurs: Occurrence{Min: 1, Max: 1}}},
+			in: contentModelNode{
+				Kind:      modelSequence,
+				Occurs:    occurrence{Min: 1, Max: 1},
+				Particles: []contentParticle{{Kind: particleElement, Element: 1, Model: 2, Occurs: occurrence{Min: 1, Max: 1}}},
 			},
 			wantErr: "particle stores content model ID for non-model kind",
 		},
@@ -120,7 +120,7 @@ func TestValidateContentModelShape(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateContentModelShape(tt.in)
+			err := validateContentModelShape(tt.in)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateContentModelShape() error = %v", err)
@@ -137,8 +137,8 @@ func TestValidateContentModelShape(t *testing.T) {
 func TestValidateContentModelRuntimeRejectsInvalidParticleReferences(t *testing.T) {
 	t.Parallel()
 
-	one := Occurrence{Min: 1, Max: 1}
-	limits := ContentModelRefLimits{
+	one := occurrence{Min: 1, Max: 1}
+	limits := contentModelRefLimits{
 		ElementCount:      1,
 		ContentModelCount: 1,
 		WildcardCount:     1,
@@ -146,40 +146,40 @@ func TestValidateContentModelRuntimeRejectsInvalidParticleReferences(t *testing.
 	tests := []struct {
 		name    string
 		wantErr string
-		model   ContentModel
+		model   contentModelNode
 	}{
 		{
 			name: "valid element",
-			model: ContentModel{
-				Kind:      ModelSequence,
+			model: contentModelNode{
+				Kind:      modelSequence,
 				Occurs:    one,
-				Particles: []Particle{ElementParticle(0, one)},
+				Particles: []contentParticle{elementParticle(0, one)},
 			},
 		},
 		{
 			name: "invalid element",
-			model: ContentModel{
-				Kind:      ModelSequence,
+			model: contentModelNode{
+				Kind:      modelSequence,
 				Occurs:    one,
-				Particles: []Particle{ElementParticle(1, one)},
+				Particles: []contentParticle{elementParticle(1, one)},
 			},
 			wantErr: "particle references invalid element",
 		},
 		{
 			name: "invalid content model",
-			model: ContentModel{
-				Kind:      ModelSequence,
+			model: contentModelNode{
+				Kind:      modelSequence,
 				Occurs:    one,
-				Particles: []Particle{ModelParticle(1, one)},
+				Particles: []contentParticle{modelParticle(1, one)},
 			},
 			wantErr: "particle references invalid content model",
 		},
 		{
 			name: "invalid wildcard",
-			model: ContentModel{
-				Kind:      ModelSequence,
+			model: contentModelNode{
+				Kind:      modelSequence,
 				Occurs:    one,
-				Particles: []Particle{WildcardParticle(1, one)},
+				Particles: []contentParticle{wildcardParticle(1, one)},
 			},
 			wantErr: "particle references invalid wildcard",
 		},
@@ -188,7 +188,7 @@ func TestValidateContentModelRuntimeRejectsInvalidParticleReferences(t *testing.
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateContentModelRuntime(tt.model, limits)
+			err := validateContentModelRuntime(tt.model, limits)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateContentModelRuntime() error = %v", err)
@@ -205,23 +205,23 @@ func TestValidateContentModelRuntimeRejectsInvalidParticleReferences(t *testing.
 func TestValidateContentModelGraphRejectsCycles(t *testing.T) {
 	t.Parallel()
 
-	one := Occurrence{Min: 1, Max: 1}
-	model := func(children ...ContentModelID) ContentModel {
-		particles := make([]Particle, len(children))
+	one := occurrence{Min: 1, Max: 1}
+	model := func(children ...contentModelID) contentModelNode {
+		particles := make([]contentParticle, len(children))
 		for i, child := range children {
-			particles[i] = ModelParticle(child, one)
+			particles[i] = modelParticle(child, one)
 		}
-		return ContentModel{Kind: ModelSequence, Occurs: one, Particles: particles}
+		return contentModelNode{Kind: modelSequence, Occurs: one, Particles: particles}
 	}
 	tests := []struct {
 		name    string
 		wantErr string
-		models  []ContentModel
+		models  []contentModelNode
 	}{
-		{name: "acyclic", models: []ContentModel{model(1), {Kind: ModelEmpty}}},
-		{name: "self cycle", models: []ContentModel{model(0)}, wantErr: "content model graph contains cycle"},
-		{name: "multi-node cycle", models: []ContentModel{model(1), model(0)}, wantErr: "content model graph contains cycle"},
-		{name: "invalid reference", models: []ContentModel{model(1)}, wantErr: "content model graph references invalid model"},
+		{name: "acyclic", models: []contentModelNode{model(1), {Kind: modelEmpty}}},
+		{name: "self cycle", models: []contentModelNode{model(0)}, wantErr: "content model graph contains cycle"},
+		{name: "multi-node cycle", models: []contentModelNode{model(1), model(0)}, wantErr: "content model graph contains cycle"},
+		{name: "invalid reference", models: []contentModelNode{model(1)}, wantErr: "content model graph references invalid model"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -244,16 +244,16 @@ func TestValidateContentModelGraphHandlesDeepChain(t *testing.T) {
 	t.Parallel()
 
 	const count = 10_000
-	one := Occurrence{Min: 1, Max: 1}
-	models := make([]ContentModel, count)
+	one := occurrence{Min: 1, Max: 1}
+	models := make([]contentModelNode, count)
 	for i := range count - 1 {
-		models[i] = ContentModel{
-			Kind:      ModelSequence,
+		models[i] = contentModelNode{
+			Kind:      modelSequence,
 			Occurs:    one,
-			Particles: []Particle{ModelParticle(ContentModelID(i+1), one)},
+			Particles: []contentParticle{modelParticle(contentModelID(i+1), one)},
 		}
 	}
-	models[count-1] = ContentModel{Kind: ModelEmpty}
+	models[count-1] = contentModelNode{Kind: modelEmpty}
 	if err := validateContentModelGraph(models); err != nil {
 		t.Fatalf("validateContentModelGraph() error = %v", err)
 	}
@@ -262,9 +262,9 @@ func TestValidateContentModelGraphHandlesDeepChain(t *testing.T) {
 func TestValidateContentModelGraphHandlesWideFlatTable(t *testing.T) {
 	t.Parallel()
 
-	models := make([]ContentModel, 10_000)
+	models := make([]contentModelNode, 10_000)
 	for i := range models {
-		models[i] = ContentModel{Kind: ModelEmpty}
+		models[i] = contentModelNode{Kind: modelEmpty}
 	}
 	if err := validateContentModelGraph(models); err != nil {
 		t.Fatalf("validateContentModelGraph() error = %v", err)
@@ -275,65 +275,65 @@ func TestComplexContentExtendsBase(t *testing.T) {
 	t.Parallel()
 
 	const (
-		emptyID      ContentModelID = 0
-		baseSeqID    ContentModelID = 1
-		derivedSeqID ContentModelID = 2
-		baseChoiceID ContentModelID = 3
-		wrappedID    ContentModelID = 4
-		badKindID    ContentModelID = 5
-		badOccursID  ContentModelID = 6
-		badPrefixID  ContentModelID = 7
+		emptyID      contentModelID = 0
+		baseSeqID    contentModelID = 1
+		derivedSeqID contentModelID = 2
+		baseChoiceID contentModelID = 3
+		wrappedID    contentModelID = 4
+		badKindID    contentModelID = 5
+		badOccursID  contentModelID = 6
+		badPrefixID  contentModelID = 7
 		elemA        ElementID      = 0
 		elemB        ElementID      = 1
 	)
-	one := Occurrence{Min: 1, Max: 1}
-	repeat := Occurrence{Min: 0, Unbounded: true}
-	baseParticle := ElementParticle(elemA, one)
-	nextParticle := ElementParticle(elemB, one)
+	one := occurrence{Min: 1, Max: 1}
+	repeat := occurrence{Min: 0, Unbounded: true}
+	baseParticle := elementParticle(elemA, one)
+	nextParticle := elementParticle(elemB, one)
 	rt := particleFixture{
-		models: []ContentModel{
-			{Kind: ModelEmpty},
+		models: []contentModelNode{
+			{Kind: modelEmpty},
 			{
-				Kind:      ModelSequence,
+				Kind:      modelSequence,
 				Occurs:    one,
-				Particles: []Particle{baseParticle},
+				Particles: []contentParticle{baseParticle},
 			},
 			{
-				Kind:      ModelSequence,
+				Kind:      modelSequence,
 				Occurs:    one,
-				Particles: []Particle{baseParticle, nextParticle},
+				Particles: []contentParticle{baseParticle, nextParticle},
 			},
 			{
-				Kind:      ModelChoice,
+				Kind:      modelChoice,
 				Occurs:    one,
-				Particles: []Particle{baseParticle, nextParticle},
+				Particles: []contentParticle{baseParticle, nextParticle},
 			},
 			{
-				Kind:      ModelSequence,
+				Kind:      modelSequence,
 				Occurs:    one,
-				Particles: []Particle{ModelParticle(baseChoiceID, one), nextParticle},
+				Particles: []contentParticle{modelParticle(baseChoiceID, one), nextParticle},
 			},
 			{
-				Kind:      ModelChoice,
+				Kind:      modelChoice,
 				Occurs:    one,
-				Particles: []Particle{baseParticle, nextParticle},
+				Particles: []contentParticle{baseParticle, nextParticle},
 			},
 			{
-				Kind:      ModelSequence,
+				Kind:      modelSequence,
 				Occurs:    repeat,
-				Particles: []Particle{baseParticle, nextParticle},
+				Particles: []contentParticle{baseParticle, nextParticle},
 			},
 			{
-				Kind:      ModelSequence,
+				Kind:      modelSequence,
 				Occurs:    one,
-				Particles: []Particle{nextParticle, baseParticle},
+				Particles: []contentParticle{nextParticle, baseParticle},
 			},
 		},
 	}
 	tests := []struct {
 		name    string
-		base    ContentModelID
-		derived ContentModelID
+		base    contentModelID
+		derived contentModelID
 		want    bool
 	}{
 		{name: "same model", base: baseSeqID, derived: baseSeqID, want: true},
@@ -351,7 +351,7 @@ func TestComplexContentExtendsBase(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := ComplexContentExtendsBase(rt.build(), tt.base, tt.derived); got != tt.want {
+			if got := complexContentExtendsBase(rt.build(), tt.base, tt.derived); got != tt.want {
 				t.Fatalf("ComplexContentExtendsBase() = %v, want %v", got, tt.want)
 			}
 		})
@@ -361,19 +361,19 @@ func TestComplexContentExtendsBase(t *testing.T) {
 func TestContentRestrictionRejectsRepeatedElementAgainstUnitChoiceBranch(t *testing.T) {
 	t.Parallel()
 	const (
-		choiceID  ContentModelID = 0
-		baseID    ContentModelID = 1
-		derivedID ContentModelID = 2
+		choiceID  contentModelID = 0
+		baseID    contentModelID = 1
+		derivedID contentModelID = 2
 	)
-	one := Occurrence{Min: 1, Max: 1}
-	repeat := Occurrence{Min: 0, Unbounded: true}
-	models := []ContentModel{
-		{Kind: ModelChoice, Occurs: one, Particles: []Particle{ElementParticle(1, one), ElementParticle(2, one)}},
-		{Kind: ModelSequence, Occurs: one, Particles: []Particle{ModelParticle(choiceID, repeat)}},
-		{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(1, repeat)}},
+	one := occurrence{Min: 1, Max: 1}
+	repeat := occurrence{Min: 0, Unbounded: true}
+	models := []contentModelNode{
+		{Kind: modelChoice, Occurs: one, Particles: []contentParticle{elementParticle(1, one), elementParticle(2, one)}},
+		{Kind: modelSequence, Occurs: one, Particles: []contentParticle{modelParticle(choiceID, repeat)}},
+		{Kind: modelSequence, Occurs: one, Particles: []contentParticle{elementParticle(1, repeat)}},
 	}
 	rt := contentRestrictionRuntimeWith(models)
-	if err := ValidateContentRestriction(rt.build(), baseID, derivedID, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build())); !IsContentRestrictionMismatch(err) {
+	if err := validateContentRestriction(rt.build(), baseID, derivedID, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build())); !isContentRestrictionMismatch(err) {
 		t.Fatalf("ValidateContentRestriction() error = %v, want repeated element/unit branch mismatch", err)
 	}
 }
@@ -385,30 +385,30 @@ func TestContentRestrictionUsesFixedValueIdentity(t *testing.T) {
 		baseType    SimpleTypeID = 1
 		derivedType SimpleTypeID = 2
 	)
-	one := Occurrence{Min: 1, Max: 1}
-	name := QName{Namespace: EmptyNamespaceID, Local: 1}
+	one := occurrence{Min: 1, Max: 1}
+	name := QName{Namespace: emptyNamespaceID, Local: 1}
 	rt := contentRestrictionFixture{
-		models: []ContentModel{
-			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(0, one)}},
-			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(1, one)}},
+		models: []contentModelNode{
+			{Kind: modelSequence, Occurs: one, Particles: []contentParticle{elementParticle(0, one)}},
+			{Kind: modelSequence, Occurs: one, Particles: []contentParticle{elementParticle(1, one)}},
 		},
 		elements: []QName{name, name},
-		elementRestrictions: []ParticleRestrictionElement{
-			{Type: SimpleRef(baseType), Fixed: valueConstraintIdentity(t, "decimal", "5.0"), Scope: DeclarationScopeNonGlobal},
-			{Type: SimpleRef(derivedType), Fixed: valueConstraintIdentity(t, "integer", "5"), Scope: DeclarationScopeNonGlobal},
+		elementRestrictions: []particleRestrictionElement{
+			{Type: SimpleRef(baseType), Fixed: valueConstraintIdentity(t, "decimal", "5.0"), Scope: declarationScopeNonGlobal},
+			{Type: SimpleRef(derivedType), Fixed: valueConstraintIdentity(t, "integer", "5"), Scope: declarationScopeNonGlobal},
 		},
-		simpleDerivations: []SimpleTypeDerivation{
+		simpleDerivations: []simpleTypeDerivation{
 			{},
 			{Base: NoSimpleType, Variety: valuepkg.Atomic},
 			{Base: baseType, Variety: valuepkg.Atomic},
 		},
 	}
-	if err := ValidateContentRestriction(rt.build(), 0, 1, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build())); err != nil {
+	if err := validateContentRestriction(rt.build(), 0, 1, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build())); err != nil {
 		t.Fatalf("ValidateContentRestriction() error = %v", err)
 	}
 
 	rt.elementRestrictions[1].Fixed.Value = builtinValueForTest(t, "string", "5")
-	if err := ValidateContentRestriction(rt.build(), 0, 1, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build())); err == nil {
+	if err := validateContentRestriction(rt.build(), 0, 1, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build())); err == nil {
 		t.Fatal("ValidateContentRestriction() accepted different fixed value identities")
 	}
 }
@@ -416,25 +416,25 @@ func TestContentRestrictionUsesFixedValueIdentity(t *testing.T) {
 func TestContentRestrictionRequiresLocalIdentitySubset(t *testing.T) {
 	t.Parallel()
 
-	one := Occurrence{Min: 1, Max: 1}
-	name := QName{Namespace: EmptyNamespaceID, Local: 1}
+	one := occurrence{Min: 1, Max: 1}
+	name := QName{Namespace: emptyNamespaceID, Local: 1}
 	rt := contentRestrictionFixture{
-		models: []ContentModel{
-			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(0, one)}},
-			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(1, one)}},
+		models: []contentModelNode{
+			{Kind: modelSequence, Occurs: one, Particles: []contentParticle{elementParticle(0, one)}},
+			{Kind: modelSequence, Occurs: one, Particles: []contentParticle{elementParticle(1, one)}},
 		},
 		elements: []QName{name, name},
-		elementRestrictions: []ParticleRestrictionElement{
-			{Type: SimpleRef(0), Scope: DeclarationScopeNonGlobal, Identities: borrowedIdentityConstraintIDs([]IdentityConstraintID{1, 2})},
-			{Type: SimpleRef(0), Scope: DeclarationScopeNonGlobal, Identities: borrowedIdentityConstraintIDs([]IdentityConstraintID{2})},
+		elementRestrictions: []particleRestrictionElement{
+			{Type: SimpleRef(0), Scope: declarationScopeNonGlobal, Identities: borrowedIdentityConstraintIDs([]IdentityConstraintID{1, 2})},
+			{Type: SimpleRef(0), Scope: declarationScopeNonGlobal, Identities: borrowedIdentityConstraintIDs([]IdentityConstraintID{2})},
 		},
-		simpleDerivations: []SimpleTypeDerivation{{Base: NoSimpleType, Variety: valuepkg.Atomic}},
+		simpleDerivations: []simpleTypeDerivation{{Base: NoSimpleType, Variety: valuepkg.Atomic}},
 	}
-	if err := ValidateContentRestriction(rt.build(), 0, 1, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build())); err != nil {
+	if err := validateContentRestriction(rt.build(), 0, 1, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build())); err != nil {
 		t.Fatalf("ValidateContentRestriction(subset) error = %v", err)
 	}
 	rt.elementRestrictions[1].Identities = borrowedIdentityConstraintIDs([]IdentityConstraintID{3})
-	if err := ValidateContentRestriction(rt.build(), 0, 1, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build())); err == nil {
+	if err := validateContentRestriction(rt.build(), 0, 1, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build())); err == nil {
 		t.Fatal("ValidateContentRestriction() accepted a local identity constraint outside the base set")
 	}
 }
@@ -442,19 +442,19 @@ func TestContentRestrictionRequiresLocalIdentitySubset(t *testing.T) {
 func TestContentRestrictionHonorsWorkBudget(t *testing.T) {
 	t.Parallel()
 
-	one := Occurrence{Min: 1, Max: 1}
-	name := QName{Namespace: EmptyNamespaceID, Local: 1}
+	one := occurrence{Min: 1, Max: 1}
+	name := QName{Namespace: emptyNamespaceID, Local: 1}
 	rt := contentRestrictionFixture{
-		models: []ContentModel{
-			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(0, one)}},
-			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(1, one)}},
+		models: []contentModelNode{
+			{Kind: modelSequence, Occurs: one, Particles: []contentParticle{elementParticle(0, one)}},
+			{Kind: modelSequence, Occurs: one, Particles: []contentParticle{elementParticle(1, one)}},
 		},
 		elements: []QName{name, name},
-		elementRestrictions: []ParticleRestrictionElement{
-			{Type: SimpleRef(0), Scope: DeclarationScopeNonGlobal},
-			{Type: SimpleRef(0), Scope: DeclarationScopeNonGlobal},
+		elementRestrictions: []particleRestrictionElement{
+			{Type: SimpleRef(0), Scope: declarationScopeNonGlobal},
+			{Type: SimpleRef(0), Scope: declarationScopeNonGlobal},
 		},
-		simpleDerivations: []SimpleTypeDerivation{{Base: NoSimpleType, Variety: valuepkg.Atomic}},
+		simpleDerivations: []simpleTypeDerivation{{Base: NoSimpleType, Variety: valuepkg.Atomic}},
 	}
 	budgetExceeded := errors.New("content work exceeded")
 	remaining := 2
@@ -465,11 +465,11 @@ func TestContentRestrictionHonorsWorkBudget(t *testing.T) {
 		}
 		return nil
 	}
-	analysis, err := NewContentModelAnalysis(rt.build(), work)
+	analysis, err := newContentModelAnalysis(rt.build(), work)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = ValidateContentRestriction(rt.build(), 0, 1, work, analysis)
+	err = validateContentRestriction(rt.build(), 0, 1, work, analysis)
 	if !errors.Is(err, budgetExceeded) {
 		t.Fatalf("ValidateContentRestriction() error = %v, want budget error", err)
 	}
@@ -479,17 +479,17 @@ func TestContentRestrictionChargesTypeDerivation(t *testing.T) {
 	t.Parallel()
 
 	const depth = 32
-	derivations := make([]SimpleTypeDerivation, depth)
-	derivations[0] = SimpleTypeDerivation{Base: NoSimpleType, Variety: valuepkg.Atomic}
+	derivations := make([]simpleTypeDerivation, depth)
+	derivations[0] = simpleTypeDerivation{Base: NoSimpleType, Variety: valuepkg.Atomic}
 	for id := 1; id < depth; id++ {
-		derivations[id] = SimpleTypeDerivation{Base: SimpleTypeID(id - 1), Variety: valuepkg.Atomic}
+		derivations[id] = simpleTypeDerivation{Base: SimpleTypeID(id - 1), Variety: valuepkg.Atomic}
 	}
-	name := QName{Namespace: EmptyNamespaceID, Local: 1}
+	name := QName{Namespace: emptyNamespaceID, Local: 1}
 	rt := contentRestrictionFixture{
 		elements: []QName{name, name},
-		elementRestrictions: []ParticleRestrictionElement{
-			{Type: SimpleRef(0), Scope: DeclarationScopeNonGlobal},
-			{Type: SimpleRef(depth - 1), Scope: DeclarationScopeNonGlobal},
+		elementRestrictions: []particleRestrictionElement{
+			{Type: SimpleRef(0), Scope: declarationScopeNonGlobal},
+			{Type: SimpleRef(depth - 1), Scope: declarationScopeNonGlobal},
 		},
 		simpleDerivations: derivations,
 	}
@@ -502,13 +502,13 @@ func TestContentRestrictionChargesTypeDerivation(t *testing.T) {
 		remaining -= steps
 		return nil
 	}
-	analysis, err := NewContentModelAnalysis(rt.build(), work)
+	analysis, err := newContentModelAnalysis(rt.build(), work)
 	if err != nil {
 		t.Fatal(err)
 	}
 	validator := newContentRestrictionValidator(rt.build(), work, analysis)
-	one := Occurrence{Min: 1, Max: 1}
-	err = validator.validateParticleRestrictsElement(ElementParticle(0, one), ElementParticle(1, one))
+	one := occurrence{Min: 1, Max: 1}
+	err = validator.validateParticleRestrictsElement(elementParticle(0, one), elementParticle(1, one))
 	if !errors.Is(err, budgetExceeded) {
 		t.Fatalf("validateParticleRestrictsElement() error = %v, want budget error", err)
 	}
@@ -517,22 +517,22 @@ func TestContentRestrictionChargesTypeDerivation(t *testing.T) {
 func TestContentRestrictionRejectsInvalidElementScope(t *testing.T) {
 	t.Parallel()
 
-	one := Occurrence{Min: 1, Max: 1}
-	name := QName{Namespace: EmptyNamespaceID, Local: 1}
+	one := occurrence{Min: 1, Max: 1}
+	name := QName{Namespace: emptyNamespaceID, Local: 1}
 	rt := contentRestrictionFixture{
-		models: []ContentModel{
-			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(0, one)}},
-			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(1, one)}},
+		models: []contentModelNode{
+			{Kind: modelSequence, Occurs: one, Particles: []contentParticle{elementParticle(0, one)}},
+			{Kind: modelSequence, Occurs: one, Particles: []contentParticle{elementParticle(1, one)}},
 		},
 		elements: []QName{name, name},
-		elementRestrictions: []ParticleRestrictionElement{
-			{Type: SimpleRef(0), Scope: DeclarationScopeNonGlobal},
-			{Type: SimpleRef(0), Scope: DeclarationScopeInvalid},
+		elementRestrictions: []particleRestrictionElement{
+			{Type: SimpleRef(0), Scope: declarationScopeNonGlobal},
+			{Type: SimpleRef(0), Scope: declarationScopeInvalid},
 		},
-		simpleDerivations: []SimpleTypeDerivation{{Base: NoSimpleType, Variety: valuepkg.Atomic}},
+		simpleDerivations: []simpleTypeDerivation{{Base: NoSimpleType, Variety: valuepkg.Atomic}},
 	}
-	err := ValidateContentRestriction(rt.build(), 0, 1, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build()))
-	if !IsContentRestrictionInvariant(err) || !strings.Contains(err.Error(), "invalid scope") {
+	err := validateContentRestriction(rt.build(), 0, 1, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build()))
+	if !isContentRestrictionInvariant(err) || !strings.Contains(err.Error(), "invalid scope") {
 		t.Fatalf("ValidateContentRestriction() error = %v, want invalid-scope invariant", err)
 	}
 }
@@ -540,14 +540,14 @@ func TestContentRestrictionRejectsInvalidElementScope(t *testing.T) {
 func TestContentRestrictionPropagatesMissingNestedModel(t *testing.T) {
 	t.Parallel()
 
-	one := Occurrence{Min: 1, Max: 1}
-	models := []ContentModel{
-		{Kind: ModelSequence, Occurs: one, Particles: []Particle{ModelParticle(99, one)}},
-		{Kind: ModelSequence, Occurs: one},
+	one := occurrence{Min: 1, Max: 1}
+	models := []contentModelNode{
+		{Kind: modelSequence, Occurs: one, Particles: []contentParticle{modelParticle(99, one)}},
+		{Kind: modelSequence, Occurs: one},
 	}
 	rt := contentRestrictionRuntimeWith(models)
-	err := ValidateContentRestriction(rt.build(), 0, 1, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build()))
-	if !IsContentRestrictionInvariant(err) || !strings.Contains(err.Error(), "missing content model") {
+	err := validateContentRestriction(rt.build(), 0, 1, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build()))
+	if !isContentRestrictionInvariant(err) || !strings.Contains(err.Error(), "missing content model") {
 		t.Fatalf("ValidateContentRestriction() error = %v, want missing-model invariant", err)
 	}
 }
@@ -555,46 +555,46 @@ func TestContentRestrictionPropagatesMissingNestedModel(t *testing.T) {
 func TestContentRestrictionRejectsRepeatedUnitChoiceBranchWithTail(t *testing.T) {
 	t.Parallel()
 	const (
-		choiceID  ContentModelID = 0
-		baseID    ContentModelID = 1
-		derivedID ContentModelID = 2
+		choiceID  contentModelID = 0
+		baseID    contentModelID = 1
+		derivedID contentModelID = 2
 		elemA     ElementID      = 1
 		elemB     ElementID      = 2
 	)
-	one := Occurrence{Min: 1, Max: 1}
-	repeat := Occurrence{Min: 0, Unbounded: true}
-	models := []ContentModel{
-		{Kind: ModelChoice, Occurs: one, Particles: []Particle{ElementParticle(elemA, one), ElementParticle(elemB, one)}},
-		{Kind: ModelSequence, Occurs: one, Particles: []Particle{ModelParticle(choiceID, repeat), ElementParticle(elemB, one)}},
-		{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(elemA, repeat), ElementParticle(elemB, repeat)}},
+	one := occurrence{Min: 1, Max: 1}
+	repeat := occurrence{Min: 0, Unbounded: true}
+	models := []contentModelNode{
+		{Kind: modelChoice, Occurs: one, Particles: []contentParticle{elementParticle(elemA, one), elementParticle(elemB, one)}},
+		{Kind: modelSequence, Occurs: one, Particles: []contentParticle{modelParticle(choiceID, repeat), elementParticle(elemB, one)}},
+		{Kind: modelSequence, Occurs: one, Particles: []contentParticle{elementParticle(elemA, repeat), elementParticle(elemB, repeat)}},
 	}
 	rt := contentRestrictionRuntimeWith(models)
-	if err := ValidateContentRestriction(rt.build(), baseID, derivedID, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build())); !IsContentRestrictionMismatch(err) {
+	if err := validateContentRestriction(rt.build(), baseID, derivedID, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build())); !isContentRestrictionMismatch(err) {
 		t.Fatalf("ValidateContentRestriction() error = %v, want repeated element/unit branch mismatch", err)
 	}
 }
 
-func contentRestrictionRuntimeWith(models []ContentModel) contentRestrictionFixture {
-	nameA := QName{Namespace: EmptyNamespaceID, Local: 1}
-	nameB := QName{Namespace: EmptyNamespaceID, Local: 2}
+func contentRestrictionRuntimeWith(models []contentModelNode) contentRestrictionFixture {
+	nameA := QName{Namespace: emptyNamespaceID, Local: 1}
+	nameB := QName{Namespace: emptyNamespaceID, Local: 2}
 	return contentRestrictionFixture{
 		models:   models,
 		elements: []QName{{}, nameA, nameB},
-		elementRestrictions: []ParticleRestrictionElement{
+		elementRestrictions: []particleRestrictionElement{
 			{},
-			{Type: ComplexRef(0), Scope: DeclarationScopeNonGlobal},
-			{Type: ComplexRef(0), Scope: DeclarationScopeNonGlobal},
+			{Type: ComplexRef(0), Scope: declarationScopeNonGlobal},
+			{Type: ComplexRef(0), Scope: declarationScopeNonGlobal},
 		},
 		anyType: 0,
 	}
 }
 
 type contentRestrictionFixture struct {
-	models              []ContentModel
+	models              []contentModelNode
 	elements            []QName
-	elementRestrictions []ParticleRestrictionElement
-	complexDerivations  []ComplexTypeDerivation
-	simpleDerivations   []SimpleTypeDerivation
+	elementRestrictions []particleRestrictionElement
+	complexDerivations  []complexTypeDerivation
+	simpleDerivations   []simpleTypeDerivation
 	anyType             ComplexTypeID
 }
 
@@ -604,43 +604,43 @@ func TestValidateParticleShape(t *testing.T) {
 	tests := []struct {
 		name    string
 		wantErr string
-		in      Particle
+		in      contentParticle
 	}{
 		{
 			name: "element constructor",
-			in:   ElementParticle(1, Occurrence{Min: 1, Max: 1}),
+			in:   elementParticle(1, occurrence{Min: 1, Max: 1}),
 		},
 		{
 			name: "model constructor",
-			in:   ModelParticle(2, Occurrence{Min: 0, Max: 1}),
+			in:   modelParticle(2, occurrence{Min: 0, Max: 1}),
 		},
 		{
 			name: "wildcard constructor",
-			in:   WildcardParticle(3, Occurrence{Min: 0, Unbounded: true}),
+			in:   wildcardParticle(3, occurrence{Min: 0, Unbounded: true}),
 		},
 		{
 			name:    "invalid occurrence",
-			in:      ElementParticle(1, Occurrence{Min: 1, Max: 1, Unbounded: true}),
+			in:      elementParticle(1, occurrence{Min: 1, Max: 1, Unbounded: true}),
 			wantErr: "particle occurrence is invalid",
 		},
 		{
 			name:    "invalid kind",
-			in:      Particle{Kind: ParticleKind(99), Occurs: Occurrence{Min: 1, Max: 1}},
+			in:      contentParticle{Kind: particleKind(99), Occurs: occurrence{Min: 1, Max: 1}},
 			wantErr: "particle has invalid kind",
 		},
 		{
 			name:    "element stores model",
-			in:      Particle{Kind: ParticleElement, Element: 1, Model: 2, Wildcard: NoWildcard, Occurs: Occurrence{Min: 1, Max: 1}},
+			in:      contentParticle{Kind: particleElement, Element: 1, Model: 2, Wildcard: NoWildcard, Occurs: occurrence{Min: 1, Max: 1}},
 			wantErr: "particle stores content model ID for non-model kind",
 		},
 		{
 			name:    "model stores element",
-			in:      Particle{Kind: ParticleModel, Element: 1, Model: 2, Wildcard: NoWildcard, Occurs: Occurrence{Min: 1, Max: 1}},
+			in:      contentParticle{Kind: particleModel, Element: 1, Model: 2, Wildcard: NoWildcard, Occurs: occurrence{Min: 1, Max: 1}},
 			wantErr: "particle stores element ID for non-element kind",
 		},
 		{
 			name:    "wildcard stores model",
-			in:      Particle{Kind: ParticleWildcard, Element: NoElement, Model: 2, Wildcard: 3, Occurs: Occurrence{Min: 1, Max: 1}},
+			in:      contentParticle{Kind: particleWildcard, Element: NoElement, Model: 2, Wildcard: 3, Occurs: occurrence{Min: 1, Max: 1}},
 			wantErr: "particle stores content model ID for non-model kind",
 		},
 	}
@@ -648,7 +648,7 @@ func TestValidateParticleShape(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateParticleShape(tt.in)
+			err := validateParticleShape(tt.in)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateParticleShape() error = %v", err)
@@ -665,10 +665,10 @@ func TestValidateParticleShape(t *testing.T) {
 func TestOccurrenceIsExactlyOne(t *testing.T) {
 	t.Parallel()
 
-	if !((Occurrence{Min: 1, Max: 1}).IsExactlyOne()) {
+	if !((occurrence{Min: 1, Max: 1}).IsExactlyOne()) {
 		t.Fatal("1..1 occurrence should be exactly one")
 	}
-	for _, o := range []Occurrence{
+	for _, o := range []occurrence{
 		{},
 		{Min: 0, Max: 1},
 		{Min: 1, Unbounded: true},

@@ -2,28 +2,28 @@ package schema
 
 import "slices"
 
-// CloneWildcard deep-clones wildcard metadata.
-func CloneWildcard(in Wildcard) Wildcard {
+// cloneWildcard deep-clones wildcard metadata.
+func cloneWildcard(in wildcardRuntime) wildcardRuntime {
 	in.Namespaces = slices.Clone(in.Namespaces)
 	return in
 }
 
-// CloneContentModel deep-clones content-model metadata.
-func CloneContentModel(in ContentModel) ContentModel {
+// cloneContentModel deep-clones content-model metadata.
+func cloneContentModel(in contentModelNode) contentModelNode {
 	in.Particles = slices.Clone(in.Particles)
 	return in
 }
 
-// CloneSimpleTypeDerivation deep-clones simple-type derivation projection
+// cloneSimpleTypeDerivation deep-clones simple-type derivation projection
 // metadata.
-func CloneSimpleTypeDerivation(in SimpleTypeDerivation) SimpleTypeDerivation {
+func cloneSimpleTypeDerivation(in simpleTypeDerivation) simpleTypeDerivation {
 	in.Union = slices.Clone(in.Union)
 	return in
 }
 
-// CloneValueConstraintIdentity deep-clones value-constraint identity
+// cloneValueConstraintIdentity deep-clones value-constraint identity
 // projection metadata.
-func CloneValueConstraintIdentity(in ValueConstraintIdentity) ValueConstraintIdentity {
+func cloneValueConstraintIdentity(in constraintIdentity) constraintIdentity {
 	in.ResolvedNames = slices.Clone(in.ResolvedNames)
 	in.qnameContext = cloneValueConstraintQNameContext(in.qnameContext)
 	return in

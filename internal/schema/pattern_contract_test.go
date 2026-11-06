@@ -47,7 +47,7 @@ func TestPatternFacetAlternativesIntersectInheritedGroups(t *testing.T) {
 		input string
 		valid bool
 	}{{"ab", true}, {"cd", true}, {"a", false}, {"12", false}, {"az", false}} {
-		_, err := compiled.ValueProgram().Validate(simple, test.input, value.Resolver{}, 0, 16<<20, nil)
+		_, err := compiled.ValueProgram().Validate(simple, test.input, value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		if (err == nil) != test.valid {
 			t.Fatalf("input %q: %v", test.input, err)
 		}

@@ -15,14 +15,14 @@ import (
 func TestSchemaBuildGlobalRegistrationIsAtomic(t *testing.T) {
 	t.Parallel()
 
-	c := compiler{rt: newSchemaBuild(NameTable{})}
+	c := compiler{rt: newSchemaBuild(nameTable{})}
 	name := QName{Namespace: 1, Local: 2}
-	decl := ElementDecl{Name: name}
+	decl := elementDecl{Name: name}
 	id, err := c.registerGlobalElement(name, decl)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if id != 0 || c.rt.GlobalElements[name] != id || len(c.rt.Elements) != 1 || c.rt.Elements[id].Scope != DeclarationScopeGlobal {
+	if id != 0 || c.rt.GlobalElements[name] != id || len(c.rt.Elements) != 1 || c.rt.Elements[id].Scope != declarationScopeGlobal {
 		t.Fatalf("registration = id %d globals %v elements %d", id, c.rt.GlobalElements, len(c.rt.Elements))
 	}
 }
@@ -30,23 +30,23 @@ func TestSchemaBuildGlobalRegistrationIsAtomic(t *testing.T) {
 func TestSchemaBuildPlaceholderCompletionKeepsStableID(t *testing.T) {
 	t.Parallel()
 
-	c := compiler{rt: newSchemaBuild(NameTable{})}
+	c := compiler{rt: newSchemaBuild(nameTable{})}
 	firstName := QName{Local: 1}
 	secondName := QName{Local: 2}
-	first, err := c.addElement(ElementDecl{Name: firstName})
+	first, err := c.addElement(elementDecl{Name: firstName})
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := c.addElement(ElementDecl{Name: secondName})
+	second, err := c.addElement(elementDecl{Name: secondName})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if first != 0 || second != 1 {
 		t.Fatalf("placeholder IDs = %d, %d", first, second)
 	}
-	completed := ElementDecl{Name: firstName, Nillable: true}
+	completed := elementDecl{Name: firstName, Nillable: true}
 	c.completeElement(first, completed)
-	completed.Scope = DeclarationScopeNonGlobal
+	completed.Scope = declarationScopeNonGlobal
 	if !reflect.DeepEqual(c.rt.Elements[first], completed) || c.rt.Elements[second].Name != secondName {
 		t.Fatal("completion changed IDs or the wrong declaration")
 	}
@@ -83,7 +83,7 @@ func TestElementCompilationFailureKeepsReservedPlaceholder(t *testing.T) {
 	if !ok {
 		t.Fatal("failed element did not retain its reserved global ID")
 	}
-	want := ElementDecl{Name: q, Type: ComplexRef(c.rt.AnyType), Scope: DeclarationScopeGlobal}
+	want := elementDecl{Name: q, Type: ComplexRef(c.rt.AnyType), Scope: declarationScopeGlobal}
 	if got := c.rt.Elements[id]; !reflect.DeepEqual(got, want) {
 		t.Fatalf("failed element = %#v, want reserved placeholder %#v", got, want)
 	}
@@ -109,15 +109,15 @@ func TestSchemaBuildInstallsCorrelatedSubstitutionTables(t *testing.T) {
 		t.Fatal(err)
 	}
 	typ := ComplexRef(c.rt.AnyType)
-	head, err := c.registerGlobalElement(headName, ElementDecl{Name: headName, Type: typ, SubstHead: NoElement})
+	head, err := c.registerGlobalElement(headName, elementDecl{Name: headName, Type: typ, SubstHead: NoElement})
 	if err != nil {
 		t.Fatal(err)
 	}
-	member, err := c.registerGlobalElement(memberName, ElementDecl{Name: memberName, Type: typ, SubstHead: head})
+	member, err := c.registerGlobalElement(memberName, elementDecl{Name: memberName, Type: typ, SubstHead: head})
 	if err != nil {
 		t.Fatal(err)
 	}
-	table, err := BuildSubstitutionTable(&c.rt, &c.rt.Names, c.rt.Elements, c.rt.GlobalElements, limits.MaxSubstitutionClosureEntries, unboundedTypeDerivationWork)
+	table, err := buildSubstitutionTable(&c.rt, &c.rt.Names, c.rt.Elements, c.rt.GlobalElements, limits.MaxSubstitutionClosureEntries, unboundedTypeDerivationWork)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,11 +141,11 @@ func TestSchemaBuildInstallsCorrelatedSubstitutionTables(t *testing.T) {
 func TestSchemaBuildCompiledModelInstallationPreservesAlignment(t *testing.T) {
 	t.Parallel()
 
-	c := compiler{rt: newSchemaBuild(NameTable{})}
-	if _, err := c.addModel(ContentModel{}); err != nil {
+	c := compiler{rt: newSchemaBuild(nameTable{})}
+	if _, err := c.addModel(contentModelNode{}); err != nil {
 		t.Fatal(err)
 	}
-	compiled := []CompiledModel{{}}
+	compiled := []compiledModel{{}}
 	if err := c.installCompiledModels(compiled); err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +171,7 @@ func TestSchemaBuildBuiltinHandlesMatchRegisteredDeclarations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !ValidComplexTypeID(c.rt.AnyType, len(c.rt.ComplexTypes)) {
+	if !validComplexTypeID(c.rt.AnyType, len(c.rt.ComplexTypes)) {
 		t.Fatalf("xs:anyType ID = %d", c.rt.AnyType)
 	}
 	anyType := c.rt.ComplexTypes[c.rt.AnyType]
@@ -188,11 +188,11 @@ func TestSchemaBuildBuiltinHandlesMatchRegisteredDeclarations(t *testing.T) {
 		if !ok {
 			t.Fatalf("xs:%s has no value-program ID", local)
 		}
-		if !ValidSimpleTypeID(id, len(c.rt.SimpleTypes)) {
+		if !validSimpleTypeID(id, len(c.rt.SimpleTypes)) {
 			t.Fatalf("xs:%s ID = %d", local, id)
 		}
 		declaration := c.rt.SimpleTypes[id]
-		if got := c.rt.Names.Format(declaration.Name); got != "{"+vocab.XSDNamespaceURI+"}"+local {
+		if got := c.rt.Names.Format(declaration.Name); got != `"{`+vocab.XSDNamespaceURI+`}`+local+`"` {
 			t.Fatalf("builtin ID %d name = %s, want xs:%s", id, got, local)
 		}
 		if got, ok := c.rt.GlobalTypes[declaration.Name]; !ok || got != SimpleRef(id) {
@@ -204,15 +204,15 @@ func TestSchemaBuildBuiltinHandlesMatchRegisteredDeclarations(t *testing.T) {
 func TestSchemaBuildConstructionReadsDoNotAliasMutableTopology(t *testing.T) {
 	t.Parallel()
 
-	resolved := []ResolvedValueName{{Lexical: "p:value"}}
-	constraint := &ValueConstraint{ResolvedNames: resolved, Lexical: "value"}
-	fixedConstraint := &ValueConstraint{
-		ResolvedNames: []ResolvedValueName{{Lexical: "p:fixed"}},
+	resolved := []resolvedValueName{{Lexical: "p:value"}}
+	constraint := &valueConstraint{ResolvedNames: resolved, Lexical: "value"}
+	fixedConstraint := &valueConstraint{
+		ResolvedNames: []resolvedValueName{{Lexical: "p:fixed"}},
 		Lexical:       "fixed",
 	}
 	build := schemaBuild{
-		Attributes: []AttributeDecl{{Default: constraint, Fixed: fixedConstraint}},
-		AttributeUseSets: []AttributeUseSet{{Uses: []AttributeUse{{
+		Attributes: []attributeDecl{{Default: constraint, Fixed: fixedConstraint}},
+		AttributeUseSets: []attributeUseSet{{Uses: []attributeUse{{
 			Default: constraint,
 			Fixed:   fixedConstraint,
 		}}}},
@@ -224,7 +224,7 @@ func TestSchemaBuildConstructionReadsDoNotAliasMutableTopology(t *testing.T) {
 	attribute.Fixed.ResolvedNames[0].Lexical = "changed"
 
 	uses, _ := rt.attributeUsesAndWildcardForCompilation(0)
-	uses[0] = AttributeUse{Name: QName{Local: 9}}
+	uses[0] = attributeUse{Name: QName{Local: 9}}
 	if rt.Attributes[0].Default.ResolvedNames[0].Lexical != "p:value" ||
 		rt.Attributes[0].Fixed.ResolvedNames[0].Lexical != "p:fixed" {
 		t.Fatal("attribute-use projection aliases compiler-owned storage")
@@ -239,7 +239,7 @@ func TestSchemaBuildConstructionReadsDoNotAliasMutableTopology(t *testing.T) {
 func TestSchemaBuildOwnsNameInterning(t *testing.T) {
 	t.Parallel()
 
-	names, err := NewRuntimeNameTable(16)
+	names, err := newRuntimeNameTable(16)
 	if err != nil {
 		t.Fatal(err)
 	}

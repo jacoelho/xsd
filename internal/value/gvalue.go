@@ -6,9 +6,9 @@ import (
 	"strings"
 )
 
-// GValue is the value-space projection for xs:gYearMonth, xs:gYear,
+// gValue is the value-space projection for xs:gYearMonth, xs:gYear,
 // xs:gMonthDay, xs:gDay, and xs:gMonth.
-type GValue struct {
+type gValue struct {
 	year    xsdYear
 	instant xsdDateTimePoint
 	tz      xsdTimezone
@@ -17,40 +17,40 @@ type GValue struct {
 	kind    PrimitiveKind
 }
 
-// ParseGValue parses s as one of the XML Schema g* primitive values.
-func ParseGValue(kind PrimitiveKind, s string) (GValue, error) {
+// parseGValue parses s as one of the XML Schema g* primitive values.
+func parseGValue(kind PrimitiveKind, s string) (gValue, error) {
 	//nolint:exhaustive // Only the five g* primitives are valid; all others share one error.
 	switch kind {
-	case PrimitiveGYearMonth:
+	case primitiveGYearMonth:
 		return parseGYearMonthValue(s)
-	case PrimitiveGYear:
+	case primitiveGYear:
 		return parseGYearValue(s)
-	case PrimitiveGMonthDay:
+	case primitiveGMonthDay:
 		return parseGMonthDayValue(s)
-	case PrimitiveGDay:
+	case primitiveGDay:
 		return parseGDayValue(s)
-	case PrimitiveGMonth:
+	case primitiveGMonth:
 		return parseGMonthValue(s)
 	default:
-		return GValue{}, errors.New(msgInvalidGPrimitive)
+		return gValue{}, errors.New(msgInvalidGPrimitive)
 	}
 }
 
 // CanonicalText returns the XML Schema canonical lexical form for v.
-func (v GValue) CanonicalText() string {
+func (v gValue) CanonicalText() string {
 	switch v.kind {
-	case PrimitiveGYearMonth:
+	case primitiveGYearMonth:
 		return fmt.Sprintf("%s-%02d%s", formatYear(v.year), v.month, formatTimezoneSuffix(v.tz))
-	case PrimitiveGYear:
+	case primitiveGYear:
 		return formatYear(v.year) + formatTimezoneSuffix(v.tz)
-	case PrimitiveGMonthDay:
+	case primitiveGMonthDay:
 		return fmt.Sprintf("--%02d-%02d%s", v.month, v.day, formatTimezoneSuffix(v.tz))
-	case PrimitiveGDay:
+	case primitiveGDay:
 		return fmt.Sprintf("---%02d%s", v.day, formatTimezoneSuffix(v.tz))
-	case PrimitiveGMonth:
+	case primitiveGMonth:
 		return fmt.Sprintf("--%02d%s", v.month, formatTimezoneSuffix(v.tz))
 	case PrimitiveString, PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble,
-		PrimitiveDuration, PrimitiveDateTime, PrimitiveTime, PrimitiveDate,
+		PrimitiveDuration, PrimitiveDateTime, primitiveTime, primitiveDate,
 		PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
 		return ""
 	default:
@@ -64,7 +64,7 @@ func (v GValue) CanonicalText() string {
 // same normalized instant. Keep timezone presence separate because XML Schema
 // treats a value with no timezone as unequal to one with a timezone, even when
 // their normalized coordinates happen to match.
-func (v GValue) identityCanonical() string {
+func (v gValue) identityCanonical() string {
 	canonical := formatXSDDateTimePoint(v.instant)
 	if v.tz.present {
 		return canonical + "Z"
@@ -72,106 +72,106 @@ func (v GValue) identityCanonical() string {
 	return canonical
 }
 
-// CompareGValues compares g* values using the XML Schema partial order.
-func CompareGValues(a, b GValue) OrderedFacetRelation {
-	return CompareTemporalValues(
+// compareGValues compares g* values using the XML Schema partial order.
+func compareGValues(a, b gValue) orderedFacetRelation {
+	return compareTemporalValues(
 		TemporalValue{instant: a.instant, hasTZ: a.tz.present},
 		TemporalValue{instant: b.instant, hasTZ: b.tz.present},
 	)
 }
 
-// EqualGValues reports XML Schema equality for g* values, including
+// equalGValues reports XML Schema equality for g* values, including
 // timezone-presence equivalence.
-func EqualGValues(a, b GValue) bool {
+func equalGValues(a, b gValue) bool {
 	return a.tz.present == b.tz.present && compareXSDDateTimePoint(a.instant, b.instant) == 0
 }
 
-func parseGYearMonthValue(s string) (GValue, error) {
+func parseGYearMonthValue(s string) (gValue, error) {
 	year, next, err := parseXSDYear(s)
 	if err != nil || next >= len(s) || s[next] != '-' {
 		if err != nil {
-			return GValue{}, err
+			return gValue{}, err
 		}
-		return GValue{}, errors.New(msgInvalidGYearMonth)
+		return gValue{}, errors.New(msgInvalidGYearMonth)
 	}
 	month, next, ok := parseTwoDateDigits(s, next+1)
 	if !ok || month < 1 || month > 12 {
-		return GValue{}, errors.New(msgInvalidGYearMonth)
+		return gValue{}, errors.New(msgInvalidGYearMonth)
 	}
 	tz, err := parseXSDTimezoneToEnd(s, next, "gYearMonth")
 	if err != nil {
-		return GValue{}, err
+		return gValue{}, err
 	}
-	return newGValue(PrimitiveGYearMonth, year, month, 1, tz), nil
+	return newGValue(primitiveGYearMonth, year, month, 1, tz), nil
 }
 
-func parseGYearValue(s string) (GValue, error) {
+func parseGYearValue(s string) (gValue, error) {
 	year, next, err := parseXSDYear(s)
 	if err != nil {
-		return GValue{}, err
+		return gValue{}, err
 	}
 	tz, err := parseXSDTimezoneToEnd(s, next, "gYear")
 	if err != nil {
-		return GValue{}, err
+		return gValue{}, err
 	}
-	return newGValue(PrimitiveGYear, year, 1, 1, tz), nil
+	return newGValue(primitiveGYear, year, 1, 1, tz), nil
 }
 
-func parseGMonthDayValue(s string) (GValue, error) {
+func parseGMonthDayValue(s string) (gValue, error) {
 	if !strings.HasPrefix(s, "--") {
-		return GValue{}, errors.New(msgInvalidGMonthDay)
+		return gValue{}, errors.New(msgInvalidGMonthDay)
 	}
 	month, next, ok := parseTwoDateDigits(s, 2)
 	if !ok || next >= len(s) || s[next] != '-' {
-		return GValue{}, errors.New(msgInvalidGMonthDay)
+		return gValue{}, errors.New(msgInvalidGMonthDay)
 	}
 	day, next, ok := parseTwoDateDigits(s, next+1)
 	if !ok || month < 1 || month > 12 || day < 1 || day > daysInMonthForLeap(month, true) {
-		return GValue{}, errors.New(msgInvalidGMonthDay)
+		return gValue{}, errors.New(msgInvalidGMonthDay)
 	}
 	tz, err := parseXSDTimezoneToEnd(s, next, "gMonthDay")
 	if err != nil {
-		return GValue{}, err
+		return gValue{}, err
 	}
-	return newGValue(PrimitiveGMonthDay, xsdYear{digits: "2000"}, month, day, tz), nil
+	return newGValue(primitiveGMonthDay, xsdYear{digits: "2000"}, month, day, tz), nil
 }
 
-func parseGDayValue(s string) (GValue, error) {
+func parseGDayValue(s string) (gValue, error) {
 	if !strings.HasPrefix(s, "---") {
-		return GValue{}, errors.New(msgInvalidGDay)
+		return gValue{}, errors.New(msgInvalidGDay)
 	}
 	day, next, ok := parseTwoDateDigits(s, 3)
 	if !ok || day < 1 || day > 31 {
-		return GValue{}, errors.New(msgInvalidGDay)
+		return gValue{}, errors.New(msgInvalidGDay)
 	}
 	tz, err := parseXSDTimezoneToEnd(s, next, "gDay")
 	if err != nil {
-		return GValue{}, err
+		return gValue{}, err
 	}
-	return newGValue(PrimitiveGDay, xsdYear{digits: "2000"}, 1, day, tz), nil
+	return newGValue(primitiveGDay, xsdYear{digits: "2000"}, 1, day, tz), nil
 }
 
-func parseGMonthValue(s string) (GValue, error) {
+func parseGMonthValue(s string) (gValue, error) {
 	if !strings.HasPrefix(s, "--") {
-		return GValue{}, errors.New(msgInvalidGMonth)
+		return gValue{}, errors.New(msgInvalidGMonth)
 	}
 	month, next, ok := parseTwoDateDigits(s, 2)
 	if !ok || month < 1 || month > 12 {
-		return GValue{}, errors.New(msgInvalidGMonth)
+		return gValue{}, errors.New(msgInvalidGMonth)
 	}
 	tz, err := parseXSDTimezoneToEnd(s, next, "gMonth")
 	if err != nil {
-		return GValue{}, err
+		return gValue{}, err
 	}
-	return newGValue(PrimitiveGMonth, xsdYear{digits: "2000"}, month, 1, tz), nil
+	return newGValue(primitiveGMonth, xsdYear{digits: "2000"}, month, 1, tz), nil
 }
 
-func newGValue(kind PrimitiveKind, year xsdYear, month, day int, tz xsdTimezone) GValue {
+func newGValue(kind PrimitiveKind, year xsdYear, month, day int, tz xsdTimezone) gValue {
 	instant := xsdDateTimePoint{year: year, month: month, day: day}
 	if tz.present {
 		instant = addMinutes(instant, -tz.minutes)
 	}
-	return GValue{instant: instant, tz: tz, year: year, kind: kind, month: month, day: day}
+	return gValue{instant: instant, tz: tz, year: year, kind: kind, month: month, day: day}
 }
 
 func formatTimezoneSuffix(tz xsdTimezone) string {

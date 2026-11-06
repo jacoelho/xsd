@@ -31,7 +31,7 @@ func TestOrderedFacetsRejectIncomparableValues(t *testing.T) {
 				case "maxExclusive":
 					facets.MaxExclusive = literal
 				}
-				builder := value.NewBuilder(value.BuilderOptions{})
+				builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 				id, err := builder.Reserve()
 				if err != nil {
 					t.Fatalf("Reserve() error = %v", err)
@@ -44,10 +44,10 @@ func TestOrderedFacetsRejectIncomparableValues(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if _, err := program.Validate(id, test.lexical, value.Resolver{}, 0, 16<<20, nil); !errors.Is(err, value.ErrFacet) {
+				if _, err := program.Validate(id, test.lexical, value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); !errors.Is(err, value.ErrFacet) {
 					t.Fatalf("incomparable value accepted by %s: %v", facet, err)
 				}
-				if _, err := program.ValidateBytes(id, []byte(test.lexical), value.Resolver{}, 0, 16<<20, nil); !errors.Is(err, value.ErrFacet) {
+				if _, err := program.ValidateBytes(id, []byte(test.lexical), value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); !errors.Is(err, value.ErrFacet) {
 					t.Fatalf("incomparable raw value accepted by %s: %v", facet, err)
 				}
 			})
@@ -66,7 +66,7 @@ func TestOrderedMixedTimezoneBoundsDefiniteOrder(t *testing.T) {
 		{"unzoned lower", "2000-01-15T12:00:00", "2000-01-16T03:00:00Z", "2000-01-14T21:00:00Z", "2000-01-15T12:00:00Z", "minInclusive", true},
 		{"unzoned upper", "2000-01-15T12:00:00", "2000-01-14T21:00:00Z", "2000-01-16T03:00:00Z", "2000-01-15T12:00:00Z", "maxInclusive", false},
 	}
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	var ids [4]value.TypeID
 	for i, test := range cases {
 		bound := value.BoundFacet{Lexical: test.bound, Type: value.NoType, Present: true}
@@ -95,7 +95,7 @@ func TestOrderedMixedTimezoneBoundsDefiniteOrder(t *testing.T) {
 			var scratch value.Scratch
 			checkAccepted := func() {
 				t.Helper()
-				got, validationErr := program.Validate(ids[i], test.accepted, value.Resolver{}, 0, 16<<20, &scratch)
+				got, validationErr := program.Validate(ids[i], test.accepted, value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 				if validationErr != nil {
 					t.Fatalf("definite accepted %q: %v", test.accepted, validationErr)
 				}
@@ -105,7 +105,7 @@ func TestOrderedMixedTimezoneBoundsDefiniteOrder(t *testing.T) {
 			}
 			checkAccepted()
 			for _, input := range [2]string{test.rejected, test.overlap} {
-				_, validationErr := program.Validate(ids[i], input, value.Resolver{}, 0, 16<<20, &scratch)
+				_, validationErr := program.Validate(ids[i], input, value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 				if !errors.Is(validationErr, value.ErrFacet) || !strings.Contains(validationErr.Error(), test.message) {
 					t.Fatalf("rejected %q: %v, want ErrFacet with %q", input, validationErr, test.message)
 				}

@@ -24,6 +24,16 @@ func (p *parserTestHarness) next() (Token, error) {
 	return token, err
 }
 
+// attrValue reads attr through the production accessor; a skipped value yields
+// ErrAttrValueSkipped text so assertions fail visibly.
+func (p *parserTestHarness) attrValue(attr *Attr) string {
+	value, err := p.reader.AttrValue(attr)
+	if err != nil {
+		return "<" + err.Error() + ">"
+	}
+	return value
+}
+
 func (p *parserTestHarness) detach() {
 	p.reader.Detach()
 }
@@ -226,7 +236,7 @@ func TestParserASCIITextLimitChargesBorrowedBytes(t *testing.T) {
 	if _, err := parser.next(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := parser.next(); !IsTokenLimit(err) {
+	if _, err := parser.next(); !isLimit(err, LimitTokenBytes) {
 		t.Fatalf("text token error = %v, want token limit", err)
 	}
 }

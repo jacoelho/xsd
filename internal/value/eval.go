@@ -3,6 +3,7 @@ package value
 import (
 	"bytes"
 	"errors"
+	"math"
 	"slices"
 	"strings"
 	"unicode/utf8"
@@ -75,10 +76,10 @@ type atomicValue struct {
 	expandedName ExpandedName
 	lexical      lexicalValue
 	time         TimeValue
-	duration     DurationValue
+	duration     durationValue
 	temporal     TemporalValue
 	decimal      DecimalValue
-	g            GValue
+	g            gValue
 	float        float64
 	kind         PrimitiveKind
 	boolean      bool
@@ -146,13 +147,13 @@ func (v Value) Equal(other Value) bool {
 }
 
 // Validate parses, normalizes, and validates one lexical value against an
-// immutable type program. workLimit bounds this value evaluation and must be
-// positive.
-func (p *Program) Validate(id TypeID, lexical string, resolver Resolver, needs Needs, workLimit uint64, scratch *Scratch) (Value, error) {
+// immutable type program. limits bound this value evaluation; every field must
+// be positive.
+func (p *Program) Validate(id TypeID, lexical string, resolver Resolver, needs Needs, limits EvaluationLimits, scratch *Scratch) (Value, error) {
 	if p == nil || !p.sealed {
 		return Value{}, ErrMetadata
 	}
-	budget, err := newEvaluationBudget(workLimit)
+	budget, err := newEvaluationBudget(limits)
 	if err != nil {
 		return Value{}, err
 	}
@@ -164,11 +165,11 @@ func (p *Program) Validate(id TypeID, lexical string, resolver Resolver, needs N
 // ValidateBytes validates UTF-8 XML 1.0 character data already admitted by
 // the stream boundary. It does not repeat XML character validation. The input
 // is borrowed for the call and is never retained by the result or program.
-func (p *Program) ValidateBytes(id TypeID, lexical []byte, resolver Resolver, needs Needs, workLimit uint64, scratch *Scratch) (Value, error) {
+func (p *Program) ValidateBytes(id TypeID, lexical []byte, resolver Resolver, needs Needs, limits EvaluationLimits, scratch *Scratch) (Value, error) {
 	if p == nil || !p.sealed {
 		return Value{}, ErrMetadata
 	}
-	budget, err := newEvaluationBudget(workLimit)
+	budget, err := newEvaluationBudget(limits)
 	if err != nil {
 		return Value{}, err
 	}
@@ -179,11 +180,11 @@ func (p *Program) ValidateBytes(id TypeID, lexical []byte, resolver Resolver, ne
 // already admitted at its input boundary. It does not repeat XML admission;
 // returned canonical or identity projections may retain the immutable input
 // string.
-func (p *Program) ValidateAdmitted(id TypeID, lexical string, resolver Resolver, needs Needs, workLimit uint64, scratch *Scratch) (Value, error) {
+func (p *Program) ValidateAdmitted(id TypeID, lexical string, resolver Resolver, needs Needs, limits EvaluationLimits, scratch *Scratch) (Value, error) {
 	if p == nil || !p.sealed {
 		return Value{}, ErrMetadata
 	}
-	budget, err := newEvaluationBudget(workLimit)
+	budget, err := newEvaluationBudget(limits)
 	if err != nil {
 		return Value{}, err
 	}
@@ -194,12 +195,14 @@ func (p *Program) ValidateAdmitted(id TypeID, lexical string, resolver Resolver,
 
 // Validate parses one value against the completed portion of an incremental
 // builder. It is intended for compiler literals and constraints before Seal;
-// published callers use Program.Validate.
+// published callers use Program.Validate. Every call charges the builder's
+// aggregate pattern account (BuilderOptions.MaxTotalPatternWork), as Complete
+// does; the builder has no uncharged evaluation.
 func (b *Builder) Validate(id TypeID, lexical string, resolver Resolver, needs Needs, scratch *Scratch) (Value, error) {
 	if b == nil || b.program == nil || b.program.sealed {
 		return Value{}, ErrMetadata
 	}
-	budget, err := newEvaluationBudget(b.maxConstructionWork)
+	budget, err := newEvaluationBudget(EvaluationLimits{Work: b.maxConstructionWork, PatternWork: b.maxPatternWork, PatternTotal: &b.patternTotal})
 	if err != nil {
 		return Value{}, err
 	}
@@ -247,7 +250,7 @@ func (p *Program) evalBytes(id TypeID, lexical []byte, scratch *Scratch, budget 
 	}
 	switch t.variety {
 	case Atomic:
-		return validateAtomicBytesFast(t, lexical, scratch)
+		return validateAtomicBytesFast(t, lexical, scratch, budget)
 	case Union:
 		return p.evalUnionBytes(t, lexical, scratch, budget, depth)
 	case List:
@@ -285,23 +288,119 @@ func (p *Program) evalUnionBytes(t *typeDef, lexical []byte, scratch *Scratch, b
 	return NoType, true, unionFailure(last, unsupported)
 }
 
-// evaluationBudget is private to one top-level value evaluation. Its limit is
+// evaluationBudget is private to one top-level value evaluation. Its limits are
 // selected by the caller, while every nested visit shares the same usage.
-// Each visit charges its lexical byte length plus one. Raw-byte attempts, list
-// items, union member attempts and the typed fallback after an unhandled raw
-// attempt all draw on the same budget; falling back never replenishes it.
+// Each visit charges its lexical byte length plus one against the traversal
+// limit. Raw-byte attempts, list items, union member attempts and the typed
+// fallback after an unhandled raw attempt all draw on the same budget;
+// falling back never replenishes it.
+//
+// Pattern work is charged against two accounts at once. The per-value account
+// (patternLimit, patternUsed) is private to this evaluation and bounds one
+// value's regex cost across all pattern groups, list items and union
+// attempts. The total account is owned by the caller (validate session per
+// document, Builder per compilation) and bounds the sum over many values; it
+// is reached through a pointer and never copied. Each match runs with
+// MaxWork = min(per-value remainder, total remainder), so neither account can
+// be overdrawn. A limit failure charges the granted work to both accounts. It
+// reports ErrPatternTotalLimit only when the total remainder was strictly
+// smaller; ties are attributed to the per-value limit.
 // Enumeration membership is not charged: enumerationIndexMinLiterals bounds
 // its per-group work instead.
 type evaluationBudget struct {
-	limit uint64
-	used  uint64
+	total        *PatternAccount
+	limit        uint64
+	used         uint64
+	patternLimit uint64
+	patternUsed  uint64
 }
 
-func newEvaluationBudget(limit uint64) (evaluationBudget, error) {
-	if limit == 0 {
+func newEvaluationBudget(limits EvaluationLimits) (evaluationBudget, error) {
+	if limits.Work == 0 || limits.PatternWork == 0 || limits.PatternTotal == nil || limits.PatternTotal.limit == 0 {
 		return evaluationBudget{}, ErrMetadata
 	}
-	return evaluationBudget{limit: limit}, nil
+	return evaluationBudget{limit: limits.Work, patternLimit: limits.PatternWork, total: limits.PatternTotal}, nil
+}
+
+// patternRemainders returns the unspent work of the per-value and total
+// accounts. Both are positive on a nil error, so the next match may spend
+// min(perRem, totRem).
+func (b *evaluationBudget) patternRemainders() (perRem, totRem uint64, err error) {
+	if b == nil || b.patternLimit == 0 || b.total == nil || b.total.limit == 0 {
+		return 0, 0, ErrMetadata
+	}
+	perRem = satSub(b.patternLimit, b.patternUsed)
+	totRem = satSub(b.total.limit, b.total.used)
+	if perRem == 0 {
+		return 0, 0, ErrPatternLimit
+	}
+	if totRem == 0 {
+		return 0, 0, ErrPatternTotalLimit
+	}
+	return perRem, totRem, nil
+}
+
+// matchString matches one pattern against both pattern accounts.
+func (b *evaluationBudget) matchString(p *xsdregex.Pattern, lexical string, s *xsdregex.Scratch) (bool, error) {
+	perRem, totRem, err := b.patternRemainders()
+	if err != nil {
+		return false, err
+	}
+	grant := min(perRem, totRem)
+	matched, work, err := p.MatchStringWithScratch(lexical, xsdregex.MatchOptions{MaxWork: grant}, s)
+	return b.settle(matched, work, err, perRem, totRem, grant)
+}
+
+func (b *evaluationBudget) matchBytes(p *xsdregex.Pattern, lexical []byte, s *xsdregex.Scratch) (bool, error) {
+	perRem, totRem, err := b.patternRemainders()
+	if err != nil {
+		return false, err
+	}
+	grant := min(perRem, totRem)
+	matched, work, err := p.MatchBytesWithScratch(lexical, xsdregex.MatchOptions{MaxWork: grant}, s)
+	return b.settle(matched, work, err, perRem, totRem, grant)
+}
+
+// beginPatternValue starts a fresh per-value pattern budget for the next
+// top-level literal while traversal work and the total account keep
+// accumulating. Compiler facet batches share traversal work across one type's
+// literals, but MaxSchemaPatternWork is a per-literal contract.
+func (b *evaluationBudget) beginPatternValue() {
+	b.patternUsed = 0
+}
+
+func (b *evaluationBudget) settle(matched bool, work uint64, err error, perRem, totRem, grant uint64) (bool, error) {
+	if err != nil {
+		if xsdregex.IsLimit(err) {
+			b.chargePattern(grant)
+			if totRem < perRem {
+				return false, ErrPatternTotalLimit
+			}
+			return false, ErrPatternLimit
+		}
+		return false, err
+	}
+	b.chargePattern(work)
+	return matched, nil
+}
+
+func (b *evaluationBudget) chargePattern(work uint64) {
+	b.patternUsed = satAdd(b.patternUsed, work)
+	b.total.used = satAdd(b.total.used, work)
+}
+
+func satSub(a, b uint64) uint64 {
+	if b >= a {
+		return 0
+	}
+	return a - b
+}
+
+func satAdd(a, b uint64) uint64 {
+	if sum := a + b; sum >= a {
+		return sum
+	}
+	return math.MaxUint64
 }
 
 func (b *evaluationBudget) charge(length uint64) error {
@@ -326,7 +425,7 @@ func lexicalLength(length int) uint64 {
 	return uint64(length)
 }
 
-func validateAtomicBytesFast(t *typeDef, lexical []byte, scratch *Scratch) (TypeID, bool, error) {
+func validateAtomicBytesFast(t *typeDef, lexical []byte, scratch *Scratch, budget *evaluationBudget) (TypeID, bool, error) {
 	// Raw validation is entered after internal/xmlstream has admitted the
 	// document's UTF-8 and XML 1.0 character set. Rechecking every byte here
 	// would turn the borrowed fast path into a second XML scanner, especially
@@ -344,7 +443,7 @@ func validateAtomicBytesFast(t *typeDef, lexical []byte, scratch *Scratch) (Type
 	case rawPlanStringEnumeration:
 		return NoType, true, validateStringEnumBytes(&t.facets, lexical)
 	case rawPlanTextFacets:
-		return validateTextFacetsBytesPath(t, lexical, scratch)
+		return validateTextFacetsBytesPath(t, lexical, scratch, budget)
 	case rawPlanNone, rawPlanDecimal, rawPlanNMTokens:
 		// These plans either need the fallback below or belong to another
 		// value shape; the exhaustive cases make that ownership explicit.
@@ -360,11 +459,11 @@ func validatePrimitiveBytesFastPath(t *typeDef, lexical []byte) (TypeID, bool, e
 	return NoType, handled, err
 }
 
-func validateTextFacetsBytesPath(t *typeDef, lexical []byte, scratch *Scratch) (TypeID, bool, error) {
+func validateTextFacetsBytesPath(t *typeDef, lexical []byte, scratch *Scratch, budget *evaluationBudget) (TypeID, bool, error) {
 	if t.whitespace != WhitespacePreserve && hasXMLWhitespaceBytes(lexical) {
 		return NoType, false, nil
 	}
-	return NoType, true, validateTextFacetsBytes(&t.facets, lexical, scratch)
+	return NoType, true, validateTextFacetsBytes(&t.facets, lexical, scratch, budget)
 }
 
 func validateDecimalBytesFallback(t *typeDef, lexical []byte) (TypeID, bool, error) {
@@ -389,11 +488,11 @@ func tryRawDecimalBytes(t *typeDef, lexical []byte) (bool, error) {
 	return true, err
 }
 
-func validateTextFacetsBytes(f *facetProgram, lexical []byte, scratch *Scratch) error {
+func validateTextFacetsBytes(f *facetProgram, lexical []byte, scratch *Scratch, budget *evaluationBudget) error {
 	if err := validateTextLengthBytes(f, lexical); err != nil {
 		return err
 	}
-	return applyPatternFacetsBytes(f.patterns, lexical, scratch)
+	return applyPatternFacetsBytes(f.patterns, lexical, scratch, budget)
 }
 
 func validateTextLengthBytes(f *facetProgram, lexical []byte) error {
@@ -418,11 +517,11 @@ func validateTextLengthBytes(f *facetProgram, lexical []byte) error {
 	return nil
 }
 
-func applyPatternFacetsBytes(patterns [][]*Pattern, lexical []byte, scratch *Scratch) error {
+func applyPatternFacetsBytes(patterns [][]*Pattern, lexical []byte, scratch *Scratch, budget *evaluationBudget) error {
 	for _, group := range patterns {
-		matched, err := matchPatternGroupBytes(group, lexical, scratch)
+		matched, err := matchPatternGroupBytes(group, lexical, scratch, budget)
 		if err != nil {
-			return normalizePatternError(err)
+			return err
 		}
 		if !matched {
 			return errPatternFacet
@@ -431,13 +530,13 @@ func applyPatternFacetsBytes(patterns [][]*Pattern, lexical []byte, scratch *Scr
 	return nil
 }
 
-func matchPatternGroupBytes(group []*Pattern, lexical []byte, scratch *Scratch) (bool, error) {
+func matchPatternGroupBytes(group []*Pattern, lexical []byte, scratch *Scratch, budget *evaluationBudget) (bool, error) {
 	for _, pattern := range group {
 		matcherScratch := (*xsdregex.Scratch)(nil)
 		if scratch != nil {
 			matcherScratch = &scratch.pattern
 		}
-		matched, err := pattern.MatchBytesWithScratch(lexical, patternMatchOptions(scratch), matcherScratch)
+		matched, err := budget.matchBytes(pattern, lexical, matcherScratch)
 		if err != nil {
 			return false, err
 		}
@@ -456,10 +555,10 @@ func validatePrimitiveBytesFast(t *typeDef, lexical []byte) (bool, error) {
 			return false, nil
 		}
 	case PrimitiveBoolean:
-		err = ValidateBooleanLexical(lexical)
+		err = validateBooleanLexical(lexical)
 	case PrimitiveDecimal:
 		if t.builtin == BuiltinInteger {
-			err = ValidateIntegerLexical(lexical)
+			err = validateIntegerLexical(lexical)
 		} else {
 			_, err = scanDecimalText(lexical)
 		}
@@ -468,13 +567,13 @@ func validatePrimitiveBytesFast(t *typeDef, lexical []byte) (bool, error) {
 	case PrimitiveDouble:
 		err = ValidateFloatLexical(lexical, 64)
 	case PrimitiveDuration:
-		err = ValidateDurationLexical(lexical)
-	case PrimitiveDateTime, PrimitiveTime, PrimitiveDate, PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth:
-		err = ValidateTemporalLexical(t.primitive, lexical)
+		err = validateDurationLexical(lexical)
+	case PrimitiveDateTime, primitiveTime, primitiveDate, primitiveGYearMonth, primitiveGYear, primitiveGMonthDay, primitiveGDay, primitiveGMonth:
+		err = validateTemporalLexical(t.primitive, lexical)
 	case PrimitiveHexBinary:
-		err = ValidateHexBinaryLexical(lexical)
+		err = validateHexBinaryLexical(lexical)
 	case PrimitiveBase64Binary:
-		err = ValidateBase64BinaryLexical(lexical)
+		err = validateBase64BinaryLexical(lexical)
 	case PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
 		return false, nil
 	}
@@ -546,7 +645,7 @@ func rawNMTokensPlan(t, item *typeDef) bool {
 		t.facets.present&^FacetMinLength != 0 || item == nil {
 		return false
 	}
-	if item.variety != Atomic || item.primitive != PrimitiveString || item.builtin != BuiltinNMTOKEN ||
+	if item.variety != Atomic || item.primitive != PrimitiveString || item.builtin != builtinNMTOKENLexical ||
 		item.carriers != 0 || item.whitespace != WhitespaceCollapse || item.facets.present != 0 {
 		return false
 	}
@@ -570,9 +669,9 @@ func rawFacetlessAtomicPlan(t *typeDef) rawEvaluationKind {
 	case PrimitiveBoolean:
 		return rawPlanBoolean
 	case PrimitiveFloat, PrimitiveDouble, PrimitiveDuration,
-		PrimitiveDate, PrimitiveDateTime, PrimitiveTime,
-		PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay,
-		PrimitiveGDay, PrimitiveGMonth, PrimitiveHexBinary, PrimitiveBase64Binary:
+		primitiveDate, PrimitiveDateTime, primitiveTime,
+		primitiveGYearMonth, primitiveGYear, primitiveGMonthDay,
+		primitiveGDay, primitiveGMonth, PrimitiveHexBinary, PrimitiveBase64Binary:
 		return rawPlanPrimitive
 	case PrimitiveDecimal, PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
 		return rawPlanNone
@@ -848,7 +947,7 @@ func (p *Program) admitEvaluation(id TypeID, lexical string, options evalOptions
 
 func finishEvaluation(t *typeDef, value *parsedValue, normalized string, options evalOptions) error {
 	if options.enforceFacets && t.facets.present != 0 {
-		if err := applyFacets(t, value, normalized, options.scratch); err != nil {
+		if err := applyFacets(t, value, normalized, options.scratch, options.work); err != nil {
 			return err
 		}
 	}
@@ -864,7 +963,7 @@ func evalAtomic(id TypeID, t *typeDef, normalized string, options evalOptions, v
 	if err := parseAtomic(value, t, normalized, options.resolver, parseNeeds); err != nil {
 		return err
 	}
-	if parseNeeds.Has(PrimitiveNeedCanonical) && (value.canonical == "" || t.builtin == BuiltinInteger) {
+	if parseNeeds.Has(primitiveNeedCanonical) && (value.canonical == "" || t.builtin == BuiltinInteger) {
 		value.canonical = atomicCanonical(t.builtin, &value.atom, normalized)
 	}
 	return nil
@@ -1098,29 +1197,29 @@ func validateXMLString(lexical string) error {
 	return nil
 }
 
-func primitiveNeeds(t *typeDef, needs Needs) PrimitiveValueNeed {
-	var out PrimitiveValueNeed
+func primitiveNeeds(t *typeDef, needs Needs) primitiveValueNeed {
+	var out primitiveValueNeed
 	if needs.Has(NeedCanonical) || needs.Has(NeedIdentity) || t.carriers != 0 {
-		out |= PrimitiveNeedCanonical
+		out |= primitiveNeedCanonical
 	}
 	if needs.Has(NeedIdentity) {
-		out |= PrimitiveNeedIdentity
+		out |= primitiveNeedIdentity
 	}
 	if t.facets.length.Present || t.facets.minLength.Present || t.facets.maxLength.Present {
-		out |= PrimitiveNeedLength
+		out |= primitiveNeedLength
 	}
 	return out
 }
 
-func parseAtomic(out *parsedValue, t *typeDef, normalized string, resolver Resolver, needs PrimitiveValueNeed) error {
-	if err := ValidateBuiltinDerived(BuiltinDerivedInput{Norm: normalized, Kind: t.builtin}); err != nil {
+func parseAtomic(out *parsedValue, t *typeDef, normalized string, resolver Resolver, needs primitiveValueNeed) error {
+	if err := validateBuiltinDerived(builtinDerivedInput{Norm: normalized, Kind: t.builtin}); err != nil {
 		return err
 	}
 	out.atom.kind = t.primitive
 	switch t.primitive {
 	case PrimitiveString, PrimitiveAnyURI, PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble, PrimitiveDuration:
 		return parseScalarAtomic(out, t.primitive, normalized, needs)
-	case PrimitiveDate, PrimitiveDateTime, PrimitiveTime, PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth:
+	case primitiveDate, PrimitiveDateTime, primitiveTime, primitiveGYearMonth, primitiveGYear, primitiveGMonthDay, primitiveGDay, primitiveGMonth:
 		return parseTemporalAtomic(out, t.primitive, normalized, needs)
 	case PrimitiveHexBinary, PrimitiveBase64Binary:
 		return parseBinaryAtomic(&out.atom, t.primitive, normalized, needs)
@@ -1131,11 +1230,11 @@ func parseAtomic(out *parsedValue, t *typeDef, normalized string, resolver Resol
 	}
 }
 
-func parseScalarAtomic(out *parsedValue, kind PrimitiveKind, normalized string, needs PrimitiveValueNeed) error {
+func parseScalarAtomic(out *parsedValue, kind PrimitiveKind, normalized string, needs primitiveValueNeed) error {
 	//nolint:exhaustive // parseAtomic routes only scalar primitive kinds here.
 	switch kind {
 	case PrimitiveString, PrimitiveAnyURI:
-		v, err := ParseTextValue(kind, normalized, needs)
+		v, err := parseTextValue(kind, normalized, needs)
 		out.atom.lexical = lexicalValue{Canonical: v.Canonical, Length: v.Length}
 		return err
 	case PrimitiveBoolean:
@@ -1144,7 +1243,7 @@ func parseScalarAtomic(out *parsedValue, kind PrimitiveKind, normalized string, 
 		return err
 	case PrimitiveDecimal:
 		v, err := ParseDecimalValue(normalized)
-		if needs.Has(PrimitiveNeedCanonical) && err == nil {
+		if needs.Has(primitiveNeedCanonical) && err == nil {
 			v.Canonical = v.CanonicalText()
 			v.IntegerCanonical = v.IntegerCanonicalText()
 		}
@@ -1156,7 +1255,7 @@ func parseScalarAtomic(out *parsedValue, kind PrimitiveKind, normalized string, 
 		out.canonical = v.Canonical
 		return err
 	case PrimitiveDuration:
-		v, err := ParseDurationValue(normalized)
+		v, err := parseDurationValue(normalized)
 		out.atom.duration = v
 		return err
 	default:
@@ -1164,16 +1263,16 @@ func parseScalarAtomic(out *parsedValue, kind PrimitiveKind, normalized string, 
 	}
 }
 
-func parseTemporalAtomic(out *parsedValue, kind PrimitiveKind, normalized string, needs PrimitiveValueNeed) error {
+func parseTemporalAtomic(out *parsedValue, kind PrimitiveKind, normalized string, needs primitiveValueNeed) error {
 	//nolint:exhaustive // parseAtomic routes only temporal primitive kinds here.
 	switch kind {
-	case PrimitiveDate:
+	case primitiveDate:
 		v, err := ParseDateValue(normalized)
 		if err != nil {
 			return err
 		}
 		out.atom.temporal = v.Temporal()
-		if needs.Has(PrimitiveNeedCanonical) {
+		if needs.Has(primitiveNeedCanonical) {
 			out.canonical = v.CanonicalText()
 		}
 		return nil
@@ -1183,16 +1282,16 @@ func parseTemporalAtomic(out *parsedValue, kind PrimitiveKind, normalized string
 			return err
 		}
 		out.atom.temporal = v.Temporal()
-		if needs.Has(PrimitiveNeedCanonical) {
+		if needs.Has(primitiveNeedCanonical) {
 			out.canonical = v.CanonicalText()
 		}
 		return nil
-	case PrimitiveTime:
+	case primitiveTime:
 		v, err := ParseTimeValue(normalized)
 		out.atom.time = v
 		return err
-	case PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth:
-		v, err := ParseGValue(kind, normalized)
+	case primitiveGYearMonth, primitiveGYear, primitiveGMonthDay, primitiveGDay, primitiveGMonth:
+		v, err := parseGValue(kind, normalized)
 		out.atom.g = v
 		return err
 	default:
@@ -1200,8 +1299,8 @@ func parseTemporalAtomic(out *parsedValue, kind PrimitiveKind, normalized string
 	}
 }
 
-func parseBinaryAtomic(out *atomicValue, kind PrimitiveKind, normalized string, needs PrimitiveValueNeed) error {
-	v, err := ParseBinaryValue(kind, normalized, needs)
+func parseBinaryAtomic(out *atomicValue, kind PrimitiveKind, normalized string, needs primitiveValueNeed) error {
+	v, err := parseBinaryValue(kind, normalized, needs)
 	out.lexical = lexicalValue(v)
 	return err
 }
@@ -1259,13 +1358,13 @@ func atomicCanonical(builtin BuiltinKind, atom *atomicValue, source string) stri
 		// whitespace-normalized source as the lexical projection while the
 		// duration coordinates remain the value-space identity.
 		return source
-	case PrimitiveTime:
+	case primitiveTime:
 		return atom.time.CanonicalText()
-	case PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth:
+	case primitiveGYearMonth, primitiveGYear, primitiveGMonthDay, primitiveGDay, primitiveGMonth:
 		return atom.g.CanonicalText()
 	case PrimitiveQName, PrimitiveNotation:
 		return formatExpandedName(atom.expandedName.Namespace, atom.expandedName.Local)
-	case PrimitiveDate, PrimitiveDateTime, PrimitiveFloat, PrimitiveDouble:
+	case primitiveDate, PrimitiveDateTime, PrimitiveFloat, PrimitiveDouble:
 		// Float and date parsers write requested text directly to parsedValue.
 	}
 	return ""
@@ -1329,7 +1428,7 @@ func valueIdentityCanonical(v *parsedValue) string {
 	}
 	//nolint:exhaustive // Only g* values need a separate value-space identity projection.
 	switch v.atom.kind {
-	case PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth:
+	case primitiveGYearMonth, primitiveGYear, primitiveGMonthDay, primitiveGDay, primitiveGMonth:
 		return v.atom.g.identityCanonical()
 	}
 	return v.canonical
@@ -1354,15 +1453,15 @@ func equalAtomic(a, b *atomicValue) bool {
 	case PrimitiveDecimal:
 		return CompareDecimalValues(a.decimal, b.decimal) == 0
 	case PrimitiveFloat, PrimitiveDouble:
-		return EqualFloatValues(a.float, b.float)
+		return equalFloatValues(a.float, b.float)
 	case PrimitiveDuration:
-		return EqualDurationValues(a.duration, b.duration)
-	case PrimitiveDate, PrimitiveDateTime:
-		return EqualTemporalValues(a.temporal, b.temporal)
-	case PrimitiveTime:
-		return EqualTimeValues(a.time, b.time)
-	case PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth:
-		return EqualGValues(a.g, b.g)
+		return equalDurationValues(a.duration, b.duration)
+	case primitiveDate, PrimitiveDateTime:
+		return equalTemporalValues(a.temporal, b.temporal)
+	case primitiveTime:
+		return equalTimeValues(a.time, b.time)
+	case primitiveGYearMonth, primitiveGYear, primitiveGMonthDay, primitiveGDay, primitiveGMonth:
+		return equalGValues(a.g, b.g)
 	case PrimitiveHexBinary, PrimitiveBase64Binary:
 		if a.kind == PrimitiveHexBinary {
 			return strings.EqualFold(a.lexical.Canonical, b.lexical.Canonical)
@@ -1384,7 +1483,7 @@ func equalAtomic(a, b *atomicValue) bool {
 
 // prepareBase64Canonical compacts one document-local value when an
 // enumeration comparison needs its value-space spelling. Schema literals are
-// parsed with PrimitiveNeedCanonical and are ready before publication.
+// parsed with primitiveNeedCanonical and are ready before publication.
 func prepareBase64Canonical(binary *lexicalValue) {
 	if binary.canonicalReady {
 		return
@@ -1393,7 +1492,7 @@ func prepareBase64Canonical(binary *lexicalValue) {
 	binary.canonicalReady = true
 }
 
-func applyFacets(t *typeDef, value *parsedValue, normalized string, scratch *Scratch) error {
+func applyFacets(t *typeDef, value *parsedValue, normalized string, scratch *Scratch, budget *evaluationBudget) error {
 	f := &t.facets
 	if err := applyLengthFacet(f, value); err != nil {
 		return err
@@ -1404,7 +1503,7 @@ func applyFacets(t *typeDef, value *parsedValue, normalized string, scratch *Scr
 	if err := applyBounds(f.lower, f.upper, value); err != nil {
 		return err
 	}
-	if err := applyPatternFacets(f.patterns, normalized, scratch); err != nil {
+	if err := applyPatternFacets(f.patterns, normalized, scratch, budget); err != nil {
 		return err
 	}
 	return applyEnumerationFacets(f, value)
@@ -1461,11 +1560,11 @@ func applyDigitFacets(f *facetProgram, value *parsedValue) error {
 	return nil
 }
 
-func applyPatternFacets(patterns [][]*Pattern, normalized string, scratch *Scratch) error {
+func applyPatternFacets(patterns [][]*Pattern, normalized string, scratch *Scratch, budget *evaluationBudget) error {
 	for _, group := range patterns {
-		matched, err := matchPatternGroupString(group, normalized, scratch)
+		matched, err := matchPatternGroupString(group, normalized, scratch, budget)
 		if err != nil {
-			return normalizePatternError(err)
+			return err
 		}
 		if !matched {
 			return errPatternFacet
@@ -1474,7 +1573,7 @@ func applyPatternFacets(patterns [][]*Pattern, normalized string, scratch *Scrat
 	return nil
 }
 
-func matchPatternGroupString(group []*Pattern, lexical string, scratch *Scratch) (bool, error) {
+func matchPatternGroupString(group []*Pattern, lexical string, scratch *Scratch, budget *evaluationBudget) (bool, error) {
 	for _, pattern := range group {
 		if pattern == nil {
 			continue
@@ -1483,7 +1582,7 @@ func matchPatternGroupString(group []*Pattern, lexical string, scratch *Scratch)
 		if scratch != nil {
 			matcherScratch = &scratch.pattern
 		}
-		matched, err := pattern.MatchStringWithScratch(lexical, patternMatchOptions(scratch), matcherScratch)
+		matched, err := budget.matchString(pattern, lexical, matcherScratch)
 		if err != nil {
 			return false, err
 		}
@@ -1492,13 +1591,6 @@ func matchPatternGroupString(group []*Pattern, lexical string, scratch *Scratch)
 		}
 	}
 	return false, nil
-}
-
-func normalizePatternError(err error) error {
-	if xsdregex.IsLimit(err) {
-		return ErrLimit
-	}
-	return err
 }
 
 func applyEnumerationFacets(f *facetProgram, value *parsedValue) error {
@@ -1523,52 +1615,45 @@ func prepareBase64EnumerationValue(value *parsedValue) {
 	}
 }
 
-func patternMatchOptions(scratch *Scratch) (options xsdregex.MatchOptions) {
-	if scratch != nil {
-		return scratch.PatternOptions
-	}
-	return options
-}
-
 func applyBounds(lowers, uppers []boundValue, value *parsedValue) error {
 	for i := range lowers {
 		bound := &lowers[i]
 		relation, ok := compareAtomic(&value.atom, &bound.value)
-		if !ok || !OrderedFacetLowerBoundAccepts(bound.exclusive, relation) {
+		if !ok || !orderedFacetLowerBoundAccepts(bound.exclusive, relation) {
 			return errLowerBoundFacet
 		}
 	}
 	for i := range uppers {
 		bound := &uppers[i]
 		relation, ok := compareAtomic(&value.atom, &bound.value)
-		if !ok || !OrderedFacetUpperBoundAccepts(bound.exclusive, relation) {
+		if !ok || !orderedFacetUpperBoundAccepts(bound.exclusive, relation) {
 			return errUpperBoundFacet
 		}
 	}
 	return nil
 }
 
-func compareAtomic(a, b *atomicValue) (OrderedFacetRelation, bool) {
+func compareAtomic(a, b *atomicValue) (orderedFacetRelation, bool) {
 	if a.kind != b.kind {
-		return OrderedFacetIncomparable, false
+		return orderedFacetIncomparable, false
 	}
 	switch a.kind {
 	case PrimitiveDecimal:
 		return orderedFacetRelationFromInt(CompareDecimalValues(a.decimal, b.decimal)), true
 	case PrimitiveFloat, PrimitiveDouble:
-		return FloatRelation(a.float, b.float), true
+		return floatRelation(a.float, b.float), true
 	case PrimitiveDuration:
-		return CompareDurationValues(a.duration, b.duration), true
-	case PrimitiveDate, PrimitiveDateTime:
-		return CompareTemporalValues(a.temporal, b.temporal), true
-	case PrimitiveTime:
-		return CompareTimePartial(a.time, b.time), true
-	case PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth:
-		return CompareGValues(a.g, b.g), true
+		return compareDurationValues(a.duration, b.duration), true
+	case primitiveDate, PrimitiveDateTime:
+		return compareTemporalValues(a.temporal, b.temporal), true
+	case primitiveTime:
+		return compareTimePartial(a.time, b.time), true
+	case primitiveGYearMonth, primitiveGYear, primitiveGMonthDay, primitiveGDay, primitiveGMonth:
+		return compareGValues(a.g, b.g), true
 	case PrimitiveString, PrimitiveBoolean, PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
-		return OrderedFacetIncomparable, false
+		return orderedFacetIncomparable, false
 	}
-	return OrderedFacetIncomparable, false
+	return orderedFacetIncomparable, false
 }
 
 func equalParsed(a, b *parsedValue) bool {

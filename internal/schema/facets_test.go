@@ -2,10 +2,10 @@ package schema
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -31,28 +31,28 @@ func TestParseSizeFacetValue(t *testing.T) {
 			facet: "length",
 			value: "",
 			code:  xsderrors.CodeSchemaFacet,
-			msg:   "invalid length facet ",
+			msg:   "invalid length facet " + diagnostictext.Quote(""),
 		},
 		{
 			name:  "sign only",
 			facet: "length",
 			value: "-",
 			code:  xsderrors.CodeSchemaFacet,
-			msg:   "invalid length facet -",
+			msg:   "invalid length facet " + diagnostictext.Quote("-"),
 		},
 		{
 			name:  "text",
 			facet: "fractionDigits",
 			value: "1x",
 			code:  xsderrors.CodeSchemaFacet,
-			msg:   "invalid fractionDigits facet 1x",
+			msg:   `invalid fractionDigits facet "1x"`,
 		},
 		{
 			name:  "negative non-zero",
 			facet: "length",
 			value: "-1",
 			code:  xsderrors.CodeSchemaFacet,
-			msg:   "invalid length facet -1",
+			msg:   "invalid length facet " + diagnostictext.Quote("-1"),
 		},
 		{
 			name:  "totalDigits zero",
@@ -76,13 +76,13 @@ func TestParseSizeFacetValue(t *testing.T) {
 			msg:   "maxLength facet exceeds uint32 limit",
 		},
 		{name: "long negative zero", facet: "length", value: "-" + strings.Repeat("0", 1024), want: 0},
-		{name: "overflow malformed tail", facet: "maxLength", value: strings.Repeat("9", 256) + "x", code: xsderrors.CodeSchemaFacet, msg: "invalid maxLength facet " + strings.Repeat("9", 256) + "x"},
+		{name: "overflow malformed tail", facet: "maxLength", value: strings.Repeat("9", 256) + "x", code: xsderrors.CodeSchemaFacet, msg: "invalid maxLength facet " + diagnostictext.Quote(strings.Repeat("9", 256)+"x")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := ParseSizeFacetValue(tt.facet, tt.value)
+			got, err := parseSizeFacetValue(tt.facet, tt.value)
 			if tt.code == "" {
 				if err != nil {
 					t.Fatalf("ParseSizeFacetValue() error = %v", err)
@@ -103,111 +103,5 @@ func TestParseSizeFacetValue(t *testing.T) {
 				t.Fatalf("ParseSizeFacetValue() message = %q, want %q", xerr.Message(), tt.msg)
 			}
 		})
-	}
-}
-
-func TestFacetValueError(t *testing.T) {
-	t.Parallel()
-
-	if err := FacetValueError("bad", nil); err != nil {
-		t.Fatalf("FacetValueError(nil) error = %v", err)
-	}
-	unsupported := xsderrors.Unsupported(xsderrors.CodeUnsupportedRegex, "unsupported regex", nil)
-	if err := FacetValueError("bad", unsupported); !errors.Is(err, unsupported) {
-		t.Fatalf("FacetValueError(unsupported) = %v, want original unsupported error", err)
-	}
-	err := FacetValueError("bad", fmt.Errorf("runtime reject"))
-	var xerr *xsderrors.Error
-	if !errors.As(err, &xerr) {
-		t.Fatalf("FacetValueError(reject) error = %T %v, want *xsderrors.Error", err, err)
-	}
-	if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != xsderrors.CodeSchemaFacet {
-		t.Fatalf("diagnostic = %s/%s, want schema compile facet", xerr.Category(), xerr.Code())
-	}
-	if xerr.Message() != "invalid facet value bad" {
-		t.Fatalf("message = %q, want invalid facet value", xerr.Message())
-	}
-}
-
-func TestDeclarationValueConstraintError(t *testing.T) {
-	t.Parallel()
-
-	if err := DeclarationValueConstraintError("element fixed", "p:e", nil); err != nil {
-		t.Fatalf("DeclarationValueConstraintError(nil) error = %v", err)
-	}
-	unsupported := xsderrors.Unsupported(xsderrors.CodeUnsupportedRegex, "unsupported regex", nil)
-	if err := DeclarationValueConstraintError("element fixed", "p:e", unsupported); !errors.Is(err, unsupported) {
-		t.Fatalf("DeclarationValueConstraintError(unsupported) = %v, want original unsupported error", err)
-	}
-	err := DeclarationValueConstraintError("element fixed", "p:e", fmt.Errorf("runtime reject"))
-	var xerr *xsderrors.Error
-	if !errors.As(err, &xerr) {
-		t.Fatalf("DeclarationValueConstraintError(reject) error = %T %v, want *xsderrors.Error", err, err)
-	}
-	if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != xsderrors.CodeSchemaFacet {
-		t.Fatalf("diagnostic = %s/%s, want schema compile facet", xerr.Category(), xerr.Code())
-	}
-	if xerr.Message() != "invalid element fixed value for p:e" {
-		t.Fatalf("message = %q, want invalid value constraint", xerr.Message())
-	}
-}
-
-func TestElementValueConstraintTypeError(t *testing.T) {
-	t.Parallel()
-
-	t.Run("located schema diagnostic", func(t *testing.T) {
-		t.Parallel()
-		input := xsderrors.WithLocation("constraint.xsd", 7, 11, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content work exhausted"))
-		got := ElementValueConstraintTypeError(input)
-		diagnostic, ok := errors.AsType[*xsderrors.Error](got)
-		if !ok || diagnostic.Category() != xsderrors.CategorySchemaCompile || diagnostic.Code() != xsderrors.CodeSchemaLimit || diagnostic.Path() != "constraint.xsd" || diagnostic.Line() != 7 || diagnostic.Column() != 11 {
-			t.Fatalf("structured diagnostic changed: %v", got)
-		}
-	})
-	t.Run("wrapped unsupported diagnostic", func(t *testing.T) {
-		t.Parallel()
-		cause := errors.New("unsupported constraint")
-		diagnostic := xsderrors.WithLocation("constraint.xsd", 13, 17, xsderrors.Unsupported(xsderrors.CodeUnsupportedRegex, "constraint regex", cause))
-		input := fmt.Errorf("mixed content constraint: %w", diagnostic)
-		got := ElementValueConstraintTypeError(input)
-		result, ok := errors.AsType[*xsderrors.Error](got)
-		if !ok || !errors.Is(got, cause) || !xsderrors.IsUnsupported(got) || result.Code() != xsderrors.CodeUnsupportedRegex || result.Path() != "constraint.xsd" || result.Line() != 13 || result.Column() != 17 {
-			t.Fatalf("wrapped structured diagnostic changed: %v", got)
-		}
-	})
-
-	if err := ElementValueConstraintTypeError(nil); err != nil {
-		t.Fatalf("ElementValueConstraintTypeError(nil) error = %v", err)
-	}
-	err := ElementValueConstraintTypeError(fmt.Errorf("owner reject"))
-	var xerr *xsderrors.Error
-	if !errors.As(err, &xerr) {
-		t.Fatalf("ElementValueConstraintTypeError(reject) error = %T %v, want *xsderrors.Error", err, err)
-	}
-	if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != xsderrors.CodeSchemaInvalidAttribute {
-		t.Fatalf("diagnostic = %s/%s, want schema compile invalid attribute", xerr.Category(), xerr.Code())
-	}
-	if xerr.Message() != "owner reject" {
-		t.Fatalf("message = %q, want runtime message", xerr.Message())
-	}
-}
-
-func TestElementValueConstraintRuntimeError(t *testing.T) {
-	t.Parallel()
-
-	if err := ElementValueConstraintRuntimeError(nil); err != nil {
-		t.Fatalf("ElementValueConstraintRuntimeError(nil) error = %v", err)
-	}
-
-	err := ElementValueConstraintRuntimeError(fmt.Errorf("runtime reject"))
-	var xerr *xsderrors.Error
-	if !errors.As(err, &xerr) {
-		t.Fatalf("ElementValueConstraintRuntimeError(reject) error = %T %v, want *xsderrors.Error", err, err)
-	}
-	if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != xsderrors.CodeSchemaInvalidAttribute {
-		t.Fatalf("runtime reject diagnostic = %s/%s, want schema compile invalid attribute", xerr.Category(), xerr.Code())
-	}
-	if xerr.Message() != "runtime reject" {
-		t.Fatalf("runtime reject message = %q, want runtime message", xerr.Message())
 	}
 }

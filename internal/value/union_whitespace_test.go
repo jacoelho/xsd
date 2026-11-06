@@ -8,7 +8,7 @@ import (
 )
 
 func TestUnionUsesSelectedMemberWhitespace(t *testing.T) {
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	union, err := b.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -37,7 +37,7 @@ func TestUnionUsesSelectedMemberWhitespace(t *testing.T) {
 		{name: "string fallback", lexical: "  x  ", canonical: "  x  ", selected: builtinString},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := p.Validate(union, tc.lexical, Resolver{}, NeedCanonical, 16<<20, nil)
+			got, err := p.Validate(union, tc.lexical, Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			if err != nil {
 				t.Fatalf("Validate(%q): %v", tc.lexical, err)
 			}
@@ -45,7 +45,7 @@ func TestUnionUsesSelectedMemberWhitespace(t *testing.T) {
 				t.Fatalf("Validate(%q) = selected %d, canonical %q; want %d, %q", tc.lexical, got.SelectedType(), got.CanonicalText(), tc.selected, tc.canonical)
 			}
 
-			got, err = p.ValidateBytes(union, []byte(tc.lexical), Resolver{}, NeedCanonical, 16<<20, nil)
+			got, err = p.ValidateBytes(union, []byte(tc.lexical), Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			if err != nil {
 				t.Fatalf("ValidateBytes(%q): %v", tc.lexical, err)
 			}
@@ -57,11 +57,11 @@ func TestUnionUsesSelectedMemberWhitespace(t *testing.T) {
 }
 
 func TestUnionPatternUsesSelectedMemberWhitespaceWithoutProjection(t *testing.T) {
-	pattern, err := xsdregex.Compile(`\S+ \S+`, xsdregex.CompileOptions{})
+	pattern, err := xsdregex.Compile(`\S+ \S+`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	union, err := b.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -83,7 +83,7 @@ func TestUnionPatternUsesSelectedMemberWhitespaceWithoutProjection(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	value, err := p.Validate(union, "a   b", Resolver{}, 0, 16<<20, nil)
+	value, err := p.Validate(union, "a   b", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatalf("Validate without projection: %v", err)
 	}
@@ -96,7 +96,7 @@ func TestUnionPatternUsesSelectedMemberWhitespaceWithoutProjection(t *testing.T)
 }
 
 func TestUnionEnumerationUsesSelectedMemberValue(t *testing.T) {
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	union, err := b.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -126,10 +126,10 @@ func TestUnionEnumerationUsesSelectedMemberValue(t *testing.T) {
 		run  func(string) (Value, error)
 	}{
 		{name: "string", run: func(lexical string) (Value, error) {
-			return p.Validate(union, lexical, Resolver{}, NeedCanonical, 16<<20, nil)
+			return p.Validate(union, lexical, Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		}},
 		{name: "bytes", run: func(lexical string) (Value, error) {
-			return p.ValidateBytes(union, []byte(lexical), Resolver{}, NeedCanonical, 16<<20, nil)
+			return p.ValidateBytes(union, []byte(lexical), Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		}},
 	} {
 		t.Run(validate.name, func(t *testing.T) {
@@ -199,11 +199,11 @@ func TestUnionPatternUsesSelectedMemberWhitespace(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			pattern, err := xsdregex.Compile(test.pattern, xsdregex.CompileOptions{})
+			pattern, err := xsdregex.Compile(test.pattern)
 			if err != nil {
 				t.Fatal(err)
 			}
-			b := NewBuilder(BuilderOptions{})
+			b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 			if test.list {
 				list, listErr := b.Reserve()
 				if listErr != nil {
@@ -246,10 +246,10 @@ func TestUnionPatternUsesSelectedMemberWhitespace(t *testing.T) {
 				run  func(string) (Value, error)
 			}{
 				{name: "string", run: func(lexical string) (Value, error) {
-					return p.Validate(union, lexical, Resolver{}, NeedCanonical, 16<<20, nil)
+					return p.Validate(union, lexical, Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 				}},
 				{name: "bytes", run: func(lexical string) (Value, error) {
-					return p.ValidateBytes(union, []byte(lexical), Resolver{}, NeedCanonical, 16<<20, nil)
+					return p.ValidateBytes(union, []byte(lexical), Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 				}},
 			} {
 				t.Run(validate.name, func(t *testing.T) {
@@ -273,11 +273,11 @@ func TestUnionPatternUsesSelectedMemberWhitespace(t *testing.T) {
 }
 
 func TestNestedUnionPatternUsesTerminalMemberWhitespace(t *testing.T) {
-	pattern, err := xsdregex.Compile(`\S+\s{2}\S+`, xsdregex.CompileOptions{})
+	pattern, err := xsdregex.Compile(`\S+\s{2}\S+`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	b := NewBuilder(BuilderOptions{})
+	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	inner, err := b.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -320,11 +320,11 @@ func TestNestedUnionPatternUsesTerminalMemberWhitespace(t *testing.T) {
 		run  func(string) error
 	}{
 		{name: "string", run: func(lexical string) error {
-			_, err := p.Validate(outer, lexical, Resolver{}, NeedCanonical, 16<<20, nil)
+			_, err := p.Validate(outer, lexical, Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			return err
 		}},
 		{name: "bytes", run: func(lexical string) error {
-			_, err := p.ValidateBytes(outer, []byte(lexical), Resolver{}, NeedCanonical, 16<<20, nil)
+			_, err := p.ValidateBytes(outer, []byte(lexical), Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			return err
 		}},
 	} {
@@ -337,7 +337,7 @@ func TestNestedUnionPatternUsesTerminalMemberWhitespace(t *testing.T) {
 }
 
 func TestListXMLWhitespaceAdmission(t *testing.T) {
-	program, err := NewBuilder(BuilderOptions{}).Seal()
+	program, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -360,11 +360,11 @@ func TestListXMLWhitespaceAdmission(t *testing.T) {
 				var validationErr error
 				switch mode {
 				case "string":
-					got, validationErr = program.Validate(id, tc.input, Resolver{}, NeedCanonical, 64, nil)
+					got, validationErr = program.Validate(id, tc.input, Resolver{}, NeedCanonical, EvaluationLimits{Work: 64, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 				case "borrowed bytes":
-					got, validationErr = program.ValidateBytes(id, []byte(tc.input), Resolver{}, 0, 64, nil)
+					got, validationErr = program.ValidateBytes(id, []byte(tc.input), Resolver{}, 0, EvaluationLimits{Work: 64, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 				case "projected bytes":
-					got, validationErr = program.ValidateBytes(id, []byte(tc.input), Resolver{}, NeedCanonical, 64, nil)
+					got, validationErr = program.ValidateBytes(id, []byte(tc.input), Resolver{}, NeedCanonical, EvaluationLimits{Work: 64, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 				}
 				if tc.error != "" {
 					if validationErr == nil || !strings.HasSuffix(validationErr.Error(), tc.error) {

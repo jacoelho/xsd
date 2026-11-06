@@ -1,25 +1,26 @@
 package schema
 
 import (
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
 const invalidQNameMessagePrefix = "invalid QName "
 
-// QNameParts is a parsed lexical QName.
-type QNameParts struct {
+// qNameParts is a parsed lexical QName.
+type qNameParts struct {
 	Prefix   string
 	Local    string
 	Prefixed bool
 }
 
-// ParseQNameParts parses and validates a lexical QName.
-func ParseQNameParts(lexical string) (QNameParts, error) {
+// parseQNameParts parses and validates a lexical QName.
+func parseQNameParts(lexical string) (qNameParts, error) {
 	lexical = lex.TrimXMLWhitespaceString(lexical)
 	parts := lex.SplitQName(lexical)
 	if !parts.Valid {
-		return QNameParts{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, invalidQNameMessagePrefix+lexical)
+		return qNameParts{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, invalidQNameMessagePrefix+diagnostictext.Quote(lexical))
 	}
-	return QNameParts{Prefix: parts.Prefix, Local: parts.Local, Prefixed: parts.Prefixed}, nil
+	return qNameParts{Prefix: parts.Prefix, Local: parts.Local, Prefixed: parts.Prefixed}, nil
 }

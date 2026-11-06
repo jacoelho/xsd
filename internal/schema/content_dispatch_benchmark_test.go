@@ -44,7 +44,7 @@ func BenchmarkContentDispatch(b *testing.B) {
 					return
 				}
 				kind, element := transition.Match()
-				if status != ContentTransitionMatched || kind != ContentMatchDeclared || element != wantElement {
+				if status != contentTransitionMatched || kind != ContentMatchDeclared || element != wantElement {
 					b.Fatalf("transition = %v/%v/%v, want matched/declared/%v", status, kind, element, wantElement)
 				}
 				next := initial
@@ -86,30 +86,30 @@ type contentDispatchBenchmarkSetup struct {
 func contentDispatchBenchmarkFixture(b *testing.B, test contentDispatchBenchmarkCase) contentDispatchBenchmarkSetup {
 	b.Helper()
 	names := make(map[ElementID]QName, test.width+2)
-	edges := make([]CompiledModelEdge, test.width)
+	edges := make([]compiledModelEdge, test.width)
 	for i := range edges {
 		id := ElementID(i + 1)
-		name := QName{Local: LocalNameID(i + 1)}
+		name := QName{Local: localNameID(i + 1)}
 		if test.shape == "sparse" {
-			name.Local = LocalNameID(1 + 4096*i)
+			name.Local = localNameID(1 + 4096*i)
 		}
 		if test.shape == "wildcard-name" || test.shape == "wildcard-skip" {
 			name.Namespace = 1
 		}
 		if test.shape == "fullQName" {
-			name = QName{Namespace: NamespaceID(i + 1), Local: 1}
+			name = QName{Namespace: namespaceID(i + 1), Local: 1}
 		}
 		names[id] = name
-		edges[i] = CompiledModelEdge{Particle: ElementParticle(id, Occurrence{Min: 1, Max: 1}), To: 1}
+		edges[i] = compiledModelEdge{Particle: elementParticle(id, occurrence{Min: 1, Max: 1}), To: 1}
 	}
 	// Keep the ordinary span table present even when every row head has no members.
 	extra := ElementID(test.width + 1)
 	if test.shape == "substitution" {
 		extra++
 	}
-	names[extra] = QName{Local: LocalNameID(test.width + 2)}
+	names[extra] = QName{Local: localNameID(test.width + 2)}
 	if test.shape == "sparse" {
-		names[extra] = QName{Local: LocalNameID(1 + 4096*test.width)}
+		names[extra] = QName{Local: localNameID(1 + 4096*test.width)}
 	}
 	substitutions := map[ElementID]map[QName]ElementID{extra: {}}
 	selected := ElementID(test.width)
@@ -133,31 +133,31 @@ func contentDispatchBenchmarkFixture(b *testing.B, test contentDispatchBenchmark
 	if test.position == "missing" {
 		inputName, want = names[extra], NoElement
 	}
-	wildcards := map[WildcardID]Wildcard{}
+	wildcards := map[WildcardID]wildcardRuntime{}
 	wantKind := ContentMatchDeclared
 	initial := ContentState{model: 0, present: true}
-	row := CompiledModelRow{Edges: edges}
+	row := compiledModelRow{Edges: edges}
 	switch test.shape {
 	case "wildcard-name", "wildcard-skip":
-		wildcards[0] = Wildcard{Mode: WildcardLocal, Process: ProcessSkip}
-		row.Edges = append([]CompiledModelEdge{{Particle: WildcardParticle(0, Occurrence{Min: 1, Max: 1}), To: 1}}, edges...)
+		wildcards[0] = wildcardRuntime{Mode: WildcardLocal, Process: ProcessSkip}
+		row.Edges = append([]compiledModelEdge{{Particle: wildcardParticle(0, occurrence{Min: 1, Max: 1}), To: 1}}, edges...)
 		if test.shape == "wildcard-skip" {
 			inputName, want, wantKind = QName{}, NoElement, ContentMatchSkip
 		}
 	case "counted":
-		wildcards[0] = Wildcard{Mode: WildcardAny, Process: ProcessSkip}
+		wildcards[0] = wildcardRuntime{Mode: WildcardAny, Process: ProcessSkip}
 		row.Counted, row.Min, row.Max, row.CountParticle = true, 1, 1, edges[0].Particle
 		row.Edges[0].To = 0
-		row.Edges = append(row.Edges, CompiledModelEdge{Particle: WildcardParticle(0, Occurrence{Min: 1, Max: 1}), To: 1})
+		row.Edges = append(row.Edges, compiledModelEdge{Particle: wildcardParticle(0, occurrence{Min: 1, Max: 1}), To: 1})
 		initial.count = 1
 		inputName, want, wantKind = names[1], NoElement, ContentMatchSkip
 	}
 	build := (dfaRowIndexFixture{elementNames: names, substitutionByName: substitutions}).build()
-	models := []CompiledModel{{Kind: CompiledModelDFA, Rows: []CompiledModelRow{row, {Accept: true}}}}
-	if err := IndexCompiledModelsRows(build, models, unlimitedContentModelWork); err != nil {
+	models := []compiledModel{{Kind: compiledModelDFA, Rows: []compiledModelRow{row, {Accept: true}}}}
+	if err := indexCompiledModelsRows(build, models, unlimitedContentModelWork); err != nil {
 		b.Fatal(err)
 	}
-	rt := publishedContentSchema(contentSchemaFixture{models: map[ContentModelID]CompiledModel{0: models[0]}, elementNames: names, substitutionLookup: substitutions, wildcards: wildcards})
+	rt := publishedContentSchema(contentSchemaFixture{models: map[contentModelID]compiledModel{0: models[0]}, elementNames: names, substitutionLookup: substitutions, wildcards: wildcards})
 	input := ContentInput{Name: RuntimeName{Known: true, Name: inputName, Local: fmt.Sprintf("fixture-%d", inputName.Local)}}
 	if test.shape == "wildcard-name" {
 		input.Name.NS = "urn:fixture"
@@ -197,7 +197,7 @@ func BenchmarkContentDispatchPolicy(b *testing.B) {
 			}
 			setup := contentDispatchBenchmarkFixture(b, fixture)
 			inputs := []ContentInput{setup.input}
-			wants := []contentDispatchBenchmarkWant{{ContentTransitionMatched, setup.wantKind, setup.wantElement}}
+			wants := []contentDispatchBenchmarkWant{{contentTransitionMatched, setup.wantKind, setup.wantElement}}
 			if test.position == "missing" {
 				wants[0] = contentDispatchBenchmarkWant{ContentTransitionNoMatch, ContentMatchInvalid, NoElement}
 			}
@@ -251,8 +251,8 @@ func contentDispatchBenchmarkMixed(width uint32) ([]ContentInput, []contentDispa
 	wants := make([]contentDispatchBenchmarkWant, 64)
 	for i := range inputs {
 		position := positions[i%4]
-		inputs[i] = ContentInput{Name: RuntimeName{Known: true, Name: QName{Local: LocalNameID(position)}, Local: fmt.Sprintf("fixture-%d", position)}}
-		wants[i] = contentDispatchBenchmarkWant{ContentTransitionMatched, ContentMatchDeclared, ElementID(position)}
+		inputs[i] = ContentInput{Name: RuntimeName{Known: true, Name: QName{Local: localNameID(position)}, Local: fmt.Sprintf("fixture-%d", position)}}
+		wants[i] = contentDispatchBenchmarkWant{contentTransitionMatched, ContentMatchDeclared, ElementID(position)}
 		if i%4 == 3 {
 			wants[i] = contentDispatchBenchmarkWant{ContentTransitionNoMatch, ContentMatchInvalid, NoElement}
 		}

@@ -25,11 +25,11 @@ func TestNodeAdmissionConstructorBoundaries(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			for _, maxNodes := range []uint64{test.nodes, test.nodes + 1} {
-				pattern, err := Compile(test.source, CompileOptions{MaxNodes: maxNodes})
+				pattern, err := compileWithLimits(test.source, compileLimits{nodes: maxNodes}.withDefaults())
 				if err != nil {
 					t.Fatalf("Compile(%q, MaxNodes=%d) error = %v, want nil", test.source, maxNodes, err)
 				}
-				matched, err := pattern.MatchStringWithScratch(test.input, MatchOptions{}, nil)
+				matched, _, err := pattern.MatchStringWithScratch(test.input, unlimitedWork, nil)
 				if err != nil || !matched {
 					t.Fatalf("MatchString(%q) = %v, %v; want true, nil", test.input, matched, err)
 				}
@@ -37,7 +37,7 @@ func TestNodeAdmissionConstructorBoundaries(t *testing.T) {
 			if test.oneNode {
 				return
 			}
-			pattern, err := Compile(test.source, CompileOptions{MaxNodes: test.nodes - 1})
+			pattern, err := compileWithLimits(test.source, compileLimits{nodes: test.nodes - 1}.withDefaults())
 			if pattern != nil || !IsLimit(err) {
 				t.Fatalf("Compile(%q, MaxNodes=%d) = (%v, %v), want nil and limit", test.source, test.nodes-1, pattern, err)
 			}
@@ -45,19 +45,11 @@ func TestNodeAdmissionConstructorBoundaries(t *testing.T) {
 	}
 }
 
-func TestNodeAdmissionZeroUsesDefault(t *testing.T) {
-	for _, source := range []string{"", "a", "a*"} {
-		if pattern, err := Compile(source, CompileOptions{MaxNodes: 0}); err != nil || pattern == nil {
-			t.Errorf("Compile(%q, MaxNodes=0) = (%v, %v), want pattern and nil error", source, pattern, err)
-		}
-	}
-}
-
 func TestNodeAdmissionErrorPrecedence(t *testing.T) {
 	tests := []struct {
 		name    string
 		source  string
-		options CompileOptions
+		options compileLimits
 		kind    ErrorKind
 		what    string
 		offset  int
@@ -65,8 +57,8 @@ func TestNodeAdmissionErrorPrecedence(t *testing.T) {
 		{
 			name:   "node exhaustion precedes later syntax",
 			source: "ab[",
-			options: CompileOptions{
-				MaxNodes: 1,
+			options: compileLimits{
+				nodes: 1,
 			},
 			kind:   ErrorLimit,
 			what:   "compiled node count exceeds limit",
@@ -75,8 +67,8 @@ func TestNodeAdmissionErrorPrecedence(t *testing.T) {
 		{
 			name:   "syntax precedes later node exhaustion",
 			source: "a[",
-			options: CompileOptions{
-				MaxNodes: 2,
+			options: compileLimits{
+				nodes: 2,
 			},
 			kind:   ErrorSyntax,
 			what:   "unclosed character class",
@@ -85,42 +77,31 @@ func TestNodeAdmissionErrorPrecedence(t *testing.T) {
 		{
 			name:   "range precedes node admission",
 			source: `a\d`,
-			options: CompileOptions{
-				MaxNodes:  1,
-				MaxRanges: 1,
+			options: compileLimits{
+				nodes:          1,
+				retainedRanges: 1,
 			},
 			kind:   ErrorLimit,
-			what:   "pattern range count exceeds limit",
+			what:   "pattern retained character-range count exceeds limit",
 			offset: 3,
 		},
 		{
 			name:   "depth precedes node admission",
 			source: "a((b))",
-			options: CompileOptions{
-				MaxNodes: 1,
-				MaxDepth: 1,
+			options: compileLimits{
+				nodes: 1,
+				depth: 1,
 			},
 			kind:   ErrorLimit,
 			what:   "group nesting exceeds limit",
 			offset: 3,
 		},
 		{
-			name:   "repeat precedes node admission",
-			source: "a{2}",
-			options: CompileOptions{
-				MaxNodes:  1,
-				MaxRepeat: 1,
-			},
-			kind:   ErrorLimit,
-			what:   "counted quantifier exceeds repeat limit",
-			offset: 3,
-		},
-		{
 			name:   "byte precedes parsing",
 			source: "ab",
-			options: CompileOptions{
-				MaxNodes:        1,
-				MaxPatternBytes: 1,
+			options: compileLimits{
+				nodes:        1,
+				patternBytes: 1,
 			},
 			kind:   ErrorLimit,
 			what:   "pattern exceeds byte limit",
@@ -129,8 +110,8 @@ func TestNodeAdmissionErrorPrecedence(t *testing.T) {
 		{
 			name:   "UTF-8 precedes parsing",
 			source: string([]byte{'a', 0xff}),
-			options: CompileOptions{
-				MaxNodes: 1,
+			options: compileLimits{
+				nodes: 1,
 			},
 			kind:   ErrorSyntax,
 			what:   "pattern is not valid UTF-8",
@@ -139,7 +120,7 @@ func TestNodeAdmissionErrorPrecedence(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			pattern, err := Compile(test.source, test.options)
+			pattern, err := compileWithLimits(test.source, test.options.withDefaults())
 			if pattern != nil {
 				t.Fatalf("Compile(%q) returned a pattern with error %v", test.source, err)
 			}
@@ -155,7 +136,7 @@ func TestNodeAdmissionErrorPrecedence(t *testing.T) {
 }
 
 func TestNodeAdmissionStopsParserAllocation(t *testing.T) {
-	options := normalizeCompileOptions(CompileOptions{MaxNodes: 8})
+	options := compileLimits{nodes: 8}.withDefaults()
 	prefix := strings.Repeat("a", 8)
 	shortSource := []rune(prefix + "a")
 	longSource := []rune(prefix + "a" + strings.Repeat("a", 65_536))
@@ -180,4 +161,26 @@ func TestNodeAdmissionStopsParserAllocation(t *testing.T) {
 	if longAllocs > shortAllocs+8 {
 		t.Fatalf("long rejected suffix allocations = %.0f, short = %.0f; want plateau within 8 allocations", longAllocs, shortAllocs)
 	}
+}
+
+// withDefaults fills unset limits from the fixed bounds so a test can tighten
+// one bound without zeroing the others.
+func (l compileLimits) withDefaults() compileLimits {
+	f := fixedCompileLimits
+	if l.patternBytes == 0 {
+		l.patternBytes = f.patternBytes
+	}
+	if l.nodes == 0 {
+		l.nodes = f.nodes
+	}
+	if l.states == 0 {
+		l.states = f.states
+	}
+	if l.retainedRanges == 0 {
+		l.retainedRanges = f.retainedRanges
+	}
+	if l.depth == 0 {
+		l.depth = f.depth
+	}
+	return l
 }

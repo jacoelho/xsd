@@ -2,8 +2,8 @@ package schema
 
 func unlimitedContentModelWork(int) error { return nil }
 
-func unlimitedContentModelAnalysis(rt *schemaBuild) *ContentModelAnalysis {
-	analysis, err := NewContentModelAnalysis(rt, unlimitedContentModelWork)
+func unlimitedContentModelAnalysis(rt *schemaBuild) *contentModelAnalysis {
+	analysis, err := newContentModelAnalysis(rt, unlimitedContentModelWork)
 	if err != nil {
 		panic(err)
 	}
@@ -12,15 +12,15 @@ func unlimitedContentModelAnalysis(rt *schemaBuild) *ContentModelAnalysis {
 
 // allContentModelIDs enters every model, so the published table keeps source
 // IDs.
-func allContentModelIDs(n int) []ContentModelID {
-	ids := make([]ContentModelID, n)
+func allContentModelIDs(n int) []contentModelID {
+	ids := make([]contentModelID, n)
 	for i := range ids {
-		ids[i] = ContentModelID(i)
+		ids[i] = contentModelID(i)
 	}
 	return ids
 }
 
-func testCompiledModelReads(models []CompiledModel) []compiledModelRead {
+func testCompiledModelReads(models []compiledModel) []compiledModelRead {
 	reads, mayHaveDenseRows, err := newCompiledModelReads(models, allContentModelIDs(len(models)), unlimitedContentModelWork)
 	if err != nil {
 		panic(err)

@@ -40,7 +40,7 @@ func TestParserPreflightRejectsInvalidInputs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var reader xmlstream.Reader
-			diagnostic := requireDiagnostic(t, StreamError(0, 0, "", reader.Reset(strings.NewReader(tt.in), xmlstream.Config{})), tt.code)
+			diagnostic := requireDiagnostic(t, streamError(reader.Reset(strings.NewReader(tt.in), xmlstream.Config{}), startContext{}, Limits{}), tt.code)
 			// Reset precedes the first token, so no instance location exists.
 			if diagnostic.Line() != 0 || diagnostic.Column() != 0 || diagnostic.Path() != "" {
 				t.Fatalf("location = %d:%d %q, want none", diagnostic.Line(), diagnostic.Column(), diagnostic.Path())
@@ -54,7 +54,7 @@ func TestParserPreflightRejectsInvalidInputs(t *testing.T) {
 
 func TestParserPreflightRejectsNilReader(t *testing.T) {
 	var reader xmlstream.Reader
-	requireCode(t, StreamError(0, 0, "", reader.Reset(nil, xmlstream.Config{})), xsderrors.CodeValidationXML)
+	requireCode(t, streamError(reader.Reset(nil, xmlstream.Config{}), startContext{}, Limits{}), xsderrors.CodeValidationXML)
 }
 
 func TestParserPreflightDoesNotReadWholeDocumentWithoutDeclaration(t *testing.T) {
@@ -74,20 +74,18 @@ func TestStreamErrorClassifiesParserErrors(t *testing.T) {
 		err  error
 		code xsderrors.Code
 	}{
-		{name: "token limit", err: parserErr(t, `<root>text</root>`, 1, 0), code: xsderrors.CodeValidationLimit},
-		{name: "attribute limit", err: parserErr(t, `<root a="1" b="2"/>`, 0, 1), code: xsderrors.CodeValidationLimit},
-		{name: "non utf8", err: parserErr(t, `<?xml version="1.0" encoding="ISO-8859-1"?><root/>`, 0, 0), code: xsderrors.CodeUnsupportedNonUTF8},
-		{name: "xml 11", err: parserErr(t, `<?xml version="1.1"?><root/>`, 0, 0), code: xsderrors.CodeUnsupportedXMLVersion},
-		{name: "dtd", err: parserErr(t, `<!DOCTYPE root><root/>`, 0, 0), code: xsderrors.CodeUnsupportedDTD},
-		{name: "entity", err: parserErr(t, `<root>&missing;</root>`, 0, 0), code: xsderrors.CodeUnsupportedExternal},
-		{name: "attribute entity", err: parserErr(t, `<root a="&missing;"/>`, 0, 0), code: xsderrors.CodeUnsupportedExternal},
-		{name: "colon entity name", err: parserErr(t, `<root>&a:b;</root>`, 0, 0), code: xsderrors.CodeValidationXML},
-		{name: "colon PI target", err: parserErr(t, `<root><?a:b?></root>`, 0, 0), code: xsderrors.CodeValidationXML},
+		{name: "non utf8", err: parserErr(t, `<?xml version="1.0" encoding="ISO-8859-1"?><root/>`), code: xsderrors.CodeUnsupportedNonUTF8},
+		{name: "xml 11", err: parserErr(t, `<?xml version="1.1"?><root/>`), code: xsderrors.CodeUnsupportedXMLVersion},
+		{name: "dtd", err: parserErr(t, `<!DOCTYPE root><root/>`), code: xsderrors.CodeUnsupportedDTD},
+		{name: "entity", err: parserErr(t, `<root>&missing;</root>`), code: xsderrors.CodeUnsupportedExternal},
+		{name: "attribute entity", err: parserErr(t, `<root a="&missing;"/>`), code: xsderrors.CodeUnsupportedExternal},
+		{name: "colon entity name", err: parserErr(t, `<root>&a:b;</root>`), code: xsderrors.CodeValidationXML},
+		{name: "colon PI target", err: parserErr(t, `<root><?a:b?></root>`), code: xsderrors.CodeValidationXML},
 		{name: "syntax", err: errors.New("bad xml"), code: xsderrors.CodeValidationXML},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			diagnostic := requireDiagnostic(t, StreamError(2, 3, "/root", tt.err), tt.code)
+			diagnostic := requireDiagnostic(t, streamError(tt.err, startContext{Path: "/root", Line: 2, Column: 3}, Limits{}), tt.code)
 			if diagnostic.Line() != 2 || diagnostic.Column() != 3 || diagnostic.Path() != "/root" {
 				t.Fatalf("location = %d:%d %q, want 2:3 /root", diagnostic.Line(), diagnostic.Column(), diagnostic.Path())
 			}
@@ -99,8 +97,8 @@ func TestStreamErrorClassifiesParserErrors(t *testing.T) {
 }
 
 func TestStreamDTDDiagnosticPreservesCause(t *testing.T) {
-	streamErr := parserErr(t, "\n<!DOCTYPE root><root/>", 0, 0)
-	err := StreamError(2, 1, "/", streamErr)
+	streamErr := parserErr(t, "\n<!DOCTYPE root><root/>")
+	err := streamError(streamErr, startContext{Path: "/", Line: 2, Column: 1}, Limits{})
 	if feature, ok := xmlstream.UnsupportedFeatureOf(err); !ok || feature != xmlstream.UnsupportedDTD {
 		t.Fatalf("DTD cause lost: %v", err)
 	}
@@ -110,13 +108,10 @@ func TestStreamDTDDiagnosticPreservesCause(t *testing.T) {
 	}
 }
 
-func parserErr(t *testing.T, doc string, maxTokenBytes int64, maxAttrs int) error {
+func parserErr(t *testing.T, doc string) error {
 	t.Helper()
 	var reader xmlstream.Reader
-	if err := reader.Reset(strings.NewReader(doc), xmlstream.Config{Limits: xmlstream.Limits{
-		MaxTokenBytes: maxTokenBytes,
-		MaxAttrs:      maxAttrs,
-	}}); err != nil {
+	if err := reader.Reset(strings.NewReader(doc), xmlstream.Config{}); err != nil {
 		return err
 	}
 	var frames []xmlstream.Handle

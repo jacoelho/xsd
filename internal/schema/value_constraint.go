@@ -8,23 +8,23 @@ import (
 	valuepkg "github.com/jacoelho/xsd/internal/value"
 )
 
-// ValueConstraint is a prevalidated default or fixed value constraint.
-// A nil *ValueConstraint means absent. Once attached to a runtime component,
+// valueConstraint is a prevalidated default or fixed value constraint.
+// A nil *valueConstraint means absent. Once attached to a runtime component,
 // the value is immutable; declarations and uses may share the same pointer.
 // The cached value's type is the exact owning simple type, including an outer
 // union, never the member that accepted the text; publication rejects a
 // member-typed cache even when that member accepts the same lexical value.
-type ValueConstraint struct {
+type valueConstraint struct {
 	qnameContext  *valueConstraintQNameContext
 	Lexical       string
 	Canonical     string
-	ResolvedNames []ResolvedValueName
+	ResolvedNames []resolvedValueName
 	Value         valuepkg.Value
 }
 
-// ValueConstraintValidation is the runtime projection needed to validate cached
+// valueConstraintValidation is the runtime projection needed to validate cached
 // value-constraint shape and owner type references.
-type ValueConstraintValidation struct {
+type valueConstraintValidation struct {
 	Lexical          string
 	Canonical        string
 	Value            valuepkg.Value
@@ -52,7 +52,7 @@ func newValueConstraintRead(application, canonical string, value valuepkg.Value)
 
 // newValueConstraintReadFromConstraint returns the immutable validation read
 // projection for one prevalidated value constraint.
-func newValueConstraintReadFromConstraint(vc *ValueConstraint) (ValueConstraintRead, bool) {
+func newValueConstraintReadFromConstraint(vc *valueConstraint) (ValueConstraintRead, bool) {
 	if vc == nil {
 		return ValueConstraintRead{}, false
 	}
@@ -92,15 +92,6 @@ func (v ValueConstraintRead) ResolveQName(lexical string) (valuepkg.ExpandedName
 	return v.qnameContext.ResolveQName(lexical)
 }
 
-// FixedAttributeValueEqual compares a fixed constraint in datatype value space.
-// The validation owner selects this policy. valid is false without identity.
-func FixedAttributeValueEqual(actual valuepkg.Value, fixed ValueConstraintRead) (equal, valid bool) {
-	if !actual.HasIdentity() || !fixed.value.HasIdentity() {
-		return false, false
-	}
-	return actual.Equal(fixed.value), true
-}
-
 // ElementValueConstraints exposes prevalidated default/fixed values attached to
 // one element declaration.
 type ElementValueConstraints struct {
@@ -120,7 +111,7 @@ func (c ElementValueConstraints) HasAny() bool {
 
 // FixedValue returns the fixed value, if present.
 func (c ElementValueConstraints) FixedValue() (ValueConstraintRead, bool) {
-	if c.constraint.kind != DeclarationValueConstraintFixed {
+	if c.constraint.kind != declarationValueConstraintFixed {
 		return ValueConstraintRead{}, false
 	}
 	return c.constraint.value, true
@@ -128,39 +119,35 @@ func (c ElementValueConstraints) FixedValue() (ValueConstraintRead, bool) {
 
 // DefaultValueConstraint returns the default value, if present.
 func (c ElementValueConstraints) DefaultValueConstraint() (ValueConstraintRead, bool) {
-	if c.constraint.kind != DeclarationValueConstraintDefault {
+	if c.constraint.kind != declarationValueConstraintDefault {
 		return ValueConstraintRead{}, false
 	}
 	return c.constraint.value, true
 }
 
-// ResolvedValueName records one QName resolution proof entry captured while
+// resolvedValueName records one QName resolution proof entry captured while
 // validating a value constraint.
-type ResolvedValueName struct {
+type resolvedValueName struct {
 	Lexical string
 	NS      string
 	Local   string
 }
 
-// ValueConstraintNameReplay replays QName resolution proofs captured while
+// valueConstraintNameReplay replays QName resolution proofs captured while
 // validating a value constraint.
-type ValueConstraintNameReplay struct {
-	entries []ResolvedValueName
+type valueConstraintNameReplay struct {
+	entries []resolvedValueName
 	used    []bool
 }
 
-// ValueConstraintSimpleValidator revalidates value-constraint lexical text
-// against an owner simple type.
-type ValueConstraintSimpleValidator func(SimpleTypeID, string, valuepkg.QNameResolver, valuepkg.Needs) (valuepkg.Value, error)
-
-// NewValueConstraintNameReplay validates resolved QName proof entries and
+// newValueConstraintNameReplay validates resolved QName proof entries and
 // returns replay state for datatype validation.
-func NewValueConstraintNameReplay(entries []ResolvedValueName) (ValueConstraintNameReplay, error) {
-	seen := make(map[string]ResolvedValueName, len(entries))
+func newValueConstraintNameReplay(entries []resolvedValueName) (valueConstraintNameReplay, error) {
+	seen := make(map[string]resolvedValueName, len(entries))
 	for _, entry := range entries {
 		parts := resolvedValueNameLexicalParts(entry.Lexical)
 		if !parts.Valid || entry.Local != parts.Local || !lex.IsNCName(entry.Local) {
-			return ValueConstraintNameReplay{}, errors.New("resolved name proof is not deterministic")
+			return valueConstraintNameReplay{}, errors.New("resolved name proof is not deterministic")
 		}
 		prev, ok := seen[entry.Lexical]
 		if !ok {
@@ -168,17 +155,17 @@ func NewValueConstraintNameReplay(entries []ResolvedValueName) (ValueConstraintN
 			continue
 		}
 		if prev.NS != entry.NS || prev.Local != entry.Local {
-			return ValueConstraintNameReplay{}, errors.New("resolved name proof is not deterministic")
+			return valueConstraintNameReplay{}, errors.New("resolved name proof is not deterministic")
 		}
 	}
-	return ValueConstraintNameReplay{
+	return valueConstraintNameReplay{
 		entries: entries,
 		used:    make([]bool, len(entries)),
 	}, nil
 }
 
 // ResolveQName replays one captured QName resolution.
-func (r *ValueConstraintNameReplay) ResolveQName(lexical string) (valuepkg.ExpandedName, bool) {
+func (r *valueConstraintNameReplay) ResolveQName(lexical string) (valuepkg.ExpandedName, bool) {
 	parts := resolvedValueNameLexicalParts(lexical)
 	if !parts.Valid || parts.Prefixed && parts.Prefix == "" {
 		return valuepkg.ExpandedName{}, false
@@ -196,17 +183,6 @@ func (r *ValueConstraintNameReplay) ResolveQName(lexical string) (valuepkg.Expan
 	return valuepkg.ExpandedName{}, false
 }
 
-// ValidateConsumed validates that datatype replay consumed every captured name
-// resolution proof entry.
-func (r *ValueConstraintNameReplay) ValidateConsumed() error {
-	for _, used := range r.used {
-		if !used {
-			return errors.New("resolved name proof was not fully consumed")
-		}
-	}
-	return nil
-}
-
 func resolvedValueNameLexicalParts(lexical string) lex.QNameParts {
 	trimmed := lex.TrimXMLWhitespaceString(lexical)
 	if trimmed == "" {
@@ -215,24 +191,24 @@ func resolvedValueNameLexicalParts(lexical string) lex.QNameParts {
 	return lex.SplitQName(trimmed)
 }
 
-// ValueConstraintIdentity is the equality projection used when runtime rules
+// constraintIdentity is the equality projection used when runtime rules
 // must prove that an inherited value constraint was preserved unchanged.
-type ValueConstraintIdentity struct {
+type constraintIdentity struct {
 	qnameContext  *valueConstraintQNameContext
 	Lexical       string
 	Canonical     string
-	ResolvedNames []ResolvedValueName
+	ResolvedNames []resolvedValueName
 	Value         valuepkg.Value
 	Present       bool
 }
 
-// NewValueConstraintIdentity returns the equality projection for a
+// newValueConstraintIdentity returns the equality projection for a
 // prevalidated value constraint.
-func NewValueConstraintIdentity(vc *ValueConstraint) ValueConstraintIdentity {
+func newValueConstraintIdentity(vc *valueConstraint) constraintIdentity {
 	if vc == nil {
-		return ValueConstraintIdentity{}
+		return constraintIdentity{}
 	}
-	return CloneValueConstraintIdentity(ValueConstraintIdentity{
+	return cloneValueConstraintIdentity(constraintIdentity{
 		ResolvedNames: vc.ResolvedNames,
 		Lexical:       vc.Lexical,
 		Canonical:     vc.Canonical,
@@ -242,9 +218,9 @@ func NewValueConstraintIdentity(vc *ValueConstraint) ValueConstraintIdentity {
 	})
 }
 
-// ValueConstraintIdentityEqual reports whether two value-constraint identity
+// valueConstraintIdentityEqual reports whether two value-constraint identity
 // projections preserve the same validated constraint.
-func ValueConstraintIdentityEqual(a, b ValueConstraintIdentity) bool {
+func valueConstraintIdentityEqual(a, b constraintIdentity) bool {
 	if a.Present != b.Present {
 		return false
 	}
@@ -263,10 +239,10 @@ func ValueConstraintIdentityEqual(a, b ValueConstraintIdentity) bool {
 	return a.Value.Equal(b.Value)
 }
 
-// FixedValueConstraintEqual reports whether two fixed value constraints carry
+// fixedValueConstraintEqual reports whether two fixed value constraints carry
 // the same actual value. Exact lexical preservation is checked separately by
-// ValueConstraintIdentityEqual.
-func FixedValueConstraintEqual(base, derived ValueConstraintIdentity) bool {
+// valueConstraintIdentityEqual.
+func fixedValueConstraintEqual(base, derived constraintIdentity) bool {
 	if base.Present != derived.Present {
 		return false
 	}
@@ -279,20 +255,20 @@ func FixedValueConstraintEqual(base, derived ValueConstraintIdentity) bool {
 // fixedValueEqual compares untyped (mixed or anySimpleType-free) constraints
 // as strings and typed ones only in value space; internal/value owns typed
 // equality, so no lexical or canonical fallback applies.
-func fixedValueEqual(base, derived ValueConstraintIdentity) bool {
+func fixedValueEqual(base, derived constraintIdentity) bool {
 	if base.Value.Type() == valuepkg.NoType || derived.Value.Type() == valuepkg.NoType {
 		return base.Canonical == derived.Canonical
 	}
 	return base.Value.Equal(derived.Value)
 }
 
-// NewValueConstraintValidation returns the runtime validation projection for a
+// newValueConstraintValidation returns the runtime validation projection for a
 // prevalidated value constraint.
-func NewValueConstraintValidation(vc *ValueConstraint) ValueConstraintValidation {
+func newValueConstraintValidation(vc *valueConstraint) valueConstraintValidation {
 	if vc == nil {
-		return ValueConstraintValidation{}
+		return valueConstraintValidation{}
 	}
-	return ValueConstraintValidation{
+	return valueConstraintValidation{
 		Lexical:          vc.Lexical,
 		Canonical:        vc.Canonical,
 		Value:            vc.Value,
@@ -300,9 +276,9 @@ func NewValueConstraintValidation(vc *ValueConstraint) ValueConstraintValidation
 	}
 }
 
-// ValueConstraintSimpleType is the simple-type projection needed for cached
+// valueConstraintSimpleType is the simple-type projection needed for cached
 // value-constraint owner matching.
-type ValueConstraintSimpleType struct {
+type valueConstraintSimpleType struct {
 	Union          []SimpleTypeID
 	ListItem       SimpleTypeID
 	Variety        valuepkg.Variety
@@ -310,30 +286,30 @@ type ValueConstraintSimpleType struct {
 	HasEnumeration bool
 }
 
-// ValueConstraintComplexType is the complex-type projection needed to
+// valueConstraintComplexType is the complex-type projection needed to
 // determine the owner type for an element value constraint.
-type ValueConstraintComplexType struct {
-	Content     ContentModelID
+type valueConstraintComplexType struct {
+	Content     contentModelID
 	TextType    SimpleTypeID
-	ContentKind ContentKind
+	ContentKind complexContentVariety
 }
 
-// NewValueConstraintComplexTypeForComplexType projects a runtime complex type
+// newValueConstraintComplexTypeForComplexType projects a runtime complex type
 // into the shape needed to determine an element value-constraint owner.
-func NewValueConstraintComplexTypeForComplexType(ct ComplexType) ValueConstraintComplexType {
-	return ValueConstraintComplexType{
+func newValueConstraintComplexTypeForComplexType(ct complexTypeMetadata) valueConstraintComplexType {
+	return valueConstraintComplexType{
 		Content:     ct.Content,
 		TextType:    ct.TextType,
 		ContentKind: ct.ContentKind,
 	}
 }
 
-// ElementValueConstraintType returns the simple type that must own an element's
+// elementValueConstraintType returns the simple type that must own an element's
 // value constraint. NoSimpleType means the constraint is allowed only as mixed
 // lexical text.
-func ElementValueConstraintType(
+func elementValueConstraintType(
 	rt *schemaBuild,
-	analysis *ContentModelAnalysis,
+	analysis *contentModelAnalysis,
 	typ TypeID,
 ) (SimpleTypeID, error) {
 	if id, ok := typ.Simple(); ok {
@@ -357,7 +333,7 @@ func ElementValueConstraintType(
 	}
 }
 
-func mixedElementValueConstraintType(analysis *ContentModelAnalysis, content ContentModelID) (SimpleTypeID, error) {
+func mixedElementValueConstraintType(analysis *contentModelAnalysis, content contentModelID) (SimpleTypeID, error) {
 	if analysis == nil {
 		return NoSimpleType, errors.New("content model analysis is nil")
 	}
@@ -371,9 +347,9 @@ func mixedElementValueConstraintType(analysis *ContentModelAnalysis, content Con
 	return NoSimpleType, nil
 }
 
-// ValidateValueConstraintShape validates cached value-constraint metadata that
+// validateValueConstraintShape validates cached value-constraint metadata that
 // is independent of datatype replay.
-func ValidateValueConstraintShape(rt *schemaBuild, vc ValueConstraintValidation, expected SimpleTypeID) error {
+func validateValueConstraintShape(rt *schemaBuild, vc valueConstraintValidation, expected SimpleTypeID) error {
 	if expected == NoSimpleType {
 		if vc.Value.CanonicalText() != vc.Canonical {
 			return errors.New("canonical value mismatch")
@@ -402,40 +378,4 @@ func ValidateValueConstraintShape(rt *schemaBuild, vc ValueConstraintValidation,
 		return errors.New("canonical value mismatch")
 	}
 	return nil
-}
-
-// ValidateValueConstraintReplayResult validates that datatype replay reproduced
-// the cached simple value.
-func ValidateValueConstraintReplayResult(cached ValueConstraintValidation, replayed valuepkg.Value) error {
-	if replayed.IDs() != cached.Value.IDs() || replayed.IDRefs() != cached.Value.IDRefs() ||
-		!replayed.Equal(cached.Value) &&
-			(replayed.Type() != cached.Value.Type() ||
-				replayed.CanonicalText() != cached.Value.CanonicalText() ||
-				replayed.IdentityKey() != cached.Value.IdentityKey() ||
-				replayed.IDs() != cached.Value.IDs() ||
-				replayed.IDRefs() != cached.Value.IDRefs()) {
-		return errors.New("cached value does not match replayed validation")
-	}
-	return nil
-}
-
-// ValidateValueConstraintReplay replays the captured datatype validation proof
-// for a cached value constraint and verifies that replay reproduces the cached
-// value exactly.
-func ValidateValueConstraintReplay(cached ValueConstraintValidation, expected SimpleTypeID, names []ResolvedValueName, validate ValueConstraintSimpleValidator) error {
-	if validate == nil {
-		return errors.New("missing value constraint validator")
-	}
-	replay, err := NewValueConstraintNameReplay(names)
-	if err != nil {
-		return err
-	}
-	value, err := validate(expected, cached.Lexical, replay.ResolveQName, valuepkg.NeedCanonical|valuepkg.NeedIdentity)
-	if err != nil {
-		return errors.New("lexical value no longer validates against owner type")
-	}
-	if err := replay.ValidateConsumed(); err != nil {
-		return err
-	}
-	return ValidateValueConstraintReplayResult(cached, value)
 }

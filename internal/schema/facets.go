@@ -1,9 +1,9 @@
 package schema
 
 import (
-	"errors"
 	"strconv"
 
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/lex"
 
 	"github.com/jacoelho/xsd/xsderrors"
@@ -12,67 +12,30 @@ import (
 const maxUint32Value = uint64(^uint32(0))
 const facetTotalDigits = "totalDigits"
 
-// ParseSizeFacetValue parses length/minLength/maxLength/totalDigits/
+// facetLabel renders a facet name for diagnostics. Recognised facet names are
+// vocabulary constants; anything else is schema text and is quoted.
+func facetLabel(name string) string {
+	if _, ok := facetMaskForLocal(name); ok {
+		return name
+	}
+	return diagnostictext.Quote(name)
+}
+
+// parseSizeFacetValue parses length/minLength/maxLength/totalDigits/
 // fractionDigits facet values.
-func ParseSizeFacetValue(name, value string) (uint32, error) {
+func parseSizeFacetValue(name, value string) (uint32, error) {
 	value = lex.CollapseXMLWhitespace(value)
 	size, err := parseSchemaNonNegativeInteger(value)
 	if err != nil {
-		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "invalid "+name+" facet "+value)
+		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "invalid "+facetLabel(name)+" facet "+diagnostictext.Quote(value))
 	}
 	if name == facetTotalDigits && size == 0 {
 		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "totalDigits must be positive")
 	}
 	if size > maxUint32Value {
-		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, name+" facet exceeds uint32 limit")
+		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, facetLabel(name)+" facet exceeds uint32 limit")
 	}
 	return uint32(size), nil
-}
-
-// FacetValueError maps runtime simple-value rejection for a facet literal to a
-// compile-time schema diagnostic while preserving unsupported diagnostics.
-func FacetValueError(lexical string, err error) error {
-	if err == nil {
-		return nil
-	}
-	if xsderrors.IsUnsupported(err) {
-		return err
-	}
-	return xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "invalid facet value "+lexical)
-}
-
-// DeclarationValueConstraintError maps runtime simple-value rejection for a
-// declaration value constraint to a compile-time schema diagnostic while
-// preserving unsupported diagnostics.
-func DeclarationValueConstraintError(label, owner string, err error) error {
-	if err == nil {
-		return nil
-	}
-	if xsderrors.IsUnsupported(err) {
-		return err
-	}
-	return xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "invalid "+label+" value for "+owner)
-}
-
-// ElementValueConstraintTypeError maps runtime element value-constraint owner
-// typing failures to compile-time schema diagnostics.
-func ElementValueConstraintTypeError(err error) error {
-	if err == nil {
-		return nil
-	}
-	if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
-		return err
-	}
-	return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error())
-}
-
-// ElementValueConstraintRuntimeError maps runtime element value-constraint
-// validation failures to compile-time schema diagnostics.
-func ElementValueConstraintRuntimeError(err error) error {
-	if err == nil {
-		return nil
-	}
-	return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error())
 }
 
 // parseSchemaNonNegativeInteger is exact through uint32. Larger results signal

@@ -13,14 +13,14 @@ func TestAddSchemaComponentRejectsDuplicate(t *testing.T) {
 
 	name := QName{Namespace: 1, Local: 2}
 	components := map[QName]string{}
-	if err := AddSchemaComponent(components, name, "first", "p:thing"); err != nil {
+	if err := addSchemaComponent(components, name, "first", "p:thing"); err != nil {
 		t.Fatalf("AddSchemaComponent(first) error = %v", err)
 	}
 	if got := components[name]; got != "first" {
 		t.Fatalf("component = %q, want first", got)
 	}
 
-	err := AddSchemaComponent(components, name, "second", "p:thing")
+	err := addSchemaComponent(components, name, "second", "p:thing")
 	xerr, ok := errors.AsType[*xsderrors.Error](err)
 	if !ok {
 		t.Fatalf("AddSchemaComponent(duplicate) error = %T %v, want *xsderrors.Error", err, err)
@@ -39,7 +39,7 @@ func TestAddSchemaComponentRejectsDuplicate(t *testing.T) {
 func TestSchemaTypeNameConflictError(t *testing.T) {
 	t.Parallel()
 
-	err := SchemaTypeNameConflictError("p:Thing")
+	err := schemaTypeNameConflictError("p:Thing")
 	xerr, ok := errors.AsType[*xsderrors.Error](err)
 	if !ok {
 		t.Fatalf("SchemaTypeNameConflictError() error = %T %v, want *xsderrors.Error", err, err)
@@ -57,21 +57,21 @@ func TestSchemaComponentCycleError(t *testing.T) {
 
 	tests := []struct {
 		name string
-		kind SchemaComponentKind
+		kind schemaComponentKind
 		want string
 	}{
-		{name: "simple type", kind: SchemaComponentSimpleType, want: "cyclic simple type p:T"},
-		{name: "complex type", kind: SchemaComponentComplexType, want: "cyclic complex type p:T"},
-		{name: "attribute", kind: SchemaComponentAttribute, want: "cyclic attribute declaration p:T"},
-		{name: "element", kind: SchemaComponentElement, want: "cyclic element declaration p:T"},
-		{name: "attribute group", kind: SchemaComponentAttributeGroup, want: "cyclic attribute group p:T"},
-		{name: "model group", kind: SchemaComponentModelGroup, want: "cyclic model group p:T"},
+		{name: "simple type", kind: schemaComponentSimpleType, want: "cyclic simple type p:T"},
+		{name: "complex type", kind: schemaComponentComplexType, want: "cyclic complex type p:T"},
+		{name: "attribute", kind: schemaComponentAttribute, want: "cyclic attribute declaration p:T"},
+		{name: "element", kind: schemaComponentElement, want: "cyclic element declaration p:T"},
+		{name: "attribute group", kind: schemaComponentAttributeGroup, want: "cyclic attribute group p:T"},
+		{name: "model group", kind: schemaComponentModelGroup, want: "cyclic model group p:T"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := SchemaComponentCycleError(tt.kind, "p:T")
+			err := schemaComponentCycleError(tt.kind, "p:T")
 			xerr, ok := errors.AsType[*xsderrors.Error](err)
 			if !ok {
 				t.Fatalf("SchemaComponentCycleError() error = %T %v, want *xsderrors.Error", err, err)
@@ -89,7 +89,7 @@ func TestSchemaComponentCycleError(t *testing.T) {
 func TestSchemaComponentRecursionError(t *testing.T) {
 	t.Parallel()
 
-	err := SchemaComponentRecursionError(SchemaComponentModelGroup, "p:g")
+	err := schemaComponentRecursionError(schemaComponentModelGroup, "p:g")
 	xerr, ok := errors.AsType[*xsderrors.Error](err)
 	if !ok {
 		t.Fatalf("SchemaComponentRecursionError() error = %T %v, want *xsderrors.Error", err, err)
@@ -101,7 +101,7 @@ func TestSchemaComponentRecursionError(t *testing.T) {
 		t.Fatalf("message = %q, want recursive model group label", xerr.Message())
 	}
 
-	err = SchemaComponentRecursionError(SchemaComponentModelGroup, "")
+	err = schemaComponentRecursionError(schemaComponentModelGroup, "")
 	xerr, ok = errors.AsType[*xsderrors.Error](err)
 	if !ok {
 		t.Fatalf("SchemaComponentRecursionError(unlabeled) error = %T %v, want *xsderrors.Error", err, err)
@@ -114,7 +114,7 @@ func TestSchemaComponentRecursionError(t *testing.T) {
 func TestSchemaComponentMissingError(t *testing.T) {
 	t.Parallel()
 
-	err := SchemaComponentMissingError(SchemaComponentElement, "p:missing")
+	err := schemaComponentMissingError(schemaComponentElement, "p:missing")
 	xerr, ok := errors.AsType[*xsderrors.Error](err)
 	if !ok {
 		t.Fatalf("SchemaComponentMissingError() error = %T %v, want *xsderrors.Error", err, err)
@@ -126,7 +126,7 @@ func TestSchemaComponentMissingError(t *testing.T) {
 		t.Fatalf("message = %q, want unknown element label", xerr.Message())
 	}
 
-	err = SchemaComponentMissingError(SchemaComponentAttributeGroup, "p:attrs")
+	err = schemaComponentMissingError(schemaComponentAttributeGroup, "p:attrs")
 	xerr, ok = errors.AsType[*xsderrors.Error](err)
 	if !ok {
 		t.Fatalf("SchemaComponentMissingError(attribute group) error = %T %v, want *xsderrors.Error", err, err)
@@ -135,7 +135,7 @@ func TestSchemaComponentMissingError(t *testing.T) {
 		t.Fatalf("message = %q, want unknown attribute group label", xerr.Message())
 	}
 
-	err = SchemaComponentMissingError(SchemaComponentType, "p:T")
+	err = schemaComponentMissingError(schemaComponentType, "p:T")
 	xerr, ok = errors.AsType[*xsderrors.Error](err)
 	if !ok {
 		t.Fatalf("SchemaComponentMissingError(type) error = %T %v, want *xsderrors.Error", err, err)
@@ -150,14 +150,14 @@ func TestAddNotationRejectsDuplicate(t *testing.T) {
 
 	name := QName{Namespace: 2, Local: 3}
 	notations := map[QName]bool{}
-	if err := AddNotation(notations, name, "p:notation"); err != nil {
+	if err := addNotation(notations, name, "p:notation"); err != nil {
 		t.Fatalf("AddNotation(first) error = %v", err)
 	}
 	if !notations[name] {
 		t.Fatal("AddNotation(first) did not store notation")
 	}
 
-	err := AddNotation(notations, name, "p:notation")
+	err := addNotation(notations, name, "p:notation")
 	xerr, ok := errors.AsType[*xsderrors.Error](err)
 	if !ok {
 		t.Fatalf("AddNotation(duplicate) error = %T %v, want *xsderrors.Error", err, err)

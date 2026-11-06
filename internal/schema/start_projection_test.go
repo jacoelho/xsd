@@ -9,10 +9,10 @@ import (
 func TestSchemaTypeInfoProjection(t *testing.T) {
 	t.Parallel()
 
-	rt := &Schema{program: schemaProgram{ComplexTypes: newComplexTypeReads([]ComplexType{
+	rt := &Schema{program: schemaProgram{ComplexTypes: newComplexTypeReads([]complexTypeMetadata{
 		{Block: DerivationRestriction, Abstract: true},
 		{Block: DerivationRestriction},
-	}, []ContentModelID{0, 0})}}
+	}, []contentModelID{0, 0})}}
 	info, ok := rt.TypeInfo(ComplexRef(0))
 	if !ok || info != (TypeInfo{Block: DerivationRestriction, Abstract: true}) {
 		t.Fatalf("TypeInfo(abstract) = %+v, %v, want restriction block and abstract", info, ok)
@@ -29,7 +29,7 @@ func TestSchemaTypeInfoProjection(t *testing.T) {
 func TestSchemaTypeInfoClassifiesUnavailableSimpleDependencies(t *testing.T) {
 	t.Parallel()
 
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	availableList, err := builder.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -58,8 +58,8 @@ func TestSchemaTypeInfoClassifiesUnavailableSimpleDependencies(t *testing.T) {
 		Value:                 program,
 		SimpleTypeUnavailable: unavailable,
 		ComplexTypes: []complexTypeRead{
-			{textType: unavailableList, contentKind: ContentSimple},
-			{textType: missing, contentKind: ContentSimple},
+			{textType: unavailableList, contentKind: contentSimple},
+			{textType: missing, contentKind: contentSimple},
 		},
 	}}
 

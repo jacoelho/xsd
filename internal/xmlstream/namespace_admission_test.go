@@ -12,12 +12,12 @@ func TestNamespaceAdmissionAcrossAttributeFreeChildren(t *testing.T) {
 	root := StartElement{
 		Name: xml.Name{Local: "root"},
 		Attr: []Attr{
-			{Name: xml.Name{Local: "xmlns"}, Value: "urn:default"},
-			{Name: xml.Name{Space: "xmlns", Local: "p"}, Value: "urn:prefix"},
+			{Name: xml.Name{Local: "xmlns"}, value: "urn:default"},
+			{Name: xml.Name{Space: "xmlns", Local: "p"}, value: "urn:prefix"},
 		},
 	}
 	for i := range 20 {
-		root.Attr = append(root.Attr, Attr{Name: xml.Name{Space: "p", Local: "a" + strconv.Itoa(i)}, Value: "root"})
+		root.Attr = append(root.Attr, Attr{Name: xml.Name{Space: "p", Local: "a" + strconv.Itoa(i)}, value: "root"})
 	}
 	rootFrame, _, err := ns.StartStream(&root, &values)
 	if err != nil {
@@ -40,7 +40,7 @@ func TestNamespaceAdmissionAcrossAttributeFreeChildren(t *testing.T) {
 	for _, width := range []int{16, 17, 0, 1, 17} {
 		sibling := StartElement{Name: xml.Name{Local: "sibling"}}
 		for i := range width {
-			sibling.Attr = append(sibling.Attr, Attr{Name: xml.Name{Space: "p", Local: "a" + strconv.Itoa(i)}, Value: "sibling"})
+			sibling.Attr = append(sibling.Attr, Attr{Name: xml.Name{Space: "p", Local: "a" + strconv.Itoa(i)}, value: "sibling"})
 		}
 		siblingFrame, element, err := ns.StartStream(&sibling, &values)
 		if err != nil {
@@ -50,7 +50,7 @@ func TestNamespaceAdmissionAcrossAttributeFreeChildren(t *testing.T) {
 			t.Fatalf("sibling name = %+v", element)
 		}
 		for i, attr := range sibling.Attr {
-			if attr.Name != (xml.Name{Space: "urn:prefix", Local: "a" + strconv.Itoa(i)}) || attr.Value != "sibling" {
+			if attr.Name != (xml.Name{Space: "urn:prefix", Local: "a" + strconv.Itoa(i)}) || attr.value != "sibling" {
 				t.Fatalf("published sibling attribute %d = %+v", i, attr)
 			}
 		}
@@ -73,9 +73,9 @@ func TestNamespaceAliasFailureThenAttributeFreeAndAttributedSiblings(t *testing.
 	var ns stack
 	var values cache
 	root := StartElement{Name: xml.Name{Local: "root"}, Attr: []Attr{
-		{Name: xml.Name{Space: "xmlns", Local: "p"}, Value: "urn:parent"},
-		{Name: xml.Name{Space: "xmlns", Local: "q"}, Value: "urn:parent"},
-		{Name: xml.Name{Space: "p", Local: "value"}, Value: "root"},
+		{Name: xml.Name{Space: "xmlns", Local: "p"}, value: "urn:parent"},
+		{Name: xml.Name{Space: "xmlns", Local: "q"}, value: "urn:parent"},
+		{Name: xml.Name{Space: "p", Local: "value"}, value: "root"},
 	}}
 	rootFrame, _, err := ns.StartStream(&root, &values)
 	if err != nil {
@@ -84,7 +84,7 @@ func TestNamespaceAliasFailureThenAttributeFreeAndAttributedSiblings(t *testing.
 	context := ns.Context()
 	wide := StartElement{Name: xml.Name{Space: "p", Local: "wide"}}
 	for i := range 17 {
-		wide.Attr = append(wide.Attr, Attr{Name: xml.Name{Space: "p", Local: "a" + strconv.Itoa(i)}, Value: "wide"})
+		wide.Attr = append(wide.Attr, Attr{Name: xml.Name{Space: "p", Local: "a" + strconv.Itoa(i)}, value: "wide"})
 	}
 	wideFrame, _, err := ns.StartStream(&wide, &values)
 	if err != nil {
@@ -98,33 +98,33 @@ func TestNamespaceAliasFailureThenAttributeFreeAndAttributedSiblings(t *testing.
 		tail             []Attr
 	}{
 		{"aliased duplicate", "duplicate attribute {urn:shadow}dup", []Attr{
-			{Name: xml.Name{Space: "p", Local: "dup"}, Value: "first"},
-			{Name: xml.Name{Space: "q", Local: "dup"}, Value: "second"},
+			{Name: xml.Name{Space: "p", Local: "dup"}, value: "first"},
+			{Name: xml.Name{Space: "q", Local: "dup"}, value: "second"},
 		}},
 		{"unbound attribute", "unbound namespace prefix missing", []Attr{
-			{Name: xml.Name{Space: "missing", Local: "value"}, Value: "last"},
+			{Name: xml.Name{Space: "missing", Local: "value"}, value: "last"},
 		}},
 	} {
 		t.Run(test.label, func(t *testing.T) {
 			failed := StartElement{Name: xml.Name{Space: "p", Local: "failed"}, Attr: []Attr{
-				{Name: xml.Name{Space: "xmlns", Local: "p"}, Value: "urn:shadow"},
-				{Name: xml.Name{Space: "xmlns", Local: "q"}, Value: "urn:shadow"},
+				{Name: xml.Name{Space: "xmlns", Local: "p"}, value: "urn:shadow"},
+				{Name: xml.Name{Space: "xmlns", Local: "q"}, value: "urn:shadow"},
 			}}
 			for i := range 17 {
-				failed.Attr = append(failed.Attr, Attr{Name: xml.Name{Space: "p", Local: "a" + strconv.Itoa(i)}, Value: "partial"})
+				failed.Attr = append(failed.Attr, Attr{Name: xml.Name{Space: "p", Local: "a" + strconv.Itoa(i)}, value: "partial"})
 			}
 			failed.Attr = append(failed.Attr, test.tail...)
 			var wantNames []xml.Name
 			var wantValues []string
 			for _, attr := range failed.Attr {
 				wantNames = append(wantNames, attr.Name)
-				wantValues = append(wantValues, attr.Value)
+				wantValues = append(wantValues, attr.value)
 			}
 			if _, _, err := ns.StartStream(&failed, &values); err == nil || err.Error() != test.wantError {
 				t.Fatalf("admission error = %v, want %q", err, test.wantError)
 			}
 			for i, attr := range failed.Attr {
-				if attr.Name != wantNames[i] || attr.Value != wantValues[i] {
+				if attr.Name != wantNames[i] || attr.value != wantValues[i] {
 					t.Fatalf("failed admission changed lexical attribute %d to %+v", i, attr)
 				}
 			}
@@ -142,14 +142,14 @@ func TestNamespaceAliasFailureThenAttributeFreeAndAttributedSiblings(t *testing.
 			for _, width := range []int{0, 1, 17} {
 				child := StartElement{Name: xml.Name{Space: "p", Local: "child"}}
 				for i := range width {
-					child.Attr = append(child.Attr, Attr{Name: xml.Name{Space: "p", Local: "a" + strconv.Itoa(i)}, Value: "retry"})
+					child.Attr = append(child.Attr, Attr{Name: xml.Name{Space: "p", Local: "a" + strconv.Itoa(i)}, value: "retry"})
 				}
 				childFrame, element, err := ns.StartStream(&child, &values)
 				if err != nil || element != (xml.Name{Space: "urn:parent", Local: "child"}) {
 					t.Fatalf("admission after failure = %+v / %v", element, err)
 				}
 				for i, attr := range child.Attr {
-					if attr.Name != (xml.Name{Space: "urn:parent", Local: "a" + strconv.Itoa(i)}) || attr.Value != "retry" {
+					if attr.Name != (xml.Name{Space: "urn:parent", Local: "a" + strconv.Itoa(i)}) || attr.value != "retry" {
 						t.Fatalf("retry attribute %d = %+v", i, attr)
 					}
 				}
@@ -178,7 +178,7 @@ func TestNamespaceAdmissionRetentionAfterEmptyStarts(t *testing.T) {
 			for _, width := range []int{17, 0, 1} {
 				start := StartElement{Name: xml.Name{Local: "e"}}
 				for i := range width {
-					start.Attr = append(start.Attr, Attr{Name: xml.Name{Local: "a" + strconv.Itoa(i)}, Value: "before"})
+					start.Attr = append(start.Attr, Attr{Name: xml.Name{Local: "a" + strconv.Itoa(i)}, value: "before"})
 				}
 				admitted, _, err := ns.StartStream(&start, &values)
 				if err != nil {
@@ -201,14 +201,14 @@ func TestNamespaceAdmissionRetentionAfterEmptyStarts(t *testing.T) {
 			}
 			start := StartElement{Name: xml.Name{Local: "e"}}
 			for i := range 17 {
-				start.Attr = append(start.Attr, Attr{Name: xml.Name{Local: "a" + strconv.Itoa(i)}, Value: "after"})
+				start.Attr = append(start.Attr, Attr{Name: xml.Name{Local: "a" + strconv.Itoa(i)}, value: "after"})
 			}
 			reuseFrame, element, err := ns.StartStream(&start, &values)
 			if err != nil || element != (xml.Name{Local: "e"}) {
 				t.Fatalf("valid admission after retention reset = %+v / %v", element, err)
 			}
 			for i, attr := range start.Attr {
-				if attr.Name != (xml.Name{Local: "a" + strconv.Itoa(i)}) || attr.Value != "after" {
+				if attr.Name != (xml.Name{Local: "a" + strconv.Itoa(i)}) || attr.value != "after" {
 					t.Fatalf("published attribute after Reset %d = %+v", i, attr)
 				}
 			}
@@ -216,8 +216,8 @@ func TestNamespaceAdmissionRetentionAfterEmptyStarts(t *testing.T) {
 				t.Fatal(err)
 			}
 			duplicate := StartElement{Name: xml.Name{Local: "e"}, Attr: []Attr{
-				{Name: xml.Name{Local: "a0"}, Value: "first"},
-				{Name: xml.Name{Local: "a0"}, Value: "second"},
+				{Name: xml.Name{Local: "a0"}, value: "first"},
+				{Name: xml.Name{Local: "a0"}, value: "second"},
 			}}
 			if _, _, err := ns.StartStream(&duplicate, &values); err == nil || err.Error() != "duplicate attribute a0" {
 				t.Fatalf("duplicate after Reset = %v", err)

@@ -55,6 +55,8 @@ func TestNormalizeOptionsCopiesLimits(t *testing.T) {
 		MaxInstanceTokenBytes:           10,
 		MaxInstanceBytes:                11,
 		MaxInstanceValueWork:            12,
+		MaxInstancePatternWork:          13,
+		MaxInstanceTotalPatternWork:     14,
 	})
 	if err != nil {
 		t.Fatalf("NormalizeOptions() error = %v", err)
@@ -72,6 +74,8 @@ func TestNormalizeOptionsCopiesLimits(t *testing.T) {
 		InstanceTokenBytes:           10,
 		InstanceBytes:                11,
 		InstanceValueWork:            12,
+		InstancePatternWork:          13,
+		InstanceTotalPatternWork:     14,
 	}
 	if limits != want {
 		t.Fatalf("limits = %+v, want %+v", limits, want)
@@ -96,6 +100,8 @@ func TestNormalizeOptionsUsesFiniteDefaults(t *testing.T) {
 		InstanceTokenBytes:           defaultMaxInstanceTokenBytes,
 		InstanceBytes:                defaultMaxInstanceBytes,
 		InstanceValueWork:            defaultMaxInstanceValueWork,
+		InstancePatternWork:          defaultMaxInstancePatternWork,
+		InstanceTotalPatternWork:     defaultMaxInstanceTotalPatternWork,
 	}
 	if limits != want {
 		t.Fatalf("limits = %+v, want %+v", limits, want)
@@ -110,5 +116,12 @@ func TestNormalizeOptionsAcceptsUnsignedValueWorkAboveMaxInt64(t *testing.T) {
 	}
 	if limits.InstanceValueWork != configured {
 		t.Fatalf("InstanceValueWork = %d, want %d", limits.InstanceValueWork, configured)
+	}
+}
+
+func TestDefaultInstanceTotalPatternWorkDerivation(t *testing.T) {
+	const want = uint64(1<<29) * (64 << 20) / (4 << 20)
+	if defaultMaxInstanceTotalPatternWork != want || want != 1<<33 {
+		t.Fatalf("default total = %d, want %d (1<<33)", defaultMaxInstanceTotalPatternWork, want)
 	}
 }

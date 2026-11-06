@@ -7,9 +7,9 @@ import (
 )
 
 func TestElementReadTableOwnsCanonicalFacts(t *testing.T) {
-	fixed := &ValueConstraint{Lexical: "01", Canonical: "1", Value: builtinValueForTest(t, "integer", "01")}
-	def := &ValueConstraint{Lexical: "default", Canonical: "default", Value: builtinValueForTest(t, "string", "default")}
-	decls := []ElementDecl{
+	fixed := &valueConstraint{Lexical: "01", Canonical: "1", Value: builtinValueForTest(t, "integer", "01")}
+	def := &valueConstraint{Lexical: "default", Canonical: "default", Value: builtinValueForTest(t, "string", "default")}
+	decls := []elementDecl{
 		{
 			Name:     QName{Namespace: 1, Local: 2},
 			Type:     SimpleRef(3),
@@ -72,15 +72,15 @@ func TestElementReadTableOwnsCanonicalFacts(t *testing.T) {
 
 func TestElementReadTableOwnsConstraintNamespaceContexts(t *testing.T) {
 	t.Parallel()
-	fixed := &ValueConstraint{
+	fixed := &valueConstraint{
 		Lexical: "p:fixed", Canonical: "p:fixed", Value: builtinValueForTest(t, "string", "p:fixed"),
 		qnameContext: &valueConstraintQNameContext{bindings: []valueConstraintQNameBinding{{prefix: "p", namespace: "urn:fixed", bound: true}}},
 	}
-	def := &ValueConstraint{
+	def := &valueConstraint{
 		Lexical: "p:default", Canonical: "p:default", Value: builtinValueForTest(t, "string", "p:default"),
 		qnameContext: &valueConstraintQNameContext{bindings: []valueConstraintQNameBinding{{prefix: "p", namespace: "urn:default", bound: true}}},
 	}
-	table := newElementReadTable([]ElementDecl{{Type: SimpleRef(3), Fixed: fixed}, {Type: SimpleRef(4), Default: def}})
+	table := newElementReadTable([]elementDecl{{Type: SimpleRef(3), Fixed: fixed}, {Type: SimpleRef(4), Default: def}})
 	fixed.qnameContext.bindings[0].namespace = "urn:changed"
 	def.qnameContext.bindings[0].bound = false
 	for range 2 {

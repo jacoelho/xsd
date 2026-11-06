@@ -86,7 +86,7 @@ func TestBuilderMetadataLifecycle(t *testing.T) {
 	}
 	assertUnavailable(nil, builtinString)
 	assertUnavailable(&Builder{}, builtinString)
-	builder := NewBuilder(BuilderOptions{})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	assertUnavailable(builder, NoType)
 	assertUnavailable(builder, BuiltinTypeCount+99)
 	id, err := builder.Reserve()
@@ -133,7 +133,7 @@ func TestBuilderMetadataLifecycle(t *testing.T) {
 	if repeated, sealErr := builder.Seal(); repeated != nil || !errors.Is(sealErr, ErrMetadata) {
 		t.Fatalf("repeated Seal = %v, %v; want nil, ErrMetadata", repeated, sealErr)
 	}
-	if got, validationErr := program.Validate(id, "x", Resolver{}, NeedCanonical, 16<<20, nil); validationErr != nil || got.CanonicalText() != "x" {
+	if got, validationErr := program.Validate(id, "x", Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); validationErr != nil || got.CanonicalText() != "x" {
 		t.Fatalf("published Validate after rejected Builder calls = %q, %v; want x, nil", got.CanonicalText(), validationErr)
 	}
 	if got, valid := program.InputRequirements(id); !valid || got != requirements {
@@ -158,7 +158,7 @@ func TestBuilderMetadataLifecycle(t *testing.T) {
 }
 
 func TestBuilderTypeViewOwnsUnionCopy(t *testing.T) {
-	builder := NewBuilder(BuilderOptions{})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := builder.Reserve()
 	if err != nil {
 		t.Fatal(err)
@@ -184,14 +184,14 @@ func TestBuilderTypeViewOwnsUnionCopy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	validated, err := program.Validate(id, "true", Resolver{}, 0, 16<<20, nil)
+	validated, err := program.Validate(id, "true", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil || validated.SelectedType() != builtinBoolean {
 		t.Fatalf("Validate(true) = type %d, %v; want boolean", validated.SelectedType(), err)
 	}
 }
 
 func TestBuilderTypeViewReportsEffectiveEnumeration(t *testing.T) {
-	builder := NewBuilder(BuilderOptions{})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	base := NoType
 	for _, test := range []struct {
 		name   string
@@ -247,7 +247,7 @@ var benchmarkUnconstrainedStringResult bool
 
 func unconstrainedStringQueryProgram(tb testing.TB) (*Program, map[string]TypeID) {
 	tb.Helper()
-	builder := NewBuilder(BuilderOptions{})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	types := make(map[string]TypeID)
 	for name, spec := range map[string]TypeSpec{
 		"derived": {
@@ -260,14 +260,14 @@ func unconstrainedStringQueryProgram(tb testing.TB) (*Program, map[string]TypeID
 		"identity": {
 			Variety:   Atomic,
 			Primitive: PrimitiveString,
-			Builtin:   BuiltinNCName,
+			Builtin:   builtinNCNameLexical,
 			Base:      builtinID,
 			ListItem:  NoType,
 		},
 		"reference": {
 			Variety:   Atomic,
 			Primitive: PrimitiveString,
-			Builtin:   BuiltinNCName,
+			Builtin:   builtinNCNameLexical,
 			Base:      builtinIDREF,
 			ListItem:  NoType,
 		},
@@ -328,7 +328,7 @@ func unconstrainedStringQueryProgram(tb testing.TB) (*Program, map[string]TypeID
 }
 
 func TestBuilderUnionHasFacetsRequiresCompletionAndIncludesInheritance(t *testing.T) {
-	builder := NewBuilder(BuilderOptions{})
+	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	base := NoType
 	for _, test := range []struct {
 		name   string

@@ -28,7 +28,7 @@ func (c *compiler) compileAttributeByQName(q QName) (AttributeID, error) {
 	}
 	label := c.rt.formatName(q)
 	if !exists {
-		return 0, SchemaComponentMissingError(SchemaComponentAttribute, label)
+		return 0, schemaComponentMissingError(schemaComponentAttribute, label)
 	}
 	leave, err := c.enterComponent(raw.sourceNode())
 	if err != nil {
@@ -46,27 +46,27 @@ func (c *compiler) compileAttributeByQName(q QName) (AttributeID, error) {
 	return id, nil
 }
 
-func (c *compiler) compileAttributeDecl(n *schemaNode, ctx *schemaSetDocument, q QName) (AttributeDecl, error) {
+func (c *compiler) compileAttributeDecl(n *schemaNode, ctx *schemaSetDocument, q QName) (attributeDecl, error) {
 	if err := checkAttributeDeclarationChildren(n); err != nil {
-		return AttributeDecl{}, err
+		return attributeDecl{}, err
 	}
 	if err := c.validateAttributeDeclName(n, q); err != nil {
-		return AttributeDecl{}, err
+		return attributeDecl{}, err
 	}
 	typ, err := c.compileAttributeDeclType(n, ctx)
 	if err != nil {
-		return AttributeDecl{}, err
+		return attributeDecl{}, err
 	}
 	if err := c.admitNotationTypeUse(n, typ); err != nil {
-		return AttributeDecl{}, err
+		return attributeDecl{}, err
 	}
-	decl := AttributeDecl{Name: q, Type: typ}
+	decl := attributeDecl{Name: q, Type: typ}
 	readAttributeDeclValueConstraints(n, &decl)
-	if err := validateAttributeDeclValueConstraintAtNode(n, DeclarationValueConstraintOf(decl.Default, decl.Fixed)); err != nil {
-		return AttributeDecl{}, err
+	if err := validateAttributeDeclValueConstraintAtNode(n, declarationValueConstraintOf(decl.Default, decl.Fixed)); err != nil {
+		return attributeDecl{}, err
 	}
 	if err := c.validateAttributeValueConstraints(&decl, n); err != nil {
-		return AttributeDecl{}, withSchemaCompileLocation(n, err)
+		return attributeDecl{}, withSchemaCompileLocation(n, err)
 	}
 	return decl, nil
 }
@@ -77,11 +77,11 @@ func (c *compiler) compileAttributeDeclType(n *schemaNode, ctx *schemaSetDocumen
 		return NoSimpleType, withSchemaCompileLocation(n, xsderrors.InternalInvariant("attribute node has no typed attribute source"))
 	}
 	if typeLex := source.Type.Lexical; typeLex.Present {
-		typeSource := AttributeTypeSource{
+		typeSource := attributeTypeSource{
 			Type:               typeLex,
 			HasSimpleTypeChild: n.firstXS(vocab.XSDElemSimpleType) != nil,
 		}
-		if err := ValidateAttributeTypeSource(typeSource); err != nil {
+		if err := validateAttributeTypeSource(typeSource); err != nil {
 			return NoSimpleType, withSchemaCompileLocation(n, err)
 		}
 		q, err := c.referenceQName(n, ctx, source.Type.Name)
@@ -96,21 +96,21 @@ func (c *compiler) compileAttributeDeclType(n *schemaNode, ctx *schemaSetDocumen
 	return valuepkg.AnySimpleTypeID, nil
 }
 
-func readAttributeDeclValueConstraints(n *schemaNode, decl *AttributeDecl) {
+func readAttributeDeclValueConstraints(n *schemaNode, decl *attributeDecl) {
 	source := semanticSource[*schemaAttributeSource](&n.semantic)
 	if source == nil {
 		return
 	}
 	if source.Default.Present {
-		decl.Default = &ValueConstraint{Lexical: source.Default.Value}
+		decl.Default = &valueConstraint{Lexical: source.Default.Value}
 	}
 	if source.Fixed.Present {
-		decl.Fixed = &ValueConstraint{Lexical: source.Fixed.Value}
+		decl.Fixed = &valueConstraint{Lexical: source.Fixed.Value}
 	}
 }
 
-func (c *compiler) validateAttributeValueConstraints(decl *AttributeDecl, n *schemaNode) error {
-	if !ValidSimpleTypeID(decl.Type, len(c.rt.simpleTypeUnavailable)) {
+func (c *compiler) validateAttributeValueConstraints(decl *attributeDecl, n *schemaNode) error {
+	if !validSimpleTypeID(decl.Type, len(c.rt.simpleTypeUnavailable)) {
 		return xsderrors.InternalInvariant("attribute value constraint references invalid simple type")
 	}
 	if c.rt.simpleTypeUnavailable[decl.Type] {
@@ -143,13 +143,13 @@ func (c *compiler) validateAttributeValueConstraints(decl *AttributeDecl, n *sch
 	return nil
 }
 
-func (c *compiler) validateValueConstraint(id SimpleTypeID, lexical string, resolve valuepkg.QNameResolver, lookup func(string) (string, bool), owner QName, label string) (*ValueConstraint, error) {
+func (c *compiler) validateValueConstraint(id SimpleTypeID, lexical string, resolve valuepkg.QNameResolver, lookup func(string) (string, bool), owner QName, label string) (*valueConstraint, error) {
 	validated, resolvedNames, err := c.validateValue(id, lexical, resolve, valuepkg.NeedCanonical|valuepkg.NeedIdentity)
 	if err != nil {
-		return nil, DeclarationValueConstraintError(label, c.rt.formatName(owner), err)
+		return nil, schemaValueError(c.limits, xsderrors.CodeSchemaFacet, "invalid "+label+" value for "+c.rt.formatName(owner), err)
 	}
 	canonical := validated.CanonicalText()
-	return &ValueConstraint{
+	return &valueConstraint{
 		ResolvedNames: resolvedNames,
 		Lexical:       lexical,
 		Canonical:     canonical,
@@ -160,13 +160,13 @@ func (c *compiler) validateValueConstraint(id SimpleTypeID, lexical string, reso
 
 type valueConstraintResolver struct {
 	resolve valuepkg.QNameResolver
-	names   []ResolvedValueName
+	names   []resolvedValueName
 }
 
 func (r *valueConstraintResolver) resolveQName(lexical string) (valuepkg.ExpandedName, bool) {
 	name, ok := r.resolve(lexical)
 	if ok {
-		r.names = append(r.names, ResolvedValueName{Lexical: lexical, NS: name.Namespace, Local: name.Local})
+		r.names = append(r.names, resolvedValueName{Lexical: lexical, NS: name.Namespace, Local: name.Local})
 	}
 	return name, ok
 }
@@ -181,10 +181,10 @@ func schemaQNameResolver(n *schemaNode) valuepkg.QNameResolver {
 	}
 }
 
-func (c *compiler) compileAttributeUses(parent *schemaNode, ctx *schemaSetDocument, inherited []AttributeUse, inheritedWildcard WildcardID, mode AttributeMergeMode) (AttributeUseSetID, error) {
+func (c *compiler) compileAttributeUses(parent *schemaNode, ctx *schemaSetDocument, inherited []attributeUse, inheritedWildcard WildcardID, mode attributeMergeMode) (attributeUseSetID, error) {
 	if parent.local == vocab.XSDElemAttributeGroup {
 		if err := checkAttributeGroupDeclarationChildren(parent); err != nil {
-			return NoAttributeUseSet, err
+			return noAttributeUseSet, err
 		}
 	}
 	if id, ok, err := c.compileDirectAttributeGroupUse(parent, ctx, inherited, inheritedWildcard, mode); ok {
@@ -192,22 +192,22 @@ func (c *compiler) compileAttributeUses(parent *schemaNode, ctx *schemaSetDocume
 	}
 	compilation := newAttributeUseCompilation(c, ctx, inherited, inheritedWildcard, mode)
 	if err := compilation.addChildren(parent); err != nil {
-		return NoAttributeUseSet, err
+		return noAttributeUseSet, err
 	}
 	return compilation.finish(parent, inheritedWildcard, mode)
 }
 
-func (c *compiler) compileDirectAttributeGroupUse(parent *schemaNode, ctx *schemaSetDocument, inherited []AttributeUse, inheritedWildcard WildcardID, mode AttributeMergeMode) (AttributeUseSetID, bool, error) {
-	if mode != AttributeMergeDirect || len(inherited) != 0 || inheritedWildcard != NoWildcard {
-		return NoAttributeUseSet, false, nil
+func (c *compiler) compileDirectAttributeGroupUse(parent *schemaNode, ctx *schemaSetDocument, inherited []attributeUse, inheritedWildcard WildcardID, mode attributeMergeMode) (attributeUseSetID, bool, error) {
+	if mode != attributeMergeDirect || len(inherited) != 0 || inheritedWildcard != NoWildcard {
+		return noAttributeUseSet, false, nil
 	}
 	child, ok := soleAttributeGroupChild(parent)
 	if !ok {
-		return NoAttributeUseSet, false, nil
+		return noAttributeUseSet, false, nil
 	}
 	id, err := c.compileAttributeGroupUseID(child, ctx)
 	if err != nil {
-		return NoAttributeUseSet, true, withSchemaCompileLocation(child, err)
+		return noAttributeUseSet, true, withSchemaCompileLocation(child, err)
 	}
 	return id, true, nil
 }
@@ -234,14 +234,14 @@ type attributeUseCompilation struct {
 	seen              map[QName]uint32
 	inheritedIndex    map[QName]int
 	prohibited        map[QName]struct{}
-	uses              []AttributeUse
-	inherited         []AttributeUse
-	wildcards         AttributeWildcardBuilder
+	uses              []attributeUse
+	inherited         []attributeUse
+	wildcards         attributeWildcardBuilder
 	inheritedWildcard WildcardID
-	mode              AttributeMergeMode
+	mode              attributeMergeMode
 }
 
-func newAttributeUseCompilation(c *compiler, ctx *schemaSetDocument, inherited []AttributeUse, inheritedWildcard WildcardID, mode AttributeMergeMode) attributeUseCompilation {
+func newAttributeUseCompilation(c *compiler, ctx *schemaSetDocument, inherited []attributeUse, inheritedWildcard WildcardID, mode attributeMergeMode) attributeUseCompilation {
 	var inheritedIndex map[QName]int
 	if len(inherited) != 0 {
 		inheritedIndex = make(map[QName]int, len(inherited))
@@ -254,7 +254,7 @@ func newAttributeUseCompilation(c *compiler, ctx *schemaSetDocument, inherited [
 		ctx:               ctx,
 		inheritedIndex:    inheritedIndex,
 		inherited:         inherited,
-		wildcards:         NewAttributeWildcardBuilder(inheritedWildcard, mode),
+		wildcards:         newAttributeWildcardBuilder(inheritedWildcard, mode),
 		inheritedWildcard: inheritedWildcard,
 		mode:              mode,
 	}
@@ -290,7 +290,7 @@ func (b *attributeUseCompilation) addAttribute(child *schemaNode) error {
 	if err != nil {
 		return err
 	}
-	if mode == AttributeUseProhibited {
+	if mode == attributeUseProhibited {
 		name, admissionErr := b.compiler.admitAttributeProhibition(child, b.ctx)
 		if admissionErr != nil {
 			return admissionErr
@@ -318,7 +318,7 @@ func (b *attributeUseCompilation) addGroup(child *schemaNode) error {
 			return withSchemaCompileLocation(child, err)
 		}
 	}
-	if err := b.wildcards.AddGroup(b.compiler, wildcard); err != nil {
+	if err := b.wildcards.addGroup(b.compiler, wildcard); err != nil {
 		return withSchemaCompileLocation(child, err)
 	}
 	return nil
@@ -329,50 +329,50 @@ func (b *attributeUseCompilation) addWildcard(child *schemaNode) error {
 	if err != nil {
 		return err
 	}
-	if err := b.wildcards.AddAnyAttribute(b.compiler, id); err != nil {
+	if err := b.wildcards.addAnyAttribute(b.compiler, id); err != nil {
 		return withSchemaCompileLocation(child, err)
 	}
 	return nil
 }
 
-func (b *attributeUseCompilation) finish(parent *schemaNode, inheritedWildcard WildcardID, mode AttributeMergeMode) (AttributeUseSetID, error) {
-	declaredWildcard := b.wildcards.Declared()
-	wildcard, err := b.wildcards.Finish(b.compiler)
+func (b *attributeUseCompilation) finish(parent *schemaNode, inheritedWildcard WildcardID, mode attributeMergeMode) (attributeUseSetID, error) {
+	declaredWildcard := b.wildcards.declared()
+	wildcard, err := b.wildcards.finish(b.compiler)
 	if err != nil {
-		return NoAttributeUseSet, withSchemaCompileLocation(parent, err)
+		return noAttributeUseSet, withSchemaCompileLocation(parent, err)
 	}
-	derivation, err := SchemaAttributeWildcardDerivation(mode)
+	derivation, err := schemaAttributeWildcardDerivation(mode)
 	if err != nil {
-		return NoAttributeUseSet, withSchemaCompileLocation(parent, err)
+		return noAttributeUseSet, withSchemaCompileLocation(parent, err)
 	}
 	finalUses := b.finalUses()
 	// Finalization transfers the explicit-use index to the completed set.
 	for i := len(b.uses); i < len(finalUses); i++ {
-		slot, slotErr := CheckedUint32Index(i, "attribute use limit exceeded")
+		slot, slotErr := checkedUint32Index(i, "attribute use limit exceeded")
 		if slotErr != nil {
-			return NoAttributeUseSet, slotErr
+			return noAttributeUseSet, slotErr
 		}
 		if b.seen == nil {
 			b.seen = make(map[QName]uint32, len(finalUses))
 		}
 		b.seen[finalUses[i].Name] = slot
 	}
-	set := AttributeUseSet{
+	set := attributeUseSet{
 		Uses: finalUses, Index: b.seen,
 		Wildcard: wildcard, WildcardBase: inheritedWildcard,
 		WildcardDeclared: declaredWildcard, WildcardDerive: derivation,
 	}
 	if err = b.validateRequiredInheritedUses(set); err != nil {
-		return NoAttributeUseSet, withSchemaCompileLocation(parent, err)
+		return noAttributeUseSet, withSchemaCompileLocation(parent, err)
 	}
 	if err = b.compiler.validateAttributeUseSet(set); err != nil {
-		return NoAttributeUseSet, withSchemaCompileLocation(parent, err)
+		return noAttributeUseSet, withSchemaCompileLocation(parent, err)
 	}
 	return b.compiler.addAttributeUseSet(set)
 }
 
-func (b *attributeUseCompilation) validateRequiredInheritedUses(set AttributeUseSet) error {
-	if b.mode != AttributeMergeRestriction {
+func (b *attributeUseCompilation) validateRequiredInheritedUses(set attributeUseSet) error {
+	if b.mode != attributeMergeRestriction {
 		return nil
 	}
 	for _, use := range b.inherited {
@@ -383,7 +383,7 @@ func (b *attributeUseCompilation) validateRequiredInheritedUses(set AttributeUse
 	return nil
 }
 
-func (b *attributeUseCompilation) finalUses() []AttributeUse {
+func (b *attributeUseCompilation) finalUses() []attributeUse {
 	uses := b.uses
 	for _, inherited := range b.inherited {
 		if _, explicit := b.seen[inherited.Name]; explicit {
@@ -397,11 +397,11 @@ func (b *attributeUseCompilation) finalUses() []AttributeUse {
 	return uses
 }
 
-func (b *attributeUseCompilation) mergeUse(use AttributeUse) error {
-	if b.mode == AttributeMergeInvalid {
+func (b *attributeUseCompilation) mergeUse(use attributeUse) error {
+	if b.mode == attributeMergeInvalid {
 		return xsderrors.InternalInvariant("invalid attribute merge mode")
 	}
-	if b.mode > AttributeMergeRestriction {
+	if b.mode > attributeMergeRestriction {
 		return xsderrors.InternalInvariant("unknown attribute merge mode")
 	}
 	if index, ok := b.seen[use.Name]; ok {
@@ -413,7 +413,7 @@ func (b *attributeUseCompilation) mergeUse(use AttributeUse) error {
 	if err := b.validateInheritedUse(use); err != nil {
 		return err
 	}
-	slot, err := CheckedUint32Index(len(b.uses), "attribute use limit exceeded")
+	slot, err := checkedUint32Index(len(b.uses), "attribute use limit exceeded")
 	if err != nil {
 		return err
 	}
@@ -426,7 +426,7 @@ func (b *attributeUseCompilation) mergeUse(use AttributeUse) error {
 }
 
 func (b *attributeUseCompilation) addProhibition(name QName) {
-	if b.mode != AttributeMergeRestriction {
+	if b.mode != attributeMergeRestriction {
 		return
 	}
 	if b.prohibited == nil {
@@ -435,13 +435,13 @@ func (b *attributeUseCompilation) addProhibition(name QName) {
 	b.prohibited[name] = struct{}{}
 }
 
-func sameAttributeUseComponent(first, second AttributeUse) bool {
+func sameAttributeUseComponent(first, second attributeUse) bool {
 	return first.componentID != 0 && first.componentID == second.componentID
 }
 
-func (b *attributeUseCompilation) validateInheritedUse(use AttributeUse) error {
+func (b *attributeUseCompilation) validateInheritedUse(use attributeUse) error {
 	index, inherited := b.inheritedIndex[use.Name]
-	if b.mode != AttributeMergeRestriction {
+	if b.mode != attributeMergeRestriction {
 		if inherited && !sameAttributeUseComponent(use, b.inherited[index]) {
 			return xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate attribute use")
 		}
@@ -456,8 +456,8 @@ func (b *attributeUseCompilation) validateInheritedUse(use AttributeUse) error {
 	return b.validateRestrictedUse(b.inherited[index], use)
 }
 
-func (b *attributeUseCompilation) validateRestrictedUse(base, use AttributeUse) error {
-	if err := ValidateAttributeUseRestriction(&b.compiler.rt, base, use); err != nil {
+func (b *attributeUseCompilation) validateRestrictedUse(base, use attributeUse) error {
+	if err := validateAttributeUseRestriction(&b.compiler.rt, base, use); err != nil {
 		if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
 			return err
 		}
@@ -470,37 +470,37 @@ func (b *attributeUseCompilation) inheritedWildcardAllows(name QName) bool {
 	if b.inheritedWildcard == NoWildcard {
 		return false
 	}
-	wildcard, ok := WildcardByID(b.compiler.rt.Wildcards, b.inheritedWildcard)
-	return ok && WildcardAllowsNamespace(wildcard, name.Namespace)
+	wildcard, ok := wildcardByID(b.compiler.rt.Wildcards, b.inheritedWildcard)
+	return ok && wildcardAllowsNamespace(wildcard, name.Namespace)
 }
 
 type attributeUseBase struct {
-	refFixed *ValueConstraint
-	use      AttributeUse
+	refFixed *valueConstraint
+	use      attributeUse
 	ref      bool
 }
 
 // Source admission consumes prohibitions before this boundary; a returned use
 // owns validated constraints and a component identity.
-func (c *compiler) compileAttributeUse(n *schemaNode, ctx *schemaSetDocument, mode AttributeUseMode, overrides attributeUseOverrides) (AttributeUse, error) {
+func (c *compiler) compileAttributeUse(n *schemaNode, ctx *schemaSetDocument, mode attributeUseMode, overrides attributeUseOverrides) (attributeUse, error) {
 	base, err := c.compileAttributeUseBase(n, ctx)
 	if err != nil {
-		return AttributeUse{}, err
+		return attributeUse{}, err
 	}
 	use := base.use
 	if err = validateAttributeUseValueConstraintAtNode(n, mode, overrides.hasDefault, overrides.hasFixed, base.refFixed != nil); err != nil {
-		return AttributeUse{}, err
+		return attributeUse{}, err
 	}
-	use.Required = mode == AttributeUseRequired
+	use.Required = mode == attributeUseRequired
 	if err = c.validateAttributeUseOverrides(n, &use, base, overrides); err != nil {
-		return AttributeUse{}, err
+		return attributeUse{}, err
 	}
-	if err = validateAttributeUseFixedValueAtNode(n, NewValueConstraintIdentity(use.Fixed), NewValueConstraintIdentity(base.refFixed)); err != nil {
-		return AttributeUse{}, err
+	if err = validateAttributeUseFixedValueAtNode(n, newValueConstraintIdentity(use.Fixed), newValueConstraintIdentity(base.refFixed)); err != nil {
+		return attributeUse{}, err
 	}
 	use.componentID, err = c.allocateAttributeUseID()
 	if err != nil {
-		return AttributeUse{}, err
+		return attributeUse{}, err
 	}
 	return use, nil
 }
@@ -516,7 +516,7 @@ func (c *compiler) allocateAttributeUseID() (uint32, error) {
 type attributeUseOverrides struct {
 	defaultValue string
 	fixedValue   string
-	mode         LexicalAttribute
+	mode         lexicalAttribute
 	hasDefault   bool
 	hasFixed     bool
 }
@@ -532,16 +532,16 @@ func readAttributeUseOverrides(n *schemaNode) attributeUseOverrides {
 	}
 }
 
-func (c *compiler) validateAttributeUseOverrides(n *schemaNode, use *AttributeUse, base attributeUseBase, overrides attributeUseOverrides) error {
+func (c *compiler) validateAttributeUseOverrides(n *schemaNode, use *attributeUse, base attributeUseBase, overrides attributeUseOverrides) error {
 	if !base.ref || !overrides.hasDefault && !overrides.hasFixed {
 		return nil
 	}
-	decl := AttributeDecl{Name: use.Name, Type: use.Type}
+	decl := attributeDecl{Name: use.Name, Type: use.Type}
 	if overrides.hasDefault {
-		decl.Default = &ValueConstraint{Lexical: overrides.defaultValue}
+		decl.Default = &valueConstraint{Lexical: overrides.defaultValue}
 	}
 	if overrides.hasFixed {
-		decl.Fixed = &ValueConstraint{Lexical: overrides.fixedValue}
+		decl.Fixed = &valueConstraint{Lexical: overrides.fixedValue}
 	}
 	if err := c.validateAttributeValueConstraints(&decl, n); err != nil {
 		return withSchemaCompileLocation(n, err)
@@ -587,22 +587,22 @@ func (c *compiler) compileAttributeRefUse(n *schemaNode, ctx *schemaSetDocument,
 	return base, nil
 }
 
-func (c *compiler) compileLocalAttributeUse(n *schemaNode, ctx *schemaSetDocument) (AttributeUse, error) {
+func (c *compiler) compileLocalAttributeUse(n *schemaNode, ctx *schemaSetDocument) (attributeUse, error) {
 	if err := c.spendComponentDependency(n); err != nil {
-		return AttributeUse{}, err
+		return attributeUse{}, err
 	}
 	leave, err := c.enterComponent(n)
 	if err != nil {
-		return AttributeUse{}, err
+		return attributeUse{}, err
 	}
 	defer leave()
 	name, err := c.localAttributeUseName(n, ctx)
 	if err != nil {
-		return AttributeUse{}, err
+		return attributeUse{}, err
 	}
 	decl, err := c.compileAttributeDecl(n, ctx, name)
 	if err != nil {
-		return AttributeUse{}, err
+		return attributeUse{}, err
 	}
 	return attributeUseFromDecl(decl), nil
 }
@@ -615,7 +615,7 @@ func (c *compiler) localAttributeUseName(n *schemaNode, ctx *schemaSetDocument) 
 	name := source.Global.Name.Value
 	ns := ""
 	form, hasForm := source.Form.Value, source.Form.Present
-	qualified, err := ParseAttributeFormAttr(FormAttr{
+	qualified, err := parseAttributeFormAttr(formAttr{
 		Value:            form,
 		HasValue:         hasForm,
 		DefaultQualified: ctx.doc.defaults.AttributeQualified,
@@ -667,7 +667,7 @@ func (c *compiler) admitProhibitedAttributeChildren(n *schemaNode, ctx *schemaSe
 	}
 	source := semanticSource[*schemaAttributeSource](&n.semantic)
 	simple := n.firstXS(vocab.XSDElemSimpleType)
-	if err := ValidateAttributeTypeSource(AttributeTypeSource{Type: source.Type.Lexical, HasSimpleTypeChild: simple != nil}); err != nil {
+	if err := validateAttributeTypeSource(attributeTypeSource{Type: source.Type.Lexical, HasSimpleTypeChild: simple != nil}); err != nil {
 		return withSchemaCompileLocation(n, err)
 	}
 	// The prohibited source item maps to nothing, but its inline type maps
@@ -679,8 +679,8 @@ func (c *compiler) admitProhibitedAttributeChildren(n *schemaNode, ctx *schemaSe
 	return err
 }
 
-func attributeUseFromDecl(decl AttributeDecl) AttributeUse {
-	return AttributeUse{
+func attributeUseFromDecl(decl attributeDecl) attributeUse {
+	return attributeUse{
 		Name:    decl.Name,
 		Type:    decl.Type,
 		Default: decl.Default,
@@ -688,7 +688,7 @@ func attributeUseFromDecl(decl AttributeDecl) AttributeUse {
 	}
 }
 
-func (c *compiler) compileAttributeGroupUse(n *schemaNode, ctx *schemaSetDocument) ([]AttributeUse, WildcardID, error) {
+func (c *compiler) compileAttributeGroupUse(n *schemaNode, ctx *schemaSetDocument) ([]attributeUse, WildcardID, error) {
 	id, err := c.compileAttributeGroupUseID(n, ctx)
 	if err != nil {
 		return nil, NoWildcard, withSchemaCompileLocation(n, err)
@@ -702,25 +702,25 @@ func (c *compiler) compileAttributeGroupUse(n *schemaNode, ctx *schemaSetDocumen
 	return set.Uses, set.Wildcard, nil
 }
 
-func (c *compiler) compileAttributeGroupUseID(n *schemaNode, ctx *schemaSetDocument) (AttributeUseSetID, error) {
+func (c *compiler) compileAttributeGroupUseID(n *schemaNode, ctx *schemaSetDocument) (attributeUseSetID, error) {
 	if err := checkAttributeGroupUseChildren(n); err != nil {
-		return NoAttributeUseSet, err
+		return noAttributeUseSet, err
 	}
 	if err := checkAttributeGroupUseSource(n); err != nil {
-		return NoAttributeUseSet, err
+		return noAttributeUseSet, err
 	}
 	source := semanticSource[*schemaAttributeGroupSource](&n.semantic)
 	if source == nil {
-		return NoAttributeUseSet, withSchemaCompileLocation(n, xsderrors.InternalInvariant("attributeGroup use has no typed attributeGroup source"))
+		return noAttributeUseSet, withSchemaCompileLocation(n, xsderrors.InternalInvariant("attributeGroup use has no typed attributeGroup source"))
 	}
 	q, err := c.referenceQName(n, ctx, source.Ref.Name)
 	if err != nil {
-		return NoAttributeUseSet, err
+		return noAttributeUseSet, err
 	}
 	return c.compileAttributeGroupByQNameID(q)
 }
 
-func (c *compiler) compileAttributeGroupByQName(q QName) ([]AttributeUse, WildcardID, error) {
+func (c *compiler) compileAttributeGroupByQName(q QName) ([]attributeUse, WildcardID, error) {
 	id, err := c.compileAttributeGroupByQNameID(q)
 	if err != nil {
 		return nil, NoWildcard, err
@@ -729,36 +729,36 @@ func (c *compiler) compileAttributeGroupByQName(q QName) ([]AttributeUse, Wildca
 	return uses, wildcard, nil
 }
 
-func (c *compiler) compileAttributeGroupByQNameID(q QName) (AttributeUseSetID, error) {
+func (c *compiler) compileAttributeGroupByQNameID(q QName) (attributeUseSetID, error) {
 	label := c.rt.formatName(q)
 	raw, exists := c.attributeGroupComponents[q]
 	if c.compilingAttrGrp[q] {
-		err := SchemaComponentRecursionError(SchemaComponentAttributeGroup, label)
-		return NoAttributeUseSet, withSchemaCompileLocation(raw.sourceNode(), err)
+		err := schemaComponentRecursionError(schemaComponentAttributeGroup, label)
+		return noAttributeUseSet, withSchemaCompileLocation(raw.sourceNode(), err)
 	}
 	var source *schemaNode
 	if exists {
 		source = raw.sourceNode()
 	}
 	if err := c.spendComponentDependency(source); err != nil {
-		return NoAttributeUseSet, err
+		return noAttributeUseSet, err
 	}
 	if id, ok := c.attrGroupDone[q]; ok {
 		return id, nil
 	}
 	if !exists {
-		return NoAttributeUseSet, SchemaComponentMissingError(SchemaComponentAttributeGroup, label)
+		return noAttributeUseSet, schemaComponentMissingError(schemaComponentAttributeGroup, label)
 	}
 	leave, err := c.enterComponent(raw.sourceNode())
 	if err != nil {
-		return NoAttributeUseSet, err
+		return noAttributeUseSet, err
 	}
 	defer leave()
 	c.compilingAttrGrp[q] = true
 	defer delete(c.compilingAttrGrp, q)
-	id, err := c.compileAttributeUses(raw.sourceNode(), raw.ctx, nil, NoWildcard, AttributeMergeDirect)
+	id, err := c.compileAttributeUses(raw.sourceNode(), raw.ctx, nil, NoWildcard, attributeMergeDirect)
 	if err != nil {
-		return NoAttributeUseSet, err
+		return noAttributeUseSet, err
 	}
 	c.attrGroupDone[q] = id
 	return id, nil

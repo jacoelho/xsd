@@ -8,7 +8,7 @@ import (
 )
 
 func (s *session) runtimeName(n xml.Name) xsdSchema.RuntimeName {
-	return ResolveRuntimeName(s.rt, n)
+	return resolveRuntimeName(s.rt, n)
 }
 
 func (s *session) simpleValueQNameResolver(input value.InputRequirements) value.Resolver {
@@ -30,5 +30,5 @@ func (s *session) qnameResolver() value.QNameResolver {
 }
 
 func (s *session) resolveLexicalQName(v string) (value.ExpandedName, bool) {
-	return ResolveLexicalQName(v, s.reader.Lookup)
+	return resolveLexicalQName(v, s.reader.Lookup)
 }

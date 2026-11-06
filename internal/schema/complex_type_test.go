@@ -10,16 +10,16 @@ import (
 func TestDerivationKindValidity(t *testing.T) {
 	t.Parallel()
 
-	for _, kind := range []DerivationKind{
-		DerivationKindNone,
-		DerivationKindRestriction,
-		DerivationKindExtension,
+	for _, kind := range []derivationKind{
+		derivationKindNone,
+		derivationKindRestriction,
+		derivationKindExtension,
 	} {
-		if !ValidDerivationKind(kind) {
+		if !validDerivationKind(kind) {
 			t.Fatalf("ValidDerivationKind(%d) = false", kind)
 		}
 	}
-	if ValidDerivationKind(DerivationKind(99)) {
+	if validDerivationKind(derivationKind(99)) {
 		t.Fatal("invalid derivation kind was accepted")
 	}
 }
@@ -29,20 +29,20 @@ func TestContentKind(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		kind   ContentKind
+		kind   complexContentVariety
 		mixed  bool
 		simple bool
 	}{
-		{name: "element only", kind: ContentElementOnly},
-		{name: "mixed", kind: ContentMixed, mixed: true},
-		{name: "simple", kind: ContentSimple, simple: true},
-		{name: "empty", kind: ContentEmpty},
+		{name: "element only", kind: contentElementOnly},
+		{name: "mixed", kind: contentMixed, mixed: true},
+		{name: "simple", kind: contentSimple, simple: true},
+		{name: "empty", kind: contentEmpty},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if !ValidContentKind(tt.kind) {
+			if !validContentKind(tt.kind) {
 				t.Fatalf("ValidContentKind(%d) = false", tt.kind)
 			}
 			if got := tt.kind.Mixed(); got != tt.mixed {
@@ -53,7 +53,7 @@ func TestContentKind(t *testing.T) {
 			}
 		})
 	}
-	if ValidContentKind(ContentKind(99)) {
+	if validContentKind(complexContentVariety(99)) {
 		t.Fatal("invalid content kind was accepted")
 	}
 }
@@ -63,14 +63,14 @@ func TestComplexTypeContentHelpers(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		ct            ComplexType
+		ct            complexTypeMetadata
 		mixed         bool
 		simpleContent bool
 	}{
-		{name: "element only", ct: ComplexType{ContentKind: ContentElementOnly}},
-		{name: "mixed", ct: ComplexType{ContentKind: ContentMixed}, mixed: true},
-		{name: "simple", ct: ComplexType{ContentKind: ContentSimple}, simpleContent: true},
-		{name: "empty", ct: ComplexType{ContentKind: ContentEmpty}},
+		{name: "element only", ct: complexTypeMetadata{ContentKind: contentElementOnly}},
+		{name: "mixed", ct: complexTypeMetadata{ContentKind: contentMixed}, mixed: true},
+		{name: "simple", ct: complexTypeMetadata{ContentKind: contentSimple}, simpleContent: true},
+		{name: "empty", ct: complexTypeMetadata{ContentKind: contentEmpty}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -89,16 +89,16 @@ func TestComplexTypeContentHelpers(t *testing.T) {
 func TestComplexTypeByID(t *testing.T) {
 	t.Parallel()
 
-	types := []ComplexType{
+	types := []complexTypeMetadata{
 		{Name: QName{Local: 1}},
 		{Name: QName{Local: 2}},
 	}
-	got, ok := ComplexTypeByID(types, 1)
+	got, ok := complexTypeByID(types, 1)
 	if !ok || got.Name != types[1].Name {
 		t.Fatalf("ComplexTypeByID(valid) = %+v, %v; want type 1, true", got, ok)
 	}
-	for _, id := range []ComplexTypeID{NoComplexType, 2} {
-		got, ok := ComplexTypeByID(types, id)
+	for _, id := range []ComplexTypeID{noComplexType, 2} {
+		got, ok := complexTypeByID(types, id)
 		if ok || got != nil {
 			t.Fatalf("ComplexTypeByID(%d) = %+v, %v; want nil, false", id, got, ok)
 		}
@@ -108,7 +108,7 @@ func TestComplexTypeByID(t *testing.T) {
 func TestValidateComplexTypeRuntime(t *testing.T) {
 	t.Parallel()
 
-	names, err := NewNameTable(8, []string{EmptyNamespaceURI}, []ExpandedName{{Local: "type"}})
+	names, err := newNameTable(8, []string{EmptyNamespaceURI}, []ExpandedName{{Local: "type"}})
 	if err != nil {
 		t.Fatalf("NewNameTable() error = %v", err)
 	}
@@ -116,33 +116,33 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 	if !ok {
 		t.Fatal("missing type QName")
 	}
-	models := []ContentModel{
-		{Kind: ModelEmpty},
-		{Kind: ModelSequence, Occurs: Occurrence{Min: 1, Max: 1}},
-		{Kind: ModelSequence, Occurs: Occurrence{Min: 1, Max: 1}, Particles: []Particle{ElementParticle(0, Occurrence{Min: 1, Max: 1})}},
-		{Kind: ModelEmpty, Mixed: true},
-		{Kind: ModelChoice, Occurs: Occurrence{Min: 1, Max: 1}},
-		{Kind: ModelAll, Occurs: Occurrence{Min: 0, Max: 1}},
+	models := []contentModelNode{
+		{Kind: modelEmpty},
+		{Kind: modelSequence, Occurs: occurrence{Min: 1, Max: 1}},
+		{Kind: modelSequence, Occurs: occurrence{Min: 1, Max: 1}, Particles: []contentParticle{elementParticle(0, occurrence{Min: 1, Max: 1})}},
+		{Kind: modelEmpty, Mixed: true},
+		{Kind: modelChoice, Occurs: occurrence{Min: 1, Max: 1}},
+		{Kind: modelAll, Occurs: occurrence{Min: 0, Max: 1}},
 	}
-	limits := ComplexTypeRefLimits{
+	limits := complexTypeRefLimits{
 		SimpleTypeCount:      1,
 		ComplexTypeCount:     2,
 		AttributeUseSetCount: 1,
 		AnyType:              0,
 	}
-	valid := ComplexType{
+	valid := complexTypeMetadata{
 		Name:        name,
 		Base:        ComplexRef(0),
 		Content:     0,
 		Attrs:       0,
 		TextType:    NoSimpleType,
-		ContentKind: ContentElementOnly,
-		Derivation:  DerivationKindRestriction,
+		ContentKind: contentElementOnly,
+		Derivation:  derivationKindRestriction,
 	}
 	tests := []struct {
 		name    string
 		wantErr string
-		ct      ComplexType
+		ct      complexTypeMetadata
 		id      ComplexTypeID
 	}{
 		{
@@ -153,17 +153,17 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 		{
 			name: "anyType can omit base",
 			id:   0,
-			ct: func() ComplexType {
+			ct: func() complexTypeMetadata {
 				ct := valid
 				ct.Base = TypeID{}
-				ct.Derivation = DerivationKindNone
+				ct.Derivation = derivationKindNone
 				return ct
 			}(),
 		},
 		{
 			name: "invalid name",
 			id:   1,
-			ct: func() ComplexType {
+			ct: func() complexTypeMetadata {
 				ct := valid
 				ct.Name = QName{Namespace: 99, Local: 99}
 				return ct
@@ -173,9 +173,9 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 		{
 			name: "invalid content kind",
 			id:   1,
-			ct: func() ComplexType {
+			ct: func() complexTypeMetadata {
 				ct := valid
-				ct.ContentKind = ContentKind(99)
+				ct.ContentKind = complexContentVariety(99)
 				return ct
 			}(),
 			wantErr: "complex type has invalid content kind",
@@ -183,9 +183,9 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 		{
 			name: "invalid derivation kind",
 			id:   1,
-			ct: func() ComplexType {
+			ct: func() complexTypeMetadata {
 				ct := valid
-				ct.Derivation = DerivationKind(99)
+				ct.Derivation = derivationKind(99)
 				return ct
 			}(),
 			wantErr: "complex type has invalid derivation kind",
@@ -193,9 +193,9 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 		{
 			name: "invalid block",
 			id:   1,
-			ct: func() ComplexType {
+			ct: func() complexTypeMetadata {
 				ct := valid
-				ct.Block = DerivationSubstitution
+				ct.Block = derivationSubstitution
 				return ct
 			}(),
 			wantErr: "complex type block mask contains invalid derivation",
@@ -203,9 +203,9 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 		{
 			name: "invalid final",
 			id:   1,
-			ct: func() ComplexType {
+			ct: func() complexTypeMetadata {
 				ct := valid
-				ct.Final = DerivationList
+				ct.Final = derivationList
 				return ct
 			}(),
 			wantErr: "complex type final mask contains invalid derivation",
@@ -213,9 +213,9 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 		{
 			name: "explicit derivation needs kind",
 			id:   1,
-			ct: func() ComplexType {
+			ct: func() complexTypeMetadata {
 				ct := valid
-				ct.Derivation = DerivationKindNone
+				ct.Derivation = derivationKindNone
 				ct.ExplicitDerivation = true
 				return ct
 			}(),
@@ -224,7 +224,7 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 		{
 			name: "non-anyType needs base",
 			id:   1,
-			ct: func() ComplexType {
+			ct: func() complexTypeMetadata {
 				ct := valid
 				ct.Base = TypeID{}
 				return ct
@@ -234,7 +234,7 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 		{
 			name: "invalid base",
 			id:   1,
-			ct: func() ComplexType {
+			ct: func() complexTypeMetadata {
 				ct := valid
 				ct.Base = ComplexRef(2)
 				return ct
@@ -244,7 +244,7 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 		{
 			name: "invalid content model",
 			id:   1,
-			ct: func() ComplexType {
+			ct: func() complexTypeMetadata {
 				ct := valid
 				ct.Content = 6
 				return ct
@@ -254,7 +254,7 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 		{
 			name: "invalid attribute use set",
 			id:   1,
-			ct: func() ComplexType {
+			ct: func() complexTypeMetadata {
 				ct := valid
 				ct.Attrs = 1
 				return ct
@@ -264,7 +264,7 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 		{
 			name: "text type without simple content",
 			id:   1,
-			ct: func() ComplexType {
+			ct: func() complexTypeMetadata {
 				ct := valid
 				ct.TextType = 0
 				return ct
@@ -274,9 +274,9 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 		{
 			name: "empty content uses empty model",
 			id:   1,
-			ct: func() ComplexType {
+			ct: func() complexTypeMetadata {
 				ct := valid
-				ct.ContentKind = ContentEmpty
+				ct.ContentKind = contentEmpty
 				ct.Content = 0
 				return ct
 			}(),
@@ -284,9 +284,9 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 		{
 			name: "empty content rejects element-only sequence",
 			id:   1,
-			ct: func() ComplexType {
+			ct: func() complexTypeMetadata {
 				ct := valid
-				ct.ContentKind = ContentEmpty
+				ct.ContentKind = contentEmpty
 				ct.Content = 1
 				return ct
 			}(),
@@ -295,9 +295,9 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 		{
 			name: "empty content rejects sequence with particles",
 			id:   1,
-			ct: func() ComplexType {
+			ct: func() complexTypeMetadata {
 				ct := valid
-				ct.ContentKind = ContentEmpty
+				ct.ContentKind = contentEmpty
 				ct.Content = 2
 				return ct
 			}(),
@@ -306,9 +306,9 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 		{
 			name: "empty content rejects mixed empty model",
 			id:   1,
-			ct: func() ComplexType {
+			ct: func() complexTypeMetadata {
 				ct := valid
-				ct.ContentKind = ContentEmpty
+				ct.ContentKind = contentEmpty
 				ct.Content = 3
 				return ct
 			}(),
@@ -317,9 +317,9 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 		{
 			name: "empty content rejects choice model",
 			id:   1,
-			ct: func() ComplexType {
+			ct: func() complexTypeMetadata {
 				ct := valid
-				ct.ContentKind = ContentEmpty
+				ct.ContentKind = contentEmpty
 				ct.Content = 4
 				return ct
 			}(),
@@ -328,9 +328,9 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 		{
 			name: "empty content rejects all model",
 			id:   1,
-			ct: func() ComplexType {
+			ct: func() complexTypeMetadata {
 				ct := valid
-				ct.ContentKind = ContentEmpty
+				ct.ContentKind = contentEmpty
 				ct.Content = 5
 				return ct
 			}(),
@@ -339,9 +339,9 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 		{
 			name: "simple content invalid text type",
 			id:   1,
-			ct: func() ComplexType {
+			ct: func() complexTypeMetadata {
 				ct := valid
-				ct.ContentKind = ContentSimple
+				ct.ContentKind = contentSimple
 				ct.TextType = 1
 				return ct
 			}(),
@@ -350,9 +350,9 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 		{
 			name: "simple content requires empty model",
 			id:   1,
-			ct: func() ComplexType {
+			ct: func() complexTypeMetadata {
 				ct := valid
-				ct.ContentKind = ContentSimple
+				ct.ContentKind = contentSimple
 				ct.Content = 1
 				ct.TextType = 0
 				return ct
@@ -364,7 +364,7 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateComplexTypeRuntime(&names, tt.id, tt.ct, models, limits)
+			err := validateComplexTypeRuntime(&names, tt.id, tt.ct, models, limits)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateComplexTypeRuntime() error = %v", err)
@@ -384,11 +384,11 @@ func TestValidateComplexTypeGraph(t *testing.T) {
 	tests := []struct {
 		name    string
 		wantErr string
-		types   []ComplexType
+		types   []complexTypeMetadata
 	}{
 		{
 			name: "valid forward backward and shared bases",
-			types: []ComplexType{
+			types: []complexTypeMetadata{
 				{Base: ComplexRef(2)},
 				{Base: SimpleRef(0)},
 				{},
@@ -398,17 +398,17 @@ func TestValidateComplexTypeGraph(t *testing.T) {
 		},
 		{
 			name:    "invalid base",
-			types:   []ComplexType{{Base: ComplexRef(1)}},
+			types:   []complexTypeMetadata{{Base: ComplexRef(1)}},
 			wantErr: "complex type graph references invalid base",
 		},
 		{
 			name:    "self cycle",
-			types:   []ComplexType{{Base: ComplexRef(0)}},
+			types:   []complexTypeMetadata{{Base: ComplexRef(0)}},
 			wantErr: "complex type graph contains cycle",
 		},
 		{
 			name: "multi-node cycle",
-			types: []ComplexType{
+			types: []complexTypeMetadata{
 				{Base: ComplexRef(1)},
 				{Base: ComplexRef(0)},
 			},
@@ -437,7 +437,7 @@ func TestValidateComplexTypeGraphHandlesDeepForwardChain(t *testing.T) {
 	t.Parallel()
 
 	const depth = 10_000
-	types := make([]ComplexType, depth)
+	types := make([]complexTypeMetadata, depth)
 	for i := range depth - 1 {
 		types[i].Base = ComplexRef(ComplexTypeID(i + 1))
 	}
@@ -458,60 +458,60 @@ func TestValidateComplexTypeDerivationRuntime(t *testing.T) {
 	tests := []struct {
 		name    string
 		wantErr string
-		ct      ComplexType
+		ct      complexTypeMetadata
 		id      ComplexTypeID
 	}{
 		{
 			name: "anyType has no derivation requirement",
 			id:   anyType,
-			ct:   ComplexType{},
+			ct:   complexTypeMetadata{},
 		},
 		{
 			name: "simple base derivation is validated by simple-base rule",
 			id:   id,
-			ct: ComplexType{
+			ct: complexTypeMetadata{
 				Base: SimpleRef(0),
 			},
 		},
 		{
 			name: "explicit complex extension",
 			id:   id,
-			ct: ComplexType{
+			ct: complexTypeMetadata{
 				Base:               ComplexRef(baseID),
-				Derivation:         DerivationKindExtension,
+				Derivation:         derivationKindExtension,
 				ExplicitDerivation: true,
 			},
 		},
 		{
 			name: "complex extension must be explicit",
 			id:   id,
-			ct: ComplexType{
+			ct: complexTypeMetadata{
 				Base:       ComplexRef(baseID),
-				Derivation: DerivationKindExtension,
+				Derivation: derivationKindExtension,
 			},
 			wantErr: "complex extension is not marked explicit",
 		},
 		{
 			name: "implicit anyType restriction is allowed",
 			id:   id,
-			ct: ComplexType{
+			ct: complexTypeMetadata{
 				Base:       ComplexRef(anyType),
-				Derivation: DerivationKindRestriction,
+				Derivation: derivationKindRestriction,
 			},
 		},
 		{
 			name: "complex restriction must be explicit except anyType",
 			id:   id,
-			ct: ComplexType{
+			ct: complexTypeMetadata{
 				Base:       ComplexRef(baseID),
-				Derivation: DerivationKindRestriction,
+				Derivation: derivationKindRestriction,
 			},
 			wantErr: "complex restriction is not marked explicit",
 		},
 		{
 			name: "non-anyType cannot omit derivation",
 			id:   id,
-			ct: ComplexType{
+			ct: complexTypeMetadata{
 				Base: ComplexRef(baseID),
 			},
 			wantErr: "non-anyType complex type has no derivation",
@@ -519,9 +519,9 @@ func TestValidateComplexTypeDerivationRuntime(t *testing.T) {
 		{
 			name: "invalid derivation kind",
 			id:   id,
-			ct: ComplexType{
+			ct: complexTypeMetadata{
 				Base:       ComplexRef(baseID),
-				Derivation: DerivationKind(99),
+				Derivation: derivationKind(99),
 			},
 			wantErr: "complex type has invalid derivation kind",
 		},
@@ -530,7 +530,7 @@ func TestValidateComplexTypeDerivationRuntime(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateComplexTypeDerivationRuntime(anyType, tt.id, tt.ct)
+			err := validateComplexTypeDerivationRuntime(anyType, tt.id, tt.ct)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateComplexTypeDerivationRuntime() error = %v", err)
@@ -564,21 +564,21 @@ func TestComplexTypeDerivationBaseID(t *testing.T) {
 			name:    "simple base",
 			base:    SimpleRef(0),
 			count:   2,
-			want:    NoComplexType,
+			want:    noComplexType,
 			wantErr: "complex type derivation references non-complex base",
 		},
 		{
 			name:    "zero type",
 			base:    TypeID{},
 			count:   2,
-			want:    NoComplexType,
+			want:    noComplexType,
 			wantErr: "complex type derivation references non-complex base",
 		},
 		{
 			name:    "complex base out of range",
 			base:    ComplexRef(2),
 			count:   2,
-			want:    NoComplexType,
+			want:    noComplexType,
 			wantErr: "complex type derivation references non-complex base",
 		},
 	}
@@ -586,7 +586,7 @@ func TestComplexTypeDerivationBaseID(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := ComplexTypeDerivationBaseID(tt.base, tt.count)
+			got, err := complexTypeDerivationBaseID(tt.base, tt.count)
 			if got != tt.want {
 				t.Fatalf("ComplexTypeDerivationBaseID() id = %d, want %d", got, tt.want)
 			}
@@ -634,13 +634,13 @@ func TestValidateComplexTypeFinalAllows(t *testing.T) {
 		},
 		{
 			name:       "invalid final mask",
-			final:      DerivationList,
+			final:      derivationList,
 			derivation: DerivationExtension,
 			wantErr:    "complex type final mask contains invalid derivation",
 		},
 		{
 			name:       "invalid derivation",
-			derivation: DerivationList,
+			derivation: derivationList,
 			wantErr:    "complex type final derivation is invalid",
 		},
 	}
@@ -648,7 +648,7 @@ func TestValidateComplexTypeFinalAllows(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateComplexTypeFinalAllows(tt.final, tt.derivation)
+			err := validateComplexTypeFinalAllows(tt.final, tt.derivation)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateComplexTypeFinalAllows() error = %v", err)
@@ -665,10 +665,10 @@ func TestValidateComplexTypeFinalAllows(t *testing.T) {
 func TestValidateSimpleBaseComplexExtensionFinalAllows(t *testing.T) {
 	t.Parallel()
 
-	if err := ValidateSimpleBaseComplexExtensionFinalAllows(0); err != nil {
+	if err := validateSimpleBaseComplexExtensionFinalAllows(0); err != nil {
 		t.Fatalf("ValidateSimpleBaseComplexExtensionFinalAllows() error = %v", err)
 	}
-	err := ValidateSimpleBaseComplexExtensionFinalAllows(DerivationExtension)
+	err := validateSimpleBaseComplexExtensionFinalAllows(DerivationExtension)
 	if err == nil || err.Error() != "complex type extension is blocked by simple base final" {
 		t.Fatalf("ValidateSimpleBaseComplexExtensionFinalAllows() error = %v, want blocked extension", err)
 	}
@@ -680,51 +680,51 @@ func TestValidateComplexTypeExtensionRuntime(t *testing.T) {
 	const (
 		anyType         ComplexTypeID  = 0
 		baseType        ComplexTypeID  = 1
-		emptyID         ContentModelID = 0
-		baseSeqID       ContentModelID = 1
-		derivedSeqID    ContentModelID = 2
-		badDerivedSeqID ContentModelID = 3
+		emptyID         contentModelID = 0
+		baseSeqID       contentModelID = 1
+		derivedSeqID    contentModelID = 2
+		badDerivedSeqID contentModelID = 3
 		elemA           ElementID      = 0
 		elemB           ElementID      = 1
 	)
-	one := Occurrence{Min: 1, Max: 1}
+	one := occurrence{Min: 1, Max: 1}
 	rt := particleFixture{
-		models: []ContentModel{
-			{Kind: ModelEmpty},
+		models: []contentModelNode{
+			{Kind: modelEmpty},
 			{
-				Kind:      ModelSequence,
+				Kind:      modelSequence,
 				Occurs:    one,
-				Particles: []Particle{ElementParticle(elemA, one)},
+				Particles: []contentParticle{elementParticle(elemA, one)},
 			},
 			{
-				Kind:      ModelSequence,
+				Kind:      modelSequence,
 				Occurs:    one,
-				Particles: []Particle{ElementParticle(elemA, one), ElementParticle(elemB, one)},
+				Particles: []contentParticle{elementParticle(elemA, one), elementParticle(elemB, one)},
 			},
 			{
-				Kind:      ModelSequence,
+				Kind:      modelSequence,
 				Occurs:    one,
-				Particles: []Particle{ElementParticle(elemB, one), ElementParticle(elemA, one)},
+				Particles: []contentParticle{elementParticle(elemB, one), elementParticle(elemA, one)},
 			},
 		},
 	}
-	base := ComplexType{
+	base := complexTypeMetadata{
 		Content:     baseSeqID,
 		TextType:    NoSimpleType,
-		ContentKind: ContentElementOnly,
+		ContentKind: contentElementOnly,
 	}
-	derived := ComplexType{
+	derived := complexTypeMetadata{
 		Base:        ComplexRef(baseType),
 		Content:     derivedSeqID,
 		TextType:    NoSimpleType,
-		ContentKind: ContentElementOnly,
-		Derivation:  DerivationKindExtension,
+		ContentKind: contentElementOnly,
+		Derivation:  derivationKindExtension,
 	}
 	tests := []struct {
 		name    string
 		wantErr string
-		base    ComplexType
-		derived ComplexType
+		base    complexTypeMetadata
+		derived complexTypeMetadata
 	}{
 		{
 			name:    "valid complex content extension",
@@ -733,7 +733,7 @@ func TestValidateComplexTypeExtensionRuntime(t *testing.T) {
 		},
 		{
 			name: "base final blocks extension",
-			base: func() ComplexType {
+			base: func() complexTypeMetadata {
 				ct := base
 				ct.Final = DerivationExtension
 				return ct
@@ -743,78 +743,78 @@ func TestValidateComplexTypeExtensionRuntime(t *testing.T) {
 		},
 		{
 			name: "valid simple content extension",
-			base: ComplexType{
+			base: complexTypeMetadata{
 				Content:     emptyID,
 				TextType:    0,
-				ContentKind: ContentSimple,
+				ContentKind: contentSimple,
 			},
-			derived: ComplexType{
+			derived: complexTypeMetadata{
 				Base:        ComplexRef(baseType),
 				Content:     emptyID,
 				TextType:    0,
-				ContentKind: ContentSimple,
-				Derivation:  DerivationKindExtension,
+				ContentKind: contentSimple,
+				Derivation:  derivationKindExtension,
 			},
 		},
 		{
 			name: "simple content base requires simple content derived",
-			base: ComplexType{
+			base: complexTypeMetadata{
 				Content:     emptyID,
 				TextType:    0,
-				ContentKind: ContentSimple,
+				ContentKind: contentSimple,
 			},
 			derived: derived,
 			wantErr: "complex simple-content extension shape does not match base",
 		},
 		{
 			name: "simple content text type must match",
-			base: ComplexType{
+			base: complexTypeMetadata{
 				Content:     emptyID,
 				TextType:    0,
-				ContentKind: ContentSimple,
+				ContentKind: contentSimple,
 			},
-			derived: ComplexType{
+			derived: complexTypeMetadata{
 				Base:        ComplexRef(baseType),
 				Content:     emptyID,
 				TextType:    1,
-				ContentKind: ContentSimple,
-				Derivation:  DerivationKindExtension,
+				ContentKind: contentSimple,
+				Derivation:  derivationKindExtension,
 			},
 			wantErr: "complex simple-content extension shape does not match base",
 		},
 		{
 			name: "simple content must keep empty model",
-			base: ComplexType{
+			base: complexTypeMetadata{
 				Content:     emptyID,
 				TextType:    0,
-				ContentKind: ContentSimple,
+				ContentKind: contentSimple,
 			},
-			derived: ComplexType{
+			derived: complexTypeMetadata{
 				Base:        ComplexRef(baseType),
 				Content:     derivedSeqID,
 				TextType:    0,
-				ContentKind: ContentSimple,
-				Derivation:  DerivationKindExtension,
+				ContentKind: contentSimple,
+				Derivation:  derivationKindExtension,
 			},
 			wantErr: "complex simple-content extension shape does not match base",
 		},
 		{
 			name: "complex base rejects simple content derived",
 			base: base,
-			derived: func() ComplexType {
+			derived: func() complexTypeMetadata {
 				ct := derived
 				ct.Content = emptyID
 				ct.TextType = 0
-				ct.ContentKind = ContentSimple
+				ct.ContentKind = contentSimple
 				return ct
 			}(),
 			wantErr: "complex extension changes element content to simple content",
 		},
 		{
 			name: "extension cannot drop mixed content",
-			base: func() ComplexType {
+			base: func() complexTypeMetadata {
 				ct := base
-				ct.ContentKind = ContentMixed
+				ct.ContentKind = contentMixed
 				return ct
 			}(),
 			derived: derived,
@@ -822,12 +822,12 @@ func TestValidateComplexTypeExtensionRuntime(t *testing.T) {
 		},
 		{
 			name: "anyType extension can be non-mixed",
-			base: func() ComplexType {
+			base: func() complexTypeMetadata {
 				ct := base
-				ct.ContentKind = ContentMixed
+				ct.ContentKind = contentMixed
 				return ct
 			}(),
-			derived: func() ComplexType {
+			derived: func() complexTypeMetadata {
 				ct := derived
 				ct.Base = ComplexRef(anyType)
 				return ct
@@ -836,7 +836,7 @@ func TestValidateComplexTypeExtensionRuntime(t *testing.T) {
 		{
 			name: "derived content must preserve base",
 			base: base,
-			derived: func() ComplexType {
+			derived: func() complexTypeMetadata {
 				ct := derived
 				ct.Content = badDerivedSeqID
 				return ct
@@ -848,7 +848,7 @@ func TestValidateComplexTypeExtensionRuntime(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateComplexTypeExtensionRuntime(rt.build(), tt.base, tt.derived, anyType)
+			err := validateComplexTypeExtensionRuntime(rt.build(), tt.base, tt.derived, anyType)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateComplexTypeExtensionRuntime() error = %v", err)
@@ -873,34 +873,34 @@ func TestValidateComplexTypeSimpleBaseExtensionRuntime(t *testing.T) {
 	t.Parallel()
 
 	const (
-		emptyID     ContentModelID = 0
-		seqID       ContentModelID = 1
+		emptyID     contentModelID = 0
+		seqID       contentModelID = 1
 		baseSimple  SimpleTypeID   = 0
 		otherSimple SimpleTypeID   = 1
 	)
-	one := Occurrence{Min: 1, Max: 1}
+	one := occurrence{Min: 1, Max: 1}
 	rt := complexTypeValidationFixture{
-		models: []ContentModel{
-			{Kind: ModelEmpty},
+		models: []contentModelNode{
+			{Kind: modelEmpty},
 			{
-				Kind:      ModelSequence,
+				Kind:      modelSequence,
 				Occurs:    one,
-				Particles: []Particle{ElementParticle(0, one)},
+				Particles: []contentParticle{elementParticle(0, one)},
 			},
 		},
 		simpleFinal: []DerivationMask{0, DerivationExtension},
 	}
-	valid := ComplexType{
+	valid := complexTypeMetadata{
 		Content:            emptyID,
 		TextType:           baseSimple,
-		ContentKind:        ContentSimple,
-		Derivation:         DerivationKindExtension,
+		ContentKind:        contentSimple,
+		Derivation:         derivationKindExtension,
 		ExplicitDerivation: true,
 	}
 	tests := []struct {
 		name    string
 		wantErr string
-		derived ComplexType
+		derived complexTypeMetadata
 		base    SimpleTypeID
 	}{
 		{
@@ -911,9 +911,9 @@ func TestValidateComplexTypeSimpleBaseExtensionRuntime(t *testing.T) {
 		{
 			name: "must be extension",
 			base: baseSimple,
-			derived: func() ComplexType {
+			derived: func() complexTypeMetadata {
 				ct := valid
-				ct.Derivation = DerivationKindRestriction
+				ct.Derivation = derivationKindRestriction
 				return ct
 			}(),
 			wantErr: "complex type with simple base is not an extension",
@@ -921,7 +921,7 @@ func TestValidateComplexTypeSimpleBaseExtensionRuntime(t *testing.T) {
 		{
 			name: "must be explicit",
 			base: baseSimple,
-			derived: func() ComplexType {
+			derived: func() complexTypeMetadata {
 				ct := valid
 				ct.ExplicitDerivation = false
 				return ct
@@ -937,7 +937,7 @@ func TestValidateComplexTypeSimpleBaseExtensionRuntime(t *testing.T) {
 		{
 			name: "simple base final blocks extension",
 			base: otherSimple,
-			derived: func() ComplexType {
+			derived: func() complexTypeMetadata {
 				ct := valid
 				ct.TextType = otherSimple
 				return ct
@@ -947,9 +947,9 @@ func TestValidateComplexTypeSimpleBaseExtensionRuntime(t *testing.T) {
 		{
 			name: "must use simple content",
 			base: baseSimple,
-			derived: func() ComplexType {
+			derived: func() complexTypeMetadata {
 				ct := valid
-				ct.ContentKind = ContentElementOnly
+				ct.ContentKind = contentElementOnly
 				ct.TextType = NoSimpleType
 				return ct
 			}(),
@@ -958,7 +958,7 @@ func TestValidateComplexTypeSimpleBaseExtensionRuntime(t *testing.T) {
 		{
 			name: "text type must match base",
 			base: baseSimple,
-			derived: func() ComplexType {
+			derived: func() complexTypeMetadata {
 				ct := valid
 				ct.TextType = otherSimple
 				return ct
@@ -968,7 +968,7 @@ func TestValidateComplexTypeSimpleBaseExtensionRuntime(t *testing.T) {
 		{
 			name: "simple content must use empty content model",
 			base: baseSimple,
-			derived: func() ComplexType {
+			derived: func() complexTypeMetadata {
 				ct := valid
 				ct.Content = seqID
 				return ct
@@ -980,7 +980,7 @@ func TestValidateComplexTypeSimpleBaseExtensionRuntime(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateComplexTypeSimpleBaseExtensionRuntime(rt.build(), tt.base, tt.derived)
+			err := validateComplexTypeSimpleBaseExtensionRuntime(rt.build(), tt.base, tt.derived)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateComplexTypeSimpleBaseExtensionRuntime() error = %v", err)
@@ -998,46 +998,46 @@ func TestValidateComplexTypeRestrictionRuntime(t *testing.T) {
 	t.Parallel()
 
 	const (
-		emptyID      ContentModelID = 0
-		baseSeqID    ContentModelID = 1
-		derivedSeqID ContentModelID = 2
+		emptyID      contentModelID = 0
+		baseSeqID    contentModelID = 1
+		derivedSeqID contentModelID = 2
 	)
-	one := Occurrence{Min: 1, Max: 1}
+	one := occurrence{Min: 1, Max: 1}
 	rt := complexTypeValidationFixture{
-		models: []ContentModel{
-			{Kind: ModelEmpty},
+		models: []contentModelNode{
+			{Kind: modelEmpty},
 			{
-				Kind:      ModelSequence,
+				Kind:      modelSequence,
 				Occurs:    one,
-				Particles: []Particle{ElementParticle(0, one)},
+				Particles: []contentParticle{elementParticle(0, one)},
 			},
 			{
-				Kind:      ModelSequence,
+				Kind:      modelSequence,
 				Occurs:    one,
-				Particles: []Particle{ElementParticle(1, one)},
+				Particles: []contentParticle{elementParticle(1, one)},
 			},
 		},
-		simple: []SimpleTypeDerivation{
+		simple: []simpleTypeDerivation{
 			{Base: NoSimpleType, Variety: valuepkg.Atomic},
 			{Base: 0, Variety: valuepkg.Atomic},
 		},
 	}
-	base := ComplexType{
+	base := complexTypeMetadata{
 		Content:     baseSeqID,
 		TextType:    NoSimpleType,
-		ContentKind: ContentElementOnly,
+		ContentKind: contentElementOnly,
 	}
-	derived := ComplexType{
+	derived := complexTypeMetadata{
 		Content:     derivedSeqID,
 		TextType:    NoSimpleType,
-		ContentKind: ContentElementOnly,
-		Derivation:  DerivationKindRestriction,
+		ContentKind: contentElementOnly,
+		Derivation:  derivationKindRestriction,
 	}
 	tests := []struct {
 		name    string
 		wantErr string
-		base    ComplexType
-		derived ComplexType
+		base    complexTypeMetadata
+		derived complexTypeMetadata
 	}{
 		{
 			name:    "valid complex content restriction leaves particle traversal to caller",
@@ -1046,7 +1046,7 @@ func TestValidateComplexTypeRestrictionRuntime(t *testing.T) {
 		},
 		{
 			name: "base final blocks restriction",
-			base: func() ComplexType {
+			base: func() complexTypeMetadata {
 				ct := base
 				ct.Final = DerivationRestriction
 				return ct
@@ -1056,68 +1056,68 @@ func TestValidateComplexTypeRestrictionRuntime(t *testing.T) {
 		},
 		{
 			name: "valid simple content restricts simple base",
-			base: ComplexType{
+			base: complexTypeMetadata{
 				Content:     emptyID,
 				TextType:    0,
-				ContentKind: ContentSimple,
+				ContentKind: contentSimple,
 			},
-			derived: ComplexType{
+			derived: complexTypeMetadata{
 				Content:     emptyID,
 				TextType:    1,
-				ContentKind: ContentSimple,
-				Derivation:  DerivationKindRestriction,
+				ContentKind: contentSimple,
+				Derivation:  derivationKindRestriction,
 			},
 		},
 		{
 			name: "simple content text type must derive from base",
-			base: ComplexType{
+			base: complexTypeMetadata{
 				Content:     emptyID,
 				TextType:    1,
-				ContentKind: ContentSimple,
+				ContentKind: contentSimple,
 			},
-			derived: ComplexType{
+			derived: complexTypeMetadata{
 				Content:     emptyID,
 				TextType:    0,
-				ContentKind: ContentSimple,
-				Derivation:  DerivationKindRestriction,
+				ContentKind: contentSimple,
+				Derivation:  derivationKindRestriction,
 			},
 			wantErr: "simpleContent restriction type is not derived from base",
 		},
 		{
 			name: "simple content can restrict mixed emptiable complex base",
-			base: ComplexType{
+			base: complexTypeMetadata{
 				Content:     emptyID,
 				TextType:    NoSimpleType,
-				ContentKind: ContentMixed,
+				ContentKind: contentMixed,
 			},
-			derived: ComplexType{
+			derived: complexTypeMetadata{
 				Content:     emptyID,
 				TextType:    0,
-				ContentKind: ContentSimple,
-				Derivation:  DerivationKindRestriction,
+				ContentKind: contentSimple,
+				Derivation:  derivationKindRestriction,
 			},
 		},
 		{
 			name: "simple content requires simple or emptiable mixed base",
-			base: ComplexType{
+			base: complexTypeMetadata{
 				Content:     emptyID,
 				TextType:    NoSimpleType,
-				ContentKind: ContentElementOnly,
+				ContentKind: contentElementOnly,
 			},
-			derived: ComplexType{
+			derived: complexTypeMetadata{
 				Content:     emptyID,
 				TextType:    0,
-				ContentKind: ContentSimple,
-				Derivation:  DerivationKindRestriction,
+				ContentKind: contentSimple,
+				Derivation:  derivationKindRestriction,
 			},
 			wantErr: "complex simple-content restriction base is not simple or emptiable mixed",
 		},
 		{
 			name: "complex content cannot drop simple base",
-			base: ComplexType{
+			base: complexTypeMetadata{
 				Content:     emptyID,
 				TextType:    0,
-				ContentKind: ContentSimple,
+				ContentKind: contentSimple,
 			},
 			derived: derived,
 			wantErr: "complex content restriction drops simple base content",
@@ -1128,7 +1128,7 @@ func TestValidateComplexTypeRestrictionRuntime(t *testing.T) {
 			t.Parallel()
 
 			analysis := unlimitedContentModelAnalysis(rt.build())
-			err := ValidateComplexTypeRestrictionRuntime(rt.build(), analysis, tt.base, tt.derived, unboundedTypeDerivationWork)
+			err := validateComplexTypeRestrictionRuntime(rt.build(), analysis, tt.base, tt.derived, unboundedTypeDerivationWork)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateComplexTypeRestrictionRuntime() error = %v", err)
@@ -1146,7 +1146,7 @@ func TestValidateSimpleContentRestrictionTextType(t *testing.T) {
 	t.Parallel()
 
 	rt := derivationFixture{
-		simple: []SimpleTypeDerivation{
+		simple: []simpleTypeDerivation{
 			{Base: NoSimpleType, Variety: valuepkg.Atomic},
 			{Base: 0, Variety: valuepkg.Atomic},
 			{Base: NoSimpleType, Variety: valuepkg.Atomic},
@@ -1167,7 +1167,7 @@ func TestValidateSimpleContentRestrictionTextType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateSimpleContentRestrictionTextType(rt.build(), tt.derived, tt.base, unboundedTypeDerivationWork)
+			err := validateSimpleContentRestrictionTextType(rt.build(), tt.derived, tt.base, unboundedTypeDerivationWork)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateSimpleContentRestrictionTextType() error = %v", err)
@@ -1185,74 +1185,74 @@ func TestSimpleContentDerivationBaseAllowed(t *testing.T) {
 	t.Parallel()
 
 	const (
-		emptyID ContentModelID = iota
+		emptyID contentModelID = iota
 		seqID
 	)
 	rt := particleFixture{
-		models: []ContentModel{
-			{Kind: ModelEmpty},
+		models: []contentModelNode{
+			{Kind: modelEmpty},
 			{
-				Kind:      ModelSequence,
-				Occurs:    Occurrence{Min: 1, Max: 1},
-				Particles: []Particle{ElementParticle(0, Occurrence{Min: 1, Max: 1})},
+				Kind:      modelSequence,
+				Occurs:    occurrence{Min: 1, Max: 1},
+				Particles: []contentParticle{elementParticle(0, occurrence{Min: 1, Max: 1})},
 			},
 		},
 	}
 	tests := []struct {
 		name       string
-		base       ComplexType
-		derivation DerivationKind
+		base       complexTypeMetadata
+		derivation derivationKind
 		want       bool
 	}{
 		{
 			name: "simple base",
-			base: ComplexType{
+			base: complexTypeMetadata{
 				Content:     emptyID,
 				TextType:    0,
-				ContentKind: ContentSimple,
+				ContentKind: contentSimple,
 			},
-			derivation: DerivationKindExtension,
+			derivation: derivationKindExtension,
 			want:       true,
 		},
 		{
 			name: "emptiable mixed restriction",
-			base: ComplexType{
+			base: complexTypeMetadata{
 				Content:     emptyID,
-				ContentKind: ContentMixed,
+				ContentKind: contentMixed,
 			},
-			derivation: DerivationKindRestriction,
+			derivation: derivationKindRestriction,
 			want:       true,
 		},
 		{
 			name: "emptiable mixed extension",
-			base: ComplexType{
+			base: complexTypeMetadata{
 				Content:     emptyID,
-				ContentKind: ContentMixed,
+				ContentKind: contentMixed,
 			},
-			derivation: DerivationKindExtension,
+			derivation: derivationKindExtension,
 		},
 		{
 			name: "non-emptiable mixed restriction",
-			base: ComplexType{
+			base: complexTypeMetadata{
 				Content:     seqID,
-				ContentKind: ContentMixed,
+				ContentKind: contentMixed,
 			},
-			derivation: DerivationKindRestriction,
+			derivation: derivationKindRestriction,
 		},
 		{
 			name: "element-only restriction",
-			base: ComplexType{
+			base: complexTypeMetadata{
 				Content:     emptyID,
-				ContentKind: ContentElementOnly,
+				ContentKind: contentElementOnly,
 			},
-			derivation: DerivationKindRestriction,
+			derivation: derivationKindRestriction,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			analysis := unlimitedContentModelAnalysis(rt.build())
-			got, err := SimpleContentDerivationBaseAllowed(analysis, tt.base, tt.derivation)
+			got, err := simpleContentDerivationBaseAllowed(analysis, tt.base, tt.derivation)
 			if err != nil {
 				t.Fatalf("SimpleContentDerivationBaseAllowed() error = %v", err)
 			}
@@ -1267,81 +1267,81 @@ func TestComplexContentMixedDerivationBaseAllowed(t *testing.T) {
 	t.Parallel()
 
 	const (
-		emptyID ContentModelID = iota
+		emptyID contentModelID = iota
 		seqID
 	)
 	tests := []struct {
 		name       string
-		base       ComplexType
-		derivation DerivationKind
+		base       complexTypeMetadata
+		derivation derivationKind
 		want       bool
 	}{
 		{
 			name: "mixed base",
-			base: ComplexType{
+			base: complexTypeMetadata{
 				Content:     seqID,
-				ContentKind: ContentMixed,
+				ContentKind: contentMixed,
 			},
-			derivation: DerivationKindRestriction,
+			derivation: derivationKindRestriction,
 			want:       true,
 		},
 		{
 			name: "simple base restriction",
-			base: ComplexType{
+			base: complexTypeMetadata{
 				Content:     emptyID,
 				TextType:    0,
-				ContentKind: ContentSimple,
+				ContentKind: contentSimple,
 			},
-			derivation: DerivationKindRestriction,
+			derivation: derivationKindRestriction,
 			want:       false,
 		},
 		{
 			name: "true empty extension",
-			base: ComplexType{
+			base: complexTypeMetadata{
 				Content:     emptyID,
-				ContentKind: ContentEmpty,
+				ContentKind: contentEmpty,
 			},
-			derivation: DerivationKindExtension,
+			derivation: derivationKindExtension,
 			want:       true,
 		},
 		{
 			name: "normalized element-only extension",
-			base: ComplexType{
+			base: complexTypeMetadata{
 				Content:     emptyID,
-				ContentKind: ContentElementOnly,
+				ContentKind: contentElementOnly,
 			},
-			derivation: DerivationKindExtension,
+			derivation: derivationKindExtension,
 		},
 		{
 			name: "empty element-only restriction",
-			base: ComplexType{
+			base: complexTypeMetadata{
 				Content:     emptyID,
-				ContentKind: ContentElementOnly,
+				ContentKind: contentElementOnly,
 			},
-			derivation: DerivationKindRestriction,
+			derivation: derivationKindRestriction,
 		},
 		{
 			name: "non-empty element-only extension",
-			base: ComplexType{
+			base: complexTypeMetadata{
 				Content:     seqID,
-				ContentKind: ContentElementOnly,
+				ContentKind: contentElementOnly,
 			},
-			derivation: DerivationKindExtension,
+			derivation: derivationKindExtension,
 		},
 		{
 			name: "simple base without mixed",
-			base: ComplexType{
+			base: complexTypeMetadata{
 				Content:     emptyID,
 				TextType:    0,
-				ContentKind: ContentSimple,
+				ContentKind: contentSimple,
 			},
-			derivation: DerivationKindExtension,
+			derivation: derivationKindExtension,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			if got := ComplexContentMixedDerivationBaseAllowed(tt.base, tt.derivation); got != tt.want {
+			if got := complexContentMixedDerivationBaseAllowed(tt.base, tt.derivation); got != tt.want {
 				t.Fatalf("ComplexContentMixedDerivationBaseAllowed() = %v, want %v", got, tt.want)
 			}
 		})
@@ -1352,61 +1352,61 @@ func TestValidateComplexContentMixedDerivationBase(t *testing.T) {
 	t.Parallel()
 
 	const (
-		emptyID ContentModelID = iota
+		emptyID contentModelID = iota
 		seqID
 	)
 	tests := []struct {
 		name       string
 		wantErr    string
-		base       ComplexType
-		derivation DerivationKind
-		content    ContentKind
+		base       complexTypeMetadata
+		derivation derivationKind
+		content    complexContentVariety
 	}{
 		{
 			name: "not mixed",
-			base: ComplexType{
+			base: complexTypeMetadata{
 				Content:     seqID,
-				ContentKind: ContentElementOnly,
+				ContentKind: contentElementOnly,
 			},
-			derivation: DerivationKindRestriction,
-			content:    ContentElementOnly,
+			derivation: derivationKindRestriction,
+			content:    contentElementOnly,
 		},
 		{
 			name: "mixed base",
-			base: ComplexType{
+			base: complexTypeMetadata{
 				Content:     seqID,
-				ContentKind: ContentMixed,
+				ContentKind: contentMixed,
 			},
-			derivation: DerivationKindRestriction,
-			content:    ContentMixed,
+			derivation: derivationKindRestriction,
+			content:    contentMixed,
 		},
 		{
 			name: "true empty extension",
-			base: ComplexType{
+			base: complexTypeMetadata{
 				Content:     emptyID,
-				ContentKind: ContentEmpty,
+				ContentKind: contentEmpty,
 			},
-			derivation: DerivationKindExtension,
-			content:    ContentMixed,
+			derivation: derivationKindExtension,
+			content:    contentMixed,
 		},
 		{
 			name: "non-empty element-only extension",
-			base: ComplexType{
+			base: complexTypeMetadata{
 				Content:     seqID,
-				ContentKind: ContentElementOnly,
+				ContentKind: contentElementOnly,
 			},
-			derivation: DerivationKindExtension,
-			content:    ContentMixed,
+			derivation: derivationKindExtension,
+			content:    contentMixed,
 			wantErr:    "complexContent mixed derivation requires mixed base",
 		},
 		{
 			name: "empty element-only restriction",
-			base: ComplexType{
+			base: complexTypeMetadata{
 				Content:     emptyID,
-				ContentKind: ContentElementOnly,
+				ContentKind: contentElementOnly,
 			},
-			derivation: DerivationKindRestriction,
-			content:    ContentMixed,
+			derivation: derivationKindRestriction,
+			content:    contentMixed,
 			wantErr:    "complexContent mixed derivation requires mixed base",
 		},
 	}
@@ -1414,7 +1414,7 @@ func TestValidateComplexContentMixedDerivationBase(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateComplexContentMixedDerivationBase(tt.base, tt.derivation, tt.content)
+			err := validateComplexContentMixedDerivationBase(tt.base, tt.derivation, tt.content)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateComplexContentMixedDerivationBase() error = %v", err)
@@ -1436,7 +1436,7 @@ func (f complexTypeValidationFixture) build() *schemaBuild {
 	b.Wildcards = p.Wildcards
 	b.Substitutions = p.Substitutions
 	if len(f.simpleFinal) > len(b.SimpleTypes) {
-		b.SimpleTypes = append(b.SimpleTypes, make([]SimpleType, len(f.simpleFinal)-len(b.SimpleTypes))...)
+		b.SimpleTypes = append(b.SimpleTypes, make([]simpleType, len(f.simpleFinal)-len(b.SimpleTypes))...)
 	}
 	for i, final := range f.simpleFinal {
 		b.SimpleTypes[i].Final = final

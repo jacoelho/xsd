@@ -5,7 +5,7 @@ import "testing"
 func TestElementTextContentRead(t *testing.T) {
 	t.Parallel()
 
-	content := ElementTextContent{kind: ContentMixed, fixed: true, constrained: true}
+	content := ElementTextContent{kind: contentMixed, fixed: true, constrained: true}
 	if !content.AllowsMixedContent() {
 		t.Fatal("AllowsMixedContent() = false, want true")
 	}
@@ -23,7 +23,7 @@ func TestElementTextContentRead(t *testing.T) {
 	if zero.AllowsMixedContent() || zero.HasFixedElementValue() || zero.HasValueConstraint() {
 		t.Fatalf("zero ElementTextContent = %+v, want no flags", zero)
 	}
-	empty := ElementTextContent{kind: ContentEmpty}
+	empty := ElementTextContent{kind: contentEmpty}
 	if !empty.IsEmptyContent() || empty.AllowsMixedContent() {
 		t.Fatalf("empty ElementTextContent = %+v, want empty and non-mixed", empty)
 	}

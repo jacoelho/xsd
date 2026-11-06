@@ -1,61 +1,61 @@
 package schema
 
-// ModelHasNoParticles reports whether modelID is structurally empty.
-func ModelHasNoParticles(rt *schemaBuild, modelID ContentModelID) bool {
-	if modelID == NoContentModel {
+// modelHasNoParticles reports whether modelID is structurally empty.
+func modelHasNoParticles(rt *schemaBuild, modelID contentModelID) bool {
+	if modelID == noContentModel {
 		return true
 	}
-	model, ok := ContentModelByID(rt.Models, modelID)
+	model, ok := contentModelByID(rt.Models, modelID)
 	if !ok {
 		return false
 	}
 	switch model.Kind {
-	case ModelEmpty:
+	case modelEmpty:
 		return true
-	case ModelSequence, ModelChoice, ModelAll:
+	case modelSequence, modelChoice, modelAll:
 		return len(model.Particles) == 0
-	case ModelAny:
+	case modelAny:
 		return false
 	default:
 	}
 	return false
 }
 
-// SequenceChoiceRange reports the range for a sequence that restricts a choice.
-func SequenceChoiceRange(model ContentModel) Occurrence {
+// sequenceChoiceRange reports the range for a sequence that restricts a choice.
+func sequenceChoiceRange(model contentModelNode) occurrence {
 	particleCount := saturatingUint32(len(model.Particles))
 	if model.Occurs.Unbounded {
-		return Occurrence{Min: saturatingMul(model.Occurs.Min, particleCount), Unbounded: true}
+		return occurrence{Min: saturatingMul(model.Occurs.Min, particleCount), Unbounded: true}
 	}
-	return Occurrence{Min: saturatingMul(model.Occurs.Min, particleCount), Max: saturatingMul(model.Occurs.Max, particleCount)}
+	return occurrence{Min: saturatingMul(model.Occurs.Min, particleCount), Max: saturatingMul(model.Occurs.Max, particleCount)}
 }
 
-// AddOccurrenceRanges saturates sequence ranges before applying occurrence limits.
-func AddOccurrenceRanges(a, b Occurrence) Occurrence {
-	return Occurrence{Min: saturatingAdd(a.Min, b.Min), Max: saturatingAdd(a.Max, b.Max), Unbounded: a.Unbounded || b.Unbounded}
+// addOccurrenceRanges saturates sequence ranges before applying occurrence limits.
+func addOccurrenceRanges(a, b occurrence) occurrence {
+	return occurrence{Min: saturatingAdd(a.Min, b.Min), Max: saturatingAdd(a.Max, b.Max), Unbounded: a.Unbounded || b.Unbounded}
 }
 
-// UnionOccurrenceRanges returns the range accepted by either occurrence range.
-func UnionOccurrenceRanges(a, b Occurrence) Occurrence {
+// unionOccurrenceRanges returns the range accepted by either occurrence range.
+func unionOccurrenceRanges(a, b occurrence) occurrence {
 	minOccurs := min(b.Min, a.Min)
 	if a.Unbounded || b.Unbounded {
-		return Occurrence{Min: minOccurs, Unbounded: true}
+		return occurrence{Min: minOccurs, Unbounded: true}
 	}
 	maxOccurs := max(b.Max, a.Max)
-	return Occurrence{Min: minOccurs, Max: maxOccurs}
+	return occurrence{Min: minOccurs, Max: maxOccurs}
 }
 
-// MultiplyOccurrence applies occurrence constraints to an accepted range.
-func MultiplyOccurrence(a, b Occurrence) Occurrence {
+// multiplyOccurrence applies occurrence constraints to an accepted range.
+func multiplyOccurrence(a, b occurrence) occurrence {
 	minOccurs := saturatingMul(a.Min, b.Min)
 	if a.Unbounded || b.Unbounded {
-		return Occurrence{Min: minOccurs, Unbounded: true}
+		return occurrence{Min: minOccurs, Unbounded: true}
 	}
-	return Occurrence{Min: minOccurs, Max: saturatingMul(a.Max, b.Max)}
+	return occurrence{Min: minOccurs, Max: saturatingMul(a.Max, b.Max)}
 }
 
-// OccurrenceRangeSubset reports whether derived is a subset of base.
-func OccurrenceRangeSubset(derived, base Occurrence) bool {
+// occurrenceRangeSubset reports whether derived is a subset of base.
+func occurrenceRangeSubset(derived, base occurrence) bool {
 	if derived.Min < base.Min {
 		return false
 	}

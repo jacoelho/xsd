@@ -43,7 +43,7 @@ func TestDenseDFAUsesFullQNameAndBounds(t *testing.T) {
 	t.Parallel()
 	names := contentContractNames(16)
 	for i := range uint32(16) {
-		names[i] = QName{Namespace: 1000, Local: LocalNameID(math.MaxUint32 - 32 + i*2)}
+		names[i] = QName{Namespace: 1000, Local: localNameID(math.MaxUint32 - 32 + i*2)}
 	}
 	build := contentContractBuild(t, names)
 	reads := testCompiledModelReads(build.CompiledModels)
@@ -76,7 +76,7 @@ func TestDenseDFAUsesFullQNameAndBounds(t *testing.T) {
 				}
 				return
 			}
-			if status != ContentTransitionMatched || kind != ContentMatchDeclared || element != test.want || st.state != 0 {
+			if status != contentTransitionMatched || kind != ContentMatchDeclared || element != test.want || st.state != 0 {
 				t.Fatalf("match = %v/%v/%v, want declaration %d without mutation", status, kind, element, test.want)
 			}
 			if !transition.Commit(&st, &ContentScratch{}) || st.state != 1 {
@@ -101,7 +101,7 @@ func TestDenseDFAUniqueCountedRowPreservesAdmission(t *testing.T) {
 	st := ContentState{model: 0, present: true}
 	input := ContentInput{Name: RuntimeName{Known: true, Name: QName{Local: 1}}}
 	transition, status := rt.NextContent(st, input, &ContentScratch{})
-	if status != ContentTransitionMatched || !transition.Commit(&st, &ContentScratch{}) || st.count != 1 {
+	if status != contentTransitionMatched || !transition.Commit(&st, &ContentScratch{}) || st.count != 1 {
 		t.Fatalf("first counted match = %+v/%v", st, status)
 	}
 	before := st
@@ -126,12 +126,12 @@ func TestDenseDFAExcludesWildcardAndAmbiguousRows(t *testing.T) {
 				loop.To = 0
 				row.Counted, row.Min, row.Max = true, 2, 2
 				row.CountParticle = loop.Particle
-				row.Edges = append([]CompiledModelEdge{loop}, row.Edges...)
+				row.Edges = append([]compiledModelEdge{loop}, row.Edges...)
 				row.index = dfaRowIndex{}
 			} else {
-				row.Edges = append(row.Edges, CompiledModelEdge{Particle: WildcardParticle(0, Occurrence{Min: 1, Max: 1}), To: 1})
+				row.Edges = append(row.Edges, compiledModelEdge{Particle: wildcardParticle(0, occurrence{Min: 1, Max: 1}), To: 1})
 			}
-			if err := IndexCompiledModelsRows(build, build.CompiledModels, unlimitedContentModelWork); err != nil {
+			if err := indexCompiledModelsRows(build, build.CompiledModels, unlimitedContentModelWork); err != nil {
 				t.Fatal(err)
 			}
 			reads := testCompiledModelReads(build.CompiledModels)
@@ -147,10 +147,10 @@ func TestDenseDFAExcludesWildcardAndAmbiguousRows(t *testing.T) {
 			}
 			if !ambiguous {
 				rt := contentContractSchema(build, reads)
-				rt.program.Wildcards = []WildcardView{newWildcardView(nil, &Wildcard{Mode: WildcardAny, Process: ProcessSkip})}
+				rt.program.Wildcards = []WildcardView{newWildcardView(nil, &wildcardRuntime{Mode: WildcardAny, Process: ProcessSkip})}
 				transition, status := rt.NextContent(ContentState{model: 0, present: true}, ContentInput{Name: RuntimeName{NS: "urn:unknown"}}, &ContentScratch{})
 				kind, _ := transition.Match()
-				if status != ContentTransitionMatched || kind != ContentMatchSkip {
+				if status != contentTransitionMatched || kind != ContentMatchSkip {
 					t.Fatalf("wildcard fallback = %v/%v, want skip", status, kind)
 				}
 			}
@@ -167,28 +167,28 @@ func TestDenseDFAEffectiveSubstitutionReturnsActualMember(t *testing.T) {
 			for i := range expanded {
 				expanded[i] = ExpandedName{Local: "n" + strconv.Itoa(i)}
 			}
-			names, err := NewNameTable(18, nil, expanded)
+			names, err := newNameTable(18, nil, expanded)
 			if err != nil {
 				t.Fatal(err)
 			}
-			elements := make([]ElementDecl, 17)
+			elements := make([]elementDecl, 17)
 			for i, name := range expanded {
 				qname, _ := names.LookupQName("", name.Local)
-				elements[i] = ElementDecl{Name: qname, Type: ComplexRef(0), SubstHead: NoElement}
+				elements[i] = elementDecl{Name: qname, Type: ComplexRef(0), SubstHead: NoElement}
 			}
 			elements[16].SubstHead = 0
 			elements[16].Abstract = exclusion == "abstract"
 			if exclusion == "blocked" {
-				elements[0].Block = DerivationSubstitution
+				elements[0].Block = derivationSubstitution
 			}
-			derivations := derivationFixture{anyType: 0, complex: []ComplexTypeDerivation{{Kind: DerivationKindNone}}}
-			table, tableErr := BuildSubstitutionTable(derivations.build(), &names, elements, substitutionGlobals(elements), 1, unboundedTypeDerivationWork)
+			derivations := derivationFixture{anyType: 0, complex: []complexTypeDerivation{{Kind: derivationKindNone}}}
+			table, tableErr := buildSubstitutionTable(derivations.build(), &names, elements, substitutionGlobals(elements), 1, unboundedTypeDerivationWork)
 			if tableErr != nil {
 				t.Fatal(tableErr)
 			}
 			build := contentContractBuild(t, contentContractNames(16))
 			build.Elements, build.Substitutions = elements, table
-			if indexErr := IndexCompiledModelsRows(build, build.CompiledModels, unlimitedContentModelWork); indexErr != nil {
+			if indexErr := indexCompiledModelsRows(build, build.CompiledModels, unlimitedContentModelWork); indexErr != nil {
 				t.Fatal(indexErr)
 			}
 			reads := testCompiledModelReads(build.CompiledModels)
@@ -199,7 +199,7 @@ func TestDenseDFAEffectiveSubstitutionReturnsActualMember(t *testing.T) {
 			transition, status := rt.NextContent(ContentState{model: 0, present: true}, ContentInput{Name: RuntimeName{Known: true, Name: elements[16].Name}}, &ContentScratch{})
 			kind, member := transition.Match()
 			if exclusion == "none" {
-				if status != ContentTransitionMatched || kind != ContentMatchDeclared || member != 16 {
+				if status != contentTransitionMatched || kind != ContentMatchDeclared || member != 16 {
 					t.Fatalf("substitution = %v/%v/%v, want actual member 16", status, kind, member)
 				}
 			} else if status != ContentTransitionNoMatch || transition.IsPlanned() {
@@ -239,7 +239,7 @@ func TestPublishedWidthSixteenContentDispatchIsDense(t *testing.T) {
 		transition, status := published.NextContent(st, ContentInput{Name: RuntimeName{Known: true, Name: name}}, &scratch)
 		kind, element := transition.Match()
 		actualName, declared := published.program.Elements.name(element)
-		if status != ContentTransitionMatched || kind != ContentMatchDeclared || !declared || actualName != name || !transition.Commit(&st, &scratch) {
+		if status != contentTransitionMatched || kind != ContentMatchDeclared || !declared || actualName != name || !transition.Commit(&st, &scratch) {
 			t.Fatalf("public child n%d did not select and commit its declaration", i)
 		}
 	}
@@ -270,7 +270,7 @@ func TestDenseDFAProjectionMarkerAndCompleteSmallFallback(t *testing.T) {
 			build.CompiledModels[0].Rows[0].Edges[width-1].Particle.Element = 0
 			transition, status := rt.NextContent(ContentState{model: 0, present: true}, ContentInput{Name: RuntimeName{Known: true, Name: last}}, &ContentScratch{})
 			kind, element := transition.Match()
-			if status != ContentTransitionMatched || kind != ContentMatchDeclared || int(element) != width-1 {
+			if status != contentTransitionMatched || kind != ContentMatchDeclared || int(element) != width-1 {
 				t.Fatalf("cloned fallback = %v/%v/%v, want declaration %d", status, kind, element, width-1)
 			}
 		})
@@ -286,26 +286,26 @@ func TestPublishedMapIndexPreservesWildcardOrder(t *testing.T) {
 				t.Parallel()
 				build := contentContractBuild(t, contentContractNames(width-1))
 				row := &build.CompiledModels[0].Rows[0]
-				wild := CompiledModelEdge{Particle: WildcardParticle(0, Occurrence{Min: 1, Max: 1}), To: 1}
+				wild := compiledModelEdge{Particle: wildcardParticle(0, occurrence{Min: 1, Max: 1}), To: 1}
 				if before {
-					row.Edges = append([]CompiledModelEdge{wild}, row.Edges...)
+					row.Edges = append([]compiledModelEdge{wild}, row.Edges...)
 				} else {
 					row.Edges = append(row.Edges, wild)
 				}
-				if err := IndexCompiledModelsRows(build, build.CompiledModels, unlimitedContentModelWork); err != nil {
+				if err := indexCompiledModelsRows(build, build.CompiledModels, unlimitedContentModelWork); err != nil {
 					t.Fatal(err)
 				}
 				rt := contentContractSchema(build, testCompiledModelReads(build.CompiledModels))
-				rt.program.Wildcards = []WildcardView{newWildcardView(nil, &Wildcard{Mode: WildcardAny, Process: ProcessSkip})}
+				rt.program.Wildcards = []WildcardView{newWildcardView(nil, &wildcardRuntime{Mode: WildcardAny, Process: ProcessSkip})}
 				st := ContentState{model: 0, present: true}
 				transition, status := rt.NextContent(st, ContentInput{Name: RuntimeName{Known: true, Name: QName{Local: 1}}}, &ContentScratch{})
 				kind, element := transition.Match()
-				if status != ContentTransitionMatched || (before && kind != ContentMatchSkip) || (!before && (kind != ContentMatchDeclared || element != 0)) {
+				if status != contentTransitionMatched || (before && kind != ContentMatchSkip) || (!before && (kind != ContentMatchDeclared || element != 0)) {
 					t.Fatalf("ordered fallback = %v/%v/%v", status, kind, element)
 				}
 				transition, status = rt.NextContent(st, ContentInput{Name: RuntimeName{NS: "urn:unknown"}}, &ContentScratch{})
 				kind, _ = transition.Match()
-				if status != ContentTransitionMatched || kind != ContentMatchSkip {
+				if status != contentTransitionMatched || kind != ContentMatchSkip {
 					t.Fatalf("unknown-name fallback = %v/%v, want wildcard skip", status, kind)
 				}
 			})
@@ -357,7 +357,7 @@ func TestDenseDFAExhaustionStopsRemainingConversion(t *testing.T) {
 	t.Parallel()
 	build := contentContractBuild(t, contentContractNames(200))
 	other := contentContractBuild(t, contentContractNames(16))
-	models := append([]CompiledModel{build.CompiledModels[0]}, other.CompiledModels...)
+	models := append([]compiledModel{build.CompiledModels[0]}, other.CompiledModels...)
 	reads, _, err := newCompiledModelReads(models, allContentModelIDs(len(models)), unlimitedContentModelWork)
 	if err != nil {
 		t.Fatal(err)
@@ -375,7 +375,7 @@ func TestDenseDFAAggregateAdmissionIsStable(t *testing.T) {
 		t.Run(limit, func(t *testing.T) {
 			t.Parallel()
 			build := contentContractBuild(t, contentContractNames(16))
-			models := []CompiledModel{build.CompiledModels[0], build.CompiledModels[0]}
+			models := []compiledModel{build.CompiledModels[0], build.CompiledModels[0]}
 			reads, _, err := newCompiledModelReads(models, allContentModelIDs(len(models)), unlimitedContentModelWork)
 			if err != nil {
 				t.Fatal(err)
@@ -398,7 +398,7 @@ func TestDenseDFAWideMapScanIsOrderIndependent(t *testing.T) {
 	t.Parallel()
 	for rotation := range uint32(32) {
 		build := contentContractBuild(t, contentContractNames(16))
-		models := []CompiledModel{build.CompiledModels[0], build.CompiledModels[0]}
+		models := []compiledModel{build.CompiledModels[0], build.CompiledModels[0]}
 		reads, _, err := newCompiledModelReads(models, allContentModelIDs(len(models)), unlimitedContentModelWork)
 		if err != nil {
 			t.Fatal(err)
@@ -406,7 +406,7 @@ func TestDenseDFAWideMapScanIsOrderIndependent(t *testing.T) {
 		index := make(map[QName]uint32, 16)
 		for i := range uint32(16) {
 			pos := (i + rotation) % 16
-			index[QName{Namespace: NamespaceID(pos % 2), Local: LocalNameID(pos + 1)}] = pos
+			index[QName{Namespace: namespaceID(pos % 2), Local: localNameID(pos + 1)}] = pos
 		}
 		reads[0].Rows[0].index.nameToEdge = index
 		budget := denseIndexBudget{bytes: 72, work: 90}
@@ -446,7 +446,7 @@ func TestDenseDFAConversionOwnsOneRepresentation(t *testing.T) {
 			build.Elements[15].Name = QName{Local: 99}
 			transition, status := rt.NextContent(ContentState{model: 0, present: true}, ContentInput{Name: RuntimeName{Known: true, Name: names[15]}}, &ContentScratch{})
 			kind, element := transition.Match()
-			if status != ContentTransitionMatched || kind != ContentMatchDeclared || element != 15 {
+			if status != contentTransitionMatched || kind != ContentMatchDeclared || element != 15 {
 				t.Fatalf("source alias changed publication = %v/%v/%v", status, kind, element)
 			}
 		})
@@ -456,7 +456,7 @@ func TestDenseDFAConversionOwnsOneRepresentation(t *testing.T) {
 func TestDenseDFAOptionalWorkPreservesMandatoryFailure(t *testing.T) {
 	t.Parallel()
 	build := contentContractBuild(t, contentContractNames(16))
-	build.ComplexTypes = []ComplexType{{}}
+	build.ComplexTypes = []complexTypeMetadata{{}}
 	failure := errors.New("mandatory projection allowance")
 	remaining := 34
 	_, err := newSchemaProgram(build, func(int) error {

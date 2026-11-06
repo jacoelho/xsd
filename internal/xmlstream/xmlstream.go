@@ -100,6 +100,7 @@ var (
 	errXMLAttributeLimit          = errors.New("XML attribute count limit exceeded")
 	errXMLInputLimit              = errors.New("XML input byte limit exceeded")
 	errXMLTokenLimit              = errors.New("XML token byte limit exceeded")
+	errXMLDepthLimit              = errors.New("XML nesting depth limit exceeded")
 	errXMLCommentMode             = errors.New("XML comment mode is invalid")
 	errXMLNilCache                = errors.New("XML string cache is nil")
 	errXMLNegativeLimit           = errors.New("XML parser limit cannot be negative")
@@ -372,21 +373,6 @@ func (p *parser) withTokenSpan(token *Token, start int) {
 // pos returns the current parser line and byte column.
 func (p *parser) pos() (line, column int) {
 	return p.br.pos()
-}
-
-// IsTokenLimit reports whether err is the parser token-byte limit error.
-func IsTokenLimit(err error) bool {
-	return errors.Is(err, errXMLTokenLimit)
-}
-
-// IsInputLimit reports whether err is the parser aggregate input-byte limit.
-func IsInputLimit(err error) bool {
-	return errors.Is(err, errXMLInputLimit)
-}
-
-// IsAttributeLimit reports whether err is the parser attribute-count limit error.
-func IsAttributeLimit(err error) bool {
-	return errors.Is(err, errXMLAttributeLimit)
 }
 
 // IsOnlyEOF reports whether every cause in err is io.EOF. Joined errors with
@@ -916,7 +902,7 @@ func (p *parser) readStartAttribute(first byte) error {
 	if err != nil {
 		return err
 	}
-	if p.skipOrdinaryAttrValues && !IsLexicalNamespaceName(name) && !isXMLSpaceName(name) {
+	if p.skipOrdinaryAttrValues && !IsLexicalNamespaceName(name) && !IsLexicalXMLSpaceName(name) {
 		if skipErr := p.skipAttributeValue(quote); skipErr != nil {
 			return skipErr
 		}
@@ -969,22 +955,25 @@ func (p *parser) recordRetainedAttribute(name xml.Name, value []byte) {
 			p.attrValueRetained = append(p.attrValueRetained, true)
 		}
 	} else {
-		attr.Value = p.values.Intern(value)
+		attr.value = p.values.Intern(value)
 	}
 	p.attrs = append(p.attrs, attr)
 }
 
 func (p *parser) recordSkippedAttribute(name xml.Name) {
 	if !p.lazyAttrValue {
-		p.attrs = append(p.attrs, Attr{Name: name})
+		p.attrs = append(p.attrs, Attr{Name: name, skipped: true})
 		return
 	}
 	p.attrValueEnds = append(p.attrValueEnds, len(p.attrValueBuf))
 	p.attrValueRetained = append(p.attrValueRetained, false)
-	p.attrs = append(p.attrs, Attr{Name: name})
+	p.attrs = append(p.attrs, Attr{Name: name, skipped: true})
 }
 
-func isXMLSpaceName(name xml.Name) bool {
+// IsLexicalXMLSpaceName reports whether name is the lexical xml:space
+// attribute. The parser retains its value even when ordinary values are
+// skipped; the check is valid before namespace expansion.
+func IsLexicalXMLSpaceName(name xml.Name) bool {
 	return name.Space == vocab.XMLPrefix && name.Local == vocab.XMLAttrSpace
 }
 

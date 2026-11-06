@@ -4,56 +4,56 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// AttributeMergeMode identifies how local attribute uses combine with inherited
+// attributeMergeMode identifies how local attribute uses combine with inherited
 // uses during compile-time derivation.
-type AttributeMergeMode uint8
+type attributeMergeMode uint8
 
 const (
-	// AttributeMergeInvalid is not a valid attribute derivation operation.
-	AttributeMergeInvalid AttributeMergeMode = iota
-	// AttributeMergeDirect appends locally declared uses without inheriting a
+	// attributeMergeInvalid is not a valid attribute derivation operation.
+	attributeMergeInvalid attributeMergeMode = iota
+	// attributeMergeDirect appends locally declared uses without inheriting a
 	// wildcard.
-	AttributeMergeDirect
-	// AttributeMergeExtension appends local uses and unions local and inherited
+	attributeMergeDirect
+	// attributeMergeExtension appends local uses and unions local and inherited
 	// wildcards.
-	AttributeMergeExtension
-	// AttributeMergeRestriction validates local uses and wildcard declarations
+	attributeMergeExtension
+	// attributeMergeRestriction validates local uses and wildcard declarations
 	// as restrictions of inherited attributes.
-	AttributeMergeRestriction
+	attributeMergeRestriction
 )
 
-// SchemaAttributeWildcardRuntime supplies compile-time wildcard metadata and stores
+// schemaAttributeWildcardRuntime supplies compile-time wildcard metadata and stores
 // wildcard values produced by intersection or union.
-type SchemaAttributeWildcardRuntime interface {
-	Wildcard(id WildcardID) (Wildcard, bool)
-	AddWildcard(w Wildcard) (WildcardID, error)
+type schemaAttributeWildcardRuntime interface {
+	Wildcard(id WildcardID) (wildcardRuntime, bool)
+	AddWildcard(w wildcardRuntime) (WildcardID, error)
 }
 
-// AttributeWildcardBuilder owns compile-time attribute-wildcard construction.
-type AttributeWildcardBuilder struct {
+// attributeWildcardBuilder owns compile-time attribute-wildcard construction.
+type attributeWildcardBuilder struct {
 	wildcard          WildcardID
 	inheritedWildcard WildcardID
-	mode              AttributeMergeMode
+	mode              attributeMergeMode
 }
 
-// NewAttributeWildcardBuilder creates a builder for local attribute wildcard
+// newAttributeWildcardBuilder creates a builder for local attribute wildcard
 // declarations over an optional inherited wildcard.
-func NewAttributeWildcardBuilder(inherited WildcardID, mode AttributeMergeMode) AttributeWildcardBuilder {
-	return AttributeWildcardBuilder{
+func newAttributeWildcardBuilder(inherited WildcardID, mode attributeMergeMode) attributeWildcardBuilder {
+	return attributeWildcardBuilder{
 		wildcard:          NoWildcard,
 		inheritedWildcard: inherited,
 		mode:              mode,
 	}
 }
 
-// Declared returns the wildcard produced by local anyAttribute and attribute
+// declared returns the wildcard produced by local anyAttribute and attribute
 // group declarations before extension inheritance is applied.
-func (b *AttributeWildcardBuilder) Declared() WildcardID {
+func (b *attributeWildcardBuilder) declared() WildcardID {
 	return b.wildcard
 }
 
-// AddGroup merges an attribute group's wildcard into the local declaration.
-func (b *AttributeWildcardBuilder) AddGroup(rt SchemaAttributeWildcardRuntime, id WildcardID) error {
+// addGroup merges an attribute group's wildcard into the local declaration.
+func (b *attributeWildcardBuilder) addGroup(rt schemaAttributeWildcardRuntime, id WildcardID) error {
 	if id == NoWildcard {
 		return nil
 	}
@@ -72,9 +72,9 @@ func (b *AttributeWildcardBuilder) AddGroup(rt SchemaAttributeWildcardRuntime, i
 	return b.add(rt, id, process)
 }
 
-// AddAnyAttribute merges a local anyAttribute wildcard into the local
+// addAnyAttribute merges a local anyAttribute wildcard into the local
 // declaration.
-func (b *AttributeWildcardBuilder) AddAnyAttribute(rt SchemaAttributeWildcardRuntime, id WildcardID) error {
+func (b *attributeWildcardBuilder) addAnyAttribute(rt schemaAttributeWildcardRuntime, id WildcardID) error {
 	if id == NoWildcard {
 		return nil
 	}
@@ -85,7 +85,7 @@ func (b *AttributeWildcardBuilder) AddAnyAttribute(rt SchemaAttributeWildcardRun
 	return b.add(rt, id, wildcard.Process)
 }
 
-func (b *AttributeWildcardBuilder) add(rt SchemaAttributeWildcardRuntime, id WildcardID, process ProcessContents) error {
+func (b *attributeWildcardBuilder) add(rt schemaAttributeWildcardRuntime, id WildcardID, process ProcessContents) error {
 	if b.wildcard == NoWildcard {
 		b.wildcard = id
 		return nil
@@ -98,7 +98,7 @@ func (b *AttributeWildcardBuilder) add(rt SchemaAttributeWildcardRuntime, id Wil
 	if err != nil {
 		return err
 	}
-	intersection, err := IntersectWildcard(current, next, process)
+	intersection, err := intersectWildcard(current, next, process)
 	if err != nil {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, err.Error())
 	}
@@ -110,23 +110,23 @@ func (b *AttributeWildcardBuilder) add(rt SchemaAttributeWildcardRuntime, id Wil
 	return nil
 }
 
-// Finish returns the wildcard produced by the builder's derivation operation.
-func (b *AttributeWildcardBuilder) Finish(rt SchemaAttributeWildcardRuntime) (WildcardID, error) {
+// finish returns the wildcard produced by the builder's derivation operation.
+func (b *attributeWildcardBuilder) finish(rt schemaAttributeWildcardRuntime) (WildcardID, error) {
 	switch b.mode {
-	case AttributeMergeDirect:
+	case attributeMergeDirect:
 		return b.wildcard, nil
-	case AttributeMergeExtension:
+	case attributeMergeExtension:
 		return b.finishExtension(rt)
-	case AttributeMergeRestriction:
+	case attributeMergeRestriction:
 		return b.finishRestriction(rt)
-	case AttributeMergeInvalid:
+	case attributeMergeInvalid:
 		return NoWildcard, xsderrors.InternalInvariant("invalid attribute merge mode")
 	default:
 		return NoWildcard, xsderrors.InternalInvariant("unknown attribute merge mode")
 	}
 }
 
-func (b *AttributeWildcardBuilder) finishExtension(rt SchemaAttributeWildcardRuntime) (WildcardID, error) {
+func (b *attributeWildcardBuilder) finishExtension(rt schemaAttributeWildcardRuntime) (WildcardID, error) {
 	if b.inheritedWildcard == NoWildcard {
 		return b.wildcard, nil
 	}
@@ -141,14 +141,14 @@ func (b *AttributeWildcardBuilder) finishExtension(rt SchemaAttributeWildcardRun
 	if err != nil {
 		return NoWildcard, err
 	}
-	union, err := UnionWildcard(declared, inherited, declared.Process)
+	union, err := unionWildcard(declared, inherited, declared.Process)
 	if err != nil {
 		return NoWildcard, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, err.Error())
 	}
 	return rt.AddWildcard(union)
 }
 
-func (b *AttributeWildcardBuilder) finishRestriction(rt SchemaAttributeWildcardRuntime) (WildcardID, error) {
+func (b *attributeWildcardBuilder) finishRestriction(rt schemaAttributeWildcardRuntime) (WildcardID, error) {
 	if b.wildcard == NoWildcard {
 		return NoWildcard, nil
 	}
@@ -169,27 +169,27 @@ func (b *AttributeWildcardBuilder) finishRestriction(rt SchemaAttributeWildcardR
 	return b.wildcard, nil
 }
 
-// SchemaAttributeWildcardDerivation returns the provenance kind stored on the
+// schemaAttributeWildcardDerivation returns the provenance kind stored on the
 // compiled attribute-use set.
-func SchemaAttributeWildcardDerivation(mode AttributeMergeMode) (AttributeWildcardDerivation, error) {
+func schemaAttributeWildcardDerivation(mode attributeMergeMode) (attributeWildcardDerivation, error) {
 	switch mode {
-	case AttributeMergeDirect:
-		return AttributeWildcardNone, nil
-	case AttributeMergeExtension:
-		return AttributeWildcardExtension, nil
-	case AttributeMergeRestriction:
-		return AttributeWildcardRestriction, nil
-	case AttributeMergeInvalid:
-		return AttributeWildcardNone, xsderrors.InternalInvariant("invalid attribute merge mode")
+	case attributeMergeDirect:
+		return attributeWildcardNone, nil
+	case attributeMergeExtension:
+		return attributeWildcardExtension, nil
+	case attributeMergeRestriction:
+		return attributeWildcardRestriction, nil
+	case attributeMergeInvalid:
+		return attributeWildcardNone, xsderrors.InternalInvariant("invalid attribute merge mode")
 	default:
-		return AttributeWildcardNone, xsderrors.InternalInvariant("unknown attribute merge mode")
+		return attributeWildcardNone, xsderrors.InternalInvariant("unknown attribute merge mode")
 	}
 }
 
-func requiredAttributeWildcard(rt SchemaAttributeWildcardRuntime, id WildcardID) (Wildcard, error) {
+func requiredAttributeWildcard(rt schemaAttributeWildcardRuntime, id WildcardID) (wildcardRuntime, error) {
 	wildcard, ok := rt.Wildcard(id)
 	if !ok {
-		return Wildcard{}, xsderrors.InternalInvariant("attribute wildcard references missing wildcard")
+		return wildcardRuntime{}, xsderrors.InternalInvariant("attribute wildcard references missing wildcard")
 	}
 	return wildcard, nil
 }

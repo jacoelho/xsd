@@ -17,7 +17,7 @@ func TestCompositeValueIdentityProjections(t *testing.T) {
 		{name: "IDREF union", member: "IDREF", ref: "item"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			builder := value.NewBuilder(value.BuilderOptions{})
+			builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 			member, _ := value.BuiltinTypeID(tc.member)
 			integer, _ := value.BuiltinTypeID("int")
 			union, err := builder.Reserve()
@@ -33,7 +33,7 @@ func TestCompositeValueIdentityProjections(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, needs := range []value.Needs{0, value.NeedCanonical | value.NeedIdentity} {
-				got, err := program.Validate(union, "item", value.Resolver{}, needs, 16<<20, nil)
+				got, err := program.Validate(union, "item", value.Resolver{}, needs, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -46,7 +46,7 @@ func TestCompositeValueIdentityProjections(t *testing.T) {
 }
 
 func TestListIdentityUsesSharedFraming(t *testing.T) {
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id, err := builder.Reserve()
 	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
@@ -59,7 +59,7 @@ func TestListIdentityUsesSharedFraming(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := program.Validate(id, "urn:first urn:second", value.Resolver{}, value.NeedIdentity, 16<<20, nil)
+	got, err := program.Validate(id, "urn:first urn:second", value.Resolver{}, value.NeedIdentity, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,11 +70,11 @@ func TestListIdentityUsesSharedFraming(t *testing.T) {
 }
 
 func TestIdentityPayloadsSurviveLaterEvaluation(t *testing.T) {
-	pattern, err := xsdregex.Compile("[a-z]+", xsdregex.CompileOptions{})
+	pattern, err := xsdregex.Compile("[a-z]+")
 	if err != nil {
 		t.Fatal(err)
 	}
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	item := completeCanonicalProjectionType(t, builder, value.TypeSpec{
 		Variety: value.Atomic, Primitive: value.PrimitiveString,
 		Base: value.BuiltinType(value.PrimitiveString), ListItem: value.NoType,
@@ -89,21 +89,21 @@ func TestIdentityPayloadsSurviveLaterEvaluation(t *testing.T) {
 	}
 	var scratch value.Scratch
 	raw := []byte("first")
-	primitive, err := program.ValidateBytes(item, raw, value.Resolver{}, value.NeedIdentity, 16<<20, &scratch)
+	primitive, err := program.ValidateBytes(item, raw, value.Resolver{}, value.NeedIdentity, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 	clear(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
 	raw = []byte("first last")
-	aggregate, err := program.ValidateBytes(list, raw, value.Resolver{}, value.NeedIdentity, 16<<20, &scratch)
+	aggregate, err := program.ValidateBytes(list, raw, value.Resolver{}, value.NeedIdentity, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 	clear(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := program.Validate(list, "a much longer pair", value.Resolver{}, value.NeedIdentity, 16<<20, &scratch); err != nil {
+	if _, err := program.Validate(list, "a much longer pair", value.Resolver{}, value.NeedIdentity, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := program.Validate(item, "123", value.Resolver{}, value.NeedIdentity, 16<<20, &scratch); !errors.Is(err, value.ErrFacet) {
+	if _, err := program.Validate(item, "123", value.Resolver{}, value.NeedIdentity, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch); !errors.Is(err, value.ErrFacet) {
 		t.Fatalf("invalid patterned value error = %v", err)
 	}
 	scratch.Reset(0)
@@ -115,7 +115,7 @@ func TestIdentityPayloadsSurviveLaterEvaluation(t *testing.T) {
 		{"primitive", "first", "\x00\x1efirst", item, primitive},
 		{"list", "first last", value.ListIdentityKey([]string{value.PrimitiveIdentityKey(value.PrimitiveString, "first"), value.PrimitiveIdentityKey(value.PrimitiveString, "last")}), list, aggregate},
 	} {
-		fresh, err := program.Validate(test.typ, test.lexical, value.Resolver{}, value.NeedIdentity, 16<<20, &scratch)
+		fresh, err := program.Validate(test.typ, test.lexical, value.Resolver{}, value.NeedIdentity, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -126,7 +126,7 @@ func TestIdentityPayloadsSurviveLaterEvaluation(t *testing.T) {
 }
 
 func TestEmptyListIdentityThroughUnions(t *testing.T) {
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	stringType := value.BuiltinType(value.PrimitiveString)
 	list, err := builder.Reserve()
 	if err != nil {
@@ -163,16 +163,16 @@ func TestEmptyListIdentityThroughUnions(t *testing.T) {
 	} {
 		t.Run(route.name, func(t *testing.T) {
 			for _, needs := range []value.Needs{value.NeedIdentity, value.NeedCanonical | value.NeedIdentity} {
-				atomic, err := program.Validate(stringType, "", value.Resolver{}, needs, 16<<20, nil)
+				atomic, err := program.Validate(stringType, "", value.Resolver{}, needs, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 				if err != nil {
 					t.Fatal(err)
 				}
 				for _, bytes := range []bool{false, true} {
 					var got value.Value
 					if bytes {
-						got, err = program.ValidateBytes(route.typeID, []byte{}, value.Resolver{}, needs, 16<<20, nil)
+						got, err = program.ValidateBytes(route.typeID, []byte{}, value.Resolver{}, needs, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 					} else {
-						got, err = program.Validate(route.typeID, "", value.Resolver{}, needs, 16<<20, nil)
+						got, err = program.Validate(route.typeID, "", value.Resolver{}, needs, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 					}
 					if err != nil {
 						t.Fatalf("needs %d, bytes %t: %v", needs, bytes, err)
@@ -193,7 +193,7 @@ func TestCanonicalProjectionRequestsAndOwnership(t *testing.T) {
 	if (value.Value{}).HasIdentity() {
 		t.Fatal("zero value has an identity projection")
 	}
-	program, err := value.NewBuilder(value.BuilderOptions{}).Seal()
+	program, err := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,10 +224,10 @@ func TestCanonicalProjectionRequestsAndOwnership(t *testing.T) {
 					var got value.Value
 					if bytes {
 						raw := []byte(test.lexical)
-						got, err = program.ValidateBytes(id, raw, value.Resolver{}, needs, 16<<20, nil)
+						got, err = program.ValidateBytes(id, raw, value.Resolver{}, needs, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 						clear(raw)
 					} else {
-						got, err = program.Validate(id, test.lexical, value.Resolver{}, needs, 16<<20, nil)
+						got, err = program.Validate(id, test.lexical, value.Resolver{}, needs, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 					}
 					if err != nil {
 						t.Fatalf("needs %d, bytes %t: %v", needs, bytes, err)
@@ -243,7 +243,7 @@ func TestCanonicalProjectionRequestsAndOwnership(t *testing.T) {
 }
 
 func TestCanonicalProjectionClearsRejectedUnionMember(t *testing.T) {
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	first := completeCanonicalProjectionType(t, builder, atomicFacetType(value.PrimitiveFloat, boundFacet("2")))
 	stringType := value.BuiltinType(value.PrimitiveString)
 	union := completeCanonicalProjectionType(t, builder, value.TypeSpec{
@@ -258,9 +258,9 @@ func TestCanonicalProjectionClearsRejectedUnionMember(t *testing.T) {
 		for _, bytes := range []bool{false, true} {
 			var got value.Value
 			if bytes {
-				got, err = program.ValidateBytes(union, []byte("1"), value.Resolver{}, needs, 16<<20, nil)
+				got, err = program.ValidateBytes(union, []byte("1"), value.Resolver{}, needs, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			} else {
-				got, err = program.Validate(union, "1", value.Resolver{}, needs, 16<<20, nil)
+				got, err = program.Validate(union, "1", value.Resolver{}, needs, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			}
 			if err != nil {
 				t.Fatal(err)
@@ -274,7 +274,7 @@ func TestCanonicalProjectionClearsRejectedUnionMember(t *testing.T) {
 }
 
 func TestCanonicalProjectionRetainsFloatListEnumeration(t *testing.T) {
-	builder := value.NewBuilder(value.BuilderOptions{})
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	id := completeCanonicalProjectionType(t, builder, value.TypeSpec{
 		Variety: value.List, Base: value.NoType, ListItem: value.BuiltinType(value.PrimitiveFloat),
 		Whitespace: value.WhitespaceCollapse, WhitespacePresent: true,
@@ -285,13 +285,13 @@ func TestCanonicalProjectionRetainsFloatListEnumeration(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, needs := range []value.Needs{0, value.NeedCanonical, value.NeedIdentity, value.NeedCanonical | value.NeedIdentity} {
-		got, err := program.Validate(id, "1e0 2e0", value.Resolver{}, needs, 16<<20, nil)
+		got, err := program.Validate(id, "1e0 2e0", value.Resolver{}, needs, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
 		assertRequestedCanonicalProjection(t, got, needs, "1.0E0 2.0E0", value.ListIdentityKey([]string{value.PrimitiveIdentityKey(value.PrimitiveFloat, "1.0E0"), value.PrimitiveIdentityKey(value.PrimitiveFloat, "2.0E0")}))
 		for _, lexical := range []string{"1e0", "1e0 3e0"} {
-			if _, err := program.Validate(id, lexical, value.Resolver{}, needs, 16<<20, nil); !errors.Is(err, value.ErrFacet) {
+			if _, err := program.Validate(id, lexical, value.Resolver{}, needs, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); !errors.Is(err, value.ErrFacet) {
 				t.Fatalf("Validate(%q) error=%v; want enumeration facet failed", lexical, err)
 			}
 		}
@@ -327,7 +327,7 @@ func assertRequestedCanonicalProjection(t *testing.T, got value.Value, needs val
 }
 
 func TestDecimalAndIntegerProjectionRequests(t *testing.T) {
-	program, err := value.NewBuilder(value.BuilderOptions{}).Seal()
+	program, err := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -350,10 +350,10 @@ func TestDecimalAndIntegerProjectionRequests(t *testing.T) {
 					var got value.Value
 					if bytes {
 						raw := []byte(test.lexical)
-						got, err = program.ValidateBytes(id, raw, value.Resolver{}, needs, 16<<20, nil)
+						got, err = program.ValidateBytes(id, raw, value.Resolver{}, needs, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 						clear(raw)
 					} else {
-						got, err = program.Validate(id, test.lexical, value.Resolver{}, needs, 16<<20, nil)
+						got, err = program.Validate(id, test.lexical, value.Resolver{}, needs, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 					}
 					if err != nil {
 						t.Fatalf("needs %d, bytes %t: %v", needs, bytes, err)
