@@ -755,7 +755,7 @@ func TestSourceReadWithZeroLimitDistinguishesEmptyAndOversize(t *testing.T) {
 	}
 }
 
-func TestSourceInputPreservesBytesAndStageBeforeReadError(t *testing.T) {
+func TestSourceInputPreservesBytesBeforeReadError(t *testing.T) {
 	t.Parallel()
 
 	want := errors.New("read failed")
@@ -763,7 +763,7 @@ func TestSourceInputPreservesBytesAndStageBeforeReadError(t *testing.T) {
 		return &dataErrorReader{data: []byte("schema"), err: want}, nil
 	})
 	result := finishSource(t, s, 100)
-	if result.LimitExceeded || result.Stage != ReadStageRead || !errors.Is(result.Err, want) || result.Bytes != int64(len("schema")) || result.Digest != sha256.Sum256([]byte("schema")) {
+	if result.LimitExceeded || !errors.Is(result.Err, want) || result.Bytes != int64(len("schema")) || result.Digest != sha256.Sum256([]byte("schema")) {
 		t.Fatalf("OpenInput().Finish() = %+v", result)
 	}
 }
@@ -776,7 +776,7 @@ func TestSourceInputPreservesReadErrorAtByteLimit(t *testing.T) {
 		return &dataErrorReader{data: []byte("ab"), err: readErr}, nil
 	}), 1)
 
-	if !result.LimitExceeded || result.Stage != ReadStageRead || !errors.Is(result.Err, readErr) {
+	if !result.LimitExceeded || !errors.Is(result.Err, readErr) {
 		t.Fatalf("OpenInput().Finish() = %+v, want byte limit joined with read error", result)
 	}
 }
@@ -789,8 +789,8 @@ func TestSourceInputRejectsRepeatedEmptyReadsAndCloses(t *testing.T) {
 		return reader, nil
 	}), 1)
 
-	if result.Stage != ReadStageRead || !errors.Is(result.Err, io.ErrNoProgress) {
-		t.Fatalf("OpenInput().Finish() = %+v, want read-stage io.ErrNoProgress", result)
+	if !errors.Is(result.Err, io.ErrNoProgress) {
+		t.Fatalf("OpenInput().Finish() = %+v, want io.ErrNoProgress", result)
 	}
 	if reader.reads != maxConsecutiveEmptySchemaReads || !reader.closed {
 		t.Fatalf("reader = %d reads, closed %v; want %d, true", reader.reads, reader.closed, maxConsecutiveEmptySchemaReads)
@@ -806,7 +806,7 @@ func TestSourceInputIgnoresReaderReturnedWithOpenError(t *testing.T) {
 		return reader, openErr //nolint:nilnil // A reader returned with an open error must be ignored.
 	}).OpenInput(100)
 
-	if result.Stage != ReadStageOpen || !errors.Is(result.Err, openErr) || errors.Is(result.Err, closeErr) || result.OpenNotFound {
+	if !errors.Is(result.Err, openErr) || errors.Is(result.Err, closeErr) || result.OpenNotFound {
 		t.Fatalf("OpenInput() = %+v, want open error only", result)
 	}
 	if reader.closes != 0 {
@@ -848,7 +848,7 @@ func TestSourceInputClassifiesOnlyPureOpenAbsence(t *testing.T) {
 func TestMissingFileSourceReturnsPureOpenAbsence(t *testing.T) {
 	t.Parallel()
 	_, result := File(filepath.Join(t.TempDir(), "missing.xsd")).OpenInput(100)
-	if !result.OpenNotFound || result.Stage != ReadStageOpen || !errors.Is(result.Err, os.ErrNotExist) {
+	if !result.OpenNotFound || !errors.Is(result.Err, os.ErrNotExist) {
 		t.Fatalf("OpenInput(missing file) = %+v, want pure open absence", result)
 	}
 }
@@ -860,7 +860,7 @@ func TestOpenerReturningStdlibOpenFailureIsPureAbsence(t *testing.T) {
 		return os.Open(missing) //nolint:gosec // Test path is contained by t.TempDir.
 	}).OpenInput(100)
 
-	if !result.OpenNotFound || result.Stage != ReadStageOpen || !errors.Is(result.Err, os.ErrNotExist) {
+	if !result.OpenNotFound || !errors.Is(result.Err, os.ErrNotExist) {
 		t.Fatalf("OpenInput(os.Open failure) = %+v, want pure open absence", result)
 	}
 	if errors.Is(result.Err, os.ErrInvalid) {
@@ -868,15 +868,15 @@ func TestOpenerReturningStdlibOpenFailureIsPureAbsence(t *testing.T) {
 	}
 }
 
-func TestSourceInputReportsOpenErrorAtOpenStage(t *testing.T) {
+func TestSourceInputReportsOpenError(t *testing.T) {
 	t.Parallel()
 	openErr := errors.New("open failed")
 	_, result := Opener("schema.xsd", func() (io.ReadCloser, error) {
 		return nil, openErr
 	}).OpenInput(10)
 
-	if result.Stage != ReadStageOpen || !errors.Is(result.Err, openErr) {
-		t.Fatalf("OpenInput() = %+v, want open-stage open error", result)
+	if !errors.Is(result.Err, openErr) {
+		t.Fatalf("OpenInput() = %+v, want open error", result)
 	}
 }
 
@@ -886,8 +886,8 @@ func TestSourceInputRejectsNilReaderWithoutError(t *testing.T) {
 		return nil, nil //nolint:nilnil // The opener contract rejects a nil reader without an error.
 	}).OpenInput(10)
 
-	if result.Stage != ReadStageOpen || result.OpenNotFound {
-		t.Fatalf("OpenInput() = %+v, want open-stage error without absence", result)
+	if result.OpenNotFound {
+		t.Fatalf("OpenInput() = %+v, want open error without absence", result)
 	}
 	var diagnostic *xsderrors.Error
 	if !errors.As(result.Err, &diagnostic) || diagnostic.Code() != xsderrors.CodeSchemaRead {
@@ -972,7 +972,7 @@ func TestSourceInputPreservesReadAndCloseErrors(t *testing.T) {
 		return reader, nil
 	}), 100)
 
-	if result.Stage != ReadStageRead || !errors.Is(result.Err, readErr) || !errors.Is(result.Err, closeErr) {
+	if !errors.Is(result.Err, readErr) || !errors.Is(result.Err, closeErr) {
 		t.Fatalf("OpenInput().Finish() = %+v, want joined read and close errors", result)
 	}
 	if !reader.closed {
@@ -1034,8 +1034,8 @@ func TestInputDiscardClosesOnceWithoutReading(t *testing.T) {
 		if err := input.Discard(); err != nil {
 			t.Fatalf("second Discard() = %v, want nil", err)
 		}
-		if result := input.Finish(); result.Stage != ReadStageClose || !errors.Is(result.Err, closeErr) {
-			t.Fatalf("Finish() after Discard() = %+v, want the close error at the close stage", result)
+		if result := input.Finish(); !errors.Is(result.Err, closeErr) {
+			t.Fatalf("Finish() after Discard() = %+v, want the close error", result)
 		}
 		if reader.closes != 1 {
 			t.Fatalf("closes = %d, want 1", reader.closes)
@@ -1056,7 +1056,7 @@ func TestInputDiscardClosesOnceWithoutReading(t *testing.T) {
 			t.Fatalf("closes = %d, want 1", reader.closes)
 		}
 	})
-	t.Run("after a failed read keeps both errors at the read stage", func(t *testing.T) {
+	t.Run("after a failed read keeps both errors", func(t *testing.T) {
 		t.Parallel()
 		readErr := errors.New("read failed")
 		closeErr := errors.New("close failed")
@@ -1069,8 +1069,8 @@ func TestInputDiscardClosesOnceWithoutReading(t *testing.T) {
 			t.Fatalf("Discard() = %v, want %v", err, closeErr)
 		}
 		result := input.Finish()
-		if result.Stage != ReadStageRead || !errors.Is(result.Err, readErr) || !errors.Is(result.Err, closeErr) {
-			t.Fatalf("Finish() = %+v, want joined read and close errors at the read stage", result)
+		if !errors.Is(result.Err, readErr) || !errors.Is(result.Err, closeErr) {
+			t.Fatalf("Finish() = %+v, want joined read and close errors", result)
 		}
 	})
 }
@@ -1081,11 +1081,11 @@ func TestZeroInputReturnsActionableStableError(t *testing.T) {
 	var input Input
 	first := input.Finish()
 	second := input.Finish()
-	if first.Err == nil || first.Stage != ReadStageRead {
-		t.Fatalf("zero Input Finish() = %+v, want read-stage error", first)
+	if first.Err == nil {
+		t.Fatalf("zero Input Finish() = %+v, want invalid-input error", first)
 	}
 	if first.Err != second.Err || //nolint:errorlint // The repeated result must retain the exact stable error.
-		first.Stage != second.Stage || first.Bytes != second.Bytes || first.Digest != second.Digest {
+		first.Bytes != second.Bytes || first.Digest != second.Digest {
 		t.Fatalf("zero Input Finish() changed: first %+v, second %+v", first, second)
 	}
 	if n, err := input.Read(make([]byte, 1)); n != 0 || !errors.Is(err, io.EOF) {

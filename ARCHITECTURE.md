@@ -90,10 +90,11 @@ The principal state machines are deliberately linear or owner-local:
 | Engine session pool | normalize -> checkout or allocate -> validate -> reset -> retain or drop | At most one idle session; concurrent calls never wait; a panic drops the checked-out session |
 | Validation session | idle -> guarded document -> semantic or syntax-only processing -> reset -> idle | Overlap fails before input; every exit clears document references before releasing the guard |
 | Element start | prepared -> XML/namespace committed -> semantic commit | Fatal failure rolls back every staged owner; semantic stop retains only syntax state needed to finish parsing |
+| Schema source input | reading -> ended or failed -> finished (Finish or Discard) | One phase field; the frozen result is the only post-finish read; close failures join the read failure |
 | XML stream | reset -> borrowed token -> advance/invalidate -> EOF/error -> detach | Borrowed bytes never survive advance; only token-boundary EOF is success |
 | Namespace frame | prepare -> commit -> end or abort | The opaque top-frame capability is the sole pop authority |
 | Schema publication | mutable build -> validate -> consume/seal | Validation preserves build data; work stays charged; successful consumption is the only commit |
-| Browser client | loading -> ready -> running -> ready/failed/disposed | Only the owning generation publishes; termination owns cancellation and timer cleanup |
+| Browser client | idle -> loading -> ready -> running -> ready; running -> loading on request timeout; cancel -> loading; loading/ready/running -> failed -> loading on start or validate; any -> disposed | One discriminated state owns the worker, timer, active request, and readiness promise; leaving a state releases them and invalidates the worker generation; the limit catalog survives respawn and failure |
 
 ## Authority And Navigation
 
@@ -514,8 +515,8 @@ Compilation flow:
    document counts once, when it is parsed and registered, so an explicit file
    that is also imported counts once and an unavailable target never counts (the
    document that exceeds the count is opened, closed unread and rejected). It applies inherited
-   `xml:base` per resolver context, accounts every source byte and failure
-   stage through `internal/source`, and parses through `internal/xmlstream`
+   `xml:base` per resolver context, accounts every source byte and read or close
+   failure through `internal/source`, and parses through `internal/xmlstream`
    under XML namespace and resource limits. An opener source reached
    again is reopened and charged again; a File source whose file was already
    read for the document is not reread (`Source.ContentFixedByName`); an
@@ -654,8 +655,11 @@ Browser flow:
    synchronization, or retained key history.
 3. `ValidationWorkerClient` owns worker lifecycle, a single active request, one
    latest pending request, cancellation, initialization and execution timeout
-   termination, restart, and immutable state snapshots. The page ignores
-   results whose input epoch is no longer current. The page owns editor/file
+   termination, restart, and immutable state snapshots. The page renders those
+   snapshots and keeps no readiness state of its own: input stays editable once
+   any worker has announced the build's limit catalog, Validate respawns a
+   failed worker, and a worker that never loaded offers Retry without clearing
+   input. The page ignores results whose input epoch is no longer current. The page owns editor/file
    generations so an older asynchronous file read cannot replace newer text,
    and applies UTF-8 byte and rendered-line bounds before syntax highlighting or
    gutter construction.

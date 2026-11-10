@@ -191,3 +191,57 @@ func TestMatchWorkIndependentOfScratchHistory(t *testing.T) {
 		}
 	}
 }
+
+// A generation wrap must clear every marker the backing array holds, not only
+// the current pattern's prefix: a later, larger pattern reslices seen to
+// capacity, and a stale marker equal to a post-wrap generation reads as an
+// already-visited state. Reaching the wrap through the interface takes 2^32
+// closures, so the test positions the counter directly.
+func TestMatchAfterGenerationWrapIgnoresStaleMarkers(t *testing.T) {
+	t.Parallel()
+	large := mustCompile(t, `(a|ab){1,60}x`)
+	small := mustCompile(t, `(a|ab){1,20}x`)
+	if large.bitset || large.deterministic || small.bitset || small.deterministic ||
+		len(small.states) >= len(large.states) {
+		t.Fatal("precondition: two general NFA patterns, small before large")
+	}
+	const smallInput = "aax"
+	const largeRepeats = 30
+	largeInput := strings.Repeat("a", largeRepeats) + "x"
+	for name, match := range matchers() {
+		counted := new(Scratch)
+		if _, _, err := match(small, smallInput, unlimitedWork, counted); err != nil {
+			t.Fatal(err)
+		}
+		closures := counted.mark
+		wantMatched, wantWork, err := match(large, largeInput, unlimitedWork, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Each offset plants markers equal to one post-wrap generation of the
+		// large match, so some generation's states read as already visited.
+		for offset := uint32(1); offset <= largeRepeats+2; offset++ {
+			scratch := new(Scratch)
+			if _, _, err := match(large, largeInput, unlimitedWork, scratch); err != nil {
+				t.Fatal(err)
+			}
+			// Legal before the wrap: every marker is below the near-maximum mark.
+			stale := scratch.seen[:cap(scratch.seen)]
+			for i := len(small.states); i < len(stale); i++ {
+				stale[i] = closures + offset
+			}
+			scratch.mark = ^uint32(0)
+			if _, _, err := match(small, smallInput, unlimitedWork, scratch); err != nil {
+				t.Fatal(err)
+			}
+			if scratch.mark != closures {
+				t.Fatalf("%s: precondition: mark after wrap = %d, want %d", name, scratch.mark, closures)
+			}
+			matched, work, err := match(large, largeInput, unlimitedWork, scratch)
+			if err != nil || matched != wantMatched || work != wantWork {
+				t.Errorf("%s offset %d: after wrap = %v, %d, %v; want %v, %d", name, offset, matched, work, err, wantMatched, wantWork)
+			}
+		}
+	}
+}

@@ -376,18 +376,6 @@ func IsReferenceResolutionError(err error) bool {
 	return errors.As(err, &target)
 }
 
-// ReadStage identifies the source acquisition stage that failed.
-type ReadStage uint8
-
-const (
-	// ReadStageOpen identifies an opener failure.
-	ReadStageOpen ReadStage = iota + 1
-	// ReadStageRead identifies a stream read failure.
-	ReadStageRead
-	// ReadStageClose identifies a stream close failure.
-	ReadStageClose
-)
-
 // ReadResult reports a bounded source acquisition. Bytes and Digest describe
 // the raw source bytes consumed, including a first byte beyond maxBytes when
 // the limit is exceeded. Together they are the content identity callers
@@ -397,7 +385,6 @@ type ReadResult struct {
 	Err           error
 	Bytes         int64
 	Digest        [32]byte
-	Stage         ReadStage
 	LimitExceeded bool
 	// OpenNotFound reports an exclusively not-found opener error.
 	OpenNotFound bool
@@ -428,8 +415,7 @@ func (s Source) ContentFixedByName() bool { return s.kind == sourceFile }
 func (s Source) OpenInput(maxBytes int64) (*Input, ReadResult) {
 	if maxBytes < 0 {
 		return nil, ReadResult{
-			Err:   xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema reader byte limit cannot be negative"),
-			Stage: ReadStageOpen,
+			Err: xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema reader byte limit cannot be negative"),
 		}
 	}
 	switch s.kind {
@@ -441,21 +427,18 @@ func (s Source) OpenInput(maxBytes int64) (*Input, ReadResult) {
 	case sourceOpener, sourceFile:
 		if s.open == nil {
 			return nil, ReadResult{
-				Err:   xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source opener is nil"),
-				Stage: ReadStageOpen,
+				Err: xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source opener is nil"),
 			}
 		}
 		return s.openSourceInput(maxBytes)
 	case sourceInvalid:
 		return nil, ReadResult{
-			Err:   xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source is invalid"),
-			Stage: ReadStageOpen,
+			Err: xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source is invalid"),
 		}
 	default:
 	}
 	return nil, ReadResult{
-		Err:   xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source is invalid"),
-		Stage: ReadStageOpen,
+		Err: xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source is invalid"),
 	}
 }
 
@@ -464,12 +447,11 @@ func (s Source) openSourceInput(maxBytes int64) (*Input, ReadResult) {
 	if err != nil {
 		// An opener error makes the reader meaningless; the opener owns any
 		// resource it acquired before failing.
-		return nil, ReadResult{Err: err, Stage: ReadStageOpen, OpenNotFound: errorIsOnly(err, os.ErrNotExist)}
+		return nil, ReadResult{Err: err, OpenNotFound: errorIsOnly(err, os.ErrNotExist)}
 	}
 	if r == nil {
 		return nil, ReadResult{
-			Err:   xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema opener returned a nil reader"),
-			Stage: ReadStageOpen,
+			Err: xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema opener returned a nil reader"),
 		}
 	}
 	return newInput(s.name, r, maxBytes), ReadResult{}

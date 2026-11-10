@@ -130,9 +130,10 @@ func prepareRunnerScratch(pattern *Pattern, scratch *Scratch) error {
 func (r *nfaRunner) beginClosure() {
 	r.scratch.mark++
 	if r.scratch.mark == 0 {
-		for i := range r.scratch.seen {
-			r.scratch.seen[i] = 0
-		}
+		// Clear to capacity, not length: prepareRunnerScratch reslices seen up
+		// to its capacity for a larger pattern, and every marker in the backing
+		// array must stay below mark or a stale slot reads as visited.
+		clear(r.scratch.seen[:cap(r.scratch.seen)])
 		r.scratch.mark = 1
 	}
 	r.scratch.stack = r.scratch.stack[:0]

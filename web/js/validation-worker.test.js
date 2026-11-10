@@ -323,6 +323,72 @@ test("fatal from a replaced worker does not fail its successor", async () => {
   client.dispose();
 });
 
+test("keeps the build limit catalog while a replacement worker loads or after a failure", async () => {
+  const factory = fakeWorkerFactory();
+  const states = [];
+  const client = new ValidationWorkerClient("worker.js", {
+    workerFactory: factory.create,
+    timeoutMs: 5,
+    onStateChange: (state) => states.push(state),
+  });
+  const ready = client.start();
+  factory.workers[0].receive({ type: "ready", limits });
+  await ready;
+
+  const timedOut = client.validate("one", "schema");
+  await assert.rejects(timedOut, ValidationTimeoutError);
+  assert.equal(client.state.phase, "loading");
+  assert.deepEqual(client.state.limits, limits);
+
+  factory.workers[1].receive({ type: "fatal", error: "runtime lost" });
+  assert.equal(client.state.phase, "failed");
+  assert.deepEqual(client.state.limits, limits);
+  const firstReady = states.findIndex((state) => state.limits !== null);
+  assert.ok(firstReady >= 0 && states.slice(firstReady).every((state) => state.limits !== null));
+
+  await assert.rejects(client.validate("x".repeat(limits.maxXMLBytes + 1), "schema"), RangeError);
+  assert.equal(factory.workers.length, 2, "an over-limit request must not respawn the worker");
+  client.dispose();
+  assert.equal(client.state.phase, "disposed");
+  assert.deepEqual(client.state.limits, limits);
+});
+
+test("a worker that never became ready reports no limits and recovers through start", async () => {
+  const factory = fakeWorkerFactory();
+  const client = new ValidationWorkerClient("worker.js", { workerFactory: factory.create });
+  const starting = client.start();
+  factory.workers[0].receive({ type: "fatal", error: "startup failed" });
+  await assert.rejects(starting, { message: "startup failed" });
+  assert.equal(client.state.phase, "failed");
+  assert.equal(client.state.limits, null);
+
+  const restarted = client.start();
+  assert.equal(client.state.phase, "loading");
+  factory.workers[1].receive({ type: "ready", limits });
+  assert.deepEqual(await restarted, limits);
+  assert.equal(client.state.phase, "ready");
+  client.dispose();
+});
+
+test("events from a disposed worker are ignored", async () => {
+  const factory = fakeWorkerFactory();
+  const states = [];
+  const client = new ValidationWorkerClient("worker.js", {
+    workerFactory: factory.create,
+    onStateChange: (state) => states.push(state.phase),
+  });
+  const starting = client.start();
+  const staleHandler = factory.workers[0].onmessage;
+  client.dispose();
+  await assert.rejects(starting, ValidationCanceledError);
+
+  staleHandler({ data: { type: "ready", limits } });
+  staleHandler({ data: { type: "fatal", error: "late" } });
+
+  assert.equal(client.state.phase, "disposed");
+  assert.deepEqual(states, ["loading", "disposed"]);
+});
+
 class FakeWorker {
   messages = [];
   onerror = null;
