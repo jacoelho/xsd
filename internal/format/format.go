@@ -344,7 +344,7 @@ func analyze(input string, limits Options) ([]formatEvent, error) {
 func (a *formatAnalysis) format() error {
 	for {
 		tok, err := a.reader.Next()
-		if xmlstream.IsOnlyEOF(err) {
+		if xmlstream.IsEOF(err) {
 			return a.finishEOF()
 		}
 		if err != nil {

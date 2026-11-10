@@ -95,7 +95,7 @@ func recordReader(input io.Reader, config Config, maxTokens int) ([]recordedToke
 	var handles []Handle
 	for {
 		tok, err := reader.Next()
-		if IsOnlyEOF(err) {
+		if IsEOF(err) {
 			return tokens, reader.Complete()
 		}
 		if err != nil {

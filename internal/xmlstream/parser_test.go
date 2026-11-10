@@ -175,7 +175,7 @@ func TestParserASCIITextDefersReaderErrorAfterDelimiter(t *testing.T) {
 	if _, err := parser.next(); err != nil {
 		t.Fatalf("end token = %v", err)
 	}
-	if _, err := parser.next(); !errors.Is(err, readErr) || IsOnlyEOF(err) {
+	if _, err := parser.next(); !errors.Is(err, readErr) {
 		t.Fatalf("terminal parser error = %v, want non-EOF reader cause", err)
 	}
 }
@@ -245,7 +245,7 @@ func drainReader(reader *Reader) error {
 	var handles []Handle
 	for {
 		tok, err := reader.Next()
-		if IsOnlyEOF(err) {
+		if IsEOF(err) {
 			return reader.Complete()
 		}
 		if err != nil {

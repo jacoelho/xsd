@@ -87,7 +87,7 @@ func parseTypedSchemaSourceDocument(name, key string, input io.Reader, limits Li
 func (s *typedSchemaParseState) parse() error {
 	for {
 		tok, err := s.parser.Next()
-		if xmlstream.IsOnlyEOF(err) {
+		if xmlstream.IsEOF(err) {
 			break
 		}
 		if err != nil {

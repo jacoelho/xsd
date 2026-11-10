@@ -46,7 +46,7 @@ func (c *xmlWellFormedChecker) checkTokens() error {
 }
 
 func (c *xmlWellFormedChecker) finishTokenStream(err error) error {
-	if xmlstream.IsOnlyEOF(err) {
+	if xmlstream.IsEOF(err) {
 		return c.doc.Complete(&c.reader)
 	}
 	return c.streamError(err)

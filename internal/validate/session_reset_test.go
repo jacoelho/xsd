@@ -12,8 +12,6 @@ import (
 	xsdSchema "github.com/jacoelho/xsd/internal/schema"
 
 	"github.com/jacoelho/xsd/internal/source"
-	"github.com/jacoelho/xsd/internal/vocab"
-	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -236,14 +234,6 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 	s.doc.allBits = make([]uint64, 1, maxRetainedSliceCap+1)
 	s.doc.identity.ids = map[string]retainedPath{"stale": explicitRetainedPath("/stale")}
 	s.doc.identity.entries = 1
-	if err := s.doc.schemaLocationHints.RecordAttributes(
-		[]xmlstream.Attr{xmlstream.NewAttr(staleSchemaLocationHintName(), "urn:stale stale.xsd")},
-		&s.reader,
-		testSchemaLocationHintLimits,
-		s.startContext(1, 1),
-	); err != nil {
-		t.Fatalf("record schema-location hint: %v", err)
-	}
 
 	s.reset()
 
@@ -262,9 +252,6 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("check IDREFs after reset: %v", err)
 	}
-	if s.doc.schemaLocationHints.Has("urn:stale") {
-		t.Fatalf("schema location hint retained after reset")
-	}
 }
 
 func TestSessionResetClearsActiveDocumentReferences(t *testing.T) {
@@ -272,17 +259,9 @@ func TestSessionResetClearsActiveDocumentReferences(t *testing.T) {
 	s.doc.elements = make([]xmlDocumentElement[frame], 0, maxRetainedSliceCap)
 	s.doc.CommitExpandedStart(preparedXMLStart{name: xml.Name{Space: "urn:stale", Local: "stale"}}, frame{})
 	_ = s.doc.retainPathAtDepth(1)
-	s.doc.pathText = "stale"
-	s.doc.pathTextDepth = 1
 
 	s.reset()
 
-	if s.doc.pathText != "" {
-		t.Fatal("reset retained stale path text")
-	}
-	if s.doc.pathTextDepth != 0 {
-		t.Fatal("reset retained stale path text depth")
-	}
 	if len(s.doc.retainedPaths.nodes) != 0 {
 		t.Fatal("reset retained document path nodes")
 	}
@@ -297,27 +276,17 @@ func TestSessionResetClearsActiveDocumentReferences(t *testing.T) {
 	}
 }
 
-func staleSchemaLocationHintName() xml.Name {
-	return xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrSchemaLocation}
-}
-
-func TestSessionPathStringMaterializesLazily(t *testing.T) {
+func TestSessionPathStringRendersCurrentPath(t *testing.T) {
 	var s session
 	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "root"}}, frame{})
 	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "row"}}, frame{})
 
-	if s.doc.pathText != "" {
-		t.Fatal("pushPath materialized path text")
-	}
 	if got := s.doc.PathString(); got != "/root/row" {
 		t.Fatalf("pathString() = %q, want /root/row", got)
 	}
-	if s.doc.pathTextDepth != s.doc.Depth() {
-		t.Fatalf("path text depth = %d, want %d", s.doc.pathTextDepth, s.doc.Depth())
-	}
 }
 
-func TestSessionPopPathReturnsCachedParentPath(t *testing.T) {
+func TestSessionPopPathReturnsParentPath(t *testing.T) {
 	var s session
 	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "root"}}, frame{})
 	if got := s.doc.PathString(); got != "/root" {
@@ -334,9 +303,6 @@ func TestSessionPopPathReturnsCachedParentPath(t *testing.T) {
 
 	if got := s.doc.PathString(); got != "/root" {
 		t.Fatalf("pathString() after pop = %q, want /root", got)
-	}
-	if s.doc.pathText != "/root" {
-		t.Fatalf("pathText after pop = %q, want /root", s.doc.pathText)
 	}
 }
 
@@ -437,7 +403,7 @@ func assertReusableSessionReset(t *testing.T, reusable *Session) {
 
 func assertSessionDocumentStateReset(t *testing.T, s *session) {
 	t.Helper()
-	if s.doc.pathText != "" || s.doc.pathTextDepth != 0 || s.doc.syntaxOnly {
+	if s.doc.syntaxOnly {
 		t.Fatalf("document scalars remain after reset: %+v", s.doc)
 	}
 	if len(s.doc.retainedPaths.nodes) != 0 {
@@ -510,8 +476,5 @@ func assertSessionDocumentStateReset(t *testing.T, s *session) {
 		if field != (identityFieldValue{}) {
 			t.Fatalf("identity field tail %d retains state: %+v", i, field)
 		}
-	}
-	if len(s.doc.schemaLocationHints.namespaces) != 0 || s.doc.schemaLocationHints.namespaceBytes != 0 {
-		t.Fatalf("schema-location hints remain after reset: %+v", s.doc.schemaLocationHints)
 	}
 }

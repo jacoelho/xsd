@@ -2,7 +2,9 @@ package schema
 
 import (
 	"errors"
+	"math"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/jacoelho/xsd/xsderrors"
@@ -49,7 +51,7 @@ func TestAppendParticle(t *testing.T) {
 			if tt.particle != nil {
 				particle = tt.particle
 			}
-			err := appendParticle(&model, particle(tt.occurs))
+			err := appendParticle(testDependencyWork(), &model, particle(tt.occurs))
 			if tt.wantCode != "" {
 				expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, tt.wantCode)
 				return
@@ -298,7 +300,10 @@ func TestAppendFlattenedModelChild(t *testing.T) {
 
 			model := contentModelNode{Kind: tt.parentKind, Occurs: one}
 			before := cloneContentModel(model)
-			got := appendFlattenedModelChild(&model, tt.child)
+			got, err := appendFlattenedModelChild(testDependencyWork(), &model, tt.child)
+			if err != nil {
+				t.Fatalf("AppendFlattenedModelChild() error = %v", err)
+			}
 			if got != tt.want {
 				t.Fatalf("AppendFlattenedModelChild() = %v, want %v", got, tt.want)
 			}
@@ -550,7 +555,22 @@ func (s *contentModelLoweringFixture) addModel(model contentModelNode) (contentM
 }
 
 func (f complexExtensionModelFixture) build() *schemaBuild {
-	return &schemaBuild{Models: cloneContentModels(f.models)}
+	return &schemaBuild{Models: cloneContentModels(f.models), typeWork: testDependencyWork()}
 }
 
-func (s *contentModelLoweringFixture) build() *schemaBuild { return &schemaBuild{Models: s.models} }
+func (s *contentModelLoweringFixture) build() *schemaBuild {
+	return &schemaBuild{Models: s.models, typeWork: testDependencyWork()}
+}
+
+// testDependencyWork returns an unlimited dependency budget for fixtures that
+// reach the lowering functions directly.
+func testDependencyWork() *workBudget {
+	b := newWorkBudget(dependencyWorkBudget, math.MaxInt)
+	return &b
+}
+
+// cloneContentModel deep-clones content-model metadata for test fixtures.
+func cloneContentModel(in contentModelNode) contentModelNode {
+	in.Particles = slices.Clone(in.Particles)
+	return in
+}

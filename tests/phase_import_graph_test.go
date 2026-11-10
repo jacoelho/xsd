@@ -40,7 +40,7 @@ func TestInternalCapabilityImportAllowlist(t *testing.T) {
 			"internal/diagnostictext", "internal/lex", "internal/schema", "internal/uriref",
 			"internal/value", "internal/vocab", "internal/xmlstream", "xsderrors"),
 		module + "/internal/vocab":     {},
-		module + "/internal/xmlstream": allowProjectImports("internal/lex", "internal/vocab"),
+		module + "/internal/xmlstream": allowProjectImports("internal/diagnostictext", "internal/lex", "internal/vocab"),
 		module + "/internal/xsdregex":  allowProjectImports("internal/lex"),
 	}
 
@@ -166,7 +166,7 @@ func sourceFunctionAllowed(path, root, schemaDir, name string) bool {
 		return false
 	}
 	switch name {
-	case "IsReferenceResolutionError", "IsSchemaLimitError", "Key", "NewReferenceBase":
+	case "IsReferenceResolutionError", "Key", "NewReferenceBase":
 		return true
 	default:
 		return false
@@ -183,14 +183,14 @@ func sourceMethodAllowed(path, root, schemaDir string, fn *types.Func) bool {
 	}
 	switch receiver {
 	case "Input":
-		return fn.Name() == "Finish"
+		return fn.Name() == "Finish" || fn.Name() == "Discard"
 	case "ReferenceBase":
 		return fn.Name() == "WithXMLBase"
 	case "Resolution":
 		return fn.Name() == "Source" || fn.Name() == "Target"
 	case "Source":
 		switch fn.Name() {
-		case "OpenInput", "Name", "ResolveFrom", "SameResolutionContext":
+		case "OpenInput", "Name", "ResolveFrom", "SameResolutionContext", "StaticContent", "ContentFixedByName":
 			return true
 		default:
 			return false

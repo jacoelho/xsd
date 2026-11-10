@@ -400,7 +400,7 @@ func validateExtensionAnchorAttributes(rt *schemaBuild, anchorID, derivedID attr
 			continue
 		}
 		if err := validateAttributeUseRestriction(rt, use, derived.Uses[slot]); err != nil {
-			return fmt.Errorf("extension attribute %s violates original ancestor: %w", rt.formatName(use.Name), err)
+			return wrapUnlessLimit(err, fmt.Sprintf("extension attribute %s violates original ancestor", rt.formatName(use.Name)))
 		}
 	}
 	return nil

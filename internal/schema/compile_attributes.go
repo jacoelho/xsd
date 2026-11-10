@@ -14,13 +14,13 @@ const (
 	attributeFixedConstraintLabel   = "attribute fixed"
 )
 
-func (c *compiler) compileAttributeByQName(q QName) (AttributeID, error) {
+func (c *compiler) compileAttributeByQName(q QName) (result AttributeID, err error) {
 	raw, exists := c.attributeComponents[q]
 	var source *schemaNode
 	if exists {
 		source = raw.sourceNode()
 	}
-	if err := c.spendComponentDependency(source); err != nil {
+	if err = c.spendComponentDependency(source); err != nil {
 		return 0, err
 	}
 	if id, ok := c.rt.GlobalAttributes[q]; ok {
@@ -34,7 +34,7 @@ func (c *compiler) compileAttributeByQName(q QName) (AttributeID, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer leave()
+	defer leave(&err)
 	decl, err := c.compileAttributeDecl(raw.sourceNode(), raw.ctx, q)
 	if err != nil {
 		return 0, err
@@ -587,15 +587,15 @@ func (c *compiler) compileAttributeRefUse(n *schemaNode, ctx *schemaSetDocument,
 	return base, nil
 }
 
-func (c *compiler) compileLocalAttributeUse(n *schemaNode, ctx *schemaSetDocument) (attributeUse, error) {
-	if err := c.spendComponentDependency(n); err != nil {
+func (c *compiler) compileLocalAttributeUse(n *schemaNode, ctx *schemaSetDocument) (result attributeUse, err error) {
+	if err = c.spendComponentDependency(n); err != nil {
 		return attributeUse{}, err
 	}
 	leave, err := c.enterComponent(n)
 	if err != nil {
 		return attributeUse{}, err
 	}
-	defer leave()
+	defer leave(&err)
 	name, err := c.localAttributeUseName(n, ctx)
 	if err != nil {
 		return attributeUse{}, err
@@ -632,25 +632,25 @@ func (c *compiler) localAttributeUseName(n *schemaNode, ctx *schemaSetDocument) 
 // A prohibition admits source syntax and independently mapped children, but
 // contributes only a name directive rather than an attribute-use component,
 // even when fixed is present. See I-008 in docs/spec/INTERPRETATIONS.md.
-func (c *compiler) admitAttributeProhibition(n *schemaNode, ctx *schemaSetDocument) (QName, error) {
+func (c *compiler) admitAttributeProhibition(n *schemaNode, ctx *schemaSetDocument) (result QName, err error) {
 	source := semanticSource[*schemaAttributeSource](&n.semantic)
 	if source.Ref.Lexical.Present {
-		if err := checkAttributeRefSource(n); err != nil {
+		if err = checkAttributeRefSource(n); err != nil {
 			return QName{}, err
 		}
-		if err := c.spendComponentDependency(n); err != nil {
+		if err = c.spendComponentDependency(n); err != nil {
 			return QName{}, err
 		}
 		return c.rt.internQName(effectiveReferenceNamespace(ctx, source.Ref.Name), source.Ref.Name.Local)
 	}
-	if err := c.spendComponentDependency(n); err != nil {
+	if err = c.spendComponentDependency(n); err != nil {
 		return QName{}, err
 	}
 	leave, err := c.enterComponent(n)
 	if err != nil {
 		return QName{}, err
 	}
-	defer leave()
+	defer leave(&err)
 	name, err := c.localAttributeUseName(n, ctx)
 	if err != nil {
 		return QName{}, err
@@ -695,7 +695,8 @@ func (c *compiler) compileAttributeGroupUse(n *schemaNode, ctx *schemaSetDocumen
 	}
 	set := c.rt.AttributeUseSets[id]
 	// Every traversed member costs work, including shared members already in
-	// the destination. The caller borrows these immutable records by value.
+	// the destination. This charges merge traversal; retention is charged in
+	// addAttributeUseSet. The caller borrows these immutable records by value.
 	if err := c.dependencyWork.spend(len(set.Uses)); err != nil {
 		return nil, NoWildcard, withSchemaCompileLocation(n, err)
 	}
@@ -729,18 +730,18 @@ func (c *compiler) compileAttributeGroupByQName(q QName) ([]attributeUse, Wildca
 	return uses, wildcard, nil
 }
 
-func (c *compiler) compileAttributeGroupByQNameID(q QName) (attributeUseSetID, error) {
+func (c *compiler) compileAttributeGroupByQNameID(q QName) (result attributeUseSetID, err error) {
 	label := c.rt.formatName(q)
 	raw, exists := c.attributeGroupComponents[q]
 	if c.compilingAttrGrp[q] {
-		err := schemaComponentRecursionError(schemaComponentAttributeGroup, label)
+		err = schemaComponentRecursionError(schemaComponentAttributeGroup, label)
 		return noAttributeUseSet, withSchemaCompileLocation(raw.sourceNode(), err)
 	}
 	var source *schemaNode
 	if exists {
 		source = raw.sourceNode()
 	}
-	if err := c.spendComponentDependency(source); err != nil {
+	if err = c.spendComponentDependency(source); err != nil {
 		return noAttributeUseSet, err
 	}
 	if id, ok := c.attrGroupDone[q]; ok {
@@ -753,7 +754,7 @@ func (c *compiler) compileAttributeGroupByQNameID(q QName) (attributeUseSetID, e
 	if err != nil {
 		return noAttributeUseSet, err
 	}
-	defer leave()
+	defer leave(&err)
 	c.compilingAttrGrp[q] = true
 	defer delete(c.compilingAttrGrp, q)
 	id, err := c.compileAttributeUses(raw.sourceNode(), raw.ctx, nil, NoWildcard, attributeMergeDirect)

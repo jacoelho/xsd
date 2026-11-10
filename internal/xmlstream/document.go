@@ -192,7 +192,7 @@ func validateReaderLimits(limits Limits) error {
 // be admitted with Start, and an end token must pass MatchEnd followed by
 // CommitEnd, before the next token can be acquired. On error or EOF, Next
 // returns a nil token. A rejected Next while a start or end admission is
-// pending leaves the current token available for the required retry. EOF is
+// pending leaves the current token available for the required retry. io.EOF itself is
 // returned only at a token boundary; call Complete after EOF to validate root
 // state.
 func (r *Reader) Next() (*Token, error) {
@@ -215,7 +215,7 @@ func (r *Reader) Next() (*Token, error) {
 		// EOF and parser errors leave no borrowed token or parser-owned slices
 		// reachable through the Reader.
 		r.token = Token{}
-		if IsOnlyEOF(err) {
+		if IsEOF(err) {
 			return nil, io.EOF
 		}
 		line, column := r.parser.pos()
@@ -282,10 +282,12 @@ func parserErrorKind(err error) ErrorKind {
 	if _, ok := LimitOf(err); ok {
 		return ErrorLimit
 	}
-	switch {
-	case errors.Is(err, ErrXMLInputNilReader):
+	// The two checks above are IsInputFailure's precedence rule, so the
+	// marker alone decides here.
+	if _, ok := errors.AsType[*inputError](err); ok {
 		return ErrorInput
-	case errors.Is(err, errXMLNegativeLimit):
+	}
+	if errors.Is(err, errXMLNegativeLimit) {
 		return ErrorState
 	}
 	return ErrorSyntax

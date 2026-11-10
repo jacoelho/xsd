@@ -2,8 +2,6 @@ package validate
 
 import (
 	"encoding/xml"
-	"maps"
-	"strings"
 
 	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/uriref"
@@ -11,138 +9,33 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// schemaLocationHintSet accounts for distinct namespace names admitted from
-// instance location attributes. Retained names enforce document resource limits;
-// they do not participate in component selection.
-type schemaLocationHintSet struct {
-	namespaces     map[string]struct{}
-	namespaceBytes int64
-}
-
-type schemaLocationHintLimits struct {
-	Namespaces     int
-	NamespaceBytes int64
-}
-
-type schemaLocationHintDelta struct {
-	namespaces     map[string]struct{}
-	namespaceBytes int64
-}
-
-func cloneSchemaLocationHints(h schemaLocationHintSet) schemaLocationHintSet {
-	return schemaLocationHintSet{
-		namespaces:     maps.Clone(h.namespaces),
-		namespaceBytes: h.namespaceBytes,
-	}
-}
-
-func (h *schemaLocationHintSet) stageAttribute(name xml.Name, value string, limits schemaLocationHintLimits, ctx startContext, delta *schemaLocationHintDelta) error {
-	switch name.Local {
-	case vocab.XSIAttrSchemaLocation:
-		return h.stageNamespaceSchemaLocation(value, limits, ctx, delta)
-	case vocab.XSIAttrNoNamespaceSchemaLocation:
-		return h.stageNoNamespaceSchemaLocation(value, limits, ctx, delta)
-	default:
-		return nil
-	}
-}
-
-// Has reports whether a schema-location hint was seen for ns.
-func (h *schemaLocationHintSet) Has(ns string) bool {
-	if h == nil {
-		return false
-	}
-	_, ok := h.namespaces[ns]
-	return ok
-}
-
-// Reset clears retained hints, keeping the namespace map only when bounded.
-func (h *schemaLocationHintSet) Reset(maxRetainedNamespaces int) {
-	if h == nil {
-		return
-	}
-	h.namespaceBytes = 0
-	if len(h.namespaces) > maxRetainedNamespaces {
-		h.namespaces = nil
-		return
-	}
-	clear(h.namespaces)
-}
-
-func (h *schemaLocationHintSet) stageNamespaceSchemaLocation(value string, limits schemaLocationHintLimits, ctx startContext, delta *schemaLocationHintDelta) error {
-	count, err := validateSchemaLocationFields(value, ctx)
-	if err != nil {
-		return err
-	}
-	if count%2 != 0 {
-		return validation(ctx, xsderrors.CodeValidationAttribute, msgSchemaLocationPairs)
-	}
-	return h.stageNamespaceHints(value, delta, limits, ctx)
-}
-
-func validateSchemaLocationFields(value string, ctx startContext) (int, error) {
-	count := 0
-	for field := range lex.XMLFieldsSeq(value) {
-		if _, err := uriref.Check(field); err != nil {
-			return 0, validation(ctx, xsderrors.CodeValidationAttribute, invalidURIMessage("xsi:schemaLocation", field))
-		}
-		count++
-	}
-	return count, nil
-}
-
-func (h *schemaLocationHintSet) stageNamespaceHints(value string, delta *schemaLocationHintDelta, limits schemaLocationHintLimits, ctx startContext) error {
-	index := 0
-	for field := range lex.XMLFieldsSeq(value) {
-		if index%2 == 0 {
-			if err := h.stageNamespaceHint(field, delta, limits, ctx); err != nil {
-				return err
+// checkSchemaLocationHint checks the syntax of one XSI schema-location hint
+// value: xsi:schemaLocation is a list of anyURI (any item count),
+// xsi:noNamespaceSchemaLocation one anyURI. It owns the hint syntax
+// diagnostic. Identity capture evaluates the same attributes for their key
+// through the anyURI value program, which applies the same uriref.Check rule
+// (internal/value/string.go), so the verdicts cannot diverge. Hints never take
+// part in component selection and no hint state is retained;
+// MaxInstanceTokenBytes bounds each hint attribute. local must be one of the
+// two hint names.
+func checkSchemaLocationHint(local, value string) error {
+	if local == vocab.XSIAttrSchemaLocation {
+		for field := range lex.XMLFieldsSeq(value) {
+			if _, err := uriref.Check(field); err != nil {
+				return xsderrors.Validation(xsderrors.CodeValidationAttribute, invalidURIMessage("xsi:schemaLocation", field), nil)
 			}
 		}
-		index++
-	}
-	return nil
-}
-
-func (h *schemaLocationHintSet) stageNamespaceHint(ns string, delta *schemaLocationHintDelta, limits schemaLocationHintLimits, ctx startContext) error {
-	if _, exists := h.namespaces[ns]; exists {
 		return nil
 	}
-	if _, exists := delta.namespaces[ns]; exists {
-		return nil
-	}
-	if len(h.namespaces)+len(delta.namespaces) >= limits.Namespaces {
-		return validation(ctx, xsderrors.CodeValidationLimit, limitMessage("schema-location namespace", "MaxSchemaLocationNamespaces", int64(len(h.namespaces))+int64(len(delta.namespaces))+1, int64(limits.Namespaces)))
-	}
-	fieldBytes := int64(len(ns))
-	remaining := limits.NamespaceBytes - h.namespaceBytes
-	if remaining < delta.namespaceBytes || fieldBytes > remaining-delta.namespaceBytes {
-		return validation(ctx, xsderrors.CodeValidationLimit, limitMessage("schema-location namespace byte", "MaxSchemaLocationNamespaceBytes", h.namespaceBytes+delta.namespaceBytes+fieldBytes, limits.NamespaceBytes))
-	}
-	if delta.namespaces == nil {
-		delta.namespaces = make(map[string]struct{})
-	}
-	delta.namespaces[ns] = struct{}{}
-	delta.namespaceBytes += fieldBytes
-	return nil
+	return checkNoNamespaceSchemaLocation(value)
 }
 
-func (h *schemaLocationHintSet) commitNamespaceHints(pending map[string]struct{}, pendingBytes int64) {
-	if len(pending) != 0 && h.namespaces == nil {
-		h.namespaces = make(map[string]struct{}, len(pending))
-	}
-	for ns := range pending {
-		h.namespaces[strings.Clone(ns)] = struct{}{}
-	}
-	h.namespaceBytes += pendingBytes
-}
-
-func (h *schemaLocationHintSet) stageNoNamespaceSchemaLocation(value string, limits schemaLocationHintLimits, ctx startContext, delta *schemaLocationHintDelta) error {
+func checkNoNamespaceSchemaLocation(value string) error {
 	value = lex.TrimXMLWhitespaceString(value)
 	if _, err := uriref.Check(value); err != nil {
-		return validation(ctx, xsderrors.CodeValidationAttribute, invalidURIMessage("xsi:noNamespaceSchemaLocation", value))
+		return xsderrors.Validation(xsderrors.CodeValidationAttribute, invalidURIMessage("xsi:noNamespaceSchemaLocation", value), nil)
 	}
-	return h.stageNamespaceHint("", delta, limits, ctx)
+	return nil
 }
 
 // isSchemaLocationHintName reports whether name is an XSI schema-location hint.

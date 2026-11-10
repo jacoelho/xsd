@@ -21,13 +21,6 @@ type ValidateOptions struct {
 	MaxIdentityEntries int
 	// MaxIdentityTupleBytes limits the byte length of one stored identity key. Zero uses the default.
 	MaxIdentityTupleBytes int64
-	// MaxSchemaLocationNamespaces limits distinct namespace names admitted from
-	// schema-location hints in one document. Zero uses the default.
-	MaxSchemaLocationNamespaces int
-	// MaxSchemaLocationNamespaceBytes limits aggregate bytes in those retained
-	// namespace names. Zero uses the default. MaxInstanceTokenBytes separately
-	// bounds each complete hint attribute when configured.
-	MaxSchemaLocationNamespaceBytes int64
 	// MaxInstanceDepth limits nested XML elements. Zero uses the default.
 	MaxInstanceDepth int
 	// MaxInstanceAttributes limits attributes on one XML element. Zero uses the default.
@@ -64,13 +57,15 @@ type Session struct {
 }
 
 // Validate validates one XML instance document.
-// A nil r is reported as a validation XML error.
+// A nil r, and an error returned by r other than io.EOF itself (an error
+// wrapping io.EOF included), are reported as [xsderrors.CodeValidationRead], with the cause preserved for errors.Is.
 func (e *Engine) Validate(r io.Reader) error {
 	return e.ValidateWithOptions(r, ValidateOptions{})
 }
 
 // ValidateWithOptions validates one XML instance document with options.
-// A nil r is reported as a validation XML error.
+// A nil r, and an error returned by r other than io.EOF itself (an error
+// wrapping io.EOF included), are reported as [xsderrors.CodeValidationRead], with the cause preserved for errors.Is.
 func (e *Engine) ValidateWithOptions(r io.Reader, opts ValidateOptions) error {
 	var pool *validate.SessionPool
 	if e != nil {
@@ -97,7 +92,8 @@ func (e *Engine) NewSession(opts ValidateOptions) (*Session, error) {
 // Validate validates one XML instance document. It clears document-local state
 // before returning and may retain bounded scratch buffers and string caches for
 // reuse.
-// A nil r is reported as a validation XML error.
+// A nil r, and an error returned by r other than io.EOF itself (an error
+// wrapping io.EOF included), are reported as [xsderrors.CodeValidationRead], with the cause preserved for errors.Is.
 func (s *Session) Validate(r io.Reader) error {
 	if s == nil {
 		return (*validate.Session)(nil).Validate(r)

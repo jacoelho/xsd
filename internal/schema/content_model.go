@@ -53,13 +53,14 @@ type contentModelNode struct {
 	Mixed     bool
 }
 
-// contentModelByID resolves and clones a content model from a content-model
-// table.
+// contentModelByID resolves a content model from a content-model table. It
+// returns the stored model: admitted models are immutable, the Particles slice
+// is shared and has no spare capacity, and callers must not write its elements.
 func contentModelByID(models []contentModelNode, id contentModelID) (contentModelNode, bool) {
 	if !validContentModelID(id, len(models)) {
 		return contentModelNode{}, false
 	}
-	return cloneContentModel(models[id]), true
+	return models[id], true
 }
 
 // contentParticle is a tagged union: Kind selects which ID field is active.

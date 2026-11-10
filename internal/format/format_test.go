@@ -611,7 +611,7 @@ func TestFormatXMLRejectsExpandedDuplicateAttributes(t *testing.T) {
 	if err == nil {
 		t.Fatal("XML() succeeded")
 	}
-	if !strings.Contains(err.Error(), "duplicate attribute {urn:x}id") {
+	if !strings.Contains(err.Error(), `duplicate attribute "{urn:x}id"`) {
 		t.Fatalf("XML() error = %v", err)
 	}
 }
@@ -655,7 +655,7 @@ func TestFormatXMLRejectsLargeDuplicateAttributes(t *testing.T) {
 	if err == nil {
 		t.Fatal("XML() succeeded")
 	}
-	if !strings.Contains(err.Error(), "duplicate attribute a39") {
+	if !strings.Contains(err.Error(), `duplicate attribute "a39"`) {
 		t.Fatalf("XML() error = %v", err)
 	}
 }
@@ -666,7 +666,7 @@ func TestFormatXMLRejectsUnboundAttributePrefix(t *testing.T) {
 	if err == nil {
 		t.Fatal("XML() succeeded")
 	}
-	if !strings.Contains(err.Error(), "unbound namespace prefix p") {
+	if !strings.Contains(err.Error(), `unbound namespace prefix "p"`) {
 		t.Fatalf("XML() error = %v", err)
 	}
 }

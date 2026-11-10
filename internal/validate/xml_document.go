@@ -7,26 +7,34 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
 type xmlDocument[P any] struct {
-	pathText      string
 	elements      []xmlDocumentElement[P]
 	retainedPaths documentPathStore
+	// pathText is the rendered path of the first pathTextDepth open elements,
+	// kept so diagnostics under one ancestor chain share one rendering. It
+	// never exceeds maxDiagnosticPathBytes: a longer path is elided and
+	// rendered per diagnostic instead.
+	pathText      string
+	pathScratch   []byte
 	pathTextDepth int
 }
 
 // xmlDocumentElement stores the expanded name only; prefixes are never
 // retained, so paths render as lexical local names or expanded names.
 type xmlDocumentElement[P any] struct {
-	payload    P
-	name       xml.Name
-	handle     xmlstream.Handle
-	pathLength int
-	pathRef    documentPathRef
-	pathMode   xmlPathMode
+	payload P
+	name    xml.Name
+	handle  xmlstream.Handle
+	pathRef documentPathRef
+	// pathEnd is this element's end offset in xmlDocument.pathText; valid only
+	// below pathTextDepth.
+	pathEnd  int
+	pathMode xmlPathMode
 }
 
 // retainedPath preserves an exact diagnostic path within its validation call.
@@ -106,20 +114,16 @@ type preparedXMLStart struct {
 }
 
 type xmlDocumentCheckpoint struct {
-	pathText       string
 	depth          int
 	pathNamespaces int
 	pathNodes      int
-	pathTextDepth  int
 }
 
 func (d *xmlDocument[P]) startCheckpoint() xmlDocumentCheckpoint {
 	return xmlDocumentCheckpoint{
-		pathText:       d.pathText,
 		depth:          d.Depth(),
 		pathNamespaces: len(d.retainedPaths.namespaces),
 		pathNodes:      len(d.retainedPaths.nodes),
-		pathTextDepth:  d.pathTextDepth,
 	}
 }
 
@@ -131,10 +135,9 @@ func (d *xmlDocument[P]) rollbackStart(checkpoint xmlDocumentCheckpoint) {
 	}
 	clear(d.elements[checkpoint.depth:])
 	d.elements = d.elements[:checkpoint.depth]
+	d.truncatePathText(checkpoint.depth)
 	d.retainedPaths.truncate(checkpoint.pathNodes)
 	d.retainedPaths.truncateNamespaces(checkpoint.pathNamespaces)
-	d.pathText = checkpoint.pathText
-	d.pathTextDepth = checkpoint.pathTextDepth
 }
 
 func (d *xmlDocument[P]) clearCurrentPayload() {
@@ -161,23 +164,19 @@ func (d *xmlDocument[P]) PrepareStart(
 }
 
 func (d *xmlDocument[P]) CommitStart(start preparedXMLStart, payload P) {
-	d.appendStart(start, xmlPathLexical, 1+len(start.name.Local), payload)
+	d.appendStart(start, xmlPathLexical, payload)
 }
 
 func (d *xmlDocument[P]) CommitExpandedStart(start preparedXMLStart, payload P) {
-	d.appendStart(start, xmlPathExpanded, 3+len(start.name.Space)+len(start.name.Local), payload)
+	d.appendStart(start, xmlPathExpanded, payload)
 }
 
-func (d *xmlDocument[P]) appendStart(start preparedXMLStart, pathMode xmlPathMode, pathLength int, payload P) {
-	if len(d.elements) != 0 {
-		pathLength += d.elements[len(d.elements)-1].pathLength
-	}
+func (d *xmlDocument[P]) appendStart(start preparedXMLStart, pathMode xmlPathMode, payload P) {
 	d.elements = append(d.elements, xmlDocumentElement[P]{
-		payload:    payload,
-		name:       start.name,
-		handle:     start.handle,
-		pathLength: pathLength,
-		pathMode:   pathMode,
+		payload:  payload,
+		name:     start.name,
+		handle:   start.handle,
+		pathMode: pathMode,
 	})
 }
 
@@ -208,28 +207,35 @@ func (d *xmlDocument[P]) CommitEnd(reader *xmlstream.Reader) error {
 	i := len(d.elements) - 1
 	d.elements[i] = xmlDocumentElement[P]{}
 	d.elements = d.elements[:i]
-	if d.pathTextDepth <= i {
-		return nil
-	}
-	if i == 0 {
-		d.pathText = ""
-		d.pathTextDepth = 0
-		return nil
-	}
-	d.pathText = d.pathText[:d.elements[i-1].pathLength]
-	d.pathTextDepth = i
+	d.truncatePathText(i)
 	return nil
 }
 
+// truncatePathText drops cached path text for elements at or above depth.
+func (d *xmlDocument[P]) truncatePathText(depth int) {
+	if d.pathTextDepth <= depth {
+		return
+	}
+	d.pathTextDepth = depth
+	if depth == 0 {
+		d.pathText = ""
+		return
+	}
+	d.pathText = d.pathText[:d.elements[depth-1].pathEnd]
+}
+
+// Complete reports document-end diagnostics at the reader position.
 func (d *xmlDocument[P]) Complete(reader *xmlstream.Reader) error {
 	if err := reader.Complete(); err != nil {
+		line, col := readerPosition(reader)
+		ctx := d.context(line, col)
 		if errors.Is(err, xmlstream.ErrNoRoot) {
-			return validation(startContext{}, xsderrors.CodeValidationXML, msgNoRoot)
+			return validation(ctx, xsderrors.CodeValidationXML, msgNoRoot)
 		}
 		if errors.Is(err, xmlstream.ErrUnclosedElements) {
-			return validation(d.context(0, 0), xsderrors.CodeValidationXML, msgUnclosedElement)
+			return validation(ctx, xsderrors.CodeValidationXML, msgUnclosedElement)
 		}
-		return validation(d.context(0, 0), xsderrors.CodeValidationXML, err.Error())
+		return validation(ctx, xsderrors.CodeValidationXML, err.Error())
 	}
 	return nil
 }
@@ -241,9 +247,9 @@ func (d *xmlDocument[P]) Reset(maxRetainedCap int) {
 		clear(d.elements)
 		d.elements = d.elements[:0]
 	}
-	d.retainedPaths.reset(maxRetainedCap)
 	d.pathText = ""
 	d.pathTextDepth = 0
+	d.retainedPaths.reset(maxRetainedCap)
 }
 
 func (d *xmlDocument[P]) Depth() int {
@@ -264,8 +270,31 @@ func (d *xmlDocument[P]) clearPayloads() {
 	}
 }
 
+// PathString renders the current instance path for a diagnostic.
 func (d *xmlDocument[P]) PathString() string {
 	return d.PathStringAtDepth(d.Depth())
+}
+
+// pathStringWithChild renders the current path extended by a child that is not
+// committed yet.
+func (d *xmlDocument[P]) pathStringWithChild(name xml.Name, mode xmlPathMode) string {
+	depth := d.Depth()
+	child := xmlPathSegment{name: name, mode: mode}
+	if parent, ok := d.pathPrefix(depth); ok {
+		buf := d.pathScratch[:0]
+		buf = append(buf, parent...)
+		buf = appendDiagnosticPathSegment(buf, child)
+		d.pathScratch = buf[:0]
+		if len(buf) <= maxDiagnosticPathBytes {
+			return string(buf)
+		}
+	}
+	return renderDiagnosticPath(depth+1, func(i int) xmlPathSegment {
+		if i == depth {
+			return child
+		}
+		return d.pathSegment(i)
+	})
 }
 
 func (d *xmlDocument[P]) PathStringAtDepth(depth int) string {
@@ -275,23 +304,42 @@ func (d *xmlDocument[P]) PathStringAtDepth(depth int) string {
 	if depth == 0 {
 		return "/"
 	}
-	if d.pathTextDepth >= depth {
-		return d.pathText[:d.elements[depth-1].pathLength]
+	if path, ok := d.pathPrefix(depth); ok {
+		return path
 	}
+	return renderDiagnosticPath(depth, d.pathSegment)
+}
 
-	var path strings.Builder
-	path.Grow(d.elements[depth-1].pathLength)
-	start := 0
-	if d.pathTextDepth != 0 {
-		path.WriteString(d.pathText)
-		start = d.pathTextDepth
+// pathPrefix returns the unelided path of the first depth elements, extending
+// the cached text as needed. It reports false, leaving the cache as it was,
+// when that path exceeds maxDiagnosticPathBytes and must be elided.
+func (d *xmlDocument[P]) pathPrefix(depth int) (string, bool) {
+	if depth == 0 {
+		return "", true
 	}
-	for i := start; i < depth; i++ {
-		appendXMLPathSegment(&path, d.elements[i].name, d.elements[i].pathMode)
+	if depth <= d.pathTextDepth {
+		return d.pathText[:d.elements[depth-1].pathEnd], true
 	}
-	d.pathText = path.String()
+	buf := d.pathScratch[:0]
+	buf = append(buf, d.pathText...)
+	for i := d.pathTextDepth; i < depth; i++ {
+		buf = appendDiagnosticPathSegment(buf, d.pathSegment(i))
+		if len(buf) > maxDiagnosticPathBytes {
+			d.pathScratch = buf[:0]
+			return "", false
+		}
+		// Offsets at or above pathTextDepth are ignored until the cache
+		// is committed below.
+		d.elements[i].pathEnd = len(buf)
+	}
+	d.pathScratch = buf[:0]
+	d.pathText = string(buf)
 	d.pathTextDepth = depth
-	return d.pathText
+	return d.pathText, true
+}
+
+func (d *xmlDocument[P]) pathSegment(i int) xmlPathSegment {
+	return xmlPathSegment{name: d.elements[i].name, mode: d.elements[i].pathMode}
 }
 
 func (d *xmlDocument[P]) retainPathAtDepth(depth int) retainedPath {
@@ -358,7 +406,7 @@ func (d *xmlDocument[P]) encodePathSuffix(start, depth int) documentPathEncoding
 			namespaceID := namespaces.intern(element.name.Space)
 			encodedLength += documentPathNameReferenceLength(namespaceID, element.name.Local)
 		case xmlPathLexical:
-			encodedLength += d.pathSegmentLength(i)
+			encodedLength += 1 + len(element.name.Local)
 		case xmlPathInvalid:
 			panic("XML path mode is invalid")
 		default:
@@ -375,7 +423,7 @@ func (d *xmlDocument[P]) encodePathSuffix(start, depth int) documentPathEncoding
 			namespaceID := namespaces.lookup(element.name.Space)
 			appendDocumentPathNameReference(&text, namespaceID, element.name.Local)
 		case xmlPathLexical:
-			appendXMLPathSegment(&text, element.name, element.pathMode)
+			appendEncodedLexicalSegment(&text, element.name.Local)
 		case xmlPathInvalid:
 			panic("XML path mode is invalid")
 		default:
@@ -401,7 +449,7 @@ func (d *xmlDocument[P]) encodedPathSegmentLength(index int, text string, namesp
 		_, consumed := decodeExpandedDocumentPathName(text[1:], namespaces)
 		return 1 + consumed
 	case xmlPathLexical:
-		return d.pathSegmentLength(index)
+		return 1 + len(element.name.Local)
 	case xmlPathInvalid:
 		panic("XML path mode is invalid")
 	default:
@@ -457,14 +505,6 @@ func (e *documentPathNamespaceEncoder) release() {
 	e.ids = nil
 }
 
-func (d *xmlDocument[P]) pathSegmentLength(index int) int {
-	length := d.elements[index].pathLength
-	if index != 0 {
-		length -= d.elements[index-1].pathLength
-	}
-	return length
-}
-
 func documentPathNameReferenceLength(namespaceID int, local string) int {
 	return 1 + documentPathUintLength(namespaceID) + documentPathUintLength(len(local)) + len(local)
 }
@@ -487,33 +527,94 @@ func appendDocumentPathUint(text *strings.Builder, value int) {
 	text.Write(encoded[:length])
 }
 
-func appendXMLPathSegment(path *strings.Builder, name xml.Name, mode xmlPathMode) {
-	path.WriteByte('/')
-	switch mode {
-	case xmlPathExpanded:
-		path.WriteByte('{')
-		path.WriteString(name.Space)
-		path.WriteByte('}')
-	case xmlPathLexical:
-	case xmlPathInvalid:
-		panic("XML path mode is invalid")
-	default:
-		panic("XML path mode is unknown")
-	}
-	path.WriteString(name.Local)
+// appendEncodedLexicalSegment writes the stored encoding of a lexical segment.
+func appendEncodedLexicalSegment(text *strings.Builder, local string) {
+	text.WriteByte('/')
+	text.WriteString(local)
 }
 
-func xmlPathSegmentLength(name xml.Name, mode xmlPathMode) int {
-	switch mode {
+// maxDiagnosticPathBytes is an upper bound on every rendered instance path.
+// One escaped value renders to at most 4*diagnostictext.MaxValueBytes+3 bytes,
+// so an expanded segment ("/{" namespace "}" local) is at most
+// 3+2*(4*MaxValueBytes+3) = 1033 bytes, under half the budget: the first and
+// last segments always fit.
+const maxDiagnosticPathBytes = 4096
+
+const diagnosticPathElision = "/..."
+
+type xmlPathSegment struct {
+	name xml.Name
+	mode xmlPathMode
+}
+
+func appendDiagnosticPathSegment(buf []byte, segment xmlPathSegment) []byte {
+	buf = append(buf, '/')
+	switch segment.mode {
 	case xmlPathExpanded:
-		return 3 + len(name.Space) + len(name.Local)
+		buf = append(buf, '{')
+		buf = diagnostictext.AppendEscaped(buf, segment.name.Space)
+		buf = append(buf, '}')
 	case xmlPathLexical:
-		return 1 + len(name.Local)
 	case xmlPathInvalid:
 		panic("XML path mode is invalid")
 	default:
 		panic("XML path mode is unknown")
 	}
+	return diagnostictext.AppendEscaped(buf, segment.name.Local)
+}
+
+// maxDiagnosticPathSegmentBytes bounds one rendered segment; see
+// maxDiagnosticPathBytes.
+const maxDiagnosticPathSegmentBytes = 3 + 2*(4*diagnostictext.MaxValueBytes+3)
+
+// renderDiagnosticPath renders count segments, read through segmentAt, as a
+// display path. Names are bounded and escaped by diagnostictext. A path over
+// maxDiagnosticPathBytes has its middle elided. Segments are read by index and
+// rendering stops once the budget is exceeded, so the work and the scratch
+// memory are bounded by the budget, not by the depth.
+func renderDiagnosticPath(count int, segmentAt func(int) xmlPathSegment) string {
+	if count == 0 {
+		return "/"
+	}
+	// The loop exits after the first segment that crosses the budget, so this
+	// buffer never grows.
+	var stack [maxDiagnosticPathBytes + maxDiagnosticPathSegmentBytes]byte
+	buf := stack[:0]
+	prefix, prefixBytes := 0, 0
+	for i := range count {
+		buf = appendDiagnosticPathSegment(buf, segmentAt(i))
+		if len(buf) > maxDiagnosticPathBytes {
+			return elideDiagnosticPath(count, segmentAt, buf[:prefixBytes], prefix)
+		}
+		if len(buf) <= maxDiagnosticPathBytes/2 {
+			prefix, prefixBytes = i+1, len(buf)
+		}
+	}
+	return string(buf)
+}
+
+// elideDiagnosticPath writes head, the longest whole-segment prefix within half
+// the budget covering the first prefix segments, then "/...", then the longest
+// whole-segment suffix that fits the rest.
+func elideDiagnosticPath(count int, segmentAt func(int) xmlPathSegment, head []byte, prefix int) string {
+	remainder := maxDiagnosticPathBytes - len(head) - len(diagnosticPathElision)
+	var scratch [maxDiagnosticPathSegmentBytes]byte
+	suffix, suffixBytes := count, 0
+	for suffix > prefix {
+		segment := appendDiagnosticPathSegment(scratch[:0], segmentAt(suffix-1))
+		if suffixBytes+len(segment) > remainder {
+			break
+		}
+		suffixBytes += len(segment)
+		suffix--
+	}
+	out := make([]byte, 0, len(head)+len(diagnosticPathElision)+suffixBytes)
+	out = append(out, head...)
+	out = append(out, diagnosticPathElision...)
+	for i := suffix; i < count; i++ {
+		out = appendDiagnosticPathSegment(out, segmentAt(i))
+	}
+	return string(out)
 }
 
 func (d *xmlDocument[P]) discardRetainedPaths() {
@@ -528,23 +629,21 @@ func (s *documentPathStore) pathString(ref documentPathRef) string {
 	if ref.node == 0 {
 		panic("retained XML path node is invalid")
 	}
-	pathLength := 0
-	var inline [32]documentPathRef
-	chain := inline[:0]
+	var inlineChain [32]documentPathRef
+	chain := inlineChain[:0]
 	for ref.node != 0 {
 		current := s.referencedNode(ref)
 		chain = append(chain, ref)
-		pathLength += renderedDocumentPathTextLength(current.text[:ref.end], s.nodeNamespaces(current))
 		ref = current.parent
 	}
 
-	var path strings.Builder
-	path.Grow(pathLength)
+	var inline [32]xmlPathSegment
+	segments := inline[:0]
 	for _, ref := range slices.Backward(chain) {
 		current := s.nodes[ref.node-1]
-		appendEncodedDocumentPathText(&path, current.text[:ref.end], s.nodeNamespaces(current))
+		segments = appendStoredPathSegments(segments, current.text[:ref.end], s.nodeNamespaces(current))
 	}
-	return path.String()
+	return renderDiagnosticPath(len(segments), func(i int) xmlPathSegment { return segments[i] })
 }
 
 func (s *documentPathStore) referencedNode(ref documentPathRef) documentPathNode {
@@ -570,32 +669,27 @@ func (s *documentPathStore) nodeNamespaces(node documentPathNode) []string {
 	return s.namespaces[node.namespaceStart : node.namespaceStart+node.namespaceCount]
 }
 
-func renderedDocumentPathTextLength(text string, namespaces []string) int {
-	length := 0
-	for {
-		marker := strings.IndexByte(text, documentPathExpandedSegmentMarker)
-		if marker < 0 {
-			return length + len(text)
+// appendStoredPathSegments decodes stored path text: lexical segments are
+// "/local" runs and expanded segments start with the marker byte.
+func appendStoredPathSegments(segments []xmlPathSegment, text string, namespaces []string) []xmlPathSegment {
+	for text != "" {
+		if text[0] == documentPathExpandedSegmentMarker {
+			name, consumed := decodeExpandedDocumentPathName(text[1:], namespaces)
+			segments = append(segments, xmlPathSegment{name: name, mode: xmlPathExpanded})
+			text = text[1+consumed:]
+			continue
 		}
-		length += marker
-		name, consumed := decodeExpandedDocumentPathName(text[marker+1:], namespaces)
-		length += xmlPathSegmentLength(name, xmlPathExpanded)
-		text = text[marker+1+consumed:]
-	}
-}
-
-func appendEncodedDocumentPathText(path *strings.Builder, text string, namespaces []string) {
-	for {
-		marker := strings.IndexByte(text, documentPathExpandedSegmentMarker)
-		if marker < 0 {
-			path.WriteString(text)
-			return
+		if text[0] != '/' {
+			panic("lexical XML path segment is not encoded")
 		}
-		path.WriteString(text[:marker])
-		name, consumed := decodeExpandedDocumentPathName(text[marker+1:], namespaces)
-		appendXMLPathSegment(path, name, xmlPathExpanded)
-		text = text[marker+1+consumed:]
+		end := len(text)
+		if next := strings.IndexAny(text[1:], "/\x00"); next >= 0 {
+			end = 1 + next
+		}
+		segments = append(segments, xmlPathSegment{name: xml.Name{Local: text[1:end]}, mode: xmlPathLexical})
+		text = text[end:]
 	}
+	return segments
 }
 
 func decodeExpandedDocumentPathName(text string, namespaces []string) (xml.Name, int) {

@@ -19,18 +19,6 @@ func TestRuntimePublicationCloneHelpersDoNotAliasMutableState(t *testing.T) {
 		t.Fatalf("CloneWildcard aliased namespace slice: %#v", clonedWildcard.Namespaces)
 	}
 
-	occurs := occurrence{Min: 1, Max: 1}
-	models := []contentModelNode{{
-		Particles: []contentParticle{elementParticle(1, occurs)},
-		Occurs:    occurs,
-		Kind:      modelSequence,
-	}}
-	clonedModel := cloneContentModel(models[0])
-	models[0].Particles[0].Element = 9
-	if clonedModel.Particles[0].Element != 1 {
-		t.Fatalf("CloneContentModel aliased particle slice: %#v", clonedModel)
-	}
-
 	simpleDerivation := simpleTypeDerivation{Union: []SimpleTypeID{1, 2}}
 	clonedSimpleDerivation := cloneSimpleTypeDerivation(simpleDerivation)
 	simpleDerivation.Union[0] = 9

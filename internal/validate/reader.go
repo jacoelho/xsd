@@ -10,11 +10,13 @@ import (
 )
 
 // streamError is the single mapping from xmlstream reader errors to instance
-// diagnostics. It classifies reader limits first, as
-// '<option>=<n> exceeded' at ctx, then unsupported features, a nil reader,
-// outside-root sentinels, and finally well-formedness failures. Reader Reset
-// failures pass a zero ctx: they precede the first token, so no instance
-// location exists.
+// diagnostics. It classifies by origin, so a caller reader's error is never
+// taken for this package's own failure whatever its chain carries. Order:
+// reader limits ('<option>=<n> exceeded' at ctx), unsupported features,
+// caller-reader failures (validation.read, including a nil reader; exclusive),
+// outside-root sentinels, and finally well-formedness failures.
+// resetInstanceReader locates prologue failures at path "/" and the reader
+// position (line 1 column 1 when none); a nil reader stays unlocated.
 func streamError(err error, ctx startContext, limits Limits) error {
 	line, col, path := ctx.Line, ctx.Column, ctx.PathString()
 	if limit, ok := xmlstream.LimitOf(err); ok {
@@ -24,8 +26,11 @@ func streamError(err error, ctx startContext, limits Limits) error {
 	if feature, ok := xmlstream.UnsupportedFeatureOf(err); ok {
 		return xsderrors.WithLocation(path, line, col, unsupportedInstanceFeature(feature, err))
 	}
-	if errors.Is(err, xmlstream.ErrXMLInputNilReader) {
-		return xsderrors.Validation(xsderrors.CodeValidationXML, msgReaderNil, nil)
+	if xmlstream.IsInputFailure(err) {
+		if errors.Is(err, xmlstream.ErrXMLInputNilReader) {
+			return xsderrors.Validation(xsderrors.CodeValidationRead, msgReaderNil, nil)
+		}
+		return xsderrors.WithLocation(path, line, col, xsderrors.Validation(xsderrors.CodeValidationRead, "read instance document", err))
 	}
 	if errors.Is(err, xmlstream.ErrTextOutsideRoot) {
 		return xsderrors.WithLocation(path, line, col, xsderrors.Validation(xsderrors.CodeValidationXML, msgTextOutsideRoot, err))
@@ -55,9 +60,17 @@ func unsupportedInstanceFeature(feature xmlstream.UnsupportedFeature, err error)
 
 func streamErrorPosition(reader *xmlstream.Reader, err error) (line, column int) {
 	if boundary, ok := errors.AsType[*xmlstream.Error](err); ok && boundary != nil && boundary.Line > 0 {
-		return boundary.Line, boundary.Column
+		return boundary.Line, max(boundary.Column, 1)
 	}
-	return reader.Pos()
+	return readerPosition(reader)
+}
+
+// readerPosition is the reader position for a diagnostic that has no token.
+// The reader reports column 0 before the first byte of a line, and line 0
+// before Reset succeeds; a diagnostic reads 0 as unknown, so both start at 1.
+func readerPosition(reader *xmlstream.Reader) (line, column int) {
+	line, column = reader.Pos()
+	return max(line, 1), max(column, 1)
 }
 
 func validationReaderCause(code xsderrors.Code, line, col int, path string, err error) error {
@@ -70,7 +83,10 @@ func validationReaderCause(code xsderrors.Code, line, col int, path string, err 
 // failures the same way.
 func resetInstanceReader(reader *xmlstream.Reader, r io.Reader, limits Limits) error {
 	if err := reader.Reset(r, limits.readerConfig()); err != nil {
-		return streamError(err, startContext{}, limits)
+		// A failure while reading the document prologue precedes any element,
+		// so it is located at the document root path.
+		line, col := streamErrorPosition(reader, err)
+		return streamError(err, startContext{Path: "/", Line: line, Column: col}, limits)
 	}
 	return nil
 }

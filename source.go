@@ -67,9 +67,11 @@ func Open(name string, open func() (io.ReadCloser, error)) SchemaSource {
 // resolvers are not compared. Copies of the result, and sources r returns,
 // share its context. A document reached from several contexts is compiled once,
 // keyed by its identity, but each context that reaches it resolves its
-// references through its own resolver. Every time a document is reached again
-// it is reopened and its bytes are charged against the compile limits again;
-// different content under the same identity is a schema reference error.
+// references through its own resolver. A document reached again through an
+// opener source is reopened and its bytes are charged against the compile
+// limits again; a File source is read once per compilation; an in-memory
+// source is compared by its digest without charge.
+// Different content under the same identity is a schema reference error.
 func (s SchemaSource) WithResolver(r Resolver) SchemaSource {
 	s.src = s.src.WithResolver(adaptPublicResolver(r))
 	return s

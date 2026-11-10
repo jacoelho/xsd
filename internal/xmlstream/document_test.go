@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"io"
 	"strconv"
 	"strings"
@@ -983,6 +984,7 @@ func mustNextToken(t *testing.T, reader *Reader) *Token {
 func TestReaderAttributeScannerTerminalFailures(t *testing.T) {
 	t.Parallel()
 	sourceErr := errors.New("attribute source failed")
+	wrappedEOF := fmt.Errorf("closed: %w", io.EOF)
 	for _, mode := range []struct {
 		name string
 		skip bool
@@ -992,10 +994,12 @@ func TestReaderAttributeScannerTerminalFailures(t *testing.T) {
 			terminal   error
 			wantSource bool
 			wantEOF    bool
+			wantCause  error
 		}{
 			{name: "EOF", terminal: io.EOF},
-			{name: "source", terminal: sourceErr, wantSource: true},
-			{name: "joined", terminal: errors.Join(io.EOF, sourceErr), wantSource: true, wantEOF: true},
+			{name: "source", terminal: sourceErr, wantSource: true, wantCause: sourceErr},
+			{name: "joined", terminal: errors.Join(io.EOF, sourceErr), wantSource: true, wantEOF: true, wantCause: sourceErr},
+			{name: "wrapped EOF", terminal: wrappedEOF, wantSource: true, wantEOF: true, wantCause: wrappedEOF},
 		} {
 			t.Run(mode.name+"/"+test.name, func(t *testing.T) {
 				t.Parallel()
@@ -1011,13 +1015,17 @@ func TestReaderAttributeScannerTerminalFailures(t *testing.T) {
 				}
 				token, err := reader.Next()
 				boundary, ok := errors.AsType[*Error](err)
-				if token != nil || !ok || boundary.Kind != ErrorSyntax || boundary.Line != 1 || boundary.Column != 9 {
-					t.Fatalf("Next() = %v, %#v, want syntax failure at 1:9", token, boundary)
+				wantKind := ErrorSyntax
+				if test.wantSource {
+					wantKind = ErrorInput
+				}
+				if token != nil || !ok || boundary.Kind != wantKind || boundary.Line != 1 || boundary.Column != 9 {
+					t.Fatalf("Next() = %v, %#v, want kind %v at 1:9", token, boundary, wantKind)
 				}
 				if !test.wantSource && err.Error() != "unexpected EOF in attribute value" {
 					t.Fatalf("error = %q, want attribute EOF context", err)
 				}
-				if errors.Is(err, sourceErr) != test.wantSource || errors.Is(err, io.EOF) != test.wantEOF {
+				if (test.wantCause != nil) != test.wantSource || test.wantCause != nil && !errors.Is(err, test.wantCause) || errors.Is(err, io.EOF) != test.wantEOF {
 					t.Fatalf("error causes = %v, want source=%v EOF=%v", err, test.wantSource, test.wantEOF)
 				}
 				assertAttributeReaderReset(t, &reader, config)
@@ -1097,8 +1105,12 @@ func TestReaderAttributeErrorsPreserveSyntaxAndSourceFailure(t *testing.T) {
 				}
 				token, err := reader.Next()
 				boundary, ok := errors.AsType[*Error](err)
-				if token != nil || !ok || boundary.Kind != ErrorSyntax || boundary.Line != test.line || boundary.Column != test.column {
-					t.Fatalf("Next() = %v, %#v, want syntax failure at %d:%d", token, boundary, test.line, test.column)
+				wantKind := ErrorSyntax
+				if test.wantSource {
+					wantKind = ErrorInput
+				}
+				if token != nil || !ok || boundary.Kind != wantKind || boundary.Line != test.line || boundary.Column != test.column {
+					t.Fatalf("Next() = %v, %#v, want kind %v at %d:%d", token, boundary, wantKind, test.line, test.column)
 				}
 				if test.message != "" && err.Error() != test.message {
 					t.Fatalf("error = %q, want %q", err, test.message)

@@ -670,15 +670,9 @@ func TestSourceReadLimit(t *testing.T) {
 	t.Parallel()
 	_, result := Bytes("schema.xsd", []byte("1234")).OpenInput(3)
 	err := result.Err
-	if !IsSchemaLimitError(err) {
-		t.Fatalf("Read() error = %v, want schema limit", err)
-	}
 	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
-	if !ok || diagnostic.Path() != "schema.xsd" {
-		t.Fatalf("Read() diagnostic = %v, want source path schema.xsd", err)
-	}
-	if !IsSchemaLimitError(fmt.Errorf("wrapped: %w", err)) {
-		t.Fatal("IsSchemaLimitError rejected wrapped error")
+	if !result.LimitExceeded || !ok || diagnostic.Code() != xsderrors.CodeSchemaLimit || diagnostic.Path() != "schema.xsd" {
+		t.Fatalf("Read() = %+v, want schema limit at source path schema.xsd", result)
 	}
 }
 
@@ -749,7 +743,7 @@ func TestSourceReadWithZeroLimitDistinguishesEmptyAndOversize(t *testing.T) {
 				t.Fatalf("OpenInput().Finish() exceeded = %v, want %v", result.LimitExceeded, tt.wantOver)
 			}
 			if tt.wantOver {
-				if !IsSchemaLimitError(result.Err) {
+				if !hasSchemaLimitCode(result.Err) {
 					t.Fatalf("OpenInput().Finish() error = %v, want schema limit", result.Err)
 				}
 				return
@@ -1018,6 +1012,69 @@ func TestInputFinishDrainsDetachesAndIsStable(t *testing.T) {
 	}
 }
 
+func TestInputDiscardClosesOnceWithoutReading(t *testing.T) {
+	t.Parallel()
+	open := func(t *testing.T, r *trackingReadCloser) *Input {
+		t.Helper()
+		input, opened := Opener("schema.xsd", func() (io.ReadCloser, error) { return r, nil }).OpenInput(100)
+		if input == nil || opened.Err != nil {
+			t.Fatalf("OpenInput() = input %v, result %+v", input != nil, opened)
+		}
+		return input
+	}
+
+	t.Run("unread input closes once and returns the close error", func(t *testing.T) {
+		t.Parallel()
+		closeErr := errors.New("close failed")
+		reader := &trackingReadCloser{Reader: strings.NewReader("schema"), closeErr: closeErr}
+		input := open(t, reader)
+		if err := input.Discard(); !errors.Is(err, closeErr) {
+			t.Fatalf("Discard() = %v, want %v", err, closeErr)
+		}
+		if err := input.Discard(); err != nil {
+			t.Fatalf("second Discard() = %v, want nil", err)
+		}
+		if result := input.Finish(); result.Stage != ReadStageClose || !errors.Is(result.Err, closeErr) {
+			t.Fatalf("Finish() after Discard() = %+v, want the close error at the close stage", result)
+		}
+		if reader.closes != 1 {
+			t.Fatalf("closes = %d, want 1", reader.closes)
+		}
+		if n, err := input.Read(make([]byte, 4)); n != 0 || !errors.Is(err, io.EOF) {
+			t.Fatalf("Read() after Discard() = %d, %v; want EOF", n, err)
+		}
+	})
+	t.Run("after Finish returns nil without a second close", func(t *testing.T) {
+		t.Parallel()
+		reader := &trackingReadCloser{Reader: strings.NewReader("schema")}
+		input := open(t, reader)
+		input.Finish()
+		if err := input.Discard(); err != nil {
+			t.Fatalf("Discard() after Finish() = %v, want nil", err)
+		}
+		if reader.closes != 1 {
+			t.Fatalf("closes = %d, want 1", reader.closes)
+		}
+	})
+	t.Run("after a failed read keeps both errors at the read stage", func(t *testing.T) {
+		t.Parallel()
+		readErr := errors.New("read failed")
+		closeErr := errors.New("close failed")
+		reader := &trackingReadCloser{Reader: &dataErrorReader{data: []byte("schema"), err: readErr}, closeErr: closeErr}
+		input := open(t, reader)
+		if _, err := io.ReadAll(input); !errors.Is(err, readErr) {
+			t.Fatalf("ReadAll() = %v, want %v", err, readErr)
+		}
+		if err := input.Discard(); !errors.Is(err, closeErr) {
+			t.Fatalf("Discard() = %v, want %v", err, closeErr)
+		}
+		result := input.Finish()
+		if result.Stage != ReadStageRead || !errors.Is(result.Err, readErr) || !errors.Is(result.Err, closeErr) {
+			t.Fatalf("Finish() = %+v, want joined read and close errors at the read stage", result)
+		}
+	})
+}
+
 func TestZeroInputReturnsActionableStableError(t *testing.T) {
 	t.Parallel()
 
@@ -1043,7 +1100,7 @@ func TestInputFinishProbesOnlyOneByteBeyondLimit(t *testing.T) {
 	result := finishSource(t, Opener("schema.xsd", func() (io.ReadCloser, error) {
 		return reader, nil
 	}), 3)
-	if !result.LimitExceeded || result.Bytes != 4 || !IsSchemaLimitError(result.Err) {
+	if !result.LimitExceeded || result.Bytes != 4 || !hasSchemaLimitCode(result.Err) {
 		t.Fatalf("Finish() = %+v, want four bytes and schema limit", result)
 	}
 	if reader.bytes != 4 {
@@ -1292,4 +1349,9 @@ func TestFileURIUserinfoDoesNotAliasLocalPath(t *testing.T) {
 	if uri == local {
 		t.Fatalf("file URI userinfo and local path collapsed to %q", uri)
 	}
+}
+
+func hasSchemaLimitCode(err error) bool {
+	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+	return ok && diagnostic.Code() == xsderrors.CodeSchemaLimit
 }

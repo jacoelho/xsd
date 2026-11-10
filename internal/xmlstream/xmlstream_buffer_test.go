@@ -234,7 +234,7 @@ func TestParserLimitCrossingPreservesJoinedReaderCause(t *testing.T) {
 			t.Fatalf("token before terminal error = %v", err)
 		}
 	}
-	if _, err := parser.next(); !errors.Is(err, errXMLInputLimit) || !errors.Is(err, readErr) || IsOnlyEOF(err) {
+	if _, err := parser.next(); !errors.Is(err, errXMLInputLimit) || !errors.Is(err, readErr) {
 		t.Fatalf("terminal error = %v, want joined input limit and non-EOF cause", err)
 	}
 	if _, err := parser.next(); !errors.Is(err, errXMLInputLimit) || !errors.Is(err, readErr) {
@@ -263,6 +263,7 @@ func TestParserOffsetsAfterBOMWithoutLimit(t *testing.T) {
 
 func TestReaderSkippedProcessingInstructionErrors(t *testing.T) {
 	readErr := errors.New("PI source failed")
+	wrappedEOF := fmt.Errorf("closed: %w", io.EOF)
 	for _, test := range []struct {
 		name    string
 		input   string
@@ -274,6 +275,7 @@ func TestReaderSkippedProcessingInstructionErrors(t *testing.T) {
 		{name: "pending question EOF", input: "<r><?p ?", message: "unexpected EOF in processing instruction"},
 		{name: "reader error", input: "<r><?p ?", readErr: readErr, cause: readErr},
 		{name: "joined EOF and reader error", input: "<r><?p ?", readErr: errors.Join(io.EOF, readErr), cause: readErr, wantEOF: true},
+		{name: "wrapped EOF", input: "<r><?p ?", readErr: wrappedEOF, cause: wrappedEOF, wantEOF: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var reader Reader
@@ -287,8 +289,12 @@ func TestReaderSkippedProcessingInstructionErrors(t *testing.T) {
 			}
 			token, err := reader.Next()
 			boundary, ok := errors.AsType[*Error](err)
-			if token != nil || !ok || boundary.Kind != ErrorSyntax {
-				t.Fatalf("Next() = %v, %v, want syntax failure", token, err)
+			wantKind := ErrorSyntax
+			if test.readErr != nil {
+				wantKind = ErrorInput
+			}
+			if token != nil || !ok || boundary.Kind != wantKind {
+				t.Fatalf("Next() = %v, %v, want kind %v", token, err, wantKind)
 			}
 			if test.message != "" && err.Error() != test.message {
 				t.Fatalf("error = %q, want %q", err, test.message)

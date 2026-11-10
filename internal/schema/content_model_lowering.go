@@ -86,9 +86,21 @@ func validateModelGroupChildAdmission(parent modelKind, child modelChildAdmissio
 	return nil
 }
 
+// appendModelParticles is the only production statement that grows
+// contentModelNode.Particles. It charges one MaxSchemaDependencySteps step per
+// particle before it allocates, so no model under construction retains memory
+// that the dependency budget has not paid for.
+func appendModelParticles(work *workBudget, model *contentModelNode, particles ...contentParticle) error {
+	if err := work.spend(len(particles)); err != nil {
+		return err
+	}
+	model.Particles = append(model.Particles, particles...)
+	return nil
+}
+
 // appendParticle applies compile-time particle admission rules and appends p to
 // model. Zero-count particles are omitted from the lowered model.
-func appendParticle(model *contentModelNode, p contentParticle) error {
+func appendParticle(work *workBudget, model *contentModelNode, p contentParticle) error {
 	if err := validateModelGroupChildAdmission(model.Kind, modelChildAdmission{Kind: modelParticleChildKind(p)}); err != nil {
 		return err
 	}
@@ -98,8 +110,7 @@ func appendParticle(model *contentModelNode, p contentParticle) error {
 	if model.Kind == modelAll && (p.Occurs.Unbounded || p.Occurs.Max > 1) {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, "xs:all particles cannot repeat")
 	}
-	model.Particles = append(model.Particles, p)
-	return nil
+	return appendModelParticles(work, model, p)
 }
 
 func modelParticleChildKind(p contentParticle) modelChildKind {
@@ -186,8 +197,7 @@ func extendSequenceModel(rt *schemaBuild, add addContentModelFunc, baseID, extID
 
 func appendSequenceExtensionOperand(rt *schemaBuild, add addContentModelFunc, target *contentModelNode, id contentModelID, model contentModelNode) error {
 	if model.Kind == modelSequence && model.Occurs.IsExactlyOne() {
-		target.Particles = append(target.Particles, model.Particles...)
-		return nil
+		return appendModelParticles(rt.typeWork, target, model.Particles...)
 	}
 	return appendModelParticle(rt, add, target, id)
 }
@@ -224,8 +234,7 @@ func appendModelParticle(rt *schemaBuild, add addContentModelFunc, model *conten
 	if err != nil || !ok {
 		return err
 	}
-	model.Particles = append(model.Particles, p)
-	return nil
+	return appendModelParticles(rt.typeWork, model, p)
 }
 
 // compileModelParticle lowers a referenced content model into a particle. Repeated
@@ -254,21 +263,18 @@ func compileModelParticle(rt *schemaBuild, add addContentModelFunc, id contentMo
 
 // appendFlattenedModelChild removes pointless groups only. Language-equivalent
 // occurrence multiplication can erase a structural restriction boundary.
-func appendFlattenedModelChild(model *contentModelNode, child contentModelNode) bool {
+func appendFlattenedModelChild(work *workBudget, model *contentModelNode, child contentModelNode) (bool, error) {
 	if model.Kind == modelChoice && child.Kind == modelChoice && child.Occurs.IsExactlyOne() {
-		model.Particles = append(model.Particles, child.Particles...)
-		return true
+		return true, appendModelParticles(work, model, child.Particles...)
 	}
 	if model.Kind != modelSequence {
-		return false
+		return false, nil
 	}
 	if (child.Kind == modelSequence || child.Kind == modelChoice) && len(child.Particles) == 1 && child.Occurs.IsExactlyOne() {
-		model.Particles = append(model.Particles, child.Particles[0])
-		return true
+		return true, appendModelParticles(work, model, child.Particles[0])
 	}
 	if child.Kind == modelSequence && len(child.Particles) > 1 && child.Occurs.IsExactlyOne() {
-		model.Particles = append(model.Particles, child.Particles...)
-		return true
+		return true, appendModelParticles(work, model, child.Particles...)
 	}
-	return false
+	return false, nil
 }

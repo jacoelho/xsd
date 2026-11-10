@@ -1,7 +1,5 @@
 package xmlstream
 
-import "errors"
-
 // UnsupportedFeature names a well-formed XML feature this reader rejects
 // because the project contract excludes it. The set is closed: consumers map
 // it with exhaustive switches, so a new feature fails lint at every consumer.
@@ -22,16 +20,18 @@ const (
 
 // UnsupportedFeatureOf classifies err, as returned by this package's readers
 // and decoders. Error.Kind is ErrorUnsupported exactly when it reports true.
+// An error returned by the caller's reader is never classified, whatever its
+// chain contains.
 func UnsupportedFeatureOf(err error) (UnsupportedFeature, bool) {
 	switch {
-	case errors.Is(err, errUnsupportedDTD):
+	case originatesSentinel(err, errUnsupportedDTD):
 		return UnsupportedDTD, true
-	case errors.Is(err, errUnsupportedNonUTF8):
+	case originatesSentinel(err, errUnsupportedNonUTF8):
 		return UnsupportedNonUTF8, true
-	case errors.Is(err, errUnsupportedEntityReference):
+	case originatesSentinel(err, errUnsupportedEntityReference):
 		return UnsupportedEntityReference, true
 	}
-	if _, ok := errors.AsType[unsupportedXMLVersionError](err); ok {
+	if originates(err, func(e error) bool { _, ok := e.(unsupportedXMLVersionError); return ok }) { //nolint:errorlint // origin walk
 		return UnsupportedXMLVersion, true
 	}
 	return 0, false

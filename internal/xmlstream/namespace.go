@@ -3,10 +3,10 @@ package xmlstream
 import (
 	"encoding/xml"
 	"errors"
-	"fmt"
 	"math"
 	"slices"
 
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/vocab"
 )
 
@@ -185,9 +185,9 @@ func (s *stack) matchClosingName(current *stackFrame, end LexicalName) error {
 		return nil
 	}
 	if _, ok := s.resolveName(xml.Name{Space: end.Prefix, Local: end.Local}, elementName); !ok {
-		return fmt.Errorf("unbound namespace prefix %s", end.Prefix)
+		return errors.New("unbound namespace prefix " + diagnostictext.Quote(end.Prefix))
 	}
-	return fmt.Errorf("end element </%s> does not match start element <%s>", formatLexical(end), formatLexical(current.lexical))
+	return errors.New("end element " + quoteLexical(end) + " does not match start element " + quoteLexical(current.lexical))
 }
 
 // Abort releases the identified top frame without validating a closing name.
@@ -303,7 +303,7 @@ func (s *stack) clearAttributeAdmission() {
 func (s *stack) resolveElement(lexical LexicalName) (xml.Name, error) {
 	name, ok := s.resolveName(xml.Name{Space: lexical.Prefix, Local: lexical.Local}, elementName)
 	if !ok {
-		return xml.Name{}, fmt.Errorf("unbound namespace prefix %s", lexical.Prefix)
+		return xml.Name{}, errors.New("unbound namespace prefix " + diagnostictext.Quote(lexical.Prefix))
 	}
 	return name, nil
 }
@@ -314,16 +314,17 @@ func (s *stack) resolveAttribute(name xml.Name) (xml.Name, error) {
 	}
 	resolved, ok := s.resolveName(name, attributeName)
 	if !ok {
-		return xml.Name{}, fmt.Errorf("unbound namespace prefix %s", name.Space)
+		return xml.Name{}, errors.New("unbound namespace prefix " + diagnostictext.Quote(name.Space))
 	}
 	return resolved, nil
 }
 
-func formatLexical(name LexicalName) string {
+// quoteLexical quotes prefix:local without allocating the full name first.
+func quoteLexical(name LexicalName) string {
 	if name.Prefix == "" {
-		return name.Local
+		return diagnostictext.Quote(name.Local)
 	}
-	return name.Prefix + ":" + name.Local
+	return diagnostictext.QuoteParts(name.Prefix, ":", name.Local)
 }
 
 // Context returns a constant-time immutable view of all active bindings. The
@@ -398,15 +399,7 @@ func (s *nameSet) resetRetained(maxRetained int) {
 }
 
 func duplicateAttributeError(name xml.Name) error {
-	return errors.New("duplicate attribute " + FormatName(name))
-}
-
-// FormatName formats an XML name using expanded-name notation.
-func FormatName(n xml.Name) string {
-	if n.Space == "" {
-		return n.Local
-	}
-	return "{" + n.Space + "}" + n.Local
+	return errors.New("duplicate attribute " + diagnostictext.ExpandedName(name.Space, name.Local))
 }
 
 // Reset invalidates live frames and clears the stack while retaining bounded

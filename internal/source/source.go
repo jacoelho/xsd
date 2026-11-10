@@ -37,6 +37,7 @@ const (
 	sourceInvalid sourceKind = iota
 	sourceBytes
 	sourceOpener
+	sourceFile
 )
 
 type resolutionContext struct {
@@ -219,7 +220,7 @@ func File(file string) Source {
 	}
 	return Source{
 		name: file,
-		kind: sourceOpener,
+		kind: sourceFile,
 		open: func() (io.ReadCloser, error) {
 			if absoluteErr != nil {
 				return nil, absoluteErr
@@ -402,8 +403,27 @@ type ReadResult struct {
 	OpenNotFound bool
 }
 
+// StaticContent returns the complete content identity of an immutable
+// in-memory source, available without opening it. ok is false for file, opener and
+// invalid sources. No byte limit is applied.
+func (s Source) StaticContent() (size int64, digest [sha256.Size]byte, ok bool) {
+	if s.kind != sourceBytes {
+		return 0, [sha256.Size]byte{}, false
+	}
+	return int64(len(s.data)), s.digest, true
+}
+
+// ContentFixedByName reports whether the source's content is determined by its
+// name alone for the duration of one compilation. It is true only for built-in
+// File sources: two of them with the same name open the same file, so content
+// read through one need not be reread through the other. It is false for Bytes
+// sources (their identity is StaticContent) and for Opener sources, whose
+// content is whatever the opener returns. The resolution context is
+// irrelevant: WithResolver does not change what a File source opens.
+func (s Source) ContentFixedByName() bool { return s.kind == sourceFile }
+
 // OpenInput opens s for bounded streaming. A non-nil Input owns the opened
-// source until Finish is called. The returned result is non-zero only when
+// source until Finish or Discard is called. The returned result is non-zero only when
 // opening or source admission fails before an Input can be returned.
 func (s Source) OpenInput(maxBytes int64) (*Input, ReadResult) {
 	if maxBytes < 0 {
@@ -418,7 +438,7 @@ func (s Source) OpenInput(maxBytes int64) (*Input, ReadResult) {
 			return nil, ReadResult{Err: schemaSourceLimitError(s.name), LimitExceeded: true}
 		}
 		return newBytesInput(s.name, s.data, s.digest, maxBytes), ReadResult{}
-	case sourceOpener:
+	case sourceOpener, sourceFile:
 		if s.open == nil {
 			return nil, ReadResult{
 				Err:   xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source opener is nil"),
@@ -465,12 +485,6 @@ func schemaSourceLimitError(name string) error {
 		msg = "schema source " + name + " exceeds MaxSchemaSourceBytes"
 	}
 	return xsderrors.WithLocation(name, 0, 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, msg))
-}
-
-// IsSchemaLimitError reports whether err is a schema source byte-limit diagnostic.
-func IsSchemaLimitError(err error) bool {
-	x, ok := errors.AsType[*xsderrors.Error](err)
-	return ok && x.Code() == xsderrors.CodeSchemaLimit
 }
 
 // Key canonicalizes a schema source name for loaded-document identity (see

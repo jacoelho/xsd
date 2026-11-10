@@ -187,9 +187,8 @@ func isXSITypeName(name xml.Name) bool {
 }
 
 type xsiStartAttributeFlags struct {
-	Type           bool
-	Nil            bool
-	SchemaLocation bool
+	Type bool
+	Nil  bool
 }
 
 func xsiStartAttributeFlagsFor(attrs []xmlstream.Attr) xsiStartAttributeFlags {
@@ -203,8 +202,6 @@ func xsiStartAttributeFlagsFor(attrs []xmlstream.Attr) xsiStartAttributeFlags {
 			flags.Type = true
 		case vocab.XSIAttrNil:
 			flags.Nil = true
-		case vocab.XSIAttrSchemaLocation, vocab.XSIAttrNoNamespaceSchemaLocation:
-			flags.SchemaLocation = true
 		}
 	}
 	return flags

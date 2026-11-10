@@ -93,7 +93,7 @@ func xsiURIIdentity(rt *xsdSchema.Schema, lexical, attribute string, eval xsdVal
 
 // xsiSchemaLocationIdentity evaluates each URI item separately under the
 // per-value work limit. The aggregate is bounded only by the attribute's token
-// bytes: hint limits count distinct namespaces, not items.
+// bytes: no hint limit exists; MaxInstanceTokenBytes bounds the attribute.
 func xsiSchemaLocationIdentity(rt *xsdSchema.Schema, lexical string, eval xsdValue.EvaluationLimits, ctx startContext) (string, error) {
 	anyURI, err := xsiAnyURIType(rt)
 	if err != nil {

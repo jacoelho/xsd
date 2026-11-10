@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:group name="g0"><xs:sequence><xs:element name="e" type="xs:string"/></xs:sequence></xs:group>
+<xs:group name="g1"><xs:sequence><xs:group ref="g0"/><xs:group ref="g0"/></xs:sequence></xs:group>
+<xs:group name="g2"><xs:sequence><xs:group ref="g1"/><xs:group ref="g1"/></xs:sequence></xs:group>
+<xs:group name="g3"><xs:sequence><xs:group ref="g2"/><xs:group ref="g2"/></xs:sequence></xs:group>
+<xs:group name="g4"><xs:sequence><xs:group ref="g3"/><xs:group ref="g3"/></xs:sequence></xs:group>
+<xs:group name="g5"><xs:sequence><xs:group ref="g4"/><xs:group ref="g4"/></xs:sequence></xs:group>
+<xs:group name="g6"><xs:sequence><xs:group ref="g5"/><xs:group ref="g5"/></xs:sequence></xs:group>
+<xs:group name="g7"><xs:sequence><xs:group ref="g6"/><xs:group ref="g6"/></xs:sequence></xs:group>
+<xs:group name="g8"><xs:sequence><xs:group ref="g7"/><xs:group ref="g7"/></xs:sequence></xs:group>
+<xs:group name="g9"><xs:sequence><xs:group ref="g8"/><xs:group ref="g8"/></xs:sequence></xs:group>
+<xs:group name="g10"><xs:sequence><xs:group ref="g9"/><xs:group ref="g9"/></xs:sequence></xs:group>
+<xs:group name="g11"><xs:sequence><xs:group ref="g10"/><xs:group ref="g10"/></xs:sequence></xs:group>
+<xs:group name="g12"><xs:sequence><xs:group ref="g11"/><xs:group ref="g11"/></xs:sequence></xs:group>
+<xs:group name="g13"><xs:sequence><xs:group ref="g12"/><xs:group ref="g12"/></xs:sequence></xs:group>
+<xs:group name="g14"><xs:sequence><xs:group ref="g13"/><xs:group ref="g13"/></xs:sequence></xs:group>
+<xs:group name="g15"><xs:sequence><xs:group ref="g14"/><xs:group ref="g14"/></xs:sequence></xs:group>
+<xs:group name="g16"><xs:sequence><xs:group ref="g15"/><xs:group ref="g15"/></xs:sequence></xs:group>
+<xs:group name="g17"><xs:sequence><xs:group ref="g16"/><xs:group ref="g16"/></xs:sequence></xs:group>
+<xs:group name="g18"><xs:sequence><xs:group ref="g17"/><xs:group ref="g17"/></xs:sequence></xs:group>
+<xs:group name="g19"><xs:sequence><xs:group ref="g18"/><xs:group ref="g18"/></xs:sequence></xs:group>
+<xs:group name="g20"><xs:sequence><xs:group ref="g19"/><xs:group ref="g19"/></xs:sequence></xs:group>
+<xs:complexType name="T"><xs:group ref="g20"/></xs:complexType>
+<xs:element name="root" type="T"/>
+</xs:schema>

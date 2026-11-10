@@ -40,7 +40,7 @@ func (c *compiler) compileModel(n *schemaNode, ctx *schemaSetDocument) (contentM
 	return c.compileModelComponent(n, ctx, occurs)
 }
 
-func (c *compiler) compileModelComponent(n *schemaNode, ctx *schemaSetDocument, occurs occurrence) (contentModelID, error) {
+func (c *compiler) compileModelComponent(n *schemaNode, ctx *schemaSetDocument, occurs occurrence) (result contentModelID, err error) {
 	if dependencyErr := c.spendComponentDependency(n); dependencyErr != nil {
 		return noContentModel, dependencyErr
 	}
@@ -48,7 +48,7 @@ func (c *compiler) compileModelComponent(n *schemaNode, ctx *schemaSetDocument, 
 	if err != nil {
 		return noContentModel, err
 	}
-	defer leave()
+	defer leave(&err)
 	id, err := c.addModelAt(contentModelNode{}, n)
 	if err != nil {
 		return noContentModel, err
@@ -186,13 +186,13 @@ func (c *compiler) appendModelChild(m *contentModelNode, child *schemaNode, ctx 
 		if err != nil {
 			return err
 		}
-		return withSchemaCompileLocation(child, appendParticle(m, p))
+		return withSchemaCompileLocation(child, appendParticle(&c.dependencyWork, m, p))
 	case vocab.XSDElemAny:
 		p, err := c.compileWildcardParticle(child, ctx)
 		if err != nil {
 			return err
 		}
-		return withSchemaCompileLocation(child, appendParticle(m, p))
+		return withSchemaCompileLocation(child, appendParticle(&c.dependencyWork, m, p))
 	case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll, vocab.XSDElemGroup:
 		return c.appendNestedModelChild(m, child, ctx)
 	}
@@ -226,7 +226,11 @@ func (c *compiler) appendNestedModelChild(m *contentModelNode, child *schemaNode
 	if err != nil || childModelID == noContentModel {
 		return err
 	}
-	if appendFlattenedModelChild(m, childModel) {
+	flattened, err := appendFlattenedModelChild(&c.dependencyWork, m, childModel)
+	if err != nil {
+		return withSchemaCompileLocation(child, err)
+	}
+	if flattened {
 		return nil
 	}
 	p, ok, err := c.modelParticle(childModelID)
@@ -236,7 +240,7 @@ func (c *compiler) appendNestedModelChild(m *contentModelNode, child *schemaNode
 	if !ok {
 		return nil
 	}
-	return withSchemaCompileLocation(child, appendParticle(m, p))
+	return withSchemaCompileLocation(child, appendParticle(&c.dependencyWork, m, p))
 }
 
 // compileDeferredModelChildren gives descendants of a zero-count sequence or

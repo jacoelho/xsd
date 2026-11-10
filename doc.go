@@ -13,7 +13,8 @@
 // must provide resolver, opener, and reader implementations they can unblock.
 //
 // Instance validation uses the compiled component set; location hints cannot
-// supply missing declarations or types. Hint syntax and resource limits apply.
+// supply missing declarations or types. On assessed elements each hint item must
+// be a valid anyURI; MaxInstanceTokenBytes bounds each hint attribute.
 // Validation is streaming. Engine.Validate consumes an io.Reader with
 // a low-level byte XML parser, rejects DTD declarations, rejects non-UTF-8
 // instance documents, and resets document state before retaining bounded scratch

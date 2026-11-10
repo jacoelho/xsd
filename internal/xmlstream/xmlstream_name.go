@@ -177,7 +177,7 @@ func (p *parser) readWindowName(first byte) (name xml.Name, ok bool, err error) 
 }
 
 func xmlNameReadError(err error) error {
-	if IsOnlyEOF(err) {
+	if IsEOF(err) {
 		return fmt.Errorf("unexpected EOF in XML name")
 	}
 	return err

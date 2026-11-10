@@ -1,7 +1,5 @@
 package xmlstream
 
-import "errors"
-
 // Limit identifies which Limits field a Reader failure exceeded. The set is
 // closed and mirrors the Limits fields the Reader enforces on input; consumers
 // map every Limit to their own option name in one exhaustive switch, so a new
@@ -21,16 +19,17 @@ const (
 )
 
 // LimitOf reports which Limit err exceeded. Error.Kind is ErrorLimit exactly
-// when LimitOf reports true.
+// when LimitOf reports true. An error returned by the caller's reader is
+// never classified, whatever its chain contains.
 func LimitOf(err error) (Limit, bool) {
 	switch {
-	case errors.Is(err, errXMLInputLimit):
+	case originatesSentinel(err, errXMLInputLimit):
 		return LimitInputBytes, true
-	case errors.Is(err, errXMLTokenLimit):
+	case originatesSentinel(err, errXMLTokenLimit):
 		return LimitTokenBytes, true
-	case errors.Is(err, errXMLAttributeLimit):
+	case originatesSentinel(err, errXMLAttributeLimit):
 		return LimitAttrs, true
-	case errors.Is(err, errXMLDepthLimit):
+	case originatesSentinel(err, errXMLDepthLimit):
 		return LimitDepth, true
 	}
 	return 0, false

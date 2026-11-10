@@ -54,7 +54,7 @@ func TestParserPreflightRejectsInvalidInputs(t *testing.T) {
 
 func TestParserPreflightRejectsNilReader(t *testing.T) {
 	var reader xmlstream.Reader
-	requireCode(t, streamError(reader.Reset(nil, xmlstream.Config{}), startContext{}, Limits{}), xsderrors.CodeValidationXML)
+	requireCode(t, streamError(reader.Reset(nil, xmlstream.Config{}), startContext{}, Limits{}), xsderrors.CodeValidationRead)
 }
 
 func TestParserPreflightDoesNotReadWholeDocumentWithoutDeclaration(t *testing.T) {

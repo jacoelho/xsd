@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"os"
@@ -202,40 +203,42 @@ func TestExplicitSchemaSourceLimitCountsSameIdentityDescriptors(t *testing.T) {
 	}
 }
 
-func TestSchemaSourceLimitCombinesExplicitDescriptorsAndResolvedIdentities(t *testing.T) {
+func TestSchemaSourceLimitCountsDistinctLoadedDocuments(t *testing.T) {
 	t.Parallel()
 
-	rootData := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="child.xsd"/></xs:schema>`)
+	include := func(locations ...string) []byte {
+		doc := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`
+		for _, location := range locations {
+			doc += `<xs:include schemaLocation="` + location + `"/>`
+		}
+		return []byte(doc + `</xs:schema>`)
+	}
 	childData := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`
-	compileWithLimit := func(limit int) (resolverCalls, childOpenCalls int, err error) {
-		resolver := source.Resolver(func(_, location string) (source.Source, error) {
-			resolverCalls++
-			return source.Opener(location, func() (io.ReadCloser, error) {
-				childOpenCalls++
-				return io.NopCloser(strings.NewReader(childData)), nil
-			}), nil
-		})
+	resolver := source.Resolver(func(_, location string) (source.Source, error) {
+		return source.Opener(location, func() (io.ReadCloser, error) {
+			return io.NopCloser(strings.NewReader(childData)), nil
+		}), nil
+	})
+	compile := func(limit int, rootData []byte) error {
 		root := func() source.Source {
 			return source.Bytes("root.xsd", rootData).WithResolver(resolver)
 		}
-		_, err = Compile(Options{MaxSchemaSources: limit}, []source.Source{root(), root()})
-		return resolverCalls, childOpenCalls, err
+		// Two same-identity descriptors count as one document.
+		_, err := Compile(Options{MaxSchemaSources: limit}, []source.Source{root(), root()})
+		return err
 	}
 
-	resolverCalls, childOpenCalls, err := compileWithLimit(2)
+	oneChild := include("child.xsd")
+	if err := compile(2, oneChild); err != nil {
+		t.Fatalf("Compile(root + one child, limit 2) error = %v", err)
+	}
+	twoChildren := include("a.xsd", "b.xsd")
+	err := compile(2, twoChildren)
 	if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code() != xsderrors.CodeSchemaLimit {
-		t.Fatalf("Compile(limit 2) error = %v, want schema limit", err)
+		t.Fatalf("Compile(two distinct children, limit 2) error = %v, want schema limit", err)
 	}
-	if resolverCalls != 1 || childOpenCalls != 0 {
-		t.Fatalf("Compile(limit 2) calls = resolver %d, child open %d, want 1, 0", resolverCalls, childOpenCalls)
-	}
-
-	resolverCalls, childOpenCalls, err = compileWithLimit(3)
-	if err != nil {
-		t.Fatalf("Compile(limit 3) error = %v", err)
-	}
-	if resolverCalls != 2 || childOpenCalls != 2 {
-		t.Fatalf("Compile(limit 3) calls = resolver %d, child open %d, want 2, 2", resolverCalls, childOpenCalls)
+	if err := compile(3, twoChildren); err != nil {
+		t.Fatalf("Compile(two distinct children, limit 3) error = %v", err)
 	}
 }
 
@@ -285,7 +288,7 @@ func TestSchemaSetAggregateByteLimitBoundsCurrentRead(t *testing.T) {
 	}
 }
 
-func TestSchemaSetAggregateByteLimitIncludesIdentityVerificationReads(t *testing.T) {
+func TestSchemaSetAggregateByteLimitChargesInMemoryRepeatsOnce(t *testing.T) {
 	t.Parallel()
 
 	rootData := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="shared.xsd"/></xs:schema>`)
@@ -295,31 +298,45 @@ func TestSchemaSetAggregateByteLimitIncludesIdentityVerificationReads(t *testing
 			return source.Bytes("shared.xsd", childData), nil
 		}
 	}
-	logicalDistinctBytes := int64(2*len(rootData) + len(childData))
-	_, err := Compile(Options{MaxSchemaTotalBytes: logicalDistinctBytes}, []source.Source{
+	sources := []source.Source{
 		source.Bytes("a.xsd", rootData).WithResolver(resolverFor()),
 		source.Bytes("b.xsd", rootData).WithResolver(resolverFor()),
-	})
-
-	if err == nil || !strings.Contains(err.Error(), "MaxSchemaTotalBytes") {
-		t.Fatalf("Compile() error = %v, want identity verification to consume aggregate byte budget", err)
+	}
+	distinct := int64(2*len(rootData) + len(childData))
+	if _, err := Compile(Options{MaxSchemaTotalBytes: distinct}, sources); err != nil {
+		t.Fatalf("Compile(distinct total) error = %v", err)
+	}
+	_, err := Compile(Options{MaxSchemaTotalBytes: distinct - 1}, sources)
+	if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code() != xsderrors.CodeSchemaLimit {
+		t.Fatalf("Compile(distinct total - 1) error = %v, want schema limit", err)
 	}
 }
 
-func TestSchemaSetAggregateByteLimitIncludesDirectIdentityVerificationReads(t *testing.T) {
+func TestSchemaSetAggregateByteLimitSameIdentityDescriptors(t *testing.T) {
 	t.Parallel()
 
 	data := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
-	sources := []source.Source{
-		source.Bytes("dir/../schema.xsd", data),
-		source.Bytes("schema.xsd", data),
+	opener := func(name string) source.Source {
+		return source.Opener(name, func() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(data)), nil })
 	}
-	if _, err := Compile(Options{MaxSchemaTotalBytes: int64(2 * len(data))}, sources); err != nil {
-		t.Fatalf("Compile(exact identity verification budget) error = %v", err)
-	}
-	_, err := Compile(Options{MaxSchemaTotalBytes: int64(2*len(data) - 1)}, sources)
-	if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code() != xsderrors.CodeSchemaLimit {
-		t.Fatalf("Compile(over identity verification budget) error = %v, want schema limit", err)
+	for _, tt := range []struct {
+		name    string
+		sources []source.Source
+		want    int64
+	}{
+		{"bytes", []source.Source{source.Bytes("dir/../schema.xsd", data), source.Bytes("schema.xsd", data)}, int64(len(data))},
+		{"opener", []source.Source{opener("dir/../schema.xsd"), opener("schema.xsd")}, int64(2 * len(data))},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if _, err := Compile(Options{MaxSchemaTotalBytes: tt.want}, tt.sources); err != nil {
+				t.Fatalf("Compile(exact budget) error = %v", err)
+			}
+			_, err := Compile(Options{MaxSchemaTotalBytes: tt.want - 1}, tt.sources)
+			if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code() != xsderrors.CodeSchemaLimit {
+				t.Fatalf("Compile(budget - 1) error = %v, want schema limit", err)
+			}
+		})
 	}
 }
 
@@ -415,7 +432,7 @@ func TestSchemaDependencyStepLimitStopsResolutionIncrementally(t *testing.T) {
 		calls++
 		return source.Source{}, xsderrors.ErrSchemaNotFound
 	})
-	_, err := Compile(Options{MaxSchemaDependencySteps: 1}, []source.Source{
+	_, err := Compile(Options{MaxSchemaDependencySteps: 2}, []source.Source{
 		source.Bytes("root.xsd", rootData).WithResolver(resolver),
 	})
 
@@ -712,5 +729,27 @@ func TestTargetReferencePlanningChargesOnlyResolvedEdges(t *testing.T) {
 				t.Fatalf("plan documents = %v in %v, want ordered imported/include/root contexts", names, targets)
 			}
 		})
+	}
+}
+
+// TestSchemaReaderFailuresKeepTheirPlane pins the reader-error classification
+// for schemas: an exceeded XML reader limit is schema.limit and a failing
+// source is schema.read, never a syntax error, whatever xmlstream wraps.
+func TestSchemaReaderFailuresKeepTheirPlane(t *testing.T) {
+	t.Parallel()
+
+	data := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="` + strings.Repeat("e", 64) + `" type="xs:string"/></xs:schema>`
+	_, err := Compile(Options{MaxSchemaTokenBytes: 16}, []source.Source{source.Bytes("limit.xsd", []byte(data))})
+	if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code() != xsderrors.CodeSchemaLimit {
+		t.Fatalf("Compile(token limit) error = %v, want schema.limit", err)
+	}
+
+	readErr := errors.New("disk failed")
+	failing := source.Opener("read.xsd", func() (io.ReadCloser, error) {
+		return &dataErrorReadCloser{data: []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`), err: readErr}, nil
+	})
+	_, err = Compile(Options{}, []source.Source{failing})
+	if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code() != xsderrors.CodeSchemaRead || !errors.Is(err, readErr) {
+		t.Fatalf("Compile(failing reader) error = %v, want schema.read with cause", err)
 	}
 }

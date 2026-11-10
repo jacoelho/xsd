@@ -2,6 +2,7 @@ package schema
 
 import (
 	"errors"
+	"math"
 	"reflect"
 	"slices"
 	"testing"
@@ -141,7 +142,7 @@ func TestSchemaBuildInstallsCorrelatedSubstitutionTables(t *testing.T) {
 func TestSchemaBuildCompiledModelInstallationPreservesAlignment(t *testing.T) {
 	t.Parallel()
 
-	c := compiler{rt: newSchemaBuild(nameTable{})}
+	c := compiler{rt: newSchemaBuild(nameTable{}), dependencyWork: newWorkBudget(dependencyWorkBudget, math.MaxInt)}
 	if _, err := c.addModel(contentModelNode{}); err != nil {
 		t.Fatal(err)
 	}

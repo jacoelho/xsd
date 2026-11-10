@@ -93,7 +93,7 @@ func (c *compiler) complexTypeCycleError(id ComplexTypeID, use *schemaNode) erro
 	return withSchemaCompileLocation(use, err)
 }
 
-func (c *compiler) completeComplexDefinition(id ComplexTypeID) error {
+func (c *compiler) completeComplexDefinition(id ComplexTypeID) (err error) {
 	definition := c.complexDefinitions[id]
 	switch definition.state {
 	case complexTypeComplete:
@@ -108,14 +108,14 @@ func (c *compiler) completeComplexDefinition(id ComplexTypeID) error {
 	if n == nil {
 		return xsderrors.InternalInvariant("complex type definition has no source")
 	}
-	if err := c.spendComponentDependency(n); err != nil {
+	if err = c.spendComponentDependency(n); err != nil {
 		return err
 	}
 	leave, err := c.enterComponent(n)
 	if err != nil {
 		return err
 	}
-	defer leave()
+	defer leave(&err)
 	c.complexDefinitions[id].state = complexTypeCompleting
 	ct, err := c.compileComplexType(n, definition.source.ctx, c.rt.ComplexTypes[id].Name)
 	if err != nil {

@@ -24,11 +24,10 @@ func TestContentModelByID(t *testing.T) {
 	if !ok ||
 		got.Kind != modelSequence ||
 		!slices.Equal(got.Particles, models[1].Particles) {
-		t.Fatalf("ContentModelByID(valid) = %+v, %v; want cloned model 1, true", got, ok)
+		t.Fatalf("ContentModelByID(valid) = %+v, %v; want stored model 1, true", got, ok)
 	}
-	got.Particles[0].Element = 9
-	if models[1].Particles[0].Element != 1 {
-		t.Fatalf("ContentModelByID aliased particle slice: %+v", models[1])
+	if &got.Particles[0] != &models[1].Particles[0] {
+		t.Fatalf("ContentModelByID copied the stored particle slice: %+v", models[1])
 	}
 	for _, id := range []contentModelID{noContentModel, 2} {
 		got, ok := contentModelByID(models, id)
@@ -682,6 +681,7 @@ func TestOccurrenceIsExactlyOne(t *testing.T) {
 func (f contentRestrictionFixture) build() *schemaBuild {
 	b := (&derivationFixture{simple: f.simpleDerivations, complex: f.complexDerivations, anyType: f.anyType}).build()
 	b.Models = cloneContentModels(f.models)
+	b.typeWork = testDependencyWork()
 	b.Elements = fixtureElements(f.elements, f.elementRestrictions)
 	return b
 }
