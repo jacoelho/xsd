@@ -265,6 +265,7 @@ func TestIsConclusiveValidationTruthTable(t *testing.T) {
 		{name: "semantic and limit collection", err: NewErrors(semantic, limit)},
 		{name: "semantic root with nil cause", err: Validation(CodeValidationRoot, "missing root", nil), want: true},
 		{name: "XML diagnostic", err: Validation(CodeValidationXML, "malformed XML", nil)},
+		{name: "read diagnostic", err: Validation(CodeValidationRead, "read instance document", nil)},
 		{name: "option diagnostic", err: Validation(CodeValidationOption, "invalid option", nil)},
 		{name: "session diagnostic", err: Validation(CodeValidationSession, "session busy", nil)},
 		{name: "limit diagnostic", err: limit},

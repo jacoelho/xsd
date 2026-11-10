@@ -35,6 +35,8 @@ func CompileMappedSources[T any](opts Options, sources []T, sourceOf func(T) sou
 	if len(sources) == 0 {
 		return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaNoSources, "at least one schema source is required")
 	}
+	// Bounds the caller's explicit list; documents, explicit and
+	// resolver-loaded, are counted when the loader registers them.
 	if len(sources) > limits.MaxSchemaSources {
 		return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema source count exceeds MaxSchemaSources")
 	}
@@ -66,24 +68,39 @@ func mapSchemaSources[T any](sources []T, sourceOf func(T) source.Source) ([]sou
 // compileMappedSources indexes only after loading has planned every effective
 // target namespace, because chameleon documents are indexed once per context.
 func (c *compiler) compileMappedSources(owned []source.Source) (*Schema, error) {
-	var err error
-	if err = c.loadOwned(owned); err != nil {
+	if err := c.loadOwned(owned); err != nil {
 		return nil, err
 	}
-	if err = c.index(); err != nil {
-		return nil, err
-	}
-	if err = c.reserveIndexedComponentStorage(); err != nil {
-		return nil, err
-	}
-	if err = c.compileGlobals(); err != nil {
-		return nil, err
-	}
-	rt, err := c.publishSchema()
+	rt, err := c.compileLoaded()
 	if err != nil {
-		return nil, err
+		return nil, c.locateSetWideLimit(err)
 	}
 	return rt, nil
+}
+
+func (c *compiler) compileLoaded() (*Schema, error) {
+	if err := c.index(); err != nil {
+		return nil, err
+	}
+	if err := c.reserveIndexedComponentStorage(); err != nil {
+		return nil, err
+	}
+	if err := c.compileGlobals(); err != nil {
+		return nil, err
+	}
+	return c.publishSchema()
+}
+
+// locateSetWideLimit locates a schema.limit failure that no component scope
+// located. Substitution closure, consistency checks and the publication audit
+// work on the whole schema set, so locateSetWide places their limit failures.
+// Other diagnostics are returned unchanged.
+func (c *compiler) locateSetWideLimit(err error) error {
+	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+	if !ok || diagnostic == nil || diagnostic.Code() != xsderrors.CodeSchemaLimit {
+		return err
+	}
+	return locateSetWide(c.plan.documents, err)
 }
 
 // reserveIndexedComponentStorage avoids repeated growth while the indexed
@@ -185,7 +202,14 @@ func (c *compiler) spendComponentDependency(n *schemaNode) error {
 	return nil
 }
 
-func (c *compiler) enterComponent(n *schemaNode) (func(), error) {
+// enterComponent opens the compile scope of the component at n. The returned
+// leave must be deferred with the address of the caller's named error result:
+// it closes the scope and fills the missing path and line of a diagnostic
+// from n, so a budget or admission failure raised anywhere inside the
+// component names its document. A location attached deeper (an inner
+// component or a reference node) is not overwritten, so the innermost
+// enclosing component wins over the referring site.
+func (c *compiler) enterComponent(n *schemaNode) (leave func(*error), err error) {
 	if c.componentDepth >= maxComponentDependencyDepth {
 		err := xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema component dependency depth limit exceeded")
 		if n != nil {
@@ -194,8 +218,11 @@ func (c *compiler) enterComponent(n *schemaNode) (func(), error) {
 		return nil, err
 	}
 	c.componentDepth++
-	return func() {
+	return func(errp *error) {
 		c.componentDepth--
+		if n != nil && *errp != nil {
+			*errp = withSchemaCompileLocation(n, *errp)
+		}
 	}, nil
 }
 
@@ -485,9 +512,9 @@ func (c *compiler) validateAttributeUseSet(set attributeUseSet) error {
 	return nil
 }
 
-func (c *compiler) compileSimpleByQName(q QName) (SimpleTypeID, error) {
+func (c *compiler) compileSimpleByQName(q QName) (result SimpleTypeID, err error) {
 	label := c.rt.formatName(q)
-	if err := c.rejectSimpleTypeCycle(q, label); err != nil {
+	if err = c.rejectSimpleTypeCycle(q, label); err != nil {
 		return NoSimpleType, err
 	}
 	raw, exists := c.simpleComponents[q]
@@ -495,7 +522,7 @@ func (c *compiler) compileSimpleByQName(q QName) (SimpleTypeID, error) {
 	if exists {
 		sourceNode = raw.sourceNode()
 	}
-	if err := c.spendComponentDependency(sourceNode); err != nil {
+	if err = c.spendComponentDependency(sourceNode); err != nil {
 		return NoSimpleType, err
 	}
 	if id, ok := c.rt.GlobalTypes[q].Simple(); ok {
@@ -508,7 +535,7 @@ func (c *compiler) compileSimpleByQName(q QName) (SimpleTypeID, error) {
 	if err != nil {
 		return NoSimpleType, err
 	}
-	defer leave()
+	defer leave(&err)
 	c.compilingSimple[q] = true
 	defer delete(c.compilingSimple, q)
 	id, err := c.registerGlobalSimpleType(q, simpleType{
@@ -556,15 +583,15 @@ func (c *compiler) completeGlobalSimpleType(raw schemaComponent, q QName, id Sim
 	return nil
 }
 
-func (c *compiler) compileAnonymousSimple(n *schemaNode, ctx *schemaSetDocument) (SimpleTypeID, error) {
-	if err := c.spendComponentDependency(n); err != nil {
+func (c *compiler) compileAnonymousSimple(n *schemaNode, ctx *schemaSetDocument) (result SimpleTypeID, err error) {
+	if err = c.spendComponentDependency(n); err != nil {
 		return NoSimpleType, err
 	}
 	leave, err := c.enterComponent(n)
 	if err != nil {
 		return NoSimpleType, err
 	}
-	defer leave()
+	defer leave(&err)
 	if err = checkLocalSimpleTypeAttributes(n); err != nil {
 		return NoSimpleType, err
 	}

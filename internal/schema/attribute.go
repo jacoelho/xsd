@@ -2,7 +2,6 @@ package schema
 
 import (
 	"errors"
-	"fmt"
 	"maps"
 	"slices"
 
@@ -425,7 +424,7 @@ func validateBaseAttributeUseRestrictions(
 		}
 		if ok {
 			if err := validateAttributeUseRestriction(rt, use, next); err != nil {
-				return fmt.Errorf("complex restriction attribute use is invalid: %w", err)
+				return wrapUnlessLimit(err, "complex restriction attribute use is invalid")
 			}
 		}
 	}

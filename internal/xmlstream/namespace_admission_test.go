@@ -97,11 +97,11 @@ func TestNamespaceAliasFailureThenAttributeFreeAndAttributedSiblings(t *testing.
 		label, wantError string
 		tail             []Attr
 	}{
-		{"aliased duplicate", "duplicate attribute {urn:shadow}dup", []Attr{
+		{"aliased duplicate", `duplicate attribute "{urn:shadow}dup"`, []Attr{
 			{Name: xml.Name{Space: "p", Local: "dup"}, value: "first"},
 			{Name: xml.Name{Space: "q", Local: "dup"}, value: "second"},
 		}},
-		{"unbound attribute", "unbound namespace prefix missing", []Attr{
+		{"unbound attribute", `unbound namespace prefix "missing"`, []Attr{
 			{Name: xml.Name{Space: "missing", Local: "value"}, value: "last"},
 		}},
 	} {
@@ -219,7 +219,7 @@ func TestNamespaceAdmissionRetentionAfterEmptyStarts(t *testing.T) {
 				{Name: xml.Name{Local: "a0"}, value: "first"},
 				{Name: xml.Name{Local: "a0"}, value: "second"},
 			}}
-			if _, _, err := ns.StartStream(&duplicate, &values); err == nil || err.Error() != "duplicate attribute a0" {
+			if _, _, err := ns.StartStream(&duplicate, &values); err == nil || err.Error() != `duplicate attribute "a0"` {
 				t.Fatalf("duplicate after Reset = %v", err)
 			}
 		})

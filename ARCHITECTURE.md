@@ -76,7 +76,7 @@ structured errors rather than mutable internal state or log-dependent outcomes.
 | --- | --- | --- |
 | `SchemaSource` and `Resolver` | Exact schema bytes, repeatability, identity, and explicit resolution | Network discovery or instance-directed loading |
 | `CompileOptions` | Source, graph, name, dependency, content-model, substitution, and union work | Cancellation of caller-owned blocking I/O |
-| `ValidateOptions` | Errors, identity state, hints, depth, attributes, text, tokens, input bytes, and per-value work | Schema mutation or dynamic schema loading |
+| `ValidateOptions` | Errors, identity state, depth, attributes, text, tokens, input bytes, and per-value work | Schema mutation or dynamic schema loading |
 | `Engine` | Safe concurrent schema reuse and one bounded idle session | Shared active document state |
 | Reusable `Session` | One owner's bounded scratch reuse | Overlapping calls or cross-session coordination |
 | `xsderrors` | Stable category, code, cause, and source/document location | Policy inferred from message strings or logs |
@@ -162,7 +162,8 @@ context, and source identity (`Key`). It owns no XSD vocabulary or graph policy.
   must not bypass or duplicate either.
 - Content identity is `ReadResult` byte count plus SHA-256, compared by
   `internal/schema` across reopenings: a collision-resistance assumption, not
-  exact equality.
+  exact equality. `Source.StaticContent` exposes the same identity of an
+  in-memory source without opening it; it applies no byte limit.
 - Resolver spelling and built-in fallback capability are tracked separately
   (`ReferenceBase`); a valid reference a backend cannot represent is an
   unavailable optional hint, not an error.
@@ -186,7 +187,27 @@ IDs, effective facets, literal evaluation and NOTATION constructor-use IDs;
 schema owns facet admission, final constraints and schema-use policy.
 `MaxSchemaDependencySteps` bounds loading, planning and resolution;
 `MaxContentModelAnalysisSteps` bounds consistency, restriction, UPA,
-compilation and sealing. Spent work is never refunded. Publication consumes the
+compilation and sealing. Spent work is never refunded. Retained derived records
+are charged to `MaxSchemaDependencySteps` at their admission owner:
+`appendModelParticles` is the only particle append and charges one step per
+particle before allocating; `addModel` (one step per record) and
+`completeModel` write the model table, and `completeModel` installs only
+particles already charged; `addAttributeUseSet` charges `len(Uses)` and
+`appendWildcard` charges `len(Namespaces)`. Admitted models are immutable and
+`contentModelByID` shares them on read. A new retained table must charge in its
+admission function. Admission functions return unlocated budget errors.
+`enterComponent`'s leave fills the missing location of any diagnostic leaving a
+component from that component's node, so a failure is located at the innermost
+component being compiled, not at the referring site; a charge made at a
+reference before the scope opens keeps the reference location. A `schema.limit`
+failure raised after loading and outside every component scope is set-wide:
+target-context planning locates it at the document being added or whose
+references it is walking, and `compileMappedSources` locates the rest (name
+indexing, substitution closure, consistency checks, publication audit) at the
+first explicit root document in plan order, which is by document name. Loading
+locates its dependency charge at the reference being resolved and a
+`MaxSchemaReferences` failure at the document whose references exceed it.
+Publication consumes the
 build only on success; `*schema.Schema` exposes only immutable derived reads.
 
 `internal/schema`, `internal/value` and `internal/validate` export only
@@ -352,7 +373,8 @@ authoritative test manifest.
 `internal/validate` owns instance validation: limits and option normalization,
 XML reader preflight and parser error classification, recovery, document
 structure, element selection and start/end decisions, attributes, content,
-simple-content assessment, XSI handling, schema-location hint admission, and the
+simple-content assessment, XSI handling (schema-location hint checking belongs to attribute
+assessment), and the
 document-local identity evaluator (IDs, IDREFs, key/unique/keyref). Session,
 pool, and element-start lifecycles are the **Engine session pool**,
 **Validation session**, and **Element start** rows of the state-machine table.
@@ -366,8 +388,12 @@ Cross-module contracts:
   validate owns all matching state, scopes, and tables.
 - `internal/schema` strips XSI attribute-use defaults and fixed values, so the
   four intrinsic XSI attributes use dedicated assessment only.
-- Schema-location hints never participate in component selection; they are
-  syntax-checked and counted by namespace only. Missing roots, types, and
+- Schema-location hints never participate in component selection. On assessed
+  elements each hint item is checked as anyURI during attribute assessment
+  (xsi:schemaLocation is a list of anyURI of any length; no pair-count rule);
+  skip-processed content is not checked; no hint state is retained. An assessed
+  element whose start fails fatally before attribute assessment gets no hint
+  diagnostic. Missing roots, types, and
   wildcard declarations are ordinary assessment errors against the compiled
   component set.
 - A failed selection never contains its subtree: after its diagnostic, the
@@ -382,7 +408,22 @@ Cross-module contracts:
   enforce and report the same instance syntax limits. `session.setLimits` is
   the only writer of session and identity limits, for fresh and pooled
   sessions alike.
-- Element-start diagnostics carry the location `Reader.StartLocation` exposes;
+- Instance diagnostics are located by their owner. A site attaches a location
+  only when it holds one the session cannot derive: stored identity
+  locations, reader-positioned stream errors, and parent-content diagnostics
+  (located on the parent at the child's position). Pre-commit start
+  assessment returns unlocated errors that `locatePendingStart` locates on the
+  admitted start (`Reader.StartLocation`). It receives the selected mode from
+  `recoverElementStartAssessment` and, through `sessionStartTransaction.fail`,
+  from `runStartTransaction`, so a start renders one path segment before and
+  after commit. The exception is a fatal failure before selection: it renders
+  the lexical segment and ends the document.
+  `sessionStartTransaction.fail` and `validateTokens` locate every remaining
+  unlocated diagnostic, document-end diagnostics use the reader position, and
+  diagnostics are located before they are joined. Every validation or
+  unsupported diagnostic produced while reading a document therefore carries a
+  path and line; the corpus harness and the validation fuzz target assert it.
+  A nil reader and option errors have no document position by design.
   `MaxIdentityEntries` bounds stored entries, pending selector matches, and
   pending field slots independently, as `ValidateOptions` documents.
 
@@ -427,6 +468,19 @@ instance validation, and formatting share one `Reader` contract:
   limits already handed to the reader; `internal/schema` owns only the
   cross-token measure the reader cannot see, character data accumulated in one
   element under `MaxSchemaTokenBytes`.
+- The reader owns the exclusive input-failure classification
+  (`IsInputFailure`): a failure of the caller's `io.Reader` (read error, no
+  progress, nil reader) rather than of the document. It is false whenever
+  `LimitOf` or `UnsupportedFeatureOf` classifies the error, so a limit error
+  joined with a read error stays a limit and precedence is owned here, not by
+  consumer branch order; `Error.Kind` is `ErrorInput` exactly when it is true.
+  `internal/validate` maps it to `validation.read`. `internal/schema` and
+  `internal/format` do not: `source.Input` owns schema read failures
+  (`schema.read`), and format reads in-memory text.
+  End of input is `io.EOF` itself, decided once in `byteStream.readUnderlying`;
+  every other reader error, including one that wraps or joins `io.EOF`, is an
+  input failure, the same rule `source.Input` applies to schema sources. `IsEOF`
+  is the only end-of-input predicate.
 - `CharacterDataKind` preserves lexical origin (literal text, references,
   CDATA). Format uses it to keep CDATA whitespace; compile and validate treat
   all kinds as character data.
@@ -456,12 +510,19 @@ Compilation flow:
    before resolver invocation; each resolved include/import edge is
    target-namespace checked before its resolver context or descendants are
    activated. Explicit source descriptors are bounded before facade conversion;
-   the loader charges their count plus each distinct resolver-returned
-   canonical identity against one source budget, applies inherited `xml:base`
-   per resolver context, accounts every source byte and failure stage through
-   `internal/source`, and parses through `internal/xmlstream` under XML
-   namespace and resource limits. A source key reached again is reopened and
-   charged again; differing content is an error.
+   the loader's loaded-document table is the only document-count ledger: a
+   document counts once, when it is parsed and registered, so an explicit file
+   that is also imported counts once and an unavailable target never counts (the
+   document that exceeds the count is opened, closed unread and rejected). It applies inherited
+   `xml:base` per resolver context, accounts every source byte and failure
+   stage through `internal/source`, and parses through `internal/xmlstream`
+   under XML namespace and resource limits. An opener source reached
+   again is reopened and charged again; a File source whose file was already
+   read for the document is not reread (`Source.ContentFixedByName`); an
+   in-memory source is compared by its static digest (`Source.StaticContent`)
+   without charge. Differing content is
+   an error. `MaxSchemaTotalBytes` failures are located at the referring
+   include/import element, or at the source name for an explicit source.
 
    Planning applies src-include and src-import checks to every chameleon
    target-context view against its effective target namespace
@@ -508,7 +569,15 @@ Diagnostics flow:
 
 1. Internal packages return source-aware structured errors using public
    `xsderrors` types; schema diagnostics identify the originating schema through
-   `xsderrors.Error.Path()`.
+   `xsderrors.Error.Path()`. Instance paths are rendered on demand by the
+   `xmlDocument` path owner in `internal/validate` through
+   `internal/diagnostictext`: each name is cut at 128 bytes and escaped in the
+   same dialect as quoted values, and a path over 4096 bytes keeps whole
+   leading and trailing segments around `/...`. The document caches one
+   unelided rendered prefix of the open-element path, at most 4096 bytes, so
+   diagnostics under one ancestor chain share a rendering; elided paths are
+   rendered per diagnostic. Retained diagnostic text stays bounded by
+   `MaxErrors`.
 2. Public callers inspect `xsderrors.Error`, `xsderrors.Errors`,
    `xsderrors.Category`, and `xsderrors.Code`. Constructors reject invalid
    category/code combinations. Aggregate construction owns its input, accessors
@@ -542,7 +611,8 @@ Diagnostics flow:
 3. `xsderrors.WithLocation` is the only path/line/column decorator. Root `xsd`
    and formatter packages do not duplicate diagnostic types or codes.
 4. Missing document roots and forbidden outside-root character data use
-   `CodeValidationXML`. `CodeValidationRoot` and `CodeValidationText` describe
+   `CodeValidationXML`; a failing or nil caller reader uses the inconclusive
+   `CodeValidationRead`. `CodeValidationRoot` and `CodeValidationText` describe
    schema assessment failures. Fatal XML, limit, or operational errors take
    precedence over earlier recoverable diagnostics; adapters preserve the
    diagnostics returned by the core without reconstructing discarded history.
@@ -779,8 +849,22 @@ graph preserves these ownership rules:
 - Reimplementing content matching in the diagnostic layer was rejected because
   it would duplicate occurrence, wildcard and substitution rules.
 
+- Bounding segments inside an incremental path-text cache was rejected: escaped
+  lengths need a per-element name scan on the element-start hot path, and every
+  path consumer is diagnostic-only. A path-only `\uNNNN` escape dialect was
+  rejected because one diagnostic would show a name in two renderings.
+- One location target for every diagnostic site was rejected: deferred
+  identity diagnostics and parent-content diagnostics have a different,
+  legitimate target than the element being started.
+
 ### Sources And Schema Graph
 
+- Skipping the reopen for a repeated opener identity was rejected: the reopen
+  is the only detection of an opener or resolver serving different content
+  under one identity. In-memory sources (digest known) and built-in File
+  sources (same name; a reread only detects an on-disk change, which the first
+  read is not protected against) skip it. Rereading File sources per edge was
+  rejected: it made `MaxSchemaTotalBytes` scale with edges times size.
 - Deduplicating schema documents by content fingerprint, and ignoring later
   documents for an already-loaded namespace (the XSD 1.0 note on `<import>`
   hints), were rejected (I-019): both hide real sch-props-correct.2 conflicts
@@ -798,7 +882,9 @@ graph preserves these ownership rules:
   plus SHA-256 identifies content.
 - Returning on the first parse failure was rejected for streamed acquisition
   because it hides later read, close, and limit failures that take precedence;
-  `Input.Finish` drains and cleans up.
+  `Input.Finish` drains and cleans up. `Input.Discard` closes without
+  draining only where a limit has already ended the load and neither content
+  nor read failures matter (the document over `MaxSchemaSources`).
 - Interleaving resolution, graph validation, and component compilation was
   rejected because partially known namespaces made ownership and failure state
   ambiguous. The loaded-graph-to-plan boundary is the only route into indexing.
@@ -815,6 +901,12 @@ graph preserves these ownership rules:
 
 ### Schema Compilation And Content Models
 
+- Charging group flattening to `MaxContentModelAnalysisSteps` was rejected: its
+  16.7M-step default admits over 1 GB of particles before failure. Charging
+  `len(Particles)` at `addModel` was rejected because the main path installs
+  particles through `completeModel`, and shared variants would be charged for
+  copies that do not happen. Cloning content models on read was rejected: it
+  is uncharged work proportional to references times group size.
 - Skipping all validation below a zero-count compositor was rejected because
   the mapping removes only that compositor's component (see
   `compileDeferredModelChildren`).
@@ -950,9 +1042,18 @@ graph preserves these ownership rules:
   frames.
 - Alternative field states for undeclared lax attributes are rejected in
   [I-022](docs/spec/INTERPRETATIONS.md#i-022--undeclared-lax-attributes-are-unknown-field-values).
-- Per-element copies of the hint namespace set were rejected because repeated
-  hints multiplied state by document length. A staged delta copies only when a
-  batch adds a namespace.
+- A retained set of hint namespaces with `MaxSchemaLocationNamespaces` and
+  `MaxSchemaLocationNamespaceBytes` was removed: hint names never take part in
+  selection, so the set's only subject was its own accounting, and it made a
+  schema-valid document with many hint namespaces fatal. `MaxInstanceTokenBytes`
+  already bounds every hint attribute.
+- An even item count for `xsi:schemaLocation` was rejected: the declared type
+  is a list of anyURI, Xerces-J, .NET, xmlschema and libxml2 accept odd counts,
+  and the library never uses hints.
+- Checking hints before selection was rejected: it checked skip-processed
+  content and needed a guessed path mode.
+- Staging the path mode on the start transaction was rejected: assessment can
+  replace the start, so the mode is passed at the failure site.
 - Per-value heap staging and post-hoc limit checks for ID/IDREF batches were
   rejected: they created garbage per value and could exceed the identity budget
   before failing.

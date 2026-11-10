@@ -216,6 +216,11 @@ an allowlisted unsupported diagnostic cannot make an internal failure pass or
 skip. Other rejection expectations retain their existing meaning, including
 malformed XML and explicit resource-limit cases.
 
+Every diagnostic of category validation or unsupported that an instance run
+produces while reading a document carries a path and a line; the Go runner
+fails the case otherwise. A nil reader and option errors have no document
+position and do not occur in the harness.
+
 Every entry in `schema.documents` is a compilation root, in manifest order.
 Entries listed only in `files` with role `dependency` are copied dependencies
 used through relative schema locations and are never promoted to roots.

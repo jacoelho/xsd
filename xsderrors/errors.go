@@ -58,28 +58,31 @@ const (
 	CodeUnsupportedNonUTF8     Code = "unsupported.non_utf8"
 	CodeUnsupportedRedefine    Code = "unsupported.xs_redefine"
 	CodeUnsupportedRegex       Code = "unsupported.regex"
-	CodeUnsupportedSchemaHint  Code = "unsupported.xsi_schema_location"
 	// CodeUnsupportedXMLVersion reports an XML declaration whose well-formed
 	// version is not "1.0". A malformed version is an XML well-formedness error.
 	CodeUnsupportedXMLVersion Code = "unsupported.xml_version"
 	CodeUnsupportedXSD11      Code = "unsupported.xsd_1_1"
 	CodeValidationXML         Code = "validation.xml"
-	CodeValidationRoot        Code = "validation.root"
-	CodeValidationElement     Code = "validation.element"
-	CodeValidationAttribute   Code = "validation.attribute"
-	CodeValidationText        Code = "validation.text"
-	CodeValidationType        Code = "validation.type"
-	CodeValidationFacet       Code = "validation.facet"
-	CodeValidationContent     Code = "validation.content"
-	CodeValidationNil         Code = "validation.nil"
-	CodeValidationIdentity    Code = "validation.identity"
-	CodeValidationOption      Code = "validation.option"
-	CodeValidationSession     Code = "validation.session"
-	CodeValidationLimit       Code = "validation.limit"
-	CodeFormatXML             Code = "format.xml"
-	CodeFormatOption          Code = "format.option"
-	CodeFormatLimit           Code = "format.limit"
-	CodeInternalInvariant     Code = "internal.invariant"
+	// CodeValidationRead reports that the caller's instance reader returned an
+	// error other than io.EOF itself or was nil; the document was not assessed. Cause errors from the reader are
+	// preserved for errors.Is. It is inconclusive, never a validity result.
+	CodeValidationRead      Code = "validation.read"
+	CodeValidationRoot      Code = "validation.root"
+	CodeValidationElement   Code = "validation.element"
+	CodeValidationAttribute Code = "validation.attribute"
+	CodeValidationText      Code = "validation.text"
+	CodeValidationType      Code = "validation.type"
+	CodeValidationFacet     Code = "validation.facet"
+	CodeValidationContent   Code = "validation.content"
+	CodeValidationNil       Code = "validation.nil"
+	CodeValidationIdentity  Code = "validation.identity"
+	CodeValidationOption    Code = "validation.option"
+	CodeValidationSession   Code = "validation.session"
+	CodeValidationLimit     Code = "validation.limit"
+	CodeFormatXML           Code = "format.xml"
+	CodeFormatOption        Code = "format.option"
+	CodeFormatLimit         Code = "format.limit"
+	CodeInternalInvariant   Code = "internal.invariant"
 )
 
 // Error is an immutable structured diagnostic returned by compile, validation,
@@ -121,7 +124,12 @@ func (e *Error) Code() Code {
 	return e.code
 }
 
-// Path returns the source or instance path, when known.
+// Path returns the source or instance path, when known. For instance
+// diagnostics it is a bounded display path, not a resolvable XPath: names over
+// 128 bytes are cut with "...", backslashes and non-printable characters are
+// escaped as in quoted diagnostic values, and the middle of a path over 4096
+// bytes is replaced by "/...". Schema diagnostics carry the unmodified source
+// name.
 func (e *Error) Path() string {
 	if e == nil {
 		return ""
@@ -421,10 +429,10 @@ func isConclusiveValidationDiagnostic(err *Error) bool {
 		CodeUnsupportedNonUTF8,
 		CodeUnsupportedRedefine,
 		CodeUnsupportedRegex,
-		CodeUnsupportedSchemaHint,
 		CodeUnsupportedXMLVersion,
 		CodeUnsupportedXSD11,
 		CodeValidationXML,
+		CodeValidationRead,
 		CodeValidationOption,
 		CodeValidationSession,
 		CodeValidationLimit,
@@ -572,14 +580,14 @@ func validSchemaCompileCode(code Code) bool {
 func validUnsupportedCode(code Code) bool {
 	return code == CodeUnsupportedDTD || code == CodeUnsupportedExternal || code == CodeUnsupportedEntity ||
 		code == CodeUnsupportedNonUTF8 || code == CodeUnsupportedRedefine || code == CodeUnsupportedRegex ||
-		code == CodeUnsupportedSchemaHint || code == CodeUnsupportedXMLVersion || code == CodeUnsupportedXSD11
+		code == CodeUnsupportedXMLVersion || code == CodeUnsupportedXSD11
 }
 
 func validValidationCode(code Code) bool {
 	return code == CodeValidationXML || code == CodeValidationRoot || code == CodeValidationElement || code == CodeValidationAttribute ||
 		code == CodeValidationText || code == CodeValidationType || code == CodeValidationFacet || code == CodeValidationContent ||
 		code == CodeValidationNil || code == CodeValidationIdentity || code == CodeValidationOption || code == CodeValidationSession ||
-		code == CodeValidationLimit
+		code == CodeValidationLimit || code == CodeValidationRead
 }
 
 func validFormatCode(code Code) bool {

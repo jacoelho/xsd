@@ -367,6 +367,9 @@ func validateInstance(t *testing.T, dir string, engine *xsd.Engine, unsupported 
 	if closeErr != nil {
 		t.Fatalf("Close() error = %v", closeErr)
 	}
+	if locErr := checkDiagnosticLocations(err); locErr != nil {
+		t.Fatalf("case %s instance %s: %v", tc.ID, inst.File, locErr)
+	}
 	switch inst.Expected {
 	case "valid":
 		if err != nil {
@@ -383,6 +386,24 @@ func validateInstance(t *testing.T, dir string, engine *xsd.Engine, unsupported 
 	default:
 		t.Fatalf("unknown instance expected value %q", inst.Expected)
 	}
+}
+
+// checkDiagnosticLocations enforces that every validation or unsupported
+// diagnostic produced while reading an instance carries a path and a line.
+func checkDiagnosticLocations(err error) error {
+	for _, leaf := range xsderrors.Flatten(err) {
+		diagnostic, ok := errors.AsType[*xsderrors.Error](leaf)
+		if !ok {
+			continue
+		}
+		if c := diagnostic.Category(); c != xsderrors.CategoryValidation && c != xsderrors.CategoryUnsupported {
+			continue
+		}
+		if diagnostic.Path() == "" || diagnostic.Line() <= 0 {
+			return fmt.Errorf("diagnostic %s is unlocated: path=%q line=%d", diagnostic.Code(), diagnostic.Path(), diagnostic.Line())
+		}
+	}
+	return nil
 }
 
 func checkExpectedFailure(err error, code string) error {

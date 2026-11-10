@@ -25,15 +25,21 @@ type CompileOptions struct {
 	MaxSchemaTokenBytes int64
 	// MaxSchemaSourceBytes caps bytes read from each schema source. Zero uses the default.
 	MaxSchemaSourceBytes int64
-	// MaxSchemaSources caps explicit source descriptors and distinct resolver-loaded
-	// source identities admitted to one compilation. Zero uses the default.
+	// MaxSchemaSources caps the explicit sources passed to one compilation and,
+	// separately, the distinct schema documents it loads, explicit and
+	// resolver-loaded together. An unavailable include/import target loads
+	// nothing and is not counted. Zero uses the default.
 	MaxSchemaSources int
-	// MaxSchemaTotalBytes caps aggregate bytes read across all schema sources. Zero uses the default.
+	// MaxSchemaTotalBytes caps aggregate bytes read from schema sources. An opener
+	// source reached again is read and charged again; a file source is read
+	// once; an in-memory source is compared by digest without charge. Zero uses the default.
 	MaxSchemaTotalBytes int64
 	// MaxSchemaReferences caps include/import references processed during compilation. Zero uses the default.
 	MaxSchemaReferences int
 	// MaxSchemaDependencySteps caps aggregate schema-graph expansion, target-context
-	// propagation, and component-dependency resolution work. Zero uses the default.
+	// propagation, component-dependency resolution and retained derived records
+	// (content-model particles and models, attribute uses, wildcard namespaces).
+	// Zero uses the default.
 	MaxSchemaDependencySteps int
 	// MaxSchemaTargetContexts caps distinct source/effective-target-namespace contexts,
 	// including primary and chameleon-derived contexts. Zero uses the default.

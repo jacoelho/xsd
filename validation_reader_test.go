@@ -2,6 +2,7 @@ package xsd_test
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"slices"
@@ -104,7 +105,7 @@ func TestValidationPreservesJoinedReaderErrorAfterBareCR(t *testing.T) {
 	}
 	sentinel := errors.New("read failed")
 	err = session.Validate(&dataAndErrorReader{data: `<r/>\r`, err: errors.Join(io.EOF, sentinel)})
-	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationXML)
+	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationRead)
 	if !errors.Is(err, sentinel) {
 		t.Fatalf("Session.Validate() error = %v, want reader cause", err)
 	}
@@ -120,7 +121,7 @@ func TestValidationPreflightReaderErrorIsStructured(t *testing.T) {
 	}
 	sentinel := errors.New("read failed")
 	err = engine.Validate(&dataAndErrorReader{data: `<r`, err: errors.Join(io.EOF, sentinel)})
-	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationXML)
+	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationRead)
 	if !errors.Is(err, sentinel) || !errors.Is(err, io.EOF) {
 		t.Fatalf("Validate() error = %v, want joined reader causes", err)
 	}
@@ -297,9 +298,9 @@ func TestUndeclaredRootTypeRecoveryPreservesFatalErrors(t *testing.T) {
 				code     xsderrors.Code
 				boundary string
 			}{
-				{name: "reader error", readErr: sentinel, code: xsderrors.CodeValidationXML},
-				{name: "data with reader error", tail: "text</u>", readErr: sentinel, code: xsderrors.CodeValidationXML},
-				{name: "data with joined EOF and reader error", tail: "text</u>", readErr: errors.Join(io.EOF, sentinel), code: xsderrors.CodeValidationXML},
+				{name: "reader error", readErr: sentinel, code: xsderrors.CodeValidationRead},
+				{name: "data with reader error", tail: "text</u>", readErr: sentinel, code: xsderrors.CodeValidationRead},
+				{name: "data with joined EOF and reader error", tail: "text</u>", readErr: errors.Join(io.EOF, sentinel), code: xsderrors.CodeValidationRead},
 				{
 					name: "byte limit", tail: "more text</u>", opts: xsd.ValidateOptions{MaxInstanceBytes: byteLimit}, code: xsderrors.CodeValidationLimit,
 					boundary: "<r>" + strings.Repeat("x", int(byteLimit)-len("<r></r>")) + "</r>",
@@ -347,5 +348,212 @@ func TestUndeclaredRootTypeRecoveryPreservesFatalErrors(t *testing.T) {
 				})
 			}
 		})
+	}
+}
+
+// failAfterReader yields data and then fails every further Read with err.
+type failAfterReader struct {
+	data string
+	err  error
+}
+
+func (r *failAfterReader) Read(p []byte) (int, error) {
+	if r.data == "" {
+		return 0, r.err
+	}
+	n := copy(p, r.data)
+	r.data = r.data[n:]
+	return n, nil
+}
+
+type zeroReader struct{}
+
+func (zeroReader) Read([]byte) (int, error) { return 0, nil }
+
+func TestCallerReaderFailuresAreValidationRead(t *testing.T) {
+	t.Parallel()
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(validationReaderTestSchema)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sentinel := errors.New("transport failed")
+	type row struct {
+		name   string
+		reader func() io.Reader
+		code   xsderrors.Code // empty means the validation succeeds
+		cause  error
+		line   bool
+	}
+	wrapped := fmt.Errorf("closed: %w", io.EOF)
+	joined := errors.Join(io.EOF)
+	joined2 := errors.Join(io.EOF, io.EOF)
+	rows := []row{
+		{name: "first read", reader: func() io.Reader { return &failAfterReader{err: sentinel} }, code: xsderrors.CodeValidationRead, cause: sentinel},
+		{name: "mid-document", reader: func() io.Reader { return &failAfterReader{data: "<r><a/>", err: sentinel} }, code: xsderrors.CodeValidationRead, cause: sentinel, line: true},
+		{name: "truncation by EOF", reader: func() io.Reader { return strings.NewReader("<r><a>") }, code: xsderrors.CodeValidationXML},
+		{name: "no progress", reader: func() io.Reader { return zeroReader{} }, code: xsderrors.CodeValidationRead, cause: io.ErrNoProgress},
+		{name: "joined EOF after complete document", reader: func() io.Reader {
+			return &failAfterReader{data: "<r/>", err: errors.Join(io.EOF, sentinel)}
+		}, code: xsderrors.CodeValidationRead, cause: sentinel},
+		{name: "unexpected EOF mid-document", reader: func() io.Reader {
+			return &failAfterReader{data: "<r><a>", err: io.ErrUnexpectedEOF}
+		}, code: xsderrors.CodeValidationRead, cause: io.ErrUnexpectedEOF},
+		{name: "data and error in one read", reader: func() io.Reader {
+			return &dataAndErrorReader{data: "<r/>", err: sentinel}
+		}, code: xsderrors.CodeValidationRead, cause: sentinel},
+		{name: "wrapped EOF at end", reader: func() io.Reader {
+			return &failAfterReader{data: "<r/>", err: wrapped}
+		}, code: xsderrors.CodeValidationRead, cause: wrapped},
+		{name: "wrapped EOF mid-document", reader: func() io.Reader {
+			return &failAfterReader{data: "<r><a>", err: wrapped}
+		}, code: xsderrors.CodeValidationRead, cause: wrapped, line: true},
+		{name: "wrapped EOF on first read", reader: func() io.Reader {
+			return &failAfterReader{err: wrapped}
+		}, code: xsderrors.CodeValidationRead, cause: wrapped},
+		{name: "wrapped EOF with data in one read", reader: func() io.Reader {
+			return &dataAndErrorReader{data: "<r/>", err: wrapped}
+		}, code: xsderrors.CodeValidationRead, cause: wrapped},
+		{name: "joined only-EOF after complete document", reader: func() io.Reader {
+			return &failAfterReader{data: "<r/>", err: joined}
+		}, code: xsderrors.CodeValidationRead, cause: joined},
+		{name: "joined only-EOF mid-document", reader: func() io.Reader {
+			return &failAfterReader{data: "<r><a>", err: joined2}
+		}, code: xsderrors.CodeValidationRead, cause: joined2, line: true},
+	}
+	for _, test := range rows {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			session, err := engine.NewSession(xsd.ValidateOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = session.Validate(test.reader())
+			if test.code == "" {
+				if err != nil {
+					t.Fatalf("Validate() = %v, want nil", err)
+				}
+			} else {
+				expectCategoryCode(t, err, xsderrors.CategoryValidation, test.code)
+				if test.code == xsderrors.CodeValidationRead && xsderrors.IsConclusiveValidation(err) {
+					t.Fatalf("read failure is conclusive: %v", err)
+				}
+				if test.cause != nil && !errors.Is(err, test.cause) {
+					t.Fatalf("Validate() = %v, want cause %v", err, test.cause)
+				}
+				if x, _ := errors.AsType[*xsderrors.Error](err); test.line && x.Line() == 0 {
+					t.Fatalf("Line() = 0, want a mid-document position: %v", err)
+				}
+			}
+			if err := session.Validate(strings.NewReader("<r/>")); err != nil {
+				t.Fatalf("session after failure: %v", err)
+			}
+		})
+	}
+
+	// An error the caller's reader returns is never this session's own
+	// failure, even when its chain carries a reader limit or an unsupported
+	// feature from another validation.
+	innerKinds := []struct {
+		name string
+		opts xsd.ValidateOptions
+		doc  string
+	}{
+		{"instance bytes", xsd.ValidateOptions{MaxInstanceBytes: 10}, "<r>" + strings.Repeat("x", 100) + "</r>"},
+		{"token bytes", xsd.ValidateOptions{MaxInstanceTokenBytes: 1024}, `<r a="` + strings.Repeat("x", 4096) + `"/>`},
+		{"depth", xsd.ValidateOptions{MaxInstanceDepth: 2}, "<r><r><r/></r></r>"},
+		{"dtd", xsd.ValidateOptions{}, "<!DOCTYPE r><r/>"},
+		{"utf-16", xsd.ValidateOptions{}, "\xff\xfe<\x00r\x00/\x00>\x00"},
+		{"entity", xsd.ValidateOptions{}, "<r>&e;</r>"},
+		{"xml version", xsd.ValidateOptions{}, `<?xml version="1.1"?><r/>`},
+	}
+	for _, kind := range innerKinds {
+		inner := func() error {
+			session, err := engine.NewSession(kind.opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = session.Validate(strings.NewReader(kind.doc))
+			if err == nil {
+				t.Fatalf("%s: inner document validated", kind.name)
+			}
+			return err
+		}()
+		for _, wrapped := range []bool{false, true} {
+			for _, position := range []string{"first read", "after root start"} {
+				name := fmt.Sprintf("inner %s/wrapped=%v/%s", kind.name, wrapped, position)
+				t.Run(name, func(t *testing.T) {
+					t.Parallel()
+					failure := inner
+					if wrapped {
+						failure = fmt.Errorf("transport: %w", inner)
+					}
+					data := ""
+					if position == "after root start" {
+						data = "<r>"
+					}
+					session, err := engine.NewSession(xsd.ValidateOptions{})
+					if err != nil {
+						t.Fatal(err)
+					}
+					err = session.Validate(&failAfterReader{data: data, err: failure})
+					expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationRead)
+					if xsderrors.IsConclusiveValidation(err) {
+						t.Fatalf("read failure is conclusive: %v", err)
+					}
+					if !errors.Is(err, inner) {
+						t.Fatalf("Validate() = %v, want cause %v", err, inner)
+					}
+					if n := len(xsderrors.Flatten(err)); n != 1 {
+						t.Fatalf("Validate() reported %d diagnostics, want 1: %v", n, err)
+					}
+					for _, defaulted := range []string{"=67108864", "=4194304", "=256 exceeded"} {
+						if strings.Contains(err.Error(), defaulted) {
+							t.Fatalf("Validate() = %v, mentions the session limit %s", err, defaulted)
+						}
+					}
+					if err := session.Validate(strings.NewReader("<r/>")); err != nil {
+						t.Fatalf("session after failure: %v", err)
+					}
+				})
+			}
+		}
+	}
+}
+
+func TestNilInstanceReaderIsValidationRead(t *testing.T) {
+	t.Parallel()
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(validationReaderTestSchema)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectCategoryCode(t, engine.ValidateWithOptions(nil, xsd.ValidateOptions{}), xsderrors.CategoryValidation, xsderrors.CodeValidationRead)
+	session, err := engine.NewSession(xsd.ValidateOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectCategoryCode(t, session.Validate(nil), xsderrors.CategoryValidation, xsderrors.CodeValidationRead)
+	if err := session.Validate(strings.NewReader("<r/>")); err != nil {
+		t.Fatalf("session after nil reader: %v", err)
+	}
+}
+
+// TestPrologueFailureHasKnownColumn requires a failure before the first byte
+// to report column 1: column 0 means unknown.
+func TestPrologueFailureHasKnownColumn(t *testing.T) {
+	t.Parallel()
+
+	engine, err := xsd.Compile(xsd.Bytes("s.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="r"/></xs:schema>`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, document := range []string{"", `<?xml version="1.1"?><r/>`} {
+		err := engine.Validate(strings.NewReader(document))
+		diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+		if !ok {
+			t.Fatalf("Validate(%q) error = %v, want diagnostic", document, err)
+		}
+		if diagnostic.Path() != "/" || diagnostic.Line() != 1 || diagnostic.Column() < 1 {
+			t.Errorf("Validate(%q) located at %q %d:%d, want / 1:>=1", document, diagnostic.Path(), diagnostic.Line(), diagnostic.Column())
+		}
 	}
 }

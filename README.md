@@ -8,7 +8,7 @@ entities, XML versions other than 1.0, and `xs:redefine` are unsupported. Schema
 the library does not fetch schemas over the network, and instance
 `xsi:schemaLocation` hints never supply components. Validation uses the compiled
 component set and reports missing required declarations or types as validation
-errors. Hint syntax and resource limits still apply.
+errors. On assessed elements each hint item must be a valid anyURI; `MaxInstanceTokenBytes` bounds each hint attribute.
 
 ## Install and validate
 

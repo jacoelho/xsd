@@ -36,16 +36,6 @@ func (d *xmlDocument[P]) commitEndState() error {
 	i := len(d.elements) - 1
 	d.elements[i] = xmlDocumentElement[P]{}
 	d.elements = d.elements[:i]
-	if d.pathTextDepth <= i {
-		return nil
-	}
-	if i == 0 {
-		d.pathText = ""
-		d.pathTextDepth = 0
-		return nil
-	}
-	d.pathText = d.pathText[:d.elements[i-1].pathLength]
-	d.pathTextDepth = i
 	return nil
 }
 
@@ -289,7 +279,7 @@ func TestXMLDocumentStatePrepareStartRollsBackNamespaces(t *testing.T) {
 	}
 
 	_, err = prepareXMLStartForTest(&doc, testXMLStart(xml.Name{Space: "p", Local: "root"}), &values, 0, 4, 5)
-	if !strings.Contains(err.Error(), "unbound namespace prefix p") {
+	if !strings.Contains(err.Error(), `unbound namespace prefix "p"`) {
 		t.Fatalf("PrepareStart() error = %v", err)
 	}
 }
@@ -306,9 +296,8 @@ func TestXMLDocumentPathRejectsInvalidMode(t *testing.T) {
 			}()
 			doc := emptyXMLDocument{
 				elements: []xmlDocumentElement[struct{}]{{
-					name:       xml.Name{Local: "root"},
-					pathLength: len("/root"),
-					pathMode:   mode,
+					name:     xml.Name{Local: "root"},
+					pathMode: mode,
 				}},
 			}
 			doc.PathString()
@@ -327,7 +316,7 @@ func TestXMLDocumentStateRejectsDuplicateExpandedAttributes(t *testing.T) {
 		testXMLAttr(xml.Name{Space: "q", Local: "id"}, ""),
 	), &values, 0, 2, 3)
 	requireCode(t, err, xsderrors.CodeValidationXML)
-	if !strings.Contains(err.Error(), "duplicate attribute {urn:test}id") {
+	if !strings.Contains(err.Error(), `duplicate attribute "{urn:test}id"`) {
 		t.Fatalf("PrepareStart() error = %v", err)
 	}
 	if _, ok := doc.LookupNamespace("p"); ok {
@@ -393,7 +382,7 @@ func TestXMLDocumentStateRequiresLexicallyMatchingEndTag(t *testing.T) {
 	}
 	doc.CommitStart(start, struct{}{})
 	err = doc.ValidateEnd(xmlstream.EndElement{Name: xml.Name{Space: "q", Local: "root"}}, 4, 5)
-	if !strings.Contains(err.Error(), "end element </q:root> does not match start element <p:root>") {
+	if !strings.Contains(err.Error(), `end element "q:root" does not match start element "p:root"`) {
 		t.Fatalf("ValidateEnd() error = %v", err)
 	}
 	if doc.Depth() != 1 {
@@ -423,17 +412,11 @@ func TestXMLDocumentStatePathsStayLazyAndRecoverAcrossTransitions(t *testing.T) 
 	var values struct{}
 	commitDocumentStart(t, &doc, &values, "root")
 	commitDocumentStart(t, &doc, &values, "child")
-	if doc.pathText != "" {
-		t.Fatalf("successful starts materialized path %q", doc.pathText)
-	}
 	if err := doc.ValidateEnd(xmlstream.EndElement{Name: xml.Name{Local: "child"}}, 2, 1); err != nil {
 		t.Fatal(err)
 	}
 	if err := doc.CommitEnd(); err != nil {
 		t.Fatal(err)
-	}
-	if doc.pathText != "" {
-		t.Fatalf("successful end materialized path %q", doc.pathText)
 	}
 	commitDocumentStart(t, &doc, &values, "child")
 
@@ -464,7 +447,7 @@ func TestXMLDocumentStatePathsStayLazyAndRecoverAcrossTransitions(t *testing.T) 
 
 	capacity := cap(doc.elements)
 	doc.Reset(maxRetainedSliceCap)
-	if doc.Depth() != 0 || doc.pathText != "" || doc.pathTextDepth != 0 {
+	if doc.Depth() != 0 {
 		t.Fatalf("Reset() retained document state: %+v", doc)
 	}
 	if cap(doc.elements) != capacity {
@@ -472,7 +455,7 @@ func TestXMLDocumentStatePathsStayLazyAndRecoverAcrossTransitions(t *testing.T) 
 	}
 }
 
-func TestXMLDocumentPathAtDepthUsesCanonicalCache(t *testing.T) {
+func TestXMLDocumentPathAtDepthProjectsAncestors(t *testing.T) {
 	t.Parallel()
 
 	var doc emptyXMLDocument
@@ -484,28 +467,21 @@ func TestXMLDocumentPathAtDepthUsesCanonicalCache(t *testing.T) {
 	if got := doc.PathStringAtDepth(1); got != "/root" {
 		t.Fatalf("root path = %q", got)
 	}
-	if doc.pathTextDepth != 1 {
-		t.Fatalf("cached depth = %d, want 1", doc.pathTextDepth)
-	}
 	if got := doc.PathStringAtDepth(2); got != "/root/child" {
 		t.Fatalf("child path = %q", got)
 	}
 	if got := doc.PathString(); got != "/root/child/grandchild" {
 		t.Fatalf("current path = %q", got)
 	}
-	wantCache := doc.pathText
 	if got := doc.PathStringAtDepth(1); got != "/root" {
 		t.Fatalf("cached root path = %q", got)
-	}
-	if doc.pathText != wantCache || doc.pathTextDepth != 3 {
-		t.Fatalf("ancestor projection changed cache: text=%q depth=%d", doc.pathText, doc.pathTextDepth)
 	}
 
 	if err := doc.CommitEnd(); err != nil {
 		t.Fatal(err)
 	}
-	if doc.pathText != "/root/child" || doc.pathTextDepth != 2 {
-		t.Fatalf("pop cache: text=%q depth=%d", doc.pathText, doc.pathTextDepth)
+	if got := doc.PathString(); got != "/root/child" {
+		t.Fatalf("path after pop = %q", got)
 	}
 }
 
@@ -514,13 +490,10 @@ func TestXMLDocumentRetainedPathsSharePrefixesAndSurvivePop(t *testing.T) {
 
 	var doc emptyXMLDocument
 	var values struct{}
-	root := strings.Repeat("r", 255)
+	root := strings.Repeat("r", 100)
 	commitDocumentStart(t, &doc, &values, root)
 	commitDocumentStart(t, &doc, &values, "first")
 	first := doc.retainPathAtDepth(2)
-	if doc.pathText != "" {
-		t.Fatalf("retaining path materialized active cache %q", doc.pathText)
-	}
 	if len(doc.retainedPaths.nodes) != 1 || doc.elements[0].pathRef.node != 1 {
 		t.Fatalf("first retained path state: nodes=%d root=%+v", len(doc.retainedPaths.nodes), doc.elements[0].pathRef)
 	}
@@ -568,9 +541,6 @@ func TestXMLDocumentRetainedPathReferencesEverySegmentBoundary(t *testing.T) {
 	if len(doc.retainedPaths.nodes) != 1 || len(doc.retainedPaths.namespaces) != 1 {
 		t.Fatal("retaining annotated ancestors grew path storage")
 	}
-	if doc.pathText != "" {
-		t.Fatalf("retaining path materialized active cache %q", doc.pathText)
-	}
 }
 
 func TestXMLDocumentRetainedExpandedPath(t *testing.T) {
@@ -581,7 +551,7 @@ func TestXMLDocumentRetainedExpandedPath(t *testing.T) {
 	doc.CommitExpandedStart(preparedXMLStart{name: xml.Name{Space: space, Local: "root"}}, struct{}{})
 	doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "child"}}, struct{}{})
 	path := doc.retainPathAtDepth(2)
-	if got := path.String(); got != "/{"+space+"}root/child" {
+	if got := path.String(); got != "/{"+strings.Repeat("u", 128)+"...}root/child" {
 		t.Fatalf("retained expanded path = %q", got)
 	}
 	if len(doc.retainedPaths.nodes) != 1 || len(doc.retainedPaths.namespaces) != 1 {
@@ -618,7 +588,7 @@ func TestXMLDocumentRetainedExpandedSiblingsShareLargeNamespace(t *testing.T) {
 			t.Fatalf("expanded sibling node %d retained rendered namespace: %+v", i, node)
 		}
 	}
-	if got, want := first.String(), "/root/{"+space+"}child"; got != want {
+	if got, want := first.String(), "/root/{"+strings.Repeat("u", 128)+"...}child"; got != want {
 		t.Fatalf("first retained expanded sibling path = %q, want %q", got, want)
 	}
 }
@@ -763,7 +733,7 @@ func TestXMLDocumentStartRollbackRemovesRetainedPathNodes(t *testing.T) {
 	t.Parallel()
 
 	var doc emptyXMLDocument
-	root := strings.Repeat("r", 255)
+	root := strings.Repeat("r", 100)
 	doc.CommitStart(preparedXMLStart{name: xml.Name{Local: root}}, struct{}{})
 	checkpoint := doc.startCheckpoint()
 	doc.CommitExpandedStart(preparedXMLStart{name: xml.Name{Space: "urn:test", Local: "child"}}, struct{}{})

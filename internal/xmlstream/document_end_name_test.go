@@ -32,7 +32,7 @@ func TestReaderEndNameSurvivesTrailingWhitespaceRefills(t *testing.T) {
 		if err := reader.End(handle); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := reader.Next(); !IsOnlyEOF(err) {
+		if _, err := reader.Next(); !IsEOF(err) {
 			t.Fatalf("document end = %v", err)
 		}
 		reader.Detach()
@@ -110,7 +110,7 @@ func TestReaderAbortedStartRetainsItsSyntheticClosingName(t *testing.T) {
 		t.Fatalf("end after abort = %+v", token)
 	}
 	err = reader.MatchEnd(parent)
-	if err == nil || !strings.Contains(err.Error(), "end element </child> does not match start element <root>") || reader.Depth() != 1 {
+	if err == nil || !strings.Contains(err.Error(), `end element "child" does not match start element "root"`) || reader.Depth() != 1 {
 		t.Fatalf("match after abort = %v, depth %d", err, reader.Depth())
 	}
 	reader.Detach()
@@ -120,11 +120,11 @@ func TestReaderEndNamesRequireLexicalEquality(t *testing.T) {
 	for _, test := range []struct {
 		input, message string
 	}{
-		{`<p:root xmlns:p="urn:test" xmlns:q="urn:test"></q:root>`, "end element </q:root> does not match start element <p:root>"},
-		{`<root></missing:root>`, "unbound namespace prefix missing"},
-		{`<root></longer>`, "end element </longer> does not match start element <root>"},
-		{`<π:名 xmlns:π="urn:test"></π:別>`, "end element </π:別> does not match start element <π:名>"},
-		{`<π:名 xmlns:π="urn:test"></σ:名>`, "unbound namespace prefix σ"},
+		{`<p:root xmlns:p="urn:test" xmlns:q="urn:test"></q:root>`, `end element "q:root" does not match start element "p:root"`},
+		{`<root></missing:root>`, `unbound namespace prefix "missing"`},
+		{`<root></longer>`, `end element "longer" does not match start element "root"`},
+		{`<π:名 xmlns:π="urn:test"></π:別>`, `end element "π:別" does not match start element "π:名"`},
+		{`<π:名 xmlns:π="urn:test"></σ:名>`, `unbound namespace prefix "σ"`},
 	} {
 		var reader Reader
 		if err := reader.Reset(strings.NewReader(test.input), Config{}); err != nil {
@@ -171,7 +171,7 @@ func TestReaderSyntheticEndDoesNotChargeNameAgain(t *testing.T) {
 		if err := reader.End(handle); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := reader.Next(); !IsOnlyEOF(err) {
+		if _, err := reader.Next(); !IsEOF(err) {
 			t.Fatalf("document end = %v", err)
 		}
 		reader.Detach()

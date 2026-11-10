@@ -70,7 +70,7 @@ func TestParserNameBufferRolloverOwnsSpelling(t *testing.T) {
 		owned := start.Start.Name
 		for {
 			_, err := parser.next()
-			if IsOnlyEOF(err) {
+			if IsEOF(err) {
 				break
 			}
 			if err != nil {
@@ -176,7 +176,11 @@ func TestReaderNameReadFailureAndReuse(t *testing.T) {
 		}
 		token, err := reader.Next()
 		boundary, ok := errors.AsType[*Error](err)
-		if token != nil || !ok || boundary.Kind != ErrorSyntax || boundary.Line != 1 || boundary.Column != 9 || IsOnlyEOF(err) {
+		wantKind := ErrorSyntax
+		if errors.Is(cause, readErr) {
+			wantKind = ErrorInput
+		}
+		if token != nil || !ok || boundary.Kind != wantKind || boundary.Line != 1 || boundary.Column != 9 {
 			t.Fatalf("name failure = %+v, %v", token, err)
 		}
 		if errors.Is(cause, readErr) && !errors.Is(err, readErr) {

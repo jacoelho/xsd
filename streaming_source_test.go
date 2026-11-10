@@ -52,8 +52,11 @@ func TestCompileSourceAcquisitionErrorsPrecedeEarlyXMLParseErrors(t *testing.T) 
 	malformed := []byte(`<xs:schema><broken></xs:schema>`)
 	readErr := errors.New("source read failed")
 	closeErr := errors.New("source close failed")
+	wrappedEOF := fmt.Errorf("closed: %w", io.EOF)
+	complete := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
 	tests := []struct {
 		name      string
+		data      []byte // overrides the malformed document when set
 		readErr   error
 		closeErr  error
 		wantCause error
@@ -71,13 +74,27 @@ func TestCompileSourceAcquisitionErrorsPrecedeEarlyXMLParseErrors(t *testing.T) 
 			wantCause: closeErr,
 			wantCode:  xsderrors.CodeSchemaRead,
 		},
+		{
+			// Characterisation row: source.Input applies the same identity rule
+			// as the instance reader, so a wrapped EOF after a complete schema
+			// is a read failure.
+			name:      "wrapped EOF after complete schema",
+			data:      complete,
+			readErr:   wrappedEOF,
+			wantCause: wrappedEOF,
+			wantCode:  xsderrors.CodeSchemaRead,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
+			data := malformed
+			if test.data != nil {
+				data = test.data
+			}
 			reader := &stagedSchemaReadCloser{
-				data:     malformed,
+				data:     data,
 				readErr:  test.readErr,
 				closeErr: test.closeErr,
 			}

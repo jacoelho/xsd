@@ -20,7 +20,7 @@ func TestCompileModeValidation(t *testing.T) {
 		{
 			name: "unknown schema source requirement",
 			call: func() error {
-				_, err := classifySchemaAcquireResult("schema.xsd", source.ReadResult{Err: errors.New("read failed")}, 1, 1, schemaSourceRequirement(99))
+				_, err := (&schemaSetLoader{}).classifySchemaAcquireResult(schemaLoadRequest{source: source.Bytes("schema.xsd", nil), requirement: schemaSourceRequirement(99)}, source.ReadResult{Err: errors.New("read failed")}, 1, 1)
 				return err
 			},
 			text: "unknown schema source requirement",

@@ -1488,17 +1488,17 @@ func TestNilReadersReturnStructuredErrors(t *testing.T) {
 	}
 
 	err = engine.Validate(nil)
-	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationXML)
+	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationRead)
 
 	err = engine.ValidateWithOptions(nil, xsd.ValidateOptions{})
-	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationXML)
+	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationRead)
 
 	session, err := engine.NewSession(xsd.ValidateOptions{})
 	if err != nil {
 		t.Fatalf("NewSession() error = %v", err)
 	}
 	err = session.Validate(nil)
-	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationXML)
+	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationRead)
 	err = session.Validate(strings.NewReader(`<root/>`))
 	if err != nil {
 		t.Fatalf("Session.Validate() after nil reader error = %v", err)
@@ -1681,31 +1681,6 @@ func TestValidateOptionsMaxInstanceTokenBytes(t *testing.T) {
 				t.Fatalf("Validate() error = %v, want validation limit", err)
 			}
 		})
-	}
-}
-
-func TestValidateOptionsBoundSchemaLocationNamespaces(t *testing.T) {
-	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	doc := `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:a a.xsd urn:b b.xsd"/>`
-
-	err = engine.ValidateWithOptions(strings.NewReader(doc), xsd.ValidateOptions{
-		MaxErrors:                   10,
-		MaxSchemaLocationNamespaces: 1,
-	})
-
-	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationLimit)
-
-	session, err := engine.NewSession(xsd.ValidateOptions{MaxSchemaLocationNamespaceBytes: 4})
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = session.Validate(strings.NewReader(doc))
-	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationLimit)
-	if err := session.Validate(strings.NewReader(`<root/>`)); err != nil {
-		t.Fatalf("session reuse after schema-location limit: %v", err)
 	}
 }
 
@@ -1894,7 +1869,7 @@ func TestIdentityDiagnosticsRetainDocumentPaths(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		namespace := "urn:" + strings.Repeat("u", 512)
+		namespace := "urn:" + strings.Repeat("u", 100)
 		doc := fmt.Sprintf(
 			`<root xmlns:p="%s" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xs="http://www.w3.org/2001/XMLSchema"><p:a xsi:type="xs:string">same</p:a><p:b xsi:type="xs:string">same</p:b></root>`,
 			namespace,
@@ -1921,9 +1896,9 @@ func TestCompileOptionsAggregateSchemaSetLimits(t *testing.T) {
 		return xsd.SchemaSource{}, xsderrors.ErrSchemaNotFound
 	})
 	root := xsd.Bytes("root.xsd", rootData).WithResolver(resolver)
-	// The duplicate reference is resolved and read again to verify that the
-	// resolver did not return different content for the same document identity.
-	totalBytes := int64(len(rootData) + 2*len(childData))
+	// The duplicate reference is resolved again, but an in-memory source is
+	// compared by digest and charged once.
+	totalBytes := int64(len(rootData) + len(childData))
 
 	referenceFree := []xsd.SchemaSource{
 		xsd.Bytes("a.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:a"/>`)),

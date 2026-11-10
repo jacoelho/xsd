@@ -25,7 +25,6 @@ const (
 	msgEmptyText                      = "character data, including whitespace, is not allowed because the content type is empty"
 	msgElementOnlyText                = "non-whitespace character data is not allowed because the content type is element-only"
 	msgAbstractElement                = "the element declaration is abstract; use a concrete substitution-group member"
-	msgSchemaLocationPairs            = "xsi:schemaLocation must contain namespace/location pairs"
 	msgSessionInUse                   = "validation session is already in use"
 	msgReaderNil                      = "instance reader is nil"
 	msgInstanceUTF8                   = "instance documents must be UTF-8"
@@ -54,23 +53,44 @@ func validation(ctx startContext, code xsderrors.Code, msg string) error {
 	return xsderrors.WithLocation(ctx.PathString(), ctx.Line, ctx.Column, xsderrors.Validation(code, msg, nil))
 }
 
-// locateElementStartError projects the failed start's path from the
-// document-owned parent path without committing its frame, so diagnostics
-// about the parent's content stay located on the parent.
-func (s *session) locateElementStartError(err error) error {
+// unlocated reports whether err is directly a non-internal diagnostic with
+// neither path nor line. errors.Join values are not inspected; a site that
+// joins diagnostics must locate them before joining.
+func unlocated(err error) bool {
+	diagnostic, ok := err.(*xsderrors.Error) //nolint:errorlint // Only a direct diagnostic can be decorated; wrappers and aggregates keep their structure.
+	return ok && diagnostic != nil &&
+		diagnostic.Category() != xsderrors.CategoryInternal &&
+		diagnostic.Path() == "" && diagnostic.Line() == 0
+}
+
+// locatePendingStart locates an unlocated diagnostic on the admitted start
+// that is not committed yet. The path is projected from the document-owned
+// parent path, so diagnostics about the parent's content stay located on the
+// parent by the sites that locate them. mode is the assessment mode selected
+// for the start; the commit renders the same segment from the same mode. A
+// fatal failure that precedes selection passes elementWildcardSkipped and so
+// renders the lexical segment even for an unknown namespaced element that
+// selection would have assessed: an element is expanded only once selected as
+// assessed, and such a failure ends the document, so no later path renders the
+// element.
+func (s *session) locatePendingStart(err error, mode elementMode) error {
+	if !unlocated(err) {
+		return err
+	}
 	location, locationErr := s.reader.StartLocation()
 	if locationErr != nil {
 		return xsderrors.InternalInvariant("element-start diagnostic requires an admitted XML start: " + locationErr.Error())
 	}
-	parent := s.doc.PathString()
-	mode := expandedInstancePath(elementAssessed, s.runtimeName(location.Name))
-	var path strings.Builder
-	path.Grow(len(parent) + xmlPathSegmentLength(location.Name, mode))
-	if parent != "/" {
-		path.WriteString(parent)
+	return xsderrors.WithLocation(s.doc.pathStringWithChild(location.Name, expandedInstancePath(mode, s.runtimeName(location.Name))), location.Line, location.Column, err)
+}
+
+// locateCurrent locates an unlocated diagnostic on the current document path
+// at the given position.
+func (s *session) locateCurrent(err error, line, col int) error {
+	if !unlocated(err) {
+		return err
 	}
-	appendXMLPathSegment(&path, location.Name, mode)
-	return xsderrors.WithLocation(path.String(), location.Line, location.Column, err)
+	return xsderrors.WithLocation(s.doc.PathString(), line, col, err)
 }
 
 func quotedName(name xsdSchema.RuntimeName) string {
@@ -290,6 +310,11 @@ func terminalValueError(ctx startContext, err error, eval xsdValue.EvaluationLim
 		return validation(ctx, xsderrors.CodeValidationLimit, msgSimpleValueLimit+": MaxInstanceValueWork="+strconv.FormatUint(eval.Work, 10))
 	}
 	if xsderrors.IsUnsupported(err) {
+		// WithLocation fills a direct diagnostic only, so a wrapper or
+		// join keeps its structure and causes.
+		if ctx.document != nil || ctx.Path != "" || ctx.Line > 0 {
+			return xsderrors.WithLocation(ctx.PathString(), ctx.Line, ctx.Column, err)
+		}
 		return err
 	}
 	return nil

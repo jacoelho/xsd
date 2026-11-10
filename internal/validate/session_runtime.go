@@ -93,12 +93,11 @@ type session struct {
 type documentState struct {
 	xmlDocument[frame]
 
-	identity            identityEvaluation
-	schemaLocationHints schemaLocationHintSet
-	allBits             []uint64
-	errors              []error
-	text                []byte
-	syntaxOnly          bool
+	identity   identityEvaluation
+	allBits    []uint64
+	errors     []error
+	text       []byte
+	syntaxOnly bool
 }
 
 type frame struct {
@@ -159,7 +158,7 @@ func (s *session) validateTokens() error {
 			mode = tokenValidationSyntaxOnly
 		}
 		if err := s.validateToken(tok, mode); err != nil {
-			return err
+			return s.locateCurrent(err, tok.Line, tok.Column)
 		}
 		if mode == tokenValidationSemantic && s.doc.syntaxOnly {
 			s.discardSemanticState()
@@ -168,7 +167,7 @@ func (s *session) validateTokens() error {
 }
 
 func (s *session) finishTokenStream(err error) error {
-	if xmlstream.IsOnlyEOF(err) {
+	if xmlstream.IsEOF(err) {
 		return s.finishValidation()
 	}
 	return s.parseError(err)
@@ -222,9 +221,12 @@ func (s *session) finishValidation() error {
 				s.discardSemanticState()
 				return s.result()
 			}
-			return err
+			line, col := readerPosition(&s.reader)
+			return s.locateCurrent(err, line, col)
 		}
 	}
+	// Recorded diagnostics were located where they were recorded; locating
+	// them here would move an unlocated one to the end of the document.
 	return s.result()
 }
 
@@ -241,15 +243,12 @@ func (s *session) reset() {
 	identity.reset(maxRetainedMapLen, maxRetainedSliceCap)
 	xmlDocument := s.doc.xmlDocument
 	xmlDocument.Reset(maxRetainedSliceCap)
-	schemaLocationHints := s.doc.schemaLocationHints
-	schemaLocationHints.Reset(maxRetainedMapLen)
 	s.doc = documentState{
-		xmlDocument:         xmlDocument,
-		errors:              resetRetainedReferences(s.doc.errors, maxRetainedSliceCap),
-		text:                resetRetainedBytes(s.doc.text),
-		allBits:             resetRetainedValues(s.doc.allBits, maxRetainedSliceCap),
-		identity:            identity,
-		schemaLocationHints: schemaLocationHints,
+		xmlDocument: xmlDocument,
+		errors:      resetRetainedReferences(s.doc.errors, maxRetainedSliceCap),
+		text:        resetRetainedBytes(s.doc.text),
+		allBits:     resetRetainedValues(s.doc.allBits, maxRetainedSliceCap),
+		identity:    identity,
 	}
 }
 
@@ -336,7 +335,6 @@ func (s *session) discardSemanticState() {
 	s.doc.clearPayloads()
 	s.doc.identity.discard()
 	s.doc.discardRetainedPaths()
-	s.doc.schemaLocationHints = schemaLocationHintSet{}
 	s.doc.allBits = nil
 	s.doc.text = nil
 	s.attributeSeen = nil
@@ -351,8 +349,7 @@ const (
 )
 
 // sessionStartTransaction makes one element start atomic across the XML and
-// namespace stacks, schema-location hints, the parent's content-model state and
-// all-group bits, recovery state, and identity state. A fatal failure (abort)
+// namespace stacks, the parent's content-model state, all-group bits, recovery state, and identity state. A fatal failure (abort)
 // rolls every owner back to the checkpoint and aborts the reader's namespace
 // frame. A semantic stop (MaxErrors reached) instead keeps only the committed
 // XML syntax state needed to parse the remainder and discards semantic state.
@@ -361,7 +358,6 @@ const (
 type sessionStartTransaction struct {
 	s                 *session
 	xml               xmlDocumentCheckpoint
-	hints             schemaLocationHintSet
 	transition        xsdSchema.ContentTransition
 	handle            xmlstream.Handle
 	allBitsLen        int
@@ -376,7 +372,6 @@ func (t *sessionStartTransaction) begin(s *session, xmlCheckpoint xmlDocumentChe
 	*t = sessionStartTransaction{
 		s:           s,
 		xml:         xmlCheckpoint,
-		hints:       s.doc.schemaLocationHints,
 		allBitsLen:  len(s.doc.allBits),
 		errorsLen:   len(s.doc.errors),
 		parentIndex: xmlCheckpoint.depth - 1,
@@ -499,7 +494,6 @@ func (t *sessionStartTransaction) abort() error {
 
 func (t *sessionStartTransaction) restoreStartState() {
 	t.s.doc.identity.abortStart()
-	t.s.doc.schemaLocationHints = t.hints
 	clear(t.s.doc.allBits[t.allBitsLen:])
 	t.s.doc.allBits = t.s.doc.allBits[:t.allBitsLen]
 }
@@ -540,24 +534,17 @@ func (s *session) runStartTransaction(
 	line, col int,
 ) error {
 	xsiFlags := xsiStartAttributeFlagsFor(attrs)
-	// Hint syntax and limits are diagnosed before selection. Hints never
-	// influence which declaration or type is selected.
-	if xsiFlags.SchemaLocation {
-		if err := s.recover(s.recordSchemaLocationHints(attrs, line, col)); err != nil {
-			return handleStartTransactionError(transaction, se, err)
-		}
-	}
 	rn := s.runtimeName(se.name)
 	var accepted acceptedChild
 	err := s.startType(rn, attrs, xsiFlags, line, col, &accepted)
 	if err != nil {
-		return handleStartTransactionError(transaction, se, err)
+		return transaction.fail(se, elementWildcardSkipped, line, col, err)
 	}
 	transaction.stageContent(&accepted)
 	start := accepted.start
 	nilled, err := s.assessElementStart(&start, attrs, xsiFlags)
 	if err != nil {
-		return handleStartTransactionError(transaction, se, err)
+		return transaction.fail(se, start.mode, line, col, err)
 	}
 	schemaFrame, err := s.newSchemaFrame(start, nilled)
 	if err != nil {
@@ -567,19 +554,27 @@ func (s *session) runStartTransaction(
 		return err
 	}
 	if identityErr := s.startFrameIdentity(rn, &schemaFrame, line, col); identityErr != nil {
-		return handleStartTransactionError(transaction, se, identityErr)
+		return transaction.fail(se, start.mode, line, col, identityErr)
 	}
 	if attrErr := s.validateStartAttributes(start, attrs, line, col); attrErr != nil {
-		return handleStartTransactionError(transaction, se, attrErr)
+		return transaction.fail(se, start.mode, line, col, attrErr)
 	}
 	return transaction.commit()
 }
 
-func handleStartTransactionError(transaction *sessionStartTransaction, start preparedXMLStart, err error) error {
+// fail routes a start failure. A semantic stop discards semantic state; every
+// other failure is located when it still lacks a location: on the admitted
+// start before its XML commit, on the committed element afterwards. mode is
+// the assessment mode selected for the start; before selection callers pass
+// elementWildcardSkipped.
+func (t *sessionStartTransaction) fail(start preparedXMLStart, mode elementMode, line, col int, err error) error {
 	if errors.Is(err, errSemanticStop) {
-		return transaction.stopSemanticValidation(start)
+		return t.stopSemanticValidation(start)
 	}
-	return err
+	if t.phase == startTransactionPrepared {
+		return t.s.locatePendingStart(err, mode)
+	}
+	return t.s.locateCurrent(err, line, col)
 }
 
 func (s *session) assessElementStart(
@@ -822,12 +817,12 @@ func (s *session) recoverXSITypeError(start *schemaStart, info xsdSchema.TypeInf
 }
 
 // recoverElementStartAssessment is the location boundary for start assessment,
-// which returns unlocated failures: it marks the start invalid and attaches the
-// admitted start's path and token position before recording the diagnostic.
+// which returns unlocated failures: it attaches the admitted start's path and
+// token position, marks the start invalid, and records the diagnostic.
 func (s *session) recoverElementStartAssessment(start *schemaStart, err error) error {
+	err = s.locatePendingStart(err, start.mode)
 	if assessmentFailure(err) {
 		start.invalid = true
-		err = s.locateElementStartError(err)
 	}
 	return s.recover(err)
 }

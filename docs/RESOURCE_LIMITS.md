@@ -26,10 +26,10 @@ func compileWithLimits(schema []byte) (*xsd.Engine, error) {
 | `MaxSchemaAttributes` | `256` | Max attributes on one schema XML element. |
 | `MaxSchemaTokenBytes` | `4 MiB` | Max bytes the schema XML reader holds for one token (names, attribute values, PI and text payload, construction scratch), measured lexically, and max character data accumulated in one element across text tokens. It also scales literal evaluation work. |
 | `MaxSchemaSourceBytes` | `64 MiB` | Max bytes read from each schema source. |
-| `MaxSchemaSources` | `1024` | Max explicit source descriptors and distinct resolver-loaded source identities admitted to one compilation. |
-| `MaxSchemaTotalBytes` | `256 MiB` | Max aggregate bytes read across all schema sources. |
+| `MaxSchemaSources` | `1024` | Max explicit source descriptors, and, separately, max distinct schema documents loaded (explicit and resolver-loaded together). An unavailable include/import target loads nothing and is not counted; the document that exceeds the count is opened and closed without being read. |
+| `MaxSchemaTotalBytes` | `256 MiB` | Max aggregate bytes read from schema sources. Each document is charged when first loaded; an opener source reached again is reopened and charged again; a file source is read once; an in-memory source is compared by digest without charge. |
 | `MaxSchemaReferences` | `16_384` | Max include/import references processed across the schema set. |
-| `MaxSchemaDependencySteps` | `1_000_000` | Max aggregate schema-graph expansion, target-context propagation, and component-dependency resolution work. |
+| `MaxSchemaDependencySteps` | `1_000_000` | Max aggregate schema-graph expansion, target-context propagation, and component-dependency resolution work. Each particle appended to a content model, each attribute use and wildcard namespace admitted to a compiled set, and each model record costs one step. A derived type is charged for the particles and attribute uses it inherits, because the compiled type retains its own flattened copy: a base type with 300 elements and 300 attributes extended by 2,000 types needs about 1.2 million steps and exceeds the default. |
 | `MaxSchemaTargetContexts` | `4_096` | Max distinct source/effective-target-namespace contexts, including primary and chameleon-derived contexts. |
 | `MaxSchemaInstantiatedNodes` | `1_000_000` | Max aggregate schema node occurrences across effective target contexts. |
 | `MaxSchemaNames` | `0` | Max interned schema names, including built-ins. `0` means no explicit limit. |
@@ -85,8 +85,6 @@ func validateWithLimits(engine *xsd.Engine, doc io.Reader) error {
 | `MaxIdentityScopes` | `10_000` | Max active identity-constraint scopes. |
 | `MaxIdentityEntries` | `100_000` | Independent max for stored ID, IDREF, key, unique, and keyref entries, pending identity-selector matches, and pending identity-field values. |
 | `MaxIdentityTupleBytes` | `4 KiB` | Max byte length of one stored identity key. |
-| `MaxSchemaLocationNamespaces` | `256` | Max distinct schema-location namespace names admitted per document. Retained names enforce accounting limits, not component lookup. |
-| `MaxSchemaLocationNamespaceBytes` | `64 KiB` | Max aggregate bytes in distinct retained schema-location namespace names. `MaxInstanceTokenBytes` also bounds each complete hint attribute. |
 | `MaxInstanceDepth` | `256` | Max nested XML elements. |
 | `MaxInstanceAttributes` | `4_096` | Max attributes on one XML element. |
 | `MaxInstanceTextBytes` | `4 MiB` | Max retained character data bytes. |
@@ -95,6 +93,9 @@ func validateWithLimits(engine *xsd.Engine, doc io.Reader) error {
 | `MaxInstanceValueWork` | `4_194_502_132_335` | Max cumulative lexical work per simple-value evaluation. Independent of schema compilation limits. |
 | `MaxInstancePatternWork` | `536_870_912` | Max regular-expression matching work per simple value, across all pattern facets, list items and union members. |
 | `MaxInstanceTotalPatternWork` | `8_589_934_592` | Max regular-expression matching work summed over all values of one document. |
+
+Each diagnostic path is at most 4096 bytes and each name in it at most 128
+bytes before escaping, so retained diagnostic text is bounded by `MaxErrors`.
 
 Each value-evaluation visit charges its lexical byte length plus one. List items,
 union attempts, and a raw-byte attempt followed by typed fallback share the

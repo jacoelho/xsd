@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16591,
-    "schemaCases": 16541,
-    "instanceRuns": 35406,
+    "cases": 16596,
+    "schemaCases": 16546,
+    "instanceRuns": 35420,
     "w3cCases": 14414,
-    "internalRuns": 2164,
+    "internalRuns": 2169,
     "xercesJCases": 13
   },
   "cases": [
@@ -10153,17 +10153,17 @@
         "oracle": {
           "xerces": {
             "expected": "invalid",
-            "reason": "Observed offline with Apache Xerces-J 2.12.2 on the current fixture: schema rejected. org.xml.sax.SAXParseException; systemId: file://tests/corpus/project/namespaces/builtin-xsi/constraint-uri-list-not-hint-pairs.xsd; lineNumber: 1; columnNumber: 362; src-resolve: Cannot resolve the name 'xsi:schemaLocation' to a(n) 'attribute declaration' component. The project expectation follows its documented XSD 1.0 policy and selected WG corrections; this observation is not a majority-vote oracle. Its 3 instance runs were blocked by schema rejection and were not assessed.",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 on the current fixture: schema rejected. org.xml.sax.SAXParseException; systemId: file://tests/corpus/project/namespaces/builtin-xsi/constraint-uri-list-not-hint-pairs.xsd; lineNumber: 1; columnNumber: 362; src-resolve: Cannot resolve the name 'xsi:schemaLocation' to a(n) 'attribute declaration' component. The project expectation follows its documented XSD 1.0 policy and selected WG corrections; this observation is not a majority-vote oracle. Its 4 instance runs were blocked by schema rejection and were not assessed.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
           },
           "dotnet": {
             "expected": "invalid",
-            "reason": "Observed offline with .NET System.Xml.Schema 10.0.9 on the current fixture: schema rejected. System.Xml.Schema.XmlSchemaException: The 'http://www.w3.org/2001/XMLSchema-instance:schemaLocation' attribute is not declared. The project expectation follows its documented XSD 1.0 policy and selected WG corrections; this observation is not a majority-vote oracle. Its 3 instance runs were blocked by schema rejection and were not assessed.",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.9 on the current fixture: schema rejected. System.Xml.Schema.XmlSchemaException: The 'http://www.w3.org/2001/XMLSchema-instance:schemaLocation' attribute is not declared. The project expectation follows its documented XSD 1.0 policy and selected WG corrections; this observation is not a majority-vote oracle. Its 4 instance runs were blocked by schema rejection and were not assessed.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
           },
           "libxml2": {
             "expected": "invalid",
-            "reason": "Observed offline with libxml2 2.9.13 on the current fixture: schema rejected. attribute use (unknown), attribute 'ref': The QName value '{http://www.w3.org/2001/XMLSchema-instance}schemaLocation' does not resolve to a(n) attribute declaration. The project expectation follows its documented XSD 1.0 policy and selected WG corrections; this observation is not a majority-vote oracle. Its 3 instance runs were blocked by schema rejection and were not assessed.",
+            "reason": "Observed offline with libxml2 2.9.13 on the current fixture: schema rejected. attribute use (unknown), attribute 'ref': The QName value '{http://www.w3.org/2001/XMLSchema-instance}schemaLocation' does not resolve to a(n) attribute declaration. The project expectation follows its documented XSD 1.0 policy and selected WG corrections; this observation is not a majority-vote oracle. Its 4 instance runs were blocked by schema rejection and were not assessed.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
           }
         }
@@ -10177,11 +10177,11 @@
         {
           "testName": "physical-odd",
           "file": "corpus/project/namespaces/builtin-xsi/constraint-uri-list-not-hint-pairs-physical-odd.xml",
-          "expected": "invalid",
+          "expected": "valid",
           "oracle": {
             "xmlschema": {
               "expected": "valid",
-              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 on the current fixture: instance accepted. The project expectation follows its documented XSD 1.0 policy and selected WG corrections; this observation is not a majority-vote oracle.",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. xsi:schemaLocation is a list of anyURI, so one item is valid. The physical attribute is still validated although the schema default is not synthesized. This observation is not a majority-vote oracle.",
               "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
             }
           }
@@ -10190,6 +10190,19 @@
           "testName": "physical-even",
           "file": "corpus/project/namespaces/builtin-xsi/constraint-uri-list-not-hint-pairs-physical-even.xml",
           "expected": "valid"
+        },
+        {
+          "testName": "physical-invalid-uri",
+          "file": "corpus/project/namespaces/builtin-xsi/constraint-uri-list-not-hint-pairs-physical-invalid-uri.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute",
+          "oracle": {
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted; xmlschema does not reject the invalid anyURI item. The project expectation keeps intrinsic anyURI validation of a physical xsi:schemaLocation item; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+            }
+          }
         }
       ],
       "files": [
@@ -10207,6 +10220,10 @@
         },
         {
           "file": "corpus/project/namespaces/builtin-xsi/constraint-uri-list-not-hint-pairs-physical-even.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/builtin-xsi/constraint-uri-list-not-hint-pairs-physical-invalid-uri.xml",
           "role": "instance"
         }
       ]
@@ -23479,6 +23496,91 @@
         {
           "file": "corpus/project/limits/architecture-minoccurs-above-uint32-is-schema-limit/schema.xsd",
           "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/architecture-derived-model-particles-exceed-dependency-budget",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "architecture",
+        "function": "DerivedParticlesChargedToDependencyBudget",
+        "sourceFile": "tests/corpus/project/limits/architecture-derived-model-particles-exceed-dependency-budget"
+      },
+      "schema": {
+        "expected": "invalid",
+        "errorCode": "schema.limit",
+        "documents": [
+          {
+            "file": "corpus/project/limits/architecture-derived-model-particles-exceed-dependency-budget/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "reason": "Observed offline with tools/oracles/run.sh on the unchanged schema bytes (Xerces-J 2.12.2, .NET 10.0.14, Python xmlschema 4.3.2, libxml2 2.9.13). Xerces-J failed in XMLSchemaLoader.loadGrammar without a validity result (adapter exit 1, no schema assessment). The 2^20-particle sequence is a processor resource failure, not a validity outcome.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance",
+            "status": "blocked"
+          },
+          "dotnet": {
+            "reason": "Observed offline with tools/oracles/run.sh on the unchanged schema bytes (Xerces-J 2.12.2, .NET 10.0.14, Python xmlschema 4.3.2, libxml2 2.9.13). .NET threw System.OutOfMemoryException in ParticleContentValidator.Finish while compiling the 2^20-particle sequence; no validity result.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance",
+            "status": "blocked"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with tools/oracles/run.sh on the unchanged schema bytes (Xerces-J 2.12.2, .NET 10.0.14, Python xmlschema 4.3.2, libxml2 2.9.13). xmlschema assessed the schema valid and warned that it cannot verify the content model due to its maximum recursion depth. Disagreement area: project finite compilation resource limit (not XSD invalidity). This observation does not replace the project expectation.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with tools/oracles/run.sh on the unchanged schema bytes (Xerces-J 2.12.2, .NET 10.0.14, Python xmlschema 4.3.2, libxml2 2.9.13). libxml2 assessed the schema valid. Disagreement area: project finite compilation resource limit (not XSD invalidity). This observation does not replace the project expectation.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/limits/architecture-derived-model-particles-exceed-dependency-budget/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/architecture-derived-model-particles-within-dependency-budget",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "architecture",
+        "function": "DerivedParticlesChargedToDependencyBudget",
+        "sourceFile": "tests/corpus/project/limits/architecture-derived-model-particles-within-dependency-budget"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/limits/architecture-derived-model-particles-within-dependency-budget/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "valid",
+          "file": "corpus/project/limits/architecture-derived-model-particles-within-dependency-budget/valid.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/limits/architecture-derived-model-particles-within-dependency-budget/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/limits/architecture-derived-model-particles-within-dependency-budget/valid.xml",
+          "role": "instance"
         }
       ]
     },
@@ -876991,6 +877093,388 @@
               "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint"
             }
           }
+        }
+      ]
+    },
+    {
+      "id": "project/xsi-schema-location-hint-volume-is-not-limited",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/namespaces/xsi-schema-location-hint-volume",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.noNamespaceSchemaLocation"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/namespaces/xsi-schema-location-hint-volume/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "pairs-257-on-one-element",
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-volume/pairs-257-on-one-element.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "pairs-16-uris-8kib",
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-volume/pairs-16-uris-8kib.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "pairs-257-across-300-elements",
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-volume/pairs-257-across-300-elements.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-volume/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-volume/pairs-257-on-one-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-volume/pairs-16-uris-8kib.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-volume/pairs-257-across-300-elements.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/xsi-schema-location-hint-syntax",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/namespaces/xsi-schema-location-hint-syntax",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.noNamespaceSchemaLocation"
+        ],
+        "conditions": [
+          "xsi:schemaLocation is a list of anyURI of any item count; no pair-count rule applies. Hints are checked only on assessed elements, never on skip-processed content."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/namespaces/xsi-schema-location-hint-syntax/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "valid-pairs",
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-syntax/valid-pairs.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "odd-field-count",
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-syntax/odd-field-count.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            }
+          }
+        },
+        {
+          "testName": "three-items",
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-syntax/three-items.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            }
+          }
+        },
+        {
+          "testName": "empty-value",
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-syntax/empty-value.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            }
+          }
+        },
+        {
+          "testName": "skip-content",
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-syntax/skip-content.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            }
+          }
+        },
+        {
+          "testName": "invalid-uri-field",
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-syntax/invalid-uri-field.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            }
+          }
+        },
+        {
+          "testName": "invalid-no-namespace-uri",
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-syntax/invalid-no-namespace-uri.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-syntax/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-syntax/valid-pairs.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-syntax/odd-field-count.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-syntax/three-items.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-syntax/empty-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-syntax/skip-content.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-syntax/invalid-uri-field.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-syntax/invalid-no-namespace-uri.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/xsi-schema-location-hint-lax-unknown",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/namespaces/xsi-schema-location-hint-lax-unknown",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+        ],
+        "conditions": [
+          "An unknown element reached through a lax wildcard is assessed, so its xsi:schemaLocation items are checked as anyURI."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/namespaces/xsi-schema-location-hint-lax-unknown/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "valid-item",
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-lax-unknown/valid-item.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. It reports the warning \"Could not find schema information for the element 'urn:o:x'\". The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            }
+          }
+        },
+        {
+          "testName": "invalid-item",
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-lax-unknown/invalid-item.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. It reports the warning \"Could not find schema information for the element 'urn:o:x'\". The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-lax-unknown/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-lax-unknown/valid-item.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/xsi-schema-location-hint-lax-unknown/invalid-item.xml",
+          "role": "instance"
         }
       ]
     }

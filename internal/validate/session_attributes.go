@@ -179,6 +179,11 @@ func (s *session) validateReservedAttribute(attr *xmlstream.Attr, line, col int)
 	if err != nil {
 		return true, err
 	}
+	if isSchemaLocationHintName(name) {
+		if err := s.recoverAssessment(s.locateCurrent(checkSchemaLocationHint(name.Local, value), line, col)); err != nil {
+			return true, err
+		}
+	}
 	return true, s.validateXSIAttribute(name, value, line, col)
 }
 
@@ -559,18 +564,6 @@ func (s *session) validateXSIAttribute(name xml.Name, value string, line, col in
 		return s.recover(err)
 	}
 	return nil
-}
-
-func (s *session) recordSchemaLocationHints(attrs []xmlstream.Attr, line, col int) error {
-	return s.doc.schemaLocationHints.RecordAttributes(
-		attrs,
-		&s.reader,
-		schemaLocationHintLimits{
-			Namespaces:     s.limits.SchemaLocationNamespaces,
-			NamespaceBytes: s.limits.SchemaLocationNamespaceBytes,
-		},
-		s.startContext(line, col),
-	)
 }
 
 // fixedValueEqual compares in value space; valid is false when either side

@@ -233,10 +233,10 @@ func newScratchOppFixture(b *testing.B, widths []int, failure string) scratchOpp
 		event := scratchOppEvent{}
 		if failure == "duplicate" {
 			attrs = append(attrs, Attr{Name: xml.Name{Space: "q", Local: "a0"}, value: "value"})
-			event.wantError = "duplicate attribute {urn:shadow}a0"
+			event.wantError = `duplicate attribute "{urn:shadow}a0"`
 		} else {
 			attrs = append(attrs, Attr{Name: xml.Name{Space: "missing", Local: "bad"}, value: "value"})
-			event.wantError = "unbound namespace prefix missing"
+			event.wantError = `unbound namespace prefix "missing"`
 		}
 		event.lexical = attrs
 		event.attrs = make([]Attr, len(attrs))

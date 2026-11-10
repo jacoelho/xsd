@@ -91,11 +91,16 @@ func (b *byteStream) read(p []byte) (int, error) {
 func (b *byteStream) readUnderlying(p []byte) (int, error) {
 	for range maxConsecutiveEmptyXMLReads {
 		n, err := b.r.Read(p)
+		// End of input is io.EOF itself, as for io.ReadAll and
+		// internal/source; a wrapped or joined EOF is a reader failure.
+		if err != nil && err != io.EOF {
+			err = &inputError{cause: err}
+		}
 		if n != 0 || err != nil {
 			return n, err
 		}
 	}
-	return 0, io.ErrNoProgress
+	return 0, &inputError{cause: io.ErrNoProgress}
 }
 
 // ensure returns the non-consuming input window after reading until at least n
@@ -107,7 +112,7 @@ func (b *byteStream) ensure(n int) ([]byte, error) {
 			return b.buf[b.off:b.end], b.err
 		}
 		if b.r == nil {
-			return b.buf[b.off:b.end], ErrXMLInputNilReader
+			return b.buf[b.off:b.end], errNilReader()
 		}
 		read, err := b.read(b.buf[b.end:])
 		if read > 0 {
@@ -119,7 +124,7 @@ func (b *byteStream) ensure(n int) ([]byte, error) {
 			b.err = err
 			return b.buf[b.off:b.end], err
 		}
-		return b.buf[b.off:b.end], io.ErrNoProgress
+		return b.buf[b.off:b.end], &inputError{cause: io.ErrNoProgress}
 	}
 	return b.buf[b.off:b.end], nil
 }
@@ -171,7 +176,7 @@ func (b *byteStream) fill() error {
 		return b.err
 	}
 	if b.r == nil {
-		return ErrXMLInputNilReader
+		return errNilReader()
 	}
 	n, err := b.read(b.buf[:])
 	if n > 0 {
@@ -184,7 +189,7 @@ func (b *byteStream) fill() error {
 		b.err = err
 		return err
 	}
-	b.err = io.ErrNoProgress
+	b.err = &inputError{cause: io.ErrNoProgress}
 	return b.err
 }
 

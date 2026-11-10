@@ -171,6 +171,15 @@ defaulting exclusion, as expressed in
 without adopting unrelated 1.1 features. Absent XSI attributes contribute no
 synthesized identity value, type selection, nil state or location hint.
 
+A physical `xsi:schemaLocation` is assessed only as a list of anyURI, and
+`xsi:noNamespaceSchemaLocation` as one anyURI, on assessed elements. The
+attribute's type makes any item count valid and no constraint records an
+even-count rule; Xerces-J, .NET, xmlschema and libxml2 accept an odd count
+(corpus case `xsi-schema-location-hint-syntax`). Hints on skip-processed content
+are not assessed, consistent with `xsi:nil` and `xsi:type` being ignored there.
+An element whose start fails fatally before attribute assessment gets no hint
+diagnostic.
+
 [Complex-type validity clause 3](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-aam)
 excludes exactly these four names from ordinary attribute-use checking, so a
 physical value does not acquire a use's fixed-value check. Its intrinsic lexical

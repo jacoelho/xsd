@@ -10,6 +10,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/vocab"
 )
@@ -186,7 +187,7 @@ func (p *parser) reset(r io.Reader, names, values *cache, config Config) error {
 	limits := config.Limits
 	if r == nil {
 		p.detach()
-		return ErrXMLInputNilReader
+		return errNilReader()
 	}
 	if names == nil || values == nil {
 		p.detach()
@@ -375,35 +376,10 @@ func (p *parser) pos() (line, column int) {
 	return p.br.pos()
 }
 
-// IsOnlyEOF reports whether every cause in err is io.EOF. Joined errors with
-// any non-EOF cause must not be treated as successful stream completion.
-func IsOnlyEOF(err error) bool {
-	if err == nil {
-		return false
-	}
-	if err == io.EOF { //nolint:errorlint // Exact identity is required before inspecting every wrapped or joined cause.
-		return true
-	}
-	if joined, ok := err.(interface{ Unwrap() []error }); ok {
-		return joinedErrorsAreOnlyEOF(joined.Unwrap())
-	}
-	if wrapped, ok := err.(interface{ Unwrap() error }); ok {
-		return IsOnlyEOF(wrapped.Unwrap())
-	}
-	return false
-}
-
-func joinedErrorsAreOnlyEOF(causes []error) bool {
-	if len(causes) == 0 {
-		return false
-	}
-	for _, cause := range causes {
-		if !IsOnlyEOF(cause) {
-			return false
-		}
-	}
-	return true
-}
+// IsEOF reports whether err is io.EOF itself. Reader.Next returns io.EOF itself
+// at the end of input; every other error, one that wraps or joins io.EOF
+// included, is a failure.
+func IsEOF(err error) bool { return err == io.EOF } //nolint:errorlint // identity is the rule
 
 //nolint:funlen,gocognit // One loop owns byte consumption, delimiter state, and token position.
 func (p *parser) readCharData(dst *Token, first byte) error {
@@ -440,7 +416,7 @@ func (p *parser) readCharData(dst *Token, first byte) error {
 	}
 	for {
 		chunk, err := p.br.buffered()
-		if IsOnlyEOF(err) {
+		if IsEOF(err) {
 			if borrowFirst {
 				handled, borrowErr := p.borrowCharData(dst, chunk, 0, line, col)
 				if handled {
@@ -540,7 +516,7 @@ func (p *parser) borrowCharData(dst *Token, chunk []byte, n, line, col int) (boo
 	if n > len(chunk) || n < len(chunk) && chunk[n] != '<' {
 		return false, nil
 	}
-	if n == len(chunk) && !IsOnlyEOF(p.br.err) {
+	if n == len(chunk) && !IsEOF(p.br.err) {
 		return false, nil
 	}
 	start := p.br.off - 1
@@ -1056,7 +1032,7 @@ func (p *parser) readAttributeValueBytes(quote byte, dst *[]byte) ([]byte, error
 
 func (p *parser) appendBufferedAttributeValue(quote byte, dst *[]byte) (bool, error) {
 	chunk, err := p.br.buffered()
-	if IsOnlyEOF(err) {
+	if IsEOF(err) {
 		return false, streamSyntaxError("unexpected EOF in attribute value", err)
 	}
 	if err != nil {
@@ -1399,10 +1375,10 @@ func validateXMLVersionAttribute(content []byte) ([]byte, error) {
 		return nil, fmt.Errorf("invalid XML declaration")
 	}
 	if !isVersionNum(attr.Value) {
-		return nil, fmt.Errorf("invalid XML declaration version %q", attr.Value)
+		return nil, errors.New("invalid XML declaration version " + diagnostictext.Quote(attr.Value))
 	}
 	if attr.Value != xmlVersion10 {
-		return nil, unsupportedXMLVersionError{Version: attr.Value}
+		return nil, newUnsupportedXMLVersionError(attr.Value)
 	}
 	return attr.Rest, nil
 }
@@ -1413,7 +1389,7 @@ func validateOptionalXMLEncoding(content []byte) ([]byte, error) {
 		return content, nil
 	}
 	if !isEncName(attr.Value) {
-		return nil, fmt.Errorf("invalid XML declaration encoding %q", attr.Value)
+		return nil, errors.New("invalid XML declaration encoding " + diagnostictext.Quote(attr.Value))
 	}
 	if !strings.EqualFold(attr.Value, "UTF-8") && !strings.EqualFold(attr.Value, "UTF8") {
 		return nil, errUnsupportedNonUTF8

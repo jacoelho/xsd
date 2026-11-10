@@ -101,7 +101,7 @@ func parserOutcome(t *testing.T, reads []string, config Config) string {
 	var out []string
 	for {
 		token, err := parser.next()
-		if IsOnlyEOF(err) {
+		if IsEOF(err) {
 			return strings.Join(append(out, "end-of-document"), "|")
 		}
 		if err != nil {

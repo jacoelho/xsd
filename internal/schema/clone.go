@@ -8,12 +8,6 @@ func cloneWildcard(in wildcardRuntime) wildcardRuntime {
 	return in
 }
 
-// cloneContentModel deep-clones content-model metadata.
-func cloneContentModel(in contentModelNode) contentModelNode {
-	in.Particles = slices.Clone(in.Particles)
-	return in
-}
-
 // cloneSimpleTypeDerivation deep-clones simple-type derivation projection
 // metadata.
 func cloneSimpleTypeDerivation(in simpleTypeDerivation) simpleTypeDerivation {

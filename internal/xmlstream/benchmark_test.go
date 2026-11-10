@@ -362,7 +362,7 @@ func digestParserBenchmarkDocument(parser *parserTestHarness, text string, confi
 	got := parserBenchmarkDigest{hash: parserBenchmarkDigestOffset}
 	for {
 		token, err := parser.next()
-		if IsOnlyEOF(err) {
+		if IsEOF(err) {
 			return got, nil
 		}
 		if err != nil {
@@ -380,7 +380,7 @@ func consumeParserBenchmarkDocument(parser *parserTestHarness, text string, conf
 	var got parserBenchmarkSample
 	for {
 		token, err := parser.next()
-		if IsOnlyEOF(err) {
+		if IsEOF(err) {
 			return got, nil
 		}
 		if err != nil {

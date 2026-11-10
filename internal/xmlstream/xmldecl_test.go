@@ -2,6 +2,7 @@ package xmlstream
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -70,10 +71,10 @@ func TestXMLDeclarationAdmission(t *testing.T) {
 					padding = strings.Repeat(" ", maxXMLDeclarationPreviewBytes+1024)
 				}
 				err := readDocument(`<?xml` + padding + test.decl + `?><r/>`)
-				var versionErr unsupportedXMLVersionError
 				switch {
 				case test.version != "":
-					if !errors.As(err, &versionErr) || versionErr.Version != test.version {
+					feature, ok := UnsupportedFeatureOf(err)
+					if !ok || feature != UnsupportedXMLVersion || err.Error() != "XML version "+test.version+" is not supported" {
 						t.Fatalf("error = %v, want unsupported version %q", err, test.version)
 					}
 				case test.want == accepted:
@@ -145,3 +146,48 @@ func TestXMLDeclarationPreviewBoundary(t *testing.T) {
 		}
 	}
 }
+
+// An error returned by the caller's reader is never classified as this
+// package's own limit or unsupported-feature failure, whatever its chain
+// carries; the version error is reachable only through a Reader.
+func TestCallerReaderErrorChainIsNotClassified(t *testing.T) {
+	t.Parallel()
+
+	err1 := readDocument(`<?xml version="1.1"?><r/>`)
+	if feature, ok := UnsupportedFeatureOf(err1); !ok || feature != UnsupportedXMLVersion {
+		t.Fatalf("setup error = %v, want unsupported XML version", err1)
+	}
+	for _, test := range []struct {
+		name string
+		err  error
+	}{
+		{"single", err1},
+		{"wrapped", fmt.Errorf("transport: %w", err1)},
+		{"joined", errors.Join(err1, errors.New("other"))},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			var reader Reader
+			err := reader.Reset(&errReader{err: test.err}, Config{})
+			if err == nil {
+				err = drainReader(&reader)
+			}
+			if _, ok := UnsupportedFeatureOf(err); ok {
+				t.Errorf("UnsupportedFeatureOf(%v) classified a caller error", err)
+			}
+			if _, ok := LimitOf(err); ok {
+				t.Errorf("LimitOf(%v) classified a caller error", err)
+			}
+			if !IsInputFailure(err) {
+				t.Errorf("IsInputFailure(%v) = false, want true", err)
+			}
+			if !errors.Is(err, test.err) {
+				t.Errorf("error %v lost cause %v", err, test.err)
+			}
+		})
+	}
+}
+
+type errReader struct{ err error }
+
+func (r *errReader) Read([]byte) (int, error) { return 0, r.err }

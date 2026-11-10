@@ -44,13 +44,13 @@ func (c *compiler) compileElementParticleDeclaration(n *schemaNode, ctx *schemaS
 	return id, withSchemaCompileLocation(n, err)
 }
 
-func (c *compiler) compileElementByQName(q QName) (ElementID, error) {
+func (c *compiler) compileElementByQName(q QName) (result ElementID, err error) {
 	raw, exists := c.elementComponents[q]
 	var source *schemaNode
 	if exists {
 		source = raw.sourceNode()
 	}
-	if err := c.spendComponentDependency(source); err != nil {
+	if err = c.spendComponentDependency(source); err != nil {
 		return 0, err
 	}
 	if id, ok := c.rt.GlobalElements[q]; ok {
@@ -64,7 +64,7 @@ func (c *compiler) compileElementByQName(q QName) (ElementID, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer leave()
+	defer leave(&err)
 	id, err := c.registerGlobalElement(q, elementDecl{Name: q, Type: ComplexRef(c.rt.AnyType)})
 	if err != nil {
 		return 0, err
@@ -78,18 +78,18 @@ func (c *compiler) compileElementByQName(q QName) (ElementID, error) {
 	return id, nil
 }
 
-func (c *compiler) compileLocalElement(n *schemaNode, ctx *schemaSetDocument) (ElementID, error) {
+func (c *compiler) compileLocalElement(n *schemaNode, ctx *schemaSetDocument) (result ElementID, err error) {
 	if id, ok := c.localDone[nodeKey(n, ctx)]; ok {
 		return id, nil
 	}
-	if err := c.spendComponentDependency(n); err != nil {
+	if err = c.spendComponentDependency(n); err != nil {
 		return 0, err
 	}
 	leave, err := c.enterComponent(n)
 	if err != nil {
 		return 0, err
 	}
-	defer leave()
+	defer leave(&err)
 	if err = checkLocalElementAttributes(n); err != nil {
 		return 0, err
 	}

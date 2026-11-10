@@ -45,7 +45,7 @@ func validXMLRunePrefix(data []byte) (int, error) {
 func (p *parser) consumeLineFeed() error {
 	b, err := p.br.peekByte()
 	if err != nil {
-		if IsOnlyEOF(err) {
+		if IsEOF(err) {
 			return nil
 		}
 		return err
@@ -450,7 +450,7 @@ func (p *parser) expectString(s string) error {
 }
 
 func streamSyntaxError(msg string, err error) error {
-	if IsOnlyEOF(err) {
+	if IsEOF(err) {
 		return errors.New(msg)
 	}
 	return err

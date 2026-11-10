@@ -15,7 +15,11 @@ const sourceInputBufferSize = 32 << 10
 
 // Input is one bounded, forward-only view of a schema source. It retains
 // reader state and digest state, never the source bytes. The owner must use
-// the pointer linearly and must not copy or use it concurrently.
+// the pointer linearly and must not copy or use it concurrently. The owner
+// ends the input with exactly one of Finish or Discard. Discard is only for an
+// input whose content and read failures are irrelevant because a limit has
+// already ended the load; it is not a way around the Finish precedence rule
+// for parse failures.
 type Input struct {
 	stream       io.ReadCloser
 	digest       hash.Hash
@@ -109,6 +113,25 @@ func (in *Input) Finish() ReadResult {
 	in.readErr = result.Err
 	in.finishStage = result.Stage
 	return result
+}
+
+// Discard closes the source without reading further, detaches it, and returns
+// the close error. It ends an input whose content is not needed. The input is
+// then finished: Read returns io.EOF and Finish returns the same terminal
+// result, whose Bytes and Digest cover only what was consumed and are not a
+// content identity. Discard after Finish or Discard returns nil.
+func (in *Input) Discard() error {
+	if in == nil || in.finished {
+		return nil
+	}
+	closeErr := in.closeSource()
+	in.detach()
+	in.finished = true
+	in.sourceDone = true
+	result := in.result(closeErr)
+	in.readErr = result.Err
+	in.finishStage = result.Stage
+	return closeErr
 }
 
 func (in *Input) unavailableRead() (bool, error) {

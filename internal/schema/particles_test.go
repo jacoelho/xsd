@@ -356,7 +356,7 @@ func fixtureElements(names []QName, restrictions []particleRestrictionElement) [
 }
 
 func (f particleFixture) build() *schemaBuild {
-	b := &schemaBuild{Models: cloneContentModels(f.models), Elements: fixtureElements(f.elements, nil), Wildcards: slices.Clone(f.wildcards)}
+	b := &schemaBuild{Models: cloneContentModels(f.models), Elements: fixtureElements(f.elements, nil), Wildcards: slices.Clone(f.wildcards), typeWork: testDependencyWork()}
 	b.Substitutions = fixtureSubstitutions(b.Elements, f.substitutions, f.substitutionLookup)
 	return b
 }

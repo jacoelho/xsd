@@ -1,70 +1,31 @@
 package validate
 
 import (
-	"encoding/xml"
 	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/vocab"
-	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-var testSchemaLocationHintLimits = schemaLocationHintLimits{Namespaces: 32, NamespaceBytes: 1 << 16}
-
-func TestSchemaLocationHintsRecordNamespacePairs(t *testing.T) {
+func TestSchemaLocationHintsAcceptWellFormedHints(t *testing.T) {
 	t.Parallel()
 
-	var hints schemaLocationHintSet
-	if err := hints.RecordAttributes(
-		[]xmlstream.Attr{xmlstream.NewAttr(xsiHintName(vocab.XSIAttrSchemaLocation), "urn:a a.xsd\turn:b b.xsd")},
-		hintsTestReader,
-		testSchemaLocationHintLimits,
-		startContext{Path: "/root", Line: 2, Column: 3},
-	); err != nil {
-		t.Fatalf("RecordAttribute() error = %v", err)
-	}
-	if !hints.Has("urn:a") || !hints.Has("urn:b") {
-		t.Fatalf("RecordAttribute() did not retain schema-location namespaces")
-	}
-	if hints.Has("a.xsd") || hints.Has("b.xsd") {
-		t.Fatalf("RecordAttribute() retained schema-location documents as namespaces")
-	}
-}
-
-func TestSchemaLocationHintsRecordNoNamespace(t *testing.T) {
-	t.Parallel()
-
-	var hints schemaLocationHintSet
-	if err := hints.RecordAttributes(
-		[]xmlstream.Attr{xmlstream.NewAttr(xsiHintName(vocab.XSIAttrNoNamespaceSchemaLocation), "\tno-ns.xsd\n")},
-		hintsTestReader,
-		testSchemaLocationHintLimits,
-		startContext{Path: "/root", Line: 2, Column: 3},
-	); err != nil {
-		t.Fatalf("RecordAttribute() error = %v", err)
-	}
-	if !hints.Has("") {
-		t.Fatalf("RecordAttribute() did not retain no-namespace schema-location hint")
-	}
-}
-
-func TestSchemaLocationHintsRecordEmptyNoNamespace(t *testing.T) {
-	t.Parallel()
-
-	for _, value := range []string{"", " \t\n\r"} {
-		var hints schemaLocationHintSet
-		if err := hints.RecordAttributes(
-			[]xmlstream.Attr{xmlstream.NewAttr(xsiHintName(vocab.XSIAttrNoNamespaceSchemaLocation), value)},
-			hintsTestReader,
-			testSchemaLocationHintLimits,
-			startContext{Path: "/root", Line: 2, Column: 3},
-		); err != nil {
-			t.Fatalf("RecordAttribute(%q) error = %v", value, err)
-		}
-		if !hints.Has("") {
-			t.Fatalf("RecordAttribute(%q) did not retain no-namespace hint", value)
+	for _, tc := range []struct{ local, value string }{
+		{vocab.XSIAttrSchemaLocation, "urn:a a.xsd\turn:b b.xsd"},
+		// xsi:schemaLocation is a list of anyURI: any item count is valid.
+		{vocab.XSIAttrSchemaLocation, "urn:a"},
+		{vocab.XSIAttrSchemaLocation, "urn:a a.xsd urn:b"},
+		{vocab.XSIAttrSchemaLocation, ""},
+		// The anyURI lexical rule (internal/uriref) accepts non-ASCII UTF-8,
+		// and NBSP is not XML whitespace, so this is one valid item.
+		{vocab.XSIAttrSchemaLocation, "urn:t\u00a0hinted.xsd"},
+		{vocab.XSIAttrNoNamespaceSchemaLocation, "\tno-ns.xsd\n"},
+		{vocab.XSIAttrNoNamespaceSchemaLocation, ""},
+		{vocab.XSIAttrNoNamespaceSchemaLocation, " \t\n\r"},
+	} {
+		if err := checkSchemaLocationHint(tc.local, tc.value); err != nil {
+			t.Fatalf("%s=%q: %v", tc.local, tc.value, err)
 		}
 	}
 }
@@ -79,22 +40,16 @@ func TestSchemaLocationHintsRejectMalformedHints(t *testing.T) {
 		message string
 	}{
 		{
-			name:    "schemaLocation odd field count",
-			local:   vocab.XSIAttrSchemaLocation,
-			value:   "urn:t",
-			message: "xsi:schemaLocation must contain namespace/location pairs",
-		},
-		{
 			name:    "schemaLocation invalid URI",
 			local:   vocab.XSIAttrSchemaLocation,
 			value:   "urn:t %zz",
 			message: "invalid xsi:schemaLocation URI \"%zz\"",
 		},
 		{
-			name:    "schemaLocation non XML whitespace",
+			name:    "schemaLocation invalid first item",
 			local:   vocab.XSIAttrSchemaLocation,
-			value:   "urn:t\u00a0hinted.xsd",
-			message: "xsi:schemaLocation must contain namespace/location pairs",
+			value:   "%zz urn:t",
+			message: "invalid xsi:schemaLocation URI \"%zz\"",
 		},
 		{
 			name:    "noNamespace invalid URI",
@@ -108,276 +63,11 @@ func TestSchemaLocationHintsRejectMalformedHints(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			var hints schemaLocationHintSet
-			err := hints.RecordAttributes(
-				[]xmlstream.Attr{xmlstream.NewAttr(xsiHintName(tc.local), tc.value)},
-				hintsTestReader,
-				testSchemaLocationHintLimits,
-				startContext{Path: "/root", Line: 2, Column: 3},
-			)
+			err := checkSchemaLocationHint(tc.local, tc.value)
 			expectXSDCode(t, err, xsderrors.CodeValidationAttribute)
 			expectXSDMessage(t, err, tc.message)
 		})
 	}
-}
-
-func TestSchemaLocationHintsRejectMalformedAtomically(t *testing.T) {
-	t.Parallel()
-
-	var hints schemaLocationHintSet
-	err := hints.RecordAttributes(
-		[]xmlstream.Attr{xmlstream.NewAttr(xsiHintName(vocab.XSIAttrSchemaLocation), "urn:t %zz")},
-		hintsTestReader,
-		testSchemaLocationHintLimits,
-		startContext{Path: "/root", Line: 2, Column: 3},
-	)
-	expectXSDCode(t, err, xsderrors.CodeValidationAttribute)
-	if hints.Has("urn:t") {
-		t.Fatalf("RecordAttribute() retained namespace from malformed schema-location hint")
-	}
-}
-
-func TestSchemaLocationHintsEnforceAtomicCountAndByteLimits(t *testing.T) {
-	t.Parallel()
-
-	ctx := startContext{Path: "/root", Line: 2, Column: 3}
-	t.Run("count", func(t *testing.T) {
-		t.Parallel()
-		var hints schemaLocationHintSet
-		limits := schemaLocationHintLimits{Namespaces: 2, NamespaceBytes: 64}
-		if err := hints.RecordAttributes(
-			[]xmlstream.Attr{xmlstream.NewAttr(xsiHintName(vocab.XSIAttrSchemaLocation), "urn:a a.xsd urn:b b.xsd")},
-			hintsTestReader,
-			limits,
-			ctx,
-		); err != nil {
-			t.Fatal(err)
-		}
-		err := hints.RecordAttributes(
-			[]xmlstream.Attr{xmlstream.NewAttr(xsiHintName(vocab.XSIAttrSchemaLocation), "urn:c c.xsd urn:d d.xsd")},
-			hintsTestReader,
-			limits,
-			ctx,
-		)
-		expectXSDCode(t, err, xsderrors.CodeValidationLimit)
-		if hints.Has("urn:c") || hints.Has("urn:d") {
-			t.Fatal("over-limit attribute mutated hints")
-		}
-	})
-
-	t.Run("UTF-8 byte count", func(t *testing.T) {
-		t.Parallel()
-		var hints schemaLocationHintSet
-		limits := schemaLocationHintLimits{Namespaces: 2, NamespaceBytes: 2}
-		if err := hints.RecordAttributes(
-			[]xmlstream.Attr{xmlstream.NewAttr(xsiHintName(vocab.XSIAttrSchemaLocation), "é one.xsd")},
-			hintsTestReader,
-			limits,
-			ctx,
-		); err != nil {
-			t.Fatal(err)
-		}
-		err := hints.RecordAttributes(
-			[]xmlstream.Attr{xmlstream.NewAttr(xsiHintName(vocab.XSIAttrSchemaLocation), "a two.xsd")},
-			hintsTestReader,
-			limits,
-			ctx,
-		)
-		expectXSDCode(t, err, xsderrors.CodeValidationLimit)
-		if hints.Has("a") {
-			t.Fatal("byte-over-limit attribute mutated hints")
-		}
-	})
-}
-
-func TestSchemaLocationHintsDoNotChargeDuplicates(t *testing.T) {
-	t.Parallel()
-
-	var hints schemaLocationHintSet
-	limits := schemaLocationHintLimits{Namespaces: 1, NamespaceBytes: 5}
-	ctx := startContext{Path: "/root", Line: 2, Column: 3}
-	for range 2 {
-		if err := hints.RecordAttributes(
-			[]xmlstream.Attr{xmlstream.NewAttr(xsiHintName(vocab.XSIAttrSchemaLocation), "urn:a a.xsd urn:a b.xsd")},
-			hintsTestReader,
-			limits,
-			ctx,
-		); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if len(hints.namespaces) != 1 || hints.namespaceBytes != 5 {
-		t.Fatalf("duplicate accounting = %d namespaces, %d bytes", len(hints.namespaces), hints.namespaceBytes)
-	}
-}
-
-func TestSchemaLocationHintSyntaxPrecedesLimits(t *testing.T) {
-	t.Parallel()
-
-	var hints schemaLocationHintSet
-	err := hints.RecordAttributes(
-		[]xmlstream.Attr{xmlstream.NewAttr(xsiHintName(vocab.XSIAttrSchemaLocation), "urn:a a.xsd urn:b %zz")},
-		hintsTestReader,
-		schemaLocationHintLimits{Namespaces: 1, NamespaceBytes: 1},
-		startContext{Path: "/root", Line: 2, Column: 3},
-	)
-	expectXSDCode(t, err, xsderrors.CodeValidationAttribute)
-	if len(hints.namespaces) != 0 || hints.namespaceBytes != 0 {
-		t.Fatal("malformed attribute mutated hints")
-	}
-}
-
-func TestNoNamespaceSchemaLocationConsumesOneEntryAndNoBytes(t *testing.T) {
-	t.Parallel()
-
-	var hints schemaLocationHintSet
-	limits := schemaLocationHintLimits{Namespaces: 1, NamespaceBytes: 1}
-	ctx := startContext{Path: "/root", Line: 2, Column: 3}
-	for range 2 {
-		if err := hints.RecordAttributes(
-			[]xmlstream.Attr{xmlstream.NewAttr(xsiHintName(vocab.XSIAttrNoNamespaceSchemaLocation), "schema.xsd")},
-			hintsTestReader,
-			limits,
-			ctx,
-		); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if !hints.Has("") || len(hints.namespaces) != 1 || hints.namespaceBytes != 0 {
-		t.Fatalf("no-namespace accounting = %d namespaces, %d bytes", len(hints.namespaces), hints.namespaceBytes)
-	}
-}
-
-func TestSchemaLocationHintsRecordAttributesFiltersHints(t *testing.T) {
-	t.Parallel()
-
-	var hints schemaLocationHintSet
-	err := hints.RecordAttributes(hintAttrs(
-		hintStreamAttr("", "id", "ignored"),
-		hintStreamAttr("urn:other", vocab.XSIAttrSchemaLocation, "ignored"),
-		hintStreamAttr(vocab.XSINamespaceURI, vocab.XSIAttrSchemaLocation, "urn:a a.xsd"),
-		hintStreamAttr(vocab.XSINamespaceURI, vocab.XSIAttrNoNamespaceSchemaLocation, "no-ns.xsd"),
-	), hintsTestReader, testSchemaLocationHintLimits, startContext{Path: "/root", Line: 2, Column: 3})
-	if err != nil {
-		t.Fatalf("RecordAttributes() error = %v", err)
-	}
-	if !hints.Has("urn:a") || !hints.Has("") {
-		t.Fatalf("RecordAttributes() did not retain expected schema-location hints")
-	}
-	if hints.Has("urn:other") {
-		t.Fatalf("RecordAttributes() retained non-XSI schema-location-like attribute")
-	}
-}
-
-func TestSchemaLocationHintsRecordAttributesIsAtomic(t *testing.T) {
-	t.Parallel()
-
-	hints := schemaLocationHintSet{namespaces: map[string]struct{}{"urn:existing": {}}, namespaceBytes: 12}
-	err := hints.RecordAttributes(hintAttrs(
-		hintStreamAttr(vocab.XSINamespaceURI, vocab.XSIAttrSchemaLocation, "urn:new new.xsd"),
-		hintStreamAttr(vocab.XSINamespaceURI, vocab.XSIAttrNoNamespaceSchemaLocation, "%zz"),
-	), hintsTestReader, testSchemaLocationHintLimits, startContext{Path: "/root", Line: 2, Column: 3})
-	expectXSDCode(t, err, xsderrors.CodeValidationAttribute)
-	if !hints.Has("urn:existing") || hints.Has("urn:new") || hints.Has("") {
-		t.Fatalf("failed RecordAttributes() changed hints: %+v", hints)
-	}
-}
-
-func BenchmarkSchemaLocationHintsRecordDuplicateAttributes(b *testing.B) {
-	for _, namespaceCount := range []int{1, 256} {
-		b.Run(fmt.Sprintf("namespaces=%d", namespaceCount), func(b *testing.B) {
-			namespaces := make(map[string]struct{}, namespaceCount)
-			var namespaceBytes int64
-			for i := range namespaceCount {
-				ns := fmt.Sprintf("urn:%d", i)
-				namespaces[ns] = struct{}{}
-				namespaceBytes += int64(len(ns))
-			}
-			hints := schemaLocationHintSet{namespaces: namespaces, namespaceBytes: namespaceBytes}
-			attrs := hintAttrs(hintStreamAttr(vocab.XSINamespaceURI, vocab.XSIAttrSchemaLocation, "urn:0 schema.xsd"))
-			limits := schemaLocationHintLimits{Namespaces: 256, NamespaceBytes: 1 << 20}
-			ctx := startContext{Path: "/root", Line: 1, Column: 1}
-			b.ReportAllocs()
-			for b.Loop() {
-				if err := hints.RecordAttributes(attrs, hintsTestReader, limits, ctx); err != nil {
-					b.Fatal(err)
-				}
-			}
-		})
-	}
-}
-
-func TestSchemaLocationHintsNoOpAttributesDoNotAllocate(t *testing.T) {
-	namespaces := make(map[string]struct{}, 256)
-	var namespaceBytes int64
-	for i := range 256 {
-		ns := fmt.Sprintf("urn:%d", i)
-		namespaces[ns] = struct{}{}
-		namespaceBytes += int64(len(ns))
-	}
-	limits := schemaLocationHintLimits{Namespaces: 256, NamespaceBytes: 1 << 20}
-	ctx := startContext{Path: "/root", Line: 1, Column: 1}
-	test := func(t *testing.T, namespace, local, value string) {
-		t.Helper()
-		hints := schemaLocationHintSet{namespaces: namespaces, namespaceBytes: namespaceBytes}
-		allocs := testing.AllocsPerRun(100, func() {
-			if err := recordHintAttributeForAllocationTest(&hints, namespace, local, value, limits, ctx); err != nil {
-				panic(err)
-			}
-		})
-		if allocs != 0 {
-			t.Fatalf("RecordAttributes() allocations = %g, want 0", allocs)
-		}
-	}
-	t.Run("no hint", func(t *testing.T) {
-		test(t, "", "id", "ignored")
-	})
-	t.Run("duplicate hint", func(t *testing.T) {
-		test(t, vocab.XSINamespaceURI, vocab.XSIAttrSchemaLocation, "urn:0 schema.xsd")
-	})
-}
-
-func recordHintAttributeForAllocationTest(hints *schemaLocationHintSet, namespace, local, value string, limits schemaLocationHintLimits, ctx startContext) error {
-	return hints.RecordAttributes(
-		hintAttrs(hintStreamAttr(namespace, local, value)),
-		hintsTestReader,
-		limits,
-		ctx,
-	)
-}
-
-func TestSchemaLocationHintsResetClearsAndDropsOversizedMaps(t *testing.T) {
-	t.Parallel()
-
-	hints := schemaLocationHintSet{namespaces: map[string]struct{}{"urn:a": {}}, namespaceBytes: 5}
-	hints.Reset(1)
-	if hints.namespaces == nil {
-		t.Fatalf("Reset() dropped bounded namespace map")
-	}
-	if hints.Has("urn:a") {
-		t.Fatalf("Reset() retained stale namespace")
-	}
-	if hints.namespaceBytes != 0 {
-		t.Fatal("Reset() retained namespace byte accounting")
-	}
-
-	hints.namespaces = map[string]struct{}{"urn:a": {}, "urn:b": {}}
-	hints.Reset(1)
-	if hints.namespaces != nil {
-		t.Fatalf("Reset() retained oversized namespace map")
-	}
-}
-
-func xsiHintName(local string) xml.Name {
-	return xml.Name{Space: vocab.XSINamespaceURI, Local: local}
-}
-
-func hintStreamAttr(ns, local, value string) xmlstream.Attr {
-	return xmlstream.NewAttr(xml.Name{Space: ns, Local: local}, value)
-}
-
-func hintAttrs(attrs ...xmlstream.Attr) []xmlstream.Attr {
-	return attrs
 }
 
 func expectXSDMessage(t *testing.T, err error, message string) {
@@ -390,7 +80,3 @@ func expectXSDMessage(t *testing.T, err error, message string) {
 		t.Fatalf("error message = %q, want %q", x.Message(), message)
 	}
 }
-
-// hintsTestReader serves owned (NewAttr) values only, so it never materializes
-// parser storage and is safe to share across parallel tests.
-var hintsTestReader = new(xmlstream.Reader)

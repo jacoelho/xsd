@@ -25,8 +25,8 @@ func TestSessionStartRollsBackRootOnFatalAssessment(t *testing.T) {
 		testXMLAttr(xml.Name{Local: "a"}, "AQID"),
 	))
 	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
-	if s.doc.Depth() != 0 || s.doc.schemaLocationHints.Has("") {
-		t.Fatalf("failed root start changed document state: depth=%d hints=%+v", s.doc.Depth(), s.doc.schemaLocationHints)
+	if s.doc.Depth() != 0 {
+		t.Fatalf("failed root start changed document state: depth=%d", s.doc.Depth())
 	}
 	if len(s.doc.identity.path) != 0 || len(s.doc.identity.elements) != 0 {
 		t.Fatal("failed root start changed identity state")
@@ -65,9 +65,6 @@ func TestSessionStartRollsBackParentContentOnFatalChildAssessment(t *testing.T) 
 	parent, ok = s.doc.Current()
 	if !ok || s.doc.Depth() != 1 || *parent != parentBefore {
 		t.Fatalf("failed child start changed parent: depth=%d frame=%+v want=%+v", s.doc.Depth(), parent, parentBefore)
-	}
-	if s.doc.schemaLocationHints.Has("urn:missing") {
-		t.Fatal("failed child start retained schema-location hint")
 	}
 	if _, ok := s.reader.Lookup("p"); ok {
 		t.Fatal("failed child start retained namespace bindings")
@@ -144,9 +141,6 @@ func TestSessionStartRollsBackStagedContentAfterFatalValueAssessment(t *testing.
 	parent, ok = s.doc.Current()
 	if !ok || s.doc.Depth() != 1 || *parent != parentBefore {
 		t.Fatalf("failed staged child changed parent: depth=%d frame=%+v want=%+v", s.doc.Depth(), parent, parentBefore)
-	}
-	if !s.doc.schemaLocationHints.Has("urn:missing") {
-		t.Fatal("failed child removed an inherited schema-location hint")
 	}
 	if _, ok := s.reader.Lookup("p"); ok {
 		t.Fatal("failed child retained namespace bindings")
@@ -358,18 +352,12 @@ func TestSessionIdentitySelectionsKeepDocumentPathsLazy(t *testing.T) {
 	if err := startForTest(t, &s, 3, 1, testXMLStart(xml.Name{Local: "a"})); err != nil {
 		t.Fatal(err)
 	}
-	if s.doc.pathText != "" {
-		t.Fatalf("selector starts materialized document path %q", s.doc.pathText)
-	}
 	if len(s.doc.retainedPaths.nodes) != 0 {
 		t.Fatalf("selector starts retained %d document path nodes", len(s.doc.retainedPaths.nodes))
 	}
 
 	if err := endForTest(t, &s, 3, 1, xmlstream.EndElement{Name: xml.Name{Local: "a"}}); err != nil {
 		t.Fatal(err)
-	}
-	if s.doc.pathText != "" {
-		t.Fatalf("absent unique field materialized document path %q", s.doc.pathText)
 	}
 }
 
@@ -424,9 +412,6 @@ func TestSessionStartRollsBackCompositeStateAfterIdentityFailure(t *testing.T) {
 	}
 	if len(s.doc.errors) != errorsBefore || s.doc.syntaxOnly {
 		t.Fatalf("failed child retained recovery state: errors=%d syntaxOnly=%v", len(s.doc.errors), s.doc.syntaxOnly)
-	}
-	if s.doc.schemaLocationHints.Has("urn:hint") {
-		t.Fatal("failed child retained schema-location hint")
 	}
 	if _, ok := s.reader.Lookup("p"); ok {
 		t.Fatal("failed child retained namespace admission")

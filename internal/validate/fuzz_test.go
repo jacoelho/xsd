@@ -1,11 +1,13 @@
 package validate
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
 	xsdSchema "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/source"
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 func FuzzValidateNeverPanics(f *testing.F) {
@@ -44,8 +46,18 @@ func FuzzValidateNeverPanics(f *testing.F) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := session.Validate(strings.NewReader(doc)); err != nil {
-			return
+		err = session.Validate(strings.NewReader(doc))
+		for _, leaf := range xsderrors.Flatten(err) {
+			diagnostic, ok := errors.AsType[*xsderrors.Error](leaf)
+			if !ok {
+				continue
+			}
+			if c := diagnostic.Category(); c != xsderrors.CategoryValidation && c != xsderrors.CategoryUnsupported {
+				continue
+			}
+			if diagnostic.Path() == "" || diagnostic.Line() <= 0 {
+				t.Fatalf("unlocated %s diagnostic %q for %q", diagnostic.Code(), diagnostic.Message(), doc)
+			}
 		}
 	})
 }

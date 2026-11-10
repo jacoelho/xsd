@@ -2,6 +2,8 @@ package xmlstream
 
 import (
 	"errors"
+	"fmt"
+	"io"
 	"strings"
 	"testing"
 )
@@ -72,6 +74,18 @@ func TestErrorKindIsLimitExactlyWhenLimitOf(t *testing.T) {
 		{name: "unexpected eof", input: `<a>`},
 		{name: "negative limit", input: `<a/>`, cfg: Config{Limits: Limits{MaxDepth: -1}}},
 		{name: "nil input", cfg: Config{}, run: func(r *Reader) error { return r.Reset(nil, Config{}) }},
+		{name: "reader error", run: func(r *Reader) error {
+			return drainScripted(r, scriptedRead{data: []byte(`<a>`), err: errReadFailed}, Config{})
+		}},
+		{name: "wrapped reader error", run: func(r *Reader) error {
+			return drainScripted(r, scriptedRead{data: []byte(`<a>`), err: fmt.Errorf("transport: %w", errReadFailed)}, Config{})
+		}},
+		{name: "no progress", run: func(r *Reader) error {
+			return drainScripted(r, scriptedRead{err: io.ErrNoProgress}, Config{})
+		}},
+		{name: "joined read error and input limit", run: func(r *Reader) error {
+			return drainScripted(r, scriptedRead{data: []byte(`<a>xxxxx</a>`), err: errReadFailed}, Config{Limits: Limits{MaxInputBytes: 3}})
+		}},
 		{name: "caller contract", input: `<a/>`, run: func(r *Reader) error {
 			if err := r.Reset(strings.NewReader(`<a/>`), Config{}); err != nil {
 				return err
@@ -96,6 +110,13 @@ func TestErrorKindIsLimitExactlyWhenLimitOf(t *testing.T) {
 			boundary, ok := errors.AsType[*Error](err)
 			if ok && (boundary.Kind == ErrorLimit) != limited {
 				t.Fatalf("Kind = %v but LimitOf = %v for %v", boundary.Kind, limited, err)
+			}
+			wantInput := tt.name == "nil input" || tt.name == "reader error" || tt.name == "wrapped reader error" || tt.name == "no progress"
+			if IsInputFailure(err) != wantInput {
+				t.Fatalf("IsInputFailure = %v, want %v for %v", !wantInput, wantInput, err)
+			}
+			if ok && (boundary.Kind == ErrorInput) != IsInputFailure(err) {
+				t.Fatalf("Kind = %v but IsInputFailure = %v for %v", boundary.Kind, IsInputFailure(err), err)
 			}
 			wantLimited := strings.HasSuffix(tt.name, "limit") && tt.name != "negative limit"
 			if limited != wantLimited {
@@ -125,4 +146,13 @@ func TestResetRejectsNegativeLimitsAsState(t *testing.T) {
 			}
 		})
 	}
+}
+
+var errReadFailed = errors.New("read failed")
+
+func drainScripted(r *Reader, read scriptedRead, cfg Config) error {
+	if err := r.Reset(&scriptedReader{reads: []scriptedRead{read}}, cfg); err != nil {
+		return err
+	}
+	return drainReader(r)
 }

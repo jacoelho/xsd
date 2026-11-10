@@ -343,9 +343,20 @@ func (c *compiler) completeIdentity(id IdentityConstraintID, identity identityCo
 	c.rt.Identities[id] = identity
 }
 
+// Admission charges MaxSchemaDependencySteps for every retained record: each
+// particle appended to a content model costs one step, charged before the
+// append by appendModelParticles; admitting a model record costs one step,
+// an attribute-use set len(Uses) and a wildcard len(Namespaces). An admitted
+// model is immutable and reads share it. A new retained table must charge in
+// its admission function.
+// These functions return unlocated budget errors; enterComponent's leave locates
+// them at the component being compiled.
 func (c *compiler) appendWildcard(wildcard wildcardRuntime) (WildcardID, error) {
 	id, err := nextWildcardID(len(c.rt.Wildcards))
 	if err != nil {
+		return NoWildcard, err
+	}
+	if err := c.dependencyWork.spend(len(wildcard.Namespaces)); err != nil {
 		return NoWildcard, err
 	}
 	c.rt.Wildcards = append(c.rt.Wildcards, wildcard)
@@ -357,6 +368,9 @@ func (c *compiler) addAttributeUseSet(set attributeUseSet) (attributeUseSetID, e
 	if err != nil {
 		return noAttributeUseSet, err
 	}
+	if err := c.dependencyWork.spend(len(set.Uses)); err != nil {
+		return noAttributeUseSet, err
+	}
 	c.rt.AttributeUseSets = append(c.rt.AttributeUseSets, set)
 	return id, nil
 }
@@ -366,6 +380,10 @@ func (c *compiler) addModel(model contentModelNode) (contentModelID, error) {
 	if err != nil {
 		return noContentModel, err
 	}
+	if err := c.dependencyWork.spend(1); err != nil {
+		return noContentModel, err
+	}
+	model.Particles = slices.Clip(model.Particles)
 	c.rt.Models = append(c.rt.Models, model)
 	c.modelSources = append(c.modelSources, nil)
 	return id, nil
@@ -379,7 +397,10 @@ func (c *compiler) addModelAt(model contentModelNode, source *schemaNode) (conte
 	return id, err
 }
 
+// completeModel installs particles that appendModelParticles already charged;
+// with addModel it is the only writer of the model table.
 func (c *compiler) completeModel(id contentModelID, model contentModelNode) {
+	model.Particles = slices.Clip(model.Particles)
 	c.rt.Models[id] = model
 }
 

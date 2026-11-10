@@ -110,12 +110,12 @@ func TestMaxErrorsStopsSemanticValidationWithinTriggeringToken(t *testing.T) {
     <xs:key name="rootKey"><xs:selector xpath="child"/><xs:field xpath="@missing"/></xs:key>
   </xs:element>
 </xs:schema>`)
-	doc := `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><child xsi:schemaLocation="odd"/></root>`
+	doc := `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><child xsi:nil="bad"/></root>`
 	err := NewSessionPool(rt).Validate(
 		strings.NewReader(doc),
 		Options{MaxErrors: 1, MaxIdentityScopes: 1})
 
-	requireCode(t, err, xsderrors.CodeValidationAttribute)
+	requireCode(t, err, xsderrors.CodeValidationNil)
 }
 
 func TestMaxErrorsStopsSemanticValidationAfterCommittedStart(t *testing.T) {

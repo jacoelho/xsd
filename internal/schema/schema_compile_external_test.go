@@ -2680,13 +2680,13 @@ func TestValidationComparesRawLexicalElementNames(t *testing.T) {
 
 	err := validateWithRuntime(engine, `<p:root xmlns:p="urn:test" xmlns:q="urn:test"></q:root>`)
 	expectCode(t, err, xsderrors.CodeValidationXML)
-	if !strings.Contains(err.Error(), "end element </q:root> does not match start element <p:root>") {
+	if !strings.Contains(err.Error(), `end element "q:root" does not match start element "p:root"`) {
 		t.Fatalf("Validate() error = %v, want raw lexical mismatch", err)
 	}
 
 	err = validateWithRuntime(engine, `<p:root xmlns:p="urn:test"></q:root>`)
 	expectCode(t, err, xsderrors.CodeValidationXML)
-	if !strings.Contains(err.Error(), "unbound namespace prefix q") {
+	if !strings.Contains(err.Error(), `unbound namespace prefix "q"`) {
 		t.Fatalf("Validate() error = %v, want namespace resolution error", err)
 	}
 }
