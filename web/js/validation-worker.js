@@ -21,22 +21,30 @@ export class ValidationTimeoutError extends Error {
   }
 }
 
+// ValidationWorkerClient owns one worker's lifecycle. #state is the only
+// lifecycle record; each variant carries exactly the resources it owns:
+//
+//   idle      {}                          no worker yet
+//   loading   {worker, timer, ready}      awaiting the worker's ready message
+//   ready     {worker}                    idle worker, no active request
+//   running   {worker, timer, active}     one request posted to the worker
+//   failed    {error}                     worker released; start or validate respawns
+//   disposed  {}                          terminal
+//
+// Legal progress: idle|failed -> loading (start, validate);
+// loading -> ready -> running -> ready; running -> loading (request timeout);
+// any live phase -> loading (cancel); loading|ready|running -> failed;
+// any phase -> disposed. #leave is the only release of a state's worker,
+// timer, active request, and readiness promise. The latest pending request is
+// orthogonal to the phase and survives respawns until it runs or is rejected.
 export class ValidationWorkerClient {
-  #active = null;
-  #disposed = false;
   #generation = 0;
-  #initializationTimeout = null;
   #limits = null;
   #onStateChange;
   #pending = null;
-  #phase = "idle";
-  #ready = null;
-  #rejectReady = null;
-  #resolveReady = null;
   #sequence = 0;
-  #timeout = null;
+  #state = IDLE;
   #timeoutMs;
-  #worker = null;
   #workerFactory;
   #workerURL;
 
@@ -58,103 +66,102 @@ export class ValidationWorkerClient {
     this.#onStateChange = onStateChange;
   }
 
+  // limits is the catalog announced by the most recent ready worker. The
+  // catalog is fixed by the WASM build behind the one worker URL, so it stays
+  // valid while a replacement worker loads or after a failure; each ready
+  // message replaces it. It is null only before any worker became ready.
   get state() {
     return Object.freeze({
-      phase: this.#phase,
-      busy: this.#active !== null || this.#pending !== null,
+      phase: this.#state.phase,
+      busy: this.#state.phase === "running" || this.#pending !== null,
       limits: this.#limits,
     });
   }
 
   start() {
-    if (this.#disposed) return Promise.reject(new ValidationCanceledError("Validation worker disposed"));
-    if (this.#phase === "ready" || this.#phase === "running") {
-      return Promise.resolve(this.#limits);
+    switch (this.#state.phase) {
+      case "disposed":
+        return Promise.reject(disposedError());
+      case "ready":
+      case "running":
+        return Promise.resolve(this.#limits);
+      case "loading":
+        return this.#state.ready.promise;
+      default:
+        return this.#spawn();
     }
-    if (this.#phase !== "loading") this.#spawn();
-    return this.#ready;
   }
 
   validate(xml, xsd) {
     if (typeof xml !== "string" || typeof xsd !== "string") {
       return Promise.reject(new TypeError("xml and xsd must be strings"));
     }
-    if (this.#disposed) return Promise.reject(new ValidationCanceledError("Validation worker disposed"));
+    if (this.#state.phase === "disposed") return Promise.reject(disposedError());
 
     const limitError = requestLimitError(xml, xsd, this.#limits);
     if (limitError !== null) return Promise.reject(limitError);
 
-    let resolve;
-    let reject;
-    const promise = new Promise((onResolve, onReject) => {
-      resolve = onResolve;
-      reject = onReject;
-    });
-    const request = { id: ++this.#sequence, xml, xsd, resolve, reject };
-
-    if (this.#pending !== null) {
-      this.#pending.reject(new ValidationSupersededError());
-    }
+    const request = deferred();
+    request.id = ++this.#sequence;
+    request.xml = xml;
+    request.xsd = xsd;
+    this.#pending?.reject(new ValidationSupersededError());
     this.#pending = request;
 
-    if (this.#phase === "idle" || this.#phase === "failed") this.#spawn();
-    this.#drain();
-    this.#emitState();
-    return promise;
+    if (this.#state.phase === "idle" || this.#state.phase === "failed") {
+      this.#spawn();
+    } else {
+      this.#drain();
+      this.#emitState();
+    }
+    return request.promise;
   }
 
   cancel(message) {
-    if (this.#disposed) return Promise.resolve(null);
+    if (this.#state.phase === "disposed") return Promise.resolve(null);
     const err = new ValidationCanceledError(message);
-    this.#rejectRequests(err, true);
-    this.#terminateWorker();
-    this.#spawn();
-    return this.#ready;
+    this.#rejectPending(err);
+    this.#leave(err);
+    return this.#spawn();
   }
 
   dispose() {
-    if (this.#disposed) return;
-    this.#disposed = true;
-    this.#rejectRequests(new ValidationCanceledError("Validation worker disposed"), true);
-    this.#terminateWorker();
-    this.#phase = "disposed";
+    if (this.#state.phase === "disposed") return;
+    const err = disposedError();
+    this.#rejectPending(err);
+    this.#leave(err);
+    this.#state = DISPOSED;
     this.#emitState();
   }
 
+  // #spawn enters loading from a state that owns no worker, and returns the
+  // new worker's readiness promise.
   #spawn() {
-    this.#terminateWorker();
-    this.#phase = "loading";
-    this.#limits = null;
-    this.#generation++;
-    const generation = this.#generation;
-    this.#ready = new Promise((resolve, reject) => {
-      this.#resolveReady = resolve;
-      this.#rejectReady = reject;
-    });
-    this.#ready.catch(() => {});
-
+    const generation = ++this.#generation;
+    const ready = deferred();
+    ready.promise.catch(() => {});
+    const loading = { phase: "loading", worker: null, timer: null, ready };
+    this.#state = loading;
     try {
       const worker = this.#workerFactory(this.#workerURL);
-      this.#worker = worker;
+      loading.worker = worker;
       worker.onmessage = (event) => this.#receive(generation, event.data);
       worker.onerror = (event) => {
-        const message = event?.message || "Validation worker failed";
-        this.#failWorker(generation, new Error(message));
+        this.#fail(generation, new Error(event?.message || "Validation worker failed"));
       };
-      this.#initializationTimeout = setTimeout(
-        () => this.#initializationTimedOut(generation),
-        this.#timeoutMs,
-      );
+      loading.timer = setTimeout(() => this.#initializationTimedOut(generation), this.#timeoutMs);
     } catch (err) {
-      this.#failWorker(generation, asError(err));
+      this.#fail(generation, asError(err));
+      return ready.promise;
     }
     this.#emitState();
+    return ready.promise;
   }
 
   #receive(generation, message) {
-    if (generation !== this.#generation || this.#disposed) return;
+    if (generation !== this.#generation) return;
     if (!message || typeof message !== "object" || Array.isArray(message)) {
-      this.#failWorker(generation, new Error("Invalid validation worker message"));
+      this.#fail(generation, new Error("Invalid validation worker message"));
       return;
     }
 
@@ -163,44 +170,53 @@ export class ValidationWorkerClient {
         this.#workerReady(generation, message.limits);
         return;
       case "result":
-        this.#completeRequest(message.requestId, message.flow);
+        this.#completeRequest(generation, message.requestId, message.flow);
         return;
       case "failure":
-        this.#rejectRequest(message.requestId, new Error(nonEmptyString(message.error) || "Validation failed"));
+        this.#rejectRequest(
+          generation,
+          message.requestId,
+          new Error(nonEmptyString(message.error) || "Validation failed"),
+        );
         return;
       case "fatal":
-        this.#failWorker(generation, new Error(nonEmptyString(message.error) || "Validation worker failed"));
+        this.#fail(generation, new Error(nonEmptyString(message.error) || "Validation worker failed"));
         return;
       default:
-        this.#failWorker(generation, new Error("Invalid validation worker message"));
+        this.#fail(generation, new Error("Invalid validation worker message"));
     }
   }
 
-  #workerReady(generation, limits) {
-    if (generation !== this.#generation || this.#phase !== "loading") {
-      this.#failWorker(generation, new Error("Unexpected validation worker readiness"));
+  #workerReady(generation, rawLimits) {
+    const loading = this.#state;
+    if (loading.phase !== "loading") {
+      this.#fail(generation, new Error("Unexpected validation worker readiness"));
       return;
     }
+    let limits;
     try {
-      this.#limits = normalizeLimits(limits);
+      limits = normalizeLimits(rawLimits);
     } catch (err) {
-      this.#failWorker(generation, asError(err));
+      this.#fail(generation, asError(err));
       return;
     }
-    clearTimeout(this.#initializationTimeout);
-    this.#initializationTimeout = null;
-    this.#phase = "ready";
+    clearTimeout(loading.timer);
+    this.#limits = limits;
+    this.#state = { phase: "ready", worker: loading.worker };
     this.#drain();
-    if (this.#phase === "failed") return;
-    const resolve = this.#resolveReady;
-    this.#resolveReady = null;
-    this.#rejectReady = null;
-    resolve(this.#limits);
+    // Readiness settles only after queued work was dispatched, so a dispatch
+    // failure rejects the start that was waiting for this worker.
+    if (this.#state.phase === "failed") {
+      loading.ready.reject(this.#state.error);
+      return;
+    }
+    loading.ready.resolve(limits);
     this.#emitState();
   }
 
   #drain() {
-    if (this.#phase !== "ready" || this.#active !== null || this.#pending === null) return;
+    const ready = this.#state;
+    if (ready.phase !== "ready" || this.#pending === null) return;
     const request = this.#pending;
     this.#pending = null;
     const limitError = requestLimitError(request.xml, request.xsd, this.#limits);
@@ -208,114 +224,100 @@ export class ValidationWorkerClient {
       request.reject(limitError);
       return;
     }
-    this.#active = request;
-    this.#phase = "running";
+    this.#state = {
+      phase: "running",
+      worker: ready.worker,
+      active: request,
+      timer: setTimeout(() => this.#requestTimedOut(request.id), this.#timeoutMs),
+    };
     try {
-      this.#worker.postMessage({
+      ready.worker.postMessage({
         type: "validate",
         requestId: request.id,
         xml: request.xml,
         xsd: request.xsd,
       });
     } catch (err) {
-      this.#failWorker(this.#generation, asError(err));
-      return;
+      this.#fail(this.#generation, asError(err));
     }
-    this.#timeout = setTimeout(() => this.#requestTimedOut(request.id), this.#timeoutMs);
-    this.#emitState();
   }
 
-  #completeRequest(requestId, flow) {
+  #completeRequest(generation, requestId, flow) {
     if (!this.#matchesActive(requestId)) {
-      this.#failWorker(this.#generation, new Error("Invalid validation worker request ID"));
+      this.#fail(generation, new Error("Invalid validation worker request ID"));
       return;
     }
     if (!isValidationFlow(flow)) {
-      this.#failWorker(this.#generation, new Error("Invalid validation worker result"));
+      this.#fail(generation, new Error("Invalid validation worker result"));
       return;
     }
-    const request = this.#takeActive();
-    request.resolve(flow);
-    this.#continueAfterRequest();
-  }
-
-  #rejectRequest(requestId, err) {
-    if (!this.#matchesActive(requestId)) {
-      this.#failWorker(this.#generation, new Error("Invalid validation worker request ID"));
-      return;
-    }
-    const request = this.#takeActive();
-    request.reject(err);
-    this.#continueAfterRequest();
-  }
-
-  #requestTimedOut(requestId) {
-    if (!this.#matchesActive(requestId)) return;
-    const request = this.#takeActive();
-    request.reject(new ValidationTimeoutError(this.#timeoutMs));
-    this.#terminateWorker();
-    this.#spawn();
-  }
-
-  #initializationTimedOut(generation) {
-    if (generation !== this.#generation || this.#phase !== "loading") return;
-    this.#failWorker(generation, new ValidationTimeoutError(this.#timeoutMs));
-  }
-
-  #continueAfterRequest() {
-    this.#phase = "ready";
+    this.#finishActive().resolve(flow);
     this.#drain();
     this.#emitState();
   }
 
-  #matchesActive(requestId) {
-    return Number.isSafeInteger(requestId) && this.#active?.id === requestId;
-  }
-
-  #takeActive() {
-    clearTimeout(this.#timeout);
-    this.#timeout = null;
-    const request = this.#active;
-    this.#active = null;
-    return request;
-  }
-
-  #failWorker(generation, err) {
-    if (generation !== this.#generation || this.#disposed) return;
-    const rejectReady = this.#rejectReady;
-    this.#rejectReady = null;
-    this.#resolveReady = null;
-    this.#rejectRequests(err, false);
-    this.#terminateWorker();
-    this.#phase = "failed";
-    if (rejectReady !== null) rejectReady(err);
+  #rejectRequest(generation, requestId, err) {
+    if (!this.#matchesActive(requestId)) {
+      this.#fail(generation, new Error("Invalid validation worker request ID"));
+      return;
+    }
+    this.#finishActive().reject(err);
+    this.#drain();
     this.#emitState();
   }
 
-  #rejectRequests(err, rejectReady) {
-    clearTimeout(this.#timeout);
-    this.#timeout = null;
-    if (this.#active !== null) this.#active.reject(err);
-    if (this.#pending !== null) this.#pending.reject(err);
-    this.#active = null;
-    this.#pending = null;
-    if (rejectReady && this.#rejectReady !== null) this.#rejectReady(err);
-    if (rejectReady) {
-      this.#rejectReady = null;
-      this.#resolveReady = null;
-    }
+  // A stuck worker is replaced; the latest pending request runs on the new one.
+  #requestTimedOut(requestId) {
+    if (!this.#matchesActive(requestId)) return;
+    this.#leave(new ValidationTimeoutError(this.#timeoutMs));
+    this.#spawn();
   }
 
-  #terminateWorker() {
-    clearTimeout(this.#initializationTimeout);
-    this.#initializationTimeout = null;
-    clearTimeout(this.#timeout);
-    this.#timeout = null;
-    if (this.#worker === null) return;
-    this.#worker.onmessage = null;
-    this.#worker.onerror = null;
-    this.#worker.terminate();
-    this.#worker = null;
+  #initializationTimedOut(generation) {
+    if (generation !== this.#generation || this.#state.phase !== "loading") return;
+    this.#fail(generation, new ValidationTimeoutError(this.#timeoutMs));
+  }
+
+  #matchesActive(requestId) {
+    return this.#state.phase === "running" && Number.isSafeInteger(requestId) &&
+      this.#state.active.id === requestId;
+  }
+
+  // #finishActive moves running -> ready and returns the request to settle.
+  #finishActive() {
+    const running = this.#state;
+    clearTimeout(running.timer);
+    this.#state = { phase: "ready", worker: running.worker };
+    return running.active;
+  }
+
+  #fail(generation, err) {
+    if (generation !== this.#generation) return;
+    this.#rejectPending(err);
+    this.#leave(err);
+    this.#state = { phase: "failed", error: err };
+    this.#emitState();
+  }
+
+  // #leave releases everything the current state owns and invalidates its
+  // worker's callbacks. The caller installs the next state.
+  #leave(err) {
+    const current = this.#state;
+    this.#generation++;
+    if (current.timer !== undefined) clearTimeout(current.timer);
+    if (current.worker) {
+      current.worker.onmessage = null;
+      current.worker.onerror = null;
+      current.worker.terminate();
+    }
+    if (current.phase === "loading") current.ready.reject(err);
+    if (current.phase === "running") current.active.reject(err);
+  }
+
+  #rejectPending(err) {
+    const pending = this.#pending;
+    this.#pending = null;
+    pending?.reject(err);
   }
 
   #emitState() {
@@ -325,6 +327,22 @@ export class ValidationWorkerClient {
       reportObserverError(err);
     }
   }
+}
+
+const IDLE = Object.freeze({ phase: "idle" });
+const DISPOSED = Object.freeze({ phase: "disposed" });
+
+function deferred() {
+  const settlement = {};
+  settlement.promise = new Promise((resolve, reject) => {
+    settlement.resolve = resolve;
+    settlement.reject = reject;
+  });
+  return settlement;
+}
+
+function disposedError() {
+  return new ValidationCanceledError("Validation worker disposed");
 }
 
 function defaultWorkerFactory(url) {

@@ -26,6 +26,7 @@ type Input struct {
 	readErr      error
 	name         string
 	staticReader bytes.Reader
+	final        ReadResult
 
 	static      [sha256.Size]byte
 	max         int64
@@ -35,10 +36,32 @@ type Input struct {
 
 	hasStaticDigest bool
 	limitExceeded   bool
-	sourceDone      bool
-	finished        bool
-	finishStage     ReadStage
+	phase           inputPhase
 }
+
+// inputPhase is the Input lifecycle. Legal progress:
+//
+//	invalid -> failed            first Read or Finish of a zero Input
+//	reading -> ended | failed    end of input, or read error, no progress, limit
+//	any unfinished -> finished   Finish or Discard
+//
+// Entering failed sets readErr. seal is the only entry to finished and
+// freezes final, which every later Finish returns.
+type inputPhase uint8
+
+const (
+	// inputInvalid is the zero value: an Input not built by OpenInput. Its
+	// first use fails it.
+	inputInvalid inputPhase = iota
+	// inputReading may yield more bytes.
+	inputReading
+	// inputEnded saw end of input within the bound.
+	inputEnded
+	// inputFailed saw a read error, no progress, or the byte limit.
+	inputFailed
+	// inputFinished closed and detached the source; final is frozen.
+	inputFinished
+)
 
 func newInput(name string, reader io.ReadCloser, maxBytes int64) *Input {
 	return &Input{
@@ -46,6 +69,7 @@ func newInput(name string, reader io.ReadCloser, maxBytes int64) *Input {
 		name:   name,
 		max:    maxBytes,
 		digest: sha256.New(),
+		phase:  inputReading,
 	}
 }
 
@@ -56,6 +80,7 @@ func newBytesInput(name string, data []byte, digest [sha256.Size]byte, maxBytes 
 		static:          digest,
 		staticBytes:     int64(len(data)),
 		hasStaticDigest: true,
+		phase:           inputReading,
 	}
 	input.staticReader.Reset(data)
 	return input
@@ -67,20 +92,23 @@ func (in *Input) Read(p []byte) (int, error) {
 	if in == nil {
 		return 0, io.ErrClosedPipe
 	}
-	if in.finished {
+	switch in.phase {
+	case inputFinished:
 		return 0, io.EOF
-	}
-	if done, err := in.unavailableRead(); done {
-		return 0, err
+	case inputInvalid:
+		in.fail(invalidInputError())
+		return 0, in.readErr
+	case inputReading, inputEnded, inputFailed:
 	}
 	if len(p) == 0 {
 		return 0, nil
 	}
-	if err := in.terminalError(); err != nil {
-		return 0, err
-	}
-	if in.sourceDone {
+	switch in.phase {
+	case inputFailed:
+		return 0, in.readErr
+	case inputEnded:
 		return 0, io.EOF
+	case inputInvalid, inputReading, inputFinished:
 	}
 
 	p = in.bound(p)
@@ -95,24 +123,26 @@ func (in *Input) Read(p []byte) (int, error) {
 // detaches it, and returns a stable result on every subsequent call.
 func (in *Input) Finish() ReadResult {
 	if in == nil {
-		return ReadResult{
-			Err:   errors.New("nil schema input"),
-			Stage: ReadStageRead,
+		return ReadResult{Err: errors.New("nil schema input")}
+	}
+	switch in.phase {
+	case inputFinished:
+		return in.final
+	case inputInvalid:
+		in.fail(invalidInputError())
+	case inputReading:
+		if in.hasStaticDigest {
+			// Byte-backed sources are immutable and were checked against max at
+			// open time. Their complete identity is already known, so a partial
+			// parser read needs no drain or allocation.
+			in.bytes = in.staticBytes
+			in.phase = inputEnded
+		} else {
+			in.drain()
 		}
+	case inputEnded, inputFailed:
 	}
-	if in.finished {
-		return in.finalResult()
-	}
-
-	in.prepareFinish()
-	in.drain()
-	closeErr := in.closeSource()
-	in.detach()
-	in.finished = true
-	result := in.result(closeErr)
-	in.readErr = result.Err
-	in.finishStage = result.Stage
-	return result
+	return in.seal(in.closeSource())
 }
 
 // Discard closes the source without reading further, detaches it, and returns
@@ -121,51 +151,35 @@ func (in *Input) Finish() ReadResult {
 // result, whose Bytes and Digest cover only what was consumed and are not a
 // content identity. Discard after Finish or Discard returns nil.
 func (in *Input) Discard() error {
-	if in == nil || in.finished {
+	if in == nil || in.phase == inputFinished {
 		return nil
 	}
 	closeErr := in.closeSource()
-	in.detach()
-	in.finished = true
-	in.sourceDone = true
-	result := in.result(closeErr)
-	in.readErr = result.Err
-	in.finishStage = result.Stage
+	in.seal(closeErr)
 	return closeErr
 }
 
-func (in *Input) unavailableRead() (bool, error) {
-	if in.hasStaticDigest || in.stream != nil {
-		return false, nil
+// seal is the only transition to inputFinished: it detaches the source and
+// freezes the result, including any close failure.
+func (in *Input) seal(closeErr error) ReadResult {
+	in.stream = nil
+	if in.hasStaticDigest {
+		in.staticReader.Reset(nil)
 	}
-	in.sourceDone = true
-	in.readErr = invalidInputError()
-	return true, in.readErr
+	in.final = in.result(closeErr)
+	in.phase = inputFinished
+	return in.final
 }
 
-func (in *Input) prepareFinish() {
-	if in.hasStaticDigest {
-		// Byte-backed sources are immutable and were checked against max at
-		// open time. Their complete identity is already known, so a partial
-		// parser read needs no drain or allocation.
-		in.bytes = in.staticBytes
-		in.sourceDone = true
-		return
-	}
-	if in.stream == nil && in.digest == nil && in.readErr == nil {
-		in.sourceDone = true
-		in.readErr = invalidInputError()
-	}
+func (in *Input) fail(err error) {
+	in.readErr = err
+	in.phase = inputFailed
 }
 
 func (in *Input) drain() {
-	if in.sourceDone || in.terminalError() != nil {
-		return
-	}
 	buf := make([]byte, sourceInputBufferSize)
-	for !in.sourceDone && in.terminalError() == nil {
-		_, err := in.Read(buf)
-		if err != nil {
+	for in.phase == inputReading {
+		if _, err := in.Read(buf); err != nil {
 			return
 		}
 	}
@@ -176,13 +190,6 @@ func (in *Input) closeSource() error {
 		return nil
 	}
 	return in.stream.Close()
-}
-
-func (in *Input) detach() {
-	in.stream = nil
-	if in.hasStaticDigest {
-		in.staticReader.Reset(nil)
-	}
 }
 
 func (in *Input) bound(p []byte) []byte {
@@ -210,7 +217,6 @@ func (in *Input) readChunk(p []byte) (int, error) {
 		n, err = in.stream.Read(p)
 	}
 	if n < 0 || n > len(p) {
-		in.sourceDone = true
 		return 0, io.ErrShortBuffer
 	}
 	if n != 0 || err != nil {
@@ -225,26 +231,23 @@ func (in *Input) readChunk(p []byte) (int, error) {
 }
 
 func (in *Input) readResult(err error) error {
-	if err == io.EOF { //nolint:errorlint // Wrapped EOF is a source read failure; match io.ReadAll.
-		in.sourceDone = true
-		if in.overLimit() {
-			in.setLimitExceeded()
-			return in.terminalError()
+	if in.overLimit() {
+		limitErr := schemaSourceLimitError(in.name)
+		in.limitExceeded = true
+		if err != nil && err != io.EOF { //nolint:errorlint // Only bare EOF is end of input.
+			limitErr = errors.Join(limitErr, err)
 		}
+		in.fail(limitErr)
+		return limitErr
+	}
+	if err == io.EOF { //nolint:errorlint // Wrapped EOF is a source read failure; match io.ReadAll.
 		// Returning EOF with data is legal, and lets callers stop without
 		// another read while Finish still observes ordinary EOF.
+		in.phase = inputEnded
 		return io.EOF
 	}
 	if err != nil {
-		in.sourceDone = true
-		in.readErr = err
-	}
-	if in.overLimit() {
-		in.setLimitExceeded()
-		return in.terminalError()
-	}
-	if err == nil {
-		return in.terminalError()
+		in.fail(err)
 	}
 	return err
 }
@@ -265,52 +268,21 @@ func (in *Input) overLimit() bool {
 	return in.max != math.MaxInt64 && in.bytes > in.max
 }
 
-func (in *Input) setLimitExceeded() {
-	if in.limitExceeded {
-		return
-	}
-	in.limitExceeded = true
-	limitErr := schemaSourceLimitError(in.name)
-	if in.readErr == nil {
-		in.readErr = limitErr
-	} else {
-		in.readErr = errors.Join(limitErr, in.readErr)
-	}
-}
-
-func (in *Input) terminalError() error {
-	return in.readErr
-}
-
 func (in *Input) result(closeErr error) ReadResult {
 	result := ReadResult{
+		Err:           in.readErr,
 		Bytes:         in.bytes,
 		Digest:        in.digestSum(),
 		LimitExceeded: in.limitExceeded,
 	}
-	if err := in.terminalError(); err != nil {
-		result.Err = err
-		result.Stage = ReadStageRead
-	}
 	if closeErr != nil {
 		if result.Err == nil {
 			result.Err = closeErr
-			result.Stage = ReadStageClose
 		} else {
 			result.Err = errors.Join(result.Err, closeErr)
 		}
 	}
 	return result
-}
-
-func (in *Input) finalResult() ReadResult {
-	return ReadResult{
-		Err:           in.readErr,
-		Bytes:         in.bytes,
-		Digest:        in.digestSum(),
-		Stage:         in.finishStage,
-		LimitExceeded: in.limitExceeded,
-	}
 }
 
 func (in *Input) digestSum() [sha256.Size]byte {

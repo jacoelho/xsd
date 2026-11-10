@@ -660,21 +660,26 @@
 
     async function startValidationWorker() {
       try {
-        limits = await validationWorker.start();
+        await validationWorker.start();
       } catch (err) {
         showWorkerFailure(err);
       }
     }
 
+    // The client's state is the only readiness record; this observer is the
+    // only writer of the page's limits projection. Limits stay known across
+    // worker restarts and failures, so input stays editable and Validate
+    // respawns a failed worker; only a worker that never loaded needs Retry.
     function updateWorkerState(state) {
       limits = state.limits;
-      const available = state.limits !== null && state.phase !== "failed" && state.phase !== "disposed";
-      validateButton.disabled = !available;
-      xsdFiles.disabled = !available;
-      xmlFile.disabled = !available;
-      xsdEditor.disabled = !available;
-      xmlEditor.disabled = !available;
-      validateButton.textContent = state.busy ? "Validate latest" : "Validate";
+      const editable = state.limits !== null && state.phase !== "disposed";
+      const retry = state.phase === "failed" && state.limits === null;
+      validateButton.disabled = !editable && !retry;
+      xsdFiles.disabled = !editable;
+      xmlFile.disabled = !editable;
+      xsdEditor.disabled = !editable;
+      xmlEditor.disabled = !editable;
+      validateButton.textContent = retry ? "Retry" : state.busy ? "Validate latest" : "Validate";
     }
 
     function showWorkerFailure(err) {
@@ -684,6 +689,11 @@
 
     async function validate() {
       if (!limits) {
+        if (validationWorker.state.phase === "failed") {
+          showEmptyResult();
+          await startValidationWorker();
+          return;
+        }
         showStatusError("Validator loading", "Try again when the validator has loaded.");
         return;
       }
