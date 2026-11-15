@@ -2,11 +2,11 @@ package schema
 
 import "github.com/jacoelho/xsd/xsderrors"
 
-func (c *compiler) compileWildcardParticle(n *schemaNode, ctx *schemaSetDocument) (contentParticle, error) {
+func (c *compiler) compileWildcardParticle(ctx *schemaSetDocument, n *schemaNode) (contentParticle, error) {
 	if err := checkAnyParticleChildren(n); err != nil {
 		return contentParticle{}, err
 	}
-	id, err := c.compileWildcard(n, ctx)
+	id, err := c.compileWildcard(ctx, n)
 	if err != nil {
 		return contentParticle{}, err
 	}
@@ -17,14 +17,14 @@ func (c *compiler) compileWildcardParticle(n *schemaNode, ctx *schemaSetDocument
 	return wildcardParticle(id, occurs), nil
 }
 
-func (c *compiler) compileAttributeWildcard(n *schemaNode, ctx *schemaSetDocument) (WildcardID, error) {
+func (c *compiler) compileAttributeWildcard(ctx *schemaSetDocument, n *schemaNode) (WildcardID, error) {
 	if err := checkAnyAttributeChildren(n); err != nil {
 		return NoWildcard, err
 	}
-	return c.compileWildcard(n, ctx)
+	return c.compileWildcard(ctx, n)
 }
 
-func (c *compiler) compileWildcard(n *schemaNode, ctx *schemaSetDocument) (WildcardID, error) {
+func (c *compiler) compileWildcard(ctx *schemaSetDocument, n *schemaNode) (WildcardID, error) {
 	source := semanticSource[*schemaWildcardSource](&n.semantic)
 	if source == nil {
 		return NoWildcard, withSchemaCompileLocation(n, xsderrors.InternalInvariant("wildcard node has no typed wildcard source"))

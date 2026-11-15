@@ -43,8 +43,8 @@ func BenchmarkRecordIdentityValueIDREFS(b *testing.B) {
 				b.Fatalf("recorded entries/refs = %d/%d, want %d/%d", identity.entries, len(identity.idrefs), refs, refs)
 			}
 			for i, ref := range identity.idrefs {
-				if ref.Value != "id"+strconv.Itoa(i) || ref.Path.String() != "/root/refs" || ref.Line != 1 || ref.Col != 1 {
-					b.Fatalf("reference %d = %q at %s:%d:%d", i, ref.Value, ref.Path.String(), ref.Line, ref.Col)
+				if ref.Value != "id"+strconv.Itoa(i) || recorder.session.doc.retainedPathString(ref.Path) != "/root/refs" || ref.Line != 1 || ref.Col != 1 {
+					b.Fatalf("reference %d = %q at %s:%d:%d", i, ref.Value, recorder.session.doc.retainedPathString(ref.Path), ref.Line, ref.Col)
 				}
 			}
 			recorder.ResetIdentity()
@@ -142,7 +142,7 @@ func BenchmarkNestedIdentityTablePropagation(b *testing.B) {
 				evaluation.scopes = scopes
 				for len(evaluation.scopes) > 1 {
 					last := len(evaluation.scopes) - 1
-					if _, err := evaluation.closeScopes(evaluation.scopes[last].depth, nil); err != nil {
+					if _, err := evaluation.closeScopes(evaluation.scopes[last].depth, identityTestPaths, nil); err != nil {
 						b.Fatal(err)
 					}
 				}

@@ -37,7 +37,7 @@ func TestIdentityEvaluationActivatesDocumentIdentityAtValidatedValueDepth(t *tes
 	if target.depth != 1 || target.needsIdentity() {
 		t.Fatalf("target = %+v, want depth 1 and no key-field match", target)
 	}
-	if err := evaluation.recordValue(target, identityValueForTest(t, "ID", "root-id", value.NeedIdentity), identityTestContext("/root", 1, 5)); err != nil {
+	if err := evaluation.recordValue(identityTestContext("/root", 1, 5), target, identityValueForTest(t, "ID", "root-id", value.NeedIdentity)); err != nil {
 		t.Fatalf("recordValue() error = %v", err)
 	}
 	if !evaluation.documentIdentityActive || len(evaluation.elements) != 1 {
@@ -81,7 +81,7 @@ func TestIdentityEvaluationFirstDocumentIdentityActivationRollsBackOnFatalStart(
 	if err != nil {
 		t.Fatalf("prepareAttributeValue() error = %v", err)
 	}
-	err = evaluation.recordValue(target, identityValueForTest(t, "ID", "too-long", value.NeedIdentity), identityTestContext("/root", 1, 5))
+	err = evaluation.recordValue(identityTestContext("/root", 1, 5), target, identityValueForTest(t, "ID", "too-long", value.NeedIdentity))
 	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
 	if !evaluation.documentIdentityActive {
 		t.Fatal("first identity record did not activate state before the fatal limit")
@@ -113,7 +113,7 @@ func TestIdentityEvaluationLazyIDREFStillRunsDocumentFinalCheck(t *testing.T) {
 	if err != nil {
 		t.Fatalf("prepareElementValue() error = %v", err)
 	}
-	if err := evaluation.recordValue(target, identityValueForTest(t, "IDREF", "missing", value.NeedIdentity), identityTestContext("/root", 2, 3)); err != nil {
+	if err := evaluation.recordValue(identityTestContext("/root", 2, 3), target, identityValueForTest(t, "IDREF", "missing", value.NeedIdentity)); err != nil {
 		t.Fatalf("recordValue() error = %v", err)
 	}
 	if err := evaluation.commitValue(target); err != nil {
@@ -126,7 +126,7 @@ func TestIdentityEvaluationLazyIDREFStillRunsDocumentFinalCheck(t *testing.T) {
 		t.Fatalf("endElement() error = %v", err)
 	}
 	var got error
-	if err := evaluation.endDocument(func(err error) error {
+	if err := evaluation.endDocument(identityTestPaths, func(err error) error {
 		got = err
 		return nil
 	}); err != nil {
@@ -192,5 +192,27 @@ func TestSessionStartRollsBackFirstLazyDocumentIdentityActivation(t *testing.T) 
 	}
 	if !identity.documentIdentityActive || len(identity.elements) != 2 {
 		t.Fatalf("retry child identity state = active %t, elements=%d; want active with XML depth 2", identity.documentIdentityActive, len(identity.elements))
+	}
+}
+
+func TestDormantIdentityEvaluationRejectsValueOutsideAnElement(t *testing.T) {
+	t.Parallel()
+
+	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`)
+	evaluation := newIdentityEvaluation(rt, identityLimits{})
+	if evaluation.constraintsEnabled {
+		t.Fatal("constraint-free schema unexpectedly enabled key identity")
+	}
+	if _, err := evaluation.prepareElementValue(0); err == nil {
+		t.Fatal("prepareElementValue(0) succeeded, want internal invariant")
+	} else {
+		expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
+	}
+	if _, err := evaluation.prepareAttributeValue(xsdSchema.RuntimeName{Local: "id"}, 0); err == nil {
+		t.Fatal("prepareAttributeValue(depth 0) succeeded, want internal invariant")
+	} else {
+		expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
 	}
 }

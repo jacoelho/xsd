@@ -31,6 +31,9 @@ type xmlDocumentElement[P any] struct {
 	name    xml.Name
 	handle  xmlstream.Handle
 	pathRef documentPathRef
+	// childPathNode is the latest single-segment child node under this
+	// element; an equal sibling reuses it, so repeated siblings add no nodes.
+	childPathNode int
 	// pathEnd is this element's end offset in xmlDocument.pathText; valid only
 	// below pathTextDepth.
 	pathEnd  int
@@ -41,20 +44,19 @@ type xmlDocumentElement[P any] struct {
 // IDs, IDREFs, and published identity tuples keep one when their element may
 // pop before the diagnostic is emitted; pending selections keep only a depth
 // and project it from the live path instead. The string is materialized only
-// when a diagnostic is emitted.
+// when a diagnostic is emitted, and only by the document that retained it.
 type retainedPath struct {
-	store *documentPathStore
-	ref   documentPathRef
+	ref documentPathRef
 }
 
-func (p retainedPath) String() string {
-	return p.store.pathString(p.ref)
+func (d *xmlDocument[P]) retainedPathString(p retainedPath) string {
+	return d.retainedPaths.pathString(p.ref)
 }
 
 // documentPathStore holds document-owned, parent-linked encoded path suffixes
 // that share live prefixes. Each live element is encoded at most once between
-// rollback or pop boundaries (its pathRef), and namespace URIs are stored once
-// per suffix, not per occurrence. References never outlive the validation
+// rollback or pop boundaries (its pathRef), consecutive equal siblings share
+// one node, and namespace URIs are stored once per suffix, not per occurrence. References never outlive the validation
 // call: a fatal start rollback clears references into new nodes and truncates
 // them, semantic discard releases all of them, and reset drops capacity above
 // the session high-water bound.
@@ -132,6 +134,9 @@ func (d *xmlDocument[P]) rollbackStart(checkpoint xmlDocumentCheckpoint) {
 		if d.elements[i].pathRef.node > checkpoint.pathNodes {
 			d.elements[i].pathRef = documentPathRef{}
 		}
+		if d.elements[i].childPathNode > checkpoint.pathNodes {
+			d.elements[i].childPathNode = 0
+		}
 	}
 	clear(d.elements[checkpoint.depth:])
 	d.elements = d.elements[:checkpoint.depth]
@@ -158,7 +163,7 @@ func (d *xmlDocument[P]) PrepareStart(
 		if errors.Is(err, xmlstream.ErrMultipleRoots) {
 			return preparedXMLStart{}, validation(d.context(line, col), xsderrors.CodeValidationXML, msgMultipleRoots)
 		}
-		return preparedXMLStart{}, streamError(err, d.context(line, col), limits)
+		return preparedXMLStart{}, streamError(d.context(line, col), err, limits)
 	}
 	return preparedXMLStart{name: element, handle: handle}, nil
 }
@@ -350,7 +355,7 @@ func (d *xmlDocument[P]) retainPathAtDepth(depth int) retainedPath {
 		panic("retained XML path requires an element")
 	}
 	if ref := d.elements[depth-1].pathRef; ref.node != 0 {
-		return retainedPath{store: &d.retainedPaths, ref: ref}
+		return retainedPath{ref: ref}
 	}
 
 	extension := d.pathExtension(depth)
@@ -370,7 +375,10 @@ func (d *xmlDocument[P]) pathExtension(depth int) documentPathExtension {
 }
 
 func (d *xmlDocument[P]) retainPathSuffix(start, depth int, parent documentPathRef) retainedPath {
-	encoding := d.encodePathSuffix(start, depth)
+	encoding, path, reused := d.encodeOrReuseSibling(start, depth, parent)
+	if reused {
+		return path
+	}
 	d.retainedPaths.nodes = append(d.retainedPaths.nodes, documentPathNode{
 		text:           encoding.text,
 		parent:         parent,
@@ -390,10 +398,54 @@ func (d *xmlDocument[P]) retainPathSuffix(start, depth int, parent documentPathR
 	if position != len(encoding.text) {
 		panic("retained XML path suffix is incomplete")
 	}
-	return retainedPath{
-		store: &d.retainedPaths,
-		ref:   documentPathRef{node: node, end: position},
+	if start == depth-1 && start > 0 {
+		d.elements[start-1].childPathNode = node
 	}
+	return retainedPath{ref: documentPathRef{node: node, end: position}}
+}
+
+// encodeOrReuseSibling reuses the parent's latest child node for an equal
+// single-segment suffix, comparing a lexical segment before encoding it, and
+// otherwise returns the suffix encoding.
+func (d *xmlDocument[P]) encodeOrReuseSibling(start, depth int, parent documentPathRef) (documentPathEncoding, retainedPath, bool) {
+	sibling, ok := d.siblingPathNode(start, depth, parent)
+	if !ok {
+		return d.encodePathSuffix(start, depth), retainedPath{}, false
+	}
+	node := d.retainedPaths.nodes[sibling-1]
+	if element := d.elements[start]; element.pathMode == xmlPathLexical {
+		if local := element.name.Local; node.namespaceCount == 0 && len(node.text) == 1+len(local) &&
+			node.text[0] == '/' && node.text[1:] == local {
+			return documentPathEncoding{}, d.reuseSiblingPathNode(start, sibling, len(node.text)), true
+		}
+		return d.encodePathSuffix(start, depth), retainedPath{}, false
+	}
+	encoding := d.encodePathSuffix(start, depth)
+	namespaces := d.retainedPaths.namespaces[encoding.namespaceStart : encoding.namespaceStart+encoding.namespaceCount]
+	if node.text != encoding.text || !slices.Equal(d.retainedPaths.nodeNamespaces(node), namespaces) {
+		return encoding, retainedPath{}, false
+	}
+	d.retainedPaths.truncateNamespaces(encoding.namespaceStart)
+	return documentPathEncoding{}, d.reuseSiblingPathNode(start, sibling, len(node.text)), true
+}
+
+// siblingPathNode returns the node an equal single-segment suffix may reuse:
+// the latest child node of the element before start, if it hangs from parent.
+func (d *xmlDocument[P]) siblingPathNode(start, depth int, parent documentPathRef) (int, bool) {
+	if start != depth-1 || start == 0 {
+		return 0, false
+	}
+	node := d.elements[start-1].childPathNode
+	if node == 0 || d.retainedPaths.nodes[node-1].parent != parent {
+		return 0, false
+	}
+	return node, true
+}
+
+func (d *xmlDocument[P]) reuseSiblingPathNode(index, node, end int) retainedPath {
+	ref := documentPathRef{node: node, end: end}
+	d.elements[index].pathRef = ref
+	return retainedPath{ref: ref}
 }
 
 func (d *xmlDocument[P]) encodePathSuffix(start, depth int) documentPathEncoding {
@@ -620,6 +672,7 @@ func elideDiagnosticPath(count int, segmentAt func(int) xmlPathSegment, head []b
 func (d *xmlDocument[P]) discardRetainedPaths() {
 	for i := range d.elements {
 		d.elements[i].pathRef = documentPathRef{}
+		d.elements[i].childPathNode = 0
 	}
 	d.retainedPaths.truncate(0)
 	d.retainedPaths.truncateNamespaces(0)

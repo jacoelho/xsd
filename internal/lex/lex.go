@@ -3,6 +3,7 @@ package lex
 
 import (
 	"iter"
+	"slices"
 	"strings"
 	"unicode/utf8"
 )
@@ -211,6 +212,39 @@ func IsXMLChar(r rune) bool {
 		(r >= 0x20 && r <= 0xD7FF) ||
 		(r >= 0xE000 && r <= 0xFFFD) ||
 		(r >= 0x10000 && r <= 0x10FFFF)
+}
+
+// RuneRange is an inclusive range of code points.
+type RuneRange struct {
+	Lo, Hi rune
+}
+
+// xmlNameStartCharRanges is XML 1.0 (Fifth Edition) production [4] in
+// ascending order; TestXMLNameRangesMatchNamePredicates checks it against
+// IsXMLNameStartChar.
+var xmlNameStartCharRanges = [...]RuneRange{
+	{':', ':'}, {'A', 'Z'}, {'_', '_'}, {'a', 'z'},
+	{0xC0, 0xD6}, {0xD8, 0xF6}, {0xF8, 0x2FF}, {0x370, 0x37D},
+	{0x37F, 0x1FFF}, {0x200C, 0x200D}, {0x2070, 0x218F}, {0x2C00, 0x2FEF},
+	{0x3001, 0xD7FF}, {0xF900, 0xFDCF}, {0xFDF0, 0xFFFD}, {0x10000, 0xEFFFF},
+}
+
+// xmlNameCharExtraRanges is XML 1.0 (Fifth Edition) production [4a] minus
+// production [4].
+var xmlNameCharExtraRanges = [...]RuneRange{
+	{'-', '.'}, {'0', '9'}, {0xB7, 0xB7}, {0x300, 0x36F}, {0x203F, 0x2040},
+}
+
+// XMLNameStartCharRanges returns the code points IsXMLNameStartChar accepts,
+// as ascending disjoint ranges.
+func XMLNameStartCharRanges() []RuneRange {
+	return slices.Clone(xmlNameStartCharRanges[:])
+}
+
+// XMLNameCharRanges returns the code points IsXMLNameChar accepts, as
+// ranges that may be unordered but are disjoint.
+func XMLNameCharRanges() []RuneRange {
+	return slices.Concat(xmlNameStartCharRanges[:], xmlNameCharExtraRanges[:])
 }
 
 // IsXMLNameStartChar reports whether r can start an XML Name. Name classes

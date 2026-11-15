@@ -229,6 +229,7 @@ func (b *Builder) Complete(id TypeID, spec TypeSpec) error {
 	}
 	b.program.types[i].needsQName = b.program.typeNeedsQName(id, nil, 0)
 	b.program.types[i].needsQNameKnown = true
+	b.program.types[i].inputs = inputRequirements(&b.program.types[i])
 	b.program.complete[i] = completionCommitted
 	return nil
 }
@@ -522,6 +523,9 @@ type typeDef struct {
 	dependencyDepth uint16
 	needsQName      bool
 	needsQNameKnown bool
+	// inputs is inputRequirements of the completed type, kept so sealed
+	// lookups on every validated value do not recompute it.
+	inputs InputRequirements
 }
 
 type facetProgram struct {

@@ -396,6 +396,7 @@ func TestInputReadRequestsAreBounded(t *testing.T) {
 	t.Parallel()
 
 	long := "<r>" + strings.Repeat("a", 70000) + "</r>"
+	longer := "<r>" + strings.Repeat("a", 200000) + "</r>"
 	for _, test := range []struct {
 		name      string
 		input     string
@@ -403,10 +404,10 @@ func TestInputReadRequestsAreBounded(t *testing.T) {
 		wantLimit bool
 		wantMax   int
 	}{
-		{name: "empty_root", input: "<r/>"},
+		{name: "empty_root", input: "<r/>", wantMax: 4096},
 		{name: "two_windows", input: long, wantMax: 65536},
 		{name: "small_limit", input: long, limit: 100, wantLimit: true, wantMax: 101},
-		{name: "limit_below_input", input: long, limit: 70000, wantLimit: true, wantMax: 65536},
+		{name: "limit_below_input", input: longer, limit: 150000, wantLimit: true, wantMax: 65536},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()

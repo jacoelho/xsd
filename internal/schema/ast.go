@@ -41,7 +41,7 @@ type schemaNodeKey struct {
 	id   schemaNodeID
 }
 
-func nodeKey(n *schemaNode, ctx *schemaSetDocument) schemaNodeKey {
+func nodeKey(ctx *schemaSetDocument, n *schemaNode) schemaNodeKey {
 	if n == nil {
 		return schemaNodeKey{}
 	}

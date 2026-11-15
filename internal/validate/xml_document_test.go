@@ -505,10 +505,10 @@ func TestXMLDocumentRetainedPathsSharePrefixesAndSurvivePop(t *testing.T) {
 	if len(doc.retainedPaths.nodes) != 2 || doc.retainedPaths.nodes[1].parent != doc.elements[0].pathRef {
 		t.Fatalf("sibling retained path did not share root: %+v", doc.retainedPaths.nodes)
 	}
-	if got := first.String(); got != "/"+root+"/first" {
+	if got := doc.retainedPathString(first); got != "/"+root+"/first" {
 		t.Fatalf("first retained path = %q", got)
 	}
-	if got := second.String(); got != "/"+root+"/second" {
+	if got := doc.retainedPathString(second); got != "/"+root+"/second" {
 		t.Fatalf("second retained path = %q", got)
 	}
 }
@@ -521,7 +521,7 @@ func TestXMLDocumentRetainedPathReferencesEverySegmentBoundary(t *testing.T) {
 	doc.CommitExpandedStart(preparedXMLStart{name: xml.Name{Space: "urn:test", Local: "middle"}}, struct{}{})
 	doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "leaf"}}, struct{}{})
 	deepest := doc.retainPathAtDepth(3)
-	if got, want := deepest.String(), "/root/{urn:test}middle/leaf"; got != want {
+	if got, want := doc.retainedPathString(deepest), "/root/{urn:test}middle/leaf"; got != want {
 		t.Fatalf("retained path = %q, want %q", got, want)
 	}
 	if got := len(doc.retainedPaths.nodes); got != 1 {
@@ -534,7 +534,7 @@ func TestXMLDocumentRetainedPathReferencesEverySegmentBoundary(t *testing.T) {
 		}
 	}
 	for depth, want := range []string{"/root", "/root/{urn:test}middle", "/root/{urn:test}middle/leaf"} {
-		if got := doc.retainPathAtDepth(depth + 1).String(); got != want {
+		if got := doc.retainedPathString(doc.retainPathAtDepth(depth + 1)); got != want {
 			t.Fatalf("retained path at depth %d = %q, want %q", depth+1, got, want)
 		}
 	}
@@ -551,7 +551,7 @@ func TestXMLDocumentRetainedExpandedPath(t *testing.T) {
 	doc.CommitExpandedStart(preparedXMLStart{name: xml.Name{Space: space, Local: "root"}}, struct{}{})
 	doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "child"}}, struct{}{})
 	path := doc.retainPathAtDepth(2)
-	if got := path.String(); got != "/{"+strings.Repeat("u", 128)+"...}root/child" {
+	if got := doc.retainedPathString(path); got != "/{"+strings.Repeat("u", 128)+"...}root/child" {
 		t.Fatalf("retained expanded path = %q", got)
 	}
 	if len(doc.retainedPaths.nodes) != 1 || len(doc.retainedPaths.namespaces) != 1 {
@@ -577,18 +577,18 @@ func TestXMLDocumentRetainedExpandedSiblingsShareLargeNamespace(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if got, want := len(doc.retainedPaths.nodes), siblings; got != want {
+	if got, want := len(doc.retainedPaths.nodes), 2; got != want {
 		t.Fatalf("retained expanded sibling nodes = %d, want %d", got, want)
 	}
-	if got := len(doc.retainedPaths.namespaces); got != siblings {
-		t.Fatalf("retained sibling namespace headers = %d, want %d", got, siblings)
+	if got, want := len(doc.retainedPaths.namespaces), 2; got != want {
+		t.Fatalf("retained sibling namespace headers = %d, want %d", got, want)
 	}
 	for i, node := range doc.retainedPaths.nodes {
 		if strings.Contains(node.text, space) || strings.IndexByte(node.text, 0) < 0 {
 			t.Fatalf("expanded sibling node %d retained rendered namespace: %+v", i, node)
 		}
 	}
-	if got, want := first.String(), "/root/{"+strings.Repeat("u", 128)+"...}child"; got != want {
+	if got, want := doc.retainedPathString(first), "/root/{"+strings.Repeat("u", 128)+"...}child"; got != want {
 		t.Fatalf("first retained expanded sibling path = %q, want %q", got, want)
 	}
 }
@@ -624,10 +624,10 @@ func TestXMLDocumentRetainedExpandedCommonPrefixUsesBoundaryReference(t *testing
 			t.Fatal(err)
 		}
 	}
-	if got, want := len(doc.retainedPaths.nodes), siblings; got != want {
+	if got, want := len(doc.retainedPaths.nodes), 2; got != want {
 		t.Fatalf("retained nodes = %d, want %d", got, want)
 	}
-	if got, want := len(doc.retainedPaths.namespaces), commonDepth+siblings; got != want {
+	if got, want := len(doc.retainedPaths.namespaces), commonDepth+2; got != want {
 		t.Fatalf("retained namespace headers = %d, want %d", got, want)
 	}
 	common := doc.elements[commonDepth].pathRef
@@ -638,10 +638,10 @@ func TestXMLDocumentRetainedExpandedCommonPrefixUsesBoundaryReference(t *testing
 		t.Fatalf("second sibling parent = %+v, want %+v", parent, common)
 	}
 	want := prefix.String() + "/{urn:leaf}n"
-	if got := first.String(); got != want {
+	if got := doc.retainedPathString(first); got != want {
 		t.Fatalf("first retained path = %q, want %q", got, want)
 	}
-	if got := second.String(); got != want {
+	if got := doc.retainedPathString(second); got != want {
 		t.Fatalf("second retained path = %q, want %q", got, want)
 	}
 }
@@ -654,7 +654,7 @@ func TestXMLDocumentRetainedPathBeyondInlineChain(t *testing.T) {
 		doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "n"}}, struct{}{})
 		_ = doc.retainPathAtDepth(doc.Depth())
 	}
-	if got, want := doc.retainPathAtDepth(40).String(), strings.Repeat("/n", 40); got != want {
+	if got, want := doc.retainedPathString(doc.retainPathAtDepth(40)), strings.Repeat("/n", 40); got != want {
 		t.Fatalf("retained deep path = %q, want %q", got, want)
 	}
 	if len(doc.retainedPaths.nodes) != 40 {
@@ -689,7 +689,7 @@ func TestXMLDocumentRetainedDisjointPathsAreBoundedByBytes(t *testing.T) {
 	if got, want := len(doc.retainedPaths.nodes), branches; got != want {
 		t.Fatalf("retained disjoint path nodes = %d, want %d", got, want)
 	}
-	if got, want := first.String(), "/root"+strings.Repeat("/node", depth); got != want {
+	if got, want := doc.retainedPathString(first), "/root"+strings.Repeat("/node", depth); got != want {
 		t.Fatalf("first retained disjoint path = %q, want %q", got, want)
 	}
 }
@@ -724,8 +724,91 @@ func TestXMLDocumentRetainedDisjointExpandedPathsAreBoundedByBytes(t *testing.T)
 	if got := len(doc.retainedPaths.namespaces); got != branches {
 		t.Fatalf("retained disjoint namespace headers = %d, want %d", got, branches)
 	}
-	if got, want := first.String(), "/root"+strings.Repeat("/{u}n", depth); got != want {
+	if got, want := doc.retainedPathString(first), "/root"+strings.Repeat("/{u}n", depth); got != want {
 		t.Fatalf("first retained disjoint expanded path = %q, want %q", got, want)
+	}
+}
+
+func TestXMLDocumentRetainedSiblingPathsShareNodesOnlyWhenEqual(t *testing.T) {
+	t.Parallel()
+
+	var doc emptyXMLDocument
+	doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "root"}}, struct{}{})
+	doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "parent"}}, struct{}{})
+	type sibling struct {
+		name  xml.Name
+		want  string
+		nodes int
+	}
+	siblings := []sibling{
+		{xml.Name{Local: "a"}, "/root/parent/a", 1},
+		{xml.Name{Local: "a"}, "/root/parent/a", 2},
+		{xml.Name{Local: "a"}, "/root/parent/a", 2},
+		{xml.Name{Local: "ab"}, "/root/parent/ab", 3},
+		{xml.Name{Space: "urn:x", Local: "a"}, "/root/parent/{urn:x}a", 4},
+		{xml.Name{Space: "urn:x", Local: "a"}, "/root/parent/{urn:x}a", 4},
+		{xml.Name{Space: "urn:y", Local: "a"}, "/root/parent/{urn:y}a", 5},
+		{xml.Name{Local: "a"}, "/root/parent/a", 6},
+	}
+	var paths []retainedPath
+	for i, sibling := range siblings {
+		start := preparedXMLStart{name: sibling.name}
+		if sibling.name.Space != "" {
+			doc.CommitExpandedStart(start, struct{}{})
+		} else {
+			doc.CommitStart(start, struct{}{})
+		}
+		paths = append(paths, doc.retainPathAtDepth(3))
+		if err := doc.CommitEnd(); err != nil {
+			t.Fatal(err)
+		}
+		if got := len(doc.retainedPaths.nodes); got != sibling.nodes {
+			t.Fatalf("after sibling %d retained nodes = %d, want %d", i, got, sibling.nodes)
+		}
+	}
+	if got, want := len(doc.retainedPaths.namespaces), 2; got != want {
+		t.Fatalf("retained namespace headers = %d, want %d", got, want)
+	}
+	if err := doc.CommitEnd(); err != nil {
+		t.Fatal(err)
+	}
+	doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "other"}}, struct{}{})
+	doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "a"}}, struct{}{})
+	paths = append(paths, doc.retainPathAtDepth(3))
+	siblings = append(siblings, sibling{want: "/root/other/a"})
+	for i, path := range paths {
+		if got := doc.retainedPathString(path); got != siblings[i].want {
+			t.Fatalf("retained path %d = %q, want %q", i, got, siblings[i].want)
+		}
+	}
+}
+
+func TestXMLDocumentStartRollbackForgetsSiblingPathNode(t *testing.T) {
+	t.Parallel()
+
+	var doc emptyXMLDocument
+	doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "root"}}, struct{}{})
+	_ = doc.retainPathAtDepth(1)
+	checkpoint := doc.startCheckpoint()
+	doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "a"}}, struct{}{})
+	_ = doc.retainPathAtDepth(2)
+	doc.rollbackStart(checkpoint)
+	if doc.elements[0].childPathNode != 0 {
+		t.Fatalf("rollback kept sibling path node %d", doc.elements[0].childPathNode)
+	}
+	doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "b"}}, struct{}{})
+	if got, want := doc.retainedPathString(doc.retainPathAtDepth(2)), "/root/b"; got != want {
+		t.Fatalf("path after rollback = %q, want %q", got, want)
+	}
+	if err := doc.CommitEnd(); err != nil {
+		t.Fatal(err)
+	}
+	doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "b"}}, struct{}{})
+	if got, want := doc.retainedPathString(doc.retainPathAtDepth(2)), "/root/b"; got != want {
+		t.Fatalf("sibling path after rollback = %q, want %q", got, want)
+	}
+	if got, want := len(doc.retainedPaths.nodes), 2; got != want {
+		t.Fatalf("retained nodes = %d, want %d", got, want)
 	}
 }
 
@@ -750,7 +833,7 @@ func TestXMLDocumentStartRollbackRemovesRetainedPathNodes(t *testing.T) {
 			doc.elements[0].pathRef,
 		)
 	}
-	if got := doc.retainPathAtDepth(1).String(); got != "/"+root {
+	if got := doc.retainedPathString(doc.retainPathAtDepth(1)); got != "/"+root {
 		t.Fatalf("root path after rollback = %q", got)
 	}
 }

@@ -797,6 +797,9 @@ graph preserves these ownership rules:
   source prerequisites, decides when internal changes require rebuilding.
 - The benchmark smoke target is separate from the timed exhaustive benchmark
   target.
+- The libxml2 comparison target builds the CLI and runs the opt-in large
+  benchmark harness against an explicitly selected libxml2 executable; it
+  stays outside the verification contract.
 - The oracle image target builds the pinned cross-validator container. It
   needs Docker and network and stays outside the verification contract.
 
@@ -988,11 +991,23 @@ graph preserves these ownership rules:
 - Caching complete lexical QNames instead of prefix/local components was
   rejected because independently cacheable components can form whole names
   exceeding the length or entry limit, introducing repeated allocations.
-- A validator cache of resolved schema names and larger spelling caches are
-  deferred: no qualified CPU result justifies their retained strings, lookup
-  probes, or invalidation policy.
-- Shrinking the `recentCacheEntries` ring was rejected: a ring that inserts on
-  a miss gets no hits on cyclic vocabularies wider than itself.
+- A per-document memo of resolved schema names was rejected: a 64-entry
+  two-way memo showed no significant gain on the element-start and
+  content-dispatch benchmarks and cost 9% on
+  `BenchmarkSessionElementStartWideVocabulary`, because every miss pays the
+  hash, probe, and insert on top of the two schema map lookups it replaces.
+- The reader's 8-entry ring in front of its spelling map is promoted, after 1024
+  ring misses, to a two-way set-associative table of 32 sets indexed by a hash
+  of the name bytes, and the ring entries move into it. A ring that inserts on a
+  miss gets no hits on cyclic vocabularies wider than itself; the table gave
+  5.8% on `BenchmarkLargeStreamingValidation/memory`, but each warm hit costs
+  about 2 ns more than a ring hit. Allocating the full table from the start was
+  rejected: a fresh session validating a one-row document was 2 to 4% slower on
+  `BenchmarkIdentityDispatchFirstUse`, and every compile allocated 2 KiB more. A
+  four-set hashed table that grows was rejected because its per-hit cost made
+  small compiles 1 to 2% slower. Checking the last hit first was rejected: it
+  slowed two-name rotations by 49%. Larger spelling caches are deferred: no
+  qualified CPU result justifies their retained strings.
 - Adding document depth to the tokenizer was rejected: the `Reader` already
   owns topology, and lexical text origin supplies the outside-root fact.
 - Linear live namespace lookup was rejected because deep binding chains
@@ -1068,7 +1083,30 @@ graph preserves these ownership rules:
   interners were rejected because they copied shared prefixes or namespaces per
   fact, or added rollback-sensitive document-wide state. An identity-owned path
   arena or separate path limit would add a competing writer or public policy
-  dimension.
+  dimension. Equal consecutive siblings share one path node through a slot on
+  their parent's frame, not a document-wide index, so rollback clears it with
+  the frame. Retained paths hold only a node reference; the store pointer they
+  carried cost 8 bytes per ID, IDREF, and identity fact, and diagnostics
+  receive the document explicitly. Together these cut the live heap at 99% of
+  the 100k-row identity document from 55.0 to 44.8 MiB. Narrowing references
+  to 32 bits was not needed for the RSS target and would require bounding
+  `MaxIdentityEntries` at normalization rather than by a hidden cap.
+- Matching `xmllint --stream` by skipping ID uniqueness and dangling-IDREF
+  checks, and tuning `GOGC` or a memory limit in the CLI, were rejected as ways
+  to close the libxml2 gap: the first weakens conformance, and the second hides
+  validator memory behind runtime policy.
+- A schema-wide switch that disables ID/IDREF evaluation when no declared
+  type carries document identity was rejected: `xsi:type` can select `xs:ID`,
+  `xs:IDREF`, or a type derived from them in any instance. The evaluator
+  instead skips per value: with no identity constraint in scope and no
+  selection pending, a value is recorded only when
+  `value.Value.CarriesDocumentIdentity` reports an ID or IDREF fact. It gave
+  2.5% on `BenchmarkLargeStreamingValidation/memory` and 1.8% on
+  `BenchmarkLargeIdentityValidation`.
+- A session-held check that reuses the previous name's namespace lookup was
+  rejected: the namespace lookup is about 2% of streaming CPU, the check gave
+  no significant change on `BenchmarkLargeStreamingValidation/memory`
+  (n=24), and it cost 2.1% on a document that alternates namespaces.
 
 ### Formatting
 

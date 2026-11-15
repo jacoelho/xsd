@@ -11,7 +11,7 @@
   "totals": {
     "cases": 16596,
     "schemaCases": 16546,
-    "instanceRuns": 35420,
+    "instanceRuns": 35428,
     "w3cCases": 14414,
     "internalRuns": 2169,
     "xercesJCases": 13
@@ -2588,7 +2588,7 @@
         "kind": "project",
         "package": "xmlstream",
         "sourceFile": "tests/corpus/project/xml/lexical-end-name/schema.xsd",
-        "description": "XML end-tag names must lexically match their start-tag names. Prefix aliases bound to the same namespace do not permit p:root to close as q:root; either consistently used prefix is valid.",
+        "description": "XML end-tag names must lexically match their start-tag names. Prefix aliases bound to the same namespace do not permit p:root to close as q:root; either consistently used prefix is valid. An end name that is longer, shorter, differs at one byte, drops or keeps only the prefix, or adds a colon does not match; whitespace before > and an unprefixed default-namespace name do.",
         "specification": [
           "https://www.w3.org/TR/2008/REC-xml-20081126/#GIMatch"
         ]
@@ -2618,6 +2618,52 @@
           "testName": "prefix-q",
           "file": "corpus/project/xml/lexical-end-name/prefix-q.xml",
           "expected": "valid"
+        },
+        {
+          "testName": "default-namespace",
+          "file": "corpus/project/xml/lexical-end-name/default-namespace.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "end-extra-colon",
+          "file": "corpus/project/xml/lexical-end-name/end-extra-colon.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "end-longer",
+          "file": "corpus/project/xml/lexical-end-name/end-longer.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "end-prefix-only",
+          "file": "corpus/project/xml/lexical-end-name/end-prefix-only.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "end-same-length",
+          "file": "corpus/project/xml/lexical-end-name/end-same-length.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "end-shorter",
+          "file": "corpus/project/xml/lexical-end-name/end-shorter.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
+        },
+        {
+          "testName": "end-trailing-space",
+          "file": "corpus/project/xml/lexical-end-name/end-trailing-space.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "end-unprefixed",
+          "file": "corpus/project/xml/lexical-end-name/end-unprefixed.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml"
         }
       ],
       "files": [
@@ -2635,6 +2681,38 @@
         },
         {
           "file": "corpus/project/xml/lexical-end-name/prefix-q.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/lexical-end-name/default-namespace.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/lexical-end-name/end-extra-colon.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/lexical-end-name/end-longer.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/lexical-end-name/end-prefix-only.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/lexical-end-name/end-same-length.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/lexical-end-name/end-shorter.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/lexical-end-name/end-trailing-space.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/lexical-end-name/end-unprefixed.xml",
           "role": "instance"
         }
       ]

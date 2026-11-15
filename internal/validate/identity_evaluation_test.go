@@ -96,11 +96,11 @@ func TestIdentityEvaluationCommitsValueAndClosesElement(t *testing.T) {
 		t.Fatalf("prepareElementValue() error = %v", err)
 	}
 	ctx := identityTestContext("/root", 2, 3)
-	err = evaluation.recordValue(target, identityValueForTest(t, "string", "root-key", value.NeedIdentity), ctx)
+	err = evaluation.recordValue(ctx, target, identityValueForTest(t, "string", "root-key", value.NeedIdentity))
 	if err != nil {
 		t.Fatalf("recordValue() error = %v", err)
 	}
-	err = evaluation.captureValue(target, ctx)
+	err = evaluation.captureValue(ctx, target)
 	if err != nil {
 		t.Fatalf("captureValue() error = %v", err)
 	}
@@ -167,11 +167,11 @@ func TestIdentityEvaluationRejectsSecondIDAttributeOnElement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("prepareAttributeValue(first) error = %v", err)
 	}
-	err = evaluation.recordValue(target, identityValueForTest(t, "ID", "first", value.NeedIdentity), ctx)
+	err = evaluation.recordValue(ctx, target, identityValueForTest(t, "ID", "first", value.NeedIdentity))
 	if err != nil {
 		t.Fatalf("recordValue(first) error = %v", err)
 	}
-	err = evaluation.captureValue(target, ctx)
+	err = evaluation.captureValue(ctx, target)
 	if err != nil {
 		t.Fatalf("captureValue(first) error = %v", err)
 	}
@@ -184,7 +184,7 @@ func TestIdentityEvaluationRejectsSecondIDAttributeOnElement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("prepareAttributeValue(second) error = %v", err)
 	}
-	err = evaluation.recordValue(target, identityValueForTest(t, "ID", "second", value.NeedIdentity), ctx)
+	err = evaluation.recordValue(ctx, target, identityValueForTest(t, "ID", "second", value.NeedIdentity))
 	expectXSDCode(t, err, xsderrors.CodeValidationType)
 	expectXSDMessage(t, err, "an element must not have more than one attribute of type xs:ID")
 	if evaluation.targetPhase != identityTargetInactive {
@@ -206,14 +206,14 @@ func TestIdentityEvaluationRejectsSecondIDAfterFirstIDRecordFails(t *testing.T) 
 	if err != nil {
 		t.Fatalf("prepareAttributeValue(first) error = %v", err)
 	}
-	err = evaluation.recordValue(target, identityValueForTest(t, "ID", "too-long", value.NeedIdentity), ctx)
+	err = evaluation.recordValue(ctx, target, identityValueForTest(t, "ID", "too-long", value.NeedIdentity))
 	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
 
 	target, err = evaluation.prepareAttributeValue(xsdSchema.RuntimeName{Known: true, Name: fixture.attrName}, 1)
 	if err != nil {
 		t.Fatalf("prepareAttributeValue(second) error = %v", err)
 	}
-	err = evaluation.recordValue(target, identityValueForTest(t, "ID", "x", value.NeedIdentity), ctx)
+	err = evaluation.recordValue(ctx, target, identityValueForTest(t, "ID", "x", value.NeedIdentity))
 	expectXSDCode(t, err, xsderrors.CodeValidationType)
 	expectXSDMessage(t, err, "an element must not have more than one attribute of type xs:ID")
 	if _, ok := evaluation.ids["x"]; ok {
@@ -235,12 +235,12 @@ func TestIdentityEvaluationCanRejectRecordedOrCapturedValue(t *testing.T) {
 			if err != nil {
 				t.Fatalf("prepareElementValue() error = %v", err)
 			}
-			err = evaluation.recordValue(target, identityValueForTest(t, "string", "root-key", value.NeedIdentity), ctx)
+			err = evaluation.recordValue(ctx, target, identityValueForTest(t, "string", "root-key", value.NeedIdentity))
 			if err != nil {
 				t.Fatalf("recordValue() error = %v", err)
 			}
 			if capture {
-				err = evaluation.captureValue(target, ctx)
+				err = evaluation.captureValue(ctx, target)
 				if err != nil {
 					t.Fatalf("captureValue() error = %v", err)
 				}
@@ -298,10 +298,9 @@ func TestIdentityEvaluationStartTransactionRestoresPreexistingMutations(t *testi
 	if err := evaluation.beginStart(); err != nil {
 		t.Fatal(err)
 	}
-	err := evaluation.captureFields(nil,
+	err := evaluation.captureFields(identityTestContext("/root/child", 2, 3), nil,
 		[]identityFieldMatch{{Selection: 0, Field: 0}},
 		identityFieldValue{value: "duplicate", state: identityFieldPresent},
-		identityTestContext("/root/child", 2, 3),
 	)
 	expectXSDCode(t, err, xsderrors.CodeValidationIdentity)
 	if !evaluation.scopes[0].invalid || evaluation.fieldValues[0].state != identityFieldInvalid {
@@ -326,7 +325,7 @@ func TestIdentityEvaluationRecordsIDBatchAtomically(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = evaluation.recordValue(target, identityValueForTest(t, "IDREFS", "one two", value.NeedIdentity), identityTestContext("/root", 0, 0))
+	err = evaluation.recordValue(identityTestContext("/root", 0, 0), target, identityValueForTest(t, "IDREFS", "one two", value.NeedIdentity))
 	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
 	if len(evaluation.ids) != 0 || evaluation.entries != 0 {
 		t.Fatalf("failed ID batch changed identity state: ids=%v entries=%d", evaluation.ids, evaluation.entries)
@@ -346,18 +345,16 @@ func TestIdentityEvaluationFinishesOnlySelectionsAtCurrentDepth(t *testing.T) {
 	}
 	shallower := evaluation.selections[0]
 	if err := evaluation.startSelection(
-		shallower.scope,
+		identityTestContext("/root/child", 2, 1), shallower.scope,
 		shallower.depth+1,
 		shallower.constraint,
 		shallower.fieldLen,
 		0,
-		identityTestContext("/root/child", 2, 1),
 	); err != nil {
 		t.Fatalf("startSelection() error = %v", err)
 	}
 	if err := evaluation.finishSelections(
-		shallower.depth+1,
-		identityTestContext("/root/child", 2, 1),
+		identityTestContext("/root/child", 2, 1), shallower.depth+1,
 		identitySelectionsOwnedByAncestorScope,
 		func(error) error { return nil },
 	); err != nil {
@@ -422,23 +419,23 @@ func TestIdentityReporterAbortPreservesPendingSelections(t *testing.T) {
   </xs:element>
 </xs:schema>`)
 	evaluation := newIdentityEvaluation(rt, identityLimits{})
-	startIdentityRetryElement(t, &evaluation, "root", identityTestContext("/root", 1, 1))
+	startIdentityRetryElement(t, identityTestContext("/root", 1, 1), &evaluation, "root")
 
 	first := identityTestContext("/root/row[1]", 2, 1)
-	startIdentityRetryElement(t, &evaluation, "row", first)
-	captureIdentityRetryAttribute(t, &evaluation, "a", "first-a", first)
-	captureIdentityRetryAttribute(t, &evaluation, "id", "shared-id", first)
+	startIdentityRetryElement(t, first, &evaluation, "row")
+	captureIdentityRetryAttribute(t, first, &evaluation, "a", "first-a")
+	captureIdentityRetryAttribute(t, first, &evaluation, "id", "shared-id")
 	if _, err := evaluation.endElement(identityElementEnd{Context: first}, failIdentityReport(t)); err != nil {
 		t.Fatalf("endElement(first row) error = %v", err)
 	}
 
 	second := identityTestContext("/root/row[2]", 3, 1)
-	startIdentityRetryElement(t, &evaluation, "row", second)
-	captureIdentityRetryAttribute(t, &evaluation, "id", "shared-id", second)
+	startIdentityRetryElement(t, second, &evaluation, "row")
+	captureIdentityRetryAttribute(t, second, &evaluation, "id", "shared-id")
 
 	abort := errors.New("reporter stopped")
 	var reported []error
-	err := evaluation.finishSelections(2, second, identitySelectionsOwnedByAncestorScope, func(err error) error {
+	err := evaluation.finishSelections(second, 2, identitySelectionsOwnedByAncestorScope, func(err error) error {
 		reported = append(reported, err)
 		return abort
 	})
@@ -453,7 +450,7 @@ func TestIdentityReporterAbortPreservesPendingSelections(t *testing.T) {
 	expectXSDLocation(t, reported[0], "/root/row[2]", 3, 1)
 
 	reported = nil
-	err = evaluation.finishSelections(2, second, identitySelectionsOwnedByAncestorScope, func(err error) error {
+	err = evaluation.finishSelections(second, 2, identitySelectionsOwnedByAncestorScope, func(err error) error {
 		reported = append(reported, err)
 		return nil
 	})
@@ -467,12 +464,12 @@ func TestIdentityReporterAbortPreservesPendingSelections(t *testing.T) {
 	expectXSDMessage(t, reported[0], "duplicate value for identity constraint \"idKey\"; first seen at /root/row[1]")
 	expectXSDLocation(t, reported[0], "/root/row[2]", 3, 1)
 
-	if err := evaluation.finishSelections(2, second, identitySelectionsOwnedByAncestorScope, failIdentityReport(t)); err != nil {
+	if err := evaluation.finishSelections(second, 2, identitySelectionsOwnedByAncestorScope, failIdentityReport(t)); err != nil {
 		t.Fatalf("finishSelections(after retry) error = %v", err)
 	}
 }
 
-func startIdentityRetryElement(tb testing.TB, evaluation *identityEvaluation, local string, ctx startContext) {
+func startIdentityRetryElement(tb testing.TB, ctx startContext, evaluation *identityEvaluation, local string) {
 	tb.Helper()
 	name, ok := evaluation.rt.LookupQName("", local)
 	if !ok {
@@ -493,7 +490,7 @@ func startIdentityRetryElement(tb testing.TB, evaluation *identityEvaluation, lo
 	}
 }
 
-func captureIdentityRetryAttribute(tb testing.TB, evaluation *identityEvaluation, local, lexical string, ctx startContext) {
+func captureIdentityRetryAttribute(tb testing.TB, ctx startContext, evaluation *identityEvaluation, local, lexical string) {
 	tb.Helper()
 	name, ok := evaluation.rt.LookupQName("", local)
 	if !ok {
@@ -503,10 +500,10 @@ func captureIdentityRetryAttribute(tb testing.TB, evaluation *identityEvaluation
 	if err != nil {
 		tb.Fatalf("prepareAttributeValue(%q) error = %v", local, err)
 	}
-	if err := evaluation.recordValue(target, identityValueForTest(tb, "string", lexical, value.NeedIdentity), ctx); err != nil {
+	if err := evaluation.recordValue(ctx, target, identityValueForTest(tb, "string", lexical, value.NeedIdentity)); err != nil {
 		tb.Fatalf("recordValue(%q) error = %v", local, err)
 	}
-	if err := evaluation.captureValue(target, ctx); err != nil {
+	if err := evaluation.captureValue(ctx, target); err != nil {
 		tb.Fatalf("captureValue(%q) error = %v", local, err)
 	}
 	if err := evaluation.commitValue(target); err != nil {

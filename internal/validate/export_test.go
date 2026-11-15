@@ -89,5 +89,5 @@ func (r *IdentityRecorderForTest) ResetIdentity() {
 
 // RecordIdentityValue records one simple value identity payload.
 func (r *IdentityRecorderForTest) RecordIdentityValue(v value.Value, line, col int) error {
-	return r.session.doc.identity.recordIdentityFields(v.IDs(), v.IDRefs(), r.session.startContext(line, col))
+	return r.session.doc.identity.recordIdentityFields(r.session.startContext(line, col), v.IDs(), v.IDRefs())
 }

@@ -46,7 +46,7 @@ func (p *Program) InputRequirements(id TypeID) (InputRequirements, bool) {
 	if !ok {
 		return InputRequirements{}, false
 	}
-	return inputRequirements(t), true
+	return t.inputs, true
 }
 
 // InputRequirements returns the scalar requirements for an available builder

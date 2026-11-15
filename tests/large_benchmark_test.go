@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"math"
@@ -49,6 +50,7 @@ type largeBenchmarkConfig struct {
 	sizes        []largeBenchmarkSize
 	identityRows int
 	runs         int
+	libxml2      string
 }
 
 type largeBenchmarkProfile struct {
@@ -61,13 +63,35 @@ type largeBenchmarkProfile struct {
 
 type commandMetrics struct {
 	elapsed     time.Duration
+	cpu         time.Duration
 	maxRSSBytes uint64
 	statistic   string
 }
 
-type largeBenchmarkResult struct {
-	name    string
+// benchmarkCommand is one validator invocation measured by the large
+// benchmark. Its arguments are fixed for one profile.
+type benchmarkCommand struct {
+	label string
+	path  string
+	args  []string
+}
+
+// benchmarkValidator names a validator executable and how it is invoked for a
+// generated profile.
+type benchmarkValidator struct {
+	label   string
+	path    string
+	command func(profile largeBenchmarkProfile) []string
+}
+
+type commandResult struct {
+	label   string
 	metrics commandMetrics
+}
+
+type largeBenchmarkResult struct {
+	name     string
+	commands []commandResult
 }
 
 type countingWriter struct {
@@ -95,7 +119,7 @@ func TestLargeXMLLintBenchmark(t *testing.T) {
 	}
 	t.Logf("large benchmark runs: %d", cfg.runs)
 
-	libraryXMLLint := largeLibraryCommand(t)
+	validators := largeBenchmarkValidators(t, cfg)
 	var results []largeBenchmarkResult
 
 	streamingSchema := filepath.Join(cfg.dir, "streaming", "schema.xsd")
@@ -107,7 +131,7 @@ func TestLargeXMLLintBenchmark(t *testing.T) {
 				defer removeAll(t, dir)
 			}
 			profile := generateStreamingProfile(t, streamingSchema, dir, size)
-			results = append(results, runLargeBenchmarkProfile(t, libraryXMLLint, profile, cfg.runs))
+			results = append(results, runLargeBenchmarkProfile(t, validators, profile, cfg.runs))
 		}) {
 			return
 		}
@@ -119,7 +143,7 @@ func TestLargeXMLLintBenchmark(t *testing.T) {
 			defer removeAll(t, dir)
 		}
 		profile := generateIdentityProfile(t, dir, cfg.identityRows)
-		results = append(results, runLargeBenchmarkProfile(t, libraryXMLLint, profile, cfg.runs))
+		results = append(results, runLargeBenchmarkProfile(t, validators, profile, cfg.runs))
 	}) {
 		return
 	}
@@ -539,6 +563,7 @@ func largeBenchmarkConfigFromEnv(t *testing.T) largeBenchmarkConfig {
 		sizes:        largeBenchmarkSizesFromEnv(t),
 		identityRows: envInt(t, "XSD_LARGE_IDENTITY_ROWS", defaultLargeBenchmarkIdentityRows),
 		runs:         envInt(t, "XSD_LARGE_RUNS", defaultLargeBenchmarkRuns),
+		libxml2:      os.Getenv("XSD_LARGE_LIBXML2"),
 	}
 }
 
@@ -587,24 +612,35 @@ func TestLargeBenchmarkRunsFromEnv(t *testing.T) {
 	}
 }
 
-func TestRunLibrarySamplesUsesConfiguredSampleCount(t *testing.T) {
-	countPath := filepath.Join(t.TempDir(), "count")
+func TestRunInterleavedSamplesWarmsUpThenAlternatesCommands(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "log")
 	t.Setenv("XSD_TEST_LIBRARY_COMMAND", "1")
-	t.Setenv("XSD_TEST_LIBRARY_COUNT", countPath)
-	command, err := os.Executable()
+	t.Setenv("XSD_TEST_LIBRARY_LOG", logPath)
+	executable, err := os.Executable()
 	if err != nil {
 		t.Fatalf("Executable() error = %v", err)
 	}
-	_, samples := runLibrarySamples(t, 5, command, "-test.run=^TestLibraryCommandProcess$")
-	if len(samples) != 5 {
-		t.Fatalf("runLibrarySamples() returned %d samples, want 5", len(samples))
+	commands := []benchmarkCommand{
+		{label: "a", path: executable, args: []string{"-test.run=^TestLibraryCommandProcess$", "a"}},
+		{label: "b", path: executable, args: []string{"-test.run=^TestLibraryCommandProcess$", "b"}},
 	}
-	count, err := os.ReadFile(countPath) //nolint:gosec // Parent test owns the t.TempDir path passed to this helper process.
+	samples := runInterleavedSamples(t, 3, commands)
+	if len(samples) != 2 || len(samples[0]) != 3 || len(samples[1]) != 3 {
+		t.Fatalf("runInterleavedSamples() sample shape = %d commands, want 2 with 3 samples each", len(samples))
+	}
+	for i, command := range samples {
+		for j, sample := range command {
+			if sample.cpu <= 0 || sample.maxRSSBytes == 0 {
+				t.Fatalf("sample %d of command %d = %+v, want positive CPU time and peak RSS", j, i, sample)
+			}
+		}
+	}
+	got, err := os.ReadFile(logPath) //nolint:gosec // Parent test owns the t.TempDir path passed to this helper process.
 	if err != nil {
-		t.Fatalf("ReadFile(%s) error = %v", countPath, err)
+		t.Fatalf("ReadFile(%s) error = %v", logPath, err)
 	}
-	if got, want := string(count), "6"; got != want {
-		t.Fatalf("library command invocations = %s, want %s (one warm-up plus five samples)", got, want)
+	if want := "abababab"; string(got) != want {
+		t.Fatalf("command order = %q, want %q (one warm-up each, then three alternating samples)", got, want)
 	}
 }
 
@@ -612,18 +648,16 @@ func TestLibraryCommandProcess(t *testing.T) {
 	if os.Getenv("XSD_TEST_LIBRARY_COMMAND") != "1" {
 		return
 	}
-	path := os.Getenv("XSD_TEST_LIBRARY_COUNT")
-	count := 0
-	if data, err := os.ReadFile(path); err == nil { //nolint:gosec // Parent test owns the t.TempDir path passed through the environment.
-		count, err = strconv.Atoi(string(data))
-		if err != nil {
-			t.Fatalf("Atoi(%q) error = %v", string(data), err)
-		}
-	} else if !os.IsNotExist(err) {
-		t.Fatalf("ReadFile(%s) error = %v", path, err)
+	path := os.Getenv("XSD_TEST_LIBRARY_LOG")
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600) //nolint:gosec // Parent test owns the t.TempDir path passed through the environment.
+	if err != nil {
+		t.Fatalf("OpenFile(%s) error = %v", path, err)
 	}
-	if err := os.WriteFile(path, []byte(strconv.Itoa(count+1)), 0o600); err != nil { //nolint:gosec // Parent test owns the t.TempDir path passed through the environment.
-		t.Fatalf("WriteFile(%s) error = %v", path, err)
+	if _, err := f.WriteString(flag.Arg(0)); err != nil {
+		t.Fatalf("WriteString() error = %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
 	}
 }
 
@@ -632,12 +666,16 @@ func TestP95CommandMetricsUsesNearestRank(t *testing.T) {
 	for i := range samples {
 		samples[i] = commandMetrics{
 			elapsed:     time.Duration(i+1) * time.Second,
+			cpu:         time.Duration(i+1) * time.Millisecond,
 			maxRSSBytes: uint64((i + 1) * 1024),
 		}
 	}
 	summary := p95CommandMetrics(samples)
 	if summary.elapsed != 10*time.Second {
 		t.Fatalf("p95 elapsed = %s, want 10s", summary.elapsed)
+	}
+	if summary.cpu != 10*time.Millisecond {
+		t.Fatalf("p95 cpu = %s, want 10ms", summary.cpu)
 	}
 	if summary.maxRSSBytes != 10*1024 {
 		t.Fatalf("p95 rss = %d, want %d", summary.maxRSSBytes, 10*1024)
@@ -652,6 +690,7 @@ func TestCommandMetricsSummaryUsesMedianBelowTwentySamples(t *testing.T) {
 	for i := range samples {
 		samples[i] = commandMetrics{
 			elapsed:     time.Duration(i+1) * time.Second,
+			cpu:         time.Duration(i+1) * time.Millisecond,
 			maxRSSBytes: uint64((i + 1) * 1024),
 		}
 	}
@@ -661,6 +700,9 @@ func TestCommandMetricsSummaryUsesMedianBelowTwentySamples(t *testing.T) {
 	}
 	if summary.elapsed != 3*time.Second {
 		t.Fatalf("median elapsed = %s, want 3s", summary.elapsed)
+	}
+	if summary.cpu != 3*time.Millisecond {
+		t.Fatalf("median cpu = %s, want 3ms", summary.cpu)
 	}
 	if summary.maxRSSBytes != 3*1024 {
 		t.Fatalf("median rss = %d, want %d", summary.maxRSSBytes, 3*1024)
@@ -722,21 +764,23 @@ func generateIdentityProfile(tb testing.TB, dir string, rows int) largeBenchmark
 	return profile
 }
 
-func runLargeBenchmarkProfile(t *testing.T, libraryXMLLint string, profile largeBenchmarkProfile, runs int) largeBenchmarkResult {
+func runLargeBenchmarkProfile(t *testing.T, validators []benchmarkValidator, profile largeBenchmarkProfile, runs int) largeBenchmarkResult {
 	t.Helper()
 	t.Logf("schema=%s", profile.schema)
 	t.Logf("xml=%s bytes=%d", profile.xml, profile.bytes)
-	args := []string{"--schema", profile.schema, "--max-instance-bytes", strconv.FormatInt(profile.bytes, 10), profile.xml}
-	if profile.maxIdentityEntries != 0 {
-		args = slices.Insert(args, len(args)-1, "--max-identity-entries", strconv.Itoa(profile.maxIdentityEntries))
+	commands := make([]benchmarkCommand, len(validators))
+	for i, validator := range validators {
+		commands[i] = benchmarkCommand{label: validator.label, path: validator.path, args: validator.command(profile)}
 	}
-	metrics, samples := runLibrarySamples(t, runs, libraryXMLLint, args...)
-	logLibraryCommandSamples(t, samples, profile.bytes)
-	logCommandMetrics(t, "bin/xmllint", metrics, profile.bytes)
-	return largeBenchmarkResult{
-		name:    profile.name,
-		metrics: metrics,
+	samples := runInterleavedSamples(t, runs, commands)
+	result := largeBenchmarkResult{name: profile.name, commands: make([]commandResult, len(commands))}
+	for i, command := range commands {
+		logCommandSamples(t, command.label, samples[i], profile.bytes)
+		metrics := summarizeCommandMetrics(samples[i])
+		logCommandMetrics(t, command.label, metrics, profile.bytes)
+		result.commands[i] = commandResult{label: command.label, metrics: metrics}
 	}
+	return result
 }
 
 func removeAll(t *testing.T, dir string) {
@@ -963,63 +1007,106 @@ func writeFormatf(tb testing.TB, w io.Writer, format string, args ...any) {
 	}
 }
 
-func largeLibraryCommand(t *testing.T) string {
+// largeBenchmarkValidators returns bin/xmllint and, when XSD_LARGE_LIBXML2
+// names an executable, libxml2's xmllint run as docs/BENCHMARKS.md documents.
+func largeBenchmarkValidators(t *testing.T, cfg largeBenchmarkConfig) []benchmarkValidator {
 	t.Helper()
 	root := repoRoot(t)
-	libraryXMLLint, err := filepath.Abs(filepath.Join(root, "bin", "xmllint"))
+	goXMLLint, err := filepath.Abs(filepath.Join(root, "bin", "xmllint"))
 	if err != nil {
 		t.Fatalf("Abs(bin/xmllint) error = %v", err)
 	}
-	info, err := os.Stat(libraryXMLLint)
-	if err != nil {
-		t.Fatalf("bin/xmllint not found; run make xmllint")
+	requireExecutable(t, goXMLLint, "bin/xmllint; run make xmllint")
+	t.Logf("bin/xmllint: %s", goXMLLint)
+	validators := []benchmarkValidator{{
+		label: "bin/xmllint",
+		path:  goXMLLint,
+		command: func(profile largeBenchmarkProfile) []string {
+			args := []string{"--schema", profile.schema, "--max-instance-bytes", strconv.FormatInt(profile.bytes, 10), profile.xml}
+			if profile.maxIdentityEntries != 0 {
+				args = slices.Insert(args, len(args)-1, "--max-identity-entries", strconv.Itoa(profile.maxIdentityEntries))
+			}
+			return args
+		},
+	}}
+	if cfg.libxml2 == "" {
+		return validators
 	}
-	if info.IsDir() || info.Mode()&0o111 == 0 {
-		t.Fatalf("bin/xmllint is not executable; run make xmllint")
-	}
-	t.Logf("library xmllint: %s", libraryXMLLint)
-	return libraryXMLLint
+	requireExecutable(t, cfg.libxml2, "XSD_LARGE_LIBXML2")
+	t.Logf("libxml2: %s", cfg.libxml2)
+	return append(validators, benchmarkValidator{
+		label: "libxml2",
+		path:  cfg.libxml2,
+		command: func(profile largeBenchmarkProfile) []string {
+			return []string{"--stream", "--huge", "--noout", "--schema", profile.schema, profile.xml}
+		},
+	})
 }
 
-func runLibrarySamples(t *testing.T, runs int, libraryName string, args ...string) (commandMetrics, []commandMetrics) {
+func requireExecutable(t *testing.T, path, what string) {
+	t.Helper()
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("%s: %v", what, err)
+	}
+	if info.IsDir() || info.Mode()&0o111 == 0 {
+		t.Fatalf("%s: %s is not executable", what, path)
+	}
+}
+
+// runInterleavedSamples runs every command once untimed, then runs the
+// commands in turn for each sample, so a drift in machine load affects every
+// command alike. It returns the samples of commands[i] at index i.
+func runInterleavedSamples(t *testing.T, runs int, commands []benchmarkCommand) [][]commandMetrics {
 	t.Helper()
 	if runs <= 0 {
 		t.Fatalf("XSD_LARGE_RUNS must be a positive integer")
 	}
-	_ = runMeasuredCommandOnce(t, libraryName, args...)
-	samples := make([]commandMetrics, runs)
-	for i := range runs {
-		samples[i] = runMeasuredCommandOnce(t, libraryName, args...)
+	for _, command := range commands {
+		_ = runMeasuredCommandOnce(t, command)
 	}
-	if runs < 20 {
-		logCommandSampleSummary(t, "bin/xmllint", samples)
+	samples := make([][]commandMetrics, len(commands))
+	for i := range samples {
+		samples[i] = make([]commandMetrics, runs)
 	}
-	return summarizeCommandMetrics(samples), samples
+	for run := range runs {
+		for i, command := range commands {
+			samples[i][run] = runMeasuredCommandOnce(t, command)
+		}
+	}
+	return samples
 }
 
-func runMeasuredCommandOnce(t *testing.T, name string, args ...string) commandMetrics {
+// runMeasuredCommandOnce runs command and reports its elapsed time, and the
+// CPU time and peak RSS the kernel accounted to the child process.
+func runMeasuredCommandOnce(t *testing.T, command benchmarkCommand) commandMetrics {
 	t.Helper()
-	var metrics commandMetrics
-	cmdName, cmdArgs := measuredCommand(name, args...)
-	cmd := exec.CommandContext(t.Context(), cmdName, cmdArgs...) //nolint:gosec // Benchmark intentionally runs the configured library command.
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	cmd := exec.CommandContext(t.Context(), command.path, command.args...) //nolint:gosec // Benchmark intentionally runs the configured validator command.
+	var output bytes.Buffer
+	cmd.Stdout = &output
+	cmd.Stderr = &output
 	start := time.Now()
 	err := cmd.Run()
-	metrics.elapsed = time.Since(start)
-	out := stdout.String() + stderr.String()
-	metrics.maxRSSBytes = parseMaxRSS(runtime.GOOS, out)
+	elapsed := time.Since(start)
 	if err != nil {
-		t.Fatalf("%s %s error = %v\n%s", cmdName, strings.Join(cmdArgs, " "), err, out)
+		t.Fatalf("%s %s error = %v\n%s", command.path, strings.Join(command.args, " "), err, output.String())
 	}
-	return metrics
+	maxRSS, ok := processMaxRSSBytes(cmd.ProcessState)
+	if !ok {
+		t.Fatalf("%s: peak RSS is unavailable on %s", command.label, runtime.GOOS)
+	}
+	return commandMetrics{
+		elapsed:     elapsed,
+		cpu:         cmd.ProcessState.UserTime() + cmd.ProcessState.SystemTime(),
+		maxRSSBytes: maxRSS,
+	}
 }
 
 func p95CommandMetrics(samples []commandMetrics) commandMetrics {
 	idx := p95Index(len(samples))
 	return commandMetrics{
-		elapsed:     summaryElapsed(samples, idx),
+		elapsed:     summaryDuration(samples, idx, commandElapsed),
+		cpu:         summaryDuration(samples, idx, commandCPU),
 		maxRSSBytes: summaryRSS(samples, idx),
 		statistic:   "p95",
 	}
@@ -1035,19 +1122,24 @@ func summarizeCommandMetrics(samples []commandMetrics) commandMetrics {
 func medianCommandMetrics(samples []commandMetrics) commandMetrics {
 	idx := len(samples) / 2
 	return commandMetrics{
-		elapsed:     summaryElapsed(samples, idx),
+		elapsed:     summaryDuration(samples, idx, commandElapsed),
+		cpu:         summaryDuration(samples, idx, commandCPU),
 		maxRSSBytes: summaryRSS(samples, idx),
 		statistic:   "median",
 	}
 }
 
-func summaryElapsed(samples []commandMetrics, idx int) time.Duration {
-	elapsed := make([]time.Duration, len(samples))
+func commandElapsed(m commandMetrics) time.Duration { return m.elapsed }
+
+func commandCPU(m commandMetrics) time.Duration { return m.cpu }
+
+func summaryDuration(samples []commandMetrics, idx int, field func(commandMetrics) time.Duration) time.Duration {
+	values := make([]time.Duration, len(samples))
 	for i, sample := range samples {
-		elapsed[i] = sample.elapsed
+		values[i] = field(sample)
 	}
-	slices.Sort(elapsed)
-	return elapsed[idx]
+	slices.Sort(values)
+	return values[idx]
 }
 
 func summaryRSS(samples []commandMetrics, idx int) uint64 {
@@ -1063,195 +1155,61 @@ func p95Index(n int) int {
 	return int(math.Ceil(0.95*float64(n))) - 1
 }
 
-func measuredCommand(name string, args ...string) (string, []string) {
-	timePath := "/usr/bin/time"
-	if _, err := os.Stat(timePath); err != nil {
-		return name, args
-	}
-	switch runtime.GOOS {
-	case "darwin":
-		return timePath, append([]string{"-l", name}, args...)
-	case "linux":
-		return timePath, append([]string{"-v", name}, args...)
-	default:
-		return name, args
-	}
-}
-
-func parseMaxRSS(goos, out string) uint64 {
-	for line := range strings.SplitSeq(out, "\n") {
-		line = trimCommandOutputSpace(line)
-		switch {
-		case goos == "darwin" && strings.Contains(line, "maximum resident set size"):
-			first := firstCommandOutputField(line)
-			if first == "" {
-				continue
-			}
-			n, err := strconv.ParseUint(first, 10, 64)
-			if err != nil {
-				continue
-			}
-			return n
-		case goos == "linux" && strings.Contains(line, "Maximum resident set size"):
-			_, value, ok := strings.Cut(line, ":")
-			if !ok {
-				continue
-			}
-			n, err := strconv.ParseUint(trimCommandOutputSpace(value), 10, 64)
-			if err != nil {
-				continue
-			}
-			return n * 1024
-		}
-	}
-	return 0
-}
-
-func trimCommandOutputSpace(s string) string {
-	start := 0
-	for start < len(s) && isCommandOutputSpace(s[start]) {
-		start++
-	}
-	end := len(s)
-	for end > start && isCommandOutputSpace(s[end-1]) {
-		end--
-	}
-	return s[start:end]
-}
-
-func firstCommandOutputField(s string) string {
-	s = trimCommandOutputSpace(s)
-	for i := range len(s) {
-		if isCommandOutputSpace(s[i]) {
-			return s[:i]
-		}
-	}
-	return s
-}
-
-func isCommandOutputSpace(b byte) bool {
-	return b == ' ' || b == '\t' || b == '\r' || b == '\n'
-}
-
 func logCommandMetrics(t *testing.T, label string, metrics commandMetrics, inputBytes int64) {
 	t.Helper()
-	statistic := metrics.statistic
-	if statistic == "" {
-		statistic = "p95"
-	}
 	t.Logf(
-		"%s: %s_elapsed=%s %s_throughput=%0.2f MiB/s %s_max_rss_bytes=%d",
+		"%s: %s_cpu=%s %s_elapsed=%s %s_cpu_throughput=%0.2f MiB/s %s_max_rss_bytes=%d",
 		label,
-		statistic,
-		metrics.elapsed,
-		statistic,
-		throughputMiB(inputBytes, metrics.elapsed),
-		statistic,
-		metrics.maxRSSBytes,
+		metrics.statistic, metrics.cpu,
+		metrics.statistic, metrics.elapsed,
+		metrics.statistic, throughputMiB(inputBytes, metrics.cpu),
+		metrics.statistic, metrics.maxRSSBytes,
 	)
 }
 
-func logCommandSampleSummary(t *testing.T, label string, samples []commandMetrics) {
-	t.Helper()
-	minMetrics := minCommandMetrics(samples)
-	medianMetrics := medianCommandMetrics(samples)
-	maxMetrics := maxCommandMetrics(samples)
-	t.Logf(
-		"%s samples: elapsed_min=%s elapsed_median=%s elapsed_max=%s rss_min=%s rss_median=%s rss_max=%s",
-		label,
-		formatBenchDuration(minMetrics.elapsed),
-		formatBenchDuration(medianMetrics.elapsed),
-		formatBenchDuration(maxMetrics.elapsed),
-		formatBenchBytes(minMetrics.maxRSSBytes),
-		formatBenchBytes(medianMetrics.maxRSSBytes),
-		formatBenchBytes(maxMetrics.maxRSSBytes),
-	)
-}
-
-func minCommandMetrics(samples []commandMetrics) commandMetrics {
-	return commandMetrics{statistic: "min", elapsed: summaryElapsed(samples, 0), maxRSSBytes: summaryRSS(samples, 0)}
-}
-
-func maxCommandMetrics(samples []commandMetrics) commandMetrics {
-	idx := len(samples) - 1
-	return commandMetrics{statistic: "max", elapsed: summaryElapsed(samples, idx), maxRSSBytes: summaryRSS(samples, idx)}
-}
-
-func logLibraryCommandSamples(t *testing.T, samples []commandMetrics, inputBytes int64) {
+func logCommandSamples(t *testing.T, label string, samples []commandMetrics, inputBytes int64) {
 	t.Helper()
 	for i, metrics := range samples {
 		t.Logf(
-			"sample %02d: elapsed=%s rss=%s throughput=%0.2f MiB/s",
+			"%s sample %02d: cpu=%s elapsed=%s rss=%s cpu_throughput=%0.2f MiB/s",
+			label,
 			i+1,
+			formatBenchDuration(metrics.cpu),
 			formatBenchDuration(metrics.elapsed),
 			formatBenchBytes(metrics.maxRSSBytes),
-			throughputMiB(inputBytes, metrics.elapsed),
+			throughputMiB(inputBytes, metrics.cpu),
 		)
 	}
 }
 
 func logLargeBenchmarkSummary(t *testing.T, results []largeBenchmarkResult) {
 	t.Helper()
+	if len(results) == 0 {
+		return
+	}
 	t.Log("")
 	t.Logf("goos: %s", runtime.GOOS)
 	t.Logf("goarch: %s", runtime.GOARCH)
-	t.Log("pkg: github.com/jacoelho/xsd")
-	logLargeBenchmarkTimeSummary(t, results)
-	logLargeBenchmarkRSSSummary(t, results)
-}
-
-func logLargeBenchmarkTimeSummary(t *testing.T, results []largeBenchmarkResult) {
-	t.Helper()
-	statistic := largeBenchmarkStatistic(results)
-	t.Log("                         |       bin/xmllint |")
-	t.Logf("                         | %s sec/op        |", statistic)
-	var values []float64
-	for _, result := range results {
-		seconds := result.metrics.elapsed.Seconds()
-		values = append(values, seconds)
-		t.Logf(
-			"%-24s   %13s",
-			result.name,
-			formatBenchDuration(result.metrics.elapsed),
-		)
+	t.Logf("statistic: %s", results[0].commands[0].metrics.statistic)
+	header := fmt.Sprintf("%-16s", "workload")
+	for _, command := range results[0].commands {
+		header += fmt.Sprintf(" | %-12s %10s %10s %10s", command.label, "cpu", "elapsed", "peak rss")
 	}
-	t.Logf(
-		"%-24s   %13s",
-		"geomean",
-		formatBenchSeconds(geomean(values)),
-	)
-}
-
-func logLargeBenchmarkRSSSummary(t *testing.T, results []largeBenchmarkResult) {
-	t.Helper()
-	statistic := largeBenchmarkStatistic(results)
-	t.Log("")
-	t.Log("                         |       bin/xmllint |")
-	t.Logf("                         | %s rss/op        |", statistic)
-	var values []float64
-	for _, result := range results {
-		rss := float64(result.metrics.maxRSSBytes)
-		values = append(values, rss)
-		t.Logf(
-			"%-24s   %13s",
-			result.name,
-			formatBenchBytes(result.metrics.maxRSSBytes),
-		)
+	if len(results[0].commands) > 1 {
+		header += " | cpu ratio  rss ratio"
 	}
-	t.Logf(
-		"%-24s   %13s",
-		"geomean",
-		formatBenchBytes(uint64(geomean(values))),
-	)
-}
-
-func largeBenchmarkStatistic(results []largeBenchmarkResult) string {
+	t.Log(header)
 	for _, result := range results {
-		if result.metrics.statistic != "" {
-			return result.metrics.statistic
+		line := fmt.Sprintf("%-16s", result.name)
+		for _, command := range result.commands {
+			line += fmt.Sprintf(" | %-12s %10s %10s %10s", "", formatBenchDuration(command.metrics.cpu), formatBenchDuration(command.metrics.elapsed), formatBenchBytes(command.metrics.maxRSSBytes))
 		}
+		if len(result.commands) > 1 {
+			base, other := result.commands[0].metrics, result.commands[1].metrics
+			line += fmt.Sprintf(" | %9.3f %10.3f", base.cpu.Seconds()/other.cpu.Seconds(), float64(base.maxRSSBytes)/float64(other.maxRSSBytes))
+		}
+		t.Log(line)
 	}
-	return "p95"
 }
 
 func throughputMiB(inputBytes int64, elapsed time.Duration) float64 {
@@ -1259,20 +1217,6 @@ func throughputMiB(inputBytes int64, elapsed time.Duration) float64 {
 		return 0
 	}
 	return float64(inputBytes) / 1024 / 1024 / elapsed.Seconds()
-}
-
-func geomean(values []float64) float64 {
-	if len(values) == 0 {
-		return 0
-	}
-	var sum float64
-	for _, value := range values {
-		if value <= 0 {
-			return 0
-		}
-		sum += math.Log(value)
-	}
-	return math.Exp(sum / float64(len(values)))
 }
 
 func formatBenchDuration(d time.Duration) string {

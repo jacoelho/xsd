@@ -372,7 +372,7 @@ func (c *compiler) compileModelGroupByQName(q QName) error {
 	if err != nil {
 		return err
 	}
-	_, err = c.compileModel(modelNode, raw.ctx)
+	_, err = c.compileModel(raw.ctx, modelNode)
 	return err
 }
 
@@ -433,8 +433,8 @@ func derivationMaskWithDefaultChecked(n *schemaNode, attr lexicalAttribute, def 
 
 // referenceQName applies effective-context rules without changing the shared
 // admitted name when a chameleon source serves multiple target namespaces.
-func (c *compiler) referenceQName(n *schemaNode, ctx *schemaSetDocument, name xml.Name) (QName, error) {
-	namespace, err := checkReferenceNamespace(n, ctx, name)
+func (c *compiler) referenceQName(ctx *schemaSetDocument, n *schemaNode, name xml.Name) (QName, error) {
+	namespace, err := checkReferenceNamespace(ctx, n, name)
 	if err != nil {
 		return QName{}, err
 	}
@@ -549,7 +549,7 @@ func (c *compiler) compileSimpleByQName(q QName) (result SimpleTypeID, err error
 	if err != nil {
 		return NoSimpleType, err
 	}
-	st, err := c.compileSimpleType(raw.sourceNode(), raw.ctx, q)
+	st, err := c.compileSimpleType(raw.ctx, raw.sourceNode(), q)
 	if err != nil {
 		return NoSimpleType, err
 	}
@@ -583,7 +583,7 @@ func (c *compiler) completeGlobalSimpleType(raw schemaComponent, q QName, id Sim
 	return nil
 }
 
-func (c *compiler) compileAnonymousSimple(n *schemaNode, ctx *schemaSetDocument) (result SimpleTypeID, err error) {
+func (c *compiler) compileAnonymousSimple(ctx *schemaSetDocument, n *schemaNode) (result SimpleTypeID, err error) {
 	if err = c.spendComponentDependency(n); err != nil {
 		return NoSimpleType, err
 	}
@@ -610,7 +610,7 @@ func (c *compiler) compileAnonymousSimple(n *schemaNode, ctx *schemaSetDocument)
 	if err != nil {
 		return NoSimpleType, err
 	}
-	st, err := c.compileSimpleType(n, ctx, q)
+	st, err := c.compileSimpleType(ctx, n, q)
 	if err != nil {
 		return NoSimpleType, err
 	}
@@ -626,7 +626,7 @@ func (c *compiler) compileAnonymousSimple(n *schemaNode, ctx *schemaSetDocument)
 	return id, nil
 }
 
-func (c *compiler) compileSimpleType(n *schemaNode, ctx *schemaSetDocument, name QName) (simpleType, error) {
+func (c *compiler) compileSimpleType(ctx *schemaSetDocument, n *schemaNode, name QName) (simpleType, error) {
 	if err := validateSimpleTypeChildren(n); err != nil {
 		return simpleType{}, err
 	}
@@ -636,11 +636,11 @@ func (c *compiler) compileSimpleType(n *schemaNode, ctx *schemaSetDocument, name
 	}
 	switch child.local {
 	case vocab.XSDElemRestriction:
-		return c.compileRestriction(child, ctx, name)
+		return c.compileRestriction(ctx, child, name)
 	case vocab.XSDElemList:
-		return c.compileList(child, ctx, name)
+		return c.compileList(ctx, child, name)
 	case vocab.XSDElemUnion:
-		return c.compileUnion(child, ctx, name)
+		return c.compileUnion(ctx, child, name)
 	default:
 		return simpleType{}, xsderrors.InternalInvariant("simpleType child validator admitted " + child.local)
 	}
@@ -669,11 +669,11 @@ func validateSimpleTypeChildren(n *schemaNode) error {
 	return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "simpleType must contain one restriction, list, or union")
 }
 
-func (c *compiler) compileRestriction(n *schemaNode, ctx *schemaSetDocument, name QName) (simpleType, error) {
+func (c *compiler) compileRestriction(ctx *schemaSetDocument, n *schemaNode, name QName) (simpleType, error) {
 	if err := checkOrderedXSDChildren(n, simpleRestrictionChildOrder); err != nil {
 		return simpleType{}, err
 	}
-	baseID, err := c.compileRestrictionBase(n, ctx)
+	baseID, err := c.compileRestrictionBase(ctx, n)
 	if err != nil {
 		return simpleType{}, err
 	}
@@ -695,7 +695,7 @@ func (c *compiler) compileRestriction(n *schemaNode, ctx *schemaSetDocument, nam
 	return st, nil
 }
 
-func (c *compiler) compileRestrictionBase(n *schemaNode, ctx *schemaSetDocument) (SimpleTypeID, error) {
+func (c *compiler) compileRestrictionBase(ctx *schemaSetDocument, n *schemaNode) (SimpleTypeID, error) {
 	children := schemaSimpleTypeChildren(n)
 	if len(children) > 1 {
 		return NoSimpleType, xsderrors.InternalInvariant("restriction child validator admitted multiple simpleType children")
@@ -709,7 +709,7 @@ func (c *compiler) compileRestrictionBase(n *schemaNode, ctx *schemaSetDocument)
 		return NoSimpleType, withSchemaCompileLocation(n, err)
 	}
 	if base.Present {
-		q, err := c.referenceQName(n, ctx, baseSource.Name)
+		q, err := c.referenceQName(ctx, n, baseSource.Name)
 		if err != nil {
 			return NoSimpleType, err
 		}
@@ -717,12 +717,12 @@ func (c *compiler) compileRestrictionBase(n *schemaNode, ctx *schemaSetDocument)
 		return id, withSchemaCompileLocation(n, err)
 	}
 	if len(children) == 1 {
-		return c.compileAnonymousSimple(children[0], ctx)
+		return c.compileAnonymousSimple(ctx, children[0])
 	}
 	return NoSimpleType, nil
 }
 
-func (c *compiler) compileList(n *schemaNode, ctx *schemaSetDocument, name QName) (simpleType, error) {
+func (c *compiler) compileList(ctx *schemaSetDocument, n *schemaNode, name QName) (simpleType, error) {
 	if err := checkOrderedXSDChildren(n, simpleListChildOrder); err != nil {
 		return simpleType{}, err
 	}
@@ -735,13 +735,13 @@ func (c *compiler) compileList(n *schemaNode, ctx *schemaSetDocument, name QName
 	}
 	switch {
 	case itemType.Present:
-		id, err := c.compileListItemType(n, ctx, itemTypeSource.Name)
+		id, err := c.compileListItemType(ctx, n, itemTypeSource.Name)
 		if err != nil {
 			return simpleType{}, err
 		}
 		item = id
 	case len(simpleTypeChildren) == 1:
-		id, err := c.compileAnonymousSimple(simpleTypeChildren[0], ctx)
+		id, err := c.compileAnonymousSimple(ctx, simpleTypeChildren[0])
 		if err != nil {
 			return simpleType{}, err
 		}
@@ -775,8 +775,8 @@ func (c *compiler) admitListItemType(n *schemaNode, item SimpleTypeID) error {
 	return c.admitNotationTypeUse(n, item)
 }
 
-func (c *compiler) compileListItemType(n *schemaNode, ctx *schemaSetDocument, itemType xml.Name) (SimpleTypeID, error) {
-	q, err := c.referenceQName(n, ctx, itemType)
+func (c *compiler) compileListItemType(ctx *schemaSetDocument, n *schemaNode, itemType xml.Name) (SimpleTypeID, error) {
+	q, err := c.referenceQName(ctx, n, itemType)
 	if err != nil {
 		return NoSimpleType, err
 	}
@@ -799,7 +799,7 @@ func (c *compiler) compileSimpleTypeReference(n *schemaNode, q QName) (SimpleTyp
 	return c.missingSimpleType()
 }
 
-func (c *compiler) compileUnion(n *schemaNode, ctx *schemaSetDocument, name QName) (simpleType, error) {
+func (c *compiler) compileUnion(ctx *schemaSetDocument, n *schemaNode, name QName) (simpleType, error) {
 	if err := checkOrderedXSDChildren(n, simpleUnionChildOrder); err != nil {
 		return simpleType{}, err
 	}
@@ -857,7 +857,7 @@ type simpleUnionCompilation struct {
 }
 
 func (c *simpleUnionCompilation) addNamedQName(node *schemaNode, name xml.Name) error {
-	q, err := c.compiler.referenceQName(node, c.ctx, name)
+	q, err := c.compiler.referenceQName(c.ctx, node, name)
 	if err != nil {
 		return err
 	}
@@ -869,7 +869,7 @@ func (c *simpleUnionCompilation) addNamedQName(node *schemaNode, name xml.Name) 
 }
 
 func (c *simpleUnionCompilation) addAnonymous(node *schemaNode) error {
-	id, err := c.compiler.compileAnonymousSimple(node, c.ctx)
+	id, err := c.compiler.compileAnonymousSimple(c.ctx, node)
 	if err != nil {
 		return err
 	}

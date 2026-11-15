@@ -25,19 +25,19 @@ func (c *compiler) indexSchemaDocument(ctx *schemaSetDocument) error {
 		if !global {
 			continue
 		}
-		if err := c.indexTopLevelSchemaDeclaration(name, child, ctx); err != nil {
+		if err := c.indexTopLevelSchemaDeclaration(ctx, name, child); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (c *compiler) indexTopLevelSchemaDeclaration(name lexicalAttribute, child *schemaNode, ctx *schemaSetDocument) error {
+func (c *compiler) indexTopLevelSchemaDeclaration(ctx *schemaSetDocument, name lexicalAttribute, child *schemaNode) error {
 	// Top-level shape and declaration attributes were validated before the
 	// immutable source node was published. Indexing only performs notation's
 	// compiler-owned child check and registers the admitted declaration.
 	if child.local == vocab.XSDElemNotation {
-		return c.indexNotation(child, ctx, name.Value)
+		return c.indexNotation(ctx, child, name.Value)
 	}
 	if !name.Present {
 		return nil
@@ -90,7 +90,7 @@ func (c *compiler) indexModelGroup(child *schemaNode, q QName, label string, com
 	return withSchemaCompileLocation(child, addSchemaComponent(c.groupComponents, q, component, label))
 }
 
-func (c *compiler) indexNotation(n *schemaNode, ctx *schemaSetDocument, name string) error {
+func (c *compiler) indexNotation(ctx *schemaSetDocument, n *schemaNode, name string) error {
 	if err := checkNotationDeclaration(n); err != nil {
 		return err
 	}

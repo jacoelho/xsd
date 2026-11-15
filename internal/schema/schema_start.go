@@ -81,11 +81,8 @@ func (rt *Schema) simpleTypeAvailability(id SimpleTypeID) (availability simpleTy
 	if rt == nil || rt.program.Value == nil || !validSimpleTypeID(id, len(rt.program.SimpleTypeUnavailable)) {
 		return simpleTypeAvailabilityInvalid, false, false
 	}
-	if unavailable := rt.program.SimpleTypeUnavailable[id]; unavailable {
+	if rt.program.SimpleTypeUnavailable[id] {
 		return simpleTypeAvailabilityUnavailable, true, true
-	}
-	if _, ok := rt.program.Value.InputRequirements(id); !ok {
-		return simpleTypeAvailabilityInvalid, false, false
 	}
 	return simpleTypeAvailabilityAvailable, true, true
 }

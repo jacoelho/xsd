@@ -29,7 +29,7 @@ func TestIdentityTupleRefIdleStorageBoundsAndTransfer(t *testing.T) {
 		}
 		var scope identityScope
 		ctx := identityTestContext("/new", 5, 6)
-		if err := state.publishIdentityKeyRef(&scope, 7, identitySelection{depth: 1}, "new", identityLimits{}, ctx); err != nil {
+		if err := state.publishIdentityKeyRef(ctx, &scope, 7, identitySelection{depth: 1}, "new", identityLimits{}); err != nil {
 			t.Fatal(err)
 		}
 		if state.idleRefs != nil || len(scope.refs) != 1 || &scope.refs[0] != &refs[0] {
@@ -61,7 +61,7 @@ func TestIdentityTupleRefIdleStoragePrefersLargerAndPreservesAdmission(t *testin
 	}
 	state.entries = 1
 	var scope identityScope
-	if err := state.publishIdentityKeyRef(&scope, xsdSchema.IdentityConstraintID(1), identitySelection{}, "rejected", identityLimits{Entries: 1}, identityTestContext("/rejected", 1, 1)); err == nil {
+	if err := state.publishIdentityKeyRef(identityTestContext("/rejected", 1, 1), &scope, xsdSchema.IdentityConstraintID(1), identitySelection{}, "rejected", identityLimits{Entries: 1}); err == nil {
 		t.Fatal("identity admission exceeded configured limit")
 	}
 	if scope.refs != nil || cap(state.idleRefs) != 8 {

@@ -213,6 +213,13 @@ func (s *stack) ownedTop(frame frame) (*stackFrame, error) {
 	return current, nil
 }
 
+func (s *stack) currentLexical() LexicalName {
+	if len(s.frames) == 0 {
+		return LexicalName{}
+	}
+	return s.frames[len(s.frames)-1].lexical
+}
+
 func (s *stack) depth() int {
 	return len(s.frames)
 }

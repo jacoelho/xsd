@@ -40,7 +40,7 @@ func TestParserPreflightRejectsInvalidInputs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var reader xmlstream.Reader
-			diagnostic := requireDiagnostic(t, streamError(reader.Reset(strings.NewReader(tt.in), xmlstream.Config{}), startContext{}, Limits{}), tt.code)
+			diagnostic := requireDiagnostic(t, streamError(startContext{}, reader.Reset(strings.NewReader(tt.in), xmlstream.Config{}), Limits{}), tt.code)
 			// Reset precedes the first token, so no instance location exists.
 			if diagnostic.Line() != 0 || diagnostic.Column() != 0 || diagnostic.Path() != "" {
 				t.Fatalf("location = %d:%d %q, want none", diagnostic.Line(), diagnostic.Column(), diagnostic.Path())
@@ -54,7 +54,7 @@ func TestParserPreflightRejectsInvalidInputs(t *testing.T) {
 
 func TestParserPreflightRejectsNilReader(t *testing.T) {
 	var reader xmlstream.Reader
-	requireCode(t, streamError(reader.Reset(nil, xmlstream.Config{}), startContext{}, Limits{}), xsderrors.CodeValidationRead)
+	requireCode(t, streamError(startContext{}, reader.Reset(nil, xmlstream.Config{}), Limits{}), xsderrors.CodeValidationRead)
 }
 
 func TestParserPreflightDoesNotReadWholeDocumentWithoutDeclaration(t *testing.T) {
@@ -85,7 +85,7 @@ func TestStreamErrorClassifiesParserErrors(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			diagnostic := requireDiagnostic(t, streamError(tt.err, startContext{Path: "/root", Line: 2, Column: 3}, Limits{}), tt.code)
+			diagnostic := requireDiagnostic(t, streamError(startContext{Path: "/root", Line: 2, Column: 3}, tt.err, Limits{}), tt.code)
 			if diagnostic.Line() != 2 || diagnostic.Column() != 3 || diagnostic.Path() != "/root" {
 				t.Fatalf("location = %d:%d %q, want 2:3 /root", diagnostic.Line(), diagnostic.Column(), diagnostic.Path())
 			}
@@ -98,7 +98,7 @@ func TestStreamErrorClassifiesParserErrors(t *testing.T) {
 
 func TestStreamDTDDiagnosticPreservesCause(t *testing.T) {
 	streamErr := parserErr(t, "\n<!DOCTYPE root><root/>")
-	err := streamError(streamErr, startContext{Path: "/", Line: 2, Column: 1}, Limits{})
+	err := streamError(startContext{Path: "/", Line: 2, Column: 1}, streamErr, Limits{})
 	if feature, ok := xmlstream.UnsupportedFeatureOf(err); !ok || feature != xmlstream.UnsupportedDTD {
 		t.Fatalf("DTD cause lost: %v", err)
 	}

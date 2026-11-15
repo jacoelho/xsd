@@ -17,7 +17,7 @@ import (
 // outside-root sentinels, and finally well-formedness failures.
 // resetInstanceReader locates prologue failures at path "/" and the reader
 // position (line 1 column 1 when none); a nil reader stays unlocated.
-func streamError(err error, ctx startContext, limits Limits) error {
+func streamError(ctx startContext, err error, limits Limits) error {
 	line, col, path := ctx.Line, ctx.Column, ctx.PathString()
 	if limit, ok := xmlstream.LimitOf(err); ok {
 		option, configured := readerLimitOption(limit, limits)
@@ -86,7 +86,7 @@ func resetInstanceReader(reader *xmlstream.Reader, r io.Reader, limits Limits) e
 		// A failure while reading the document prologue precedes any element,
 		// so it is located at the document root path.
 		line, col := streamErrorPosition(reader, err)
-		return streamError(err, startContext{Path: "/", Line: line, Column: col}, limits)
+		return streamError(startContext{Path: "/", Line: line, Column: col}, err, limits)
 	}
 	return nil
 }

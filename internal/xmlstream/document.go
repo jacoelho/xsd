@@ -210,6 +210,7 @@ func (r *Reader) Next() (*Token, error) {
 	// the next token is requested the syntax frame remains authoritative for
 	// recovery, even if semantic state is discarded by the caller.
 	r.lastStartSerial = 0
+	r.parser.expectedEnd = r.ns.currentLexical()
 	err := r.parser.next(&r.token)
 	if err != nil {
 		// EOF and parser errors leave no borrowed token or parser-owned slices

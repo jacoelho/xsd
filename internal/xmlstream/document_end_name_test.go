@@ -3,8 +3,11 @@ package xmlstream
 import (
 	"encoding/xml"
 	"errors"
+	"io"
+	"slices"
 	"strings"
 	"testing"
+	"testing/iotest"
 )
 
 func TestReaderEndNameSurvivesTrailingWhitespaceRefills(t *testing.T) {
@@ -194,5 +197,81 @@ func TestReaderValidatesEndQNameBeforeTagTail(t *testing.T) {
 			t.Fatalf("%q: token = %+v, error = %v", end, token, err)
 		}
 		reader.Detach()
+	}
+}
+
+// readEndNames returns the end-tag names read before the first error.
+func readEndNames(source io.Reader, limits Limits) ([]xml.Name, error) {
+	var reader Reader
+	if err := reader.Reset(source, Config{Limits: limits}); err != nil {
+		return nil, err
+	}
+	defer reader.Detach()
+	var handles []Handle
+	var names []xml.Name
+	for {
+		token, err := reader.Next()
+		if IsEOF(err) {
+			return names, reader.Complete()
+		}
+		if err != nil {
+			return names, err
+		}
+		switch token.Kind { //nolint:exhaustive // Only element tokens change the stack.
+		case KindStart:
+			handle, _, err := reader.Start()
+			if err != nil {
+				return names, err
+			}
+			handles = append(handles, handle)
+		case KindEnd:
+			names = append(names, token.End.Name)
+			if err := reader.End(handles[len(handles)-1]); err != nil {
+				return names, err
+			}
+			handles = handles[:len(handles)-1]
+		}
+	}
+}
+
+func TestReaderEndTagsMatchOnlyTheOpenElementName(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		limits  Limits
+		want    []xml.Name
+		wantErr string
+	}{
+		{name: "same name", input: `<ab></ab>`, want: []xml.Name{{Local: "ab"}}},
+		{name: "same name then space", input: "<ab></ab \n>", want: []xml.Name{{Local: "ab"}}},
+		{name: "one-byte name", input: `<a><b></b></a>`, want: []xml.Name{{Local: "b"}, {Local: "a"}}},
+		{name: "longer end name", input: `<ab></abc>`, want: []xml.Name{{Local: "abc"}}, wantErr: "does not match"},
+		{name: "shorter end name", input: `<abc></ab>`, want: []xml.Name{{Local: "ab"}}, wantErr: "does not match"},
+		{name: "same length other name", input: `<ab></ac>`, want: []xml.Name{{Local: "ac"}}, wantErr: "does not match"},
+		{name: "prefixed", input: `<p:a xmlns:p="urn:p"></p:a>`, want: []xml.Name{{Space: "p", Local: "a"}}},
+		{name: "prefixed longer local", input: `<p:a xmlns:p="urn:p"></p:ab>`, want: []xml.Name{{Space: "p", Local: "ab"}}, wantErr: "does not match"},
+		{name: "unprefixed end of prefixed start", input: `<p:a xmlns:p="urn:p"></a>`, want: []xml.Name{{Local: "a"}}, wantErr: "does not match"},
+		{name: "prefix spelled as local", input: `<p:a xmlns:p="urn:p"></p>`, want: []xml.Name{{Local: "p"}}, wantErr: "does not match"},
+		{name: "unbound end prefix", input: `<p:a xmlns:p="urn:p"></q:a>`, want: []xml.Name{{Space: "q", Local: "a"}}, wantErr: "unbound namespace prefix"},
+		{name: "non-ASCII", input: `<π:名 xmlns:π="urn:p"></π:名>`, want: []xml.Name{{Space: "π", Local: "名"}}},
+		{name: "self-closing slash in end tag", input: `<ab></ab/>`, wantErr: "expected > after end element name"},
+		{name: "invalid end name after matching prefix", input: `<ab></ab:>`, wantErr: "invalid XML qualified name"},
+		{name: "end name at token limit", input: `<abcd></abcd>`, limits: Limits{MaxTokenBytes: 4}, want: []xml.Name{{Local: "abcd"}}},
+		{name: "longer end name over token limit", input: `<abcd></abcde>`, limits: Limits{MaxTokenBytes: 4}, wantErr: "token byte limit"},
+	}
+	for _, tt := range tests {
+		sources := map[string]io.Reader{
+			"whole":    strings.NewReader(tt.input),
+			"one byte": iotest.OneByteReader(strings.NewReader(tt.input)),
+		}
+		for delivery, source := range sources {
+			got, err := readEndNames(source, tt.limits)
+			if tt.wantErr == "" && err != nil || tt.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tt.wantErr)) {
+				t.Errorf("%s (%s): error = %v, want %q", tt.name, delivery, err, tt.wantErr)
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("%s (%s): end names = %v, want %v", tt.name, delivery, got, tt.want)
+			}
+		}
 	}
 }

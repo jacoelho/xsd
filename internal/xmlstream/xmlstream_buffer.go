@@ -1,6 +1,7 @@
 package xmlstream
 
 import (
+	"encoding/binary"
 	"errors"
 	"io"
 )
@@ -11,8 +12,11 @@ import (
 // parser mode, while each token mode normalizes its own payload (LF in text,
 // comments, and PIs; a space in attribute values).
 type byteStream struct {
-	r        io.Reader
-	err      error
+	r   io.Reader
+	err error
+	// buf grows on demand so small inputs such as schema documents do not
+	// allocate and clear the full window.
+	buf      []byte
 	off      int
 	end      int
 	line     int
@@ -21,11 +25,11 @@ type byteStream struct {
 	// admittedBytes excludes the single overflow probe so offsets refer only
 	// to bytes exposed to tokenization.
 	admittedBytes int64
-	buf           [xmlInputBufferSize]byte
 	afterCR       bool
 }
 
 const (
+	xmlInitialInputBufferSize   = 4 * 1024
 	xmlInputBufferSize          = 64 * 1024
 	maxConsecutiveEmptyXMLReads = 100
 )
@@ -107,7 +111,7 @@ func (b *byteStream) readUnderlying(p []byte) (int, error) {
 // bytes are available, an error is known, or the fixed input buffer is full.
 // An error returned with bytes is deferred when the window already satisfies n.
 func (b *byteStream) ensure(n int) ([]byte, error) {
-	for b.end-b.off < n && b.end < len(b.buf) {
+	for b.end-b.off < n && b.hasRoom() {
 		if b.err != nil {
 			return b.buf[b.off:b.end], b.err
 		}
@@ -129,8 +133,22 @@ func (b *byteStream) ensure(n int) ([]byte, error) {
 	return b.buf[b.off:b.end], nil
 }
 
+func (b *byteStream) hasRoom() bool {
+	return b.end < len(b.buf) || b.growWindow()
+}
+
+func (b *byteStream) growWindow() bool {
+	if len(b.buf) >= xmlInputBufferSize {
+		return false
+	}
+	buf := make([]byte, min(max(xmlInitialInputBufferSize, 2*len(b.buf)), xmlInputBufferSize))
+	copy(buf, b.buf[:b.end])
+	b.buf = buf
+	return true
+}
+
 func (b *byteStream) discardUTF8BOM() {
-	copy(b.buf[:], b.buf[utf8BOMLen:b.end])
+	copy(b.buf, b.buf[utf8BOMLen:b.end])
 	b.end -= utf8BOMLen
 	b.off = 0
 }
@@ -178,7 +196,10 @@ func (b *byteStream) fill() error {
 	if b.r == nil {
 		return errNilReader()
 	}
-	n, err := b.read(b.buf[:])
+	if b.end == len(b.buf) {
+		b.growWindow()
+	}
+	n, err := b.read(b.buf)
 	if n > 0 {
 		b.off = 0
 		b.end = n
@@ -266,17 +287,29 @@ type cache struct {
 	state *cacheState
 }
 
-// The recent ring uses masking and must remain a power of two.
 const (
-	recentCacheEntries = 8
-	recentCacheMask    = recentCacheEntries - 1
+	// The ring uses masking and must remain a power of two.
+	recentRingEntries     = 8
+	recentRingMask        = recentRingEntries - 1
+	recentCacheSetBits    = 5
+	recentCacheSets       = 1 << recentCacheSetBits
+	recentCachePromotions = 1024
 )
 
 // Each map key and value share one owned spelling. The value lets a lookup
 // using borrowed bytes return the owned string without allocating a copy.
+//
+// Recent spellings sit in front of the map in one of two forms. A cache starts
+// with an 8-entry ring, the cheapest lookup for the few names of a schema
+// document or a short instance. After recentCachePromotions ring misses it
+// moves them to a two-way table of recentCacheSets sets indexed by a hash of
+// the name bytes, which keeps hitting on vocabularies wider than the ring
+// whatever order they repeat in.
 type cacheState struct {
 	interned map[string]string
-	recent   [recentCacheEntries]string
+	table    *[recentCacheSets][2]string
+	ring     [recentRingEntries]string
+	misses   int
 	next     uint8
 }
 
@@ -286,22 +319,24 @@ func (c *cache) Intern(b []byte) string {
 		return ""
 	}
 	state := c.cacheState()
-	if s, ok := state.recentString(b); ok {
+	if state.table != nil {
+		return state.internHashed(b)
+	}
+	if s, ok := state.ringString(b); ok {
 		return s
 	}
 	if len(b) > maxByteStringCacheLen {
 		return string(b)
 	}
-	if s, ok := state.interned[string(b)]; ok {
+	state.misses++
+	if state.misses >= recentCachePromotions {
+		state.promote()
+		return state.internHashed(b)
+	}
+	s, ok := state.lookupOrInsert(b)
+	if ok {
 		state.remember(s)
-		return s
 	}
-	s := string(b)
-	if len(state.interned) >= maxByteStringCacheEntries {
-		return s
-	}
-	state.interned[s] = s
-	state.remember(s)
 	return s
 }
 
@@ -312,10 +347,42 @@ func (c *cache) cacheState() *cacheState {
 	return c.state
 }
 
-func (c *cacheState) recentString(b []byte) (string, bool) {
-	for offset := range recentCacheEntries {
-		index := (int(c.next) + recentCacheEntries - 1 - offset) & recentCacheMask
-		s := c.recent[index]
+func (c *cacheState) internHashed(b []byte) string {
+	if len(b) > maxByteStringCacheLen {
+		return string(b)
+	}
+	set := &c.table[nameHash(b)>>(64-recentCacheSetBits)]
+	if stringBytesEqual(set[0], b) {
+		return set[0]
+	}
+	if stringBytesEqual(set[1], b) {
+		return set[1]
+	}
+	s, ok := c.lookupOrInsert(b)
+	if ok {
+		set[1], set[0] = set[0], s
+	}
+	return s
+}
+
+// lookupOrInsert returns the owned spelling of b and whether the map holds it.
+// A full map returns an unowned copy.
+func (c *cacheState) lookupOrInsert(b []byte) (string, bool) {
+	if s, ok := c.interned[string(b)]; ok {
+		return s, true
+	}
+	s := string(b)
+	if len(c.interned) >= maxByteStringCacheEntries {
+		return s, false
+	}
+	c.interned[s] = s
+	return s, true
+}
+
+func (c *cacheState) ringString(b []byte) (string, bool) {
+	for offset := range recentRingEntries {
+		index := (int(c.next) + recentRingEntries - 1 - offset) & recentRingMask
+		s := c.ring[index]
 		if stringBytesEqual(s, b) {
 			return s, true
 		}
@@ -324,6 +391,50 @@ func (c *cacheState) recentString(b []byte) (string, bool) {
 }
 
 func (c *cacheState) remember(s string) {
-	c.recent[c.next&recentCacheMask] = s
+	c.ring[c.next&recentRingMask] = s
 	c.next++
+}
+
+func (c *cacheState) promote() {
+	c.table = new([recentCacheSets][2]string)
+	for offset := range recentRingEntries {
+		s := c.ring[(int(c.next)+offset)&recentRingMask]
+		if s == "" {
+			continue
+		}
+		set := &c.table[nameHash([]byte(s))>>(64-recentCacheSetBits)]
+		set[1], set[0] = set[0], s
+	}
+	c.ring = [recentRingEntries]string{}
+}
+
+func nameHash(b []byte) uint64 {
+	n := len(b)
+	h := uint64(n) * 0x9e3779b97f4a7c15
+	switch {
+	case n > 64:
+		for i := 0; i < 32; i += 8 {
+			h = mixNameWord(h, binary.LittleEndian.Uint64(b[i:]))
+			h = mixNameWord(h, binary.LittleEndian.Uint64(b[n-32+i:]))
+		}
+	case n >= 8:
+		for i := 0; i+8 < n; i += 8 {
+			h = mixNameWord(h, binary.LittleEndian.Uint64(b[i:]))
+		}
+		h = mixNameWord(h, binary.LittleEndian.Uint64(b[n-8:]))
+	case n >= 4:
+		h = mixNameWord(h, uint64(binary.LittleEndian.Uint32(b))|uint64(binary.LittleEndian.Uint32(b[n-4:]))<<32)
+	default:
+		var w uint64
+		for i, c := range b {
+			w |= uint64(c) << (8 * i)
+		}
+		h = mixNameWord(h, w)
+	}
+	return h
+}
+
+func mixNameWord(h, w uint64) uint64 {
+	h = (h ^ w) * 0xbf58476d1ce4e5b9
+	return h ^ h>>31
 }

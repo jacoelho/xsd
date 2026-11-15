@@ -233,6 +233,11 @@ func validateRuntimeSimpleComponents(rt *schemaValidation) error {
 	if err := validateMissingSimpleType(rt); err != nil {
 		return err
 	}
+	// Instance validation reads availability from simpleTypeUnavailable alone,
+	// so every entry must belong to a simple type with a value definition.
+	if len(rt.build.simpleTypeUnavailable) != len(rt.build.SimpleTypes) {
+		return xsderrors.InternalInvariant("simple type availability does not match simple types")
+	}
 	for i := range rt.build.SimpleTypes {
 		if err := validateSimpleType(rt, SimpleTypeID(i), rt.build.SimpleTypes[i]); err != nil {
 			return err

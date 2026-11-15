@@ -343,18 +343,22 @@ make browser-test
 
 ## Benchmarks
 
-Results were measured on 2026-10-26 using Go 1.27.0 and libxml2 2.9.13
-on an Apple M2 Max with 32 GiB RAM. Both validators used the same generated
-files. Measurements include process startup and schema compilation.
+Results were measured on 2026-11-15 using Go 1.27.3 and libxml2 2.9.13
+on an Apple M2 Max with 32 GiB RAM, with `make bench-libxml2`. Both validators
+used the same generated files and ran alternately. CPU time is user plus
+system time; all measurements include process startup and schema
+compilation. Tables before this date timed libxml2 with `/usr/bin/time` and
+`bin/xmllint` around that wrapper, so their elapsed times are not directly
+comparable.
 
-| Workload | Go time | libxml2 `--stream` time | Go peak RSS | libxml2 peak RSS |
-| --- | ---: | ---: | ---: | ---: |
-| Streaming, 20 MiB | 451.831 ms | 0.35 s | 6.812 MiB | 1.703 MiB |
-| Streaming, 100 MiB | 2.193 s | 1.67 s | 6.781 MiB | 1.703 MiB |
-| Streaming, 500 MiB | 10.830 s | 8.35 s | 6.875 MiB | 1.703 MiB |
-| Streaming, 1 GiB | 21.954 s | 17.30 s | 6.938 MiB | 1.703 MiB |
-| Streaming, 2 GiB | 43.507 s | 34.69 s | 6.906 MiB | 1.734 MiB |
-| Identity constraints, 100,000 rows | 333.627 ms | 0.43 s | 89.047 MiB | 74.344 MiB |
+| Workload | Go CPU | libxml2 `--stream` CPU | CPU ratio | Go elapsed | libxml2 elapsed | Go peak RSS | libxml2 peak RSS |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Streaming, 20 MiB | 351.792 ms | 304.398 ms | 1.156 | 352.819 ms | 305.499 ms | 6.59 MiB | 1.91 MiB |
+| Streaming, 100 MiB | 1.734 s | 1.487 s | 1.166 | 1.734 s | 1.488 s | 6.58 MiB | 1.91 MiB |
+| Streaming, 500 MiB | 8.604 s | 7.367 s | 1.168 | 8.601 s | 7.369 s | 6.77 MiB | 1.91 MiB |
+| Streaming, 1 GiB | 17.590 s | 15.075 s | 1.167 | 17.584 s | 15.078 s | 6.83 MiB | 1.91 MiB |
+| Streaming, 2 GiB | 35.095 s | 30.106 s | 1.166 | 35.081 s | 30.110 s | 6.94 MiB | 1.91 MiB |
+| Identity constraints, 100,000 rows | 302.574 ms | 300.383 ms | 1.007 | 265.724 ms | 301.699 ms | 75.33 MiB | 74.66 MiB |
 
 See [benchmark methodology and reproduction](docs/BENCHMARKS.md) for measurement
 rules, commands, and session-reuse guidance.

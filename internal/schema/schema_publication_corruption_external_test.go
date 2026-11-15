@@ -2058,3 +2058,27 @@ func TestPublishSchemaRejectsExtensionAncestorAttributeWithoutConsumingBuild(t *
 		t.Fatalf("publication after repair = %v, %v", published, err)
 	}
 }
+
+func TestPublishSchemaRejectsSimpleTypeAvailabilityThatDiffersFromSimpleTypes(t *testing.T) {
+	t.Parallel()
+
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:simpleType><xs:restriction base="xs:string"><xs:maxLength value="3"/></xs:restriction></xs:simpleType></xs:element></xs:schema>`
+	for _, tc := range []struct {
+		name  string
+		delta int
+	}{
+		{name: "missing entry", delta: -1},
+		{name: "entry without simple type", delta: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			build := mutableSchemaBuild(t, schema)
+			xsdSchema.ResizeSimpleTypeAvailabilityForTest(build, tc.delta)
+			published, err := publishSchema(build)
+			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+			if published != nil {
+				t.Fatal("PublishSchema() returned a schema whose availability table differs from its simple types")
+			}
+		})
+	}
+}

@@ -174,3 +174,45 @@ func BenchmarkSessionElementStartRecoveryPair(b *testing.B) {
 		}
 	}
 }
+
+// BenchmarkSessionElementStartWideVocabulary validates a document that cycles
+// through 256 distinct element and attribute names.
+func BenchmarkSessionElementStartWideVocabulary(b *testing.B) {
+	const names = 256
+	var schema, doc strings.Builder
+	schema.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="r"><xs:complexType><xs:choice maxOccurs="unbounded">`)
+	for i := range names {
+		fmt.Fprintf(&schema, `<xs:element name="element%d"><xs:complexType><xs:attribute name="attribute%d" type="xs:string"/></xs:complexType></xs:element>`, i, i)
+	}
+	schema.WriteString(`</xs:choice></xs:complexType></xs:element></xs:schema>`)
+	doc.WriteString("<r>")
+	for i := range 16 * names {
+		fmt.Fprintf(&doc, `<element%d attribute%d="v"/>`, i%names, i%names)
+	}
+	doc.WriteString("</r>")
+	document := doc.String()
+	engine, err := xsd.Compile(xsd.Bytes("wide.xsd", []byte(schema.String())))
+	if err != nil {
+		b.Fatal(err)
+	}
+	session, err := engine.NewSession(xsd.ValidateOptions{})
+	if err != nil {
+		b.Fatal(err)
+	}
+	misspelled := strings.Replace(document, "<element7 attribute7", "<element7x attribute7", 1)
+	if err := session.Validate(strings.NewReader(misspelled)); !xsderrors.IsConclusiveValidation(err) {
+		b.Fatalf("misspelled element: %v", err)
+	}
+	reader := strings.NewReader(document)
+	if err := session.Validate(reader); err != nil {
+		b.Fatal(err)
+	}
+	b.SetBytes(int64(len(document)))
+	b.ReportAllocs()
+	for b.Loop() {
+		reader.Reset(document)
+		if err := session.Validate(reader); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

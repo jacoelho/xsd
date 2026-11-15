@@ -1,37 +1,18 @@
 package xsdregex
 
-import (
-	"unicode/utf8"
+import "github.com/jacoelho/xsd/internal/lex"
 
-	"github.com/jacoelho/xsd/internal/lex"
+// XSD's name escapes use the XML name classes owned by internal/lex, built
+// once from its range tables so matching remains a binary search over ranges.
+var (
+	xmlNameChars      = setFromLexRanges(lex.XMLNameCharRanges())
+	xmlNameStartChars = setFromLexRanges(lex.XMLNameStartCharRanges())
 )
 
-// XSD's name escapes use the XML name predicates owned by internal/lex. Build
-// immutable range sets once so matching remains a binary search over ranges.
-func predicateSet(predicate func(rune) bool) rangeSet {
-	ranges := make([]runeRange, 0, 128)
-	var start rune
-	open := false
-	for r := rune(0); r <= utf8.MaxRune; r++ {
-		if predicate(r) {
-			if !open {
-				start = r
-				open = true
-			}
-			continue
-		}
-		if open {
-			ranges = append(ranges, runeRange{lo: start, hi: r - 1})
-			open = false
-		}
-	}
-	if open {
-		ranges = append(ranges, runeRange{lo: start, hi: utf8.MaxRune})
+func setFromLexRanges(in []lex.RuneRange) rangeSet {
+	ranges := make([]runeRange, len(in))
+	for i, r := range in {
+		ranges[i] = runeRange{lo: r.Lo, hi: r.Hi}
 	}
 	return setFromRanges(ranges)
 }
-
-var (
-	xmlNameChars      = predicateSet(lex.IsXMLNameChar)
-	xmlNameStartChars = predicateSet(lex.IsXMLNameStartChar)
-)
