@@ -136,7 +136,7 @@ The 2009 `xml.xsd` permits empty `xml:lang`; this does not determine
 which XML declaration a 2004 schema used. Tests must supply the declaration whose
 behavior they require. Missing imports do not authorize HTTP retrieval under
 this library's explicit-source contract; see
-[loading schemas from memory or streams](../../README.md#load-schemas-from-memory-or-streams).
+[supplying the XML and XLink schemas](../../README.md#supply-the-xml-and-xlink-schemas).
 
 ## Referenced-standard boundaries
 
