@@ -16,16 +16,18 @@ type byteStream struct {
 	err error
 	// buf grows on demand so small inputs such as schema documents do not
 	// allocate and clear the full window.
-	buf      []byte
-	off      int
-	end      int
-	line     int
-	col      int
-	maxBytes int64
+	buf  []byte
+	off  int
+	end  int
+	line int
+	// lineStart and crEnd are offset() values. An LF at crEnd completes a CRLF
+	// pair and starts no line.
+	lineStart int
+	crEnd     int
+	maxBytes  int64
 	// admittedBytes excludes the single overflow probe so offsets refer only
 	// to bytes exposed to tokenization.
 	admittedBytes int64
-	afterCR       bool
 }
 
 const (
@@ -40,10 +42,10 @@ func (b *byteStream) reset(r io.Reader, maxBytes int64) {
 	b.off = 0
 	b.end = 0
 	b.line = 1
-	b.col = 0
+	b.lineStart = 0
+	b.crEnd = -1
 	b.maxBytes = maxBytes
 	b.admittedBytes = 0
-	b.afterCR = false
 }
 
 func (b *byteStream) detach() {
@@ -51,7 +53,9 @@ func (b *byteStream) detach() {
 	b.err = nil
 	b.off = 0
 	b.end = 0
-	b.afterCR = false
+	b.line = 1
+	b.lineStart = 0
+	b.crEnd = -1
 	b.maxBytes = 0
 	b.admittedBytes = 0
 }
@@ -151,6 +155,7 @@ func (b *byteStream) discardUTF8BOM() {
 	copy(b.buf, b.buf[utf8BOMLen:b.end])
 	b.end -= utf8BOMLen
 	b.off = 0
+	b.lineStart = b.offset()
 }
 
 func (b *byteStream) readByte() (byte, error) {
@@ -161,7 +166,9 @@ func (b *byteStream) readByte() (byte, error) {
 	}
 	c := b.buf[b.off]
 	b.off++
-	b.advance(c)
+	if c-'\n' <= '\r'-'\n' {
+		b.lineBreak(c)
+	}
 	return c, nil
 }
 
@@ -218,54 +225,42 @@ func (b *byteStream) fill() error {
 // Callers pass n > 0 after proving the bytes contain neither CR nor LF.
 func (b *byteStream) consumeBuffered(n int) {
 	b.off += n
-	b.col += n
-	b.afterCR = false
 }
 
 // consumeBufferedLF advances over a run of literal LF bytes. XML line
 // normalization makes each LF a logical line boundary, so the run can update
 // positions in one operation while retaining the same source offsets.
 func (b *byteStream) consumeBufferedLF(n int) {
-	consumed := n
-	if b.afterCR && n > 0 {
+	if n == 0 {
+		return
+	}
+	lines := n
+	if b.offset() == b.crEnd {
 		// The first LF completes a preceding CRLF pair and therefore does not
 		// start another logical line. The remaining literal LF bytes do.
-		b.afterCR = false
-		n--
+		lines--
 	}
-	b.off += consumed
-	b.line += n
-	b.col = 0
-	b.afterCR = false
+	b.off += n
+	b.line += lines
+	b.lineStart = b.offset()
 }
 
-func (b *byteStream) advance(c byte) {
-	// One range check keeps ordinary token bytes on the parser's hot path.
-	if c-'\n' <= '\r'-'\n' {
-		switch c {
-		case '\r':
+func (b *byteStream) lineBreak(c byte) {
+	switch c {
+	case '\r':
+		b.line++
+		b.lineStart = b.offset()
+		b.crEnd = b.lineStart
+	case '\n':
+		if b.offset()-1 != b.crEnd {
 			b.line++
-			b.col = 0
-			b.afterCR = true
-			return
-		case '\n':
-			if b.afterCR {
-				b.afterCR = false
-				return
-			}
-			b.line++
-			b.col = 0
-			return
 		}
+		b.lineStart = b.offset()
 	}
-	if b.afterCR {
-		b.afterCR = false
-	}
-	b.col++
 }
 
 func (b *byteStream) pos() (line, column int) {
-	return b.line, b.col
+	return b.line, b.offset() - b.lineStart
 }
 
 // offset reports the logical source position of the next byte.
