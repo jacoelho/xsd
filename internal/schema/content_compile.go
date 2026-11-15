@@ -260,7 +260,7 @@ func (c *elementDeclarationConsistencyChecker) collectModel(
 func (c *elementDeclarationConsistencyChecker) collectParticles(
 	particles []contentParticle,
 ) (map[QName]TypeID, error) {
-	types := make(map[QName]TypeID)
+	types := make(map[QName]TypeID, c.particleTypesHint(particles))
 	for _, p := range particles {
 		if err := c.spend(); err != nil {
 			return nil, err
@@ -270,6 +270,21 @@ func (c *elementDeclarationConsistencyChecker) collectParticles(
 		}
 	}
 	return types, nil
+}
+
+// particleTypesHint sizes a model's name map from its element particles and
+// the cached maps of nested models already visited. It reads only the cache, so
+// work charging and error order are those of the collection itself.
+func (c *elementDeclarationConsistencyChecker) particleTypesHint(particles []contentParticle) int {
+	n := 0
+	for _, p := range particles {
+		if p.Kind == particleElement {
+			n++
+		} else if p.Kind == particleModel && c.states[p.Model] == contentModelVisited {
+			n += len(c.cache[p.Model])
+		}
+	}
+	return n
 }
 
 func (c *elementDeclarationConsistencyChecker) collectParticle(types map[QName]TypeID, particle contentParticle) error {

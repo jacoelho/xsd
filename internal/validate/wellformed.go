@@ -83,5 +83,5 @@ func (c *xmlWellFormedChecker) end(line, col int) error {
 
 func (c *xmlWellFormedChecker) streamError(err error) error {
 	line, col := streamErrorPosition(&c.reader, err)
-	return streamError(err, c.doc.context(line, col), c.limits)
+	return streamError(c.doc.context(line, col), err, c.limits)
 }

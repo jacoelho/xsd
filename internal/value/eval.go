@@ -125,6 +125,12 @@ func (v Value) IDs() string { return v.projection[:v.idsLength] }
 // IDRefs returns the space-separated xs:IDREF document-identity projection.
 func (v Value) IDRefs() string { return v.projection[v.idsLength:] }
 
+// CarriesDocumentIdentity reports whether v has an ID or IDREF projection or
+// an ID-carrying type, the facts document identity records.
+func (v Value) CarriesDocumentIdentity() bool {
+	return v.projection != "" || v.flags&valueIDTyped != 0
+}
+
 // IDTyped reports whether the validating type carries xs:ID (I-016),
 // independently of whether this value selected an ID member or item.
 func (v Value) IDTyped() bool { return v.flags&valueIDTyped != 0 }

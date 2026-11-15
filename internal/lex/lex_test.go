@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 func TestNameTerminatorsAcrossByteRange(t *testing.T) {
@@ -182,5 +183,25 @@ func TestIsLanguage(t *testing.T) {
 				t.Fatalf("IsLanguage(%q) = %v, want %v", tt.in, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestXMLNameRangesMatchNamePredicates(t *testing.T) {
+	inRanges := func(ranges []RuneRange, r rune) bool {
+		for _, rr := range ranges {
+			if r >= rr.Lo && r <= rr.Hi {
+				return true
+			}
+		}
+		return false
+	}
+	start, name := XMLNameStartCharRanges(), XMLNameCharRanges()
+	for r := rune(0); r <= utf8.MaxRune; r++ {
+		if got, want := inRanges(start, r), IsXMLNameStartChar(r); got != want {
+			t.Fatalf("XMLNameStartCharRanges contains %U = %v, IsXMLNameStartChar = %v", r, got, want)
+		}
+		if got, want := inRanges(name, r), IsXMLNameChar(r); got != want {
+			t.Fatalf("XMLNameCharRanges contains %U = %v, IsXMLNameChar = %v", r, got, want)
+		}
 	}
 }

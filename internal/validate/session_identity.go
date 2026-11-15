@@ -33,7 +33,7 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 			return false, err
 		}
 		ctx := s.startContext(line, col)
-		return false, s.validateNonSimpleFixedContent(f, constraints, rawText, ctx)
+		return false, s.validateNonSimpleFixedContent(ctx, f, constraints, rawText)
 	}
 	var constraints xsdSchema.ElementValueConstraints
 	if hasValueConstraint {
@@ -58,7 +58,7 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 		if err != nil {
 			return false, simpleValueError(ctx, xsderrors.CodeValidationFacet, msgInvalidSimpleContent, err, s.limits.evaluation(&s.patternTotal))
 		}
-		return true, s.doc.identity.recordValue(identityTarget, value, ctx)
+		return true, s.doc.identity.recordValue(ctx, identityTarget, value)
 	}
 	if len(rawText) == 0 && hasValueConstraint {
 		constraint, present := constraints.FixedValue()
@@ -67,12 +67,12 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 		}
 		if present {
 			if constraints.OwnerType() == f.Type {
-				return s.recordElementSimpleContent(constraint.Value(), identityTarget, ctx)
+				return s.recordElementSimpleContent(ctx, constraint.Value(), identityTarget)
 			}
-			return s.applyElementValueConstraint(typeID, constraint, identityTarget, input, ctx)
+			return s.applyElementValueConstraint(ctx, typeID, constraint, identityTarget, input)
 		}
 	}
-	return s.validateElementSimpleContentValue(typeID, rawText, constraints, identityTarget, input, ctx)
+	return s.validateElementSimpleContentValue(ctx, typeID, rawText, constraints, identityTarget, input)
 }
 
 func (s *session) frameElementValueConstraints(f *frame) (xsdSchema.ElementValueConstraints, error) {
@@ -86,7 +86,7 @@ func (s *session) frameElementValueConstraints(f *frame) (xsdSchema.ElementValue
 	return constraints, nil
 }
 
-func (s *session) applyElementValueConstraint(typeID xsdSchema.SimpleTypeID, constraint xsdSchema.ValueConstraintRead, target identityValueTarget, input xsdValue.InputRequirements, ctx startContext) (bool, error) {
+func (s *session) applyElementValueConstraint(ctx startContext, typeID xsdSchema.SimpleTypeID, constraint xsdSchema.ValueConstraintRead, target identityValueTarget, input xsdValue.InputRequirements) (bool, error) {
 	var resolver xsdValue.Resolver
 	if input.NeedsQName {
 		resolver.QName = constraint.ResolveQName
@@ -94,42 +94,42 @@ func (s *session) applyElementValueConstraint(typeID xsdSchema.SimpleTypeID, con
 	}
 	result, err := s.validateSimpleValue(typeID, constraint.ApplicationText(), resolver, simpleContentNeeds(target, input))
 	if err != nil {
-		return false, s.elementSimpleContentValueError(target, err, ctx)
+		return false, s.elementSimpleContentValueError(ctx, target, err)
 	}
 	// The constraint supplies this value. Its actual type must accept it, but
 	// stronger normalization cannot make it disagree with its own source.
-	return s.recordElementSimpleContent(result, target, ctx)
+	return s.recordElementSimpleContent(ctx, result, target)
 }
 
-func (s *session) validateElementSimpleContentValue(typeID xsdSchema.SimpleTypeID, rawText []byte, constraints xsdSchema.ElementValueConstraints, target identityValueTarget, input xsdValue.InputRequirements, ctx startContext) (bool, error) {
+func (s *session) validateElementSimpleContentValue(ctx startContext, typeID xsdSchema.SimpleTypeID, rawText []byte, constraints xsdSchema.ElementValueConstraints, target identityValueTarget, input xsdValue.InputRequirements) (bool, error) {
 	needs := simpleContentNeeds(target, input)
 	if _, fixed := constraints.FixedValue(); fixed {
 		needs |= xsdValue.NeedCanonical | xsdValue.NeedIdentity
 	}
 	result, err := s.validateSimpleValueBytes(typeID, rawText, input, needs)
 	if err != nil {
-		return false, s.elementSimpleContentValueError(target, err, ctx)
+		return false, s.elementSimpleContentValueError(ctx, target, err)
 	}
-	return s.commitElementSimpleContentValue(result, constraints, target, ctx)
+	return s.commitElementSimpleContentValue(ctx, result, constraints, target)
 }
 
-func (s *session) elementSimpleContentValueError(target identityValueTarget, err error, ctx startContext) error {
+func (s *session) elementSimpleContentValueError(ctx startContext, target identityValueTarget, err error) error {
 	if rejectErr := s.doc.identity.rejectValue(target); rejectErr != nil {
 		return rejectErr
 	}
 	return simpleValueError(ctx, xsderrors.CodeValidationFacet, msgInvalidSimpleContent, err, s.limits.evaluation(&s.patternTotal))
 }
 
-func (s *session) commitElementSimpleContentValue(result xsdValue.Value, constraints xsdSchema.ElementValueConstraints, target identityValueTarget, ctx startContext) (bool, error) {
-	if err := s.doc.identity.recordValue(target, result, ctx); err != nil {
+func (s *session) commitElementSimpleContentValue(ctx startContext, result xsdValue.Value, constraints xsdSchema.ElementValueConstraints, target identityValueTarget) (bool, error) {
+	if err := s.doc.identity.recordValue(ctx, target, result); err != nil {
 		return false, err
 	}
 	if fixed, ok := constraints.FixedValue(); ok {
-		if err := s.checkFixedElementValue(result, fixed, target, ctx); err != nil {
+		if err := s.checkFixedElementValue(ctx, result, fixed, target); err != nil {
 			return false, err
 		}
 	}
-	if err := s.doc.identity.captureValue(target, ctx); err != nil {
+	if err := s.doc.identity.captureValue(ctx, target); err != nil {
 		return false, err
 	}
 	if err := s.doc.identity.commitValue(target); err != nil {
@@ -138,7 +138,7 @@ func (s *session) commitElementSimpleContentValue(result xsdValue.Value, constra
 	return true, nil
 }
 
-func (s *session) checkFixedElementValue(result xsdValue.Value, fixed xsdSchema.ValueConstraintRead, target identityValueTarget, ctx startContext) error {
+func (s *session) checkFixedElementValue(ctx startContext, result xsdValue.Value, fixed xsdSchema.ValueConstraintRead, target identityValueTarget) error {
 	equal, valid := fixedValueEqual(result, fixed.Value())
 	if equal {
 		return nil
@@ -170,10 +170,9 @@ func simpleContentNeeds(
 // by lexical equality with the constraint's application text; element
 // children always conflict and empty text takes the constraint.
 func (*session) validateNonSimpleFixedContent(
-	f *frame,
+	ctx startContext, f *frame,
 	constraints xsdSchema.ElementValueConstraints,
 	rawText []byte,
-	ctx startContext,
 ) error {
 	fixed, ok := constraints.FixedValue()
 	if !ok {
@@ -201,14 +200,13 @@ func bytesEqualString(raw []byte, text string) bool {
 }
 
 func (s *session) recordElementSimpleContent(
-	result xsdValue.Value,
+	ctx startContext, result xsdValue.Value,
 	identityTarget identityValueTarget,
-	ctx startContext,
 ) (bool, error) {
-	if err := s.doc.identity.recordValue(identityTarget, result, ctx); err != nil {
+	if err := s.doc.identity.recordValue(ctx, identityTarget, result); err != nil {
 		return false, err
 	}
-	if err := s.doc.identity.captureValue(identityTarget, ctx); err != nil {
+	if err := s.doc.identity.captureValue(ctx, identityTarget); err != nil {
 		return false, err
 	}
 	if err := s.doc.identity.commitValue(identityTarget); err != nil {
@@ -222,7 +220,7 @@ func knownIdentityAttributeName(name xsdSchema.QName) xsdSchema.RuntimeName {
 }
 
 func (s *session) checkIDRefs() error {
-	return s.doc.identity.endDocument(func(err error) error {
+	return s.doc.identity.endDocument(&s.doc.xmlDocument, func(err error) error {
 		return s.recover(err)
 	})
 }

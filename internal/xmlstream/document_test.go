@@ -864,6 +864,28 @@ func TestReaderInternBytesRotatingVocabulary(t *testing.T) {
 	}
 }
 
+func TestReaderInternBytesReturnsEachSpellingAcrossWideVocabulary(t *testing.T) {
+	var spellings []string
+	for _, length := range []int{1, 3, 4, 7, 8, 9, 63, 64, 65, 200, maxByteStringCacheLen, maxByteStringCacheLen + 1} {
+		for i := range 40 {
+			b := bytes.Repeat([]byte{'n'}, length)
+			b[length/2] = byte('A' + i%26)
+			if length > 1 {
+				b[0] = byte('a' + i/26)
+			}
+			spellings = append(spellings, string(b))
+		}
+	}
+	var reader Reader
+	for round := range 3 {
+		for _, spelling := range spellings {
+			if got := reader.InternBytes([]byte(spelling)); got != spelling {
+				t.Fatalf("round %d: InternBytes(%q) = %q", round, spelling, got)
+			}
+		}
+	}
+}
+
 func TestReaderInternBytesOwnershipSurvivesResetAndDetach(t *testing.T) {
 	var reader Reader
 	if err := reader.Reset(strings.NewReader(`<r/>`), Config{}); err != nil {

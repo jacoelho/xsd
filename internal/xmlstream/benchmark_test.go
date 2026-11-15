@@ -139,10 +139,8 @@ func BenchmarkParserNameVocabulary(b *testing.B) {
 	}
 }
 
-// BenchmarkParserEndTagNames parses non-self-closing elements, so every end
-// tag is checked against its start name. The recent-name ring holds prefix and
-// local spellings: soap (2 prefixes, 6 locals), plain, and unicode fit in it;
-// soap_wide (4 prefixes, 24 locals) exceeds it.
+// BenchmarkParserEndTagNames parses end tags without a Reader, so every end
+// tag name is read and interned like a start name.
 func BenchmarkParserEndTagNames(b *testing.B) {
 	const elements = 4096
 	const text = "ACME"
@@ -190,8 +188,8 @@ func BenchmarkParserEndTagNames(b *testing.B) {
 			if shape != "plain" && !strings.Contains(document, "</soap:") && !strings.Contains(document, "</ns1:") {
 				b.Fatalf("%s document has no prefixed end tag", shape)
 			}
-			if fits := len(spellings) <= recentCacheEntries; fits != (shape != "soap_wide") {
-				b.Fatalf("%s uses %d distinct spellings; the recent ring holds %d", shape, len(spellings), recentCacheEntries)
+			if wide := len(spellings) > 8; wide != (shape == "soap_wide") {
+				b.Fatalf("%s uses %d distinct spellings", shape, len(spellings))
 			}
 			benchmarkParserDocument(b, document, newParserBenchmarkOracle(2+3*elements, payload, digest.hash), Config{}, parserBenchmarkRawAttributes)
 		})

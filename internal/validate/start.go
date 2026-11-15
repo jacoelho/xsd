@@ -41,6 +41,7 @@ type pathSource interface {
 	PathString() string
 	PathStringAtDepth(depth int) string
 	retainPathAtDepth(depth int) retainedPath
+	retainedPathString(path retainedPath) string
 }
 
 // startContext identifies a validation location.
@@ -67,6 +68,13 @@ func (ctx startContext) PathStringAtDepth(depth int) string {
 		return ctx.Path
 	}
 	return ctx.document.PathStringAtDepth(depth)
+}
+
+func (ctx startContext) retainedPathString(path retainedPath) string {
+	if ctx.document == nil {
+		panic("retained XML path requires a document context")
+	}
+	return ctx.document.retainedPathString(path)
 }
 
 func (ctx startContext) retainPathAtDepth(depth int) retainedPath {

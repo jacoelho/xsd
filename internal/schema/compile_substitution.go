@@ -76,7 +76,7 @@ func (s *substitutionCompilation) linkHead(memberQName QName) error {
 		return xsderrors.InternalInvariant("substitution member was not compiled")
 	}
 	s.inheritsType[member] = elementUsesSubstitutionType(raw.sourceNode())
-	headQName, err := s.compiler.referenceQName(raw.sourceNode(), raw.ctx, source.SubstitutionGroup.Name)
+	headQName, err := s.compiler.referenceQName(raw.ctx, raw.sourceNode(), source.SubstitutionGroup.Name)
 	if err != nil {
 		return err
 	}

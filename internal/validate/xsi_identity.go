@@ -17,34 +17,34 @@ type xsiIdentityKey struct {
 	present bool
 }
 
-func xsiAttributeIdentityKey(rt *xsdSchema.Schema, name xml.Name, lexical string, resolve xsdValue.QNameResolver, eval xsdValue.EvaluationLimits, ctx startContext) (xsiIdentityKey, error) {
+func xsiAttributeIdentityKey(ctx startContext, rt *xsdSchema.Schema, name xml.Name, lexical string, resolve xsdValue.QNameResolver, eval xsdValue.EvaluationLimits) (xsiIdentityKey, error) {
 	rn := resolveRuntimeName(rt, name)
 	if !rn.Known {
 		return xsiIdentityKey{}, nil
 	}
-	key, err := xsiAttributeIdentity(rt, name.Local, lexical, resolve, eval, ctx)
+	key, err := xsiAttributeIdentity(ctx, rt, name.Local, lexical, resolve, eval)
 	if err != nil {
 		return xsiIdentityKey{}, err
 	}
 	return xsiIdentityKey{name: rn.Name, key: key, present: true}, nil
 }
 
-func xsiAttributeIdentity(rt *xsdSchema.Schema, local, lexical string, resolve xsdValue.QNameResolver, eval xsdValue.EvaluationLimits, ctx startContext) (string, error) {
+func xsiAttributeIdentity(ctx startContext, rt *xsdSchema.Schema, local, lexical string, resolve xsdValue.QNameResolver, eval xsdValue.EvaluationLimits) (string, error) {
 	switch local {
 	case vocab.XSIAttrNil:
-		return xsiNilIdentity(rt, lexical, eval, ctx)
+		return xsiNilIdentity(ctx, rt, lexical, eval)
 	case vocab.XSIAttrType:
-		return xsiTypeIdentity(rt, lexical, resolve, eval, ctx)
+		return xsiTypeIdentity(ctx, rt, lexical, resolve, eval)
 	case vocab.XSIAttrNoNamespaceSchemaLocation:
-		return xsiURIIdentity(rt, lexical, "xsi:noNamespaceSchemaLocation", eval, ctx)
+		return xsiURIIdentity(ctx, rt, lexical, "xsi:noNamespaceSchemaLocation", eval)
 	case vocab.XSIAttrSchemaLocation:
-		return xsiSchemaLocationIdentity(rt, lexical, eval, ctx)
+		return xsiSchemaLocationIdentity(ctx, rt, lexical, eval)
 	default:
 		return xsdValue.PrimitiveIdentityKey(xsdValue.PrimitiveString, lex.CollapseXMLWhitespace(lexical)), nil
 	}
 }
 
-func xsiNilIdentity(rt *xsdSchema.Schema, lexical string, eval xsdValue.EvaluationLimits, ctx startContext) (string, error) {
+func xsiNilIdentity(ctx startContext, rt *xsdSchema.Schema, lexical string, eval xsdValue.EvaluationLimits) (string, error) {
 	v, err := validateXSIValue(rt, vocab.XSDValueBoolean, lexical, xsdValue.Resolver{}, eval, ctx)
 	if err != nil {
 		return "", simpleValueError(ctx, xsderrors.CodeValidationAttribute, msgInvalidXSINil, err, eval)
@@ -56,7 +56,7 @@ func xsiNilIdentity(rt *xsdSchema.Schema, lexical string, eval xsdValue.Evaluati
 // naming an unknown or non-derived type is still an identity value; malformed
 // or unbound QNames invalidate the matched field. Semantic xsi:type
 // diagnostics belong to start assessment and are never repeated here.
-func xsiTypeIdentity(rt *xsdSchema.Schema, lexical string, resolve xsdValue.QNameResolver, eval xsdValue.EvaluationLimits, ctx startContext) (string, error) {
+func xsiTypeIdentity(ctx startContext, rt *xsdSchema.Schema, lexical string, resolve xsdValue.QNameResolver, eval xsdValue.EvaluationLimits) (string, error) {
 	resolver := xsdValue.Resolver{}
 	if resolve != nil {
 		resolver.QName = resolve
@@ -76,7 +76,7 @@ func validateXSIValue(rt *xsdSchema.Schema, local, lexical string, resolver xsdV
 	return rt.ValueProgram().Validate(id, lexical, resolver, xsdValue.NeedIdentity, eval, nil)
 }
 
-func xsiURIIdentity(rt *xsdSchema.Schema, lexical, attribute string, eval xsdValue.EvaluationLimits, ctx startContext) (string, error) {
+func xsiURIIdentity(ctx startContext, rt *xsdSchema.Schema, lexical, attribute string, eval xsdValue.EvaluationLimits) (string, error) {
 	anyURI, err := xsiAnyURIType(rt)
 	if err != nil {
 		return "", err
@@ -94,14 +94,14 @@ func xsiURIIdentity(rt *xsdSchema.Schema, lexical, attribute string, eval xsdVal
 // xsiSchemaLocationIdentity evaluates each URI item separately under the
 // per-value work limit. The aggregate is bounded only by the attribute's token
 // bytes: no hint limit exists; MaxInstanceTokenBytes bounds the attribute.
-func xsiSchemaLocationIdentity(rt *xsdSchema.Schema, lexical string, eval xsdValue.EvaluationLimits, ctx startContext) (string, error) {
+func xsiSchemaLocationIdentity(ctx startContext, rt *xsdSchema.Schema, lexical string, eval xsdValue.EvaluationLimits) (string, error) {
 	anyURI, err := xsiAnyURIType(rt)
 	if err != nil {
 		return "", err
 	}
 	items := make([]string, 0, 4)
 	for field := range lex.XMLFieldsSeq(lexical) {
-		key, err := xsiSchemaLocationItemIdentity(rt, anyURI, field, eval, ctx)
+		key, err := xsiSchemaLocationItemIdentity(ctx, rt, anyURI, field, eval)
 		if err != nil {
 			return "", err
 		}
@@ -110,7 +110,7 @@ func xsiSchemaLocationIdentity(rt *xsdSchema.Schema, lexical string, eval xsdVal
 	return xsdValue.ListIdentityKey(items), nil
 }
 
-func xsiSchemaLocationItemIdentity(rt *xsdSchema.Schema, anyURI xsdSchema.SimpleTypeID, field string, eval xsdValue.EvaluationLimits, ctx startContext) (string, error) {
+func xsiSchemaLocationItemIdentity(ctx startContext, rt *xsdSchema.Schema, anyURI xsdSchema.SimpleTypeID, field string, eval xsdValue.EvaluationLimits) (string, error) {
 	item, err := rt.ValueProgram().Validate(anyURI, field, xsdValue.Resolver{}, xsdValue.NeedIdentity, eval, nil)
 	if err != nil {
 		if terminalErr := terminalValueError(ctx, err, eval); terminalErr != nil {

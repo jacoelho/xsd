@@ -1164,7 +1164,7 @@ func effectiveReferenceNamespace(ctx *schemaSetDocument, name xml.Name) string {
 	return namespace
 }
 
-func checkReferenceNamespace(n *schemaNode, ctx *schemaSetDocument, name xml.Name) (string, error) {
+func checkReferenceNamespace(ctx *schemaSetDocument, n *schemaNode, name xml.Name) (string, error) {
 	namespace := effectiveReferenceNamespace(ctx, name)
 	if ctx == nil {
 		return namespace, nil

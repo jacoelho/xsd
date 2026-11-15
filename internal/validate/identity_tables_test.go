@@ -32,20 +32,20 @@ func TestIdentityRootTableReuseAdmissionAndCleanup(t *testing.T) {
 		var scope identityScope
 		selection := identitySelection{constraint: id, node: 2, depth: 1}
 		ctx := identityTestContext("/new", 2, 3)
-		if err := state.publishIdentityKey(nil, &scope, selection, "new", identityLimits{Entries: 1}, ctx); err == nil {
+		if err := state.publishIdentityKey(ctx, nil, &scope, selection, "new", identityLimits{Entries: 1}); err == nil {
 			t.Fatal("publication exceeded admission limit")
 		}
 		if state.idleTable == nil || scope.tables != nil {
 			t.Fatal("rejected publication borrowed or created a table")
 		}
 		state.entries = 0
-		if err := state.publishIdentityKey(nil, &scope, selection, "new", identityLimits{}, ctx); err != nil {
+		if err := state.publishIdentityKey(ctx, nil, &scope, selection, "new", identityLimits{}); err != nil {
 			t.Fatal(err)
 		}
 		if state.idleTable != nil || table["new"].node != 2 || len(table) != 1 {
 			t.Fatal("idle table ownership was not transferred exclusively")
 		}
-		if err := state.publishIdentityKey(nil, &scope, selection, "new", identityLimits{}, ctx); err == nil || state.entries != 1 || table["new"].node != 2 {
+		if err := state.publishIdentityKey(ctx, nil, &scope, selection, "new", identityLimits{}); err == nil || state.entries != 1 || table["new"].node != 2 {
 			t.Fatal("duplicate local publication changed table or admission count")
 		}
 	}
@@ -121,13 +121,13 @@ func TestIdentityRootTableFailedClosePreservesActiveOwnership(t *testing.T) {
 	evaluation.scopes[0].tables = map[xsdSchema.IdentityConstraintID]map[string]identityTableEntry{id: table}
 	evaluation.scopes[0].refs = []identityTupleRef{{refer: id, key: "missing", path: explicitRetainedPath("/root/ref")}}
 	stop := errors.New("stop")
-	if _, err := evaluation.closeScopes(1, func(error) error { return stop }); !errors.Is(err, stop) {
+	if _, err := evaluation.closeScopes(1, identityTestPaths, func(error) error { return stop }); !errors.Is(err, stop) {
 		t.Fatalf("failed close = %v", err)
 	}
 	if evaluation.idleTable != nil || len(evaluation.scopes) != 1 || table["kept"].node != 7 {
 		t.Fatal("failed close changed active root table ownership")
 	}
-	if _, err := evaluation.closeScopes(1, func(error) error { return nil }); err != nil {
+	if _, err := evaluation.closeScopes(1, identityTestPaths, func(error) error { return nil }); err != nil {
 		t.Fatal(err)
 	}
 	if len(evaluation.scopes) != 0 || evaluation.idleTable == nil || len(table) != 0 {

@@ -190,7 +190,7 @@ func (e *identityEvaluation) unregisterIdentityScope(scopeIndex int, constraints
 // is removed from that projection before it is merged, cleared, and popped.
 // Keyrefs are checked before tables complete. A failed close leaves the scope
 // registered with its tables uncompleted and its storage live until reset.
-func (e *identityEvaluation) closeScopes(depth int, report func(error) error) (bool, error) {
+func (e *identityEvaluation) closeScopes(depth int, paths pathSource, report func(error) error) (bool, error) {
 	if e == nil {
 		return false, nil
 	}
@@ -198,7 +198,7 @@ func (e *identityEvaluation) closeScopes(depth int, report func(error) error) (b
 	for len(e.scopes) > 0 && e.scopes[len(e.scopes)-1].depth == depth {
 		index := len(e.scopes) - 1
 		scope := &e.scopes[index]
-		if err := validateIdentityScopeRefs(e.rt, scope, report); err != nil {
+		if err := validateIdentityScopeRefs(e.rt, scope, paths, report); err != nil {
 			return true, err
 		}
 		invalid = invalid || scope.invalid
@@ -236,7 +236,7 @@ func (e *identityEvaluation) advanceIdentitySelectors(ctx startContext) error {
 		e.dispatch.selectorHits = hits[:0]
 		return err
 	}
-	if err := e.startSelectorHits(hits, depth, ctx); err != nil {
+	if err := e.startSelectorHits(ctx, hits, depth); err != nil {
 		e.dispatch.selectorHits = hits[:0]
 		return err
 	}
@@ -281,7 +281,7 @@ func (e *identityEvaluation) appendScopeSelfSelectorHits(hits []identitySelector
 	return hits, nil
 }
 
-func (e *identityEvaluation) startSelectorHits(hits []identitySelectorHit, depth int, ctx startContext) error {
+func (e *identityEvaluation) startSelectorHits(ctx startContext, hits []identitySelectorHit, depth int) error {
 	if len(hits) > 1 {
 		sortIdentitySelectorHits(hits)
 	}
@@ -289,7 +289,7 @@ func (e *identityEvaluation) startSelectorHits(hits []identitySelectorHit, depth
 		if index != 0 && hits[index-1].scope == hit.scope && hits[index-1].constraint == hit.constraint {
 			continue
 		}
-		if err := e.startIdentitySelectorHit(hit, depth, ctx); err != nil {
+		if err := e.startIdentitySelectorHit(ctx, hit, depth); err != nil {
 			return err
 		}
 	}
@@ -314,12 +314,12 @@ func sortIdentitySelectorHits(hits []identitySelectorHit) {
 	})
 }
 
-func (e *identityEvaluation) startIdentitySelectorHit(hit identitySelectorHit, depth int, ctx startContext) error {
+func (e *identityEvaluation) startIdentitySelectorHit(ctx startContext, hit identitySelectorHit, depth int) error {
 	program, ok := e.dispatch.index.Program(hit.constraint)
 	if !ok {
 		return xsderrors.InternalInvariant("identity field count metadata is invalid")
 	}
-	return e.startSelection(hit.scope, depth, hit.constraint, program.FieldCount(), e.limits.Entries, ctx)
+	return e.startSelection(ctx, hit.scope, depth, hit.constraint, program.FieldCount(), e.limits.Entries)
 }
 
 func (e *identityEvaluation) appendIdentitySelectorHits(
@@ -667,7 +667,7 @@ func (e *identityEvaluation) startElement(in identityElementStart) error {
 	}
 	depth := len(e.path)
 	scopesBefore := len(e.scopes)
-	if err := e.startElementScope(e.rt, in.Element, depth, e.maxScopes, in.Context); err != nil {
+	if err := e.startElementScope(in.Context, e.rt, in.Element, depth, e.maxScopes); err != nil {
 		return err
 	}
 	if len(e.scopes) != scopesBefore {
@@ -687,6 +687,13 @@ func (e *identityEvaluation) prepareAttributeValue(name xsdSchema.RuntimeName, d
 }
 
 func (e *identityEvaluation) prepareValue(kind identityValueKind, name xsdSchema.RuntimeName, depth int) (identityValueTarget, error) {
+	if !e.constraintsEnabled && e.targetPhase == identityTargetInactive && depth > 0 {
+		return identityValueTarget{depth: depth, kind: kind}, nil
+	}
+	return e.prepareFieldValue(kind, name, depth)
+}
+
+func (e *identityEvaluation) prepareFieldValue(kind identityValueKind, name xsdSchema.RuntimeName, depth int) (identityValueTarget, error) {
 	if e.targetPhase != identityTargetInactive {
 		return identityValueTarget{}, xsderrors.InternalInvariant("identity value target already active")
 	}
@@ -731,14 +738,21 @@ func (e *identityEvaluation) prepareValue(kind identityValueKind, name xsdSchema
 	return target, nil
 }
 
-func (e *identityEvaluation) recordValue(target identityValueTarget, value xsdValue.Value, ctx startContext) error {
+func (e *identityEvaluation) recordValue(ctx startContext, target identityValueTarget, value xsdValue.Value) error {
+	if !target.matched && e.targetPhase == identityTargetInactive && !value.CarriesDocumentIdentity() {
+		return nil
+	}
+	return e.recordTargetValue(ctx, target, value)
+}
+
+func (e *identityEvaluation) recordTargetValue(ctx startContext, target identityValueTarget, value xsdValue.Value) error {
 	if err := e.validateTarget(target); err != nil {
 		return err
 	}
 	if target.matched && e.targetPhase != identityTargetPrepared {
 		return xsderrors.InternalInvariant("identity value target recorded more than once")
 	}
-	if err := e.recordDocumentIdentityValue(target, value, ctx); err != nil {
+	if err := e.recordDocumentIdentityValue(ctx, target, value); err != nil {
 		return err
 	}
 	if !target.matched {
@@ -754,7 +768,7 @@ func (e *identityEvaluation) recordValue(target identityValueTarget, value xsdVa
 	return nil
 }
 
-func (e *identityEvaluation) recordDocumentIdentityValue(target identityValueTarget, value xsdValue.Value, ctx startContext) error {
+func (e *identityEvaluation) recordDocumentIdentityValue(ctx startContext, target identityValueTarget, value xsdValue.Value) error {
 	ids, idrefs := value.IDs(), value.IDRefs()
 	// cvc-complex-type 5.1 counts attributes by their ID-carrying type, not
 	// by the member a union value selected (I-016).
@@ -772,7 +786,7 @@ func (e *identityEvaluation) recordDocumentIdentityValue(target identityValueTar
 		}
 		current.seenID = true
 	}
-	if err := e.recordIdentityFields(ids, idrefs, ctx); err != nil {
+	if err := e.recordIdentityFields(ctx, ids, idrefs); err != nil {
 		return e.rejectAfterRecordFailure(target, err)
 	}
 	return nil
@@ -806,7 +820,7 @@ func (e *identityEvaluation) activateDocumentIdentity(depth int) error {
 	return nil
 }
 
-func (e *identityEvaluation) captureValue(target identityValueTarget, ctx startContext) error {
+func (e *identityEvaluation) captureValue(ctx startContext, target identityValueTarget) error {
 	if err := e.validateTarget(target); err != nil {
 		return err
 	}
@@ -822,7 +836,7 @@ func (e *identityEvaluation) captureValue(target identityValueTarget, ctx startC
 	if e.targetPhase != identityTargetRecorded {
 		return xsderrors.InternalInvariant("identity value target is not ready for capture")
 	}
-	if err := e.captureFields(e.rt, e.matches, identityFieldValue{value: e.targetKey, state: identityFieldPresent}, ctx); err != nil {
+	if err := e.captureFields(ctx, e.rt, e.matches, identityFieldValue{value: e.targetKey, state: identityFieldPresent}); err != nil {
 		e.releaseTarget()
 		return err
 	}
@@ -859,7 +873,7 @@ func (e *identityEvaluation) rejectValue(target identityValueTarget) error {
 
 // captureUnknownValue records target, an attribute that lax assessment left
 // without a declaration, as an unknown value in the fields it matched.
-func (e *identityEvaluation) captureUnknownValue(target identityValueTarget, ctx startContext) error {
+func (e *identityEvaluation) captureUnknownValue(ctx startContext, target identityValueTarget) error {
 	if err := e.validateTarget(target); err != nil {
 		return err
 	}
@@ -870,16 +884,15 @@ func (e *identityEvaluation) captureUnknownValue(target identityValueTarget, ctx
 		return xsderrors.InternalInvariant("unknown identity value target is not ready for capture")
 	}
 	defer e.releaseTarget()
-	return e.captureFields(e.rt, e.matches, identityFieldValue{state: identityFieldUnknown}, ctx)
+	return e.captureFields(ctx, e.rt, e.matches, identityFieldValue{state: identityFieldUnknown})
 }
 
 func (e *identityEvaluation) captureXSIAttribute(
-	target identityValueTarget,
+	ctx startContext, target identityValueTarget,
 	name xml.Name,
 	lexical string,
 	resolve xsdValue.QNameResolver,
 	eval xsdValue.EvaluationLimits,
-	ctx startContext,
 ) error {
 	if err := e.validateTarget(target); err != nil {
 		return err
@@ -891,7 +904,7 @@ func (e *identityEvaluation) captureXSIAttribute(
 		return xsderrors.InternalInvariant("xsi identity value target is not ready for capture")
 	}
 	defer e.releaseTarget()
-	identity, err := xsiAttributeIdentityKey(e.rt, name, lexical, resolve, eval, ctx)
+	identity, err := xsiAttributeIdentityKey(ctx, e.rt, name, lexical, resolve, eval)
 	if err != nil {
 		if invalidateErr := e.invalidateFields(e.matches); invalidateErr != nil {
 			return invalidateErr
@@ -907,7 +920,7 @@ func (e *identityEvaluation) captureXSIAttribute(
 	if !identity.present {
 		return nil
 	}
-	return e.captureFields(e.rt, e.matches, identityFieldValue{value: identity.key, state: identityFieldPresent}, ctx)
+	return e.captureFields(ctx, e.rt, e.matches, identityFieldValue{value: identity.key, state: identityFieldPresent})
 }
 
 func (e *identityEvaluation) validateTarget(target identityValueTarget) error {
@@ -945,7 +958,7 @@ func (e *identityEvaluation) releaseTarget() {
 	e.targetKey = ""
 }
 
-func (e *identityEvaluation) recordIdentityFields(ids, idrefs string, ctx startContext) error {
+func (e *identityEvaluation) recordIdentityFields(ctx startContext, ids, idrefs string) error {
 	if ids == "" && idrefs == "" {
 		return nil
 	}
@@ -953,11 +966,11 @@ func (e *identityEvaluation) recordIdentityFields(ids, idrefs string, ctx startC
 	staging.reset(maxRetainedMapLen, maxRetainedSliceCap)
 	defer staging.reset(maxRetainedMapLen, maxRetainedSliceCap)
 
-	pendingIDCount, err := e.stageIdentityIDs(ids, ctx)
+	pendingIDCount, err := e.stageIdentityIDs(ctx, ids)
 	if err != nil {
 		return err
 	}
-	if err := e.stageIdentityRefs(idrefs, ctx); err != nil {
+	if err := e.stageIdentityRefs(ctx, idrefs); err != nil {
 		return err
 	}
 	pendingIDs := staging.values[:pendingIDCount]
@@ -966,19 +979,19 @@ func (e *identityEvaluation) recordIdentityFields(ids, idrefs string, ctx startC
 		return nil
 	}
 	path := ctx.retainPathAtDepth(len(e.elements))
-	e.commitIdentityFields(pendingIDs, pendingRefs, path, ctx)
+	e.commitIdentityFields(ctx, pendingIDs, pendingRefs, path)
 	return nil
 }
 
-func (e *identityEvaluation) stageIdentityIDs(ids string, ctx startContext) (int, error) {
+func (e *identityEvaluation) stageIdentityIDs(ctx startContext, ids string) (int, error) {
 	for canonical := range lex.XMLFieldsSeq(ids) {
 		if prev, exists := e.ids[canonical]; exists {
-			return 0, validation(ctx, xsderrors.CodeValidationType, duplicateIDMessage(canonical, prev.String()))
+			return 0, validation(ctx, xsderrors.CodeValidationType, duplicateIDMessage(canonical, ctx.retainedPathString(prev)))
 		}
 		if _, exists := e.fieldStaging.ids[canonical]; exists {
 			return 0, validation(ctx, xsderrors.CodeValidationType, duplicateIDMessage(canonical, ctx.PathString()))
 		}
-		if err := e.stageIdentityField(canonical, ctx); err != nil {
+		if err := e.stageIdentityField(ctx, canonical); err != nil {
 			return 0, err
 		}
 		if e.fieldStaging.ids == nil {
@@ -989,16 +1002,16 @@ func (e *identityEvaluation) stageIdentityIDs(ids string, ctx startContext) (int
 	return len(e.fieldStaging.values), nil
 }
 
-func (e *identityEvaluation) stageIdentityRefs(idrefs string, ctx startContext) error {
+func (e *identityEvaluation) stageIdentityRefs(ctx startContext, idrefs string) error {
 	for canonical := range lex.XMLFieldsSeq(idrefs) {
-		if err := e.stageIdentityField(canonical, ctx); err != nil {
+		if err := e.stageIdentityField(ctx, canonical); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (e *identityEvaluation) stageIdentityField(value string, ctx startContext) error {
+func (e *identityEvaluation) stageIdentityField(ctx startContext, value string) error {
 	staged := len(e.fieldStaging.values)
 	if e.limits.Entries > 0 && (e.entries >= e.limits.Entries || staged >= e.limits.Entries-e.entries) {
 		return validation(ctx, xsderrors.CodeValidationLimit, limitMessage("identity entry", "MaxIdentityEntries", int64(e.entries)+int64(staged)+1, int64(e.limits.Entries)))
@@ -1010,7 +1023,7 @@ func (e *identityEvaluation) stageIdentityField(value string, ctx startContext) 
 	return nil
 }
 
-func (e *identityEvaluation) commitIdentityFields(pendingIDs, pendingRefs []string, path retainedPath, ctx startContext) {
+func (e *identityEvaluation) commitIdentityFields(ctx startContext, pendingIDs, pendingRefs []string, path retainedPath) {
 	entryCount := len(pendingIDs) + len(pendingRefs)
 	if len(pendingIDs) != 0 && e.ids == nil {
 		e.ids = make(map[string]retainedPath, len(pendingIDs))
@@ -1055,7 +1068,7 @@ func (e *identityEvaluation) endElement(in identityElementEnd, report func(error
 	if err := e.finishCurrentIdentityScope(element, in, depth, report); err != nil {
 		return result, err
 	}
-	invalid, err := e.closeScopes(depth, report)
+	invalid, err := e.closeScopes(depth, in.Context.document, report)
 	if err != nil {
 		return result, err
 	}
@@ -1079,7 +1092,7 @@ func (e *identityEvaluation) finishCurrentIdentityScope(element identityElementS
 	if err := e.finishNillableKeyFields(element, assessment); err != nil {
 		return err
 	}
-	return e.finishSelections(depth, in.Context, identitySelectionsOwnedByCurrentScope, report)
+	return e.finishSelections(in.Context, depth, identitySelectionsOwnedByCurrentScope, report)
 }
 
 type ancestorIdentityFinish struct {
@@ -1104,7 +1117,7 @@ func (e *identityEvaluation) finishAncestorIdentitySelections(in ancestorIdentit
 		err := xsderrors.InternalInvariant("identity element assessment is invalid")
 		return in.result, err
 	}
-	if err := e.finishSelections(in.depth, in.end.Context, identitySelectionsOwnedByAncestorScope, report); err != nil {
+	if err := e.finishSelections(in.end.Context, in.depth, identitySelectionsOwnedByAncestorScope, report); err != nil {
 		return in.result, err
 	}
 	return in.result, nil
@@ -1127,9 +1140,9 @@ func (e *identityEvaluation) finishElementValue(
 	case endIdentityCaptureNone:
 		return nil
 	case endIdentityCaptureNilledElement:
-		return reportIdentityError(e.captureFields(e.rt, e.dispatchElementFieldMatches(), identityFieldValue{state: identityFieldNilled}, in.Context), report)
+		return reportIdentityError(e.captureFields(in.Context, e.rt, e.dispatchElementFieldMatches(), identityFieldValue{state: identityFieldNilled}), report)
 	case endIdentityCaptureComplexElement:
-		return reportIdentityError(e.rejectFieldsWithoutSimpleValue(e.rt, e.dispatchElementFieldMatches(), in.Context), report)
+		return reportIdentityError(e.rejectFieldsWithoutSimpleValue(in.Context, e.rt, e.dispatchElementFieldMatches()), report)
 	default:
 		return xsderrors.InternalInvariant("unknown end identity capture action")
 	}
@@ -1167,8 +1180,7 @@ const (
 )
 
 func (e *identityEvaluation) finishSelections(
-	depth int,
-	ctx startContext,
+	ctx startContext, depth int,
 	ownership identitySelectionOwnership,
 	report func(error) error,
 ) error {
@@ -1180,7 +1192,7 @@ func (e *identityEvaluation) finishSelections(
 	dst := e.selections[:start]
 	for i := start; i < len(e.selections); i++ {
 		sel := e.selections[i]
-		result, err := e.finishSelectionCandidate(sel, depth, ctx, ownership, report)
+		result, err := e.finishSelectionCandidate(ctx, sel, depth, ownership, report)
 		if result.keep {
 			dst = append(dst, sel)
 		}
@@ -1204,7 +1216,7 @@ type identitySelectionFinishResult struct {
 	consumed bool
 }
 
-func (e *identityEvaluation) finishSelectionCandidate(sel identitySelection, depth int, ctx startContext, ownership identitySelectionOwnership, report func(error) error) (identitySelectionFinishResult, error) {
+func (e *identityEvaluation) finishSelectionCandidate(ctx startContext, sel identitySelection, depth int, ownership identitySelectionOwnership, report func(error) error) (identitySelectionFinishResult, error) {
 	if sel.depth != depth {
 		return identitySelectionFinishResult{keep: true, consumed: true}, nil
 	}
@@ -1219,7 +1231,7 @@ func (e *identityEvaluation) finishSelectionCandidate(sel identitySelection, dep
 	if !ok {
 		return identitySelectionFinishResult{consumed: true}, e.finishSelectionError(sel, xsderrors.InternalInvariant("identity constraint metadata is invalid"), report)
 	}
-	if err := e.finishSelectionWithConstraint(e.rt, program.Kind(), program.Refer(), sel, e.limits, ctx); err != nil {
+	if err := e.finishSelectionWithConstraint(ctx, e.rt, program.Kind(), program.Refer(), sel, e.limits); err != nil {
 		return identitySelectionFinishResult{consumed: true}, e.finishSelectionError(sel, err, report)
 	}
 	clear(e.selectionFields(sel))
@@ -1253,8 +1265,8 @@ func reportIdentityError(err error, report func(error) error) error {
 	return report(err)
 }
 
-func (e *identityEvaluation) endDocument(report func(error) error) error {
-	return e.checkIDRefs(report)
+func (e *identityEvaluation) endDocument(paths pathSource, report func(error) error) error {
+	return e.checkIDRefs(paths, report)
 }
 
 func (e *identityEvaluation) popElement() {

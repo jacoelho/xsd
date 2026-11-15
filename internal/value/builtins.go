@@ -142,6 +142,7 @@ func buildBuiltinDefinitions() [BuiltinTypeCount]typeDef {
 		}
 		prepareRawDecimalFastPath(&definitions[id])
 		prepareRawIntegerFastPath(&definitions[id])
+		definitions[id].inputs = inputRequirements(&definitions[id])
 	}
 	prepareRawBuiltinValuePlans(&definitions)
 	return definitions

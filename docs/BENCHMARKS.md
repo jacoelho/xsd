@@ -4,55 +4,41 @@ See the [benchmark results and measurement dates](../README.md#benchmarks) in th
 README.
 
 Each result is the upper median (sixth sorted value) of 10 runs after one
-warm-up per workload and validator. Time and peak RSS are summarized
-independently.
+warm-up per workload and validator. CPU time, elapsed time, and peak RSS are
+summarized independently.
 
-Timings include process startup, schema compilation, and validation. Go streams
-input; libxml2 uses `--stream --huge --noout --schema`. The Go harness measures
-elapsed time around the timed child process; libxml2 elapsed time is the
-`/usr/bin/time -l` real value, at 0.01 s resolution. Peak RSS is process memory
-reported by `/usr/bin/time`, not cumulative Go allocations. These synthetic
+The [benchmark harness](../tests/large_benchmark_test.go) runs both validators
+itself, alternating them run by run so a drift in machine load affects both
+alike. CPU time is the user plus system time and peak RSS is the maximum
+resident set size that the kernel accounts to each child process (`wait4`
+rusage, microsecond resolution); no wrapper process is timed. CPU time and
+elapsed time include process startup, schema compilation, and validation. Go
+streams input; libxml2 uses `--stream --huge --noout --schema`. These synthetic
 workloads are not a production traffic mix.
 
-The [benchmark harness](../tests/large_benchmark_test.go) generates documents from
-20 MiB through 2 GiB, plus 100,000 rows with ID/IDREF, key, unique, and keyref
-constraints. It runs the repository's `bin/xmllint` and sets input-byte and
-identity-entry limits to admit each generated document.
+The harness generates documents from 20 MiB through 2 GiB, plus 100,000 rows
+with ID/IDREF, key, unique, and keyref constraints. It runs the repository's
+`bin/xmllint` with input-byte and identity-entry limits that admit each
+generated document.
 
-To reproduce the Go measurements and retain the inputs for libxml2:
-
-```sh
-make xmllint
-benchmark_dir=$(mktemp -d)
-XSD_LARGE_BENCHMARK=1 XSD_LARGE_RUNS=10 XSD_LARGE_DIR="$benchmark_dir" \
-  go test ./tests -run '^TestLargeXMLLintBenchmark$' -timeout=45m -count=1 -v
-```
-
-Then run libxml2 on those same inputs. Select its executable explicitly so it
-cannot be confused with the repository's Go binary. This command uses macOS
-`/usr/bin/time -l`; use `-v` on Linux. The warm-up run is untimed. Sort
-the 10 elapsed times and 10 peak-RSS measurements separately and take the sixth
-value from each to match the Go harness.
+To reproduce the README table, run:
 
 ```sh
-libxml2=/usr/bin/xmllint
-"$libxml2" --version
-for xml in "$benchmark_dir"/streaming/*/document.xml "$benchmark_dir"/identity/document.xml; do
-  case "$xml" in
-    */streaming/*) schema="$benchmark_dir/streaming/schema.xsd" ;;
-    *) schema="$benchmark_dir/identity/schema.xsd" ;;
-  esac
-  "$libxml2" --stream --huge --noout --schema "$schema" "$xml" # warm-up
-  for sample in 1 2 3 4 5 6 7 8 9 10; do
-    /usr/bin/time -l "$libxml2" --stream --huge --noout --schema "$schema" "$xml"
-  done
-done
+make bench-libxml2
 ```
 
-For a smoke run, replace `XSD_LARGE_RUNS=10` in the Go command with
+It builds `bin/xmllint`, prints the libxml2 version, and runs the harness with
+`XSD_LARGE_RUNS=10` and `XSD_LARGE_LIBXML2=/usr/bin/xmllint`. Set `LIBXML2` to
+select another libxml2 executable explicitly, so it cannot be confused with the
+repository's Go binary, and `LARGE_RUNS` to change the sample count. The
+summary prints, per workload, each validator's CPU time, elapsed time, and peak
+RSS, and the Go-to-libxml2 CPU and RSS ratios.
+
+Without `XSD_LARGE_LIBXML2` the harness measures `bin/xmllint` alone. For a
+smoke run, replace `XSD_LARGE_RUNS=10` with
 `XSD_LARGE_SIZE_BYTES=1048576 XSD_LARGE_IDENTITY_ROWS=1000 XSD_LARGE_RUNS=1`.
-Without `XSD_LARGE_DIR`, the harness removes generated files;
-with it, remove the retained directory when finished.
+The harness removes generated files unless `XSD_LARGE_DIR` names a directory
+to keep them in; remove that directory when finished.
 
 ## Session reuse
 
@@ -83,3 +69,11 @@ median over iterations. Both benchmarks call `runtime.ReadMemStats` or
 `runtime.GC` inside the loop, so their `ns/op` is not a timing. The sampler is a
 lower bound on the true peak; run it at `-benchtime=1x` with several `-count`
 samples and `-cpu` of at least 2, so the sampler is not starved by validation.
+
+Function placement in the linked binary can move a benchmark by 1–2% when
+only unrelated packages change. Before attributing such a delta to a commit,
+build both commits with several `-ldflags=-randlayout=N` seeds and compare the
+per-seed medians; a delta that vanishes across seeds is a layout artifact.
+Run the base and candidate binaries alternately, then repeat with their order
+swapped: a delta that follows the binary is real, and one that follows the run
+position is an ordering effect.

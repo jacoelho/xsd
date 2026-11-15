@@ -25,7 +25,7 @@ func TestOmittedCompositorAdmissionConsumesDependencyBudget(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			_, err := c.compileModel(component.sourceNode(), component.ctx)
+			_, err := c.compileModel(component.ctx, component.sourceNode())
 			if exhausted {
 				expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 				var diagnostic *xsderrors.Error
@@ -51,11 +51,11 @@ func TestOmittedCompositorAdmissionReusesAbsentModel(t *testing.T) {
 	t.Parallel()
 
 	c, component := omittedCompositorCompiler(t, "")
-	if _, err := c.compileModel(component.sourceNode(), component.ctx); err != nil {
+	if _, err := c.compileModel(component.ctx, component.sourceNode()); err != nil {
 		t.Fatal(err)
 	}
 	c.dependencyWork = newWorkBudget(dependencyWorkBudget, 0)
-	id, err := c.compileModel(component.sourceNode(), component.ctx)
+	id, err := c.compileModel(component.ctx, component.sourceNode())
 	if err != nil || id != noContentModel {
 		t.Fatalf("reusing admitted absence with exhausted budget = %v, %v", id, err)
 	}
@@ -67,14 +67,14 @@ func TestOmittedCompositorFailedAdmissionLeavesNoWork(t *testing.T) {
 	c, component := omittedCompositorCompiler(t, `<xs:element name="child"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="["/></xs:restriction></xs:simpleType></xs:element>`)
 	available := c.dependencyWork
 	c.dependencyWork = newWorkBudget(dependencyWorkBudget, 0)
-	_, err := c.compileModel(component.sourceNode(), component.ctx)
+	_, err := c.compileModel(component.ctx, component.sourceNode())
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 
 	c.dependencyWork = available
 	if err = c.completeComponentDefinitions(); err != nil {
 		t.Fatalf("failed admission left descendant work: %v", err)
 	}
-	id, err := c.compileModel(component.sourceNode(), component.ctx)
+	id, err := c.compileModel(component.ctx, component.sourceNode())
 	if err != nil || id != noContentModel {
 		t.Fatalf("retrying admission with available budget = %v, %v", id, err)
 	}

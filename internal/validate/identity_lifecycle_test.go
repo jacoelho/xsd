@@ -50,7 +50,7 @@ func TestIdentityScopeDispatchIndexUnregistersNestedReuseAndPartialAbort(t *test
 	}
 	evaluation.path = []xsdSchema.RuntimeName{rootName, rootName}
 	requireHits("nested register", 2, 0, 1)
-	if _, err := evaluation.closeScopes(2, nil); err != nil {
+	if _, err := evaluation.closeScopes(2, identityTestPaths, nil); err != nil {
 		t.Fatalf("close nested scope: %v", err)
 	}
 	evaluation.path = evaluation.path[:1]
@@ -65,7 +65,7 @@ func TestIdentityScopeDispatchIndexUnregistersNestedReuseAndPartialAbort(t *test
 	}
 	evaluation.path = []xsdSchema.RuntimeName{rootName, rootName}
 	requireHits("reused nested register", 2, 0, 1)
-	if _, err := evaluation.closeScopes(2, nil); err != nil {
+	if _, err := evaluation.closeScopes(2, identityTestPaths, nil); err != nil {
 		t.Fatalf("close reused nested scope: %v", err)
 	}
 	evaluation.path = evaluation.path[:1]
@@ -108,12 +108,12 @@ func TestIdentityScopeDispatchIndexUnregistersNestedReuseAndPartialAbort(t *test
 	for index := range 2 {
 		child := identityScope{depth: 3}
 		selection := identitySelection{constraint: constraint, node: uint64(index + 10), depth: 4}
-		if err := evaluation.publishIdentityKey(nil, &child, selection, "conflict", identityLimits{}, identityTestContext("/root/branch/row", 1, 1)); err != nil {
+		if err := evaluation.publishIdentityKey(identityTestContext("/root/branch/row", 1, 1), nil, &child, selection, "conflict", identityLimits{}); err != nil {
 			t.Fatal(err)
 		}
 		if index == 0 {
 			selection.node = 20
-			if err := evaluation.publishIdentityKey(nil, &child, selection, "kept", identityLimits{}, identityTestContext("/root/branch/other", 1, 1)); err != nil {
+			if err := evaluation.publishIdentityKey(identityTestContext("/root/branch/other", 1, 1), nil, &child, selection, "kept", identityLimits{}); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -125,11 +125,11 @@ func TestIdentityScopeDispatchIndexUnregistersNestedReuseAndPartialAbort(t *test
 	}
 	evaluation.path = []xsdSchema.RuntimeName{rootName, rootName}
 	stop := errors.New("stop keyref recovery")
-	if _, err := evaluation.closeScopes(2, func(error) error { return stop }); !errors.Is(err, stop) {
+	if _, err := evaluation.closeScopes(2, identityTestPaths, func(error) error { return stop }); !errors.Is(err, stop) {
 		t.Fatalf("close unresolved-ref scope = %v, want %v", err, stop)
 	}
 	refs := evaluation.scopes[1].refs
-	if len(refs) != 1 || refs[0].key != "conflict" || refs[0].path.String() != "/root/ref" || refs[0].line != 1 || refs[0].col != 1 {
+	if len(refs) != 1 || refs[0].key != "conflict" || identityTestPaths.retainedPathString(refs[0].path) != "/root/ref" || refs[0].line != 1 || refs[0].col != 1 {
 		t.Fatalf("failed close changed pending reference: %+v", refs)
 	}
 	requireHits("after failed close", 2, 0, 1)
@@ -141,7 +141,7 @@ func TestIdentityScopeDispatchIndexUnregistersNestedReuseAndPartialAbort(t *test
 		t.Fatal("failed close propagated child entries")
 	}
 	reported := 0
-	if _, err := evaluation.closeScopes(2, func(err error) error {
+	if _, err := evaluation.closeScopes(2, identityTestPaths, func(err error) error {
 		expectXSDLocation(t, err, "/root/ref", 1, 1)
 		reported++
 		return nil
@@ -154,13 +154,13 @@ func TestIdentityScopeDispatchIndexUnregistersNestedReuseAndPartialAbort(t *test
 	requireHits("after successful close", 2, 0)
 	requireRegistrations("after successful close", 1)
 	other := identityScope{depth: 2}
-	if err := evaluation.publishIdentityKey(nil, &other, identitySelection{constraint: constraint, node: 30, depth: 3}, "conflict", identityLimits{}, identityTestContext("/root/other/row", 1, 1)); err != nil {
+	if err := evaluation.publishIdentityKey(identityTestContext("/root/other/row", 1, 1), nil, &other, identitySelection{constraint: constraint, node: 30, depth: 3}, "conflict", identityLimits{}); err != nil {
 		t.Fatal(err)
 	}
 	mergeIdentityTables(&evaluation.scopes[0], &other)
 	parent := &evaluation.scopes[0]
 	parent.refs = []identityTupleRef{{refer: constraint, key: "conflict"}, {refer: constraint, key: "kept"}}
-	if err := validateIdentityScopeRefs(nil, parent, failIdentityReport(t)); err != nil {
+	if err := validateIdentityScopeRefs(nil, parent, identityTestPaths, failIdentityReport(t)); err != nil {
 		t.Fatalf("parent references after completed-child removal: %v", err)
 	}
 }
@@ -173,41 +173,41 @@ func TestIdentityInheritedFramesPreserveScopeAllowanceAfterStartAbort(t *testing
 	constraint := evaluation.selections[0].constraint
 	constraints := evaluation.scopes[0].constraints
 	child := identityScope{depth: 3}
-	if err := evaluation.publishIdentityKey(nil, &child, identitySelection{constraint: constraint, node: 10}, "kept", identityLimits{}, identityTestContext("/root/wrap/row", 1, 1)); err != nil {
+	if err := evaluation.publishIdentityKey(identityTestContext("/root/wrap/row", 1, 1), nil, &child, identitySelection{constraint: constraint, node: 10}, "kept", identityLimits{}); err != nil {
 		t.Fatal(err)
 	}
 	evaluation.scopes = append(evaluation.scopes, child)
-	if _, err := evaluation.closeScopes(3, failIdentityReport(t)); err != nil {
+	if _, err := evaluation.closeScopes(3, identityTestPaths, failIdentityReport(t)); err != nil {
 		t.Fatal(err)
 	}
 	if err := evaluation.beginStart(); err != nil {
 		t.Fatal(err)
 	}
 	ctx := identityTestContext("/root/wrap/child", 1, 1)
-	if err := evaluation.startScope(constraints, 3, 2, ctx); err != nil {
+	if err := evaluation.startScope(ctx, constraints, 3, 2); err != nil {
 		t.Fatalf("inherited frame consumed declared-scope allowance: %v", err)
 	}
 	if err := evaluation.registerIdentityScope(len(evaluation.scopes) - 1); err != nil {
 		t.Fatal(err)
 	}
 	evaluation.abortStart()
-	if err := evaluation.startScope(constraints, 3, 1, ctx); err == nil {
+	if err := evaluation.startScope(ctx, constraints, 3, 1); err == nil {
 		t.Fatal("start abort lost the active declared scope from the allowance")
 	} else {
 		expectXSDCode(t, err, xsderrors.CodeValidationLimit)
 	}
-	if err := evaluation.startScope(constraints, 3, 2, ctx); err != nil {
+	if err := evaluation.startScope(ctx, constraints, 3, 2); err != nil {
 		t.Fatalf("start abort retained a declared-scope charge: %v", err)
 	}
-	if _, err := evaluation.closeScopes(3, failIdentityReport(t)); err != nil {
+	if _, err := evaluation.closeScopes(3, identityTestPaths, failIdentityReport(t)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := evaluation.closeScopes(2, failIdentityReport(t)); err != nil {
+	if _, err := evaluation.closeScopes(2, identityTestPaths, failIdentityReport(t)); err != nil {
 		t.Fatal(err)
 	}
 	parent := &evaluation.scopes[0]
 	parent.refs = []identityTupleRef{{refer: constraint, key: "kept"}}
-	if err := validateIdentityScopeRefs(nil, parent, failIdentityReport(t)); err != nil {
+	if err := validateIdentityScopeRefs(nil, parent, identityTestPaths, failIdentityReport(t)); err != nil {
 		t.Fatalf("start abort lost inherited rows: %v", err)
 	}
 }
@@ -256,7 +256,7 @@ func TestIdentityCompletedTablesExcludeConflictsAcrossMergeSizes(t *testing.T) {
 			evaluation.scopes = []identityScope{{depth: 1}, {depth: 2}}
 			publish := func(scope *identityScope, id xsdSchema.IdentityConstraintID, key string, node uint64) {
 				t.Helper()
-				if err := evaluation.publishIdentityKey(nil, scope, identitySelection{constraint: id, node: node}, key, identityLimits{}, identityTestContext("/row", 1, 1)); err != nil {
+				if err := evaluation.publishIdentityKey(identityTestContext("/row", 1, 1), nil, scope, identitySelection{constraint: id, node: node}, key, identityLimits{}); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -285,7 +285,7 @@ func TestIdentityCompletedTablesExcludeConflictsAcrossMergeSizes(t *testing.T) {
 			}
 			mergeIdentityTables(middle, &child)
 			entries := evaluation.entries
-			if _, err := evaluation.closeScopes(2, failIdentityReport(t)); err != nil {
+			if _, err := evaluation.closeScopes(2, identityTestPaths, failIdentityReport(t)); err != nil {
 				t.Fatal(err)
 			}
 			if evaluation.entries != entries {
@@ -299,7 +299,7 @@ func TestIdentityCompletedTablesExcludeConflictsAcrossMergeSizes(t *testing.T) {
 			for id := xsdSchema.IdentityConstraintID(2); id < 5; id++ {
 				parent.refs = append(parent.refs, identityTupleRef{refer: id, key: "local"})
 			}
-			if err := validateIdentityScopeRefs(nil, parent, failIdentityReport(t)); err != nil {
+			if err := validateIdentityScopeRefs(nil, parent, identityTestPaths, failIdentityReport(t)); err != nil {
 				t.Fatalf("completed table references: %v", err)
 			}
 		})

@@ -208,7 +208,7 @@ func (s *session) validateCharacterToken(tok *xmlstream.Token, mode tokenValidat
 
 func (s *session) parseError(err error) error {
 	line, col := streamErrorPosition(&s.reader, err)
-	return streamError(err, s.startContext(line, col), s.limits)
+	return streamError(s.startContext(line, col), err, s.limits)
 }
 
 func (s *session) finishValidation() error {
@@ -368,17 +368,20 @@ type sessionStartTransaction struct {
 	phase             startTransactionPhase
 }
 
-func (t *sessionStartTransaction) begin(s *session, xmlCheckpoint xmlDocumentCheckpoint, handle xmlstream.Handle) error {
-	*t = sessionStartTransaction{
-		s:           s,
-		xml:         xmlCheckpoint,
-		allBitsLen:  len(s.doc.allBits),
-		errorsLen:   len(s.doc.errors),
-		parentIndex: xmlCheckpoint.depth - 1,
-		handle:      handle,
-		syntaxOnly:  s.doc.syntaxOnly,
-	}
-	return s.doc.identity.beginStart()
+// begin checkpoints every owner except identity; the caller must call
+// identity.beginStart next. It assigns fields in place: building the
+// transaction as a value and copying it costs about 3% of streaming CPU.
+func (t *sessionStartTransaction) begin(s *session, xmlCheckpoint xmlDocumentCheckpoint, handle xmlstream.Handle) {
+	t.s = s
+	t.xml = xmlCheckpoint
+	t.transition = xsdSchema.ContentTransition{}
+	t.handle = handle
+	t.allBitsLen = len(s.doc.allBits)
+	t.errorsLen = len(s.doc.errors)
+	t.parentIndex = xmlCheckpoint.depth - 1
+	t.syntaxOnly = s.doc.syntaxOnly
+	t.invalidatesParent = false
+	t.phase = startTransactionPrepared
 }
 
 func (t *sessionStartTransaction) stageContent(accepted *acceptedChild) {
@@ -514,7 +517,8 @@ func (s *session) start(line, col int, attrs []xmlstream.Attr) error {
 		return err
 	}
 	var transaction sessionStartTransaction
-	if err := transaction.begin(s, xmlCheckpoint, se.handle); err != nil {
+	transaction.begin(s, xmlCheckpoint, se.handle)
+	if err := s.doc.identity.beginStart(); err != nil {
 		if abortErr := s.doc.AbortStart(&s.reader, se); abortErr != nil {
 			return errors.Join(err, abortErr)
 		}

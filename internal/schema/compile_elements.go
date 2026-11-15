@@ -13,8 +13,8 @@ const (
 	elementFixedConstraintLabel   = "element fixed"
 )
 
-func (c *compiler) compileElementParticle(n *schemaNode, ctx *schemaSetDocument) (contentParticle, error) {
-	id, err := c.compileElementParticleDeclaration(n, ctx)
+func (c *compiler) compileElementParticle(ctx *schemaSetDocument, n *schemaNode) (contentParticle, error) {
+	id, err := c.compileElementParticleDeclaration(ctx, n)
 	if err != nil {
 		return contentParticle{}, err
 	}
@@ -25,10 +25,10 @@ func (c *compiler) compileElementParticle(n *schemaNode, ctx *schemaSetDocument)
 	return elementParticle(id, occurs), nil
 }
 
-func (c *compiler) compileElementParticleDeclaration(n *schemaNode, ctx *schemaSetDocument) (ElementID, error) {
+func (c *compiler) compileElementParticleDeclaration(ctx *schemaSetDocument, n *schemaNode) (ElementID, error) {
 	source := semanticSource[*schemaElementSource](&n.semantic)
 	if source == nil || !source.Ref.Lexical.Present {
-		return c.compileLocalElement(n, ctx)
+		return c.compileLocalElement(ctx, n)
 	}
 	if err := checkElementRefAttributes(n); err != nil {
 		return 0, err
@@ -36,7 +36,7 @@ func (c *compiler) compileElementParticleDeclaration(n *schemaNode, ctx *schemaS
 	if err := checkElementRefChildren(n); err != nil {
 		return 0, err
 	}
-	q, err := c.referenceQName(n, ctx, source.Ref.Name)
+	q, err := c.referenceQName(ctx, n, source.Ref.Name)
 	if err != nil {
 		return 0, err
 	}
@@ -69,7 +69,7 @@ func (c *compiler) compileElementByQName(q QName) (result ElementID, err error) 
 	if err != nil {
 		return 0, err
 	}
-	decl, pending, err := c.compileElementDecl(raw.sourceNode(), raw.ctx, q)
+	decl, pending, err := c.compileElementDecl(raw.ctx, raw.sourceNode(), q)
 	if err != nil {
 		return 0, err
 	}
@@ -78,8 +78,8 @@ func (c *compiler) compileElementByQName(q QName) (result ElementID, err error) 
 	return id, nil
 }
 
-func (c *compiler) compileLocalElement(n *schemaNode, ctx *schemaSetDocument) (result ElementID, err error) {
-	if id, ok := c.localDone[nodeKey(n, ctx)]; ok {
+func (c *compiler) compileLocalElement(ctx *schemaSetDocument, n *schemaNode) (result ElementID, err error) {
+	if id, ok := c.localDone[nodeKey(ctx, n)]; ok {
 		return id, nil
 	}
 	if err = c.spendComponentDependency(n); err != nil {
@@ -118,8 +118,8 @@ func (c *compiler) compileLocalElement(n *schemaNode, ctx *schemaSetDocument) (r
 	if err != nil {
 		return 0, err
 	}
-	c.localDone[nodeKey(n, ctx)] = id
-	decl, pending, err := c.compileElementDecl(n, ctx, q)
+	c.localDone[nodeKey(ctx, n)] = id
+	decl, pending, err := c.compileElementDecl(ctx, n, q)
 	if err != nil {
 		return 0, err
 	}
@@ -140,16 +140,16 @@ type pendingElementConstraint struct {
 	kind    declarationValueConstraint
 }
 
-func (c *compiler) compileElementDecl(n *schemaNode, ctx *schemaSetDocument, q QName) (elementDecl, elementConstraintDraft, error) {
+func (c *compiler) compileElementDecl(ctx *schemaSetDocument, n *schemaNode, q QName) (elementDecl, elementConstraintDraft, error) {
 	if err := checkElementDeclarationChildren(n); err != nil {
 		return elementDecl{}, elementConstraintDraft{}, err
 	}
 	identityNodes := identityConstraintNodes(n)
-	identityIDs, err := c.declareIdentityConstraints(identityNodes, ctx)
+	identityIDs, err := c.declareIdentityConstraints(ctx, identityNodes)
 	if err != nil {
 		return elementDecl{}, elementConstraintDraft{}, err
 	}
-	properties, err := c.compileElementProperties(n, ctx)
+	properties, err := c.compileElementProperties(ctx, n)
 	if err != nil {
 		return elementDecl{}, elementConstraintDraft{}, err
 	}
@@ -160,14 +160,14 @@ func (c *compiler) compileElementDecl(n *schemaNode, ctx *schemaSetDocument, q Q
 		Abstract:  properties.abstract,
 		SubstHead: NoElement,
 	}
-	if maskErr := applyElementDerivationMasks(n, ctx, &decl); maskErr != nil {
+	if maskErr := applyElementDerivationMasks(ctx, n, &decl); maskErr != nil {
 		return elementDecl{}, elementConstraintDraft{}, maskErr
 	}
 	draft, err := compileElementConstraintDraft(n)
 	if err != nil {
 		return elementDecl{}, elementConstraintDraft{}, err
 	}
-	if err := c.compileDeclaredIdentityConstraints(identityNodes, identityIDs, ctx); err != nil {
+	if err := c.compileDeclaredIdentityConstraints(ctx, identityNodes, identityIDs); err != nil {
 		return elementDecl{}, elementConstraintDraft{}, err
 	}
 	decl.Identity = identityIDs
@@ -180,7 +180,7 @@ type compiledElementProperties struct {
 	abstract bool
 }
 
-func (c *compiler) compileElementProperties(n *schemaNode, ctx *schemaSetDocument) (compiledElementProperties, error) {
+func (c *compiler) compileElementProperties(ctx *schemaSetDocument, n *schemaNode) (compiledElementProperties, error) {
 	source := semanticSource[*schemaElementSource](&n.semantic)
 	if source == nil {
 		return compiledElementProperties{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("element node has no typed element source"))
@@ -193,7 +193,7 @@ func (c *compiler) compileElementProperties(n *schemaNode, ctx *schemaSetDocumen
 	if abstractErr != nil {
 		return compiledElementProperties{}, abstractErr
 	}
-	typ, err := c.compileElementDeclType(n, ctx)
+	typ, err := c.compileElementDeclType(ctx, n)
 	if err != nil {
 		return compiledElementProperties{}, err
 	}
@@ -205,22 +205,22 @@ func (c *compiler) compileElementProperties(n *schemaNode, ctx *schemaSetDocumen
 	return compiledElementProperties{typ: typ, nillable: nillable, abstract: abstract}, nil
 }
 
-func (c *compiler) compileElementDeclType(n *schemaNode, ctx *schemaSetDocument) (TypeID, error) {
+func (c *compiler) compileElementDeclType(ctx *schemaSetDocument, n *schemaNode) (TypeID, error) {
 	if source := semanticSource[*schemaElementSource](&n.semantic); source != nil && source.Type.Lexical.Present {
-		return c.compileElementTypeAttribute(n, ctx, source.Type.Name)
+		return c.compileElementTypeAttribute(ctx, n, source.Type.Name)
 	}
 	if simple := n.firstXS(vocab.XSDElemSimpleType); simple != nil {
-		id, err := c.compileAnonymousSimple(simple, ctx)
+		id, err := c.compileAnonymousSimple(ctx, simple)
 		return SimpleRef(id), err
 	}
 	if complexType := n.firstXS(vocab.XSDElemComplexType); complexType != nil {
-		id, err := c.reserveAnonymousComplexType(complexType, ctx)
+		id, err := c.reserveAnonymousComplexType(ctx, complexType)
 		return ComplexRef(id), err
 	}
 	return ComplexRef(c.rt.AnyType), nil
 }
 
-func applyElementDerivationMasks(n *schemaNode, ctx *schemaSetDocument, decl *elementDecl) error {
+func applyElementDerivationMasks(ctx *schemaSetDocument, n *schemaNode, decl *elementDecl) error {
 	block, err := derivationMaskWithDefaultChecked(n, semanticSource[*schemaElementSource](&n.semantic).Block, ctx.doc.defaults.BlockDefault, elementBlockDerivation())
 	if err != nil {
 		return err
@@ -268,8 +268,8 @@ func (c *compiler) addPendingElementConstraint(id ElementID, n *schemaNode, draf
 	})
 }
 
-func (c *compiler) compileElementTypeAttribute(n *schemaNode, ctx *schemaSetDocument, name xml.Name) (TypeID, error) {
-	typeQName, err := c.referenceQName(n, ctx, name)
+func (c *compiler) compileElementTypeAttribute(ctx *schemaSetDocument, n *schemaNode, name xml.Name) (TypeID, error) {
+	typeQName, err := c.referenceQName(ctx, n, name)
 	if err != nil {
 		return TypeID{}, err
 	}

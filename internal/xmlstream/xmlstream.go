@@ -114,8 +114,12 @@ var (
 
 // parser tokenizes XML into borrowed stream tokens for Reader.
 type parser struct {
-	values                 *cache
-	names                  *cache
+	values *cache
+	names  *cache
+	// expectedEnd is the open element's name, supplied by Reader before each
+	// token. It only lets an end tag that spells it skip interning; Reader
+	// still owns topology and the closing-name match.
+	expectedEnd            LexicalName
 	pendingEnd             EndElement
 	attrs                  []Attr
 	nameBuf                []byte
@@ -203,6 +207,7 @@ func (p *parser) reset(r io.Reader, names, values *cache, config Config) error {
 	}
 	p.names = names
 	p.values = values
+	p.expectedEnd = LexicalName{}
 	p.pendingEnd = EndElement{}
 	p.pendingEndOffset = 0
 	p.resetBuffers()
@@ -248,6 +253,7 @@ func (p *parser) detach() {
 	p.resetBuffers()
 	p.names = nil
 	p.values = nil
+	p.expectedEnd = LexicalName{}
 	p.pendingEnd = EndElement{}
 	p.pendingEndOffset = 0
 	p.inCDATA = false
@@ -736,7 +742,7 @@ func (p *parser) readCDATAChunk(dst *Token, line, col int) error {
 			p.cdataToken(dst, line, col, chunkOffset)
 			return nil
 		}
-		if len(p.textBuf) >= len(p.br.buf) {
+		if len(p.textBuf) >= xmlInputBufferSize {
 			p.cdataMatched = matched
 			p.cdataChunkOffset = p.br.offset()
 			p.cdataToken(dst, line, col, chunkOffset)
@@ -992,7 +998,10 @@ func (p *parser) readEndElement() (EndElement, error) {
 	if lex.IsXMLWhitespaceByte(b) {
 		return EndElement{}, fmt.Errorf("unexpected whitespace after </")
 	}
-	name, err := p.readName(b)
+	name, ok, err := p.readExpectedEndName(b)
+	if !ok {
+		name, err = p.readName(b)
+	}
 	if err != nil {
 		return EndElement{}, err
 	}
@@ -1004,6 +1013,64 @@ func (p *parser) readEndElement() (EndElement, error) {
 		return EndElement{}, fmt.Errorf("expected > after end element name")
 	}
 	return EndElement{Name: name}, nil
+}
+
+// readExpectedEndName admits an end-tag name that spells expectedEnd and ends
+// inside the read window, returning the expected strings without interning.
+// It charges token bytes in readWindowName's order, so limits keep their
+// precedence. ok is false, with nothing charged or consumed, whenever the name
+// differs or may continue past the window; readName then decides.
+func (p *parser) readExpectedEndName(first byte) (name xml.Name, ok bool, err error) {
+	expected := p.expectedEnd
+	if expected.Local == "" {
+		return xml.Name{}, false, nil
+	}
+	b := &p.br
+	off := b.off
+	window := b.buf[off:b.end]
+	n, matched := expectedNameLen(first, window, expected)
+	if !matched || off == 0 || b.buf[off-1] != first {
+		return xml.Name{}, false, nil
+	}
+	if err = p.chargeTokenBytes(1); err != nil {
+		return xml.Name{}, true, err
+	}
+	if n > 0 {
+		if err = p.chargeTokenBytes(n); err != nil {
+			return xml.Name{}, true, err
+		}
+		b.consumeBuffered(n)
+	}
+	return xml.Name{Space: expected.Prefix, Local: expected.Local}, true, nil
+}
+
+// expectedNameLen reports whether first followed by window spells expected
+// and is then terminated inside window, and returns the bytes after first.
+func expectedNameLen(first byte, window []byte, expected LexicalName) (int, bool) {
+	head, tail := expected.Local, ""
+	if expected.Prefix != "" {
+		head, tail = expected.Prefix, expected.Local
+	}
+	if first != head[0] {
+		return 0, false
+	}
+	rest, ok := trimSpelling(window, head[1:])
+	if ok && tail != "" {
+		if rest, ok = trimSpelling(rest, ":"); ok {
+			rest, ok = trimSpelling(rest, tail)
+		}
+	}
+	if !ok || len(rest) == 0 || nameByteClasses[rest[0]]&nameByteTerminator == 0 {
+		return 0, false
+	}
+	return len(window) - len(rest), true
+}
+
+func trimSpelling(b []byte, s string) ([]byte, bool) {
+	if len(b) < len(s) || string(b[:len(s)]) != s {
+		return nil, false
+	}
+	return b[len(s):], true
 }
 
 func (p *parser) readAttributeValueBytes(quote byte, dst *[]byte) ([]byte, error) {

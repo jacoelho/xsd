@@ -69,13 +69,26 @@ func BenchmarkCacheSaturation(b *testing.B) {
 	})
 }
 
+// BenchmarkCacheRotatingVocabulary cycles through vocabularies of several
+// widths. The middle shapes use names longer than eight bytes that differ only
+// in their middle bytes.
 func BenchmarkCacheRotatingVocabulary(b *testing.B) {
-	for _, width := range []int{2, 9, 60} {
-		b.Run(strconv.Itoa(width), func(b *testing.B) {
+	for _, shape := range []struct {
+		name  string
+		width int
+		spell func(int) string
+	}{
+		{"2", 2, rotatingName},
+		{"9", 9, rotatingName},
+		{"60", 60, rotatingName},
+		{"middle-8", 8, middleName},
+		{"middle-60", 60, middleName},
+	} {
+		b.Run(shape.name, func(b *testing.B) {
 			var c cache
-			spellings := make([][]byte, width)
+			spellings := make([][]byte, shape.width)
 			for i := range spellings {
-				spellings[i] = []byte("name-" + strconv.Itoa(i))
+				spellings[i] = []byte(shape.spell(i))
 				if got := c.Intern(spellings[i]); got != string(spellings[i]) {
 					b.Fatalf("cached spelling = %q, want %q", got, spellings[i])
 				}
@@ -87,3 +100,7 @@ func BenchmarkCacheRotatingVocabulary(b *testing.B) {
 		})
 	}
 }
+
+func rotatingName(i int) string { return "name-" + strconv.Itoa(i) }
+
+func middleName(i int) string { return "address_" + strconv.Itoa(i) + "_city" }

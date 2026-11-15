@@ -167,3 +167,13 @@ var (
 	NewValueConstraintIdentity = newValueConstraintIdentity
 	ValidIdentityConstraintID  = validIdentityConstraintID
 )
+
+// ResizeSimpleTypeAvailabilityForTest shortens or extends the simple type
+// availability table by delta entries so publication tests can corrupt it.
+func ResizeSimpleTypeAvailabilityForTest(build *schemaBuild, delta int) {
+	if delta < 0 {
+		build.simpleTypeUnavailable = build.simpleTypeUnavailable[:len(build.simpleTypeUnavailable)+delta]
+		return
+	}
+	build.simpleTypeUnavailable = append(build.simpleTypeUnavailable, make([]bool, delta)...)
+}

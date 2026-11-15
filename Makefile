@@ -34,6 +34,15 @@ bench:
 bench-smoke:
 	go test -run '^$$' -bench=. -benchtime=2x -benchmem ./...
 
+LIBXML2 ?= /usr/bin/xmllint
+LARGE_RUNS ?= 10
+
+.PHONY: bench-libxml2
+bench-libxml2: xmllint
+	$(LIBXML2) --version
+	XSD_LARGE_BENCHMARK=1 XSD_LARGE_RUNS=$(LARGE_RUNS) XSD_LARGE_LIBXML2=$(LIBXML2) \
+		go test ./tests -run '^TestLargeXMLLintBenchmark$$' -timeout=90m -count=1 -v
+
 .PHONY: benchstat
 benchstat: $(BIN)/benchstat
 

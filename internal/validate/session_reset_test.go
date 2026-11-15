@@ -246,7 +246,7 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 		cap(s.doc.allBits) != 0 {
 		t.Fatalf("reset retained oversized state")
 	}
-	if err := s.doc.identity.endDocument(func(err error) error {
+	if err := s.doc.identity.endDocument(&s.doc.xmlDocument, func(err error) error {
 		t.Fatalf("identity state retained after reset: %v", err)
 		return nil
 	}); err != nil {
