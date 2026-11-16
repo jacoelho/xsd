@@ -347,6 +347,9 @@ func admitRootStart(n *schemaSyntaxNode) error {
 	if err := checkSchemaNodeNamesSyntax(n, nil); err != nil {
 		return err
 	}
+	if err := checkUnsupportedXSDNodeSyntax(n, xml.Name{}); err != nil {
+		return err
+	}
 	if err := checkXMLBaseAttributeSyntax(n); err != nil {
 		return err
 	}
@@ -382,7 +385,7 @@ func admitXSDChildStart(n *schemaSyntaxNode, parent xml.Name) error {
 	if err := checkSchemaNodeNamesSyntax(n, &schemaSyntaxNode{Name: parent}); err != nil {
 		return err
 	}
-	if _, err := checkUnsupportedXSDNodeSyntax(n, parent); err != nil {
+	if err := checkUnsupportedXSDNodeSyntax(n, parent); err != nil {
 		return err
 	}
 	if err := checkXMLBaseAttributeSyntax(n); err != nil {

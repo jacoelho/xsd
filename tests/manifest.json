@@ -878265,7 +878265,6 @@
             "role": "principal"
           }
         ],
-        "errorCode": "schema.content_model",
         "oracle": {
           "xerces": {
             "expected": "invalid",
@@ -878318,7 +878317,6 @@
             "role": "principal"
           }
         ],
-        "errorCode": "schema.content_model",
         "oracle": {
           "xerces": {
             "expected": "invalid",
@@ -878371,7 +878369,6 @@
             "role": "principal"
           }
         ],
-        "errorCode": "schema.invalid_attribute",
         "oracle": {
           "xerces": {
             "expected": "invalid",
@@ -878424,7 +878421,6 @@
             "role": "principal"
           }
         ],
-        "errorCode": "schema.invalid_attribute",
         "oracle": {
           "xerces": {
             "expected": "invalid",
@@ -878477,7 +878473,6 @@
             "role": "principal"
           }
         ],
-        "errorCode": "schema.invalid_attribute",
         "oracle": {
           "xerces": {
             "expected": "invalid",
@@ -878530,7 +878525,6 @@
             "role": "principal"
           }
         ],
-        "errorCode": "schema.invalid_attribute",
         "oracle": {
           "xerces": {
             "expected": "invalid",
@@ -878583,7 +878577,6 @@
             "role": "principal"
           }
         ],
-        "errorCode": "schema.invalid_attribute",
         "oracle": {
           "xerces": {
             "expected": "invalid",

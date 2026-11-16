@@ -8,11 +8,18 @@ instance	project	project/xml/opt-out-instance-forms	undeclared-entity	unsupporte
 instance	project	project/xml/opt-out-instance-forms	xml-1-1	unsupported.xml_version
 schema	project	project/schema-syntax/xsd11-vocabulary/alternative	unsupported.xsd_1_1
 schema	project	project/schema-syntax/xsd11-vocabulary/assert	unsupported.xsd_1_1
+schema	project	project/schema-syntax/xsd11-vocabulary/assertion-facet	unsupported.xsd_1_1
+schema	project	project/schema-syntax/xsd11-vocabulary/default-attributes	unsupported.xsd_1_1
 schema	project	project/schema-syntax/xsd11-vocabulary/default-open-content	unsupported.xsd_1_1
+schema	project	project/schema-syntax/xsd11-vocabulary/explicit-timezone-facet	unsupported.xsd_1_1
+schema	project	project/schema-syntax/xsd11-vocabulary/identity-constraint-ref	unsupported.xsd_1_1
+schema	project	project/schema-syntax/xsd11-vocabulary/inheritable	unsupported.xsd_1_1
+schema	project	project/schema-syntax/xsd11-vocabulary/local-target-namespace	unsupported.xsd_1_1
 schema	project	project/schema-syntax/xsd11-vocabulary/not-namespace	unsupported.xsd_1_1
 schema	project	project/schema-syntax/xsd11-vocabulary/not-qname	unsupported.xsd_1_1
 schema	project	project/schema-syntax/xsd11-vocabulary/open-content	unsupported.xsd_1_1
 schema	project	project/schema-syntax/xsd11-vocabulary/override	unsupported.xsd_1_1
+schema	project	project/schema-syntax/xsd11-vocabulary/xpath-default-namespace	unsupported.xsd_1_1
 schema	project	project/xml/opt-out-schema-doctype	unsupported.dtd
 schema	w3c	w3c/boeingMeta/BoeingXSDTestSet.testSet/ipo4	unsupported.xs_redefine
 schema	w3c	w3c/ibmMeta/anyAttribute.testSet/s3_10_6ii01	unsupported.xsd_1_1
@@ -25,6 +32,10 @@ schema	w3c	w3c/ibmMeta/cyclicRedefineIncludeImportOverride.testSet/s4_2_4si01	un
 schema	w3c	w3c/ibmMeta/cyclicRedefineIncludeImportOverride.testSet/s4_2_4si01b	unsupported.xs_redefine
 schema	w3c	w3c/ibmMeta/cyclicRedefineIncludeImportOverride.testSet/s4_2_4si02	unsupported.xs_redefine
 schema	w3c	w3c/ibmMeta/cyclicRedefineIncludeImportOverride.testSet/s4_2_4si02b	unsupported.xs_redefine
+schema	w3c	w3c/ibmMeta/identityConstraint.testSet/s2_2_4si02	unsupported.xsd_1_1
+schema	w3c	w3c/ibmMeta/identityConstraint.testSet/s2_2_4si05	unsupported.xsd_1_1
+schema	w3c	w3c/ibmMeta/identityConstraint.testSet/s2_2_4si06	unsupported.xsd_1_1
+schema	w3c	w3c/ibmMeta/identityConstraint.testSet/s2_2_4si07	unsupported.xsd_1_1
 schema	w3c	w3c/ibmMeta/wildcard.testSet/s3_10_1ii08	unsupported.xsd_1_1
 schema	w3c	w3c/ibmMeta/wildcard.testSet/s3_10_1ii09	unsupported.xsd_1_1
 schema	w3c	w3c/ibmMeta/wildcard.testSet/s3_10_1si01	unsupported.xsd_1_1

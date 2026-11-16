@@ -65,30 +65,57 @@ func rejectSchemaNamespaceAttributes(n *schemaSyntaxNode) error {
 	return nil
 }
 
-func checkUnsupportedXSDNodeSyntax(n *schemaSyntaxNode, parentName xml.Name) (bool, error) {
+func checkUnsupportedXSDNodeSyntax(n *schemaSyntaxNode, parentName xml.Name) error {
+	topLevel := parentName == xml.Name{Space: vocab.XSDNamespaceURI, Local: vocab.XSDElemSchema}
 	switch n.Name.Local {
 	case redefineChild:
-		return false, unsupportedAtSchemaNode(n, xsderrors.CodeUnsupportedRedefine, "xs:redefine is not supported")
+		return unsupportedAtSchemaNode(n, xsderrors.CodeUnsupportedRedefine, "xs:redefine is not supported")
 	case notationChild:
-		if parentName != (xml.Name{Space: vocab.XSDNamespaceURI, Local: vocab.XSDElemSchema}) {
-			return false, schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "xs:notation must be a top-level schema child")
+		if !topLevel {
+			return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "xs:notation must be a top-level schema child")
 		}
-	case assertChild, "alternative", "override", "openContent", "defaultOpenContent":
-		return false, unsupportedAtSchemaNode(n, xsderrors.CodeUnsupportedXSD11, "XSD 1.1 feature "+n.Name.Local+" is not supported")
-	case anyChild, anyAttribute:
-		return rejectUnsupportedWildcardAttributes(n)
+	case assertChild, "assertion", "alternative", "override", "openContent", "defaultOpenContent", "explicitTimezone":
+		return unsupportedAtSchemaNode(n, xsderrors.CodeUnsupportedXSD11, "XSD 1.1 feature "+n.Name.Local+" is not supported")
 	}
-	return false, nil
+	if err := rejectXSD11Attributes(n, xsd11Attributes[n.Name.Local]); err != nil || topLevel {
+		return err
+	}
+	return rejectXSD11Attributes(n, xsd11LocalAttributes[n.Name.Local])
 }
 
-func rejectUnsupportedWildcardAttributes(n *schemaSyntaxNode) (bool, error) {
-	for _, attr := range []string{vocab.XSDAttrNotNamespace, vocab.XSDAttrNotQName} {
+func rejectXSD11Attributes(n *schemaSyntaxNode, attrs []string) error {
+	for _, attr := range attrs {
 		if _, ok := n.attr(attr); ok {
-			return false, unsupportedAtSchemaNode(n, xsderrors.CodeUnsupportedXSD11, "XSD 1.1 wildcard attribute "+attr+" is not supported")
+			return unsupportedAtSchemaNode(n, xsderrors.CodeUnsupportedXSD11, "XSD 1.1 attribute "+attr+" on xs:"+n.Name.Local+" is not supported")
 		}
 	}
-	return false, nil
+	return nil
 }
+
+// xsd11Attributes lists, by element, the unqualified attributes XSD 1.1 adds
+// to XSD 1.0 elements; xsd11LocalAttributes adds those it allows only on local
+// declarations. XSD 1.1 is an opt-out, so these are reported as unsupported
+// instead of as unknown XSD 1.0 attributes.
+const xsd11AttrXPathDefaultNamespace = "xpathDefaultNamespace"
+
+var (
+	xsd11Attributes = map[string][]string{
+		vocab.XSDElemSchema: {"defaultAttributes", xsd11AttrXPathDefaultNamespace},
+		anyChild:            {vocab.XSDAttrNotNamespace, vocab.XSDAttrNotQName},
+		anyAttribute:        {vocab.XSDAttrNotNamespace, vocab.XSDAttrNotQName},
+		complexTypeChild:    {"defaultAttributesApply"},
+		selectorChild:       {xsd11AttrXPathDefaultNamespace},
+		fieldChild:          {xsd11AttrXPathDefaultNamespace},
+		uniqueChild:         {vocab.XSDAttrRef},
+		keyChild:            {vocab.XSDAttrRef},
+		keyrefChild:         {vocab.XSDAttrRef},
+		attributeChild:      {"inheritable"},
+	}
+	xsd11LocalAttributes = map[string][]string{
+		attributeChild: {vocab.XSDAttrTargetNamespace},
+		elementChild:   {vocab.XSDAttrTargetNamespace},
+	}
+)
 
 func checkSchemaNodeNamesSyntax(n, parent *schemaSyntaxNode) error {
 	var parentLocal string
