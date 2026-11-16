@@ -1,5 +1,19 @@
 instance	project	project/corrections-derived-entity-components	derived-entity	unsupported.entity
 instance	project	project/corrections-derived-entity-components	nonempty-entity-list	unsupported.entity
+instance	project	project/xml/opt-out-instance-forms	doctype	unsupported.dtd
+instance	project	project/xml/opt-out-instance-forms	doctype-external-subset	unsupported.dtd
+instance	project	project/xml/opt-out-instance-forms	doctype-internal-entity	unsupported.dtd
+instance	project	project/xml/opt-out-instance-forms	latin1-declaration	unsupported.non_utf8
+instance	project	project/xml/opt-out-instance-forms	undeclared-entity	unsupported.external_entity
+instance	project	project/xml/opt-out-instance-forms	xml-1-1	unsupported.xml_version
+schema	project	project/schema-syntax/xsd11-vocabulary/alternative	unsupported.xsd_1_1
+schema	project	project/schema-syntax/xsd11-vocabulary/assert	unsupported.xsd_1_1
+schema	project	project/schema-syntax/xsd11-vocabulary/default-open-content	unsupported.xsd_1_1
+schema	project	project/schema-syntax/xsd11-vocabulary/not-namespace	unsupported.xsd_1_1
+schema	project	project/schema-syntax/xsd11-vocabulary/not-qname	unsupported.xsd_1_1
+schema	project	project/schema-syntax/xsd11-vocabulary/open-content	unsupported.xsd_1_1
+schema	project	project/schema-syntax/xsd11-vocabulary/override	unsupported.xsd_1_1
+schema	project	project/xml/opt-out-schema-doctype	unsupported.dtd
 schema	w3c	w3c/boeingMeta/BoeingXSDTestSet.testSet/ipo4	unsupported.xs_redefine
 schema	w3c	w3c/ibmMeta/anyAttribute.testSet/s3_10_6ii01	unsupported.xsd_1_1
 schema	w3c	w3c/ibmMeta/anyAttribute.testSet/s3_10_6ii02	unsupported.xsd_1_1
