@@ -878693,7 +878693,7 @@
           },
           "libxml2": {
             "expected": "valid",
-            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 also accepts project/content-models/edc-same-declaration/local-different-named-types, two local declarations of one name with the different named types xs:string and xs:int in one complex type, so it reports no Element Declarations Consistent violation in these fixtures; its acceptance is not evidence about the declaration-counting reading.",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle. Diagnosis: this is the smallest Element Declarations Consistent opponent, two local declarations of one name with the different named types xs:string and xs:int in one complex type, which Xerces-J, .NET and xmlschema reject; libxml2 2.9.13 reports no violation of the rule even here.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
           }
         }
