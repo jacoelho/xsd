@@ -224,7 +224,7 @@ func (b *Builder) Complete(id TypeID, spec TypeSpec) error {
 			b.storageUsed -= charge
 		}
 	}()
-	if err := b.program.compileFacets(id, spec.Facets, EvaluationLimits{Work: b.maxConstructionWork, PatternWork: b.maxPatternWork, PatternTotal: &b.patternTotal}); err != nil {
+	if err := b.program.compileFacets(id, spec.Facets, b.constructionLimits()); err != nil {
 		return err
 	}
 	b.program.types[i].needsQName = b.program.typeNeedsQName(id, nil, 0)
@@ -255,6 +255,21 @@ func (b *Builder) prepareType(id TypeID, spec TypeSpec) (int, error) {
 	}
 	b.program.types[i].dependencyDepth = coreDepth
 	return int(i), nil
+}
+
+// constructionLimits returns the limits of every builder evaluation, all
+// charged to the builder's aggregate pattern account.
+func (b *Builder) constructionLimits() EvaluationLimits {
+	return EvaluationLimits{Work: b.maxConstructionWork, PatternWork: b.maxPatternWork, PatternTotal: &b.patternTotal}
+}
+
+// literalBudget returns the budget of one literal evaluation on an unsealed
+// builder.
+func (b *Builder) literalBudget() (evaluationBudget, error) {
+	if b == nil || b.program == nil || b.program.sealed {
+		return evaluationBudget{}, ErrMetadata
+	}
+	return newEvaluationBudget(b.constructionLimits())
 }
 
 func (b *Builder) reservedTypeIndex(id TypeID) (TypeID, error) {
@@ -728,10 +743,16 @@ func (p *Program) compileBound(id TypeID, t *typeDef, source BoundFacet, budget 
 	if err != nil {
 		return boundValue{}, fmt.Errorf(msgBoundValue, source.Lexical, err)
 	}
+	return p.boundOf(t, literalType, source.Lexical, &v)
+}
+
+// boundOf returns the inclusive bound of t that v sets, where v is lexical
+// evaluated as literalType.
+func (p *Program) boundOf(t *typeDef, literalType TypeID, lexical string, v *parsedValue) (boundValue, error) {
 	if t.variety != Atomic || v.isList || v.atom.kind != t.primitive {
-		return boundValue{}, fmt.Errorf(msgIncompatibleBound, source.Lexical)
+		return boundValue{}, fmt.Errorf(msgIncompatibleBound, lexical)
 	}
-	offset, err := p.timeBoundDayOffset(t, literalType, source.Lexical, v.atom)
+	offset, err := p.timeBoundDayOffset(t, literalType, lexical, v.atom)
 	if err != nil {
 		return boundValue{}, err
 	}

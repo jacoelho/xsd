@@ -12,7 +12,8 @@ import (
 )
 
 // compileFacetChildren admits source facet syntax and records one local facet
-// step in ValueSpec. Effective inheritance, typed literal evaluation, bound
+// step in ValueSpec. value.Builder admits each bound and enumeration literal
+// against the base (AdmitBoundLiteral, Validate); effective inheritance, bound
 // ordering, and fixed-facet derivation are owned by value.Builder.Complete.
 func (c *compiler) compileFacetChildren(parent *schemaNode, st *simpleType, base SimpleTypeID) error {
 	state := compiledFacetState{unavailable: c.rt.simpleTypeUnavailable[base]}
@@ -195,7 +196,7 @@ func (c *compiler) compileBoundFacet(st *simpleType, base SimpleTypeID, facet fa
 		return nil
 	}
 	if err := c.ensureValueBuilder().AdmitBoundLiteral(base, facet.flag, facet.value); err != nil {
-		return schemaValueError(c.limits, xsderrors.CodeSchemaFacet, "invalid facet value "+diagnostictext.Quote(facet.value), err)
+		return c.facetValueError(facet.value, err)
 	}
 	setValueBoundFacet(&st.ValueSpec.Facets, facet, valuepkg.LiteralSpec{Lexical: facet.value, Type: base})
 	return nil
@@ -256,7 +257,7 @@ func setValueBoundFacet(f *valuepkg.FacetSpec, facet facetInput, literal valuepk
 func (c *compiler) compileLiteral(base SimpleTypeID, lexical string, resolve valuepkg.QNameResolver) (valuepkg.LiteralSpec, error) {
 	_, names, err := c.validateValue(base, lexical, resolve, valuepkg.NeedCanonical|valuepkg.NeedIdentity)
 	if err != nil {
-		return valuepkg.LiteralSpec{}, schemaValueError(c.limits, xsderrors.CodeSchemaFacet, "invalid facet value "+diagnostictext.Quote(lexical), err)
+		return valuepkg.LiteralSpec{}, c.facetValueError(lexical, err)
 	}
 	literal := valuepkg.LiteralSpec{
 		Lexical: lexical,
@@ -269,11 +270,15 @@ func (c *compiler) compileLiteral(base SimpleTypeID, lexical string, resolve val
 	if len(names) != 0 {
 		replay, replayErr := newValueConstraintNameReplay(names)
 		if replayErr != nil {
-			return valuepkg.LiteralSpec{}, schemaValueError(c.limits, xsderrors.CodeSchemaFacet, "invalid facet value "+diagnostictext.Quote(lexical), replayErr)
+			return valuepkg.LiteralSpec{}, c.facetValueError(lexical, replayErr)
 		}
 		literal.Resolver.QName = replay.ResolveQName
 	}
 	return literal, nil
+}
+
+func (c *compiler) facetValueError(lexical string, err error) error {
+	return schemaValueError(c.limits, xsderrors.CodeSchemaFacet, "invalid facet value "+diagnostictext.Quote(lexical), err)
 }
 
 func schemaRegexError(err error) error {

@@ -191,11 +191,17 @@ func (e *valueDiagnosticError) Is(target error) bool {
 // retained literals and pure equality, and pattern failures describe every
 // group rather than rematching to guess which one failed.
 func describeValueFailure[T byteText](program *Program, id TypeID, lexical T, parsed *parsedValue, cause error) error {
-	if errors.Is(cause, ErrLimit) || errors.Is(cause, ErrMetadata) || isUnsupported(cause) {
-		return cause
-	}
 	t, ok := program.typeDef(id)
 	if !ok {
+		return cause
+	}
+	return describeTypeValueFailure(program, id, t, lexical, parsed, cause)
+}
+
+// describeTypeValueFailure describes a failure of lexical as a value of id
+// whose facets were those of t.
+func describeTypeValueFailure[T byteText](program *Program, id TypeID, t *typeDef, lexical T, parsed *parsedValue, cause error) error {
+	if errors.Is(cause, ErrLimit) || errors.Is(cause, ErrMetadata) || isUnsupported(cause) {
 		return cause
 	}
 	var message string

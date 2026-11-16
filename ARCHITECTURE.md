@@ -251,12 +251,19 @@ schema documents and `xsi:nil` is parsed with `ParseBooleanValue`; only
 owner, `internal/schema`, because no value-owned parser exists for them.
 
 - **Construction.** The schema compiler drives `Builder` (`Reserve`,
-  `Complete`, `Seal`) and supplies its construction limits. Compile-time
-  literals (`Builder.Validate`) and instance values have the same value
-  semantics. Restriction derivation returns the effective facet program, and
-  the compiler does not reconstruct that merge. `FacetAllowed` is the only
-  facet-applicability rule for schema admission, value construction, and
-  diagnostics.
+  `Complete`, `Seal`) and supplies its construction limits. Enumeration and
+  value-constraint literals (`Builder.Validate`) and instance values have the
+  same value semantics. A bound literal is admitted by
+  `Builder.AdmitBoundLiteral`: base value-space membership, or, for a
+  `minExclusive` or `maxExclusive` equal to the base's effective same facet,
+  only the base's patterns and other bounds. The compiler admits it while
+  reading the facet, so the diagnostic names the literal; ordering against
+  inherited bounds and fixed-facet checks belong to `Builder.Complete`'s
+  restriction derivation, located at the simple type. Restatement equality is
+  the same-side derivation order (`compareDerivationBounds`). Restriction
+  derivation returns the effective facet program, and the compiler does not
+  reconstruct that merge. `FacetAllowed` is the only facet-applicability rule
+  for schema admission, value construction, and diagnostics.
 - **Inputs.** `ValidateBytes` and `ValidateAdmitted` trust that
   `internal/xmlstream` has already admitted UTF-8 XML 1.0 character data.
   `Validate` admits external text itself. All paths share value semantics and
@@ -286,9 +293,9 @@ owner, `internal/schema`, because no value-owned parser exists for them.
   entry, including after a document that failed mid-stream. `value.Builder`
   owns the per-compilation account, configured by `internal/schema` through
   `BuilderOptions.MaxTotalPatternWork` (`MaxSchemaTotalPatternWork`). Every
-  compile-time evaluation through `Builder.Validate` or `Builder.Complete`
-  charges it, including a facet literal's base-type check. There is no
-  uncharged evaluation path, so `MaxSchemaTotalPatternWork` bounds all
+  compile-time evaluation through `Builder.Validate`,
+  `Builder.AdmitBoundLiteral` or `Builder.Complete` charges it, including a
+  facet literal's base-type check. There is no uncharged evaluation path, so `MaxSchemaTotalPatternWork` bounds all
   compile-time pattern matching. A facet literal can be charged for its
   base-type check and again when facet compilation re-evaluates it; a value
   constraint is charged once. Publication audits element and attribute value
@@ -959,6 +966,12 @@ graph preserves these ownership rules:
   projections, and canonical spelling can select a different union member.
   A second equality API, lexical shortcut or identity-key cache would
   duplicate value-owned policy.
+- Folding bound-literal admission into `Builder.Complete` was rejected:
+  Complete's errors name no facet and are located at the simple type, so
+  keeping the facet-located literal diagnostic would need a facet-identifying
+  error and relocation in the schema compiler, and enumeration literals keep
+  the same admit-then-complete shape. The cost is a second parse of each bound
+  literal at compile time.
 - Combining Gregorian primitive parsers was rejected because their field
   grammars and failure precedence differ.
 - Re-resolving schema-supplied QNames in instance namespaces was rejected
