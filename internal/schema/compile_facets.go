@@ -107,7 +107,7 @@ func (c *compiler) compileFacetValue(child *schemaNode, st *simpleType, base Sim
 	case valuepkg.FacetLength, valuepkg.FacetMinLength, valuepkg.FacetMaxLength, valuepkg.FacetTotalDigits, valuepkg.FacetFractionDigits:
 		return compileSizeFacet(st, child, facet)
 	case valuepkg.FacetMinInclusive, valuepkg.FacetMaxInclusive, valuepkg.FacetMinExclusive, valuepkg.FacetMaxExclusive:
-		return c.compileBoundFacet(st, base, child, facet, state)
+		return c.compileBoundFacet(st, base, facet, state)
 	case valuepkg.FacetEnumeration:
 		if state.unavailable {
 			return nil
@@ -187,19 +187,17 @@ func compileSizeFacet(st *simpleType, node *schemaNode, facet facetInput) error 
 	return nil
 }
 
-func (c *compiler) compileBoundFacet(st *simpleType, base SimpleTypeID, child *schemaNode, facet facetInput, state *compiledFacetState) error {
-	var literal valuepkg.LiteralSpec
-	if !state.unavailable {
-		var err error
-		literal, err = c.compileLiteral(base, facet.value, schemaQNameResolver(child))
-		if err != nil {
-			return err
-		}
-	}
+// compileBoundFacet admits an ordered-bound literal against its base. Ordered
+// primitives have no QName or NOTATION values, so the literal carries no name
+// resolver.
+func (c *compiler) compileBoundFacet(st *simpleType, base SimpleTypeID, facet facetInput, state *compiledFacetState) error {
 	if state.unavailable {
 		return nil
 	}
-	setValueBoundFacet(&st.ValueSpec.Facets, facet, literal)
+	if err := c.ensureValueBuilder().AdmitBoundLiteral(base, facet.flag, facet.value); err != nil {
+		return schemaValueError(c.limits, xsderrors.CodeSchemaFacet, "invalid facet value "+diagnostictext.Quote(facet.value), err)
+	}
+	setValueBoundFacet(&st.ValueSpec.Facets, facet, valuepkg.LiteralSpec{Lexical: facet.value, Type: base})
 	return nil
 }
 

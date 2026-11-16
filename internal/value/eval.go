@@ -217,6 +217,60 @@ func (b *Builder) Validate(id TypeID, lexical string, resolver Resolver, needs N
 	})
 }
 
+// AdmitBoundLiteral reports whether lexical is admissible as the value of the
+// ordered-bound facet named by facet in a restriction of id: it must be in the
+// value space of id, or, for minExclusive and maxExclusive, equal the value of
+// the same facet of id (Datatypes §4.3.8, §4.3.9). Comparisons with inherited
+// bounds of other kinds belong to the facet-derivation checks.
+func (b *Builder) AdmitBoundLiteral(id TypeID, facet FacetMask, lexical string) error {
+	if b == nil || b.program == nil || b.program.sealed {
+		return ErrMetadata
+	}
+	budget, err := newEvaluationBudget(EvaluationLimits{Work: b.maxConstructionWork, PatternWork: b.maxPatternWork, PatternTotal: &b.patternTotal})
+	if err != nil {
+		return err
+	}
+	p := b.program
+	t, ok := p.typeDef(id)
+	if !ok {
+		return ErrMetadata
+	}
+	var v parsedValue
+	normalized, err := p.eval(id, lexical, evalOptions{work: &budget}, &v)
+	if err == nil && t.facets.present != 0 {
+		admitted := withoutRestatedExclusive(t, facet, &v)
+		err = applyFacets(&admitted, &v, normalized, nil, &budget)
+	}
+	if err != nil {
+		return describeValueFailure(p, id, lexical, &v, err)
+	}
+	return nil
+}
+
+// withoutRestatedExclusive returns t without the exclusive bound of the facet
+// kind that value restates.
+func withoutRestatedExclusive(t *typeDef, facet FacetMask, value *parsedValue) typeDef {
+	out := *t
+	if facet == FacetMinExclusive {
+		out.facets.lower = withoutEqualExclusive(t.facets.lower, value)
+	}
+	if facet == FacetMaxExclusive {
+		out.facets.upper = withoutEqualExclusive(t.facets.upper, value)
+	}
+	return out
+}
+
+func withoutEqualExclusive(bounds []boundValue, value *parsedValue) []boundValue {
+	kept := make([]boundValue, 0, len(bounds))
+	for i := range bounds {
+		if bounds[i].exclusive && !value.isList && equalAtomic(&bounds[i].value, &value.atom) {
+			continue
+		}
+		kept = append(kept, bounds[i])
+	}
+	return kept
+}
+
 // validateBorrowedBytes admits raw bytes and retains the accumulated work when
 // an unsupported raw shape falls through to normalized evaluation.
 func (p *Program) validateBorrowedBytes(id TypeID, lexical []byte, resolver Resolver, needs Needs, scratch *Scratch, budget *evaluationBudget) (Value, error) {
