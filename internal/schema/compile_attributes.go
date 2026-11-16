@@ -522,8 +522,11 @@ func readAttributeUseOverrides(n *schemaNode) attributeUseOverrides {
 }
 
 func (c *compiler) validateAttributeUseOverrides(n *schemaNode, use *attributeUse, base attributeUseBase, overrides attributeUseOverrides) error {
+	if !base.ref {
+		return nil
+	}
 	local, _ := sourceValueConstraint(overrides.defaultAttr, overrides.fixedAttr)
-	if !base.ref || local == nil {
+	if local == nil {
 		return nil
 	}
 	if err := c.validateAttributeValueConstraint(&local, use.Name, use.Type, n, validateAttributeUseValueConstraintRuntime); err != nil {

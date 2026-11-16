@@ -202,6 +202,9 @@ type elementDeclarationConsistencyChecker struct {
 	work   contentModelWork
 	states map[contentModelID]contentModelVisitState
 	cache  map[contentModelID][]namedElementDeclaration
+	// idle holds cleared name indexes for reuse; nested collection keeps one
+	// index live per model on the recursion stack.
+	idle []map[QName]ElementID
 }
 
 // namedElementDeclaration is the first element declaration EDC saw for a name
@@ -281,9 +284,10 @@ func (c *elementDeclarationConsistencyChecker) collectParticles(
 ) ([]namedElementDeclaration, error) {
 	hint := c.particleDeclarationsHint(particles)
 	declarations := elementDeclarationSet{
-		first:   make(map[QName]ElementID, hint),
+		first:   c.acquireNameIndex(hint),
 		ordered: make([]namedElementDeclaration, 0, hint),
 	}
+	defer c.releaseNameIndex(declarations.first)
 	for _, p := range particles {
 		if err := c.spend(); err != nil {
 			return nil, err
@@ -293,6 +297,20 @@ func (c *elementDeclarationConsistencyChecker) collectParticles(
 		}
 	}
 	return declarations.ordered, nil
+}
+
+func (c *elementDeclarationConsistencyChecker) acquireNameIndex(hint int) map[QName]ElementID {
+	if n := len(c.idle); n > 0 {
+		index := c.idle[n-1]
+		c.idle = c.idle[:n-1]
+		return index
+	}
+	return make(map[QName]ElementID, hint)
+}
+
+func (c *elementDeclarationConsistencyChecker) releaseNameIndex(index map[QName]ElementID) {
+	clear(index)
+	c.idle = append(c.idle, index)
 }
 
 // particleDeclarationsHint sizes a model's declaration set from its element

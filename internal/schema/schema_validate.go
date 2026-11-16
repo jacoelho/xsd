@@ -812,18 +812,17 @@ func validateValueConstraintRuntime(rt *schemaValidation, vc *valueConstraint, e
 	if vc == nil {
 		return nil
 	}
+	kind := " default "
 	if vc.Fixed {
-		label += " fixed"
-	} else {
-		label += " default"
+		kind = " fixed "
 	}
 	cached := newValueConstraintValidation(vc)
 	if err := validateValueConstraintShape(rt.build, cached, expected); err != nil {
-		return xsderrors.InternalInvariant(label + " " + err.Error())
+		return xsderrors.InternalInvariant(label + kind + err.Error())
 	}
 	application := valueConstraintApplication(vc.Lexical, vc.Canonical, vc.Value)
 	if err := validateValueConstraintQNameContext(application, vc.qnameContext, vc.ResolvedNames); err != nil {
-		return xsderrors.InternalInvariant(label + " " + err.Error())
+		return xsderrors.InternalInvariant(label + kind + err.Error())
 	}
 	return nil
 }
