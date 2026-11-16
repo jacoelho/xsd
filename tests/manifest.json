@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16632,
-    "schemaCases": 16582,
+    "cases": 16639,
+    "schemaCases": 16589,
     "instanceRuns": 35434,
     "w3cCases": 14414,
-    "internalRuns": 2205,
+    "internalRuns": 2212,
     "xercesJCases": 13
   },
   "cases": [
@@ -879677,6 +879677,386 @@
         {
           "file": "corpus/project/schema-syntax/annotation-only-content/annotated-control/missing.xml",
           "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/annotation-only-content/include-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/annotation-only-content/include-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-include"
+        ],
+        "conditions": [
+          "An xs:include may contain only an optional annotation; an xs:element child is rejected while the included document resolves."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/annotation-only-content/include-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:40: s4s-elt-must-match.1: The content of 'include' must match annotation?. A problem was found starting at: element. The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-include"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:41: The 'http://www.w3.org/2001/XMLSchema:element' element is not supported in this context. The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-include"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:element' at position 1: Schema component: <xs:include xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" schemaLocation=\"other.xsd\"><xs:element name=\"z\" /></xs:include> Path: /xs:schema/xs:include Schema URL: file://schema.xsd  The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-include"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}include': The content is not valid. Expected is (annotation?). The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-include"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/annotation-only-content/include-child/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/schema-syntax/annotation-only-content/include-child/other.xsd",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/annotation-only-content/import-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/annotation-only-content/import-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-import"
+        ],
+        "conditions": [
+          "An xs:import may contain only an optional annotation; an xs:element child is rejected while the imported document resolves."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/annotation-only-content/import-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:57: s4s-elt-must-match.1: The content of 'import' must match annotation?. A problem was found starting at: element. The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-import"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:58: The 'http://www.w3.org/2001/XMLSchema:element' element is not supported in this context. The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-import"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:element' at position 1: Schema component: <xs:import xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" namespace=\"urn:o\" schemaLocation=\"other.xsd\"><xs:element name=\"z\" /></xs:import> Path: /xs:schema/xs:import Schema URL: file://schema.xsd  The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-import"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}import': The content is not valid. Expected is (annotation?). The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-import"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/annotation-only-content/import-child/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/schema-syntax/annotation-only-content/import-child/other.xsd",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/annotation-only-content/notation-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/annotation-only-content/notation-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-notation"
+        ],
+        "conditions": [
+          "An xs:notation may contain only an optional annotation; an xs:element child is rejected."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/annotation-only-content/notation-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:56: s4s-elt-must-match.1: The content of 'notation' must match (annotation?). A problem was found starting at: element. The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-notation"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:35: The 'http://www.w3.org/2001/XMLSchema:element' element is not supported in this context. The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-notation"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:element' at position 1: Schema component: <xs:notation xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"N\" public=\"p\"><xs:element name=\"z\" /></xs:notation> Path: /xs:schema/xs:notation Schema URL: file://schema.xsd  The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-notation"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}notation': The content is not valid. Expected is (annotation?). The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-notation"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/annotation-only-content/notation-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/annotation-only-content/selector-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/annotation-only-content/selector-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-selector"
+        ],
+        "conditions": [
+          "An xs:selector may contain only an optional annotation; an xs:field child is rejected."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/annotation-only-content/selector-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:63: s4s-elt-must-match.1: The content of 'selector' must match (annotation?). A problem was found starting at: field. The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-selector"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:42: The 'http://www.w3.org/2001/XMLSchema:field' element is not supported in this context. The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-selector"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:field' at position 1: Schema component: <xs:selector xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xpath=\".\"><xs:field xpath=\"@a\" /></xs:selector> Path: /xs:schema/xs:element/xs:key/xs:selector Schema URL: file://schema.xsd  The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-selector"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element field: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}selector': The content is not valid. Expected is (annotation?). The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-selector"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/annotation-only-content/selector-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/annotation-only-content/field-two-annotations",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/annotation-only-content/field-two-annotations",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-field"
+        ],
+        "conditions": [
+          "An xs:field may contain at most one annotation; a second one is rejected."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/annotation-only-content/field-two-annotations/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:95: s4s-elt-must-match.1: The content of 'field' must match (annotation?). A problem was found starting at: annotation. The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-field"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:80: The 'annotation' element cannot appear at this location. The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-field"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:annotation' at position 2: Schema component: <xs:field xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xpath=\"@a\"><xs:annotation /><xs:annotation /></xs:field> Path: /xs:schema/xs:element/xs:key/xs:field Schema URL: file://schema.xsd  The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-field"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element annotation: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}field': The content is not valid. Expected is (annotation?). The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-field"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/annotation-only-content/field-two-annotations/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/annotation-only-content/selector-missing-xpath-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/annotation-only-content/selector-missing-xpath-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-selector"
+        ],
+        "conditions": [
+          "An xs:selector without its required xpath that also holds an xs:field child is rejected for its content."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/annotation-only-content/selector-missing-xpath-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:69: s4s-elt-must-match.1: The content of 'selector' must match (annotation?). A problem was found starting at: field. The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-selector"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:48: The 'http://www.w3.org/2001/XMLSchema:field' element is not supported in this context. The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-selector"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. missing required attribute 'xpath': Schema component: <xs:selector xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:annotation /><xs:field xpath=\"@a\" /></xs:selector> Path: /xs:schema/xs:element/xs:key/xs:selector Schema URL: file://schema.xsd  The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-selector"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element selector: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}selector': The attribute 'name' is required but missing. The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-selector"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/annotation-only-content/selector-missing-xpath-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/annotation-only-content/identity-annotated-control",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/annotation-only-content/identity-annotated-control",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-selector",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-field",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-notation"
+        ],
+        "conditions": [
+          "An xs:selector, xs:field and xs:notation each holding one annotation are accepted."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/annotation-only-content/identity-annotated-control/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-selector"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-selector"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-selector"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-selector"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/annotation-only-content/identity-annotated-control/schema.xsd",
+          "role": "principal"
         }
       ]
     }

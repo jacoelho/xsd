@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:o">
+<xs:simpleType name="O"><xs:restriction base="xs:string"/></xs:simpleType>
+</xs:schema>
