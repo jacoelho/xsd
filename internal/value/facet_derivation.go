@@ -256,6 +256,13 @@ func compareDerivationBounds(derived, base boundValue) (orderedFacetRelation, bo
 	return compareTimePartial(left, right), true
 }
 
+// equalDerivationBounds reports whether a and b are equal under the order of
+// compareDerivationBounds.
+func equalDerivationBounds(a, b boundValue) bool {
+	relation, ok := compareDerivationBounds(a, b)
+	return ok && relation == orderedFacetEqual
+}
+
 func rawTimeProjection(bound boundValue) TimeValue {
 	time := bound.value.time
 	time.second += int(bound.timeDayOffset) * daySeconds

@@ -205,16 +205,97 @@ func (p *Program) ValidateAdmitted(id TypeID, lexical string, resolver Resolver,
 // aggregate pattern account (BuilderOptions.MaxTotalPatternWork), as Complete
 // does; the builder has no uncharged evaluation.
 func (b *Builder) Validate(id TypeID, lexical string, resolver Resolver, needs Needs, scratch *Scratch) (Value, error) {
-	if b == nil || b.program == nil || b.program.sealed {
-		return Value{}, ErrMetadata
-	}
-	budget, err := newEvaluationBudget(EvaluationLimits{Work: b.maxConstructionWork, PatternWork: b.maxPatternWork, PatternTotal: &b.patternTotal})
+	budget, err := b.literalBudget()
 	if err != nil {
 		return Value{}, err
 	}
 	return b.program.validateValueWithBudget(id, lexical, &evaluationRequest{
 		resolver: resolver, needs: needs, scratch: scratch, budget: &budget,
 	})
+}
+
+// AdmitBoundLiteral returns an error unless lexical may be the {value} of the
+// ordered-bound facet named by facet in a restriction of base: it must be in
+// the value space of base, or a minExclusive or maxExclusive may instead equal
+// the effective same facet of base (Datatypes §4.3.8.1, §4.3.9.1). Equality
+// is the order restriction derivation uses. A restatement is still checked
+// against the patterns of base and against its bounds other than that facet,
+// with which the valid-restriction constraints compare it. Ordering against
+// inherited bounds on the same side and fixed-facet checks belong to
+// Complete. facet must be one of FacetMinInclusive, FacetMaxInclusive,
+// FacetMinExclusive or FacetMaxExclusive; any other mask returns ErrMetadata.
+// Each call charges the builder's aggregate pattern account, as Validate does.
+func (b *Builder) AdmitBoundLiteral(base TypeID, facet FacetMask, lexical string) error {
+	var side []boundValue
+	budget, err := b.literalBudget()
+	if err != nil {
+		return err
+	}
+	p := b.program
+	t, ok := p.typeDef(base)
+	if !ok {
+		return ErrMetadata
+	}
+	switch {
+	case facet == FacetMinExclusive:
+		side = t.facets.lower
+	case facet == FacetMaxExclusive:
+		side = t.facets.upper
+	case facet != FacetMinInclusive && facet != FacetMaxInclusive:
+		return ErrMetadata
+	}
+	var v parsedValue
+	normalized, err := p.eval(base, lexical, evalOptions{work: &budget}, &v)
+	if err != nil {
+		return describeValueFailure(p, base, lexical, &v, err)
+	}
+	admitting := t
+	restates, err := p.restatesExclusiveBound(t, base, side, lexical, &v)
+	if err != nil {
+		return err
+	}
+	if restates {
+		restatement := *t
+		restatement.facets = restatementFacets(&t.facets, facet)
+		admitting = &restatement
+	}
+	if err := applyFacets(admitting, &v, normalized, nil, &budget); err != nil {
+		return describeTypeValueFailure(p, base, admitting, lexical, &v, err)
+	}
+	return nil
+}
+
+// restatesExclusiveBound reports whether v, the parsed lexical, equals the
+// effective exclusive bound among side, the bounds of base on the restated
+// facet's side.
+func (p *Program) restatesExclusiveBound(t *typeDef, base TypeID, side []boundValue, lexical string, v *parsedValue) (bool, error) {
+	effective, ok := findBound(side, true)
+	if !ok {
+		return false, nil
+	}
+	bound, err := p.boundOf(t, base, lexical, v)
+	if err != nil {
+		return false, err
+	}
+	bound.exclusive = true
+	return equalDerivationBounds(bound, effective), nil
+}
+
+// restatementFacets returns the facets of f that still apply to a restated
+// exclusive bound: its patterns and every bound except the exclusive bounds on
+// the side of facet.
+func restatementFacets(f *facetProgram, facet FacetMask) facetProgram {
+	out := facetProgram{lower: f.lower, upper: f.upper, patterns: f.patterns}
+	if facet == FacetMinExclusive {
+		out.lower = inclusiveBounds(f.lower)
+	} else {
+		out.upper = inclusiveBounds(f.upper)
+	}
+	return out
+}
+
+func inclusiveBounds(bounds []boundValue) []boundValue {
+	return slices.DeleteFunc(slices.Clone(bounds), func(bound boundValue) bool { return bound.exclusive })
 }
 
 // validateBorrowedBytes admits raw bytes and retains the accumulated work when

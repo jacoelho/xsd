@@ -1107,3 +1107,17 @@ func TestProgramLexicalPayloadLengthFacets(t *testing.T) {
 		})
 	}
 }
+
+func TestAdmitBoundLiteralRejectsNonBoundFacetMask(t *testing.T) {
+	t.Parallel()
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
+	base := value.BuiltinType(value.PrimitiveDecimal)
+	for _, facet := range []value.FacetMask{0, value.FacetPattern, value.FacetTotalDigits, value.FacetMinExclusive | value.FacetMaxExclusive} {
+		if err := builder.AdmitBoundLiteral(base, facet, "1"); !errors.Is(err, value.ErrMetadata) {
+			t.Fatalf("AdmitBoundLiteral(facet %b) = %v, want ErrMetadata", facet, err)
+		}
+	}
+	if err := builder.AdmitBoundLiteral(base, value.FacetMaxExclusive, "1"); err != nil {
+		t.Fatalf("AdmitBoundLiteral(maxExclusive) = %v, want nil", err)
+	}
+}
