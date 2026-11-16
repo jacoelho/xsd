@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:group name="G"><xs:choice><xs:element name="a" type="xs:string"/><xs:element name="a" type="xs:int"/></xs:choice></xs:group>
+<xs:element name="r" type="xs:string"/>
+</xs:schema>

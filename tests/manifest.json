@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16603,
-    "schemaCases": 16553,
+    "cases": 16608,
+    "schemaCases": 16558,
     "instanceRuns": 35433,
     "w3cCases": 14414,
-    "internalRuns": 2176,
+    "internalRuns": 2181,
     "xercesJCases": 13
   },
   "cases": [
@@ -878110,6 +878110,274 @@
       "files": [
         {
           "file": "corpus/project/content-models/edc-same-declaration/two-groups-distinct-local-anonymous/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/edc-group-definition/unreferenced-conflicting-types",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/edc-group-definition/unreferenced-conflicting-types",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-model_group_defn"
+        ],
+        "conditions": [
+          "An unreferenced group whose model group declares a with two different named types violates EDC."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/edc-group-definition/unreferenced-conflicting-types/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/edc-group-definition/unreferenced-conflicting-types/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/edc-group-definition/unreferenced-anonymous-types",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/edc-group-definition/unreferenced-anonymous-types",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-model_group_defn"
+        ],
+        "conditions": [
+          "Two local declarations of a with their own anonymous types in an unreferenced group violate EDC."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/edc-group-definition/unreferenced-anonymous-types/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/edc-group-definition/unreferenced-anonymous-types/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/edc-group-definition/unreferenced-nested-conflict",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/edc-group-definition/unreferenced-nested-conflict",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-model_group_defn"
+        ],
+        "conditions": [
+          "EDC reaches declarations nested in an inner model group of an unreferenced group."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/edc-group-definition/unreferenced-nested-conflict/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/edc-group-definition/unreferenced-nested-conflict/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/edc-group-definition/unreferenced-same-type",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/edc-group-definition/unreferenced-same-type",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-model_group_defn"
+        ],
+        "conditions": [
+          "Two local declarations of a with the same named type in an unreferenced group satisfy EDC."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/edc-group-definition/unreferenced-same-type/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/edc-group-definition/unreferenced-same-type/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/edc-group-definition/unreferenced-different-names",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/edc-group-definition/unreferenced-different-names",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-model_group_defn"
+        ],
+        "conditions": [
+          "Declarations with different names in an unreferenced group are unconstrained by EDC."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/edc-group-definition/unreferenced-different-names/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/edc-group-definition/unreferenced-different-names/schema.xsd",
           "role": "principal"
         }
       ]
