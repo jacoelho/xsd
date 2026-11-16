@@ -70,7 +70,17 @@ def main(argv):
             schema = xmlschema.XMLSchema10(
                 roots if len(roots) > 1 else roots[0], opener=OPENER, use_fallback=False
             )
-        except (xmlschema.XMLSchemaParseError, xmlschema.XMLSchemaValidationError, ParseError) as e:
+        except xmlschema.XMLSchemaModelDepthError as e:  # provider depth limit, not a validity verdict
+            if not report_blocked(caught):
+                emit("error", f"{type(e).__name__}: {e}", caught)
+            return 0
+        except (
+            xmlschema.XMLSchemaParseError,
+            xmlschema.XMLSchemaValidationError,
+            # Strict-mode UPA and Element Declarations Consistent violations.
+            xmlschema.XMLSchemaModelError,
+            ParseError,
+        ) as e:
             if not report_blocked(caught):
                 emit("schema-invalid", e, caught)
             return 0

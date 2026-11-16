@@ -76,7 +76,7 @@ instance-validity result.
 | G.1.3 content models | Exclude relaxed UPA, expanded all groups and new wildcard facilities. |
 | G.1.4 assertions | Exclude assertions and XPath expression facilities. |
 | G.1.5 complex derivation | Keep the 1.0 structural algorithm; select only bounded R-122/R-240 repairs. |
-| G.1.6 complex types | No blanket mixed-content or consistency-rule relaxation. |
+| G.1.6 complex types | No blanket mixed-content or consistency-rule relaxation; Element Declarations Consistent counts distinct declarations per [I-026](INTERPRETATIONS.md#i-026--element-declarations-consistent-counts-declarations). |
 | G.1.7 ID-related types | Select recursive ID/IDREF carriage from [10662](https://www.w3.org/Bugs/Public/show_bug.cgi?id=10662) ([I-016](INTERPRETATIONS.md#i-016--recursive-id-ness)) at schema and run time; retain the 1.0 ID default, single-ID-attribute and DTD boundaries. Full ENTITY adoption is excluded ([ENTITY member selection](INTERPRETATIONS.md#datatype-and-observation-qualifications)). |
 | G.1.8 simple types | Select union integrity and typed constraints; exclude new primitive/universal types and assertions. |
 | G.1.9 elements | No type alternatives, abstract-type or other blanket element-policy adoption. |

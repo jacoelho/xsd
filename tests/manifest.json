@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16608,
-    "schemaCases": 16558,
-    "instanceRuns": 35433,
+    "cases": 16613,
+    "schemaCases": 16563,
+    "instanceRuns": 35436,
     "w3cCases": 14414,
-    "internalRuns": 2181,
+    "internalRuns": 2186,
     "xercesJCases": 13
   },
   "cases": [
@@ -723722,6 +723722,11 @@
           }
         ],
         "oracle": {
+          "project": {
+            "expected": "invalid",
+            "reason": "Previous project expectation counted element declaration particles: two ref particles to one global declaration with an anonymous type were rejected as two same-named declarations without a named type. I-026 reads Element Declarations Consistent over distinct declarations, so one declaration reached through several particles counts once.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
           "xerces": {
             "expected": "valid",
             "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
@@ -878043,12 +878048,13 @@
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
           },
           "xmlschema": {
-            "status": "unassessed",
-            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: error. XMLSchemaModelError: Element Declarations Consistent violation between XsdElement(name='a', occurs=[1, 1]) and XsdElement(ref='a', occurs=[1, 1]): match the same name but with different types: Schema component: <xs:sequence xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:element ref=\"a\" /><xs:elemen"
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Element Declarations Consistent violation between XsdElement(name='a', occurs=[1, 1]) and XsdElement(ref='a', occurs=[1, 1]): match the same name but with different types: Schema component: <xs:sequence xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:element ref=\"a\" /><xs:element name=\"a\"><xs:simple The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
           },
           "libxml2": {
             "expected": "valid",
-            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 also accepts project/content-models/edc-same-declaration/local-different-named-types, two local declarations of one name with the different named types xs:string and xs:int in one complex type, so it reports no Element Declarations Consistent violation in these fixtures; its acceptance is not evidence about the declaration-counting reading.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
           }
         }
@@ -878097,12 +878103,13 @@
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
           },
           "xmlschema": {
-            "status": "unassessed",
-            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: error. XMLSchemaModelError: Element Declarations Consistent violation between XsdElement(name='a', occurs=[1, 1]) and XsdElement(name='a', occurs=[1, 1]): match the same name but with different types: Schema component: <xs:sequence xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:group ref=\"G1\" /><xs:group"
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Element Declarations Consistent violation between XsdElement(name='a', occurs=[1, 1]) and XsdElement(name='a', occurs=[1, 1]): match the same name but with different types: Schema component: <xs:sequence xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:group ref=\"G1\" /><xs:group ref=\"G2\" /></xs:seque The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
           },
           "libxml2": {
             "expected": "valid",
-            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 also accepts project/content-models/edc-same-declaration/local-different-named-types, two local declarations of one name with the different named types xs:string and xs:int in one complex type, so it reports no Element Declarations Consistent violation in these fixtures; its acceptance is not evidence about the declaration-counting reading.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
           }
         }
@@ -878141,22 +878148,22 @@
         "oracle": {
           "xerces": {
             "expected": "valid",
-            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle. Diagnosis: Xerces-J rejects a conflicting group once a complex type references it (project/content-models/edc-group-definition/referenced-conflicting-types); it checks EDC on complex type content models only, not on the model group of an unreferenced named group definition.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
           },
           "dotnet": {
             "expected": "valid",
-            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle. Diagnosis: .NET rejects a conflicting group once a complex type references it (project/content-models/edc-group-definition/referenced-conflicting-types); it checks EDC on compiled complex type content models only, not on the model group of an unreferenced named group definition.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
           },
           "xmlschema": {
             "expected": "valid",
-            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle. Diagnosis: xmlschema rejects a conflicting group once a complex type references it (project/content-models/edc-group-definition/referenced-conflicting-types); XsdGlobals runs check_model only over XsdComplexType content, so the model group of an unreferenced named group definition is never checked.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
           },
           "libxml2": {
             "expected": "valid",
-            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 also accepts project/content-models/edc-same-declaration/local-different-named-types, two local declarations of one name with the different named types xs:string and xs:int in one complex type, so it reports no Element Declarations Consistent violation in these fixtures; its acceptance is not evidence about the declaration-counting reading.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
           }
         }
@@ -878195,22 +878202,22 @@
         "oracle": {
           "xerces": {
             "expected": "valid",
-            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle. Diagnosis: Xerces-J rejects a conflicting group once a complex type references it (project/content-models/edc-group-definition/referenced-conflicting-types); it checks EDC on complex type content models only, not on the model group of an unreferenced named group definition.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
           },
           "dotnet": {
             "expected": "valid",
-            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle. Diagnosis: .NET rejects a conflicting group once a complex type references it (project/content-models/edc-group-definition/referenced-conflicting-types); it checks EDC on compiled complex type content models only, not on the model group of an unreferenced named group definition.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
           },
           "xmlschema": {
             "expected": "valid",
-            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle. Diagnosis: xmlschema rejects a conflicting group once a complex type references it (project/content-models/edc-group-definition/referenced-conflicting-types); XsdGlobals runs check_model only over XsdComplexType content, so the model group of an unreferenced named group definition is never checked.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
           },
           "libxml2": {
             "expected": "valid",
-            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 also accepts project/content-models/edc-same-declaration/local-different-named-types, two local declarations of one name with the different named types xs:string and xs:int in one complex type, so it reports no Element Declarations Consistent violation in these fixtures; its acceptance is not evidence about the declaration-counting reading.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
           }
         }
@@ -878249,22 +878256,22 @@
         "oracle": {
           "xerces": {
             "expected": "valid",
-            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle. Diagnosis: Xerces-J rejects a conflicting group once a complex type references it (project/content-models/edc-group-definition/referenced-conflicting-types); it checks EDC on complex type content models only, not on the model group of an unreferenced named group definition.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
           },
           "dotnet": {
             "expected": "valid",
-            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle. Diagnosis: .NET rejects a conflicting group once a complex type references it (project/content-models/edc-group-definition/referenced-conflicting-types); it checks EDC on compiled complex type content models only, not on the model group of an unreferenced named group definition.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
           },
           "xmlschema": {
             "expected": "valid",
-            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle. Diagnosis: xmlschema rejects a conflicting group once a complex type references it (project/content-models/edc-group-definition/referenced-conflicting-types); XsdGlobals runs check_model only over XsdComplexType content, so the model group of an unreferenced named group definition is never checked.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
           },
           "libxml2": {
             "expected": "valid",
-            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 also accepts project/content-models/edc-same-declaration/local-different-named-types, two local declarations of one name with the different named types xs:string and xs:int in one complex type, so it reports no Element Declarations Consistent violation in these fixtures; its acceptance is not evidence about the declaration-counting reading.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
           }
         }
@@ -878378,6 +878385,376 @@
       "files": [
         {
           "file": "corpus/project/content-models/edc-group-definition/unreferenced-different-names/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/edc-same-declaration/group-max-occurs-after-ref",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/edc-same-declaration/group-max-occurs-after-ref",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-element-consistent"
+        ],
+        "conditions": [
+          "A repeated group particle nests a model that reaches the declaration a, with its anonymous type, already reached directly; the merged nested model adds no second declaration."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/edc-same-declaration/group-max-occurs-after-ref/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "repeated",
+          "file": "corpus/project/content-models/edc-same-declaration/group-max-occurs-after-ref/repeated.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/edc-same-declaration/group-max-occurs-after-ref/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/edc-same-declaration/group-max-occurs-after-ref/repeated.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/edc-same-declaration/choice-group-referenced-twice",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/edc-same-declaration/choice-group-referenced-twice",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-element-consistent"
+        ],
+        "conditions": [
+          "A group whose choice has several children stays a nested model; referencing it twice merges the declaration a, with its anonymous type, twice and it counts once."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/edc-same-declaration/choice-group-referenced-twice/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "two",
+          "file": "corpus/project/content-models/edc-same-declaration/choice-group-referenced-twice/two.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/edc-same-declaration/choice-group-referenced-twice/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/edc-same-declaration/choice-group-referenced-twice/two.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/edc-same-declaration/group-local-anonymous-referenced-twice",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/edc-same-declaration/group-local-anonymous-referenced-twice",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-element-consistent"
+        ],
+        "conditions": [
+          "A local declaration with an anonymous type inside a group is one declaration however often the group is referenced."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/edc-same-declaration/group-local-anonymous-referenced-twice/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "two",
+          "file": "corpus/project/content-models/edc-same-declaration/group-local-anonymous-referenced-twice/two.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/edc-same-declaration/group-local-anonymous-referenced-twice/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/edc-same-declaration/group-local-anonymous-referenced-twice/two.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/edc-same-declaration/local-different-named-types",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/edc-same-declaration/local-different-named-types",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-element-consistent"
+        ],
+        "conditions": [
+          "Two local declarations of a with different named types in one complex type violate EDC; the smallest control for providers that do not enforce EDC."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/edc-same-declaration/local-different-named-types/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:41: cos-element-consistent: Error for type '#AnonType_root'. Multiple elements with name 'a', with different types, appear in the model group. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:94: Elements with the same name and in the same scope must have the same type. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Element Declarations Consistent violation between XsdElement(name='a', occurs=[1, 1]) and XsdElement(name='a', occurs=[1, 1]): match the same name but with different types: Schema component: <xs:sequence xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:element name=\"a\" type=\"xs:string\" /><xs:element  The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Element Declarations Consistent as I-026 reads it: one element declaration counts once however it is reached; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 also accepts project/content-models/edc-same-declaration/local-different-named-types, two local declarations of one name with the different named types xs:string and xs:int in one complex type, so it reports no Element Declarations Consistent violation in these fixtures; its acceptance is not evidence about the declaration-counting reading.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/edc-same-declaration/local-different-named-types/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/edc-group-definition/referenced-conflicting-types",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/edc-group-definition/referenced-conflicting-types",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-model_group_defn"
+        ],
+        "conditions": [
+          "The unreferenced-conflicting-types group referenced from a complex type; the control showing which providers check EDC only on complex type content models."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/edc-group-definition/referenced-conflicting-types/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:173: cos-element-consistent: Error for type '#AnonType_root'. Multiple elements with name 'a', with different types, appear in the model group. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:73: Elements with the same name and in the same scope must have the same type. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Element Declarations Consistent violation between XsdElement(name='a', occurs=[1, 1]) and XsdElement(name='a', occurs=[1, 1]): match the same name but with different types: Schema component: <xs:group xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" ref=\"G\" /> Path: /xs:schema/xs:element[1]/xs:complexTyp The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 also accepts project/content-models/edc-same-declaration/local-different-named-types, two local declarations of one name with the different named types xs:string and xs:int in one complex type, so it reports no Element Declarations Consistent violation in these fixtures; its acceptance is not evidence about the declaration-counting reading.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/edc-group-definition/referenced-conflicting-types/schema.xsd",
           "role": "principal"
         }
       ]
