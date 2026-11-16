@@ -133,7 +133,7 @@ func TestValueConstraintIdentityIncludesQNameContextOnly(t *testing.T) {
 }
 
 func TestMixedContentConstraintCapturesProspectiveQNameContext(t *testing.T) {
-	constraint := mixedContentConstraint("p:item", func(string) (string, bool) { return "urn:p", true })
+	constraint := mixedContentConstraint(&valueConstraint{Lexical: "p:item"}, func(string) (string, bool) { return "urn:p", true })
 	if constraint.Value.Type() != valuepkg.NoType {
 		t.Fatalf("mixed constraint value type = %v, want untyped", constraint.Value.Type())
 	}

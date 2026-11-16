@@ -349,7 +349,7 @@ func fixtureElements(names []QName, restrictions []particleRestrictionElement) [
 		out[i].Block = r.Block
 		out[i].Identity = slices.Clone(r.Identities.values)
 		if r.Fixed.Present {
-			out[i].Fixed = &valueConstraint{Lexical: r.Fixed.Lexical, Canonical: r.Fixed.Canonical, Value: r.Fixed.Value, ResolvedNames: slices.Clone(r.Fixed.ResolvedNames), qnameContext: r.Fixed.qnameContext}
+			out[i].ValueConstraint = &valueConstraint{Lexical: r.Fixed.Lexical, Canonical: r.Fixed.Canonical, Value: r.Fixed.Value, ResolvedNames: slices.Clone(r.Fixed.ResolvedNames), qnameContext: r.Fixed.qnameContext, Fixed: true}
 		}
 	}
 	return out

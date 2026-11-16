@@ -493,7 +493,7 @@ func validateBuiltinXSIAttributes(rt *schemaValidation) error {
 			return xsderrors.InternalInvariant("intrinsic XSI attribute binding is missing")
 		}
 		decl := rt.build.Attributes[id]
-		if decl.Name != q || decl.Type != attribute.typ || decl.Default != nil || decl.Fixed != nil {
+		if decl.Name != q || decl.Type != attribute.typ || decl.ValueConstraint != nil {
 			return xsderrors.InternalInvariant("intrinsic XSI attribute declaration differs from its definition")
 		}
 	}
@@ -608,13 +608,10 @@ func validateElementDeclValueConstraints(rt *schemaValidation, decl elementDecl)
 	if err != nil {
 		return err
 	}
-	if err := validateValueConstraintRuntime(rt, decl.Default, defaultType, "element declaration default"); err != nil {
-		return err
-	}
-	if err := validateElementDeclValueConstraintRuntime(rt.build, defaultType, declarationValueConstraintOf(decl.Default, decl.Fixed)); err != nil {
+	if err := validateElementDeclValueConstraintRuntime(rt.build, defaultType, decl.ValueConstraint); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
-	return validateValueConstraintRuntime(rt, decl.Fixed, defaultType, "element declaration fixed")
+	return validateValueConstraintRuntime(rt, decl.ValueConstraint, defaultType, "element declaration")
 }
 
 func validateAttributeDecl(rt *schemaValidation, decl attributeDecl) error {
@@ -626,13 +623,10 @@ func validateAttributeDecl(rt *schemaValidation, decl attributeDecl) error {
 	if err := checkNotationTypeUse(rt.build, decl.Type); err != nil {
 		return schemaBuildValidationError(err)
 	}
-	if err := validateAttributeDeclValueConstraintRuntime(rt.build, decl.Type, declarationValueConstraintOf(decl.Default, decl.Fixed)); err != nil {
+	if err := validateAttributeDeclValueConstraintRuntime(rt.build, decl.Type, decl.ValueConstraint); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
-	if err := validateValueConstraintRuntime(rt, decl.Default, decl.Type, "attribute declaration default"); err != nil {
-		return err
-	}
-	return validateValueConstraintRuntime(rt, decl.Fixed, decl.Type, "attribute declaration fixed")
+	return validateValueConstraintRuntime(rt, decl.ValueConstraint, decl.Type, "attribute declaration")
 }
 
 func validateSimpleType(rt *schemaValidation, id SimpleTypeID, st simpleType) error {
@@ -785,10 +779,7 @@ func validateAttributeUseSetRuntime(rt *schemaValidation, _ attributeUseSetID, s
 		if err := checkNotationTypeUse(rt.build, use.Type); err != nil {
 			return schemaBuildValidationError(err)
 		}
-		if err := validateValueConstraintRuntime(rt, use.Default, use.Type, "attribute use default"); err != nil {
-			return err
-		}
-		if err := validateValueConstraintRuntime(rt, use.Fixed, use.Type, "attribute use fixed"); err != nil {
+		if err := validateValueConstraintRuntime(rt, use.ValueConstraint, use.Type, "attribute use"); err != nil {
 			return err
 		}
 	}
@@ -803,7 +794,7 @@ func checkDerivedAttributeWildcard(rt *schemaValidation, base, derived attribute
 }
 
 func auditElementValueConstraintType(rt *schemaValidation, decl elementDecl) (SimpleTypeID, error) {
-	if decl.Default == nil && decl.Fixed == nil {
+	if decl.ValueConstraint == nil {
 		return NoSimpleType, nil
 	}
 	id, err := elementValueConstraintType(rt.build, rt.contentAnalysis, decl.Type)
@@ -820,6 +811,11 @@ func auditElementValueConstraintType(rt *schemaValidation, decl elementDecl) (Si
 func validateValueConstraintRuntime(rt *schemaValidation, vc *valueConstraint, expected SimpleTypeID, label string) error {
 	if vc == nil {
 		return nil
+	}
+	if vc.Fixed {
+		label += " fixed"
+	} else {
+		label += " default"
 	}
 	cached := newValueConstraintValidation(vc)
 	if err := validateValueConstraintShape(rt.build, cached, expected); err != nil {

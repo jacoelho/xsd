@@ -441,13 +441,6 @@ func (c *compiler) referenceQName(ctx *schemaSetDocument, n *schemaNode, name xm
 	return c.rt.internQName(namespace, name.Local)
 }
 
-func (c *compiler) validateAttributeDeclValueConstraintIdentity(decl *attributeDecl) error {
-	if err := validateAttributeDeclValueConstraintRuntime(&c.rt, decl.Type, declarationValueConstraintOf(decl.Default, decl.Fixed)); err != nil {
-		return invalidAttributeError(err)
-	}
-	return nil
-}
-
 func (c *compiler) validateAttributeDeclName(n *schemaNode, q QName) error {
 	if err := c.validateAttributeDeclNameBuild(q); err != nil {
 		return withSchemaCompileLocation(n, invalidAttributeError(err))

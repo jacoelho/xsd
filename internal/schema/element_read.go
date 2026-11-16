@@ -52,7 +52,7 @@ func newElementReadTable(decls []elementDecl) elementReadTable {
 func elementReadStorageCounts(decls []elementDecl) (identityCount, constraintCount int) {
 	for i := range decls {
 		identityCount += len(decls[i].Identity)
-		if decls[i].Fixed != nil || decls[i].Default != nil {
+		if decls[i].ValueConstraint != nil {
 			constraintCount++
 		}
 	}
@@ -86,17 +86,12 @@ func elementFlags(decl elementDecl) elementReadFlags {
 }
 
 func (t *elementReadTable) addValueConstraint(decl elementDecl) int {
-	if decl.Fixed != nil {
-		value, _ := newValueConstraintReadFromConstraint(decl.Fixed)
-		t.constraints = append(t.constraints, elementConstraintRead{value: value, kind: declarationValueConstraintFixed})
-		return len(t.constraints) - 1
+	value, ok := newValueConstraintReadFromConstraint(decl.ValueConstraint)
+	if !ok {
+		return -1
 	}
-	if decl.Default != nil {
-		value, _ := newValueConstraintReadFromConstraint(decl.Default)
-		t.constraints = append(t.constraints, elementConstraintRead{value: value, kind: declarationValueConstraintDefault})
-		return len(t.constraints) - 1
-	}
-	return -1
+	t.constraints = append(t.constraints, elementConstraintRead{value: value, kind: decl.ValueConstraint.kind()})
+	return len(t.constraints) - 1
 }
 
 func (t *elementReadTable) name(id ElementID) (QName, bool) {

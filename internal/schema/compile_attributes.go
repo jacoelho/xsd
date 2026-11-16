@@ -57,15 +57,16 @@ func (c *compiler) compileAttributeDecl(ctx *schemaSetDocument, n *schemaNode, q
 	if err != nil {
 		return attributeDecl{}, err
 	}
-	if err := c.admitNotationTypeUse(n, typ); err != nil {
+	if err = c.admitNotationTypeUse(n, typ); err != nil {
 		return attributeDecl{}, err
 	}
-	decl := attributeDecl{Name: q, Type: typ}
-	readAttributeDeclValueConstraints(n, &decl)
-	if err := validateAttributeDeclValueConstraintAtNode(n, declarationValueConstraintOf(decl.Default, decl.Fixed)); err != nil {
+	source := semanticSource[*schemaAttributeSource](&n.semantic)
+	constraint, kind := sourceValueConstraint(source.Default, source.Fixed)
+	if err = validateAttributeDeclValueConstraintAtNode(n, kind); err != nil {
 		return attributeDecl{}, err
 	}
-	if err := c.validateAttributeValueConstraints(&decl, n); err != nil {
+	decl := attributeDecl{Name: q, Type: typ, ValueConstraint: constraint}
+	if err = c.validateAttributeValueConstraint(&decl.ValueConstraint, q, typ, n, validateAttributeDeclValueConstraintRuntime); err != nil {
 		return attributeDecl{}, withSchemaCompileLocation(n, err)
 	}
 	return decl, nil
@@ -96,54 +97,46 @@ func (c *compiler) compileAttributeDeclType(ctx *schemaSetDocument, n *schemaNod
 	return valuepkg.AnySimpleTypeID, nil
 }
 
-func readAttributeDeclValueConstraints(n *schemaNode, decl *attributeDecl) {
-	source := semanticSource[*schemaAttributeSource](&n.semantic)
-	if source == nil {
-		return
-	}
-	if source.Default.Present {
-		decl.Default = &valueConstraint{Lexical: source.Default.Value}
-	}
-	if source.Fixed.Present {
-		decl.Fixed = &valueConstraint{Lexical: source.Fixed.Value}
-	}
-}
-
-func (c *compiler) validateAttributeValueConstraints(decl *attributeDecl, n *schemaNode) error {
-	if !validSimpleTypeID(decl.Type, len(c.rt.simpleTypeUnavailable)) {
+// validateAttributeValueConstraint replaces *constraint with its validation
+// against the attribute type of owner, or with nil when that type is
+// unavailable.
+func (c *compiler) validateAttributeValueConstraint(
+	constraint **valueConstraint,
+	owner QName,
+	typ SimpleTypeID,
+	n *schemaNode,
+	validateIdentity func(*schemaBuild, SimpleTypeID, *valueConstraint) error,
+) error {
+	if !validSimpleTypeID(typ, len(c.rt.simpleTypeUnavailable)) {
 		return xsderrors.InternalInvariant("attribute value constraint references invalid simple type")
 	}
-	if c.rt.simpleTypeUnavailable[decl.Type] {
-		decl.Default = nil
-		decl.Fixed = nil
+	if c.rt.simpleTypeUnavailable[typ] {
+		*constraint = nil
 		return nil
 	}
-	if err := c.validateAttributeDeclValueConstraintIdentity(decl); err != nil {
-		return err
+	if err := validateIdentity(&c.rt, typ, *constraint); err != nil {
+		return invalidAttributeError(err)
 	}
-	if decl.Default == nil && decl.Fixed == nil {
+	if *constraint == nil {
 		return nil
 	}
-	constraint := decl.Default
-	label := attributeDefaultConstraintLabel
-	if constraint == nil {
-		constraint = decl.Fixed
-		label = attributeFixedConstraintLabel
-	}
-	resolve := schemaQNameResolver(n)
-	validated, err := c.validateValueConstraint(decl.Type, constraint.Lexical, resolve, n.namespace.Lookup, decl.Name, label)
+	validated, err := c.validateValueConstraint(typ, *constraint, schemaQNameResolver(n), n.namespace.Lookup, owner, attributeValueConstraintLabel(*constraint))
 	if err != nil {
 		return err
 	}
-	if decl.Default != nil {
-		decl.Default = validated
-		return nil
-	}
-	decl.Fixed = validated
+	*constraint = validated
 	return nil
 }
 
-func (c *compiler) validateValueConstraint(id SimpleTypeID, lexical string, resolve valuepkg.QNameResolver, lookup func(string) (string, bool), owner QName, label string) (*valueConstraint, error) {
+func attributeValueConstraintLabel(constraint *valueConstraint) string {
+	if constraint.Fixed {
+		return attributeFixedConstraintLabel
+	}
+	return attributeDefaultConstraintLabel
+}
+
+func (c *compiler) validateValueConstraint(id SimpleTypeID, constraint *valueConstraint, resolve valuepkg.QNameResolver, lookup func(string) (string, bool), owner QName, label string) (*valueConstraint, error) {
+	lexical := constraint.Lexical
 	validated, resolvedNames, err := c.validateValue(id, lexical, resolve, valuepkg.NeedCanonical|valuepkg.NeedIdentity)
 	if err != nil {
 		return nil, schemaValueError(c.limits, xsderrors.CodeSchemaFacet, "invalid "+label+" value for "+c.rt.formatName(owner), err)
@@ -155,6 +148,7 @@ func (c *compiler) validateValueConstraint(id SimpleTypeID, lexical string, reso
 		Canonical:     canonical,
 		Value:         validated,
 		qnameContext:  newValueConstraintQNameContext(valueConstraintApplication(lexical, canonical, validated), lookup),
+		Fixed:         constraint.Fixed,
 	}, nil
 }
 
@@ -295,7 +289,7 @@ func (b *attributeUseCompilation) addAttribute(child *schemaNode) error {
 		if admissionErr != nil {
 			return admissionErr
 		}
-		if err = validateAttributeUseValueConstraintAtNode(child, mode, overrides.hasDefault, overrides.hasFixed, false); err != nil {
+		if err = validateAttributeUseValueConstraintAtNode(child, mode, overrides.defaultAttr.Present, overrides.fixedAttr.Present, false); err != nil {
 			return err
 		}
 		b.addProhibition(name)
@@ -488,14 +482,14 @@ func (c *compiler) compileAttributeUse(ctx *schemaSetDocument, n *schemaNode, mo
 		return attributeUse{}, err
 	}
 	use := base.use
-	if err = validateAttributeUseValueConstraintAtNode(n, mode, overrides.hasDefault, overrides.hasFixed, base.refFixed != nil); err != nil {
+	if err = validateAttributeUseValueConstraintAtNode(n, mode, overrides.defaultAttr.Present, overrides.fixedAttr.Present, base.refFixed != nil); err != nil {
 		return attributeUse{}, err
 	}
 	use.Required = mode == attributeUseRequired
 	if err = c.validateAttributeUseOverrides(n, &use, base, overrides); err != nil {
 		return attributeUse{}, err
 	}
-	if err = validateAttributeUseFixedValueAtNode(n, newValueConstraintIdentity(use.Fixed), newValueConstraintIdentity(base.refFixed)); err != nil {
+	if err = validateAttributeUseFixedValueAtNode(n, newValueConstraintIdentity(use.ValueConstraint.fixedConstraint()), newValueConstraintIdentity(base.refFixed)); err != nil {
 		return attributeUse{}, err
 	}
 	use.componentID, err = c.allocateAttributeUseID()
@@ -514,11 +508,9 @@ func (c *compiler) allocateAttributeUseID() (uint32, error) {
 }
 
 type attributeUseOverrides struct {
-	defaultValue string
-	fixedValue   string
-	mode         lexicalAttribute
-	hasDefault   bool
-	hasFixed     bool
+	defaultAttr lexicalAttribute
+	fixedAttr   lexicalAttribute
+	mode        lexicalAttribute
 }
 
 func readAttributeUseOverrides(n *schemaNode) attributeUseOverrides {
@@ -526,30 +518,20 @@ func readAttributeUseOverrides(n *schemaNode) attributeUseOverrides {
 	if source == nil {
 		return attributeUseOverrides{}
 	}
-	return attributeUseOverrides{
-		defaultValue: source.Default.Value, fixedValue: source.Fixed.Value, mode: source.Use,
-		hasDefault: source.Default.Present, hasFixed: source.Fixed.Present,
-	}
+	return attributeUseOverrides{defaultAttr: source.Default, fixedAttr: source.Fixed, mode: source.Use}
 }
 
 func (c *compiler) validateAttributeUseOverrides(n *schemaNode, use *attributeUse, base attributeUseBase, overrides attributeUseOverrides) error {
-	if !base.ref || !overrides.hasDefault && !overrides.hasFixed {
+	local, _ := sourceValueConstraint(overrides.defaultAttr, overrides.fixedAttr)
+	if !base.ref || local == nil {
 		return nil
 	}
-	decl := attributeDecl{Name: use.Name, Type: use.Type}
-	if overrides.hasDefault {
-		decl.Default = &valueConstraint{Lexical: overrides.defaultValue}
-	}
-	if overrides.hasFixed {
-		decl.Fixed = &valueConstraint{Lexical: overrides.fixedValue}
-	}
-	if err := c.validateAttributeValueConstraints(&decl, n); err != nil {
+	if err := c.validateAttributeValueConstraint(&local, use.Name, use.Type, n, validateAttributeUseValueConstraintRuntime); err != nil {
 		return withSchemaCompileLocation(n, err)
 	}
-	// An attribute use has one {value constraint}: a local default or fixed
-	// replaces the referenced declaration's constraint as a whole
-	// (Structures §3.2.2, §3.5.1).
-	use.Default, use.Fixed = decl.Default, decl.Fixed
+	// The local constraint replaces the declaration's rather than joining it
+	// (Structures §3.2.2 attribute use mapping).
+	use.ValueConstraint = local
 	return nil
 }
 
@@ -578,11 +560,7 @@ func (c *compiler) compileAttributeRefUse(ctx *schemaSetDocument, n *schemaNode,
 		return attributeUseBase{}, withSchemaCompileLocation(n, err)
 	}
 	use := c.rt.attributeUse(id)
-	base := attributeUseBase{use: use, ref: true}
-	if use.Fixed != nil {
-		base.refFixed = use.Fixed
-	}
-	return base, nil
+	return attributeUseBase{use: use, ref: true, refFixed: use.ValueConstraint.fixedConstraint()}, nil
 }
 
 func (c *compiler) compileLocalAttributeUse(ctx *schemaSetDocument, n *schemaNode) (result attributeUse, err error) {
@@ -679,10 +657,9 @@ func (c *compiler) admitProhibitedAttributeChildren(ctx *schemaSetDocument, n *s
 
 func attributeUseFromDecl(decl attributeDecl) attributeUse {
 	return attributeUse{
-		Name:    decl.Name,
-		Type:    decl.Type,
-		Default: decl.Default,
-		Fixed:   decl.Fixed,
+		Name:            decl.Name,
+		Type:            decl.Type,
+		ValueConstraint: decl.ValueConstraint,
 	}
 }
 

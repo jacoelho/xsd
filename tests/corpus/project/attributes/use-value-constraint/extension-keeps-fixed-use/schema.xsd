@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:attribute name="a" type="xs:int" default="1"/>
+<xs:complexType name="B"><xs:attribute ref="a" fixed="2"/></xs:complexType>
+<xs:complexType name="E"><xs:complexContent><xs:extension base="B"><xs:attribute name="b"/></xs:extension></xs:complexContent></xs:complexType>
+<xs:element name="r" type="E"/>
+</xs:schema>

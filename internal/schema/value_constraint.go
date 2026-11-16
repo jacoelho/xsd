@@ -8,9 +8,10 @@ import (
 	valuepkg "github.com/jacoelho/xsd/internal/value"
 )
 
-// valueConstraint is a prevalidated default or fixed value constraint.
-// A nil *valueConstraint means absent. Once attached to a runtime component,
-// the value is immutable; declarations and uses may share the same pointer.
+// valueConstraint is a prevalidated {value constraint}: one value that is
+// either a default or, when Fixed is set, a fixed value. A nil
+// *valueConstraint means absent. Once attached to a runtime component, the
+// value is immutable; declarations and uses may share the same pointer.
 // The cached value's type is the exact owning simple type, including an outer
 // union, never the member that accepted the text; publication rejects a
 // member-typed cache even when that member accepts the same lexical value.
@@ -20,6 +21,43 @@ type valueConstraint struct {
 	Canonical     string
 	ResolvedNames []resolvedValueName
 	Value         valuepkg.Value
+	Fixed         bool
+}
+
+// sourceValueConstraint classifies the default and fixed attributes of one
+// schema source element and returns the unvalidated constraint they give,
+// nil when they give none or conflict.
+func sourceValueConstraint(defaultAttr, fixedAttr lexicalAttribute) (*valueConstraint, declarationValueConstraint) {
+	switch {
+	case defaultAttr.Present && fixedAttr.Present:
+		return nil, declarationValueConstraintConflict
+	case defaultAttr.Present:
+		return &valueConstraint{Lexical: defaultAttr.Value}, declarationValueConstraintDefault
+	case fixedAttr.Present:
+		return &valueConstraint{Lexical: fixedAttr.Value, Fixed: true}, declarationValueConstraintFixed
+	default:
+		return nil, declarationValueConstraintNone
+	}
+}
+
+// kind classifies vc; nil is declarationValueConstraintNone.
+func (vc *valueConstraint) kind() declarationValueConstraint {
+	switch {
+	case vc == nil:
+		return declarationValueConstraintNone
+	case vc.Fixed:
+		return declarationValueConstraintFixed
+	default:
+		return declarationValueConstraintDefault
+	}
+}
+
+// fixedConstraint returns vc when it is fixed and nil otherwise.
+func (vc *valueConstraint) fixedConstraint() *valueConstraint {
+	if vc == nil || !vc.Fixed {
+		return nil
+	}
+	return vc
 }
 
 // valueConstraintValidation is the runtime projection needed to validate cached

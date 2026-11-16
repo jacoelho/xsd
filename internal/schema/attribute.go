@@ -47,12 +47,11 @@ type attributeUseSet struct {
 // componentID for set union; publication discards this compiler-local identity.
 // Prohibitions remain source-name directives and never enter this record.
 type attributeUse struct {
-	Default     *valueConstraint
-	Fixed       *valueConstraint
-	Name        QName
-	Type        SimpleTypeID
-	componentID uint32
-	Required    bool
+	ValueConstraint *valueConstraint
+	Name            QName
+	Type            SimpleTypeID
+	componentID     uint32
+	Required        bool
 }
 
 // AttributeUseSetRead exposes validation-facing attribute-use-set behavior
@@ -192,14 +191,12 @@ func (s AttributeUseSetRead) ValueConstraintSlots() AttributeUseSlots {
 // AttributeUseRead exposes validation-facing facts for one declared attribute
 // use without exposing compiler-owned storage.
 type AttributeUseRead struct {
-	label        string
-	fixed        ValueConstraintRead
-	defaultValue ValueConstraintRead
-	name         QName
-	typ          SimpleTypeID
-	required     bool
-	hasFixed     bool
-	hasDefault   bool
+	label      string
+	constraint ValueConstraintRead
+	name       QName
+	typ        SimpleTypeID
+	required   bool
+	kind       declarationValueConstraint
 }
 
 // newAttributeUseRead returns an immutable validation read projection for one
@@ -210,20 +207,16 @@ func newAttributeUseRead(names *nameTable, use attributeUse) AttributeUseRead {
 	// validation. Keep them on construction records for schema correctness and
 	// derivation; publication permits only the four intrinsic XSI declarations.
 	if names.Namespace(use.Name.Namespace) == vocab.XSINamespaceURI {
-		use.Default = nil
-		use.Fixed = nil
+		use.ValueConstraint = nil
 	}
-	fixed, hasFixed := newValueConstraintReadFromConstraint(use.Fixed)
-	def, hasDefault := newValueConstraintReadFromConstraint(use.Default)
+	constraint, _ := newValueConstraintReadFromConstraint(use.ValueConstraint)
 	return AttributeUseRead{
-		name:         use.Name,
-		typ:          use.Type,
-		label:        names.Format(use.Name),
-		fixed:        fixed,
-		defaultValue: def,
-		required:     use.Required,
-		hasFixed:     hasFixed,
-		hasDefault:   hasDefault,
+		name:       use.Name,
+		typ:        use.Type,
+		label:      names.Format(use.Name),
+		constraint: constraint,
+		kind:       use.ValueConstraint.kind(),
+		required:   use.Required,
 	}
 }
 
@@ -249,19 +242,19 @@ func (u AttributeUseRead) Required() bool {
 
 // FixedValue returns the fixed value, if present.
 func (u AttributeUseRead) FixedValue() (ValueConstraintRead, bool) {
-	return u.fixed, u.hasFixed
+	if u.kind != declarationValueConstraintFixed {
+		return ValueConstraintRead{}, false
+	}
+	return u.constraint, true
 }
 
 // AbsentValueConstraint returns the fixed/default value applied when the
 // attribute is absent.
 func (u AttributeUseRead) AbsentValueConstraint() (ValueConstraintRead, bool) {
-	if u.hasFixed {
-		return u.fixed, true
+	if !u.kind.present() {
+		return ValueConstraintRead{}, false
 	}
-	if u.hasDefault {
-		return u.defaultValue, true
-	}
-	return ValueConstraintRead{}, false
+	return u.constraint, true
 }
 
 // AttributeDeclRead exposes validation-facing facts for one global attribute
@@ -276,7 +269,7 @@ type AttributeDeclRead struct {
 // newAttributeDeclRead returns an immutable validation read projection for one
 // global attribute declaration.
 func newAttributeDeclRead(decl attributeDecl) AttributeDeclRead {
-	fixed, hasFixed := newValueConstraintReadFromConstraint(decl.Fixed)
+	fixed, hasFixed := newValueConstraintReadFromConstraint(decl.ValueConstraint.fixedConstraint())
 	return AttributeDeclRead{
 		name:     decl.Name,
 		typ:      decl.Type,
@@ -348,7 +341,7 @@ func (a *attributeUseSetAudit) validateUse(index int, use attributeUse) error {
 	if err != nil || !carriesID {
 		return err
 	}
-	if use.Default != nil || use.Fixed != nil {
+	if use.ValueConstraint != nil {
 		return errors.New("ID-typed attribute use stores value constraint")
 	}
 	a.idAttrs++
@@ -380,7 +373,8 @@ func validateAttributeUseRestriction(
 	if !typeDerived {
 		return errors.New("restricted attribute type is not derived from base")
 	}
-	if base.Fixed != nil && !fixedValueConstraintEqual(newValueConstraintIdentity(base.Fixed), newValueConstraintIdentity(derived.Fixed)) {
+	if baseFixed := base.ValueConstraint.fixedConstraint(); baseFixed != nil &&
+		!fixedValueConstraintEqual(newValueConstraintIdentity(baseFixed), newValueConstraintIdentity(derived.ValueConstraint.fixedConstraint())) {
 		return errors.New("fixed attribute constraint must be preserved by restriction")
 	}
 	return nil
@@ -493,8 +487,8 @@ func validateAttributeUseSetExtension(base, derived attributeUseSet) error {
 func attributeUseExtensionEqual(a, b attributeUse) bool {
 	return a.Name == b.Name &&
 		a.Type == b.Type &&
-		valueConstraintIdentityEqual(newValueConstraintIdentity(a.Default), newValueConstraintIdentity(b.Default)) &&
-		valueConstraintIdentityEqual(newValueConstraintIdentity(a.Fixed), newValueConstraintIdentity(b.Fixed)) &&
+		a.ValueConstraint.kind() == b.ValueConstraint.kind() &&
+		valueConstraintIdentityEqual(newValueConstraintIdentity(a.ValueConstraint), newValueConstraintIdentity(b.ValueConstraint)) &&
 		a.Required == b.Required
 }
 
@@ -515,9 +509,6 @@ func validateAttributeUseRuntime(
 	}
 	if indexed, ok := index[use.Name]; !ok || indexed != slot {
 		return false, errors.New("attribute use index does not match use slice")
-	}
-	if use.Default != nil && use.Fixed != nil {
-		return false, errors.New("attribute use stores both default and fixed value constraints")
 	}
 	return carriesID, nil
 }
