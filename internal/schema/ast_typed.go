@@ -331,8 +331,13 @@ func admitStart(n *schemaSyntaxNode, parent xml.Name) error {
 	if n.Name.Space != vocab.XSDNamespaceURI {
 		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "foreign element "+diagnostictext.Quote(n.Name.Local)+" is not allowed in schema grammar")
 	}
-	if parent.Space == vocab.XSDNamespaceURI && parent.Local == annotationChild && typedAnnotationEnvelope(n.Name) {
-		return admitAnnotationEnvelopeStart(n, parent)
+	if parent.Space == vocab.XSDNamespaceURI && parent.Local == annotationChild {
+		if typedAnnotationEnvelope(n.Name) {
+			return admitAnnotationEnvelopeStart(n, parent)
+		}
+		if n.Name.Local != annotationChild {
+			return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "xs:annotation can contain only xs:appinfo and xs:documentation, not "+diagnostictext.Quote("xs:"+n.Name.Local))
+		}
 	}
 	return admitXSDChildStart(n, parent)
 }
@@ -473,7 +478,7 @@ func admitEnd(n *schemaNode) error {
 	if err := rejectInvalidSchemaTextTyped(n); err != nil {
 		return err
 	}
-	if err := rejectInvalidReferenceDirectivesTyped(n); err != nil {
+	if err := rejectNonAnnotationChildren(n); err != nil {
 		return err
 	}
 	return checkSchemaAnnotationNode(n)
@@ -489,8 +494,10 @@ func rejectInvalidSchemaTextTyped(n *schemaNode) error {
 	return nil
 }
 
-func rejectInvalidReferenceDirectivesTyped(n *schemaNode) error {
-	if n == nil || n.local != includeChild && n.local != importChild {
+// rejectNonAnnotationChildren enforces the (annotation?) content of
+// include, import and the facet elements.
+func rejectNonAnnotationChildren(n *schemaNode) error {
+	if n == nil || n.local != includeChild && n.local != importChild && !isFacetChild(n.local) {
 		return nil
 	}
 	return checkOrderedXSDChildren(n, annotationOnlyChildOrder(n.local))

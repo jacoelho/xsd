@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:annotation><xs:documentation>d</xs:documentation><xs:appinfo><x/></xs:appinfo><xs:documentation/></xs:annotation>
+<xs:element name="r">
+<xs:annotation><xs:appinfo/></xs:annotation>
+</xs:element>
+</xs:schema>

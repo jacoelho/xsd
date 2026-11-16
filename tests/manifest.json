@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16596,
-    "schemaCases": 16546,
-    "instanceRuns": 35428,
+    "cases": 16617,
+    "schemaCases": 16567,
+    "instanceRuns": 35430,
     "w3cCases": 14414,
-    "internalRuns": 2169,
+    "internalRuns": 2190,
     "xercesJCases": 13
   },
   "cases": [
@@ -877552,6 +877552,1190 @@
         },
         {
           "file": "corpus/project/namespaces/xsi-schema-location-hint-lax-unknown/invalid-item.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/annotation-content/control",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/annotation-content/control",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-annotation"
+        ],
+        "conditions": [
+          "An xs:annotation holding only xs:appinfo and xs:documentation children is accepted at top level and inside a declaration."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/annotation-content/control/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/annotation-content/control/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/annotation-content/top-level-element-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/annotation-content/top-level-element-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-annotation"
+        ],
+        "conditions": [
+          "A top-level xs:annotation with an xs:element child violates the annotation content model even though xs:element is legal elsewhere."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/annotation-content/top-level-element-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:38: src-annotation: <annotation> elements can only contain <appinfo> and <documentation> elements, but 'element' was found. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:17: The 'http://www.w3.org/2001/XMLSchema:element' element is not supported in this context. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:element' at position 1: Schema component: <xs:annotation xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:element name=\"z\" /></xs:annotation> Path: /xs:schema/xs:annotation Schema URL: file://schema.xsd  The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}annotation': The content is not valid. Expected is (appinfo | documentation)*. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/annotation-content/top-level-element-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/annotation-content/declaration-attribute-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/annotation-content/declaration-attribute-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-annotation"
+        ],
+        "conditions": [
+          "An annotation nested in an element declaration rejects an xs:attribute child."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/annotation-content/declaration-attribute-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:40: src-annotation: <annotation> elements can only contain <appinfo> and <documentation> elements, but 'attribute' was found. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:17: The 'http://www.w3.org/2001/XMLSchema:attribute' element is not supported in this context. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:attribute' at position 1: Schema component: <xs:annotation xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:attribute name=\"a\" /></xs:annotation> Path: /xs:schema/xs:element/xs:annotation Schema URL: file://schema.xsd  The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element attribute: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}annotation': The content is not valid. Expected is (appinfo | documentation)*. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/annotation-content/declaration-attribute-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/annotation-content/after-documentation",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/annotation-content/after-documentation",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-annotation"
+        ],
+        "conditions": [
+          "A schema-namespace child other than appinfo or documentation is rejected after a valid documentation child."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/annotation-content/after-documentation/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:49: src-annotation: <annotation> elements can only contain <appinfo> and <documentation> elements, but 'sequence' was found. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:36: The 'http://www.w3.org/2001/XMLSchema:sequence' element is not supported in this context. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:sequence' at position 2: Schema component: <xs:annotation xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:documentation /><xs:sequence /></xs:annotation> Path: /xs:schema/xs:annotation Schema URL: file://schema.xsd  The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element sequence: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}annotation': The content is not valid. Expected is (appinfo | documentation)*. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/annotation-content/after-documentation/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/annotation-content/unknown-xsd-name",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/annotation-content/unknown-xsd-name",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-annotation"
+        ],
+        "conditions": [
+          "An unknown schema-namespace element inside xs:annotation is rejected."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/annotation-content/unknown-xsd-name/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:27: src-annotation: <annotation> elements can only contain <appinfo> and <documentation> elements, but 'bogus' was found. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:17: The 'http://www.w3.org/2001/XMLSchema:bogus' element is not supported in this context. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:bogus' at position 1: Schema component: <xs:annotation xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:bogus /></xs:annotation> Path: /xs:schema/xs:annotation Schema URL: file://schema.xsd  The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element bogus: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}annotation': The content is not valid. Expected is (appinfo | documentation)*. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/annotation-content/unknown-xsd-name/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/annotation-content/facet-annotation-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/annotation-content/facet-annotation-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-annotation"
+        ],
+        "conditions": [
+          "An annotation nested in a facet rejects an xs:simpleType child."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/annotation-content/facet-annotation-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:113: src-annotation: <annotation> elements can only contain <appinfo> and <documentation> elements, but 'simpleType' was found. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:98: The 'http://www.w3.org/2001/XMLSchema:simpleType' element is not supported in this context. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:simpleType' at position 1: Schema component: <xs:annotation xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:simpleType /></xs:annotation> Path: /xs:schema/xs:simpleType/xs:restriction/xs:minInclusive/xs:annotation Schema URL: file://schema.xsd  The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element simpleType: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}annotation': The content is not valid. Expected is (appinfo | documentation)*. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/annotation-content/facet-annotation-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/annotation-content/selector-annotation-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/annotation-content/selector-annotation-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-annotation"
+        ],
+        "conditions": [
+          "An annotation nested in an identity-constraint selector rejects an xs:field child."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/annotation-content/selector-annotation-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:78: src-annotation: <annotation> elements can only contain <appinfo> and <documentation> elements, but 'field' was found. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:57: The 'http://www.w3.org/2001/XMLSchema:field' element is not supported in this context. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:field' at position 1: Schema component: <xs:annotation xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:field xpath=\"@a\" /></xs:annotation> Path: /xs:schema/xs:element/xs:key/xs:selector/xs:annotation Schema URL: file://schema.xsd  The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element field: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}annotation': The content is not valid. Expected is (appinfo | documentation)*. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/annotation-content/selector-annotation-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/facet-content/length-component-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/facet-content/length-component-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
+        ],
+        "conditions": [
+          "An xs:length facet element may contain only an optional annotation; an xs:element child is rejected."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/facet-content/length-component-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:101: s4s-elt-must-match.1: The content of 'length' must match (annotation?). A problem was found starting at: element. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:80: The 'http://www.w3.org/2001/XMLSchema:element' element is not supported in this context. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:element' at position 1: Schema component: <xs:length xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"1\"><xs:element name=\"z\" /></xs:length> Path: /xs:schema/xs:simpleType/xs:restriction/xs:length Schema URL: file://schema.xsd  The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Facet length has unexpected child content The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/facet-content/length-component-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/facet-content/minLength-component-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/facet-content/minLength-component-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-minLength"
+        ],
+        "conditions": [
+          "An xs:minLength facet element may contain only an optional annotation; an xs:element child is rejected."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/facet-content/minLength-component-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:104: s4s-elt-must-match.1: The content of 'minLength' must match (annotation?). A problem was found starting at: element. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-minLength"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:83: The 'http://www.w3.org/2001/XMLSchema:element' element is not supported in this context. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-minLength"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:element' at position 1: Schema component: <xs:minLength xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"1\"><xs:element name=\"z\" /></xs:minLength> Path: /xs:schema/xs:simpleType/xs:restriction/xs:minLength Schema URL: file://schema.xsd  The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-minLength"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Facet minLength has unexpected child content The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-minLength"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/facet-content/minLength-component-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/facet-content/maxLength-component-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/facet-content/maxLength-component-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-maxLength"
+        ],
+        "conditions": [
+          "An xs:maxLength facet element may contain only an optional annotation; an xs:element child is rejected."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/facet-content/maxLength-component-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:104: s4s-elt-must-match.1: The content of 'maxLength' must match (annotation?). A problem was found starting at: element. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-maxLength"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:83: The 'http://www.w3.org/2001/XMLSchema:element' element is not supported in this context. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-maxLength"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:element' at position 1: Schema component: <xs:maxLength xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"1\"><xs:element name=\"z\" /></xs:maxLength> Path: /xs:schema/xs:simpleType/xs:restriction/xs:maxLength Schema URL: file://schema.xsd  The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-maxLength"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Facet maxLength has unexpected child content The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-maxLength"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/facet-content/maxLength-component-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/facet-content/pattern-component-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/facet-content/pattern-component-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-pattern"
+        ],
+        "conditions": [
+          "An xs:pattern facet element may contain only an optional annotation; an xs:element child is rejected."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/facet-content/pattern-component-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:102: s4s-elt-must-match.1: The content of 'pattern' must match (annotation?). A problem was found starting at: element. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-pattern"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:81: The 'http://www.w3.org/2001/XMLSchema:element' element is not supported in this context. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-pattern"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:element' at position 1: Schema component: <xs:pattern xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"a\"><xs:element name=\"z\" /></xs:pattern> Path: /xs:schema/xs:simpleType/xs:restriction/xs:pattern Schema URL: file://schema.xsd  The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-pattern"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Facet pattern has unexpected child content The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-pattern"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/facet-content/pattern-component-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/facet-content/enumeration-component-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/facet-content/enumeration-component-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-enumeration"
+        ],
+        "conditions": [
+          "An xs:enumeration facet element may contain only an optional annotation; an xs:element child is rejected."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/facet-content/enumeration-component-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:106: s4s-elt-must-match.1: The content of 'enumeration' must match (annotation?). A problem was found starting at: element. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-enumeration"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:85: The 'http://www.w3.org/2001/XMLSchema:element' element is not supported in this context. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-enumeration"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:element' at position 1: Schema component: <xs:enumeration xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"a\"><xs:element name=\"z\" /></xs:enumeration> Path: /xs:schema/xs:simpleType/xs:restriction/xs:enumeration Schema URL: file://schema.xsd  The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-enumeration"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Facet enumeration has unexpected child content The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-enumeration"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/facet-content/enumeration-component-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/facet-content/whiteSpace-component-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/facet-content/whiteSpace-component-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-whiteSpace"
+        ],
+        "conditions": [
+          "An xs:whiteSpace facet element may contain only an optional annotation; an xs:element child is rejected."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/facet-content/whiteSpace-component-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:112: s4s-elt-must-match.1: The content of 'whiteSpace' must match (annotation?). A problem was found starting at: element. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-whiteSpace"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:91: The 'http://www.w3.org/2001/XMLSchema:element' element is not supported in this context. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-whiteSpace"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:element' at position 1: Schema component: <xs:whiteSpace xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"collapse\"><xs:element name=\"z\" /></xs:whiteSpace> Path: /xs:schema/xs:simpleType/xs:restriction/xs:whiteSpace Schema URL: file://schema.xsd  The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-whiteSpace"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Facet whiteSpace has unexpected child content The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-whiteSpace"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/facet-content/whiteSpace-component-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/facet-content/totalDigits-component-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/facet-content/totalDigits-component-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-totalDigits"
+        ],
+        "conditions": [
+          "An xs:totalDigits facet element may contain only an optional annotation; an xs:element child is rejected."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/facet-content/totalDigits-component-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:107: s4s-elt-must-match.1: The content of 'totalDigits' must match (annotation?). A problem was found starting at: element. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-totalDigits"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:86: The 'http://www.w3.org/2001/XMLSchema:element' element is not supported in this context. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-totalDigits"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:element' at position 1: Schema component: <xs:totalDigits xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"3\"><xs:element name=\"z\" /></xs:totalDigits> Path: /xs:schema/xs:simpleType/xs:restriction/xs:totalDigits Schema URL: file://schema.xsd  The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-totalDigits"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Facet totalDigits has unexpected child content The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-totalDigits"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/facet-content/totalDigits-component-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/facet-content/fractionDigits-component-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/facet-content/fractionDigits-component-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-fractionDigits"
+        ],
+        "conditions": [
+          "An xs:fractionDigits facet element may contain only an optional annotation; an xs:element child is rejected."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/facet-content/fractionDigits-component-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:110: s4s-elt-must-match.1: The content of 'fractionDigits' must match (annotation?). A problem was found starting at: element. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-fractionDigits"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:89: The 'http://www.w3.org/2001/XMLSchema:element' element is not supported in this context. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-fractionDigits"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:element' at position 1: Schema component: <xs:fractionDigits xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"1\"><xs:element name=\"z\" /></xs:fractionDigits> Path: /xs:schema/xs:simpleType/xs:restriction/xs:fractionDigits Schema URL: file://schema.xsd  The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-fractionDigits"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Facet fractionDigits has unexpected child content The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-fractionDigits"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/facet-content/fractionDigits-component-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/facet-content/minInclusive-component-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/facet-content/minInclusive-component-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-minInclusive"
+        ],
+        "conditions": [
+          "An xs:minInclusive facet element may contain only an optional annotation; an xs:element child is rejected."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/facet-content/minInclusive-component-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:108: s4s-elt-must-match.1: The content of 'minInclusive' must match (annotation?). A problem was found starting at: element. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-minInclusive"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:87: The 'http://www.w3.org/2001/XMLSchema:element' element is not supported in this context. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-minInclusive"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:element' at position 1: Schema component: <xs:minInclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"1\"><xs:element name=\"z\" /></xs:minInclusive> Path: /xs:schema/xs:simpleType/xs:restriction/xs:minInclusive Schema URL: file://schema.xsd  The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-minInclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Facet minInclusive has unexpected child content The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-minInclusive"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/facet-content/minInclusive-component-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/facet-content/maxInclusive-component-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/facet-content/maxInclusive-component-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-maxInclusive"
+        ],
+        "conditions": [
+          "An xs:maxInclusive facet element may contain only an optional annotation; an xs:element child is rejected."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/facet-content/maxInclusive-component-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:108: s4s-elt-must-match.1: The content of 'maxInclusive' must match (annotation?). A problem was found starting at: element. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-maxInclusive"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:87: The 'http://www.w3.org/2001/XMLSchema:element' element is not supported in this context. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-maxInclusive"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:element' at position 1: Schema component: <xs:maxInclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"1\"><xs:element name=\"z\" /></xs:maxInclusive> Path: /xs:schema/xs:simpleType/xs:restriction/xs:maxInclusive Schema URL: file://schema.xsd  The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-maxInclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Facet maxInclusive has unexpected child content The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-maxInclusive"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/facet-content/maxInclusive-component-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/facet-content/minExclusive-component-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/facet-content/minExclusive-component-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-minExclusive"
+        ],
+        "conditions": [
+          "An xs:minExclusive facet element may contain only an optional annotation; an xs:element child is rejected."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/facet-content/minExclusive-component-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:108: s4s-elt-must-match.1: The content of 'minExclusive' must match (annotation?). A problem was found starting at: element. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-minExclusive"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:87: The 'http://www.w3.org/2001/XMLSchema:element' element is not supported in this context. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-minExclusive"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:element' at position 1: Schema component: <xs:minExclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"1\"><xs:element name=\"z\" /></xs:minExclusive> Path: /xs:schema/xs:simpleType/xs:restriction/xs:minExclusive Schema URL: file://schema.xsd  The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-minExclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Facet minExclusive has unexpected child content The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-minExclusive"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/facet-content/minExclusive-component-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/facet-content/maxExclusive-component-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/facet-content/maxExclusive-component-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-maxExclusive"
+        ],
+        "conditions": [
+          "An xs:maxExclusive facet element may contain only an optional annotation; an xs:element child is rejected."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/facet-content/maxExclusive-component-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:108: s4s-elt-must-match.1: The content of 'maxExclusive' must match (annotation?). A problem was found starting at: element. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-maxExclusive"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:87: The 'http://www.w3.org/2001/XMLSchema:element' element is not supported in this context. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-maxExclusive"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:element' at position 1: Schema component: <xs:maxExclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"1\"><xs:element name=\"z\" /></xs:maxExclusive> Path: /xs:schema/xs:simpleType/xs:restriction/xs:maxExclusive Schema URL: file://schema.xsd  The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-maxExclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Facet maxExclusive has unexpected child content The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-maxExclusive"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/facet-content/maxExclusive-component-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/facet-content/bare-appinfo",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/facet-content/bare-appinfo",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+        ],
+        "conditions": [
+          "xs:appinfo is legal only inside xs:annotation; directly inside a facet element it is rejected."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/facet-content/bare-appinfo/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:92: s4s-elt-must-match.1: The content of 'length' must match (annotation?). A problem was found starting at: appinfo. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:80: The 'http://www.w3.org/2001/XMLSchema:appinfo' element is not supported in this context. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:appinfo' at position 1: Schema component: <xs:length xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"1\"><xs:appinfo /></xs:length> Path: /xs:schema/xs:simpleType/xs:restriction/xs:length Schema URL: file://schema.xsd  The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element appinfo: Schemas parser error : Facet length has unexpected child content The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/facet-content/bare-appinfo/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/facet-content/annotated-control",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/facet-content/annotated-control",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
+        ],
+        "conditions": [
+          "A facet element holding one annotation is accepted and the facet still applies."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/facet-content/annotated-control/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "one",
+          "file": "corpus/project/schema-syntax/facet-content/annotated-control/one.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
+            }
+          }
+        },
+        {
+          "testName": "two",
+          "file": "corpus/project/schema-syntax/facet-content/annotated-control/two.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. two.xml:1:10: cvc-length-valid: Value 'ab' with length = '2' is not facet-valid with respect to length '1' for type 'T'. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. two.xml:1:8: The 'r' element is invalid - The value 'ab' is invalid according to its datatype 'T' - The actual length is not equal to the specified length. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: length has to be 1 (path /r) The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
+            },
+            "libxml2": {
+              "expected": "invalid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance rejected. two.xml:1: element r: Schemas validity error : Element 'r': [facet 'length'] The value has a length of '2'; this differs from the allowed length of '1'. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/facet-content/annotated-control/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/schema-syntax/facet-content/annotated-control/one.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/schema-syntax/facet-content/annotated-control/two.xml",
           "role": "instance"
         }
       ]
