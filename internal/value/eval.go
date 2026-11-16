@@ -220,8 +220,9 @@ func (b *Builder) Validate(id TypeID, lexical string, resolver Resolver, needs N
 // AdmitBoundLiteral reports whether lexical is admissible as the value of the
 // ordered-bound facet named by facet in a restriction of id: it must be in the
 // value space of id, or, for minExclusive and maxExclusive, equal the value of
-// the same facet of id, in which case no other facet of id applies
-// (Datatypes §4.3.8, §4.3.9). Comparisons with inherited bounds belong to the
+// the same facet of id (Datatypes §4.3.8, §4.3.9). An equal restatement skips
+// the value facets of id but still matches its patterns, which constrain facet
+// literals by spelling. Comparisons with inherited bounds belong to the
 // facet-derivation checks.
 func (b *Builder) AdmitBoundLiteral(id TypeID, facet FacetMask, lexical string) error {
 	if b == nil || b.program == nil || b.program.sealed {
@@ -238,8 +239,12 @@ func (b *Builder) AdmitBoundLiteral(id TypeID, facet FacetMask, lexical string) 
 	}
 	var v parsedValue
 	normalized, err := p.eval(id, lexical, evalOptions{work: &budget}, &v)
-	if err == nil && t.facets.present != 0 && !restatesExclusiveBound(t, facet, &v) {
-		err = applyFacets(t, &v, normalized, nil, &budget)
+	if err == nil && t.facets.present != 0 {
+		if restatesExclusiveBound(t, facet, &v) {
+			err = applyPatternFacets(t.facets.patterns, normalized, nil, &budget)
+		} else {
+			err = applyFacets(t, &v, normalized, nil, &budget)
+		}
 	}
 	if err != nil {
 		return describeValueFailure(p, id, lexical, &v, err)
