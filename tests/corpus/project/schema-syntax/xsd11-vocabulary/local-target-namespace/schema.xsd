@@ -1,3 +1,4 @@
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-<xs:element name="r"><xs:complexType><xs:sequence><xs:element name="c" targetNamespace="urn:x"/></xs:sequence></xs:complexType></xs:element>
+<xs:complexType name="B"><xs:sequence><xs:any namespace="urn:x" processContents="lax"/></xs:sequence></xs:complexType>
+<xs:element name="r"><xs:complexType><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:element name="c" targetNamespace="urn:x"/></xs:sequence></xs:restriction></xs:complexContent></xs:complexType></xs:element>
 </xs:schema>

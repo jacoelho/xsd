@@ -61,8 +61,11 @@ const (
 	// CodeUnsupportedXMLVersion reports an XML declaration whose well-formed
 	// version is not "1.0". A malformed version is an XML well-formedness error.
 	CodeUnsupportedXMLVersion Code = "unsupported.xml_version"
-	CodeUnsupportedXSD11      Code = "unsupported.xsd_1_1"
-	CodeValidationXML         Code = "validation.xml"
+	// CodeUnsupportedXSD11 reports an XSD 1.1 element or attribute of the
+	// XSD namespace at a position XSD 1.1 permits it. A use that XSD 1.1
+	// also rejects keeps its XSD 1.0 schema diagnostic.
+	CodeUnsupportedXSD11 Code = "unsupported.xsd_1_1"
+	CodeValidationXML    Code = "validation.xml"
 	// CodeValidationRead reports that the caller's instance reader returned an
 	// error other than io.EOF itself or was nil; the document was not assessed. Cause errors from the reader are
 	// preserved for errors.Is. It is inconclusive, never a validity result.

@@ -89,12 +89,9 @@ func TestCheckTopLevelSchemaChild(t *testing.T) {
 		{name: "group minOccurs", body: `  <xs:group name="Group" minOccurs=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "top-level \"group\" cannot have \"minOccurs\"", wantLine: 2, wantCol: 3},
 		{name: "attribute form", body: `  <xs:attribute name="Attr" form=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "top-level \"attribute\" cannot have \"form\"", wantLine: 2, wantCol: 3},
 		{name: "element ref", body: `  <xs:element name="Root" ref="Other"/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "top-level \"element\" cannot have \"ref\"", wantLine: 2, wantCol: 3},
-		{name: "group ref wins reverse order and missing name", body: `  <xs:group maxOccurs="" minOccurs="" ref=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "top-level \"group\" cannot have \"ref\"", wantLine: 2, wantCol: 3},
-		{name: "group min wins reverse order and missing name", body: `  <xs:group maxOccurs="" minOccurs=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "top-level \"group\" cannot have \"minOccurs\"", wantLine: 2, wantCol: 3},
-		{name: "attribute ref wins reverse order and missing name", body: `  <xs:attribute use="" form="" ref=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "top-level \"attribute\" cannot have \"ref\"", wantLine: 2, wantCol: 3},
-		{name: "attribute form wins reverse order and missing name", body: `  <xs:attribute use="" form=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "top-level \"attribute\" cannot have \"form\"", wantLine: 2, wantCol: 3},
-		{name: "element ref wins reverse order and missing name", body: `  <xs:element maxOccurs="" minOccurs="" form="" ref=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "top-level \"element\" cannot have \"ref\"", wantLine: 2, wantCol: 3},
-		{name: "element form wins reverse order and missing name", body: `  <xs:element maxOccurs="" minOccurs="" form=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "top-level \"element\" cannot have \"form\"", wantLine: 2, wantCol: 3},
+		{name: "group: first forbidden attribute in document order wins over missing name", body: `  <xs:group maxOccurs="" minOccurs="" ref=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "top-level \"group\" cannot have \"maxOccurs\"", wantLine: 2, wantCol: 3},
+		{name: "attribute: first forbidden attribute in document order wins over missing name", body: `  <xs:attribute use="" form="" ref=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "top-level \"attribute\" cannot have \"use\"", wantLine: 2, wantCol: 3},
+		{name: "element: first forbidden attribute in document order wins over missing name", body: `  <xs:element maxOccurs="" minOccurs="" form="" ref=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "top-level \"element\" cannot have \"maxOccurs\"", wantLine: 2, wantCol: 3},
 		{name: "empty name wins before forbidden attr", body: `  <xs:element ref="" name=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "schema component name must be NCName", wantLine: 2, wantCol: 3},
 		{name: "whitespace name wins before forbidden attr", body: `  <xs:group minOccurs="" name=" "/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "schema component name must be NCName", wantLine: 2, wantCol: 3},
 		{name: "foreign attributes do not create forbidden presence", body: `  <xs:element name="Root" f:ref="" f:form="" f:minOccurs="" f:maxOccurs=""/>`},
@@ -124,18 +121,30 @@ func TestCheckUnsupportedSchemaNode(t *testing.T) {
 		{name: "nested notation", body: `  <xs:element name="Root">
     <xs:notation name="N" public=""/>
   </xs:element>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaContentModel, wantMsg: "xs:notation must be a top-level schema child", wantLine: 3, wantCol: 5},
-		{name: "xsd 1.1 element", body: `  <xs:assert/>`, wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedXSD11, wantMsg: "XSD 1.1 feature assert is not supported", wantLine: 2, wantCol: 3},
-		{name: "xsd 1.1 wildcard attribute", body: `  <xs:anyAttribute notNamespace=""/>`, wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedXSD11, wantMsg: "XSD 1.1 attribute notNamespace on xs:anyAttribute is not supported", wantLine: 2, wantCol: 3},
+		{name: "xsd 1.1 element", body: `  <xs:complexType name="T"><xs:assert/></xs:complexType>`, wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedXSD11, wantMsg: "XSD 1.1 feature assert is not supported", wantLine: 2, wantCol: 28},
+		{name: "top-level assert stays an XSD 1.0 child error", body: `  <xs:assert/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaContentModel, wantMsg: "invalid top-level schema child \"assert\"", wantLine: 2, wantCol: 3},
+		{name: "xsd 1.1 wildcard attribute", body: `  <xs:complexType name="T"><xs:anyAttribute notNamespace=""/></xs:complexType>`, wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedXSD11, wantMsg: "XSD 1.1 attribute notNamespace on xs:anyAttribute is not supported", wantLine: 2, wantCol: 28},
+		{name: "wildcard namespace and notNamespace stay an XSD 1.0 attribute error", body: `  <xs:complexType name="T"><xs:anyAttribute namespace="##any" notNamespace=""/></xs:complexType>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "\"anyAttribute\" cannot have attribute \"notNamespace\"", wantLine: 2, wantCol: 28},
+		{name: "nested schema defaultAttributes stays an XSD 1.0 attribute error", body: `  <xs:element name="Root"><xs:schema defaultAttributes="g"/></xs:element>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "\"schema\" cannot have attribute \"defaultAttributes\"", wantLine: 2, wantCol: 27},
 		{name: "xsd 1.1 schema attribute", rootAttrs: ` defaultAttributes="g"`, wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedXSD11, wantMsg: "XSD 1.1 attribute defaultAttributes on xs:schema is not supported", wantLine: 1, wantCol: 1},
 		{name: "xsd 1.1 facet", body: `  <xs:simpleType name="T"><xs:restriction base="xs:date"><xs:explicitTimezone value="required"/></xs:restriction></xs:simpleType>`, wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedXSD11, wantMsg: "XSD 1.1 feature explicitTimezone is not supported", wantLine: 2, wantCol: 58},
 		{name: "xsd 1.1 local targetNamespace", body: `  <xs:element name="Root"><xs:complexType><xs:sequence><xs:element name="c" targetNamespace="urn:x"/></xs:sequence></xs:complexType></xs:element>`, wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedXSD11, wantMsg: "XSD 1.1 attribute targetNamespace on xs:element is not supported", wantLine: 2, wantCol: 56},
 		{name: "top-level targetNamespace stays an XSD 1.0 attribute error", body: `  <xs:element name="Root" targetNamespace="urn:x"/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "\"element\" cannot have attribute \"targetNamespace\"", wantLine: 2, wantCol: 3},
+		{name: "local targetNamespace with ref stays an XSD 1.0 attribute error", body: `  <xs:element name="Root"><xs:complexType><xs:sequence><xs:element ref="Root" targetNamespace="urn:x"/></xs:sequence></xs:complexType></xs:element>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "\"element\" cannot have attribute \"targetNamespace\"", wantLine: 2, wantCol: 56},
+		{name: "xsd 1.0 attribute error wins over a permitted xsd 1.1 attribute", body: `  <xs:element name="Root"><xs:complexType><xs:sequence><xs:element name="c" targetNamespace="urn:x" foo=""/></xs:sequence></xs:complexType></xs:element>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "\"element\" cannot have attribute \"foo\"", wantLine: 2, wantCol: 56},
+		{name: "unnamed top-level complexType keeps the XSD 1.0 attribute error", body: `  <xs:complexType defaultAttributesApply="true"/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "\"complexType\" cannot have attribute \"defaultAttributesApply\"", wantLine: 2, wantCol: 3},
 		{name: "xsd 1.1 identity-constraint ref", body: `  <xs:element name="Root"><xs:unique ref="k"/></xs:element>`, wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedXSD11, wantMsg: "XSD 1.1 attribute ref on xs:unique is not supported", wantLine: 2, wantCol: 27},
+		{name: "identity-constraint ref with annotation", body: `  <xs:element name="Root"><xs:unique ref="k"><xs:annotation/></xs:unique></xs:element>`, wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedXSD11, wantMsg: "XSD 1.1 attribute ref on xs:unique is not supported", wantLine: 2, wantCol: 27},
+		{name: "top-level identity-constraint ref stays an XSD 1.0 attribute error", body: `  <xs:key ref="k"/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "\"key\" cannot have attribute \"ref\"", wantLine: 2, wantCol: 3},
+		{name: "identity-constraint ref with name stays an XSD 1.0 attribute error", body: `  <xs:element name="Root"><xs:key name="k2" ref="k"/></xs:element>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "\"key\" cannot have attribute \"ref\"", wantLine: 2, wantCol: 27},
+		{name: "keyref ref with refer stays an XSD 1.0 attribute error", body: `  <xs:element name="Root"><xs:keyref ref="k" refer="k"/></xs:element>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "\"keyref\" cannot have attribute \"ref\"", wantLine: 2, wantCol: 27},
+		{name: "identity-constraint ref with selector stays an XSD 1.0 attribute error", body: `  <xs:element name="Root"><xs:unique ref="k"><xs:selector xpath="."/></xs:unique></xs:element>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "\"unique\" cannot have attribute \"ref\"", wantLine: 2, wantCol: 27},
+		{name: "identity-constraint ref with text stays an XSD 1.0 attribute error", body: `  <xs:element name="Root"><xs:unique ref="k">text</xs:unique></xs:element>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "\"unique\" cannot have attribute \"ref\"", wantLine: 2, wantCol: 27},
 		{name: "schema namespace wildcard attribute reports invalid attribute first", body: `  <xs:any xs:notQName=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "schema namespace attribute \"notQName\" is not allowed", wantLine: 2, wantCol: 3},
 		{name: "foreign rejection wins before namespace attrs and names", body: `  <f:other xs:foo="" id=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaContentModel, wantMsg: "foreign element \"other\" is not allowed in schema grammar", wantLine: 2, wantCol: 3},
 		{name: "namespace attr wins before names and unsupported", body: `  <xs:assert xs:foo="" id=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "schema namespace attribute \"foo\" is not allowed", wantLine: 2, wantCol: 3},
 		{name: "invalid name wins before unsupported", body: `  <xs:assert name=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "schema component name must be NCName", wantLine: 2, wantCol: 3},
-		{name: "unsupported wins before general attrs and text", body: `  <xs:assert foo="">text</xs:assert>`, wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedXSD11, wantMsg: "XSD 1.1 feature assert is not supported", wantLine: 2, wantCol: 3},
+		{name: "unsupported wins before general attrs and text", body: `  <xs:complexType name="T"><xs:assert foo="">text</xs:assert></xs:complexType>`, wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedXSD11, wantMsg: "XSD 1.1 feature assert is not supported", wantLine: 2, wantCol: 28},
 	} {
 		t.Run(fixture.name, func(t *testing.T) {
 			t.Parallel()
@@ -371,6 +380,11 @@ func annotationGrammarFixture(t *testing.T, local string, children []annotationC
 	return parent
 }
 
+func checkElementChildAttributes(n *schemaSyntaxNode) error {
+	_, err := checkSchemaAttributesSyntax(n, schemaPlacement{parent: xml.Name{Space: vocab.XSDNamespaceURI, Local: vocab.XSDElemElement}})
+	return err
+}
+
 func TestSchemaAnnotationStartAttributes(t *testing.T) {
 	t.Parallel()
 
@@ -384,12 +398,12 @@ func TestSchemaAnnotationStartAttributes(t *testing.T) {
 		{
 			name: "annotation allows id attr", local: annotationChild,
 			attrs:    []xmlstream.Attr{testRawAttr("", vocab.XSDAttrID, "")},
-			validate: checkSchemaAttributesSyntax,
+			validate: checkElementChildAttributes,
 		},
 		{
 			name: "annotation rejects local attr", local: annotationChild,
 			attrs:    []xmlstream.Attr{testRawAttr("", "foo", "")},
-			validate: checkSchemaAttributesSyntax, wantMsg: "\"annotation\" cannot have attribute \"foo\"",
+			validate: checkElementChildAttributes, wantMsg: "\"annotation\" cannot have attribute \"foo\"",
 		},
 		{
 			name: "documentation valid lang", local: vocab.XSDElemDocumentation,

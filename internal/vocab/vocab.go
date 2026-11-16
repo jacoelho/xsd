@@ -54,6 +54,7 @@ const (
 	XSDElemKeyref         = "keyref"
 	XSDElemList           = "list"
 	XSDElemNotation       = "notation"
+	XSDElemRedefine       = "redefine"
 	XSDElemRestriction    = "restriction"
 	XSDElemSchema         = "schema"
 	XSDElemSelector       = "selector"
@@ -62,6 +63,17 @@ const (
 	XSDElemSimpleType     = "simpleType"
 	XSDElemUnion          = "union"
 	XSDElemUnique         = "unique"
+)
+
+// XSD 1.1 element names.
+const (
+	XSDElemAlternative        = "alternative"
+	XSDElemAssert             = "assert"
+	XSDElemAssertion          = "assertion"
+	XSDElemDefaultOpenContent = "defaultOpenContent"
+	XSDElemExplicitTimezone   = "explicitTimezone"
+	XSDElemOpenContent        = "openContent"
+	XSDElemOverride           = "override"
 )
 
 // XSD attribute names.
@@ -86,8 +98,6 @@ const (
 	XSDAttrName                 = "name"
 	XSDAttrNamespace            = "namespace"
 	XSDAttrNillable             = "nillable"
-	XSDAttrNotNamespace         = "notNamespace"
-	XSDAttrNotQName             = "notQName"
 	XSDAttrProcessContents      = "processContents"
 	XSDAttrPublic               = "public"
 	XSDAttrRef                  = "ref"
@@ -102,6 +112,16 @@ const (
 	XSDAttrValue                = "value"
 	XSDAttrVersion              = "version"
 	XSDAttrXPath                = "xpath"
+)
+
+// XSD 1.1 attribute names.
+const (
+	XSDAttrDefaultAttributes      = "defaultAttributes"
+	XSDAttrDefaultAttributesApply = "defaultAttributesApply"
+	XSDAttrInheritable            = "inheritable"
+	XSDAttrNotNamespace           = "notNamespace"
+	XSDAttrNotQName               = "notQName"
+	XSDAttrXPathDefaultNamespace  = "xpathDefaultNamespace"
 )
 
 // XSD facet names.

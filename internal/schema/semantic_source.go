@@ -228,8 +228,6 @@ type schemaWildcardSource struct {
 	schemaParticleSource
 
 	Namespace       lexicalAttribute
-	NotNamespace    lexicalAttribute
-	NotQName        lexicalAttribute
 	ProcessContents lexicalAttribute
 }
 
@@ -385,8 +383,6 @@ var typedAttributeNames = [...]string{
 	vocab.XSDAttrMinOccurs,
 	vocab.XSDAttrMaxOccurs,
 	vocab.XSDAttrNamespace,
-	vocab.XSDAttrNotNamespace,
-	vocab.XSDAttrNotQName,
 	vocab.XSDAttrProcessContents,
 	vocab.XSDAttrXPath,
 	vocab.XSDAttrValue,
@@ -681,8 +677,6 @@ func buildSemanticKind(n *schemaSyntaxNode, qnames *semanticQNameProjection) sch
 				MaxOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMaxOccurs),
 			},
 			Namespace:       schemaLexicalAttributeSyntax(n, vocab.XSDAttrNamespace),
-			NotNamespace:    schemaLexicalAttributeSyntax(n, vocab.XSDAttrNotNamespace),
-			NotQName:        schemaLexicalAttributeSyntax(n, vocab.XSDAttrNotQName),
 			ProcessContents: schemaLexicalAttributeSyntax(n, vocab.XSDAttrProcessContents),
 		}
 	case vocab.XSDElemKey, vocab.XSDElemKeyref, vocab.XSDElemUnique:

@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:element name="r"><xs:complexType><xs:attribute name="a"/></xs:complexType><xs:unique name="u"><xs:selector xpath="." xpathDefaultNamespace="##local"/><xs:field xpath="@a"/></xs:unique></xs:element>
+</xs:schema>

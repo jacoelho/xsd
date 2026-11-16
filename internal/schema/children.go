@@ -29,8 +29,7 @@ const (
 	restrictionChild = vocab.XSDElemRestriction
 	listChild        = vocab.XSDElemList
 	notationChild    = vocab.XSDElemNotation
-	redefineChild    = "redefine"
-	assertChild      = "assert"
+	redefineChild    = vocab.XSDElemRedefine
 	sequenceChild    = vocab.XSDElemSequence
 	simpleContent    = vocab.XSDElemSimpleContent
 	simpleTypeChild  = vocab.XSDElemSimpleType
