@@ -133,27 +133,6 @@ func TestCheckIdentityConstraintChildren(t *testing.T) {
 			wantCode:    xsderrors.CodeSchemaIdentity,
 			wantMessage: "\"field\" xpath is empty",
 		},
-		{
-			name: "selector rejects non annotation child",
-			children: []identityChildFixture{
-				{local: selectorChild, xpath: lexicalAttribute{Value: "row", Present: true}, children: []string{"field"}},
-			},
-			wantChild:   0,
-			wantNested:  0,
-			wantCode:    xsderrors.CodeSchemaContentModel,
-			wantMessage: "\"selector\" can contain only annotation",
-		},
-		{
-			name: "field rejects duplicate annotation",
-			children: []identityChildFixture{
-				{local: selectorChild, xpath: lexicalAttribute{Value: "row", Present: true}},
-				{local: fieldChild, xpath: lexicalAttribute{Value: "@id", Present: true}, children: []string{annotationChild, annotationChild}},
-			},
-			wantChild:   1,
-			wantNested:  1,
-			wantCode:    xsderrors.CodeSchemaContentModel,
-			wantMessage: "\"field\" can contain at most one annotation",
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

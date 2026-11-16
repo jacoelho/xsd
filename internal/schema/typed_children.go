@@ -80,20 +80,8 @@ func checkComplexContentExtensionChildren(n *schemaNode) error {
 	return checkOrderedXSDChildren(n, complexContentExtensionChildOrder)
 }
 
-func checkAnyParticleChildren(n *schemaNode) error {
-	return checkOrderedXSDChildren(n, anyParticleChildOrder)
-}
-
-func checkAnyAttributeChildren(n *schemaNode) error {
-	return checkOrderedXSDChildren(n, anyAttributeChildOrder)
-}
-
 func checkElementRefChildren(n *schemaNode) error {
 	return checkOrderedXSDChildren(n, elementRefChildOrder)
-}
-
-func checkAttributeGroupUseChildren(n *schemaNode) error {
-	return checkOrderedXSDChildren(n, attributeGroupUseChildOrder)
 }
 
 func checkElementRefAttributes(n *schemaNode) error {
@@ -221,15 +209,6 @@ func checkTopLevelGroupChildren(n *schemaNode) (*schemaNode, error) {
 }
 
 func checkNotationDeclaration(n *schemaNode) error {
-	if n.hasNonWhitespaceText {
-		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "notation can contain only annotation")
-	}
-	for _, id := range n.children {
-		child := n.doc.node(id)
-		if child == nil || child.local != annotationChild {
-			return schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "notation can contain only annotation")
-		}
-	}
 	source, ok := n.semantic.kind.(*schemaNotationSource)
 	if !ok || source == nil {
 		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("notation node has no typed notation source"))

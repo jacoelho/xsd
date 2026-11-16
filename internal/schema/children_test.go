@@ -428,25 +428,12 @@ func TestValidateWildcardChildren(t *testing.T) {
 		wantCol  int
 		wantMsg  string
 	}{
-		{name: "any empty", order: anyParticleChildOrder},
-		{name: "any duplicate annotation", order: anyParticleChildOrder, children: []string{"annotation", "annotation"}, wantMsg: "any can contain at most one annotation", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 6, wantCol: 5},
-		{name: "any rejects child", order: anyParticleChildOrder, children: []string{"element"}, wantMsg: "any can contain only annotation", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 4, wantCol: 5},
-		{name: "anyAttribute empty", order: anyAttributeChildOrder},
-		{name: "anyAttribute duplicate annotation", order: anyAttributeChildOrder, children: []string{"annotation", "annotation"}, wantMsg: "anyAttribute can contain at most one annotation", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 6, wantCol: 5},
-		{name: "anyAttribute rejects child", order: anyAttributeChildOrder, children: []string{"attribute"}, wantMsg: "anyAttribute can contain only annotation", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 4, wantCol: 5},
 		{name: "element ref empty", order: elementRefChildOrder},
 		{name: "element ref annotation", order: elementRefChildOrder, children: []string{"annotation"}},
 		{name: "element ref rejects child", order: elementRefChildOrder, children: []string{"simpleType"}, wantMsg: "element ref can contain only annotation", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 4, wantCol: 5},
 		{name: "attribute ref empty", order: attributeRefChildOrder},
 		{name: "attribute ref annotation", order: attributeRefChildOrder, children: []string{"annotation"}},
 		{name: "attribute ref rejects child", order: attributeRefChildOrder, children: []string{"simpleType"}, wantMsg: "attribute ref can contain only annotation", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 4, wantCol: 5},
-		{name: "attributeGroup use empty", order: attributeGroupUseChildOrder},
-		{name: "attributeGroup use annotation", order: attributeGroupUseChildOrder, children: []string{"annotation"}},
-		{name: "attributeGroup use rejects child", order: attributeGroupUseChildOrder, children: []string{"attribute"}, wantMsg: "attributeGroup use can contain only annotation", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 4, wantCol: 5},
-		{name: "group use empty", order: groupUseChildOrder},
-		{name: "group use annotation", order: groupUseChildOrder, children: []string{"annotation"}},
-		{name: "group use rejects child", order: groupUseChildOrder, children: []string{"element"}, wantMsg: "group use can contain only annotation", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 4, wantCol: 5},
-		{name: "group use rejects child after annotation", order: groupUseChildOrder, children: []string{"annotation", "sequence"}, wantMsg: "group use can contain only annotation", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 6, wantCol: 5},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

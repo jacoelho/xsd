@@ -81,7 +81,6 @@ schema	w3c	w3c/msMeta/ModelGroups_w3c.xml/mgP041	unsupported.xs_redefine
 schema	w3c	w3c/msMeta/ModelGroups_w3c.xml/mgP050	unsupported.xs_redefine
 schema	w3c	w3c/msMeta/ModelGroups_w3c.xml/mgP058	unsupported.xs_redefine
 schema	w3c	w3c/msMeta/Notations_w3c.xml/notatF055	unsupported.xs_redefine
-schema	w3c	w3c/msMeta/Notations_w3c.xml/notatF056	unsupported.xs_redefine
 schema	w3c	w3c/msMeta/Schema_w3c.xml/schH1	unsupported.xs_redefine
 schema	w3c	w3c/msMeta/Schema_w3c.xml/schH2	unsupported.xs_redefine
 schema	w3c	w3c/msMeta/Schema_w3c.xml/schH3	unsupported.xs_redefine

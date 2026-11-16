@@ -3,9 +3,6 @@ package schema
 import "github.com/jacoelho/xsd/xsderrors"
 
 func (c *compiler) compileWildcardParticle(ctx *schemaSetDocument, n *schemaNode) (contentParticle, error) {
-	if err := checkAnyParticleChildren(n); err != nil {
-		return contentParticle{}, err
-	}
 	id, err := c.compileWildcard(ctx, n)
 	if err != nil {
 		return contentParticle{}, err
@@ -18,9 +15,6 @@ func (c *compiler) compileWildcardParticle(ctx *schemaSetDocument, n *schemaNode
 }
 
 func (c *compiler) compileAttributeWildcard(ctx *schemaSetDocument, n *schemaNode) (WildcardID, error) {
-	if err := checkAnyAttributeChildren(n); err != nil {
-		return NoWildcard, err
-	}
 	return c.compileWildcard(ctx, n)
 }
 

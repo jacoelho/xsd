@@ -178,12 +178,8 @@ var simpleContentRestrictionChildOrder = simpleContentDerivationOrder(restrictio
 var simpleContentExtensionChildOrder = simpleContentDerivationOrder(extensionChild)
 var complexContentRestrictionChildOrder = complexContentDerivationOrder(restrictionChild)
 var complexContentExtensionChildOrder = complexContentDerivationOrder(extensionChild)
-var anyParticleChildOrder = annotationOnlyChildOrder(anyChild)
-var anyAttributeChildOrder = annotationOnlyChildOrder(anyAttribute)
 var elementRefChildOrder = annotationOnlyChildOrder("element ref")
 var attributeRefChildOrder = annotationOnlyChildOrder("attribute ref")
-var attributeGroupUseChildOrder = annotationOnlyChildOrder("attributeGroup use")
-var groupUseChildOrder = annotationOnlyChildOrder("group use")
 var attributeGroupDeclarationChildOrder = childOrder{
 	AnnotationFirstMsg: "attributeGroup annotation must be first",
 	Rules: []childRule{
@@ -392,7 +388,7 @@ func simpleDerivationOrder(kind simpleDerivationKind) childOrder {
 	}
 	if allowFacets {
 		rules = append(rules, childRule{
-			Match: isFacetChild,
+			Match: isFacetLocal,
 			Level: 1,
 		})
 	}
@@ -441,7 +437,7 @@ func simpleContentDerivationOrder(derivation string) childOrder {
 	}
 	if derivation == restrictionChild {
 		rules = append(rules, childRule{
-			Match:    isFacetChild,
+			Match:    isFacetLocal,
 			Level:    1,
 			OrderMsg: simpleContentFacetOutOfOrder,
 		})
@@ -489,17 +485,6 @@ func annotationOnlyChildOrder(label string) childOrder {
 		AnnotationFirstMsg: label + " can contain at most one annotation",
 		SingleAnnotation:   true,
 		InvalidMsg:         func(string) string { return label + " can contain only annotation" },
-	}
-}
-
-func isFacetChild(local string) bool {
-	switch local {
-	case vocab.XSDFacetLength, vocab.XSDFacetMinLength, vocab.XSDFacetMaxLength, vocab.XSDFacetTotalDigits, vocab.XSDFacetFractionDigits,
-		vocab.XSDFacetMinInclusive, vocab.XSDFacetMaxInclusive, vocab.XSDFacetMinExclusive, vocab.XSDFacetMaxExclusive,
-		vocab.XSDFacetEnumeration, vocab.XSDFacetPattern, vocab.XSDFacetWhiteSpace:
-		return true
-	default:
-		return false
 	}
 }
 

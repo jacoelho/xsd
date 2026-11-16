@@ -63,15 +63,5 @@ func checkIdentityXPathChild(n *schemaNode) error {
 	if lex.TrimXMLWhitespaceString(source.XPath.Value) == "" {
 		return schemaCompileAt(n, xsderrors.CodeSchemaIdentity, diagnostictext.Quote(n.local)+" xpath is empty")
 	}
-	seenAnnotation := false
-	for child := range n.xsdChildren() {
-		if child.local != annotationChild {
-			return schemaCompileAt(child, xsderrors.CodeSchemaContentModel, diagnostictext.Quote(n.local)+" can contain only annotation")
-		}
-		if seenAnnotation {
-			return schemaCompileAt(child, xsderrors.CodeSchemaContentModel, diagnostictext.Quote(n.local)+" can contain at most one annotation")
-		}
-		seenAnnotation = true
-	}
 	return nil
 }

@@ -84,7 +84,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
     <xs:annotation/>
   </xs:include>`,
 			wantLine: 4, wantCol: 5, wantCode: xsderrors.CodeSchemaContentModel,
-			wantMsg: "include can contain only annotation",
+			wantMsg: "xs:\"include\" can contain only xs:annotation, not xs:\"attribute\"",
 		},
 		{
 			name: "import invalid child before duplicate annotation",
@@ -94,7 +94,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
     <xs:annotation/>
   </xs:import>`,
 			wantLine: 4, wantCol: 5, wantCode: xsderrors.CodeSchemaContentModel,
-			wantMsg: "import can contain only annotation",
+			wantMsg: "xs:\"import\" can contain only xs:annotation, not xs:\"attribute\"",
 		},
 		{
 			name: "component duplicate annotation after nonannotation",
@@ -124,7 +124,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
     <xs:attribute/>
   </xs:include>`,
 			wantLine: 4, wantCol: 5, wantCode: xsderrors.CodeSchemaContentModel,
-			wantMsg: "include can contain at most one annotation",
+			wantMsg: "xs:\"include\" can contain at most one xs:annotation",
 		},
 		{
 			name: "import duplicate annotation before invalid child",
@@ -134,7 +134,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
     <xs:attribute/>
   </xs:import>`,
 			wantLine: 4, wantCol: 5, wantCode: xsderrors.CodeSchemaContentModel,
-			wantMsg: "import can contain at most one annotation",
+			wantMsg: "xs:\"import\" can contain at most one xs:annotation",
 		},
 		{
 			name: "nested annotation source position",
@@ -142,7 +142,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
     <xs:annotation/>
   </xs:annotation>`,
 			wantLine: 3, wantCol: 5, wantCode: xsderrors.CodeSchemaContentModel,
-			wantMsg: "xs:annotation cannot contain xs:annotation",
+			wantMsg: annotationPayloadOnly("annotation"),
 		},
 		{
 			name:     "annotation attribute start admission",
@@ -151,12 +151,12 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
 			wantMsg: "\"annotation\" cannot have attribute \"foo\"",
 		},
 		{
-			name: "documentation language before include child grammar",
+			name: "include child grammar before documentation language",
 			body: `  <xs:include>
     <xs:documentation xml:lang=" "/>
   </xs:include>`,
-			wantLine: 3, wantCol: 5, wantCode: xsderrors.CodeSchemaInvalidAttribute,
-			wantMsg: "invalid xml:lang on xs:documentation",
+			wantLine: 3, wantCol: 5, wantCode: xsderrors.CodeSchemaContentModel,
+			wantMsg: annotationOnly("include", "documentation"),
 		},
 		{
 			name: "documentation language start admission",
@@ -167,18 +167,158 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
 			wantMsg: "invalid xml:lang on xs:documentation",
 		},
 		{
-			name: "documentation outside annotation retains child diagnostics",
-			body: `  <xs:notation name="N" public="">
-    <xs:documentation xml:lang="en-US">
-      text
-      <xs:annotation/>
-      <xs:annotation>
-        <xs:annotation/>
-      </xs:annotation>
-    </xs:documentation>
+			name: "annotation child grammar before child attributes",
+			body: `  <xs:annotation>
+    <xs:element bogus="1"/>
+  </xs:annotation>`,
+			wantLine: 3, wantCol: 5, wantCode: xsderrors.CodeSchemaContentModel,
+			wantMsg: annotationPayloadOnly("element"),
+		},
+		{
+			name: "annotation child grammar before unsupported child",
+			body: `  <xs:annotation>
+    <xs:redefine schemaLocation="other.xsd"/>
+  </xs:annotation>`,
+			wantLine: 3, wantCol: 5, wantCode: xsderrors.CodeSchemaContentModel,
+			wantMsg: annotationPayloadOnly("redefine"),
+		},
+		{
+			name: "nested annotation before later forbidden sibling",
+			body: `  <xs:annotation>
+    <xs:annotation/>
+    <xs:element name="e"/>
+  </xs:annotation>`,
+			wantLine: 3, wantCol: 5, wantCode: xsderrors.CodeSchemaContentModel,
+			wantMsg: annotationPayloadOnly("annotation"),
+		},
+		{
+			name: "nested annotation before its forbidden descendant",
+			body: `  <xs:annotation>
+    <xs:annotation>
+      <xs:element name="e"/>
+    </xs:annotation>
+  </xs:annotation>`,
+			wantLine: 3, wantCol: 5, wantCode: xsderrors.CodeSchemaContentModel,
+			wantMsg: annotationPayloadOnly("annotation"),
+		},
+		{
+			name: "annotation text before forbidden child",
+			body: `  <xs:annotation>
+    text
+    <xs:element name="e"/>
+  </xs:annotation>`,
+			wantLine: 2, wantCol: 3, wantCode: xsderrors.CodeSchemaContentModel,
+			wantMsg: "xs:\"annotation\" cannot contain text",
+		},
+		{
+			name:     "facet child grammar before unsupported child",
+			body:     facetBody(`<xs:assert test="1"/>`),
+			wantLine: 4, wantCol: 28, wantCode: xsderrors.CodeSchemaContentModel,
+			wantMsg: annotationOnly("length", "assert"),
+		},
+		{
+			name:     "facet child grammar before child attributes",
+			body:     facetBody(`<xs:element bogus="1"/>`),
+			wantLine: 4, wantCol: 28, wantCode: xsderrors.CodeSchemaContentModel,
+			wantMsg: annotationOnly("length", "element"),
+		},
+		{
+			name:     "facet child grammar before top-level-only child",
+			body:     facetBody(`<xs:notation name="N" public="p"/>`),
+			wantLine: 4, wantCol: 28, wantCode: xsderrors.CodeSchemaContentModel,
+			wantMsg: annotationOnly("length", "notation"),
+		},
+		{
+			name:     "facet forbidden child before its invalid descendant",
+			body:     facetBody(`<xs:element name="e"><xs:bogus/></xs:element>`),
+			wantLine: 4, wantCol: 28, wantCode: xsderrors.CodeSchemaContentModel,
+			wantMsg: annotationOnly("length", "element"),
+		},
+		{
+			name:     "facet bare documentation",
+			body:     facetBody(`<xs:documentation/>`),
+			wantLine: 4, wantCol: 28, wantCode: xsderrors.CodeSchemaContentModel,
+			wantMsg: annotationOnly("length", "documentation"),
+		},
+		{
+			name:     "facet duplicate annotation",
+			body:     facetBody(`<xs:annotation/><xs:annotation/>`),
+			wantLine: 4, wantCol: 44, wantCode: xsderrors.CodeSchemaContentModel,
+			wantMsg: "xs:\"length\" can contain at most one xs:annotation",
+		},
+		{
+			name: "facet in simpleContent restriction",
+			body: `  <xs:complexType name="C">
+    <xs:simpleContent>
+      <xs:restriction base="xs:string">
+        <xs:enumeration value="a"><xs:element name="e"/></xs:enumeration>
+      </xs:restriction>
+    </xs:simpleContent>
+  </xs:complexType>`,
+			wantLine: 5, wantCol: 35, wantCode: xsderrors.CodeSchemaContentModel,
+			wantMsg: annotationOnly("enumeration", "element"),
+		},
+		{
+			name: "notation forbidden child",
+			body: `  <xs:notation name="N" public="p">
+    <xs:documentation/>
   </xs:notation>`,
-			wantLine: 7, wantCol: 9, wantCode: xsderrors.CodeSchemaContentModel,
-			wantMsg: "xs:annotation cannot contain xs:annotation",
+			wantLine: 3, wantCol: 5, wantCode: xsderrors.CodeSchemaContentModel,
+			wantMsg: annotationOnly("notation", "documentation"),
+		},
+		{
+			name: "selector forbidden child",
+			body: `  <xs:element name="r">
+    <xs:key name="k">
+      <xs:selector xpath="."><xs:field xpath="@a"/></xs:selector>
+      <xs:field xpath="@a"/>
+    </xs:key>
+  </xs:element>`,
+			wantLine: 4, wantCol: 30, wantCode: xsderrors.CodeSchemaContentModel,
+			wantMsg: annotationOnly("selector", "field"),
+		},
+		{
+			name: "field duplicate annotation",
+			body: `  <xs:element name="r">
+    <xs:key name="k">
+      <xs:selector xpath="."/>
+      <xs:field xpath="@a"><xs:annotation/><xs:annotation/></xs:field>
+    </xs:key>
+  </xs:element>`,
+			wantLine: 5, wantCol: 44, wantCode: xsderrors.CodeSchemaContentModel,
+			wantMsg: "xs:\"field\" can contain at most one xs:annotation",
+		},
+		{
+			name: "wildcard forbidden child",
+			body: `  <xs:complexType name="C">
+    <xs:sequence><xs:any><xs:element name="e"/></xs:any></xs:sequence>
+  </xs:complexType>`,
+			wantLine: 3, wantCol: 26, wantCode: xsderrors.CodeSchemaContentModel,
+			wantMsg: annotationOnly("any", "element"),
+		},
+		{
+			name: "attribute wildcard forbidden child",
+			body: `  <xs:complexType name="C">
+    <xs:anyAttribute><xs:attribute name="a"/></xs:anyAttribute>
+  </xs:complexType>`,
+			wantLine: 3, wantCol: 22, wantCode: xsderrors.CodeSchemaContentModel,
+			wantMsg: annotationOnly("anyAttribute", "attribute"),
+		},
+		{
+			name: "group reference forbidden child",
+			body: `  <xs:complexType name="C">
+    <xs:group ref="G"><xs:sequence/></xs:group>
+  </xs:complexType>`,
+			wantLine: 3, wantCol: 23, wantCode: xsderrors.CodeSchemaContentModel,
+			wantMsg: annotationOnly("group", "sequence"),
+		},
+		{
+			name: "attributeGroup reference forbidden child",
+			body: `  <xs:complexType name="C">
+    <xs:attributeGroup ref="G"><xs:attribute name="a"/></xs:attributeGroup>
+  </xs:complexType>`,
+			wantLine: 3, wantCol: 32, wantCode: xsderrors.CodeSchemaContentModel,
+			wantMsg: annotationOnly("attributeGroup", "attribute"),
 		},
 	}
 	for _, tt := range tests {
@@ -215,14 +355,14 @@ func TestDocumentationLanguageOutsideAnnotation(t *testing.T) {
 		wantMsg  string
 	}{
 		{
-			name: "invalid language before notation child grammar", lang: " ",
+			name: "invalid language before complexType child grammar", lang: " ",
 			wantCode: xsderrors.CodeSchemaInvalidAttribute,
 			wantMsg:  "invalid xml:lang on xs:documentation",
 		},
 		{
-			name: "valid language reaches notation child grammar", lang: "en-US",
+			name: "valid language reaches complexType child grammar", lang: "en-US",
 			wantCode: xsderrors.CodeSchemaContentModel,
-			wantMsg:  "notation can contain only annotation",
+			wantMsg:  "invalid complexType child \"documentation\"",
 		},
 	}
 	for _, tt := range tests {
@@ -230,9 +370,9 @@ func TestDocumentationLanguageOutsideAnnotation(t *testing.T) {
 			t.Parallel()
 
 			schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:notation name="N" public="">
+  <xs:complexType name="C">
     <xs:documentation xml:lang="` + tt.lang + `"/>
-  </xs:notation>
+  </xs:complexType>
 </xs:schema>`
 			_, err := Compile(Options{}, []source.Source{source.Bytes("language.xsd", []byte(schema))})
 			issue, ok := errors.AsType[*xsderrors.Error](err)
@@ -247,4 +387,20 @@ func TestDocumentationLanguageOutsideAnnotation(t *testing.T) {
 			}
 		})
 	}
+}
+
+func annotationOnly(parent, child string) string {
+	return "xs:\"" + parent + "\" can contain only xs:annotation, not xs:\"" + child + "\""
+}
+
+func annotationPayloadOnly(child string) string {
+	return "xs:\"annotation\" can contain only xs:appinfo and xs:documentation, not xs:\"" + child + "\""
+}
+
+func facetBody(children string) string {
+	return `  <xs:simpleType name="T">
+    <xs:restriction base="xs:string">
+      <xs:length value="1">` + children + `</xs:length>
+    </xs:restriction>
+  </xs:simpleType>`
 }

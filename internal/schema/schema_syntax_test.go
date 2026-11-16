@@ -300,11 +300,6 @@ func TestCheckSchemaAnnotationNode(t *testing.T) {
 		wantMsg  string
 	}{
 		{
-			name: "annotation rejects nested annotation", local: annotationChild,
-			children: []annotationChildFixture{{local: annotationChild}},
-			wantLine: 100, wantMsg: "xs:annotation cannot contain xs:annotation",
-		},
-		{
 			name: "schema allows multiple top-level annotations", local: vocab.XSDElemSchema,
 			children: []annotationChildFixture{{local: annotationChild}, {local: annotationChild}},
 		},
@@ -430,7 +425,6 @@ func TestCheckNotationDeclaration(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		hasText   bool
 		children  []notationChildFixture
 		hasName   bool
 		hasPublic bool
@@ -442,33 +436,6 @@ func TestCheckNotationDeclaration(t *testing.T) {
 		{name: "public", hasName: true, hasPublic: true},
 		{name: "system", hasName: true, hasSystem: true},
 		{name: "annotation", children: []notationChildFixture{{local: annotationChild}}, hasName: true, hasPublic: true},
-		{
-			name:      "text",
-			hasText:   true,
-			hasName:   true,
-			hasPublic: true,
-			wantIndex: -1,
-			wantCode:  xsderrors.CodeSchemaContentModel,
-			wantMsg:   "notation can contain only annotation",
-		},
-		{
-			name:      "xsd child",
-			children:  []notationChildFixture{{local: "element"}},
-			hasName:   true,
-			hasPublic: true,
-			wantIndex: 0,
-			wantCode:  xsderrors.CodeSchemaContentModel,
-			wantMsg:   "notation can contain only annotation",
-		},
-		{
-			name:      "other nonannotation child",
-			children:  []notationChildFixture{{local: simpleTypeChild}},
-			hasName:   true,
-			hasPublic: true,
-			wantIndex: 0,
-			wantCode:  xsderrors.CodeSchemaContentModel,
-			wantMsg:   "notation can contain only annotation",
-		},
 		{
 			name:      "missing name",
 			hasPublic: true,
@@ -483,28 +450,12 @@ func TestCheckNotationDeclaration(t *testing.T) {
 			wantCode:  xsderrors.CodeSchemaInvalidAttribute,
 			wantMsg:   "notation requires public or system",
 		},
-		{
-			name:      "text before invalid child and missing attributes",
-			hasText:   true,
-			children:  []notationChildFixture{{local: elementChild}},
-			wantIndex: -1,
-			wantCode:  xsderrors.CodeSchemaContentModel,
-			wantMsg:   "notation can contain only annotation",
-		},
-		{
-			name:      "nonannotation child before missing name",
-			children:  []notationChildFixture{{local: elementChild}},
-			wantIndex: 0,
-			wantCode:  xsderrors.CodeSchemaContentModel,
-			wantMsg:   "notation can contain only annotation",
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
 			parent := notationGrammarFixture(t, tt.children)
-			parent.hasNonWhitespaceText = tt.hasText
 			parent.semantic.kind = &schemaNotationSource{
 				Global: schemaGlobalSource{Name: lexicalAttribute{Present: tt.hasName}},
 				Public: lexicalAttribute{Present: tt.hasPublic},

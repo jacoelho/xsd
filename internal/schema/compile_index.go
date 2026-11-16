@@ -103,7 +103,7 @@ func (c *compiler) indexNotation(ctx *schemaSetDocument, n *schemaNode, name str
 
 func validateModelGroupSyntax(n *schemaNode, limits Limits) error {
 	if n.local == vocab.XSDElemGroup {
-		return checkOrderedXSDChildren(n, groupUseChildOrder)
+		return nil
 	}
 	parentKind, ok := schemaModelKind(n)
 	if !ok {
@@ -147,8 +147,6 @@ func validateModelGroupChild(child *schemaNode, parent modelKind, limits Limits)
 		return validateNestedModelGroupOccurrence(child, limits)
 	case vocab.XSDElemGroup:
 		return validateModelGroupReference(child)
-	case vocab.XSDElemAny:
-		return checkOrderedXSDChildren(child, anyParticleChildOrder)
 	}
 	return nil
 }
@@ -160,7 +158,7 @@ func validateModelGroupReference(child *schemaNode) error {
 	if err := validateGroupUseSource(semanticSource[*schemaGroupSource](&child.semantic).Ref.Lexical); err != nil {
 		return withSchemaCompileLocation(child, err)
 	}
-	return checkOrderedXSDChildren(child, groupUseChildOrder)
+	return nil
 }
 
 func validateNestedModelGroupOccurrence(n *schemaNode, limits Limits) error {

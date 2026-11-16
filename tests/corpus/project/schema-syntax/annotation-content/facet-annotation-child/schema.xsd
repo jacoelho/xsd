@@ -1,4 +1,4 @@
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-<xs:simpleType name="T"><xs:restriction base="xs:int"><xs:minInclusive value="1"><xs:annotation><xs:simpleType/></xs:annotation></xs:minInclusive></xs:restriction></xs:simpleType>
+<xs:simpleType name="T"><xs:restriction base="xs:int"><xs:minInclusive value="1"><xs:annotation><xs:element name="z"/></xs:annotation></xs:minInclusive></xs:restriction></xs:simpleType>
 <xs:element name="r"/>
 </xs:schema>

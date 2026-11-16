@@ -704,9 +704,6 @@ func (c *compiler) compileAttributeGroupUse(ctx *schemaSetDocument, n *schemaNod
 }
 
 func (c *compiler) compileAttributeGroupUseID(ctx *schemaSetDocument, n *schemaNode) (attributeUseSetID, error) {
-	if err := checkAttributeGroupUseChildren(n); err != nil {
-		return noAttributeUseSet, err
-	}
 	if err := checkAttributeGroupUseSource(n); err != nil {
 		return noAttributeUseSet, err
 	}
