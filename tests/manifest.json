@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16616,
-    "schemaCases": 16566,
-    "instanceRuns": 35434,
+    "cases": 16620,
+    "schemaCases": 16570,
+    "instanceRuns": 35442,
     "w3cCases": 14414,
-    "internalRuns": 2189,
+    "internalRuns": 2193,
     "xercesJCases": 13
   },
   "cases": [
@@ -878789,6 +878789,388 @@
         {
           "file": "corpus/project/datatypes/bounds/exclusive-equal-minExclusive-float-nan/schema.xsd",
           "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-total-digits",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-total-digits",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction"
+        ],
+        "conditions": [
+          "The restated bound 10 has two digits, more than the base totalDigits of 1; equality with the base maxExclusive admits it."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-total-digits/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. invalid restriction: the number of digits has to be lesser or equal than 1: Schema component: <xs:maxExclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"10\" /> Path: /xs:schema/xs:simpleType[2]/xs:restriction/xs:maxExclusive Schema URL: file://schema.xsd  The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxExclusive': [facet 'totalDigits'] The value '10' has more digits than are allowed ('1'). The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "nine",
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-total-digits/nine.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            }
+          }
+        },
+        {
+          "testName": "ten",
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-total-digits/ten.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. ten.xml:1:10: cvc-totalDigits-valid: Value '10' has 2 total digits, but the number of total digits has been limited to 1. The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. ten.xml:1:8: The 'r' element is invalid - The value '10' is invalid according to its datatype 'D' - The MaxExclusive constraint failed. The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-total-digits/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-total-digits/nine.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-total-digits/ten.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/exclusive-equal-minExclusive-outside-base-fraction-digits",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/exclusive-equal-minExclusive-outside-base-fraction-digits",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-valid-restriction"
+        ],
+        "conditions": [
+          "The restated bound 0.5 has a fractional digit, which the base fractionDigits of 0 excludes; equality with the base minExclusive admits it."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/exclusive-equal-minExclusive-outside-base-fraction-digits/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. invalid restriction: the number of fraction digits has to be lesser or equal than 0: Schema component: <xs:minExclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"0.5\" /> Path: /xs:schema/xs:simpleType[2]/xs:restriction/xs:minExclusive Schema URL: file://schema.xsd  The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element minExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}minExclusive': [facet 'fractionDigits'] The value '0.5' has more fractional digits than are allowed ('0'). The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "one",
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-minExclusive-outside-base-fraction-digits/one.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+            }
+          }
+        },
+        {
+          "testName": "zero",
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-minExclusive-outside-base-fraction-digits/zero.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. zero.xml:1:9: cvc-minExclusive-valid: Value '0' is not facet-valid with respect to minExclusive '0.5' for type 'D'. The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. zero.xml:1:7: The 'r' element is invalid - The value '0' is invalid according to its datatype 'D' - The MinExclusive constraint failed. The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-minExclusive-outside-base-fraction-digits/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-minExclusive-outside-base-fraction-digits/one.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-minExclusive-outside-base-fraction-digits/zero.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-enumeration",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-enumeration",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction"
+        ],
+        "conditions": [
+          "The restated bound 3 is outside the base enumeration; equality with the base maxExclusive admits it."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-enumeration/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. invalid restriction: value must be one of [Decimal('1'), Decimal('2')]: Schema component: <xs:maxExclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"3\" /> Path: /xs:schema/xs:simpleType[2]/xs:restriction/xs:maxExclusive Schema URL: file://schema.xsd  The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxExclusive': [facet 'maxExclusive'] The value '3' must be less than '3'. The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "two",
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-enumeration/two.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            }
+          }
+        },
+        {
+          "testName": "three",
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-enumeration/three.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. three.xml:1:9: cvc-enumeration-valid: Value '3' is not facet-valid with respect to enumeration '[1.0, 2.0]'. It must be a value from the enumeration. The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. three.xml:1:7: The 'r' element is invalid - The value '3' is invalid according to its datatype 'D' - The MaxExclusive constraint failed. The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-enumeration/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-enumeration/two.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-enumeration/three.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-pattern",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-pattern",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction"
+        ],
+        "conditions": [
+          "The restated bound 10 does not match the base pattern; equality with the base maxExclusive admits it."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-pattern/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:50: cvc-pattern-valid: Value '10' is not facet-valid with respect to pattern '\\d' for type 'B'. The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. invalid restriction: value doesn't match any pattern of ['\\\\d']: Schema component: <xs:maxExclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"10\" /> Path: /xs:schema/xs:simpleType[2]/xs:restriction/xs:maxExclusive Schema URL: file://schema.xsd  The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxExclusive': [facet 'maxExclusive'] The value '10' must be less than '10'. The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "nine",
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-pattern/nine.xml",
+          "expected": "valid",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            }
+          }
+        },
+        {
+          "testName": "ten",
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-pattern/ten.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. ten.xml:1:8: The 'r' element is invalid - The value '10' is invalid according to its datatype 'D' - The Pattern constraint failed. The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-pattern/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-pattern/nine.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-pattern/ten.xml",
+          "role": "instance"
         }
       ]
     }

@@ -220,8 +220,9 @@ func (b *Builder) Validate(id TypeID, lexical string, resolver Resolver, needs N
 // AdmitBoundLiteral reports whether lexical is admissible as the value of the
 // ordered-bound facet named by facet in a restriction of id: it must be in the
 // value space of id, or, for minExclusive and maxExclusive, equal the value of
-// the same facet of id (Datatypes §4.3.8, §4.3.9). Comparisons with inherited
-// bounds of other kinds belong to the facet-derivation checks.
+// the same facet of id, in which case no other facet of id applies
+// (Datatypes §4.3.8, §4.3.9). Comparisons with inherited bounds belong to the
+// facet-derivation checks.
 func (b *Builder) AdmitBoundLiteral(id TypeID, facet FacetMask, lexical string) error {
 	if b == nil || b.program == nil || b.program.sealed {
 		return ErrMetadata
@@ -237,9 +238,8 @@ func (b *Builder) AdmitBoundLiteral(id TypeID, facet FacetMask, lexical string) 
 	}
 	var v parsedValue
 	normalized, err := p.eval(id, lexical, evalOptions{work: &budget}, &v)
-	if err == nil && t.facets.present != 0 {
-		admitted := withoutRestatedExclusive(t, facet, &v)
-		err = applyFacets(&admitted, &v, normalized, nil, &budget)
+	if err == nil && t.facets.present != 0 && !restatesExclusiveBound(t, facet, &v) {
+		err = applyFacets(t, &v, normalized, nil, &budget)
 	}
 	if err != nil {
 		return describeValueFailure(p, id, lexical, &v, err)
@@ -247,28 +247,21 @@ func (b *Builder) AdmitBoundLiteral(id TypeID, facet FacetMask, lexical string) 
 	return nil
 }
 
-// withoutRestatedExclusive returns t without the exclusive bound of the facet
-// kind that value restates.
-func withoutRestatedExclusive(t *typeDef, facet FacetMask, value *parsedValue) typeDef {
-	out := *t
+// restatesExclusiveBound reports whether value equals an exclusive bound of t
+// of the kind facet names.
+func restatesExclusiveBound(t *typeDef, facet FacetMask, value *parsedValue) bool {
+	bounds := t.facets.upper
 	if facet == FacetMinExclusive {
-		out.facets.lower = withoutEqualExclusive(t.facets.lower, value)
+		bounds = t.facets.lower
+	} else if facet != FacetMaxExclusive {
+		return false
 	}
-	if facet == FacetMaxExclusive {
-		out.facets.upper = withoutEqualExclusive(t.facets.upper, value)
-	}
-	return out
-}
-
-func withoutEqualExclusive(bounds []boundValue, value *parsedValue) []boundValue {
-	kept := make([]boundValue, 0, len(bounds))
 	for i := range bounds {
 		if bounds[i].exclusive && !value.isList && equalAtomic(&bounds[i].value, &value.atom) {
-			continue
+			return true
 		}
-		kept = append(kept, bounds[i])
 	}
-	return kept
+	return false
 }
 
 // validateBorrowedBytes admits raw bytes and retains the accumulated work when
