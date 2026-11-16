@@ -3756,9 +3756,9 @@ func TestPublishedSchemaOwnsValidationStorage(t *testing.T) {
 	attrs := &aliases.AttributeUseSets[attrSetID]
 	codeSlot := attrs.Index[codeName]
 	attrs.Index[codeName] = 0
-	attrs.Uses[codeSlot].Fixed.Canonical = "CA"
+	attrs.Uses[codeSlot].ValueConstraint.Canonical = "CA"
 	attrs.Uses[attrs.Index[idName]].Required = false
-	attrs.Uses[codeSlot].Fixed = nil
+	attrs.Uses[codeSlot].ValueConstraint = nil
 
 	interner := xsdSchema.NewNameInterner(&aliases.Names)
 	if _, err := interner.InternQName("urn:poison", "poison"); err != nil {
@@ -3995,4 +3995,17 @@ func TestGlobalAttributeTypeRequiresSimpleType(t *testing.T) {
 		t.Fatal(err)
 	}
 	mustValidate(t, compiled, `<r a="value"/>`)
+}
+
+func TestCompileReportsIDReferenceValueConstraintOnAttributeUse(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:attribute name="a" type="xs:ID"/>
+  <xs:element name="r"><xs:complexType><xs:attribute ref="a" fixed="x"/></xs:complexType></xs:element>
+</xs:schema>`
+	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("id-reference.xsd", []byte(schema))})
+	expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaInvalidAttribute)
+	diagnostic, _ := errors.AsType[*xsderrors.Error](err)
+	if diagnostic.Line() != 3 || !strings.Contains(err.Error(), "ID-typed attribute use stores value constraint") {
+		t.Fatalf("Compile() error = %v, want ID-typed attribute use at line 3", err)
+	}
 }

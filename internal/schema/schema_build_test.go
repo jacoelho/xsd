@@ -205,34 +205,29 @@ func TestSchemaBuildBuiltinHandlesMatchRegisteredDeclarations(t *testing.T) {
 func TestSchemaBuildConstructionReadsDoNotAliasMutableTopology(t *testing.T) {
 	t.Parallel()
 
-	resolved := []resolvedValueName{{Lexical: "p:value"}}
-	constraint := &valueConstraint{ResolvedNames: resolved, Lexical: "value"}
-	fixedConstraint := &valueConstraint{
+	constraint := &valueConstraint{
 		ResolvedNames: []resolvedValueName{{Lexical: "p:fixed"}},
 		Lexical:       "fixed",
+		Fixed:         true,
 	}
 	build := schemaBuild{
-		Attributes: []attributeDecl{{Default: constraint, Fixed: fixedConstraint}},
+		Attributes: []attributeDecl{{ValueConstraint: constraint}},
 		AttributeUseSets: []attributeUseSet{{Uses: []attributeUse{{
-			Default: constraint,
-			Fixed:   fixedConstraint,
+			ValueConstraint: constraint,
 		}}}},
 	}
 	rt := build
 
 	attribute := rt.attributeUse(0)
-	attribute.Default.ResolvedNames[0].Lexical = "changed"
-	attribute.Fixed.ResolvedNames[0].Lexical = "changed"
+	attribute.ValueConstraint.ResolvedNames[0].Lexical = "changed"
 
 	uses, _ := rt.attributeUsesAndWildcardForCompilation(0)
 	uses[0] = attributeUse{Name: QName{Local: 9}}
-	if rt.Attributes[0].Default.ResolvedNames[0].Lexical != "p:value" ||
-		rt.Attributes[0].Fixed.ResolvedNames[0].Lexical != "p:fixed" {
+	if rt.Attributes[0].ValueConstraint.ResolvedNames[0].Lexical != "p:fixed" {
 		t.Fatal("attribute-use projection aliases compiler-owned storage")
 	}
 	if rt.AttributeUseSets[0].Uses[0].Name != (QName{}) ||
-		rt.AttributeUseSets[0].Uses[0].Default.ResolvedNames[0].Lexical != "p:value" ||
-		rt.AttributeUseSets[0].Uses[0].Fixed.ResolvedNames[0].Lexical != "p:fixed" {
+		rt.AttributeUseSets[0].Uses[0].ValueConstraint.ResolvedNames[0].Lexical != "p:fixed" {
 		t.Fatal("attribute-use-set projection aliases compiler-owned storage")
 	}
 }

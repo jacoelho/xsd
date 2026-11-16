@@ -32,17 +32,16 @@ const (
 
 // elementDecl is the runtime record for one element declaration.
 type elementDecl struct {
-	Default   *valueConstraint
-	Fixed     *valueConstraint
-	Identity  []IdentityConstraintID
-	Type      TypeID
-	Name      QName
-	SubstHead ElementID
-	Nillable  bool
-	Abstract  bool
-	Block     DerivationMask
-	Final     DerivationMask
-	Scope     declarationScope
+	ValueConstraint *valueConstraint
+	Identity        []IdentityConstraintID
+	Type            TypeID
+	Name            QName
+	SubstHead       ElementID
+	Nillable        bool
+	Abstract        bool
+	Block           DerivationMask
+	Final           DerivationMask
+	Scope           declarationScope
 }
 
 // elementDeclByID resolves an element declaration ID against an element table.
@@ -65,10 +64,9 @@ func elementTypeByID(decls []elementDecl, id ElementID) (TypeID, bool) {
 
 // attributeDecl is the runtime record for one attribute declaration.
 type attributeDecl struct {
-	Default *valueConstraint
-	Fixed   *valueConstraint
-	Name    QName
-	Type    SimpleTypeID
+	ValueConstraint *valueConstraint
+	Name            QName
+	Type            SimpleTypeID
 }
 
 // validateElementDeclRuntime validates element declaration metadata that can be
@@ -86,9 +84,6 @@ func validateElementDeclRuntime(names *nameTable, decl elementDecl, limits declR
 	if decl.SubstHead != NoElement && !validElementID(decl.SubstHead, limits.ElementCount) {
 		return errors.New("element declaration references invalid substitution head")
 	}
-	if decl.Default != nil && decl.Fixed != nil {
-		return errors.New("element declaration stores both default and fixed value constraints")
-	}
 	return nil
 }
 
@@ -105,9 +100,6 @@ func validateAttributeDeclRuntime(names *nameTable, decl attributeDecl, limits d
 		if _, ok := builtinXSIAttributeType(names.Local(decl.Name.Local)); !ok {
 			return errors.New("attribute target namespace cannot be XMLSchema-instance")
 		}
-	}
-	if decl.Default != nil && decl.Fixed != nil {
-		return errors.New("attribute declaration stores both default and fixed value constraints")
 	}
 	return nil
 }
@@ -133,8 +125,9 @@ func validateAttributeName(names *nameTable, name QName) error {
 	return nil
 }
 
-// declarationValueConstraint classifies the value constraints on a
-// declaration.
+// declarationValueConstraint classifies a {value constraint}, or the default
+// and fixed attributes of one schema source element; only source attributes
+// can conflict.
 type declarationValueConstraint uint8
 
 const (
@@ -153,43 +146,26 @@ func (c declarationValueConstraint) present() bool {
 	return c == declarationValueConstraintDefault || c == declarationValueConstraintFixed
 }
 
-// declarationValueConstraintOf classifies declaration value-constraint values.
-func declarationValueConstraintOf[T any](defaultValue, fixedValue *T) declarationValueConstraint {
-	switch {
-	case defaultValue != nil && fixedValue != nil:
-		return declarationValueConstraintConflict
-	case defaultValue != nil:
-		return declarationValueConstraintDefault
-	case fixedValue != nil:
-		return declarationValueConstraintFixed
-	default:
-		return declarationValueConstraintNone
-	}
-}
-
 // validateElementDeclValueConstraintRuntime validates element declaration
 // value-constraint rules that depend on the constraint's simple owner type.
-func validateElementDeclValueConstraintRuntime(rt *schemaBuild, typ SimpleTypeID, constraint declarationValueConstraint) error {
-	return validateDeclValueConstraintIdentity(rt, typ, constraint, "ID-typed element declaration stores value constraint")
+func validateElementDeclValueConstraintRuntime(rt *schemaBuild, typ SimpleTypeID, vc *valueConstraint) error {
+	return validateValueConstraintIdentity(rt, typ, vc, "ID-typed element declaration stores value constraint")
 }
 
 // validateAttributeDeclValueConstraintRuntime validates attribute declaration
 // value-constraint rules that depend on the declaration's simple type.
-func validateAttributeDeclValueConstraintRuntime(rt *schemaBuild, typ SimpleTypeID, constraint declarationValueConstraint) error {
-	return validateDeclValueConstraintIdentity(rt, typ, constraint, "ID-typed attribute declaration stores value constraint")
+func validateAttributeDeclValueConstraintRuntime(rt *schemaBuild, typ SimpleTypeID, vc *valueConstraint) error {
+	return validateValueConstraintIdentity(rt, typ, vc, "ID-typed attribute declaration stores value constraint")
 }
 
-func validateDeclValueConstraintIdentity(rt *schemaBuild, typ SimpleTypeID, constraint declarationValueConstraint, msg string) error {
-	switch constraint {
-	case declarationValueConstraintNone:
-		return nil
-	case declarationValueConstraintDefault, declarationValueConstraintFixed:
-	case declarationValueConstraintConflict:
-		return errors.New("declaration stores conflicting value constraints")
-	default:
-		return errors.New("declaration value constraint kind is unknown")
-	}
-	if typ == NoSimpleType {
+// validateAttributeUseValueConstraintRuntime validates the value constraint an
+// attribute reference gives its use against the declaration's simple type.
+func validateAttributeUseValueConstraintRuntime(rt *schemaBuild, typ SimpleTypeID, vc *valueConstraint) error {
+	return validateValueConstraintIdentity(rt, typ, vc, "ID-typed attribute use stores value constraint")
+}
+
+func validateValueConstraintIdentity(rt *schemaBuild, typ SimpleTypeID, vc *valueConstraint, msg string) error {
+	if vc == nil || typ == NoSimpleType {
 		return nil
 	}
 	if rt == nil {

@@ -186,7 +186,7 @@ func (rt *schemaBuild) ElementRestriction(id ElementID) (particleRestrictionElem
 		Identities: borrowedIdentityConstraintIDs(decl.Identity),
 		Type:       decl.Type,
 		Block:      decl.Block,
-		Fixed:      newValueConstraintIdentity(decl.Fixed),
+		Fixed:      newValueConstraintIdentity(decl.ValueConstraint.fixedConstraint()),
 		Scope:      decl.Scope,
 		Nillable:   decl.Nillable,
 	}, true

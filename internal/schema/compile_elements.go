@@ -128,30 +128,26 @@ func (c *compiler) compileLocalElement(ctx *schemaSetDocument, n *schemaNode) (r
 	return id, nil
 }
 
-type elementConstraintDraft struct {
-	lexical string
-	kind    declarationValueConstraint
-}
-
+// pendingElementConstraint is an unvalidated element value constraint that
+// waits for the declaration's type to finalize.
 type pendingElementConstraint struct {
-	node    *schemaNode
-	lexical string
-	element ElementID
-	kind    declarationValueConstraint
+	node       *schemaNode
+	constraint *valueConstraint
+	element    ElementID
 }
 
-func (c *compiler) compileElementDecl(ctx *schemaSetDocument, n *schemaNode, q QName) (elementDecl, elementConstraintDraft, error) {
+func (c *compiler) compileElementDecl(ctx *schemaSetDocument, n *schemaNode, q QName) (elementDecl, *valueConstraint, error) {
 	if err := checkElementDeclarationChildren(n); err != nil {
-		return elementDecl{}, elementConstraintDraft{}, err
+		return elementDecl{}, nil, err
 	}
 	identityNodes := identityConstraintNodes(n)
 	identityIDs, err := c.declareIdentityConstraints(ctx, identityNodes)
 	if err != nil {
-		return elementDecl{}, elementConstraintDraft{}, err
+		return elementDecl{}, nil, err
 	}
 	properties, err := c.compileElementProperties(ctx, n)
 	if err != nil {
-		return elementDecl{}, elementConstraintDraft{}, err
+		return elementDecl{}, nil, err
 	}
 	decl := elementDecl{
 		Name:      q,
@@ -161,17 +157,17 @@ func (c *compiler) compileElementDecl(ctx *schemaSetDocument, n *schemaNode, q Q
 		SubstHead: NoElement,
 	}
 	if maskErr := applyElementDerivationMasks(ctx, n, &decl); maskErr != nil {
-		return elementDecl{}, elementConstraintDraft{}, maskErr
+		return elementDecl{}, nil, maskErr
 	}
-	draft, err := compileElementConstraintDraft(n)
+	constraint, err := compileElementConstraintSource(n)
 	if err != nil {
-		return elementDecl{}, elementConstraintDraft{}, err
+		return elementDecl{}, nil, err
 	}
 	if err := c.compileDeclaredIdentityConstraints(ctx, identityNodes, identityIDs); err != nil {
-		return elementDecl{}, elementConstraintDraft{}, err
+		return elementDecl{}, nil, err
 	}
 	decl.Identity = identityIDs
-	return decl, draft, nil
+	return decl, constraint, nil
 }
 
 type compiledElementProperties struct {
@@ -234,37 +230,24 @@ func applyElementDerivationMasks(ctx *schemaSetDocument, n *schemaNode, decl *el
 	return nil
 }
 
-func compileElementConstraintDraft(n *schemaNode) (elementConstraintDraft, error) {
+func compileElementConstraintSource(n *schemaNode) (*valueConstraint, error) {
 	source := semanticSource[*schemaElementSource](&n.semantic)
 	if source == nil {
-		return elementConstraintDraft{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("element node has no typed element source"))
+		return nil, withSchemaCompileLocation(n, xsderrors.InternalInvariant("element node has no typed element source"))
 	}
-	defaultLexical, hasDefault := source.Default.Value, source.Default.Present
-	fixedLexical, hasFixed := source.Fixed.Value, source.Fixed.Present
-	var lexical string
-	var kind declarationValueConstraint
-	switch {
-	case hasDefault && hasFixed:
-		kind = declarationValueConstraintConflict
-	case hasDefault:
-		kind = declarationValueConstraintDefault
-		lexical = defaultLexical
-	case hasFixed:
-		kind = declarationValueConstraintFixed
-		lexical = fixedLexical
-	}
+	constraint, kind := sourceValueConstraint(source.Default, source.Fixed)
 	if err := validateElementDeclValueConstraintAtNode(n, kind); err != nil {
-		return elementConstraintDraft{}, err
+		return nil, err
 	}
-	return elementConstraintDraft{lexical: lexical, kind: kind}, nil
+	return constraint, nil
 }
 
-func (c *compiler) addPendingElementConstraint(id ElementID, n *schemaNode, draft elementConstraintDraft) {
-	if draft.kind == declarationValueConstraintNone {
+func (c *compiler) addPendingElementConstraint(id ElementID, n *schemaNode, constraint *valueConstraint) {
+	if constraint == nil {
 		return
 	}
 	c.pendingElementConstraints = append(c.pendingElementConstraints, pendingElementConstraint{
-		node: n, lexical: draft.lexical, element: id, kind: draft.kind,
+		node: n, constraint: constraint, element: id,
 	})
 }
 
@@ -288,7 +271,8 @@ func (c *compiler) compileElementTypeAttribute(ctx *schemaSetDocument, n *schema
 }
 
 func (c *compiler) validateElementValueConstraints(decl *elementDecl, n *schemaNode, unavailable []bool) error {
-	if decl.Default == nil && decl.Fixed == nil {
+	constraint := decl.ValueConstraint
+	if constraint == nil {
 		return nil
 	}
 	simpleID, err := elementValueConstraintType(&c.rt, c.contentAnalysis, decl.Type)
@@ -296,64 +280,41 @@ func (c *compiler) validateElementValueConstraints(decl *elementDecl, n *schemaN
 		return schemaValueError(c.limits, xsderrors.CodeSchemaInvalidAttribute, "invalid element value constraint", err)
 	}
 	if simpleID == NoSimpleType {
-		applyMixedElementConstraints(decl, n.namespace.Lookup)
+		decl.ValueConstraint = mixedContentConstraint(constraint, n.namespace.Lookup)
 		return nil
 	}
-	unavailableType, err := prepareElementConstraintType(decl, simpleID, unavailable)
-	if err != nil || unavailableType {
-		return err
+	if !validSimpleTypeID(simpleID, len(unavailable)) {
+		return xsderrors.InternalInvariant("element value constraint references invalid simple type")
 	}
-	if err = validateElementDeclValueConstraintRuntime(&c.rt, simpleID, declarationValueConstraintOf(decl.Default, decl.Fixed)); err != nil {
+	if unavailable[simpleID] {
+		decl.ValueConstraint = nil
+		return nil
+	}
+	if err = validateElementDeclValueConstraintRuntime(&c.rt, simpleID, constraint); err != nil {
 		return schemaValueError(c.limits, xsderrors.CodeSchemaInvalidAttribute, "invalid element value constraint", err)
 	}
-	constraint := decl.Default
 	label := elementDefaultConstraintLabel
-	if constraint == nil {
-		constraint = decl.Fixed
+	if constraint.Fixed {
 		label = elementFixedConstraintLabel
 	}
-	resolve := schemaQNameResolver(n)
-	validated, err := c.validateValueConstraint(simpleID, constraint.Lexical, resolve, n.namespace.Lookup, decl.Name, label)
+	validated, err := c.validateValueConstraint(simpleID, constraint, schemaQNameResolver(n), n.namespace.Lookup, decl.Name, label)
 	if err != nil {
 		return err
 	}
-	if decl.Default != nil {
-		decl.Default = validated
-		return nil
-	}
-	decl.Fixed = validated
+	decl.ValueConstraint = validated
 	return nil
-}
-
-func applyMixedElementConstraints(decl *elementDecl, lookup func(string) (string, bool)) {
-	if decl.Default != nil {
-		decl.Default = mixedContentConstraint(decl.Default.Lexical, lookup)
-	}
-	if decl.Fixed != nil {
-		decl.Fixed = mixedContentConstraint(decl.Fixed.Lexical, lookup)
-	}
-}
-
-func prepareElementConstraintType(decl *elementDecl, simpleID SimpleTypeID, unavailable []bool) (bool, error) {
-	if !validSimpleTypeID(simpleID, len(unavailable)) {
-		return false, xsderrors.InternalInvariant("element value constraint references invalid simple type")
-	}
-	if !unavailable[simpleID] {
-		return false, nil
-	}
-	decl.Default = nil
-	decl.Fixed = nil
-	return true, nil
 }
 
 // mixedContentConstraint builds the constraint for an emptiable mixed-content
 // element, whose default or fixed text is used verbatim: the lexical form is
 // its own canonical form and the value is untyped.
-func mixedContentConstraint(lexical string, lookup func(string) (string, bool)) *valueConstraint {
+func mixedContentConstraint(constraint *valueConstraint, lookup func(string) (string, bool)) *valueConstraint {
+	lexical := constraint.Lexical
 	return &valueConstraint{
 		Lexical:      lexical,
 		Canonical:    lexical,
 		Value:        valuepkg.NewUntypedValue(lexical),
 		qnameContext: newValueConstraintQNameContext(lexical, lookup),
+		Fixed:        constraint.Fixed,
 	}
 }

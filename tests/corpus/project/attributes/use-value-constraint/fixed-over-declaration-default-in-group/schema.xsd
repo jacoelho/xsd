@@ -1,0 +1,5 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:attribute name="a" type="xs:int" default="1"/>
+<xs:attributeGroup name="g"><xs:attribute ref="a" fixed="2"/></xs:attributeGroup>
+<xs:element name="r"><xs:complexType><xs:attributeGroup ref="g"/></xs:complexType></xs:element>
+</xs:schema>

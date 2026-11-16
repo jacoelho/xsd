@@ -7,22 +7,22 @@ import (
 )
 
 func TestElementReadTableOwnsCanonicalFacts(t *testing.T) {
-	fixed := &valueConstraint{Lexical: "01", Canonical: "1", Value: builtinValueForTest(t, "integer", "01")}
+	fixed := &valueConstraint{Lexical: "01", Canonical: "1", Value: builtinValueForTest(t, "integer", "01"), Fixed: true}
 	def := &valueConstraint{Lexical: "default", Canonical: "default", Value: builtinValueForTest(t, "string", "default")}
 	decls := []elementDecl{
 		{
-			Name:     QName{Namespace: 1, Local: 2},
-			Type:     SimpleRef(3),
-			Block:    DerivationRestriction,
-			Identity: []IdentityConstraintID{5, 6},
-			Fixed:    fixed,
-			Abstract: true,
-			Nillable: true,
+			Name:            QName{Namespace: 1, Local: 2},
+			Type:            SimpleRef(3),
+			Block:           DerivationRestriction,
+			Identity:        []IdentityConstraintID{5, 6},
+			ValueConstraint: fixed,
+			Abstract:        true,
+			Nillable:        true,
 		},
 		{
-			Name:    QName{Namespace: 7, Local: 8},
-			Type:    SimpleRef(4),
-			Default: def,
+			Name:            QName{Namespace: 7, Local: 8},
+			Type:            SimpleRef(4),
+			ValueConstraint: def,
 		},
 	}
 	table := newElementReadTable(decls)
@@ -75,12 +75,13 @@ func TestElementReadTableOwnsConstraintNamespaceContexts(t *testing.T) {
 	fixed := &valueConstraint{
 		Lexical: "p:fixed", Canonical: "p:fixed", Value: builtinValueForTest(t, "string", "p:fixed"),
 		qnameContext: &valueConstraintQNameContext{bindings: []valueConstraintQNameBinding{{prefix: "p", namespace: "urn:fixed", bound: true}}},
+		Fixed:        true,
 	}
 	def := &valueConstraint{
 		Lexical: "p:default", Canonical: "p:default", Value: builtinValueForTest(t, "string", "p:default"),
 		qnameContext: &valueConstraintQNameContext{bindings: []valueConstraintQNameBinding{{prefix: "p", namespace: "urn:default", bound: true}}},
 	}
-	table := newElementReadTable([]elementDecl{{Type: SimpleRef(3), Fixed: fixed}, {Type: SimpleRef(4), Default: def}})
+	table := newElementReadTable([]elementDecl{{Type: SimpleRef(3), ValueConstraint: fixed}, {Type: SimpleRef(4), ValueConstraint: def}})
 	fixed.qnameContext.bindings[0].namespace = "urn:changed"
 	def.qnameContext.bindings[0].bound = false
 	for range 2 {
