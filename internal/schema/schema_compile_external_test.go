@@ -482,7 +482,7 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
 		{name: "later unsupported feature wins", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:annotation id="a"/>
   <xs:annotation id="a"/>
-  <xs:assert/>
+  <xs:override schemaLocation="absent.xsd"/>
 </xs:schema>`, code: xsderrors.CodeUnsupportedXSD11, line: 4, column: 3, category: xsderrors.CategoryUnsupported},
 		{name: "later empty ID wins", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:annotation id="a"/>

@@ -236,7 +236,7 @@ func TestCheckRawSchemaAttributes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := checkSchemaAttributesSyntax(testRawNodeWithLocalAttrs(tt.element, tt.attrs))
+			err := checkElementChildAttributes(testRawNodeWithLocalAttrs(tt.element, tt.attrs))
 			if tt.wantMessage != "" {
 				expectInvalidAttributeMessage(t, err, tt.wantMessage)
 				return

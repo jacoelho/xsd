@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16639,
-    "schemaCases": 16589,
-    "instanceRuns": 35434,
+    "cases": 16668,
+    "schemaCases": 16618,
+    "instanceRuns": 35441,
     "w3cCases": 14414,
-    "internalRuns": 2212,
+    "internalRuns": 2241,
     "xercesJCases": 13
   },
   "cases": [
@@ -880056,6 +880056,1755 @@
       "files": [
         {
           "file": "corpus/project/schema-syntax/annotation-only-content/identity-annotated-control/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/xml/opt-out-schema-doctype",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/xml/opt-out-schema-doctype",
+        "specification": [
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-prolog-dtd",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#schema-repr"
+        ],
+        "conditions": [
+          "A schema document with a document type declaration is well-formed and schema-valid; DTDs are an opt-out, so the library must report unsupported.dtd instead of accepting or ignoring the declaration."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/xml/opt-out-schema-doctype/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows XML 1.0 and the schema representation; the allowlist records the opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-prolog-dtd"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows XML 1.0 and the schema representation; the allowlist records the opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-prolog-dtd"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows XML 1.0 and the schema representation; the allowlist records the opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-prolog-dtd"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows XML 1.0 and the schema representation; the allowlist records the opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-prolog-dtd"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/xml/opt-out-schema-doctype/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/xml/opt-out-instance-forms",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/xml/opt-out-instance-forms",
+        "specification": [
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-prolog-dtd",
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#charencoding",
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#wf-entdeclared",
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-VersionNum"
+        ],
+        "conditions": [
+          "Instances use doctype: a bare document type declaration; doctype-external-subset: an external DTD subset a non-validating processor need not read; doctype-internal-entity: an internal general entity; undeclared-entity: an undeclared entity reference, which XML 1.0 makes a well-formedness error and the library reports under the external-entity opt-out; latin1-declaration: a non-UTF-8 encoding declaration; xml-1-1: an XML 1.1 version declaration; utf8-declaration: a UTF-8 XML 1.0 declaration, the supported control. Every opt-out form must be reported as unsupported, never assessed as valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/xml/opt-out-instance-forms/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-prolog-dtd"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-prolog-dtd"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-prolog-dtd"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-prolog-dtd"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "doctype",
+          "file": "corpus/project/xml/opt-out-instance-forms/doctype.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-prolog-dtd"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-prolog-dtd"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-prolog-dtd"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-prolog-dtd"
+            }
+          }
+        },
+        {
+          "testName": "doctype-external-subset",
+          "file": "corpus/project/xml/opt-out-instance-forms/doctype-external-subset.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "status": "blocked",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: blocked. acquisition blocked: absent.dtd (base file:doctype-external-subset.xml)"
+            },
+            "dotnet": {
+              "status": "blocked",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: blocked. acquisition blocked: file://absent.dtd"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-prolog-dtd"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-prolog-dtd"
+            }
+          }
+        },
+        {
+          "testName": "doctype-internal-entity",
+          "file": "corpus/project/xml/opt-out-instance-forms/doctype-internal-entity.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-prolog-dtd"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-prolog-dtd"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-prolog-dtd"
+            },
+            "libxml2": {
+              "status": "unassessed",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: error. doctype-internal-entity.xml:1: element r: Schemas validity error : Internal error: xmlSchemaVDocWalk, there is at least one entity reference in the node-tree currently being validated. Processing of entities with this XML Schema processor is not supported (yet). Please substitute entities before val"
+            }
+          }
+        },
+        {
+          "testName": "undeclared-entity",
+          "file": "corpus/project/xml/opt-out-instance-forms/undeclared-entity.xml",
+          "expected": "invalid",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. undeclared-entity.xml:1:7: The entity \"e\" was referenced, but not declared. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#wf-entdeclared"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. Reference to undeclared entity 'e'. Line 1, position 5. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#wf-entdeclared"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. not well-formed: invalid XML syntax: undefined entity: line 1, column 3 The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#wf-entdeclared"
+            },
+            "libxml2": {
+              "expected": "invalid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance rejected. undeclared-entity.xml:1: parser error : Entity 'e' not defined The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#wf-entdeclared"
+            }
+          }
+        },
+        {
+          "testName": "latin1-declaration",
+          "file": "corpus/project/xml/opt-out-instance-forms/latin1-declaration.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#charencoding"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#charencoding"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#charencoding"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#charencoding"
+            }
+          }
+        },
+        {
+          "testName": "xml-1-1",
+          "file": "corpus/project/xml/opt-out-instance-forms/xml-1-1.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-VersionNum"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. Version number '1.1' is invalid. Line 1, position 16. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-VersionNum"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-VersionNum"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-VersionNum"
+            }
+          }
+        },
+        {
+          "testName": "utf8-declaration",
+          "file": "corpus/project/xml/opt-out-instance-forms/utf8-declaration.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#charencoding"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#charencoding"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#charencoding"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#charencoding"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/xml/opt-out-instance-forms/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/xml/opt-out-instance-forms/doctype.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/opt-out-instance-forms/doctype-external-subset.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/opt-out-instance-forms/doctype-internal-entity.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/opt-out-instance-forms/undeclared-entity.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/opt-out-instance-forms/latin1-declaration.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/opt-out-instance-forms/xml-1-1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/opt-out-instance-forms/utf8-declaration.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/assert",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/assert",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "The XSD 1.1 construct (assert) is not part of the XSD 1.0 schema for schemas; the schema must not be accepted."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/assert/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:64: s4s-elt-invalid-content.1: The content of '#AnonType_r' is invalid. Element 'assert' is invalid, misplaced, or occurs too often. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:39: The 'http://www.w3.org/2001/XMLSchema:assert' element is not supported in this context. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:assert' at position 1: Schema component: <xs:complexType xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:assert test=\"true()\" /></xs:complexType> Path: /xs:schema/xs:element/xs:complexType Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element assert: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}complexType': The content is not valid. Expected is (annotation?, (simpleContent | complexContent | ((group | all | choice | sequence)?, ((attribute | attributeGroup)*, anyAttribute?)))). The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/assert/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/alternative",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/alternative",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "The XSD 1.1 construct (alternative) is not part of the XSD 1.0 schema for schemas; the schema must not be accepted."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/alternative/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:53: s4s-elt-must-match.1: The content of 'r' must match (annotation?, (simpleType | complexType)?, (unique | key | keyref)*)). A problem was found starting at: alternative. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:23: The 'http://www.w3.org/2001/XMLSchema:alternative' element is not supported in this context. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:alternative' at position 1: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"r\"><xs:alternative type=\"xs:int\" /></xs:element> Path: /xs:schema/xs:element Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element alternative: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element': The content is not valid. Expected is (annotation?, ((simpleType | complexType)?, (unique | key | keyref)*)). The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/alternative/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/open-content",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/open-content",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "The XSD 1.1 construct (open-content) is not part of the XSD 1.0 schema for schemas; the schema must not be accepted."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/open-content/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:54: s4s-elt-invalid-content.1: The content of '#AnonType_r' is invalid. Element 'openContent' is invalid, misplaced, or occurs too often. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:39: The 'http://www.w3.org/2001/XMLSchema:openContent' element is not supported in this context. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:openContent' at position 1: Schema component: <xs:complexType xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:openContent><xs:any /></xs:openContent><xs:sequence /></xs:complexType> Path: /xs:schema/xs:element/xs:complexType Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element openContent: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}complexType': The content is not valid. Expected is (annotation?, (simpleContent | complexContent | ((group | all | choice | sequence)?, ((attribute | attributeGroup)*, anyAttribute?)))). The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/open-content/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/default-open-content",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/default-open-content",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "The XSD 1.1 construct (default-open-content) is not part of the XSD 1.0 schema for schemas; the schema must not be accepted."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/default-open-content/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:24: s4s-elt-invalid-content.1: The content of 'schema' is invalid. Element 'defaultOpenContent' is invalid, misplaced, or occurs too often. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:2: The 'http://www.w3.org/2001/XMLSchema:defaultOpenContent' element is not supported in this context. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:defaultOpenContent' at position 1: Schema component: <xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"> <xs:defaultOpenContent><xs:any /></xs:defaultOpenContent><xs:element name=\"r\" /> </xs:schema> Path: /xs:schema Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element defaultOpenContent: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}schema': The content is not valid. Expected is ((include | import | redefine | annotation)*, (((simpleType | complexType | group | attributeGroup) | element | attribute | notation), annotation The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/default-open-content/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/override",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/override",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "The XSD 1.1 construct (override) is not part of the XSD 1.0 schema for schemas; the schema must not be accepted."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/override/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:43: s4s-elt-invalid-content.1: The content of 'schema' is invalid. Element 'override' is invalid, misplaced, or occurs too often. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:2: The 'http://www.w3.org/2001/XMLSchema:override' element is not supported in this context. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:override' at position 1: Schema component: <xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"> <xs:override schemaLocation=\"absent.xsd\" /><xs:element name=\"r\" /> </xs:schema> Path: /xs:schema Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element override: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}schema': The content is not valid. Expected is ((include | import | redefine | annotation)*, (((simpleType | complexType | group | attributeGroup) | element | attribute | notation), annotation*)*). The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/override/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/not-namespace",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/not-namespace",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "The XSD 1.1 construct (not-namespace) is not part of the XSD 1.0 schema for schemas; the schema must not be accepted."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/not-namespace/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:81: s4s-att-not-allowed: Attribute 'notNamespace' cannot appear in element 'any'. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:59: The 'notNamespace' attribute is not supported in this context. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'notNamespace' not allowed: Schema component: <xs:any xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" notNamespace=\"urn:x\" /> Path: /xs:schema/xs:element/xs:complexType/xs:sequence/xs:any Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element any: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}any': The attribute 'notNamespace' is not allowed. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/not-namespace/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/not-qname",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/not-qname",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "The XSD 1.1 construct (not-qname) is not part of the XSD 1.0 schema for schemas; the schema must not be accepted."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/not-qname/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:69: s4s-att-not-allowed: Attribute 'notQName' cannot appear in element 'anyAttribute'. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:55: The 'notQName' attribute is not supported in this context. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'notQName' not allowed: Schema component: <xs:anyAttribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" notQName=\"a\" /> Path: /xs:schema/xs:element/xs:complexType/xs:anyAttribute Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element anyAttribute: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}anyAttribute': The attribute 'notQName' is not allowed. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/not-qname/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/assertion-facet",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/assertion-facet",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "The XSD 1.1 construct (assertion-facet) is not part of the XSD 1.0 schema for schemas; the schema must not be accepted."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/assertion-facet/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:89: s4s-elt-must-match.1: The content of 'restriction' must match (annotation?, (simpleType?, (minExclusive | minInclusive | maxExclusive | maxInclusive | totalDigits | fractionDigits | length | minLength | maxLength | enumeration | whiteSpace | pattern)*)). A problem was found starting The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:56: The 'http://www.w3.org/2001/XMLSchema:assertion' element is not supported in this context. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:assertion' at position 1: Schema component: <xs:restriction xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" base=\"xs:int\"><xs:assertion test=\"$value gt 0\" /></xs:restriction> Path: /xs:schema/xs:simpleType/xs:restriction Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element assertion: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}restriction': The content is not valid. Expected is (annotation?, (simpleType?, (minExclusive | minInclusive | maxExclusive | maxInclusive | totalDigits | fractionDigits | length | minLength | maxLengt The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/assertion-facet/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/explicit-timezone-facet",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/explicit-timezone-facet",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "The XSD 1.1 construct (explicit-timezone-facet) is not part of the XSD 1.0 schema for schemas; the schema must not be accepted."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/explicit-timezone-facet/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:95: s4s-elt-must-match.1: The content of 'restriction' must match (annotation?, (simpleType?, (minExclusive | minInclusive | maxExclusive | maxInclusive | totalDigits | fractionDigits | length | minLength | maxLength | enumeration | whiteSpace | pattern)*)). A problem was found starting The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:57: The 'http://www.w3.org/2001/XMLSchema:explicitTimezone' element is not supported in this context. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:explicitTimezone' at position 1: Schema component: <xs:restriction xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" base=\"xs:date\"><xs:explicitTimezone value=\"required\" /></xs:restriction> Path: /xs:schema/xs:simpleType/xs:restriction Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element explicitTimezone: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}restriction': The content is not valid. Expected is (annotation?, (simpleType?, (minExclusive | minInclusive | maxExclusive | maxInclusive | totalDigits | fractionDigits | length | minLength | m The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/explicit-timezone-facet/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/default-attributes",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/default-attributes",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "The XSD 1.1 construct (default-attributes) is not part of the XSD 1.0 schema for schemas; the schema must not be accepted."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/default-attributes/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:1:78: s4s-att-not-allowed: Attribute 'defaultAttributes' cannot appear in element 'schema'. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:1:56: The 'defaultAttributes' attribute is not supported in this context. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'defaultAttributes' not allowed: Schema component: <xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" defaultAttributes=\"G\"> <xs:attributeGroup name=\"G\" /><xs:element name=\"r\" /> </xs:schema> Path: /xs:schema Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/default-attributes/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/xpath-default-namespace",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/xpath-default-namespace",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "The XSD 1.1 construct (xpath-default-namespace) is not part of the XSD 1.0 schema for schemas; the schema must not be accepted."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/xpath-default-namespace/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:1:98: s4s-att-not-allowed: Attribute 'xpathDefaultNamespace' cannot appear in element 'schema'. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:1:56: The 'xpathDefaultNamespace' attribute is not supported in this context. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'xpathDefaultNamespace' not allowed: Schema component: <xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xpathDefaultNamespace=\"##targetNamespace\"> <xs:element name=\"r\" /> </xs:schema> Path: /xs:schema Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/xpath-default-namespace/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/inheritable",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/inheritable",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "The XSD 1.1 construct (inheritable) is not part of the XSD 1.0 schema for schemas; the schema must not be accepted."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/inheritable/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:44: s4s-att-not-allowed: Attribute 'inheritable' cannot appear in element 'attribute'. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:24: The 'inheritable' attribute is not supported in this context. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'inheritable' not allowed: Schema component: <xs:attribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"a\" inheritable=\"true\" /> Path: /xs:schema/xs:attribute Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element attribute: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}attribute': The attribute 'inheritable' is not allowed. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/inheritable/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/identity-constraint-ref",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/identity-constraint-ref",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "https://www.w3.org/TR/xmlschema11-1/#src-identity-constraint"
+        ],
+        "conditions": [
+          "A local xs:key carries only ref, naming a key, with no name, selector or field (st11 src-identity-constraint 1, 4 and 5). The XSD 1.0 schema for schemas does not admit the attribute, so the schema must not be accepted; it is reported as unsupported.xsd_1_1."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/identity-constraint-ref/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:96: s4s-att-not-allowed: Attribute 'ref' cannot appear in element 'key'. The project expectation follows the XSD 1.0 schema for schemas, which does not admit the construct; XSD 1.1 permits it at this position, so the allowlist records unsupported.xsd_1_1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:87: The 'ref' attribute is not supported in this context. The project expectation follows the XSD 1.0 schema for schemas, which does not admit the construct; XSD 1.1 permits it at this position, so the allowlist records unsupported.xsd_1_1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. missing required attribute 'name': Schema component: <xs:key xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" ref=\"k\" /> Path: /xs:schema/xs:element[2]/xs:key Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas, which does not admit the construct; XSD 1.1 permits it at this position, so the allowlist records unsupported.xsd_1_1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element key: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}key': The attribute 'ref' is not allowed. The project expectation follows the XSD 1.0 schema for schemas, which does not admit the construct; XSD 1.1 permits it at this position, so the allowlist records unsupported.xsd_1_1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/identity-constraint-ref/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/local-target-namespace",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/local-target-namespace",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "https://www.w3.org/TR/xmlschema11-1/#src-element"
+        ],
+        "conditions": [
+          "A named local xs:element without ref or form carries targetNamespace inside an xs:restriction of a non-anyType base (st11 src-element 4). The XSD 1.0 schema for schemas does not admit the attribute, so the schema must not be accepted; it is reported as unsupported.xsd_1_1."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/local-target-namespace/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:141: s4s-att-not-allowed: Attribute 'targetNamespace' cannot appear in element 'element'. The project expectation follows the XSD 1.0 schema for schemas, which does not admit the construct; XSD 1.1 permits it at this position, so the allowlist records unsupported.xsd_1_1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:116: The 'targetNamespace' attribute is not supported in this context. The project expectation follows the XSD 1.0 schema for schemas, which does not admit the construct; XSD 1.1 permits it at this position, so the allowlist records unsupported.xsd_1_1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'targetNamespace' not allowed: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"c\" targetNamespace=\"urn:x\" /> Path: /xs:schema/xs:element/xs:complexType/xs:complexContent/xs:restriction/xs:sequence/xs:element Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas, which does not admit the construct; XSD 1.1 permits it at this position, so the allowlist records unsupported.xsd_1_1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element': The attribute 'targetNamespace' is not allowed. The project expectation follows the XSD 1.0 schema for schemas, which does not admit the construct; XSD 1.1 permits it at this position, so the allowlist records unsupported.xsd_1_1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/local-target-namespace/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/all-max-occurs",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/all-max-occurs",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "The XSD 1.1 construct (all-max-occurs) is not part of the XSD 1.0 schema for schemas; the schema must not be accepted."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/all-max-occurs/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.occurrence",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:46: cos-all-limited.2: The {max occurs} of an element in an 'all' model group must be 0 or 1. The value '2' for element 'a' is invalid. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:47: The 'maxOccurs' attribute of all the particles of an 'all' group must be 0 or 1. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute maxOccurs='2': value must be one of [0, 1]: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"a\" maxOccurs=\"2\" /> Path: /xs:schema/xs:element/xs:complexType/xs:all/xs:element Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element': Invalid value for maxOccurs (must be 0 or 1). The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/all-max-occurs/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/any-atomic-type",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/any-atomic-type",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#built-in-datatypes"
+        ],
+        "conditions": [
+          "An element declaration references xs:anyAtomicType, a built-in type that XSD 1.1 defines and XSD 1.0 does not; the QName does not resolve to an XSD 1.0 type definition, so the schema keeps its XSD 1.0 reference error and is not an opt-out."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/any-atomic-type/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.reference",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:47: src-resolve.4.2: Error resolving component 'xs:anyAtomicType'. It was detected that 'xs:anyAtomicType' is in namespace 'http://www.w3.org/2001/XMLSchema', but components from this namespace are not referenceable from schema document 'file:schema.xsd'. If this is the incorrect namesp The project expectation follows XSD 1.0 src-resolve over the XSD 1.0 built-in type definitions; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:2: Type 'http://www.w3.org/2001/XMLSchema:anyAtomicType' is not declared. The project expectation follows XSD 1.0 src-resolve over the XSD 1.0 built-in type definitions; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows XSD 1.0 src-resolve over the XSD 1.0 built-in type definitions; this observation is not a majority-vote oracle. Diagnosis: processor difference. xmlschema 4.3.2 registers xs:anyAtomicType among the built-in types of its XMLSchema10 meta-schema (XMLSchema10 maps.types contains it, while xs:dateTimeStamp is absent), so the reference resolves; XSD 1.0 defines no such type definition, so src-resolve fails.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : element decl. 'r', attribute 'type': The QName value '{http://www.w3.org/2001/XMLSchema}anyAtomicType' does not resolve to a(n) type definition. The project expectation follows XSD 1.0 src-resolve over the XSD 1.0 built-in type definitions; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/any-atomic-type/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/local-attribute-target-namespace",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/local-attribute-target-namespace",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "https://www.w3.org/TR/xmlschema11-1/#src-attribute"
+        ],
+        "conditions": [
+          "A named local xs:attribute without ref or form carries targetNamespace inside an xs:restriction of a non-anyType base (st11 src-attribute 6). The XSD 1.0 schema for schemas does not admit the attribute, so the schema must not be accepted; it is reported as unsupported.xsd_1_1."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/local-attribute-target-namespace/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:130: s4s-att-not-allowed: Attribute 'targetNamespace' cannot appear in element 'attribute'. The project expectation follows the XSD 1.0 schema for schemas, which does not admit the construct; XSD 1.1 permits it at this position, so the allowlist records unsupported.xsd_1_1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:105: The 'targetNamespace' attribute is not supported in this context. The project expectation follows the XSD 1.0 schema for schemas, which does not admit the construct; XSD 1.1 permits it at this position, so the allowlist records unsupported.xsd_1_1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'targetNamespace' not allowed: Schema component: <xs:attribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"a\" targetNamespace=\"urn:x\" /> Path: /xs:schema/xs:element/xs:complexType/xs:complexContent/xs:restriction/xs:attribute Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas, which does not admit the construct; XSD 1.1 permits it at this position, so the allowlist records unsupported.xsd_1_1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element attribute: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}attribute': The attribute 'targetNamespace' is not allowed. The project expectation follows the XSD 1.0 schema for schemas, which does not admit the construct; XSD 1.1 permits it at this position, so the allowlist records unsupported.xsd_1_1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/local-attribute-target-namespace/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/default-attributes-apply",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/default-attributes-apply",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "https://www.w3.org/TR/xmlschema11-1/#declare-type"
+        ],
+        "conditions": [
+          "An anonymous xs:complexType inside xs:element carries defaultAttributesApply (st11 complexType XML representation). The XSD 1.0 schema for schemas does not admit the attribute, so the schema must not be accepted; it is reported as unsupported.xsd_1_1."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/default-attributes-apply/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:70: s4s-att-not-allowed: Attribute 'defaultAttributesApply' cannot appear in element 'complexType'. The project expectation follows the XSD 1.0 schema for schemas, which does not admit the construct; XSD 1.1 permits it at this position, so the allowlist records unsupported.xsd_1_1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:38: The 'defaultAttributesApply' attribute is not supported in this context. The project expectation follows the XSD 1.0 schema for schemas, which does not admit the construct; XSD 1.1 permits it at this position, so the allowlist records unsupported.xsd_1_1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'defaultAttributesApply' not allowed: Schema component: <xs:complexType xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" defaultAttributesApply=\"false\" /> Path: /xs:schema/xs:element/xs:complexType Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas, which does not admit the construct; XSD 1.1 permits it at this position, so the allowlist records unsupported.xsd_1_1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element complexType: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}complexType': The attribute 'defaultAttributesApply' is not allowed. The project expectation follows the XSD 1.0 schema for schemas, which does not admit the construct; XSD 1.1 permits it at this position, so the allowlist records unsupported.xsd_1_1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/default-attributes-apply/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/selector-xpath-default-namespace",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/selector-xpath-default-namespace",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "https://www.w3.org/TR/xmlschema11-1/#declare-key"
+        ],
+        "conditions": [
+          "An xs:selector inside a named xs:unique carries xpathDefaultNamespace (st11 identity-constraint XML representation). The XSD 1.0 schema for schemas does not admit the attribute, so the schema must not be accepted; it is reported as unsupported.xsd_1_1."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/selector-xpath-default-namespace/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:155: s4s-att-not-allowed: Attribute 'xpathDefaultNamespace' cannot appear in element 'selector'. The project expectation follows the XSD 1.0 schema for schemas, which does not admit the construct; XSD 1.1 permits it at this position, so the allowlist records unsupported.xsd_1_1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:122: The 'xpathDefaultNamespace' attribute is not supported in this context. The project expectation follows the XSD 1.0 schema for schemas, which does not admit the construct; XSD 1.1 permits it at this position, so the allowlist records unsupported.xsd_1_1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'xpathDefaultNamespace' not allowed: Schema component: <xs:selector xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xpath=\".\" xpathDefaultNamespace=\"##local\" /> Path: /xs:schema/xs:element/xs:unique/xs:selector Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas, which does not admit the construct; XSD 1.1 permits it at this position, so the allowlist records unsupported.xsd_1_1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element selector: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}selector': The attribute 'xpathDefaultNamespace' is not allowed. The project expectation follows the XSD 1.0 schema for schemas, which does not admit the construct; XSD 1.1 permits it at this position, so the allowlist records unsupported.xsd_1_1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/selector-xpath-default-namespace/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/field-xpath-default-namespace",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/field-xpath-default-namespace",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "https://www.w3.org/TR/xmlschema11-1/#declare-key"
+        ],
+        "conditions": [
+          "An xs:field inside a named xs:unique carries xpathDefaultNamespace (st11 identity-constraint XML representation). The XSD 1.0 schema for schemas does not admit the attribute, so the schema must not be accepted; it is reported as unsupported.xsd_1_1."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/field-xpath-default-namespace/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:177: s4s-att-not-allowed: Attribute 'xpathDefaultNamespace' cannot appear in element 'field'. The project expectation follows the XSD 1.0 schema for schemas, which does not admit the construct; XSD 1.1 permits it at this position, so the allowlist records unsupported.xsd_1_1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:144: The 'xpathDefaultNamespace' attribute is not supported in this context. The project expectation follows the XSD 1.0 schema for schemas, which does not admit the construct; XSD 1.1 permits it at this position, so the allowlist records unsupported.xsd_1_1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'xpathDefaultNamespace' not allowed: Schema component: <xs:field xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xpath=\"@a\" xpathDefaultNamespace=\"##local\" /> Path: /xs:schema/xs:element/xs:unique/xs:field Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas, which does not admit the construct; XSD 1.1 permits it at this position, so the allowlist records unsupported.xsd_1_1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element field: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}field': The attribute 'xpathDefaultNamespace' is not allowed. The project expectation follows the XSD 1.0 schema for schemas, which does not admit the construct; XSD 1.1 permits it at this position, so the allowlist records unsupported.xsd_1_1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/field-xpath-default-namespace/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/top-level-target-namespace",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/top-level-target-namespace",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "https://www.w3.org/TR/xmlschema11-1/#declare-element"
+        ],
+        "conditions": [
+          "A top-level xs:element carries targetNamespace, which neither XSD 1.0 nor XSD 1.1 (st11 src-element 4 applies only below xs:schema) admits there. The schema is invalid under every XSD version and must not be reported as unsupported."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/top-level-target-namespace/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:47: s4s-att-not-allowed: Attribute 'targetNamespace' cannot appear in element 'element'. The project expectation follows the XSD 1.0 schema for schemas; XSD 1.1 rejects the same use, so it is not an opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:22: The 'targetNamespace' attribute is not supported in this context. The project expectation follows the XSD 1.0 schema for schemas; XSD 1.1 rejects the same use, so it is not an opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'targetNamespace' not allowed: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"r\" targetNamespace=\"urn:x\" /> Path: /xs:schema/xs:element Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas; XSD 1.1 rejects the same use, so it is not an opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element': The attribute 'targetNamespace' is not allowed. The project expectation follows the XSD 1.0 schema for schemas; XSD 1.1 rejects the same use, so it is not an opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/top-level-target-namespace/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/local-element-ref-target-namespace",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/local-element-ref-target-namespace",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "https://www.w3.org/TR/xmlschema11-1/#src-element"
+        ],
+        "conditions": [
+          "A local xs:element reference carries targetNamespace; XSD 1.1 forbids it with ref (st11 src-element 2.2 and 4.1), so it keeps its XSD 1.0 attribute error. The schema is invalid under every XSD version and must not be reported as unsupported."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/local-element-ref-target-namespace/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:96: s4s-att-not-allowed: Attribute 'targetNamespace' cannot appear in element 'element'. The project expectation follows the XSD 1.0 schema for schemas; XSD 1.1 rejects the same use, so it is not an opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:71: The 'targetNamespace' attribute is not supported in this context. The project expectation follows the XSD 1.0 schema for schemas; XSD 1.1 rejects the same use, so it is not an opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'targetNamespace' not allowed: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" ref=\"a\" targetNamespace=\"urn:x\" /> Path: /xs:schema/xs:element[2]/xs:complexType/xs:sequence/xs:element Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas; XSD 1.1 rejects the same use, so it is not an opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'targetNamespace': Only the attributes 'minOccurs', 'maxOccurs' and 'id' are allowed in addition to 'ref'. The project expectation follows the XSD 1.0 schema for schemas; XSD 1.1 rejects the same use, so it is not an opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/local-element-ref-target-namespace/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/identity-constraint-ref-with-name",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/identity-constraint-ref-with-name",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "https://www.w3.org/TR/xmlschema11-1/#src-identity-constraint"
+        ],
+        "conditions": [
+          "A local xs:key carries both name and ref; XSD 1.1 forbids that (st11 src-identity-constraint 1), so it keeps its XSD 1.0 attribute error. The schema is invalid under every XSD version and must not be reported as unsupported."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/identity-constraint-ref-with-name/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:105: s4s-att-not-allowed: Attribute 'ref' cannot appear in element 'key'. The project expectation follows the XSD 1.0 schema for schemas; XSD 1.1 rejects the same use, so it is not an opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:97: The 'ref' attribute is not supported in this context. The project expectation follows the XSD 1.0 schema for schemas; XSD 1.1 rejects the same use, so it is not an opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'ref' not allowed: Schema component: <xs:key xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"k2\" ref=\"k\"><xs:selector xpath=\".\" /><xs:field xpath=\"@a\" /></xs:key> Path: /xs:schema/xs:element[2]/xs:key Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas; XSD 1.1 rejects the same use, so it is not an opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element key: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}key': The attribute 'ref' is not allowed. The project expectation follows the XSD 1.0 schema for schemas; XSD 1.1 rejects the same use, so it is not an opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/identity-constraint-ref-with-name/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/identity-constraint-ref-with-selector",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/identity-constraint-ref-with-selector",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "https://www.w3.org/TR/xmlschema11-1/#src-identity-constraint"
+        ],
+        "conditions": [
+          "A local xs:key with ref also has selector and field children; XSD 1.1 allows only id and annotation with ref (st11 src-identity-constraint 4), so it keeps its XSD 1.0 attribute error. The schema is invalid under every XSD version and must not be reported as unsupported."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/identity-constraint-ref-with-selector/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:95: s4s-att-not-allowed: Attribute 'ref' cannot appear in element 'key'. The project expectation follows the XSD 1.0 schema for schemas; XSD 1.1 rejects the same use, so it is not an opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:87: The 'ref' attribute is not supported in this context. The project expectation follows the XSD 1.0 schema for schemas; XSD 1.1 rejects the same use, so it is not an opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. missing required attribute 'name': Schema component: <xs:key xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" ref=\"k\"><xs:selector xpath=\".\" /><xs:field xpath=\"@a\" /></xs:key> Path: /xs:schema/xs:element[2]/xs:key Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas; XSD 1.1 rejects the same use, so it is not an opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element key: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}key': The attribute 'ref' is not allowed. The project expectation follows the XSD 1.0 schema for schemas; XSD 1.1 rejects the same use, so it is not an opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/identity-constraint-ref-with-selector/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/keyref-ref-with-refer",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/keyref-ref-with-refer",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "https://www.w3.org/TR/xmlschema11-1/#src-identity-constraint"
+        ],
+        "conditions": [
+          "A local xs:keyref carries both ref and refer; XSD 1.1 allows only id with ref (st11 src-identity-constraint 4), so it keeps its XSD 1.0 attribute error. The schema is invalid under every XSD version and must not be reported as unsupported."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/keyref-ref-with-refer/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:109: s4s-att-not-allowed: Attribute 'ref' cannot appear in element 'keyref'. The project expectation follows the XSD 1.0 schema for schemas; XSD 1.1 rejects the same use, so it is not an opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:90: The 'ref' attribute is not supported in this context. The project expectation follows the XSD 1.0 schema for schemas; XSD 1.1 rejects the same use, so it is not an opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. missing required attribute 'name': Schema component: <xs:keyref xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" ref=\"k\" refer=\"k\" /> Path: /xs:schema/xs:element[2]/xs:keyref Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas; XSD 1.1 rejects the same use, so it is not an opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element keyref: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}keyref': The attribute 'ref' is not allowed. The project expectation follows the XSD 1.0 schema for schemas; XSD 1.1 rejects the same use, so it is not an opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/keyref-ref-with-refer/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/top-level-assert",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/top-level-assert",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "https://www.w3.org/TR/xmlschema11-1/#declare-assertion"
+        ],
+        "conditions": [
+          "xs:assert is a direct child of xs:schema; XSD 1.1 permits it only in complex type definitions and their derivations, so it keeps its XSD 1.0 content error. The schema is invalid under every XSD version and must not be reported as unsupported."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/top-level-assert/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:27: s4s-elt-invalid-content.1: The content of 'schema' is invalid. Element 'assert' is invalid, misplaced, or occurs too often. The project expectation follows the XSD 1.0 schema for schemas; XSD 1.1 rejects the same use, so it is not an opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:2: The 'http://www.w3.org/2001/XMLSchema:assert' element is not supported in this context. The project expectation follows the XSD 1.0 schema for schemas; XSD 1.1 rejects the same use, so it is not an opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:assert' at position 1: Schema component: <xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"> <xs:assert test=\"true()\" /> <xs:element name=\"r\" /> </xs:schema> Path: /xs:schema Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas; XSD 1.1 rejects the same use, so it is not an opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element assert: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}schema': The content is not valid. Expected is ((include | import | redefine | annotation)*, (((simpleType | complexType | group | attributeGroup) | element | attribute | notation), annotation*)*). The project expectation follows the XSD 1.0 schema for schemas; XSD 1.1 rejects the same use, so it is not an opt-out; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/top-level-assert/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/xml/opt-out-schema-undeclared-entity",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/xml/opt-out-schema-undeclared-entity",
+        "specification": [
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#wf-entdeclared"
+        ],
+        "conditions": [
+          "A schema document references the general entity &e; without a declaration, which XML 1.0 makes a well-formedness error; entity references are an opt-out, so the library reports unsupported.external_entity and never accepts the document."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/xml/opt-out-schema-undeclared-entity/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:37: The entity \"e\" was referenced, but not declared. The project expectation follows XML 1.0 WFC Entity Declared; the allowlist records the opt-out code; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#wf-entdeclared"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. Reference to undeclared entity 'e'. Line 2, position 35. The project expectation follows XML 1.0 WFC Entity Declared; the allowlist records the opt-out code; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#wf-entdeclared"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. invalid XML syntax: undefined entity: line 2, column 33 The project expectation follows XML 1.0 WFC Entity Declared; the allowlist records the opt-out code; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#wf-entdeclared"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: parser error : Entity 'e' not defined The project expectation follows XML 1.0 WFC Entity Declared; the allowlist records the opt-out code; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#wf-entdeclared"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/xml/opt-out-schema-undeclared-entity/schema.xsd",
           "role": "principal"
         }
       ]
