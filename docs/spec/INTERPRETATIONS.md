@@ -745,3 +745,34 @@ same integer value, so no declared-field-type ancestry veto applies. Two
 distinct simple children `v` and `w`, selected by `v|w` with field `.`, supply
 equal complete tuples for one `unique` constraint. Different declared type
 names do not leave this result unspecified.
+
+## I-026 — element declarations consistent counts declarations
+
+**Status:** source-qualified reading of
+[Element Declarations Consistent](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent),
+resolved by the normative
+[schema for schemas](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema)
+and corroborated by the final
+[XSD 1.1 wording](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-element-consistent).
+
+The 1.0 text names "two or more element declaration particles with the same
+{name} and {target namespace}", but particles have neither property, and its
+implicit-containment definition speaks of containing an element declaration.
+Read as a particle count, the rule would reject the schema for schemas itself:
+`xs:schema` references `xs:annotation`, whose type is anonymous, from two
+particles. XSD 1.1 states the rule over "two or more element declarations". The
+library compares distinct element declaration components: one declaration
+reached through several `ref` particles, repeated or nested group references,
+base and extension particles, or implicit substitution-group containment
+(a head referenced twice, or a head and its member) counts once. Distinct
+same-named declarations, global or local, still need one named top-level type.
+No other XSD 1.1 EDC clause is adopted: the wildcard clause, type tables and
+open content stay out of scope.
+
+Rejected: counting particles literally. It invalidates the normative schema for
+schemas and a common authoring pattern, and no measured processor applies it.
+Fixtures: `project/structures-edc-reused-anonymous` and
+`project/content-models/edc-same-declaration/*`; the distinct-declaration
+opponents are `project/structures-edc-two-anonymous`,
+`project/content-models/edc-same-declaration/global-ref-and-local-anonymous`
+and `project/content-models/edc-same-declaration/two-groups-distinct-local-anonymous`.

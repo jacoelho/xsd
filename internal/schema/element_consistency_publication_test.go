@@ -22,7 +22,7 @@ func TestPublishSchemaRejectsRepeatedAnonymousTypeAndAllowsRetry(t *testing.T) {
   %s
   <xs:element name="a" type="S"/>
   <xs:group name="G"><xs:sequence><xs:element ref="a"/></xs:sequence></xs:group>
-  <xs:element name="root"><xs:complexType><xs:sequence><xs:group ref="G"/><xs:group ref="G"/></xs:sequence></xs:complexType></xs:element>
+  <xs:element name="root"><xs:complexType><xs:sequence><xs:group ref="G"/><xs:element name="a" type="S"/></xs:sequence></xs:complexType></xs:element>
 </xs:schema>`, body.typ)
 			c, _ := newEmptyComplexTypePublicationCompiler(t, document)
 			if err := c.compileContentModels(); err != nil {

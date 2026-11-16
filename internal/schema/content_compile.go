@@ -188,15 +188,24 @@ func (c *contentModelCompiler) checkContentModelUPA(id contentModelID, seen []in
 }
 
 // elementDeclarationConsistencyChecker is the one charged, model-cached EDC
-// check shared by compilation and publication. Same-named particles,
-// including effective transitive substitution members, must share one named
-// global type; generated internal names never make an anonymous type named.
-// A single particle is visited once regardless of its occurrence range.
+// check shared by compilation and publication. Distinct same-named element
+// declarations, including effective transitive substitution members, must
+// share one named global type; generated internal names never make an
+// anonymous type named. One declaration reached through several particles,
+// groups or substitution heads counts once (I-026 in
+// docs/spec/INTERPRETATIONS.md). A single particle is visited once regardless
+// of its occurrence range.
 type elementDeclarationConsistencyChecker struct {
 	rt     *schemaBuild
 	work   contentModelWork
 	states map[contentModelID]contentModelVisitState
-	cache  map[contentModelID]map[QName]TypeID
+	cache  map[contentModelID]map[QName]consistentDeclaration
+}
+
+// consistentDeclaration is the first element declaration EDC saw for a name.
+type consistentDeclaration struct {
+	element ElementID
+	typ     TypeID
 }
 
 type contentModelVisitState uint8
@@ -214,7 +223,7 @@ func newElementDeclarationConsistencyChecker(
 		rt:     rt,
 		work:   work,
 		states: make(map[contentModelID]contentModelVisitState),
-		cache:  make(map[contentModelID]map[QName]TypeID),
+		cache:  make(map[contentModelID]map[QName]consistentDeclaration),
 	}
 }
 
@@ -232,7 +241,7 @@ func (c *elementDeclarationConsistencyChecker) checkModel(id contentModelID) err
 
 func (c *elementDeclarationConsistencyChecker) collectModel(
 	id contentModelID,
-) (map[QName]TypeID, error) {
+) (map[QName]consistentDeclaration, error) {
 	if err := c.spend(); err != nil {
 		return nil, err
 	}
@@ -259,8 +268,8 @@ func (c *elementDeclarationConsistencyChecker) collectModel(
 
 func (c *elementDeclarationConsistencyChecker) collectParticles(
 	particles []contentParticle,
-) (map[QName]TypeID, error) {
-	types := make(map[QName]TypeID, c.particleTypesHint(particles))
+) (map[QName]consistentDeclaration, error) {
+	types := make(map[QName]consistentDeclaration, c.particleTypesHint(particles))
 	for _, p := range particles {
 		if err := c.spend(); err != nil {
 			return nil, err
@@ -287,7 +296,7 @@ func (c *elementDeclarationConsistencyChecker) particleTypesHint(particles []con
 	return n
 }
 
-func (c *elementDeclarationConsistencyChecker) collectParticle(types map[QName]TypeID, particle contentParticle) error {
+func (c *elementDeclarationConsistencyChecker) collectParticle(types map[QName]consistentDeclaration, particle contentParticle) error {
 	switch particle.Kind {
 	case particleElement:
 		return c.collectElementParticle(types, particle.Element)
@@ -300,7 +309,7 @@ func (c *elementDeclarationConsistencyChecker) collectParticle(types map[QName]T
 	return nil
 }
 
-func (c *elementDeclarationConsistencyChecker) collectElementParticle(types map[QName]TypeID, element ElementID) error {
+func (c *elementDeclarationConsistencyChecker) collectElementParticle(types map[QName]consistentDeclaration, element ElementID) error {
 	if err := c.collectElementDeclaration(types, element); err != nil {
 		return err
 	}
@@ -312,7 +321,7 @@ func (c *elementDeclarationConsistencyChecker) collectElementParticle(types map[
 	return err
 }
 
-func (c *elementDeclarationConsistencyChecker) collectSubstitutionMember(types map[QName]TypeID, head, member ElementID) error {
+func (c *elementDeclarationConsistencyChecker) collectSubstitutionMember(types map[QName]consistentDeclaration, head, member ElementID) error {
 	// EDC includes the actual substitution group, but every raw member scan
 	// consumes work even when abstractness or blocking excludes that member.
 	if err := c.spend(); err != nil {
@@ -328,7 +337,7 @@ func (c *elementDeclarationConsistencyChecker) collectSubstitutionMember(types m
 	return c.collectElementDeclaration(types, member)
 }
 
-func (c *elementDeclarationConsistencyChecker) collectElementDeclaration(types map[QName]TypeID, element ElementID) error {
+func (c *elementDeclarationConsistencyChecker) collectElementDeclaration(types map[QName]consistentDeclaration, element ElementID) error {
 	name, ok := c.rt.ElementName(element)
 	if !ok {
 		return xsderrors.InternalInvariant("element declaration consistency check references missing element name")
@@ -337,19 +346,19 @@ func (c *elementDeclarationConsistencyChecker) collectElementDeclaration(types m
 	if !ok {
 		return xsderrors.InternalInvariant("element declaration consistency check references missing element type")
 	}
-	return c.addElementDeclarationType(types, name, typ)
+	return c.addElementDeclarationType(types, name, consistentDeclaration{element: element, typ: typ})
 }
 
-func (c *elementDeclarationConsistencyChecker) collectModelParticle(types map[QName]TypeID, model contentModelID) error {
+func (c *elementDeclarationConsistencyChecker) collectModelParticle(types map[QName]consistentDeclaration, model contentModelID) error {
 	nested, err := c.collectModel(model)
 	if err != nil {
 		return err
 	}
-	for name, typ := range nested {
+	for name, decl := range nested {
 		if err := c.spend(); err != nil {
 			return err
 		}
-		if err := c.addElementDeclarationType(types, name, typ); err != nil {
+		if err := c.addElementDeclarationType(types, name, decl); err != nil {
 			return err
 		}
 	}
@@ -357,23 +366,28 @@ func (c *elementDeclarationConsistencyChecker) collectModelParticle(types map[QN
 }
 
 func (c *elementDeclarationConsistencyChecker) addElementDeclarationType(
-	types map[QName]TypeID,
+	types map[QName]consistentDeclaration,
 	name QName,
-	typ TypeID,
+	decl consistentDeclaration,
 ) error {
-	if previous, ok := types[name]; ok {
-		if previous != typ {
-			return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "element declarations with the same name must have the same type")
-		}
-		named, err := c.hasNamedType(typ)
-		if err != nil {
-			return err
-		}
-		if !named {
-			return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "element declarations with the same name must use a named top-level type")
-		}
+	previous, ok := types[name]
+	if !ok {
+		types[name] = decl
+		return nil
 	}
-	types[name] = typ
+	if previous.element == decl.element {
+		return nil
+	}
+	if previous.typ != decl.typ {
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "element declarations with the same name must have the same type")
+	}
+	named, err := c.hasNamedType(decl.typ)
+	if err != nil {
+		return err
+	}
+	if !named {
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "element declarations with the same name must use a named top-level type")
+	}
 	return nil
 }
 
