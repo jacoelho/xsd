@@ -4,6 +4,8 @@ A pure Go XML Schema 1.0 validator. Compile a schema once, then validate XML
 from an `io.Reader`. Validation streams the document: it does not build a
 document tree or store the full XML.
 
+Try it in the browser at <https://www.jacoelho.com/xsd/>.
+
 ## What it supports
 
 The library requires Go 1.27 or newer. It accepts XSD 1.0 and XML 1.0 in UTF-8.
@@ -334,6 +336,9 @@ go run ./cmd/xmllint --schema schema.xsd document.xml
 selects the library default from [resource limits](docs/RESOURCE_LIMITS.md). Run `make xmllint` to build `bin/xmllint`.
 
 ## Validate in a browser
+
+A hosted build of the validator page is at <https://www.jacoelho.com/xsd/>.
+GitHub Pages deploys it from this repository.
 
 To build the Go WebAssembly module and serve the validator page, run:
 
