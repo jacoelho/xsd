@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16601,
-    "schemaCases": 16551,
+    "cases": 16604,
+    "schemaCases": 16554,
     "instanceRuns": 35442,
     "w3cCases": 14414,
-    "internalRuns": 2174,
+    "internalRuns": 2177,
     "xercesJCases": 13
   },
   "cases": [
@@ -878270,6 +878270,167 @@
       "files": [
         {
           "file": "corpus/project/attributes/use-value-constraint/fixed-not-in-type/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/use-value-constraint/default-over-declaration-fixed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/use-value-constraint/default-over-declaration-fixed",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+        ],
+        "conditions": [
+          "A local default on a reference to a declaration fixed to 1 is rejected, even when the default equals the fixed value."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/use-value-constraint/default-over-declaration-fixed/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:73: au-props-correct.2: In the attribute declaration of 'a', a fixed value of '1' was specified. So if the attribute use referring to 'a' also has a {value constraint}, it must be fixed and its value must be '1'. The project expectation follows au-props-correct.2, which requires a use of a fixed declaration to keep that fixed value; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:39: The default value constraint cannot be present on the 'a' attribute reference if the fixed value constraint is present on the declaration. The project expectation follows au-props-correct.2, which requires a use of a fixed declaration to keep that fixed value; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows au-props-correct.2, which requires a use of a fixed declaration to keep that fixed value; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element attribute: Schemas parser error : attribute use 'a': The attribute declaration has a 'fixed' value constraint , thus the attribute use must also have a 'fixed' value constraint. The project expectation follows au-props-correct.2, which requires a use of a fixed declaration to keep that fixed value; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/use-value-constraint/default-over-declaration-fixed/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/use-value-constraint/other-fixed-over-declaration-fixed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/use-value-constraint/other-fixed-over-declaration-fixed",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+        ],
+        "conditions": [
+          "A local fixed value 2 on a reference to a declaration fixed to 1 is rejected."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/use-value-constraint/other-fixed-over-declaration-fixed/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:71: au-props-correct.2: In the attribute declaration of 'a', a fixed value of '1' was specified. So if the attribute use referring to 'a' also has a {value constraint}, it must be fixed and its value must be '1'. The project expectation follows au-props-correct.2, which requires a use of a fixed declaration to keep that fixed value; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:39: The fixed value constraint on the 'a' attribute reference must match the fixed value constraint on the declaration. The project expectation follows au-props-correct.2, which requires a use of a fixed declaration to keep that fixed value; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. referenced attribute has a different fixed value '1': Schema component: <xs:attribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" ref=\"a\" fixed=\"2\" /> Path: /xs:schema/xs:element/xs:complexType/xs:attribute Schema URL: file://schema.xsd  The project expectation follows au-props-correct.2, which requires a use of a fixed declaration to keep that fixed value; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows au-props-correct.2, which requires a use of a fixed declaration to keep that fixed value; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/use-value-constraint/other-fixed-over-declaration-fixed/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/use-value-constraint/same-fixed-over-declaration-fixed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/use-value-constraint/same-fixed-over-declaration-fixed",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+        ],
+        "conditions": [
+          "A local fixed value equal by type to the declaration fixed value is accepted."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/use-value-constraint/same-fixed-over-declaration-fixed/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows au-props-correct.2, which requires a use of a fixed declaration to keep that fixed value; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows au-props-correct.2, which requires a use of a fixed declaration to keep that fixed value; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. referenced attribute has a different fixed value '1': Schema component: <xs:attribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" ref=\"a\" fixed=\"01\" /> Path: /xs:schema/xs:element/xs:complexType/xs:attribute Schema URL: file://schema.xsd  The project expectation follows au-props-correct.2, which requires a use of a fixed declaration to keep that fixed value; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows au-props-correct.2, which requires a use of a fixed declaration to keep that fixed value; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/use-value-constraint/same-fixed-over-declaration-fixed/schema.xsd",
           "role": "principal"
         }
       ]
