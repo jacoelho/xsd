@@ -41,6 +41,10 @@ func TestXSD11VocabularyPlacement(t *testing.T) {
 		"attributeGroup reference":   `<xs:attributeGroup name="G"/><xs:complexType name="T"><xs:attributeGroup ref="G">%s</xs:attributeGroup></xs:complexType>`,
 		"key outside element":        `<xs:complexType name="T"><xs:key name="k">%s</xs:key></xs:complexType>`,
 		"nested schema":              `<xs:element name="r"><xs:schema>%s</xs:schema></xs:element>`,
+		"annotation":                 `<xs:annotation>%s</xs:annotation><xs:element name="r"/>`,
+		"nested annotation":          `<xs:element name="r"><xs:annotation>%s</xs:annotation></xs:element>`,
+		"facet":                      `<xs:simpleType name="T"><xs:restriction base="xs:string"><xs:minLength value="1">%s</xs:minLength></xs:restriction></xs:simpleType>`,
+		"simpleContent facet":        `<xs:complexType name="S"><xs:simpleContent><xs:extension base="xs:string"/></xs:simpleContent></xs:complexType><xs:complexType name="T"><xs:simpleContent><xs:restriction base="S"><xs:maxLength value="1">%s</xs:maxLength></xs:restriction></xs:simpleContent></xs:complexType>`,
 	}
 	complexDerivations := []string{"complexType", "complexContent restriction", "complexContent extension", "simpleContent restriction", "simpleContent extension"}
 	attributeUses := append(slices.Clone(complexDerivations), "attributeGroup")
@@ -88,6 +92,11 @@ func TestXSD11VocabularyPlacement(t *testing.T) {
 		{name: "selector xpathDefaultNamespace", xml: `<xs:selector xpath="." xpathDefaultNamespace="##local"/>`, permitted: []string{"unique"}},
 		{name: "field xpathDefaultNamespace", xml: `<xs:field xpath="." xpathDefaultNamespace="##local"/>`, permitted: []string{"unique"}},
 		{name: "schema defaultAttributes", xml: `<xs:schema defaultAttributes="G"/>`},
+		{name: "unique ref not a QName", xml: `<xs:unique ref="::"/>`},
+		{name: "attribute inheritable not a boolean", xml: `<xs:attribute name="a" inheritable="maybe"/>`},
+		{name: "local complexType defaultAttributesApply not a boolean", xml: `<xs:complexType defaultAttributesApply="yes"/>`},
+		{name: "anyAttribute notQName not a QName", xml: `<xs:anyAttribute notQName="1a"/>`},
+		{name: "anyAttribute notQName empty", xml: `<xs:anyAttribute notQName=""/>`},
 	}
 	for contextName, context := range contexts {
 		for _, use := range uses {

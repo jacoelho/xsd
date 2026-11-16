@@ -151,6 +151,13 @@ func xsd11AttributePermitted(n *schemaSyntaxNode, attr string, p schemaPlacement
 	if p.withinMisplacedXSD11 || p.parentIsReference {
 		return false
 	}
+	if value, ok := n.attr(attr); ok && !xsd11AttributeLexicalValid(attr, value) {
+		return false
+	}
+	return xsd11AttributePlaced(n, attr, p)
+}
+
+func xsd11AttributePlaced(n *schemaSyntaxNode, attr string, p schemaPlacement) bool {
 	has := func(local string) bool {
 		_, ok := n.attr(local)
 		return ok
@@ -172,6 +179,33 @@ func xsd11AttributePermitted(n *schemaSyntaxNode, attr string, p schemaPlacement
 		return xsd11DeclarationAttributePermitted(n, attr, p)
 	default:
 		return false
+	}
+}
+
+// xsd11AttributeLexicalValid reports whether value is in the lexical space of
+// the attribute's type in the XSD 1.1 schema for schemas. anyURI-typed values
+// (targetNamespace, xpathDefaultNamespace, notNamespace) are not checked: the
+// anyURI lexical space admits them.
+func xsd11AttributeLexicalValid(attr, value string) bool {
+	value = lex.CollapseXMLWhitespace(value)
+	switch attr {
+	case vocab.XSDAttrRef, vocab.XSDAttrDefaultAttributes:
+		return lex.SplitQName(value).Valid
+	case vocab.XSDAttrInheritable, vocab.XSDAttrDefaultAttributesApply:
+		switch value {
+		case "true", "false", "1", "0":
+			return true
+		}
+		return false
+	case vocab.XSDAttrNotQName:
+		for item := range lex.XMLFieldsSeq(value) {
+			if item != "##defined" && item != "##definedSibling" && !lex.SplitQName(item).Valid {
+				return false
+			}
+		}
+		return value != ""
+	default:
+		return true
 	}
 }
 

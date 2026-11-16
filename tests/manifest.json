@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16754,
-    "schemaCases": 16704,
+    "cases": 16756,
+    "schemaCases": 16706,
     "instanceRuns": 35531,
     "w3cCases": 14414,
-    "internalRuns": 2327,
+    "internalRuns": 2329,
     "xercesJCases": 13
   },
   "cases": [
@@ -339767,8 +339767,8 @@
         ],
         "oracle": {
           "xmlschema": {
-            "status": "blocked",
-            "reason": "Python xmlschema.XMLSchema10 4.3.2 (offline) schema assessment ended with an unexpected provider exception: XMLSchemaModelError: XsdElement(name='c21', occurs=[1, 3]) and XsdElement(name='c21', occurs=[1, 3]) overlap and are in the same 'choice' group:. No schema validity was observed. Disagreement area: content model UPA / Element Declarations Consistent.",
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. XsdElement(name='c21', occurs=[1, 3]) and XsdElement(name='c21', occurs=[1, 3]) overlap and are in the same 'choice' group. The W3C expectation stands; this observation is not a majority-vote oracle.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig"
           }
         }
@@ -889158,6 +889158,114 @@
       "files": [
         {
           "file": "corpus/project/content-models/edc-group-definition/referenced-conflicting-types/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/identity-constraint-ref-not-qname",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/identity-constraint-ref-not-qname",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "https://www.w3.org/TR/xmlschema11-1/#declare-key"
+        ],
+        "conditions": [
+          "A correctly placed xs:key carries ref=\"::\", which is not in the QName lexical space that the XSD 1.1 schema for schemas requires for ref, so it keeps its XSD 1.0 attribute error. The schema is invalid under every XSD version and must not be reported as unsupported."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/identity-constraint-ref-not-qname/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:260: s4s-att-not-allowed: Attribute 'ref' cannot appear in element 'key'. The project expectation follows the XSD 1.0 schema for schemas, which has no ref attribute on xs:key, and the XSD 1.1 key representation, which types ref as xs:QName; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:250: The 'ref' attribute is not supported in this context. The project expectation follows the XSD 1.0 schema for schemas, which has no ref attribute on xs:key, and the XSD 1.1 key representation, which types ref as xs:QName; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. missing required attribute 'name': Schema component: <xs:key xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" ref=\"::\" /> Path: /xs:schema/xs:element[2]/xs:key Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas, which has no ref attribute on xs:key, and the XSD 1.1 key representation, which types ref as xs:QName; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element key: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}key': The attribute 'ref' is not allowed. The project expectation follows the XSD 1.0 schema for schemas, which has no ref attribute on xs:key, and the XSD 1.1 key representation, which types ref as xs:QName; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/identity-constraint-ref-not-qname/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/attribute-inheritable-not-boolean",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/attribute-inheritable-not-boolean",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "https://www.w3.org/TR/xmlschema11-1/#declare-attribute"
+        ],
+        "conditions": [
+          "A local attribute declaration carries inheritable=\"maybe\", outside the xs:boolean lexical space that XSD 1.1 requires, so it keeps its XSD 1.0 attribute error and is not reported as unsupported."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/attribute-inheritable-not-boolean/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:82: s4s-att-not-allowed: Attribute 'inheritable' cannot appear in element 'attribute'. The project expectation follows the XSD 1.0 schema for schemas, which has no inheritable attribute, and the XSD 1.1 attribute representation, which types inheritable as xs:boolean; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:61: The 'inheritable' attribute is not supported in this context. The project expectation follows the XSD 1.0 schema for schemas, which has no inheritable attribute, and the XSD 1.1 attribute representation, which types inheritable as xs:boolean; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'inheritable' not allowed: Schema component: <xs:attribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"a\" inheritable=\"maybe\" /> Path: /xs:schema/xs:element/xs:complexType/xs:attribute Schema URL: file://schema.xsd  The project expectation follows the XSD 1.0 schema for schemas, which has no inheritable attribute, and the XSD 1.1 attribute representation, which types inheritable as xs:boolean; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element attribute: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}attribute': The attribute 'inheritable' is not allowed. The project expectation follows the XSD 1.0 schema for schemas, which has no inheritable attribute, and the XSD 1.1 attribute representation, which types inheritable as xs:boolean; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/attribute-inheritable-not-boolean/schema.xsd",
           "role": "principal"
         }
       ]
