@@ -11,7 +11,36 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The test job is a required status check, so it is skipped rather than
+  # filtered with paths-ignore: a skipped job reports success, while a workflow
+  # that never starts leaves the required check pending.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: 'actions/checkout@v6'
+        with:
+          fetch-depth: 0
+
+      - id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if { [ "$EVENT" != push ] && [ "$EVENT" != pull_request ]; } ||
+            ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo code=true >> "$GITHUB_OUTPUT"
+          elif git diff --name-only "$BASE...$HEAD" | grep -qv '\.md$'; then
+            echo code=true >> "$GITHUB_OUTPUT"
+          else
+            echo code=false >> "$GITHUB_OUTPUT"
+          fi
+
   test:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: 'actions/checkout@v6'
