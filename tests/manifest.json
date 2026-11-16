@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16596,
-    "schemaCases": 16546,
-    "instanceRuns": 35428,
+    "cases": 16601,
+    "schemaCases": 16551,
+    "instanceRuns": 35442,
     "w3cCases": 14414,
-    "internalRuns": 2169,
+    "internalRuns": 2174,
     "xercesJCases": 13
   },
   "cases": [
@@ -877553,6 +877553,724 @@
         {
           "file": "corpus/project/namespaces/xsi-schema-location-hint-lax-unknown/invalid-item.xml",
           "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/use-value-constraint/fixed-over-declaration-default",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/use-value-constraint/fixed-over-declaration-default",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-au"
+        ],
+        "conditions": [
+          "A reference with fixed=\"2\" to a declaration with default=\"1\" yields a use fixed to 2; the declaration default does not survive beside it."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/use-value-constraint/fixed-over-declaration-default/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "absent",
+          "file": "corpus/project/attributes/use-value-constraint/fixed-over-declaration-default/absent.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            }
+          }
+        },
+        {
+          "testName": "fixed-value",
+          "file": "corpus/project/attributes/use-value-constraint/fixed-over-declaration-default/fixed-value.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            }
+          }
+        },
+        {
+          "testName": "fixed-lexical-variant",
+          "file": "corpus/project/attributes/use-value-constraint/fixed-over-declaration-default/fixed-lexical-variant.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            }
+          }
+        },
+        {
+          "testName": "declaration-default",
+          "file": "corpus/project/attributes/use-value-constraint/fixed-over-declaration-default/declaration-default.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. declaration-default.xml:1:11: cvc-complex-type.3.1: Value '1' of attribute 'a' of element 'r' is not valid with respect to the corresponding attribute use. Attribute 'a' has a fixed value of '2'. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: attribute 'a' has a fixed value '2' (path /r) The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/attributes/use-value-constraint/fixed-over-declaration-default/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attributes/use-value-constraint/fixed-over-declaration-default/absent.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/use-value-constraint/fixed-over-declaration-default/fixed-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/use-value-constraint/fixed-over-declaration-default/fixed-lexical-variant.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/use-value-constraint/fixed-over-declaration-default/declaration-default.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/use-value-constraint/fixed-over-declaration-default-in-group",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/use-value-constraint/fixed-over-declaration-default-in-group",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-au"
+        ],
+        "conditions": [
+          "The same use reached through an attribute group carries only its local fixed value."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/use-value-constraint/fixed-over-declaration-default-in-group/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "absent",
+          "file": "corpus/project/attributes/use-value-constraint/fixed-over-declaration-default-in-group/absent.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            }
+          }
+        },
+        {
+          "testName": "fixed-value",
+          "file": "corpus/project/attributes/use-value-constraint/fixed-over-declaration-default-in-group/fixed-value.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            }
+          }
+        },
+        {
+          "testName": "fixed-lexical-variant",
+          "file": "corpus/project/attributes/use-value-constraint/fixed-over-declaration-default-in-group/fixed-lexical-variant.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            }
+          }
+        },
+        {
+          "testName": "declaration-default",
+          "file": "corpus/project/attributes/use-value-constraint/fixed-over-declaration-default-in-group/declaration-default.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. declaration-default.xml:1:11: cvc-complex-type.3.1: Value '1' of attribute 'a' of element 'r' is not valid with respect to the corresponding attribute use. Attribute 'a' has a fixed value of '2'. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: attribute 'a' has a fixed value '2' (path /r) The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/attributes/use-value-constraint/fixed-over-declaration-default-in-group/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attributes/use-value-constraint/fixed-over-declaration-default-in-group/absent.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/use-value-constraint/fixed-over-declaration-default-in-group/fixed-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/use-value-constraint/fixed-over-declaration-default-in-group/fixed-lexical-variant.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/use-value-constraint/fixed-over-declaration-default-in-group/declaration-default.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/use-value-constraint/required-fixed-over-declaration-default",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/use-value-constraint/required-fixed-over-declaration-default",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-au"
+        ],
+        "conditions": [
+          "A required use with a local fixed value may reference a declaration with a default; the attribute must still be present."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/use-value-constraint/required-fixed-over-declaration-default/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "fixed-value",
+          "file": "corpus/project/attributes/use-value-constraint/required-fixed-over-declaration-default/fixed-value.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            }
+          }
+        },
+        {
+          "testName": "absent",
+          "file": "corpus/project/attributes/use-value-constraint/required-fixed-over-declaration-default/absent.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. absent.xml:1:5: cvc-complex-type.4: Attribute 'a' must appear on element 'r'. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: missing required attribute 'a' (path /r) The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "libxml2": {
+              "expected": "invalid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance rejected. absent.xml:1: element r: Schemas validity error : Element 'r': The attribute 'a' is required but missing. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            }
+          }
+        },
+        {
+          "testName": "declaration-default",
+          "file": "corpus/project/attributes/use-value-constraint/required-fixed-over-declaration-default/declaration-default.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. declaration-default.xml:1:11: cvc-complex-type.3.1: Value '1' of attribute 'a' of element 'r' is not valid with respect to the corresponding attribute use. Attribute 'a' has a fixed value of '2'. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: attribute 'a' has a fixed value '2' (path /r) The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/attributes/use-value-constraint/required-fixed-over-declaration-default/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attributes/use-value-constraint/required-fixed-over-declaration-default/fixed-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/use-value-constraint/required-fixed-over-declaration-default/absent.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/use-value-constraint/required-fixed-over-declaration-default/declaration-default.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/use-value-constraint/default-over-declaration-default",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/use-value-constraint/default-over-declaration-default",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-au"
+        ],
+        "conditions": [
+          "A local default replaces the declaration default; with no fixed value any int is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/use-value-constraint/default-over-declaration-default/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "absent",
+          "file": "corpus/project/attributes/use-value-constraint/default-over-declaration-default/absent.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            }
+          }
+        },
+        {
+          "testName": "other",
+          "file": "corpus/project/attributes/use-value-constraint/default-over-declaration-default/other.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            }
+          }
+        },
+        {
+          "testName": "not-int",
+          "file": "corpus/project/attributes/use-value-constraint/default-over-declaration-default/not-int.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. not-int.xml:1:11: cvc-datatype-valid.1.2.1: 'x' is not a valid value for 'integer'. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. not-int.xml:1:4: The 'a' attribute is invalid - The value 'x' is invalid according to its datatype 'http://www.w3.org/2001/XMLSchema:int' - The string 'x' is not a valid Int32 value. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: attribute a='x': invalid literal for int() with base 10: 'x' (path /r) The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            },
+            "libxml2": {
+              "expected": "invalid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance rejected. not-int.xml:1: element r: Schemas validity error : Element 'r', attribute 'a': 'x' is not a valid value of the atomic type 'xs:int'. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/attributes/use-value-constraint/default-over-declaration-default/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attributes/use-value-constraint/default-over-declaration-default/absent.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/use-value-constraint/default-over-declaration-default/other.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/use-value-constraint/default-over-declaration-default/not-int.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/use-value-constraint/fixed-not-in-type",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/use-value-constraint/fixed-not-in-type",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-au"
+        ],
+        "conditions": [
+          "A local fixed value must be valid for the declaration type even when the declaration has a default."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/use-value-constraint/fixed-not-in-type/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:71: cvc-datatype-valid.1.2.1: 'x' is not a valid value for 'integer'. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. fixed value 'x' is not compatible with attribute's type: Schema component: <xs:attribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" ref=\"a\" fixed=\"x\" /> Path: /xs:schema/xs:element/xs:complexType/xs:attribute Schema URL: file://schema.xsd  The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/use-value-constraint/fixed-not-in-type/schema.xsd",
+          "role": "principal"
         }
       ]
     }

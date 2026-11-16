@@ -546,12 +546,10 @@ func (c *compiler) validateAttributeUseOverrides(n *schemaNode, use *attributeUs
 	if err := c.validateAttributeValueConstraints(&decl, n); err != nil {
 		return withSchemaCompileLocation(n, err)
 	}
-	if overrides.hasDefault {
-		use.Default = decl.Default
-	}
-	if overrides.hasFixed {
-		use.Fixed = decl.Fixed
-	}
+	// An attribute use has one {value constraint}: a local default or fixed
+	// replaces the referenced declaration's constraint as a whole
+	// (Structures §3.2.2, §3.5.1).
+	use.Default, use.Fixed = decl.Default, decl.Fixed
 	return nil
 }
 
