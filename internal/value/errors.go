@@ -477,7 +477,7 @@ func diagnosticFacetRules(builtin BuiltinKind, f *facetProgram) []string {
 	for _, side := range []struct {
 		prefix string
 		bounds []boundValue
-	}{{"min", f.lower}, {"max", f.upper}} {
+	}{{minBoundPrefix, f.lower}, {maxBoundPrefix, f.upper}} {
 		var truncated bool
 		rules, truncated = appendDiagnosticBounds(rules, builtin, side.prefix, side.bounds)
 		if truncated {
@@ -486,6 +486,13 @@ func diagnosticFacetRules(builtin BuiltinKind, f *facetProgram) []string {
 	}
 	return rules
 }
+
+// minBoundPrefix and maxBoundPrefix begin the names of the lower and upper
+// bound facets.
+const (
+	minBoundPrefix = "min"
+	maxBoundPrefix = "max"
+)
 
 func diagnosticBoundName(prefix string, bound *boundValue) string {
 	if bound.exclusive {
@@ -546,7 +553,7 @@ func failedLowerBoundDiagnostic[T byteText](t *typeDef, lexical T, parsed *parse
 		bound := &t.facets.lower[i]
 		relation, ok := compareAtomic(&parsed.atom, &bound.value)
 		if !ok || !orderedFacetLowerBoundAccepts(bound.exclusive, relation) {
-			name := diagnosticBoundName("min", bound)
+			name := diagnosticBoundName(minBoundPrefix, bound)
 			return boundDiagnostic(t, lexical, name, bound)
 		}
 	}
@@ -561,7 +568,7 @@ func failedOrderedBoundDiagnostic[T byteText](t *typeDef, lexical T, parsed *par
 		bound := &t.facets.upper[i]
 		relation, ok := compareAtomic(&parsed.atom, &bound.value)
 		if !ok || !orderedFacetUpperBoundAccepts(bound.exclusive, relation) {
-			name := diagnosticBoundName("max", bound)
+			name := diagnosticBoundName(maxBoundPrefix, bound)
 			return boundDiagnostic(t, lexical, name, bound)
 		}
 	}
@@ -570,6 +577,24 @@ func failedOrderedBoundDiagnostic[T byteText](t *typeDef, lexical T, parsed *par
 
 func boundDiagnostic[T byteText](t *typeDef, lexical T, name string, bound *boundValue) string {
 	return fmt.Sprintf("value %s does not satisfy %s %s", diagnostictext.Quote(lexical), name, diagnosticBoundValue(t.builtin, &bound.value))
+}
+
+// derivationBoundDiagnostic describes literal failing bound in the derivation
+// order. An xs:time bound renders as its recurring time of day, so a bound
+// that lies on another day of the day-preserving order names that day.
+func derivationBoundDiagnostic(t *typeDef, lexical, prefix string, literal, bound *boundValue) string {
+	message := boundDiagnostic(t, lexical, diagnosticBoundName(prefix, bound), bound)
+	switch days := int(bound.timeDayOffset) - int(literal.timeDayOffset); {
+	case days == -1:
+		return message + " on the previous day"
+	case days == 1:
+		return message + " on the next day"
+	case days < 0:
+		return fmt.Sprintf("%s %d days earlier", message, -days)
+	case days > 0:
+		return fmt.Sprintf("%s %d days later", message, days)
+	}
+	return message
 }
 
 // diagnosticBoundValue renders a bound in the canonical form of the

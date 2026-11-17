@@ -218,3 +218,90 @@ func exclusiveFacet(facet value.FacetMask, lexical string) value.FacetSpec {
 	}
 	return value.FacetSpec{MaxExclusive: bound}
 }
+
+func TestTimeBoundLiteralRestrictsBaseBoundsByDay(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name                     string
+		baseFacet, derivedFacet  value.FacetMask
+		base, derived, diagnosis string
+	}{
+		{name: "upper exclusive earlier by day later by clock", baseFacet: value.FacetMaxExclusive, derivedFacet: value.FacetMaxExclusive, base: "23:00:00-02:00", derived: "02:00:00Z"},
+		{name: "upper inclusive earlier by day later by clock", baseFacet: value.FacetMaxInclusive, derivedFacet: value.FacetMaxInclusive, base: "23:00:00-02:00", derived: "02:00:00Z"},
+		{name: "lower inclusive later by day earlier by clock", baseFacet: value.FacetMinInclusive, derivedFacet: value.FacetMinInclusive, base: "01:00:00+02:00", derived: "22:00:00Z"},
+		{name: "lower exclusive later by day earlier by clock", baseFacet: value.FacetMinExclusive, derivedFacet: value.FacetMinExclusive, base: "01:00:00+02:00", derived: "22:00:00Z"},
+		{name: "upper inclusive later by day earlier by clock", baseFacet: value.FacetMaxInclusive, derivedFacet: value.FacetMaxInclusive, base: "00:00:00+01:00", derived: "22:00:00Z",
+			diagnosis: `value "22:00:00Z" does not satisfy maxInclusive "23:00:00Z" on the previous day`},
+		{name: "upper inclusive same clock later by day", baseFacet: value.FacetMaxInclusive, derivedFacet: value.FacetMaxInclusive, base: "12:00:00-10:00", derived: "12:00:00-14:00",
+			diagnosis: `value "12:00:00-14:00" does not satisfy maxInclusive "22:00:00Z" on the previous day`},
+		{name: "lower inclusive earlier by day later by clock", baseFacet: value.FacetMinInclusive, derivedFacet: value.FacetMinInclusive, base: "23:00:00-01:00", derived: "02:00:00Z",
+			diagnosis: `value "02:00:00Z" does not satisfy minInclusive "00:00:00Z" on the next day`},
+		{name: "upper earlier by day later by clock than base lower", baseFacet: value.FacetMinInclusive, derivedFacet: value.FacetMaxInclusive, base: "23:00:00-02:00", derived: "02:00:00Z",
+			diagnosis: `value "02:00:00Z" does not satisfy minInclusive "01:00:00Z" on the next day`},
+		{name: "lower later by day earlier by clock than base upper", baseFacet: value.FacetMaxInclusive, derivedFacet: value.FacetMinInclusive, base: "00:00:00+01:00", derived: "22:00:00Z",
+			diagnosis: `value "22:00:00Z" does not satisfy maxInclusive "23:00:00Z" on the previous day`},
+		{name: "upper later by day earlier by clock than base lower", baseFacet: value.FacetMinInclusive, derivedFacet: value.FacetMaxInclusive, base: "01:00:00+02:00", derived: "22:30:00Z"},
+		{name: "lower earlier by day later by clock than base upper", baseFacet: value.FacetMaxInclusive, derivedFacet: value.FacetMinInclusive, base: "23:00:00-02:00", derived: "02:00:00Z"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
+			base, err := builder.Reserve()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = builder.Complete(base, atomicFacetType(value.PrimitiveTime, orderedFacet(tc.baseFacet, tc.base, false))); err != nil {
+				t.Fatal(err)
+			}
+			err = builder.AdmitBoundLiteral(base, tc.derivedFacet, tc.derived)
+			if tc.diagnosis != "" {
+				if !errors.Is(err, value.ErrFacet) || err.Error() != tc.diagnosis {
+					t.Fatalf("AdmitBoundLiteral(%q) = %v, want ErrFacet %q", tc.derived, err, tc.diagnosis)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("AdmitBoundLiteral(%q) = %v, want nil", tc.derived, err)
+			}
+			id, err := builder.Reserve()
+			if err != nil {
+				t.Fatal(err)
+			}
+			spec := atomicFacetType(value.PrimitiveTime, orderedFacet(tc.derivedFacet, tc.derived, false))
+			spec.Base = base
+			if err = builder.Complete(id, spec); err != nil {
+				t.Fatalf("Complete(%q restricting %q) = %v, want nil", tc.derived, tc.base, err)
+			}
+		})
+	}
+}
+
+func TestTimeSameStepBoundsAreOrderedByDay(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, lower, upper string
+		valid              bool
+	}{
+		{name: "lower earlier by day later by clock", lower: "01:00:00+02:00", upper: "22:30:00Z", valid: true},
+		{name: "lower later by day earlier by clock", lower: "23:00:00-02:00", upper: "02:00:00Z"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
+			id, err := builder.Reserve()
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = builder.Complete(id, atomicFacetType(value.PrimitiveTime, value.FacetSpec{
+				MinInclusive: value.BoundFacet{Lexical: tc.lower, Type: value.NoType, Present: true},
+				MaxInclusive: value.BoundFacet{Lexical: tc.upper, Type: value.NoType, Present: true},
+			}))
+			if tc.valid && err != nil {
+				t.Fatalf("Complete(minInclusive %q, maxInclusive %q) = %v, want nil", tc.lower, tc.upper, err)
+			}
+			if !tc.valid && !errors.Is(err, value.ErrFacet) {
+				t.Fatalf("Complete(minInclusive %q, maxInclusive %q) = %v, want ErrFacet", tc.lower, tc.upper, err)
+			}
+		})
+	}
+}
