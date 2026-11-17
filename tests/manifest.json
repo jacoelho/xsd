@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16847,
-    "schemaCases": 16797,
-    "instanceRuns": 35546,
+    "cases": 16854,
+    "schemaCases": 16804,
+    "instanceRuns": 35550,
     "w3cCases": 14414,
-    "internalRuns": 2420,
+    "internalRuns": 2427,
     "xercesJCases": 13
   },
   "cases": [
@@ -894616,6 +894616,509 @@
         {
           "file": "corpus/project/schema-syntax/child-admission/sequence-text-before-child-with-unknown-attribute/schema.xsd",
           "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/fixed-maxExclusive-time-earlier-day-same-clock",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/fixed-maxExclusive-time-earlier-day-same-clock",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#time"
+        ],
+        "conditions": [
+          "A derived maxExclusive 01:00:00Z equals the fixed base maxExclusive 23:00:00-02:00 as a recurring time of day but lies a day earlier in the day-preserving order, so it changes the fixed facet."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/fixed-maxExclusive-time-earlier-day-same-clock/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet",
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle. Xerces-J orders time bounds in schema checks as recurring times of day (see restrict-maxInclusive-time-earlier-day-later-clock), so it takes the derived literal for the fixed value; the W3C case is the basis for the day-preserving order.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:51: Values that are declared with fixed='true' in a base type can not be changed in a derived type. The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. 'maxExclusive' facet value is fixed to Time(23, 0, 0, tzinfo=Timezone(datetime.timedelta(days=-1, seconds=79200))): Schema component: <xs:maxExclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"01:00:00Z\" /> Path: /xs:schema/xs:simpleType[2]/xs:restriction/xs:maxExclusive Schema URL: file:// The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxExclusive: Schemas parser error : facet 'maxExclusive': The base type's facet is 'fixed', thus the value must not differ. The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/fixed-maxExclusive-time-earlier-day-same-clock/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/fixed-maxInclusive-time-earlier-day-same-clock",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/fixed-maxInclusive-time-earlier-day-same-clock",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxInclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#time"
+        ],
+        "conditions": [
+          "A derived maxInclusive 01:00:00Z equals the fixed base maxInclusive 23:00:00-02:00 as a recurring time of day but lies a day earlier in the day-preserving order, so it changes the fixed facet."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/fixed-maxInclusive-time-earlier-day-same-clock/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet",
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxInclusive definition, under which a facet fixed in the base admits only a derived maxInclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle. Xerces-J orders time bounds in schema checks as recurring times of day (see restrict-maxInclusive-time-earlier-day-later-clock), so it takes the derived literal for the fixed value; the W3C case is the basis for the day-preserving order.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:51: Values that are declared with fixed='true' in a base type can not be changed in a derived type. The project expectation follows the maxInclusive definition, under which a facet fixed in the base admits only a derived maxInclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. 'maxInclusive' facet value is fixed to Time(23, 0, 0, tzinfo=Timezone(datetime.timedelta(days=-1, seconds=79200))): Schema component: <xs:maxInclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"01:00:00Z\" /> Path: /xs:schema/xs:simpleType[2]/xs:restriction/xs:maxInclusive Schema URL: file:// The project expectation follows the maxInclusive definition, under which a facet fixed in the base admits only a derived maxInclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxInclusive: Schemas parser error : facet 'maxInclusive': The base type's facet is 'fixed', thus the value must not differ. The project expectation follows the maxInclusive definition, under which a facet fixed in the base admits only a derived maxInclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/fixed-maxInclusive-time-earlier-day-same-clock/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/fixed-minExclusive-time-later-day-same-clock",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/fixed-minExclusive-time-later-day-same-clock",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#time"
+        ],
+        "conditions": [
+          "A derived minExclusive 23:00:00Z equals the fixed base minExclusive 01:00:00+02:00 as a recurring time of day but lies a day later in the day-preserving order, so it changes the fixed facet."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/fixed-minExclusive-time-later-day-same-clock/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet",
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minExclusive definition, under which a facet fixed in the base admits only a derived minExclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle. Xerces-J orders time bounds in schema checks as recurring times of day (see restrict-maxInclusive-time-earlier-day-later-clock), so it takes the derived literal for the fixed value; the W3C case is the basis for the day-preserving order.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:51: Values that are declared with fixed='true' in a base type can not be changed in a derived type. The project expectation follows the minExclusive definition, under which a facet fixed in the base admits only a derived minExclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. 'minExclusive' facet value is fixed to Time(1, 0, 0, tzinfo=Timezone(datetime.timedelta(seconds=7200))): Schema component: <xs:minExclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"23:00:00Z\" /> Path: /xs:schema/xs:simpleType[2]/xs:restriction/xs:minExclusive Schema URL: file://schema.xsd  The project expectation follows the minExclusive definition, under which a facet fixed in the base admits only a derived minExclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element minExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}minExclusive': [facet 'minExclusive'] The value '23:00:00Z' must be greater than '01:00:00+02:00'. The project expectation follows the minExclusive definition, under which a facet fixed in the base admits only a derived minExclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle. libxml2 rejects for another reason: it wraps the positive-offset base 01:00:00+02:00 to 23:00:00Z of the same day and then requires a derived minExclusive greater than an equal base minExclusive, as it rejects every restated exclusive bound: it also rejects a derived minExclusive 01:00:00+02:00 restating the same literal of a base that is not fixed (see exclusive-equal-maxExclusive-fixed).",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/fixed-minExclusive-time-later-day-same-clock/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/fixed-minInclusive-time-later-day-same-clock",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/fixed-minInclusive-time-later-day-same-clock",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#time"
+        ],
+        "conditions": [
+          "A derived minInclusive 23:00:00Z equals the fixed base minInclusive 01:00:00+02:00 as a recurring time of day but lies a day later in the day-preserving order, so it changes the fixed facet."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/fixed-minInclusive-time-later-day-same-clock/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet",
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle. Xerces-J orders time bounds in schema checks as recurring times of day (see restrict-maxInclusive-time-earlier-day-later-clock), so it takes the derived literal for the fixed value; the W3C case is the basis for the day-preserving order.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:51: Values that are declared with fixed='true' in a base type can not be changed in a derived type. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. 'minInclusive' facet value is fixed to Time(1, 0, 0, tzinfo=Timezone(datetime.timedelta(seconds=7200))): Schema component: <xs:minInclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"23:00:00Z\" /> Path: /xs:schema/xs:simpleType[2]/xs:restriction/xs:minInclusive Schema URL: file://schema.xsd  The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle. libxml2 carries negative-offset times into the next day but wraps positive-offset times within it (see restrict-maxInclusive-time-earlier-day-later-clock), so it takes 01:00:00+02:00 for 23:00:00Z of the same day and the derived literal for the fixed value: with the base minInclusive 01:00:00+02:00 not fixed, it rejects a derived minInclusive 22:59:59Z and accepts 23:00:01Z.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/fixed-minInclusive-time-later-day-same-clock/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/fixed-minInclusive-time-midnight-next-day",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/fixed-minInclusive-time-midnight-next-day",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#time"
+        ],
+        "conditions": [
+          "A derived minInclusive 24:00:00Z equals the fixed base minInclusive 00:00:00Z as a recurring time of day but is the midnight that ends the day in the day-preserving order, so it changes the fixed facet."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/fixed-minInclusive-time-midnight-next-day/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:50: FixedFacetValue: In the definition of D, the value '24:00:00Z' for the facet 'minInclusive' is invalid, because the value for 'minInclusive' has been set to '00:00:00Z' in one of the ancestor types, and {fixed} = true. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:51: The MinInclusive constraining facet is invalid - The string '24:00:00Z' is not a valid Time value. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle. .NET rejects for another reason: it does not accept the lexical form 24:00:00 for time.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle. xmlschema maps 24:00:00 to 00:00:00 of the same day and so takes the derived literal for the fixed value: with bases that are not fixed, it accepts a derived maxInclusive 24:00:00Z under a base maxInclusive 00:00:00Z and rejects a derived minInclusive 24:00:00Z under a base minInclusive 00:00:01Z. The day-preserving order of the Time midnight boundary places 24:00:00 at the end of the day.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element minInclusive: Schemas parser error : facet 'minInclusive': The base type's facet is 'fixed', thus the value must not differ. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/fixed-minInclusive-time-midnight-next-day/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/fixed-maxExclusive-time-same-day-other-offset",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/fixed-maxExclusive-time-same-day-other-offset",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#time"
+        ],
+        "conditions": [
+          "A derived maxExclusive 22:00:00-03:00 spells the fixed base maxExclusive 23:00:00-02:00 with another offset on the same day of the day-preserving order, so it restates the fixed facet."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/fixed-maxExclusive-time-same-day-other-offset/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxExclusive': [facet 'maxExclusive'] The value '22:00:00-03:00' must be less than '23:00:00-02:00'. The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed. libxml2 requires a derived maxExclusive less than an equal base maxExclusive, so it rejects every restated exclusive bound: it also rejects a derived maxExclusive 23:00:00-02:00 restating the same literal of a base that is not fixed (see exclusive-equal-maxExclusive-fixed, where it rejects maxExclusive 10 restating a fixed 10).",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "before-max",
+          "file": "corpus/project/datatypes/bounds/fixed-maxExclusive-time-same-day-other-offset/before-max.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            }
+          }
+        },
+        {
+          "testName": "at-max",
+          "file": "corpus/project/datatypes/bounds/fixed-maxExclusive-time-same-day-other-offset/at-max.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. at-max.xml:1:17: cvc-maxExclusive-valid: Value '01:00:00Z' is not facet-valid with respect to maxExclusive '01:00:00Z' for type 'D'. The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle. .NET orders the instance 01:00:00Z against maxExclusive 22:00:00-03:00 on the same arbitrary date; the project checks instance values against each bound as a recurring time of day, the order of the time value space, under which 01:00:00Z equals the bound.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle. xmlschema orders the instance 01:00:00Z against maxExclusive 22:00:00-03:00 on the same arbitrary date; the project checks instance values against each bound as a recurring time of day, the order of the time value space, under which 01:00:00Z equals the bound.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/fixed-maxExclusive-time-same-day-other-offset/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/fixed-maxExclusive-time-same-day-other-offset/before-max.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/fixed-maxExclusive-time-same-day-other-offset/at-max.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/fixed-minInclusive-time-same-day-other-offset",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/fixed-minInclusive-time-same-day-other-offset",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#time"
+        ],
+        "conditions": [
+          "A derived minInclusive 02:00:00+03:00 spells the fixed base minInclusive 01:00:00+02:00 with another offset on the same day of the day-preserving order, so it restates the fixed facet."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/fixed-minInclusive-time-same-day-other-offset/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "at-min",
+          "file": "corpus/project/datatypes/bounds/fixed-minInclusive-time-same-day-other-offset/at-min.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+            }
+          }
+        },
+        {
+          "testName": "before-min",
+          "file": "corpus/project/datatypes/bounds/fixed-minInclusive-time-same-day-other-offset/before-min.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. before-min.xml:1:17: cvc-minInclusive-valid: Value '22:30:00Z' is not facet-valid with respect to minInclusive '23:00:00Z' for type 'D'. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle. .NET orders the instance 22:30:00Z against minInclusive 02:00:00+03:00 on the same arbitrary date; the project checks instance values against each bound as a recurring time of day, the order of the time value space, under which 22:30:00Z is before 23:00:00Z.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle. xmlschema orders the instance 22:30:00Z against minInclusive 02:00:00+03:00 on the same arbitrary date; the project checks instance values against each bound as a recurring time of day, the order of the time value space, under which 22:30:00Z is before 23:00:00Z.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+            },
+            "libxml2": {
+              "expected": "invalid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance rejected. before-min.xml:1: element r: Schemas validity error : Element 'r': [facet 'minInclusive'] The value '22:30:00Z' is less than the minimum value allowed ('02:00:00+03:00'). The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality between time bounds taken in the day-preserving time order for schema-level relations between bounds that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), while instance values keep the recurring time of day of the time order; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/fixed-minInclusive-time-same-day-other-offset/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/fixed-minInclusive-time-same-day-other-offset/at-min.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/fixed-minInclusive-time-same-day-other-offset/before-min.xml",
+          "role": "instance"
         }
       ]
     }

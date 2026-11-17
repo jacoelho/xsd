@@ -318,8 +318,7 @@ func restatesExclusiveBound(side []boundValue, literal boundValue) bool {
 	if !ok {
 		return false
 	}
-	relation, ok := compareDerivationBounds(literal, effective)
-	return ok && relation == orderedFacetEqual
+	return equalDerivationBounds(literal, effective)
 }
 
 func inclusiveBounds(bounds []boundValue) []boundValue {

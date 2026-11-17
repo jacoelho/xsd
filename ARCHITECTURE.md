@@ -263,8 +263,9 @@ owner, `internal/schema`, because no value-owned parser exists for them.
   fixed-facet checks belong to, `Builder.Complete`'s restriction derivation,
   located at the simple type.
   Every schema-level relation between bounds (restatement equality, a literal
-  against the base's bounds, restriction derivation, and the effective
-  lower-versus-upper check) uses the
+  against the base's bounds, restriction derivation, the effective
+  lower-versus-upper check, and, for `xs:time`, equality with a fixed bound)
+  uses the
   derivation order (`compareDerivationBounds`), day-preserving for `xs:time`
   (Time midnight boundary in `docs/spec/INTERPRETATIONS.md`). Restriction
   derivation returns the effective facet program, and the compiler does not

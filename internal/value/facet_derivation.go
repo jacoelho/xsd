@@ -247,8 +247,8 @@ func orderedUpperRestricts(derived, base boundValue) bool {
 // bounds compare as raw UTC seconds on a reference day (rawTimeProjection),
 // not as recurring time of day: a maxInclusive base of 12:00:00-10:00 makes a
 // derived 12:00:00-14:00 invalid (W3C msMeta time_maxInclusive007_119).
-// Instance acceptance and exclusive-bound restatement equality use recurring
-// time; see R-127 in docs/spec/INTERPRETATIONS.md.
+// Instance acceptance uses recurring time; see R-127 in
+// docs/spec/INTERPRETATIONS.md.
 func compareDerivationBounds(derived, base boundValue) (orderedFacetRelation, bool) {
 	if derived.value.kind != primitiveTime || base.value.kind != primitiveTime {
 		return compareAtomic(&derived.value, &base.value)
@@ -325,10 +325,27 @@ func validateFixedBound(fixed FacetMask, flag FacetMask, own, base []boundValue)
 		return ErrMetadata
 	}
 	declared, hasDeclared := findBound(own, exclusive)
-	if hasDeclared && !equalAtomic(&declared.value, &baseBound.value) {
+	if hasDeclared && !equalFixedBound(declared, baseBound) {
 		return errFixedOrderedChanges
 	}
 	return nil
+}
+
+// equalFixedBound reports whether declared restates fixed, a fixed bound of
+// the base. xs:time bounds are equal in the derivation order
+// (compareDerivationBounds); other bounds by value-space equality.
+func equalFixedBound(declared, fixed boundValue) bool {
+	if declared.value.kind != primitiveTime {
+		return equalAtomic(&declared.value, &fixed.value)
+	}
+	return equalDerivationBounds(declared, fixed)
+}
+
+// equalDerivationBounds reports whether a and b are equal in the derivation
+// order.
+func equalDerivationBounds(a, b boundValue) bool {
+	relation, ok := compareDerivationBounds(a, b)
+	return ok && relation == orderedFacetEqual
 }
 
 //nolint:revive // Exclusivity is the admitted bound fact sought by this lookup.

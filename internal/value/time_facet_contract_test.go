@@ -2,6 +2,7 @@ package value_test
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/value"
@@ -306,6 +307,55 @@ func TestTimeSameStepBoundsAreOrderedByDay(t *testing.T) {
 			}
 			if !tc.valid && !errors.Is(err, value.ErrFacet) {
 				t.Fatalf("Complete(minInclusive %q, maxInclusive %q) = %v, want ErrFacet", tc.lower, tc.upper, err)
+			}
+		})
+	}
+}
+
+func TestTimeFixedBoundRestatementEqualsByDay(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, fixed, derived string
+		flag                 value.FacetMask
+		restates             bool
+	}{
+		{"maxExclusive same instant spelled on the same day", "23:00:00-02:00", "22:00:00-03:00", value.FacetMaxExclusive, true},
+		{"maxExclusive same clock a day earlier", "23:00:00-02:00", "01:00:00Z", value.FacetMaxExclusive, false},
+		{"maxInclusive same instant spelled on the same day", "23:00:00-02:00", "22:00:00-03:00", value.FacetMaxInclusive, true},
+		{"maxInclusive same clock a day earlier", "23:00:00-02:00", "01:00:00Z", value.FacetMaxInclusive, false},
+		{"minExclusive same instant spelled on the same day", "01:00:00+02:00", "02:00:00+03:00", value.FacetMinExclusive, true},
+		{"minExclusive same clock a day later", "01:00:00+02:00", "23:00:00Z", value.FacetMinExclusive, false},
+		{"minInclusive same instant spelled on the same day", "01:00:00+02:00", "02:00:00+03:00", value.FacetMinInclusive, true},
+		{"minInclusive same clock a day later", "01:00:00+02:00", "23:00:00Z", value.FacetMinInclusive, false},
+		{"minInclusive midnight a day later", "00:00:00Z", "24:00:00Z", value.FacetMinInclusive, false},
+		{"maxInclusive without timezone spelled identically", "12:00:00", "12:00:00", value.FacetMaxInclusive, true},
+		{"minExclusive without timezone spelled identically", "12:00:00", "12:00:00", value.FacetMinExclusive, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
+			base, err := builder.Reserve()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = builder.Complete(base, atomicFacetType(value.PrimitiveTime, orderedFacet(tc.flag, tc.fixed, true))); err != nil {
+				t.Fatal(err)
+			}
+			id, err := builder.Reserve()
+			if err != nil {
+				t.Fatal(err)
+			}
+			spec := atomicFacetType(value.PrimitiveTime, orderedFacet(tc.flag, tc.derived, false))
+			spec.Base = base
+			err = builder.Complete(id, spec)
+			if tc.restates {
+				if err != nil {
+					t.Fatalf("Complete restating fixed %s with %s = %v, want nil", tc.fixed, tc.derived, err)
+				}
+				return
+			}
+			if !errors.Is(err, value.ErrFacet) || !strings.Contains(err.Error(), "fixed ordered facet cannot change") {
+				t.Fatalf("Complete changing fixed %s to %s = %v, want fixed ordered facet error", tc.fixed, tc.derived, err)
 			}
 		})
 	}
