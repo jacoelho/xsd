@@ -198,10 +198,11 @@ func (c *contentModelCompiler) checkContentModelUPA(id contentModelID, seen []in
 // order, so work charging and the reported conflict do not depend on map
 // iteration.
 type elementDeclarationConsistencyChecker struct {
-	rt     *schemaBuild
-	work   contentModelWork
-	states map[contentModelID]contentModelVisitState
-	cache  map[contentModelID][]namedElementDeclaration
+	rt   *schemaBuild
+	work contentModelWork
+	// models holds the collection state of each content model of rt, indexed
+	// by contentModelID.
+	models []collectedContentModel
 	// scratch holds one empty name index per content model on the collection
 	// stack, and depth counts the ones in use. A model empties its index by
 	// deleting the names it added, so reusing an index costs a model its own
@@ -225,6 +226,13 @@ type elementDeclarationSet struct {
 	ordered []namedElementDeclaration
 }
 
+// collectedContentModel is the EDC collection state of one content model and,
+// once visited, its declarations.
+type collectedContentModel struct {
+	declarations []namedElementDeclaration
+	state        contentModelVisitState
+}
+
 type contentModelVisitState uint8
 
 const (
@@ -239,8 +247,7 @@ func newElementDeclarationConsistencyChecker(
 	return &elementDeclarationConsistencyChecker{
 		rt:     rt,
 		work:   work,
-		states: make(map[contentModelID]contentModelVisitState),
-		cache:  make(map[contentModelID][]namedElementDeclaration),
+		models: make([]collectedContentModel, len(rt.Models)),
 	}
 }
 
@@ -262,24 +269,23 @@ func (c *elementDeclarationConsistencyChecker) collectModel(
 	if err := c.spend(); err != nil {
 		return nil, err
 	}
-	switch c.states[id] {
+	if !validContentModelID(id, len(c.models)) {
+		return nil, xsderrors.InternalInvariant("element declaration consistency check references missing content model")
+	}
+	collected := &c.models[id]
+	switch collected.state {
 	case contentModelVisiting:
 		return nil, xsderrors.InternalInvariant("element declaration consistency check references cyclic content model")
 	case contentModelVisited:
-		return c.cache[id], nil
+		return collected.declarations, nil
 	}
-	if !validContentModelID(id, len(c.rt.Models)) {
-		return nil, xsderrors.InternalInvariant("element declaration consistency check references missing content model")
-	}
-	model := c.rt.Models[id]
-	c.states[id] = contentModelVisiting
-	declarations, err := c.collectParticles(model.Particles)
+	collected.state = contentModelVisiting
+	declarations, err := c.collectParticles(c.rt.Models[id].Particles)
 	if err != nil {
-		delete(c.states, id)
+		collected.state = 0
 		return nil, err
 	}
-	c.states[id] = contentModelVisited
-	c.cache[id] = declarations
+	*collected = collectedContentModel{state: contentModelVisited, declarations: declarations}
 	return declarations, nil
 }
 
@@ -321,8 +327,8 @@ func (c *elementDeclarationConsistencyChecker) particleDeclarationsHint(particle
 	for _, p := range particles {
 		if p.Kind == particleElement {
 			n++
-		} else if p.Kind == particleModel && c.states[p.Model] == contentModelVisited {
-			n += len(c.cache[p.Model])
+		} else if p.Kind == particleModel && validContentModelID(p.Model, len(c.models)) {
+			n += len(c.models[p.Model].declarations)
 		}
 	}
 	return n
