@@ -79,61 +79,6 @@ func checkComplexContentExtensionChildren(n *schemaNode) error {
 	return checkOrderedXSDChildren(n, complexContentExtensionChildOrder)
 }
 
-func checkLocalElementAttributes(n *schemaNode) error {
-	source := semanticSource[*schemaElementSource](&n.semantic)
-	if source.Abstract.Present {
-		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "local element cannot have abstract")
-	}
-	if source.Final.Present {
-		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "local element cannot have final")
-	}
-	if source.SubstitutionGroup.Lexical.Present {
-		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "local element cannot have substitutionGroup")
-	}
-	return nil
-}
-
-func checkLocalElementSource(n *schemaNode) error {
-	source := semanticSource[*schemaElementSource](&n.semantic)
-	if err := validateLocalElementSource(nameReferenceSource{
-		Name: source.Global.Name, Reference: source.Ref.Lexical,
-	}); err != nil {
-		return withSchemaCompileLocation(n, err)
-	}
-	return nil
-}
-
-func checkLocalSimpleTypeAttributes(n *schemaNode) error {
-	source, ok := n.semantic.kind.(*schemaSimpleTypeSource)
-	if !ok || source == nil {
-		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("simpleType node has no typed simpleType source"))
-	}
-	if source.Global.Name.Present {
-		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "local simpleType cannot have name")
-	}
-	if source.Final.Present {
-		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "local simpleType cannot have final")
-	}
-	return nil
-}
-
-func checkLocalComplexTypeAttributes(n *schemaNode) error {
-	source := semanticSource[*schemaComplexTypeSource](&n.semantic)
-	if source.Global.Name.Present {
-		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "local complexType cannot have name")
-	}
-	if source.Abstract.Present {
-		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "local complexType cannot have abstract")
-	}
-	if source.Block.Present {
-		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "local complexType cannot have block")
-	}
-	if source.Final.Present {
-		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "local complexType cannot have final")
-	}
-	return nil
-}
-
 func checkAttributeGroupDeclarationChildren(n *schemaNode) error {
 	return checkOrderedXSDChildren(n, attributeGroupDeclarationChildOrder)
 }
@@ -157,12 +102,6 @@ func checkTopLevelGroupChildren(n *schemaNode) (*schemaNode, error) {
 	if model == nil {
 		return nil, schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "top-level group must contain exactly one model group")
 	}
-	if semanticSource[*schemaModelSource](&model.semantic).MinOccurs.Present {
-		return nil, schemaCompileAt(model, xsderrors.CodeSchemaOccurrence, "top-level model group cannot have minOccurs")
-	}
-	if semanticSource[*schemaModelSource](&model.semantic).MaxOccurs.Present {
-		return nil, schemaCompileAt(model, xsderrors.CodeSchemaOccurrence, "top-level model group cannot have maxOccurs")
-	}
 	return model, nil
 }
 
@@ -184,23 +123,6 @@ func checkAttributeDeclarationChildren(n *schemaNode) error {
 	return checkOrderedXSDChildren(n, attributeDeclarationChildOrder)
 }
 
-func checkAttributeUseSource(n *schemaNode) error {
-	source := semanticSource[*schemaAttributeSource](&n.semantic)
-	if err := validateAttributeUseSource(nameReferenceSource{
-		Name: source.Global.Name, Reference: source.Ref.Lexical,
-	}); err != nil {
-		return withSchemaCompileLocation(n, err)
-	}
-	return nil
-}
-
-func checkAttributeGroupUseSource(n *schemaNode) error {
-	if err := validateAttributeGroupUseSource(semanticSource[*schemaAttributeGroupSource](&n.semantic).Ref.Lexical); err != nil {
-		return withSchemaCompileLocation(n, err)
-	}
-	return nil
-}
-
 func checkElementDeclarationChildren(n *schemaNode) error {
 	if err := checkOrderedXSDChildren(n, elementDeclarationChildOrder); err != nil {
 		return err
@@ -218,13 +140,6 @@ func hasAnonymousTypedElementType(n *schemaNode) bool {
 		}
 	}
 	return false
-}
-
-func checkContentDerivationBase(n *schemaNode, base contentDerivationBase) error {
-	if err := validateContentDerivationBase(base); err != nil {
-		return withSchemaCompileLocation(n, err)
-	}
-	return nil
 }
 
 func checkSchemaQNameParts(n *schemaNode, lexical string) (qNameParts, error) {

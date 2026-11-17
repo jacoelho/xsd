@@ -62,7 +62,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
 			name: "include text before invalid child",
 			body: `  <xs:include>
     text
-    <xs:attribute/>
+    <xs:attribute name="a"/>
   </xs:include>`,
 			wantLine: 2, wantCol: 3, wantCode: xsderrors.CodeSchemaContentModel,
 			wantMsg: "xs:\"include\" cannot contain text",
@@ -71,7 +71,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
 			name: "import text before invalid child",
 			body: `  <xs:import>
     text
-    <xs:attribute/>
+    <xs:attribute name="a"/>
   </xs:import>`,
 			wantLine: 2, wantCol: 3, wantCode: xsderrors.CodeSchemaContentModel,
 			wantMsg: "xs:\"import\" cannot contain text",
@@ -80,7 +80,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
 			name: "include invalid child before duplicate annotation",
 			body: `  <xs:include>
     <xs:annotation/>
-    <xs:attribute/>
+    <xs:attribute name="a"/>
     <xs:annotation/>
   </xs:include>`,
 			wantLine: 4, wantCol: 5, wantCode: xsderrors.CodeSchemaContentModel,
@@ -90,7 +90,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
 			name: "import invalid child before duplicate annotation",
 			body: `  <xs:import>
     <xs:annotation/>
-    <xs:attribute/>
+    <xs:attribute name="a"/>
     <xs:annotation/>
   </xs:import>`,
 			wantLine: 4, wantCol: 5, wantCode: xsderrors.CodeSchemaContentModel,
@@ -100,7 +100,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
 			name: "component duplicate annotation after nonannotation",
 			body: `  <xs:complexType name="C">
     <xs:annotation/>
-    <xs:attribute/>
+    <xs:attribute name="a"/>
     <xs:annotation/>
   </xs:complexType>`,
 			wantLine: 5, wantCol: 5, wantCode: xsderrors.CodeSchemaContentModel,
@@ -109,7 +109,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
 		{
 			name: "component first late annotation before duplicate",
 			body: `  <xs:complexType name="C">
-    <xs:attribute/>
+    <xs:attribute name="a"/>
     <xs:annotation/>
     <xs:annotation/>
   </xs:complexType>`,
@@ -121,7 +121,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
 			body: `  <xs:include>
     <xs:annotation/>
     <xs:annotation/>
-    <xs:attribute/>
+    <xs:attribute name="a"/>
   </xs:include>`,
 			wantLine: 4, wantCol: 5, wantCode: xsderrors.CodeSchemaContentModel,
 			wantMsg: "xs:\"include\" can contain xs:annotation only as its first child",
@@ -131,7 +131,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
 			body: `  <xs:import>
     <xs:annotation/>
     <xs:annotation/>
-    <xs:attribute/>
+    <xs:attribute name="a"/>
   </xs:import>`,
 			wantLine: 4, wantCol: 5, wantCode: xsderrors.CodeSchemaContentModel,
 			wantMsg: "xs:\"import\" can contain xs:annotation only as its first child",
@@ -289,12 +289,12 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
 			wantMsg: annotationOnly("selector", "field"),
 		},
 		{
-			name: "group reference content before missing ref",
+			name: "group reference missing ref before content",
 			body: `  <xs:complexType name="C">
     <xs:sequence><xs:group><xs:sequence/></xs:group></xs:sequence>
   </xs:complexType>`,
-			wantLine: 3, wantCol: 28, wantCode: xsderrors.CodeSchemaContentModel,
-			wantMsg: annotationOnly("group", "sequence"),
+			wantLine: 3, wantCol: 18, wantCode: xsderrors.CodeSchemaReference,
+			wantMsg: "group use missing ref",
 		},
 		{
 			name: "field duplicate annotation",

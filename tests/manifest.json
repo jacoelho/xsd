@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16777,
-    "schemaCases": 16727,
+    "cases": 16791,
+    "schemaCases": 16741,
     "instanceRuns": 35537,
     "w3cCases": 14414,
-    "internalRuns": 2350,
+    "internalRuns": 2364,
     "xercesJCases": 13
   },
   "cases": [
@@ -890562,6 +890562,767 @@
       "files": [
         {
           "file": "corpus/project/schema-syntax/reference-attributes/attribute-ref-type-before-unbound-ref-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/local-declaration-attributes/element-abstract-before-unbound-type-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/local-declaration-attributes/element-abstract-before-unbound-type-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "A local xs:element carries abstract followed by a type whose prefix p is unbound. A local element may not carry abstract, and that attribute precedes the unbound prefix in document order, so the schema is rejected with schema.invalid_attribute."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/local-declaration-attributes/element-abstract-before-unbound-type-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:88: s4s-att-not-allowed: Attribute 'abstract' cannot appear in element 'element'. The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:76: 'p:T' is an invalid value for the 'type' attribute. The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. use of attribute 'abstract' is prohibited: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"e\" abstract=\"true\" type=\"p:T\" /> Path: /xs:schema/xs:complexType/xs:sequence/xs:element Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element': The attribute 'abstract' is not allowed. The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/local-declaration-attributes/element-abstract-before-unbound-type-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/local-declaration-attributes/complex-type-name-before-unbound-type-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/local-declaration-attributes/complex-type-name-before-unbound-type-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "An anonymous xs:complexType inside an xs:element carries name and holds an attribute whose type prefix p is unbound. A local complex type definition may not carry name, and the attribute on its start tag precedes the unbound prefix in document order, so the schema is rejected with schema.invalid_attribute."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/local-declaration-attributes/complex-type-name-before-unbound-type-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:47: s4s-att-not-allowed: Attribute 'name' cannot appear in element 'complexType'. The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:70: 'p:T' is an invalid value for the 'type' attribute. The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. use of attribute 'name' is prohibited: Schema component: <xs:complexType xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"T\"><xs:attribute name=\"a\" type=\"p:T\" /></xs:complexType> Path: /xs:schema/xs:element/xs:complexType Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element complexType: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}complexType': The attribute 'name' is not allowed. The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/local-declaration-attributes/complex-type-name-before-unbound-type-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/local-declaration-attributes/simple-type-final-before-unbound-base-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/local-declaration-attributes/simple-type-final-before-unbound-base-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleType",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "An anonymous xs:simpleType inside an xs:element carries final and holds a restriction whose base prefix p is unbound. A local simple type definition may not carry final, and the attribute on its start tag precedes the unbound prefix in document order, so the schema is rejected with schema.invalid_attribute."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/local-declaration-attributes/simple-type-final-before-unbound-base-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:78: s4s-att-invalid-value: Invalid attribute value for 'base' in element 'restriction'. Recorded reason: UndeclaredPrefix: Cannot resolve 'p:T' as a QName: the prefix 'p' is not declared. The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleType"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:66: 'p:T' is an invalid value for the 'base' attribute. The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleType"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. use of attribute 'final' is prohibited: Schema component: <xs:simpleType xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" final=\"#all\"><xs:restriction base=\"p:T\" /></xs:simpleType> Path: /xs:schema/xs:element/xs:simpleType Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleType"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element simpleType: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}simpleType': The attribute 'final' is not allowed. The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleType"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/local-declaration-attributes/simple-type-final-before-unbound-base-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/local-declaration-attributes/complex-type-in-sequence-with-name",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/local-declaration-attributes/complex-type-in-sequence-with-name",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "A named xs:complexType appears inside an xs:sequence, where the schema for schemas admits no type definition. The misplaced child is reported by the model group content, schema.content_model, rather than by the local-definition attribute rules, which apply only where a local complex type definition may appear."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/local-declaration-attributes/complex-type-in-sequence-with-name/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:65: s4s-elt-must-match.1: The content of 'sequence' must match (annotation?, (element | group | choice | sequence | any)*). A problem was found starting at: complexType. The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:40: The 'http://www.w3.org/2001/XMLSchema:complexType' element is not supported in this context. The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:complexType' at position 1: Schema component: <xs:sequence xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:complexType name=\"T\" /></xs:sequence> Path: /xs:schema/xs:complexType/xs:sequence Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element complexType: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}sequence': The content is not valid. Expected is (annotation?, (element | group | choice | sequence | any)*). The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/local-declaration-attributes/complex-type-in-sequence-with-name/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/local-declaration-attributes/named-group-model-min-occurs",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/local-declaration-attributes/named-group-model-min-occurs",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "The xs:sequence of a top-level xs:group carries minOccurs, which the schema for schemas prohibits on the model group of a named group. The schema is rejected with schema.invalid_attribute, like every attribute its placement forbids."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/local-declaration-attributes/named-group-model-min-occurs/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:20: s4s-att-not-allowed: Attribute 'minOccurs' cannot appear in element 'sequence'. The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:21: The 'minOccurs' attribute cannot be present. The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. use of attribute 'minOccurs' is prohibited: Schema component: <xs:sequence xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" minOccurs=\"1\"><xs:element name=\"e\" /></xs:sequence> Path: /xs:schema/xs:group/xs:sequence Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element sequence: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}sequence': The attribute 'minOccurs' is not allowed. The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/local-declaration-attributes/named-group-model-min-occurs/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/local-declaration-attributes/named-group-model-max-occurs-before-unbound-ref-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/local-declaration-attributes/named-group-model-max-occurs-before-unbound-ref-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "The xs:choice of a top-level xs:group carries maxOccurs and holds an element reference whose prefix p is unbound. The attribute on the start tag precedes the unbound prefix in document order, so the schema is rejected with schema.invalid_attribute."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/local-declaration-attributes/named-group-model-max-occurs-before-unbound-ref-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:20: s4s-att-not-allowed: Attribute 'maxOccurs' cannot appear in element 'choice'. The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:57: 'p:E' is an invalid value for the 'ref' attribute. The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. use of attribute 'maxOccurs' is prohibited: Schema component: <xs:choice xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" maxOccurs=\"1\"><xs:element ref=\"p:E\" /></xs:choice> Path: /xs:schema/xs:group/xs:choice Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element choice: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}choice': The attribute 'maxOccurs' is not allowed. The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/local-declaration-attributes/named-group-model-max-occurs-before-unbound-ref-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/local-declaration-attributes/local-attributes-control",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/local-declaration-attributes/local-attributes-control",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleType",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "Local element, complex type, simple type and attribute declarations carry only the attributes their local types admit, and the model group of a named group carries only id, so the schema is accepted."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/local-declaration-attributes/local-attributes-control/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, whose localElement, localComplexType and localSimpleType types prohibit abstract, final, substitutionGroup, name and block where a top-level declaration or definition admits them, and whose named group model groups prohibit minOccurs and maxOccurs; the forbidden attribute on the start tag is the first violation in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/local-declaration-attributes/local-attributes-control/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/required-attributes/local-element-missing-name-before-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/required-attributes/local-element-missing-name-before-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "A local xs:element has neither name nor ref and holds an xs:complexType with the unknown attribute foo. The missing name belongs to the earlier start tag, so the schema is rejected with schema.reference."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/required-attributes/local-element-missing-name-before-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.reference",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:90: s4s-att-not-allowed: Attribute 'foo' cannot appear in element 'complexType'. The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:81: The 'foo' attribute is not supported in this context. The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'foo' not allowed: Schema component: <xs:complexType xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" foo=\"1\" /> Path: /xs:schema/xs:complexType/xs:sequence/xs:element/xs:complexType Schema URL: file://schema.xsd  The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element': The attribute 'name' is required but missing. The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/required-attributes/local-element-missing-name-before-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/required-attributes/local-attribute-missing-name-before-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/required-attributes/local-attribute-missing-name-before-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "A local xs:attribute has neither name nor ref and holds an xs:simpleType with the unknown attribute foo. The missing name belongs to the earlier start tag, so the schema is rejected with schema.reference."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/required-attributes/local-attribute-missing-name-before-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.reference",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:64: s4s-att-not-allowed: Attribute 'foo' cannot appear in element 'simpleType'. The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:55: The 'foo' attribute is not supported in this context. The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'foo' not allowed: Schema component: <xs:simpleType xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" foo=\"1\" /> Path: /xs:schema/xs:complexType/xs:attribute/xs:simpleType Schema URL: file://schema.xsd  The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element attribute: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}attribute': The attribute 'name' is required but missing. The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/required-attributes/local-attribute-missing-name-before-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/required-attributes/group-use-missing-ref-before-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/required-attributes/group-use-missing-ref-before-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "A nested xs:group has no ref and holds an annotation with the unknown attribute foo. The missing ref belongs to the earlier start tag, so the schema is rejected with schema.reference."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/required-attributes/group-use-missing-ref-before-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.reference",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:63: s4s-att-must-appear: Attribute 'ref' must appear in element 'group (local)'. The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:78: The 'foo' attribute is not supported in this context. The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. missing required attribute 'ref': Schema component: <xs:group xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" minOccurs=\"0\"><xs:annotation foo=\"1\" /></xs:group> Path: /xs:schema/xs:complexType/xs:sequence/xs:group Schema URL: file://schema.xsd  The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element group: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}group': The attribute 'ref' is required but missing. The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/required-attributes/group-use-missing-ref-before-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/required-attributes/attribute-group-use-missing-ref-before-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/required-attributes/attribute-group-use-missing-ref-before-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-attributeGroup",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "A nested xs:attributeGroup has no ref and holds an annotation with the unknown attribute foo. The missing ref belongs to the earlier start tag, so the schema is rejected with schema.reference."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/required-attributes/attribute-group-use-missing-ref-before-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.reference",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:45: s4s-att-must-appear: Attribute 'ref' must appear in element 'attributeGroup (local)'. The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-attributeGroup"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:60: The 'foo' attribute is not supported in this context. The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-attributeGroup"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. missing required attribute 'ref': Schema component: <xs:attributeGroup xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:annotation foo=\"1\" /></xs:attributeGroup> Path: /xs:schema/xs:complexType/xs:attributeGroup Schema URL: file://schema.xsd  The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-attributeGroup"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element attributeGroup: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}attributeGroup': The attribute 'ref' is required but missing. The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-attributeGroup"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/required-attributes/attribute-group-use-missing-ref-before-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/required-attributes/complex-content-restriction-missing-base-before-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/required-attributes/complex-content-restriction-missing-base-before-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexContent",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "An xs:restriction inside xs:complexContent has no base and holds an attribute with the unknown attribute foo. The missing base belongs to the earlier start tag, so the schema is rejected with schema.reference."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/required-attributes/complex-content-restriction-missing-base-before-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.reference",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:61: s4s-att-must-appear: Attribute 'base' must appear in element 'restriction'. The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexContent"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:84: The 'foo' attribute is not supported in this context. The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexContent"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. missing required attribute 'base': Schema component: <xs:restriction xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:attribute name=\"a\" foo=\"1\" /></xs:restriction> Path: /xs:schema/xs:complexType/xs:complexContent/xs:restriction Schema URL: file://schema.xsd  The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexContent"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element restriction: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}restriction': The attribute 'base' is required but missing. The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexContent"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/required-attributes/complex-content-restriction-missing-base-before-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/required-attributes/simple-content-extension-missing-base-before-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/required-attributes/simple-content-extension-missing-base-before-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleContent",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "An xs:extension inside xs:simpleContent has no base and holds an attribute with the unknown attribute foo. The missing base belongs to the earlier start tag, so the schema is rejected with schema.reference."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/required-attributes/simple-content-extension-missing-base-before-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.reference",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:58: s4s-att-must-appear: Attribute 'base' must appear in element 'extension'. The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleContent"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:81: The 'foo' attribute is not supported in this context. The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleContent"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. missing required attribute 'base': Schema component: <xs:extension xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:attribute name=\"a\" foo=\"1\" /></xs:extension> Path: /xs:schema/xs:complexType/xs:simpleContent/xs:extension Schema URL: file://schema.xsd  The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleContent"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element extension: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}extension': The attribute 'base' is required but missing. The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleContent"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/required-attributes/simple-content-extension-missing-base-before-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/required-attributes/required-attributes-control",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/required-attributes/required-attributes-control",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexContent",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleContent",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "Local declarations carry name, group and attributeGroup references carry ref, and derivations in xs:simpleContent and xs:complexContent carry base, so the schema is accepted."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/required-attributes/required-attributes-control/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and its representation constraints, under which a local element or attribute declaration needs name or ref (src-element.2.1, src-attribute.3.1), a group or attributeGroup reference needs ref, and a derivation in xs:simpleContent or xs:complexContent needs base; the missing attribute belongs to the start tag, which precedes every child in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/required-attributes/required-attributes-control/schema.xsd",
           "role": "principal"
         }
       ]

@@ -79,12 +79,6 @@ func (c *compiler) compileLocalElement(ctx *schemaSetDocument, n *schemaNode) (r
 		return 0, err
 	}
 	defer leave(&err)
-	if err = checkLocalElementAttributes(n); err != nil {
-		return 0, err
-	}
-	if err = checkLocalElementSource(n); err != nil {
-		return 0, err
-	}
 	name := schemaElementName(n)
 	ns := ""
 	form, hasForm := schemaElementForm(n)

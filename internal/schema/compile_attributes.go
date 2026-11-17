@@ -574,9 +574,6 @@ func (c *compiler) compileLocalAttributeUse(ctx *schemaSetDocument, n *schemaNod
 }
 
 func (c *compiler) localAttributeUseName(ctx *schemaSetDocument, n *schemaNode) (QName, error) {
-	if err := checkAttributeUseSource(n); err != nil {
-		return QName{}, err
-	}
 	source := semanticSource[*schemaAttributeSource](&n.semantic)
 	name := source.Global.Name.Value
 	ns := ""
@@ -666,9 +663,6 @@ func (c *compiler) compileAttributeGroupUse(ctx *schemaSetDocument, n *schemaNod
 }
 
 func (c *compiler) compileAttributeGroupUseID(ctx *schemaSetDocument, n *schemaNode) (attributeUseSetID, error) {
-	if err := checkAttributeGroupUseSource(n); err != nil {
-		return noAttributeUseSet, err
-	}
 	source := semanticSource[*schemaAttributeGroupSource](&n.semantic)
 	if source == nil {
 		return noAttributeUseSet, withSchemaCompileLocation(n, xsderrors.InternalInvariant("attributeGroup use has no typed attributeGroup source"))

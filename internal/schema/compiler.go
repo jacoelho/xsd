@@ -570,9 +570,6 @@ func (c *compiler) compileAnonymousSimple(ctx *schemaSetDocument, n *schemaNode)
 		return NoSimpleType, err
 	}
 	defer leave(&err)
-	if err = checkLocalSimpleTypeAttributes(n); err != nil {
-		return NoSimpleType, err
-	}
 	q, err := c.rt.internQName("", fmt.Sprintf("$simple%d", len(c.rt.SimpleTypes)))
 	if err != nil {
 		return NoSimpleType, err

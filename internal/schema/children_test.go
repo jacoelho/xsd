@@ -278,63 +278,7 @@ func TestCheckContentDerivationSource(t *testing.T) {
 			}
 			wantNode := parent.doc.node(parent.children[tt.wantIndex])
 			if got.node != wantNode || got.kind != tt.wantKind {
-				t.Fatalf("derivation = {%p %s}, want {%p %s}", got.node, got.kind, wantNode, tt.wantKind)
-			}
-		})
-	}
-}
-
-func TestValidateContentDerivationBase(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name    string
-		base    contentDerivationBase
-		wantMsg string
-	}{
-		{
-			name: "complex extension has base",
-			base: contentDerivationBase{
-				Container:  complexContent,
-				Derivation: extensionChild,
-				Lexical:    "tns:base",
-				Present:    true,
-			},
-		},
-		{
-			name: "complex restriction missing base",
-			base: contentDerivationBase{
-				Container:  complexContent,
-				Derivation: restrictionChild,
-			},
-			wantMsg: "complexContent restriction missing base",
-		},
-		{
-			name: "simple extension missing base",
-			base: contentDerivationBase{
-				Container:  simpleContent,
-				Derivation: extensionChild,
-			},
-			wantMsg: "simpleContent extension missing base",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			err := validateContentDerivationBase(tt.base)
-			if tt.wantMsg == "" {
-				if err != nil {
-					t.Fatalf("ValidateContentDerivationBase() error = %v", err)
-				}
-				return
-			}
-			diag, ok := errors.AsType[*xsderrors.Error](err)
-			if !ok {
-				t.Fatalf("ValidateContentDerivationBase() error = %T %[1]v, want xsderrors.Error", err)
-			}
-			if diag.Code() != xsderrors.CodeSchemaReference || diag.Message() != tt.wantMsg {
-				t.Fatalf("diagnostic = (%s, %q), want (%s, %q)", diag.Code(), diag.Message(), xsderrors.CodeSchemaReference, tt.wantMsg)
+				t.Fatalf("derivation = {%p %d}, want {%p %d}", got.node, got.kind, wantNode, tt.wantKind)
 			}
 		})
 	}
@@ -449,34 +393,6 @@ func TestCheckTopLevelGroupChildren(t *testing.T) {
 			wantCode:  xsderrors.CodeSchemaContentModel,
 			wantMsg:   "invalid top-level group child \"element\"",
 		},
-		{
-			name:      "model min occurs",
-			children:  []groupChildFixture{{local: sequenceChild, hasMinOccurs: true}},
-			wantIndex: 0,
-			wantCode:  xsderrors.CodeSchemaOccurrence,
-			wantMsg:   "top-level model group cannot have minOccurs",
-		},
-		{
-			name:      "model max occurs",
-			children:  []groupChildFixture{{local: choiceChild, hasMaxOccurs: true}},
-			wantIndex: 0,
-			wantCode:  xsderrors.CodeSchemaOccurrence,
-			wantMsg:   "top-level model group cannot have maxOccurs",
-		},
-		{
-			name:      "later invalid child before occurrence",
-			children:  []groupChildFixture{{local: sequenceChild, hasMinOccurs: true}, {local: elementChild}},
-			wantIndex: 1,
-			wantCode:  xsderrors.CodeSchemaContentModel,
-			wantMsg:   "invalid top-level group child \"element\"",
-		},
-		{
-			name:      "min occurrence before max",
-			children:  []groupChildFixture{{local: sequenceChild, hasMinOccurs: true, hasMaxOccurs: true}},
-			wantIndex: 0,
-			wantCode:  xsderrors.CodeSchemaOccurrence,
-			wantMsg:   "top-level model group cannot have minOccurs",
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -512,9 +428,7 @@ func TestCheckTopLevelGroupChildren(t *testing.T) {
 }
 
 type groupChildFixture struct {
-	local        string
-	hasMinOccurs bool
-	hasMaxOccurs bool
+	local string
 }
 
 func topLevelGroupGrammarFixture(t *testing.T, children []groupChildFixture) *schemaNode {
@@ -537,11 +451,7 @@ func topLevelGroupGrammarFixture(t *testing.T, children []groupChildFixture) *sc
 			case allChild:
 				kind = modelAll
 			}
-			particle := schemaParticleSource{
-				MinOccurs: lexicalAttribute{Present: child.hasMinOccurs},
-				MaxOccurs: lexicalAttribute{Present: child.hasMaxOccurs},
-			}
-			node.semantic.kind = &schemaModelSource{schemaParticleSource: particle, Kind: kind}
+			node.semantic.kind = &schemaModelSource{Kind: kind}
 		}
 		doc.arena = append(doc.arena, node)
 		parent.children = append(parent.children, node.id)

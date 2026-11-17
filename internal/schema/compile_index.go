@@ -145,15 +145,6 @@ func validateModelGroupChild(child *schemaNode, parent modelKind, limits Limits)
 	switch child.local {
 	case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll:
 		return validateNestedModelGroupOccurrence(child, limits)
-	case vocab.XSDElemGroup:
-		return validateModelGroupReference(child)
-	}
-	return nil
-}
-
-func validateModelGroupReference(child *schemaNode) error {
-	if err := validateGroupUseSource(semanticSource[*schemaGroupSource](&child.semantic).Ref.Lexical); err != nil {
-		return withSchemaCompileLocation(child, err)
 	}
 	return nil
 }

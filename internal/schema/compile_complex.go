@@ -66,9 +66,6 @@ func (c *compiler) reserveAnonymousComplexType(ctx *schemaSetDocument, n *schema
 	if err := c.spendComponentDependency(n); err != nil {
 		return noComplexType, err
 	}
-	if err := checkLocalComplexTypeAttributes(n); err != nil {
-		return noComplexType, err
-	}
 	q, err := c.rt.internQName("", fmt.Sprintf("$complex%d", len(c.rt.ComplexTypes)))
 	if err != nil {
 		return noComplexType, err
@@ -371,7 +368,7 @@ func (c *compiler) compileComplexContent(ctx *schemaSetDocument, n *schemaNode, 
 }
 
 func (c *compiler) compileComplexContentDerivation(ctx *schemaSetDocument, child *schemaNode, kind contentDerivationKind, ct complexTypeMetadata, contentKind complexContentVariety) (complexTypeMetadata, error) {
-	baseID, base, err := c.complexContentBase(ctx, child, kind)
+	baseID, base, err := c.complexContentBase(ctx, child)
 	if err != nil {
 		return complexTypeMetadata{}, err
 	}
@@ -392,8 +389,8 @@ func (c *compiler) compileComplexContentDerivation(ctx *schemaSetDocument, child
 	return c.compileComplexContentRestriction(ctx, child, ct, base, contentKind)
 }
 
-func (c *compiler) complexContentBase(ctx *schemaSetDocument, child *schemaNode, kind contentDerivationKind) (ComplexTypeID, complexTypeMetadata, error) {
-	baseQName, err := c.contentDerivationBaseQName(ctx, vocab.XSDElemComplexContent, kind, child)
+func (c *compiler) complexContentBase(ctx *schemaSetDocument, child *schemaNode) (ComplexTypeID, complexTypeMetadata, error) {
+	baseQName, err := c.contentDerivationBaseQName(ctx, child)
 	if err != nil {
 		return noComplexType, complexTypeMetadata{}, err
 	}
@@ -404,15 +401,10 @@ func (c *compiler) complexContentBase(ctx *schemaSetDocument, child *schemaNode,
 	return baseID, c.rt.complexType(baseID), nil
 }
 
-func (c *compiler) contentDerivationBaseQName(ctx *schemaSetDocument, container string, kind contentDerivationKind, child *schemaNode) (QName, error) {
+func (c *compiler) contentDerivationBaseQName(ctx *schemaSetDocument, child *schemaNode) (QName, error) {
 	baseSource, ok := child.semantic.derivationBase()
 	if !ok {
 		return QName{}, withSchemaCompileLocation(child, xsderrors.InternalInvariant("derivation node has no typed derivation source"))
-	}
-	baseLex, present := baseSource.Lexical.Value, baseSource.Lexical.Present
-	base := contentDerivationBase{Container: container, Derivation: kind.String(), Lexical: baseLex, Present: present}
-	if err := checkContentDerivationBase(child, base); err != nil {
-		return QName{}, err
 	}
 	return c.referenceQName(ctx, child, baseSource.Name)
 }
@@ -601,16 +593,6 @@ func (c *compiler) resolveSimpleContentSource(ctx *schemaSetDocument, n *schemaN
 	baseSource, ok := syntax.node.semantic.derivationBase()
 	if !ok {
 		return simpleContentSource{}, withSchemaCompileLocation(syntax.node, xsderrors.InternalInvariant("derivation node has no typed derivation source"))
-	}
-	baseLexical, present := baseSource.Lexical.Value, baseSource.Lexical.Present
-	baseAttribute := contentDerivationBase{
-		Container:  vocab.XSDElemSimpleContent,
-		Derivation: syntax.kind.String(),
-		Lexical:    baseLexical,
-		Present:    present,
-	}
-	if baseErr := checkContentDerivationBase(syntax.node, baseAttribute); baseErr != nil {
-		return simpleContentSource{}, baseErr
 	}
 	base, err := c.referenceQName(ctx, syntax.node, baseSource.Name)
 	if err != nil {

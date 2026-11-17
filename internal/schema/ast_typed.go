@@ -476,9 +476,9 @@ func admitAnnotationEnvelopeStart(n *schemaSyntaxNode) error {
 // rejectXSD11Vocabulary and admitChildContent, so XSD 1.1 vocabulary and a
 // child that its parent's content forbids report that violation rather than
 // the child's own. The syntax facts it reads are transient; compilation never
-// treats them as a generic XML tree. Which attributes a top-level component
-// or a reference admits is decided here; attribute restrictions of local
-// declarations and definitions are compiler-owned.
+// treats them as a generic XML tree. Which unqualified attributes an element
+// admits and requires in its placement is decided here, so those violations
+// precede every later child in document order.
 func admitXSDChildStart(n *schemaSyntaxNode, parent xml.Name) error {
 	if err := rejectSchemaNamespaceAttributes(n); err != nil {
 		return err
@@ -497,9 +497,11 @@ func admitXSDChildStart(n *schemaSyntaxNode, parent xml.Name) error {
 		return err
 	}
 	if placement == schemaPlacementTopLevel {
-		return checkTopLevelSchemaChildSyntax(n)
+		if err := checkTopLevelSchemaChildSyntax(n); err != nil {
+			return err
+		}
 	}
-	return nil
+	return checkRequiredSchemaAttributesSyntax(n, parent, placement)
 }
 
 func checkAnnotationEnvelopeStart(n *schemaSyntaxNode) error {

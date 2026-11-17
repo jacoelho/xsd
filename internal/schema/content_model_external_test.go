@@ -1244,7 +1244,7 @@ func TestTopLevelGroupCompositorCannotHaveOccurs(t *testing.T) {
   <xs:group name="g"><xs:choice maxOccurs="2"><xs:element name="a"/></xs:choice></xs:group>
 </xs:schema>`))})
 
-	expectCode(t, err, xsderrors.CodeSchemaOccurrence)
+	expectCode(t, err, xsderrors.CodeSchemaInvalidAttribute)
 
 	_, err = xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">

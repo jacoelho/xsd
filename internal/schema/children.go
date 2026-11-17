@@ -95,19 +95,6 @@ const (
 	contentDerivationRestriction
 )
 
-func (k contentDerivationKind) String() string {
-	switch k {
-	case contentDerivationExtension:
-		return extensionChild
-	case contentDerivationRestriction:
-		return restrictionChild
-	case contentDerivationNone:
-		return ""
-	default:
-	}
-	return ""
-}
-
 var simpleTypeChildOrder = childOrder{
 	Rules: []childRule{
 		{
@@ -213,24 +200,6 @@ var elementDeclarationChildOrder = childOrder{
 		},
 	},
 	InvalidMsg: func(local string) string { return "invalid element child " + local },
-}
-
-// contentDerivationBase owns the lexical and presence state of a required base
-// attribute together with the grammar context used in its diagnostic.
-type contentDerivationBase struct {
-	Container  string
-	Derivation string
-	Lexical    string
-	Present    bool
-}
-
-// validateContentDerivationBase validates that a content derivation has its
-// required base attribute.
-func validateContentDerivationBase(base contentDerivationBase) error {
-	if base.Present {
-		return nil
-	}
-	return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, base.Container+" "+base.Derivation+" missing base")
 }
 
 var (

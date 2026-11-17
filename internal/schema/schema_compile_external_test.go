@@ -366,7 +366,7 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
   <xs:complexType name="C">
     <xs:sequence>
       <xs:future/>
-      <xs:attribute/>
+      <xs:attribute name="a"/>
     </xs:sequence>
   </xs:complexType>
 </xs:schema>`, code: xsderrors.CodeSchemaContentModel, line: 4, column: 7},

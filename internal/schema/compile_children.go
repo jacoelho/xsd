@@ -46,10 +46,8 @@ func checkSchemaAttributeSyntax(n *schemaSyntaxNode, attr schemaAttribute, place
 	switch schemaAttributeVocabularyOf(n.Name.Local, attr.Name.Local, placement) {
 	case schemaAttributeUnknown:
 		return schemaAttributeNotAllowed(n, attr.Name.Local)
-	case schemaAttributeLocalOnly:
-		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "top-level "+diagnostictext.Quote(n.Name.Local)+" cannot have "+diagnostictext.Quote(attr.Name.Local))
-	case schemaAttributeDeclarationOnly:
-		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, schemaReferenceLabel(n.Name.Local)+" cannot have attribute "+diagnostictext.Quote(attr.Name.Local))
+	case schemaAttributeMisplaced:
+		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, misplacedSchemaAttributeMessage(n.Name.Local, attr.Name.Local, placement))
 	case schemaAttributeXSD10:
 	}
 	if !schemaAnyURIAttribute(n.Name.Local, attr.Name.Local) {
@@ -112,16 +110,21 @@ func checkSchemaQNamePartsSyntax(n *schemaSyntaxNode, lexical string) (qNamePart
 func checkTopLevelSchemaChildSyntax(n *schemaSyntaxNode) error {
 	local := n.Name.Local
 	switch local {
-	case annotationChild, includeChild, importChild, redefineChild, notationChild:
+	case annotationChild, includeChild, importChild, redefineChild, notationChild,
+		simpleTypeChild, complexTypeChild, attributeGroup, groupChild, attributeChild, elementChild:
 		return nil
-	case simpleTypeChild, complexTypeChild, attributeGroup, groupChild, attributeChild, elementChild:
 	case uniqueChild, keyChild, keyrefChild, selectorChild, fieldChild:
 		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "identity constraint must be inside element")
 	default:
 		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "invalid top-level schema child "+diagnostictext.Quote(local))
 	}
-	if _, present := n.attr(vocab.XSDAttrName); !present {
-		return schemaCompileAt(n, xsderrors.CodeSchemaReference, "top-level "+diagnostictext.Quote(local)+" missing name")
+}
+
+// checkRequiredSchemaAttributesSyntax checks that n carries the attributes
+// its placement requires; see requiredSchemaAttributeMissing.
+func checkRequiredSchemaAttributesSyntax(n *schemaSyntaxNode, parent xml.Name, placement schemaElementPlacement) error {
+	if message := requiredSchemaAttributeMissing(n, parent, placement); message != "" {
+		return schemaCompileAt(n, xsderrors.CodeSchemaReference, message)
 	}
 	return nil
 }
