@@ -61,8 +61,8 @@ func TestAttributeUseRead(t *testing.T) {
 	if use.TypeID() != 7 {
 		t.Fatalf("TypeID() = %d, want 7", use.TypeID())
 	}
-	if use.Label() != `"a"` {
-		t.Fatalf("Label() = %q, want a", use.Label())
+	if use.QuotedName() != `"a"` {
+		t.Fatalf("QuotedName() = %q, want \"a\"", use.QuotedName())
 	}
 	if !use.Required() {
 		t.Fatal("Required() = false, want true")
@@ -213,11 +213,11 @@ func TestAttributeUseSetRead(t *testing.T) {
 	if set.Wildcard() != 7 {
 		t.Fatalf("Wildcard() = %d, want 7", set.Wildcard())
 	}
-	if first, ok := set.UseAt(0); !ok || first.Label() != `"first"` {
-		t.Fatalf("UseAt(0).Label() = %q, %v; want first, true", first.Label(), ok)
+	if first, ok := set.UseAt(0); !ok || first.QuotedName() != `"first"` {
+		t.Fatalf("UseAt(0).QuotedName() = %q, %v; want \"first\", true", first.QuotedName(), ok)
 	}
-	if second, ok := set.UseAt(1); !ok || second.Label() != `"second"` {
-		t.Fatalf("UseAt(1).Label() = %q, %v; want second, true", second.Label(), ok)
+	if second, ok := set.UseAt(1); !ok || second.QuotedName() != `"second"` {
+		t.Fatalf("UseAt(1).QuotedName() = %q, %v; want \"second\", true", second.QuotedName(), ok)
 	}
 	for _, slot := range []int{-1, 2} {
 		if got, ok := set.UseAt(slot); ok || got != (AttributeUseRead{}) {

@@ -254,8 +254,8 @@ func simpleTypeAttributeMessage(name xsdSchema.RuntimeName) string {
 func unavailableAttributeTypeMessage(name string) string {
 	return "attribute " + diagnostictext.Quote(name) + " has a type whose schema declaration was not loaded"
 }
-func requiredAttributeMessage(name string) string {
-	return "missing required attribute " + diagnostictext.Quote(name)
+func requiredAttributeMessage(quotedName string) string {
+	return "missing required attribute " + quotedName
 }
 func undeclaredRootMessage(name xml.Name) string {
 	return "root element " + diagnostictext.ExpandedName(name.Space, name.Local) + " has no global declaration in the compiled schema"
