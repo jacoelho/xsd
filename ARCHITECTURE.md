@@ -272,15 +272,16 @@ owner, `internal/schema`, because no value-owned parser exists for them.
   (Duration equality and order in `docs/spec/INTERPRETATIONS.md`). The doc
   comment of `atomicValue` names the owner of each primitive's order,
   equality and enumeration key and states what a value type may hold. An
-  `xs:time` value is its timezone-normalized time of day (Time midnight
-  boundary in `docs/spec/INTERPRETATIONS.md`). One relation needs more than
-  the two values: the same-side restriction clause orders `xs:time` bounds by
-  un-wrapped time. The day offset it reads is a fact of the bound facet
-  (`boundValue`), not of the value, and `compareDerivationBounds` is its only
-  reader. Restriction
-  derivation returns the effective facet program, and the compiler does not
-  reconstruct that merge. `FacetAllowed` is the only facet-applicability rule
-  for schema admission, value construction, and diagnostics.
+  `xs:time` value is its timezone-normalized time of day, so `24:00:00` is
+  `00:00:00` (Time midnight boundary in `docs/spec/INTERPRETATIONS.md`). One
+  relation needs more than the two values: the same-side restriction clause
+  orders `xs:time` bounds by un-wrapped time. The day that the hour 24, a
+  second 60 or a timezone offset moves a bound to is a fact of the bound
+  facet (`boundValue`), not of the value, and `compareDerivationBounds` is
+  its only reader. Restriction derivation returns the effective facet
+  program, and the compiler does not reconstruct that merge. `FacetAllowed`
+  is the only facet-applicability rule for schema admission, value
+  construction, and diagnostics.
 - **Inputs.** `ValidateBytes` and `ValidateAdmitted` trust that
   `internal/xmlstream` has already admitted UTF-8 XML 1.0 character data.
   `Validate` admits external text itself. All paths share value semantics and
@@ -1009,9 +1010,15 @@ graph preserves these ownership rules:
   clauses was rejected: W3C `time_maxInclusive007_119` requires it only
   there, no W3C test requires it elsewhere, and Xerces-J orders every other
   relation by time of day.
-- Using the §3.2.8.2 canonical form `00:00:00` for the end-of-day midnight
-  was rejected: canonical text would denote another value, and a value
-  constraint applied through its canonical text would change value.
+- A distinct end-of-day midnight value for `24:00:00`, as in Xerces-J and
+  libxml2, was rejected for three reasons. Datatypes §3.2.8.2 gives midnight
+  the canonical representation `00:00:00`, and §2.3.1 makes canonical
+  representations one-to-one with values. Structures applies a value
+  constraint through its canonical representation, so a distinct value needs
+  either a canonical text that §3.2.8.2 excludes or, as in Xerces-J, a
+  `fixed="24:00:00"` that rejects `24:00:00`. XSD 1.1 Datatypes §3.3.8.2 and
+  XPath Functions and Operators 3.1 `op:time-equal` state that both forms
+  denote one value.
 - Combining Gregorian primitive parsers was rejected because their field
   grammars and failure precedence differ.
 - Re-resolving schema-supplied QNames in instance namespaces was rejected
