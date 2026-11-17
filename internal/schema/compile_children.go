@@ -19,8 +19,7 @@ func schemaLexicalAttributeSyntax(n *schemaSyntaxNode, name string) lexicalAttri
 // unqualified attribute is checked against the XSD 1.0 vocabulary of its
 // element in its placement before its value: a forbidden attribute is rejected
 // whatever its value. QName-valued attributes are resolved into qnames; see
-// admitSchemaQNameAttribute. qnames may be nil only for an element that has no
-// QName-valued attribute.
+// admitSchemaQNameAttribute.
 func checkSchemaAttributesSyntax(n *schemaSyntaxNode, placement schemaElementPlacement, qnames *semanticQNameProjection) error {
 	for _, attr := range n.Attrs {
 		var err error

@@ -369,7 +369,7 @@ func (s *typedSchemaParseState) parentFrame() *typedSchemaParseFrame {
 // start tag is admitted.
 func admitStart(n *schemaSyntaxNode, placement schemaElementPlacement, parent *typedSchemaParseFrame, qnames *semanticQNameProjection) error {
 	if parent == nil {
-		return admitRootStart(n)
+		return admitRootStart(n, qnames)
 	}
 	foreign := n.Name.Space != vocab.XSDNamespaceURI
 	if !foreign {
@@ -387,7 +387,7 @@ func admitStart(n *schemaSyntaxNode, placement schemaElementPlacement, parent *t
 		return err
 	}
 	if parent.content == childContentAnnotationPayload {
-		return admitAnnotationEnvelopeStart(n)
+		return admitAnnotationEnvelopeStart(n, qnames)
 	}
 	return admitXSDChildStart(n, parent.name, placement, qnames)
 }
@@ -443,20 +443,20 @@ func annotationPlacementViolation(child string, parent *typedSchemaParseFrame) s
 	return ""
 }
 
-func admitRootStart(n *schemaSyntaxNode) error {
+func admitRootStart(n *schemaSyntaxNode, qnames *semanticQNameProjection) error {
 	if !isXSDName(n.Name, vocab.XSDElemSchema) {
 		return schemaCompileAt(n, xsderrors.CodeSchemaRoot, "root element must be xs:schema")
 	}
 	if err := rejectUnsupportedVocabulary(n); err != nil {
 		return err
 	}
-	return checkSchemaAttributesSyntax(n, schemaPlacementOther, nil)
+	return checkSchemaAttributesSyntax(n, schemaPlacementOther, qnames)
 }
 
-func admitAnnotationEnvelopeStart(n *schemaSyntaxNode) error {
+func admitAnnotationEnvelopeStart(n *schemaSyntaxNode, qnames *semanticQNameProjection) error {
 	// The payload envelope is admitted separately; arbitrary descendants are
 	// skipped by the caller after this attribute check.
-	return checkSchemaAttributesSyntax(n, schemaPlacementOther, nil)
+	return checkSchemaAttributesSyntax(n, schemaPlacementOther, qnames)
 }
 
 // admitXSDChildStart checks the attributes of n in start-tag order, then the
