@@ -64,6 +64,9 @@ func checkSchemaAttributeSyntax(n *schemaSyntaxNode, attr schemaAttribute, place
 	if err := withSchemaCompileLocation(n, validateSchemaNameAttribute(attr.Name.Local, attr.Value)); err != nil {
 		return err
 	}
+	if attr.Name.Local == vocab.XSDAttrXPath && lex.TrimXMLWhitespaceString(attr.Value) == "" {
+		return schemaCompileAt(n, xsderrors.CodeSchemaIdentity, diagnostictext.Quote(n.Name.Local)+" xpath is empty")
+	}
 	if schemaNodeHasQNameAttr(n, attr.Name.Local) {
 		return admitSchemaQNameAttribute(n, attr, qnames)
 	}

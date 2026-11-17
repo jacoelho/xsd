@@ -264,15 +264,15 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
 			wantMsg: annotationOnly("selector", "field"),
 		},
 		{
-			name: "selector content before missing xpath",
+			name: "selector missing xpath before content",
 			body: `  <xs:element name="r">
     <xs:key name="k">
       <xs:selector><xs:field xpath="@a"/></xs:selector>
       <xs:field xpath="@a"/>
     </xs:key>
   </xs:element>`,
-			wantLine: 4, wantCol: 20, wantCode: xsderrors.CodeSchemaContentModel,
-			wantMsg: annotationOnly("selector", "field"),
+			wantLine: 4, wantCol: 7, wantCode: xsderrors.CodeSchemaIdentity,
+			wantMsg: `"selector" missing xpath`,
 		},
 		{
 			name: "group reference missing ref before content",

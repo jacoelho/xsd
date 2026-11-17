@@ -59,27 +59,6 @@ func TestCheckIdentityConstraintChildren(t *testing.T) {
 			wantCode:    xsderrors.CodeSchemaIdentity,
 			wantMessage: "identity constraint missing fields",
 		},
-		{
-			name: "selector missing xpath",
-			children: []identityChildFixture{
-				{local: selectorChild},
-			},
-			wantChild:   0,
-			wantNested:  -1,
-			wantCode:    xsderrors.CodeSchemaIdentity,
-			wantMessage: "\"selector\" missing xpath",
-		},
-		{
-			name: "field empty xpath",
-			children: []identityChildFixture{
-				{local: selectorChild, xpath: lexicalAttribute{Value: "row", Present: true}},
-				{local: fieldChild, xpath: lexicalAttribute{Present: true}},
-			},
-			wantChild:   1,
-			wantNested:  -1,
-			wantCode:    xsderrors.CodeSchemaIdentity,
-			wantMessage: "\"field\" xpath is empty",
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

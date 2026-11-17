@@ -144,12 +144,18 @@ func misplacedSchemaAttributeError(n *schemaSyntaxNode, attr string, placement s
 // checkRequiredSchemaAttributes returns the error for n, an XSD element in
 // placement whose parent is named parent, when it lacks an attribute its
 // placement requires, or nil. A local declaration has no ref by definition of
-// its placement, so it requires name.
+// its placement, so it requires name. A selector or field without xpath is an
+// identity-constraint violation; every other missing attribute is a reference
+// violation.
 func checkRequiredSchemaAttributes(n *schemaSyntaxNode, parent xml.Name, placement schemaElementPlacement) error {
 	element := n.Name.Local
 	var required string
 	switch placement {
-	case schemaPlacementOther, schemaPlacementNamedGroupModel:
+	case schemaPlacementOther:
+		if element == vocab.XSDElemSelector || element == vocab.XSDElemField {
+			required = vocab.XSDAttrXPath
+		}
+	case schemaPlacementNamedGroupModel:
 	case schemaPlacementTopLevel:
 		switch element {
 		case vocab.XSDElemSimpleType, vocab.XSDElemComplexType, vocab.XSDElemAttributeGroup, vocab.XSDElemGroup, vocab.XSDElemAttribute, vocab.XSDElemElement:
@@ -176,7 +182,11 @@ func checkRequiredSchemaAttributes(n *schemaSyntaxNode, parent xml.Name, placeme
 	if message == "" {
 		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("schema element xs:"+diagnostictext.Quote(element)+" has no required attribute message"))
 	}
-	return schemaCompileAt(n, xsderrors.CodeSchemaReference, message)
+	code := xsderrors.CodeSchemaReference
+	if required == vocab.XSDAttrXPath {
+		code = xsderrors.CodeSchemaIdentity
+	}
+	return schemaCompileAt(n, code, message)
 }
 
 // missingSchemaAttributeMessage describes an XSD element named element in
@@ -205,7 +215,14 @@ func missingSchemaAttributeMessage(element string, parent xml.Name, placement sc
 		}
 	case schemaPlacementContentDerivation:
 		return missingContentDerivationBaseMessage(parent.Local, element)
-	case schemaPlacementOther, schemaPlacementNamedGroupModel:
+	case schemaPlacementOther:
+		switch element {
+		case vocab.XSDElemSelector:
+			return `"selector" missing xpath`
+		case vocab.XSDElemField:
+			return `"field" missing xpath`
+		}
+	case schemaPlacementNamedGroupModel:
 	}
 	return ""
 }

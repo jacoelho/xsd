@@ -880046,7 +880046,7 @@
           "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-selector"
         ],
         "conditions": [
-          "An xs:selector without its required xpath that also holds an xs:field child is rejected for its content."
+          "An xs:selector without its required xpath also holds an xs:field child. The missing xpath belongs to the earlier start tag, so the schema is rejected with schema.identity."
         ]
       },
       "schema": {
@@ -880057,7 +880057,7 @@
             "role": "principal"
           }
         ],
-        "errorCode": "schema.content_model",
+        "errorCode": "schema.identity",
         "oracle": {
           "xerces": {
             "expected": "invalid",
