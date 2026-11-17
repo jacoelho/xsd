@@ -101,6 +101,11 @@ func (c *compiler) validateIdentityReferences() error {
 	return c.validateIdentityReferencesBuild()
 }
 
+// compileIdentityConstraint parses the selector and field XPaths of n. Their
+// presence and emptiness are checked on each start tag, but their syntax and
+// prefixes only here: name tests intern into the compiler's name table, so a
+// start-tag parse would be a second parse that allocates on every successful
+// compile.
 func (c *compiler) compileIdentityConstraint(ctx *schemaSetDocument, n *schemaNode, name QName) (identityConstraintSpec, error) {
 	empty := identityConstraintSpec{Refer: NoIdentityConstraint}
 	syntax, err := identityConstraintChildren(n)
