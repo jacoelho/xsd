@@ -84,11 +84,13 @@ func derivationAttrRuleOf(element, attr string) (derivationAttrRule, bool) {
 	return derivationAttrRule{}, false
 }
 
-// parseDerivationAttrWithDefault parses a derivation-set attribute or applies
-// the schema default restricted to the rule's allowed derivation class.
+// parseDerivationAttrWithDefault parses an admitted derivation-set attribute
+// or applies the schema default restricted to the rule's allowed derivation
+// class.
 func parseDerivationAttrWithDefault(attr lexicalAttribute, def DerivationMask, rule derivationAttrRule) (DerivationMask, error) {
-	if attr.Present {
-		return parseDerivationSet(attr.Value, rule.Label, rule.Allowed)
+	if !attr.Present {
+		return def & rule.Allowed, nil
 	}
-	return def & rule.Allowed, nil
+	mask, err := parseDerivationSet(attr.Value, rule.Label, rule.Allowed)
+	return mask, admittedValueInvariant(err)
 }

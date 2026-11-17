@@ -454,7 +454,7 @@ func parseAttributeUseModeChecked(n *schemaNode, modeSource lexicalAttribute) (a
 	}
 	parsed, err := parseAttributeUseMode(modeSource.Value)
 	if err != nil {
-		return attributeUseOptional, withSchemaCompileLocation(n, invalidAttributeError(err))
+		return attributeUseOptional, withSchemaCompileLocation(n, admittedValueInvariant(err))
 	}
 	return parsed, nil
 }

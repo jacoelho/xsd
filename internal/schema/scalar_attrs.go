@@ -54,19 +54,20 @@ type schemaDefaults struct {
 	AttributeQualified bool
 }
 
-// parseSchemaDefaults validates and parses xs:schema target/default attributes.
+// parseSchemaDefaults parses the target namespace and the default attributes
+// of an admitted xs:schema start tag.
 func parseSchemaDefaults(attrs schemaDocumentSource) (schemaDefaults, error) {
 	if err := validateSchemaTargetNamespace(attrs.TargetNamespace); err != nil {
-		return schemaDefaults{}, err
+		return schemaDefaults{}, admittedValueInvariant(err)
 	}
 	blockRule, finalRule := schemaBlockDefaultDerivation(), schemaFinalDefaultDerivation()
 	blockDefault, err := parseDerivationSet(attrs.BlockDefault.Value, blockRule.Label, blockRule.Allowed)
 	if err != nil {
-		return schemaDefaults{}, err
+		return schemaDefaults{}, admittedValueInvariant(err)
 	}
 	finalDefault, err := parseDerivationSet(attrs.FinalDefault.Value, finalRule.Label, finalRule.Allowed)
 	if err != nil {
-		return schemaDefaults{}, err
+		return schemaDefaults{}, admittedValueInvariant(err)
 	}
 	elementQualified, err := parseFormDefaultAttr(formAttr{
 		Name:     vocab.XSDAttrElementFormDefault,
@@ -74,7 +75,7 @@ func parseSchemaDefaults(attrs schemaDocumentSource) (schemaDefaults, error) {
 		HasValue: attrs.ElementFormDefault.Present,
 	})
 	if err != nil {
-		return schemaDefaults{}, err
+		return schemaDefaults{}, admittedValueInvariant(err)
 	}
 	attributeQualified, err := parseFormDefaultAttr(formAttr{
 		Name:     vocab.XSDAttrAttributeFormDefault,
@@ -82,7 +83,7 @@ func parseSchemaDefaults(attrs schemaDocumentSource) (schemaDefaults, error) {
 		HasValue: attrs.AttributeFormDefault.Present,
 	})
 	if err != nil {
-		return schemaDefaults{}, err
+		return schemaDefaults{}, admittedValueInvariant(err)
 	}
 	return schemaDefaults{
 		TargetNamespace:    attrs.TargetNamespace.Value,

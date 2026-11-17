@@ -22,8 +22,8 @@ type rawOccurrence struct {
 	HasMaxOccurs bool
 }
 
-// parseOccurrence parses minOccurs/maxOccurs and applies compile-time finite
-// occurrence limits.
+// parseOccurrence parses admitted minOccurs and maxOccurs values, applies the
+// compile-time finite occurrence limits and orders the two bounds.
 func parseOccurrence(attrs rawOccurrence, limits Limits) (occurrence, error) {
 	minOccurs, err := parseMinOccurrence(attrs)
 	if err != nil {
@@ -88,7 +88,7 @@ func parseMinOccurrence(attrs rawOccurrence) (uint32, error) {
 	}
 	number, err := parseMinOccursLexical(attrs.MinOccurs)
 	if err != nil {
-		return 0, err
+		return 0, admittedValueInvariant(err)
 	}
 	if number > maxUint32Value {
 		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "minOccurs exceeds uint32 limit")
@@ -115,7 +115,7 @@ func parseMaxOccurrence(attrs rawOccurrence, limit uint64) (maxOccurrence, error
 	}
 	lexical, err := parseMaxOccursLexical(attrs.MaxOccurs)
 	if err != nil {
-		return maxOccurrence{}, err
+		return maxOccurrence{}, admittedValueInvariant(err)
 	}
 	if lexical.unbounded {
 		return maxOccurrence{kind: maxOccurrenceUnbounded}, nil

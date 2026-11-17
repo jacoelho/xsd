@@ -564,7 +564,7 @@ func (c *compiler) localAttributeUseName(ctx *schemaSetDocument, n *schemaNode) 
 		DefaultQualified: ctx.doc.defaults.AttributeQualified,
 	})
 	if err != nil {
-		return QName{}, withSchemaCompileLocation(n, err)
+		return QName{}, withSchemaCompileLocation(n, admittedValueInvariant(err))
 	}
 	if qualified {
 		ns = ctx.effectiveTargetNS

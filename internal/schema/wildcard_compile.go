@@ -27,8 +27,8 @@ type wildcardAttrs struct {
 	HasProcessContents bool
 }
 
-// parseWildcard parses compile-time wildcard namespace and processContents
-// attributes.
+// parseWildcard parses the admitted namespace and processContents attributes
+// of a wildcard and interns its namespaces.
 func parseWildcard(names nameInterner, attrs wildcardAttrs) (wildcardRuntime, error) {
 	wildcard, err := parseWildcardNamespace(names, attrs)
 	if err != nil {
@@ -36,7 +36,7 @@ func parseWildcard(names nameInterner, attrs wildcardAttrs) (wildcardRuntime, er
 	}
 	process, err := parseWildcardProcessContents(attrs)
 	if err != nil {
-		return wildcardRuntime{}, err
+		return wildcardRuntime{}, admittedValueInvariant(err)
 	}
 	wildcard.Process = process
 	return wildcard, nil
@@ -93,7 +93,7 @@ func parseWildcardNamespaceList(names nameInterner, targetNS, nsSpec string) ([]
 	for part := range lex.XMLFieldsSeq(nsSpec) {
 		uri, err := wildcardNamespaceURI(part, targetNS)
 		if err != nil {
-			return nil, err
+			return nil, admittedValueInvariant(err)
 		}
 		ns, err := internWildcardNamespace(names, uri)
 		if err != nil {

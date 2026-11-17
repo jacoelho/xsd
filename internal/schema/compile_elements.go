@@ -88,7 +88,7 @@ func (c *compiler) compileLocalElement(ctx *schemaSetDocument, n *schemaNode) (r
 		DefaultQualified: ctx.doc.defaults.ElementQualified,
 	})
 	if err != nil {
-		return 0, withSchemaCompileLocation(n, err)
+		return 0, withSchemaCompileLocation(n, admittedValueInvariant(err))
 	}
 	if qualified {
 		ns = ctx.effectiveTargetNS
@@ -162,12 +162,12 @@ func (c *compiler) compileElementProperties(ctx *schemaSetDocument, n *schemaNod
 		return compiledElementProperties{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("element node has no typed element source"))
 	}
 	nillable, err := parseBooleanAttr(booleanAttr{Name: vocab.XSDAttrNillable, Value: source.Nillable.Value, HasValue: source.Nillable.Present})
-	abstract, abstractErr := parseBooleanAttr(booleanAttr{Name: vocab.XSDAttrAbstract, Value: source.Abstract.Value, HasValue: source.Abstract.Present})
 	if err != nil {
-		return compiledElementProperties{}, err
+		return compiledElementProperties{}, withSchemaCompileLocation(n, admittedValueInvariant(err))
 	}
-	if abstractErr != nil {
-		return compiledElementProperties{}, abstractErr
+	abstract, err := parseBooleanAttr(booleanAttr{Name: vocab.XSDAttrAbstract, Value: source.Abstract.Value, HasValue: source.Abstract.Present})
+	if err != nil {
+		return compiledElementProperties{}, withSchemaCompileLocation(n, admittedValueInvariant(err))
 	}
 	typ, err := c.compileElementDeclType(ctx, n)
 	if err != nil {

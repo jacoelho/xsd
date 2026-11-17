@@ -146,7 +146,7 @@ func schemaComplexContentKind(n *schemaNode, attr lexicalAttribute, defaultKind 
 	}
 	mixed, err := parseBooleanAttr(booleanAttr{Name: vocab.XSDAttrMixed, Value: attr.Value, HasValue: attr.Present, Default: defaultMixed})
 	if err != nil {
-		return contentElementOnly, withSchemaCompileLocation(n, err)
+		return contentElementOnly, withSchemaCompileLocation(n, admittedValueInvariant(err))
 	}
 	if mixed {
 		return contentMixed, nil
@@ -270,7 +270,7 @@ func (c *compiler) newComplexType(ctx *schemaSetDocument, n *schemaNode, name QN
 	}
 	abstract, err := parseBooleanAttr(booleanAttr{Name: vocab.XSDAttrAbstract, Value: source.Abstract.Value, HasValue: source.Abstract.Present})
 	if err != nil {
-		return complexTypeMetadata{}, err
+		return complexTypeMetadata{}, withSchemaCompileLocation(n, admittedValueInvariant(err))
 	}
 	block, err := complexBlockMaskWithDefault(n, ctx.doc.defaults.BlockDefault)
 	if err != nil {
