@@ -2,7 +2,8 @@ package schema
 
 // This file contains the compiler-facing child selection of admitted source
 // nodes. Which children each element admits, in which order and at most how
-// often, is decided as each child starts; see childOrderFor.
+// often, is decided as each child starts, and which it requires at its end
+// tag; see childOrderFor.
 
 import (
 	"github.com/jacoelho/xsd/xsderrors"
