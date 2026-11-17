@@ -223,3 +223,52 @@ func diagnosticValidate(program *value.Program, id value.TypeID, input, api stri
 		return program.Validate(id, input, value.Resolver{}, needs, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	}
 }
+
+func TestOrderedBoundDiagnosticNamesNearestFailedBound(t *testing.T) {
+	bound := func(text string) value.BoundFacet {
+		return value.BoundFacet{Lexical: text, Type: value.NoType, Present: true}
+	}
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
+	outer := completeCanonicalProjectionType(t, builder, atomicFacetType(value.PrimitiveDecimal, value.FacetSpec{
+		MinExclusive: bound("0"), MaxExclusive: bound("20"),
+		Present: value.FacetMinExclusive | value.FacetMaxExclusive,
+	}))
+	innerSpec := atomicFacetType(value.PrimitiveDecimal, value.FacetSpec{
+		MinExclusive: bound("5"), MaxExclusive: bound("10"),
+		Present: value.FacetMinExclusive | value.FacetMaxExclusive,
+	})
+	innerSpec.Base = outer
+	inner := completeCanonicalProjectionType(t, builder, innerSpec)
+	for _, test := range []struct {
+		name, lexical, want string
+		facet               value.FacetMask
+	}{
+		{name: "upper literal outside both bounds", lexical: "20", facet: value.FacetMaxExclusive, want: `value "20" does not satisfy maxExclusive "10.0"`},
+		{name: "lower literal outside both bounds", lexical: "-1", facet: value.FacetMinExclusive, want: `value "-1" does not satisfy minExclusive "5.0"`},
+	} {
+		t.Run("bound literal "+test.name, func(t *testing.T) {
+			err := builder.AdmitBoundLiteral(inner, test.facet, test.lexical)
+			if !errors.Is(err, value.ErrFacet) || err.Error() != test.want {
+				t.Fatalf("AdmitBoundLiteral(%q) = %v, want ErrFacet %q", test.lexical, err, test.want)
+			}
+		})
+	}
+	program, err := builder.Seal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct{ name, input, want string }{
+		{name: "above both upper bounds", input: "25", want: `value "25" does not satisfy maxExclusive "10.0"`},
+		{name: "above the nearer upper bound only", input: "15", want: `value "15" does not satisfy maxExclusive "10.0"`},
+		{name: "below both lower bounds", input: "-3", want: `value "-3" does not satisfy minExclusive "5.0"`},
+	} {
+		t.Run("instance "+test.name, func(t *testing.T) {
+			for _, api := range []string{"string", "bytes", "admitted"} {
+				_, validationErr := diagnosticValidate(program, inner, test.input, api, 0)
+				if !errors.Is(validationErr, value.ErrFacet) || validationErr.Error() != test.want {
+					t.Fatalf("%s: diagnostic = %v, want %q", api, validationErr, test.want)
+				}
+			}
+		})
+	}
+}

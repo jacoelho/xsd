@@ -969,11 +969,12 @@ graph preserves these ownership rules:
   A second equality API, lexical shortcut or identity-key cache would
   duplicate value-owned policy.
 - Folding bound-literal admission into `Builder.Complete` was rejected:
-  Complete's errors name no facet and are located at the simple type, so
-  keeping the facet-located literal diagnostic would need a facet-identifying
-  error and relocation in the schema compiler, and enumeration literals keep
-  the same admit-then-complete shape. The cost is a second parse of each bound
-  literal at compile time.
+  bound and enumeration literal errors are located at their facet element,
+  while Complete's errors name no facet and are located at the simple type, so
+  keeping that location would need a facet-identifying error and relocation in
+  the schema compiler, and enumeration literals keep the same
+  admit-then-complete shape. The cost is a second parse of each bound literal
+  at compile time.
 - Combining Gregorian primitive parsers was rejected because their field
   grammars and failure precedence differ.
 - Re-resolving schema-supplied QNames in instance namespaces was rejected

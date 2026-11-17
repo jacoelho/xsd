@@ -538,8 +538,11 @@ func appendDiagnosticEnumerationGroup(text *strings.Builder, group []parsedValue
 	return remaining
 }
 
+// failedLowerBoundDiagnostic and failedOrderedBoundDiagnostic name the failed
+// bound declared nearest the type. Inherited bounds are retained oldest first,
+// so they are searched from the end.
 func failedLowerBoundDiagnostic[T byteText](t *typeDef, lexical T, parsed *parsedValue) string {
-	for i := range t.facets.lower {
+	for i := len(t.facets.lower) - 1; i >= 0; i-- {
 		bound := &t.facets.lower[i]
 		relation, ok := compareAtomic(&parsed.atom, &bound.value)
 		if !ok || !orderedFacetLowerBoundAccepts(bound.exclusive, relation) {
@@ -554,7 +557,7 @@ func failedOrderedBoundDiagnostic[T byteText](t *typeDef, lexical T, parsed *par
 	if message := failedLowerBoundDiagnostic(t, lexical, parsed); message != "" {
 		return message
 	}
-	for i := range t.facets.upper {
+	for i := len(t.facets.upper) - 1; i >= 0; i-- {
 		bound := &t.facets.upper[i]
 		relation, ok := compareAtomic(&parsed.atom, &bound.value)
 		if !ok || !orderedFacetUpperBoundAccepts(bound.exclusive, relation) {

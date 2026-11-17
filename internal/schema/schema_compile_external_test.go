@@ -227,6 +227,28 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
     </xs:restriction>
   </xs:simpleType>
 </xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 6, column: 7},
+		{name: "bound literal outside the base value space is located at its facet", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Limited">
+    <xs:restriction base="xs:decimal">
+      <xs:maxExclusive value="abc"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 4, column: 7, messageContains: `invalid facet value "abc"`},
+		{name: "bound literal outside an inherited bound is located at its facet", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Base"><xs:restriction base="xs:decimal"><xs:maxExclusive value="10"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="Limited">
+    <xs:restriction base="Base">
+      <xs:minInclusive value="11"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 5, column: 7, messageContains: `does not satisfy maxExclusive "10.0"`},
+		{name: "enumeration literal outside the base value space is located at its facet", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Limited">
+    <xs:restriction base="xs:decimal">
+      <xs:enumeration value="abc"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 4, column: 7, messageContains: `invalid facet value "abc"`},
 		{name: "simple content late facet keeps child location", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="Base"><xs:simpleContent><xs:extension base="xs:decimal"/></xs:simpleContent></xs:complexType>
   <xs:complexType name="Limited">
