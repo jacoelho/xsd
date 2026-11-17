@@ -1,8 +1,6 @@
 package schema
 
 import (
-	"encoding/xml"
-
 	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/uriref"
@@ -57,12 +55,11 @@ func checkXMLAttributeSyntax(n *schemaSyntaxNode, attr schemaAttribute) error {
 }
 
 func checkSchemaAttributeSyntax(n *schemaSyntaxNode, attr schemaAttribute, placement schemaElementPlacement, qnames *semanticQNameProjection) error {
-	switch schemaAttributeVocabularyOf(n.Name.Local, attr.Name.Local, placement) {
-	case schemaAttributeUnknown:
+	if !schemaElementAttributeAllowed(n.Name.Local, attr.Name.Local) {
 		return schemaAttributeNotAllowed(n, attr.Name.Local)
-	case schemaAttributeMisplaced:
-		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, misplacedSchemaAttributeMessage(n.Name.Local, attr.Name.Local, placement))
-	case schemaAttributeXSD10:
+	}
+	if err := misplacedSchemaAttributeError(n, attr.Name.Local, placement); err != nil {
+		return err
 	}
 	if err := withSchemaCompileLocation(n, validateSchemaNameAttribute(attr.Name.Local, attr.Value)); err != nil {
 		return err
@@ -93,13 +90,4 @@ func checkSchemaQNamePartsSyntax(n *schemaSyntaxNode, lexical string) (qNamePart
 		return qNameParts{}, withSchemaCompileLocation(n, err)
 	}
 	return parts, nil
-}
-
-// checkRequiredSchemaAttributesSyntax checks that n carries the attributes
-// its placement requires; see requiredSchemaAttributeMissing.
-func checkRequiredSchemaAttributesSyntax(n *schemaSyntaxNode, parent xml.Name, placement schemaElementPlacement) error {
-	if message := requiredSchemaAttributeMissing(n, parent, placement); message != "" {
-		return schemaCompileAt(n, xsderrors.CodeSchemaReference, message)
-	}
-	return nil
 }

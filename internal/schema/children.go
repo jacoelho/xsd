@@ -3,6 +3,7 @@ package schema
 import (
 	"encoding/xml"
 	"slices"
+	"strconv"
 
 	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/vocab"
@@ -75,6 +76,21 @@ type childOrder struct {
 	Rules []childRule
 }
 
+// maxChildRules bounds the rules of one childOrder: childOrderState records
+// the rules it has seen as bits of one uint64.
+const maxChildRules = 64
+
+// checkedChildOrder returns order, and panics when it holds more rules than
+// childOrderState can record. Every childOrder is built at package
+// initialisation, so an oversized order fails every test run and never reaches
+// a schema.
+func checkedChildOrder(order childOrder) childOrder {
+	if len(order.Rules) > maxChildRules {
+		panic("schema child order " + order.Label + " has more than " + strconv.Itoa(maxChildRules) + " rules")
+	}
+	return order
+}
+
 // contentDerivationKind identifies the xs:extension/xs:restriction choice in a
 // simpleContent or complexContent container.
 type contentDerivationKind uint8
@@ -88,7 +104,7 @@ const (
 	contentDerivationRestriction
 )
 
-var simpleTypeChildOrder = childOrder{
+var simpleTypeChildOrder = checkedChildOrder(childOrder{
 	Rules: []childRule{
 		{
 			Match:  matchChildLocal(restrictionChild, listChild, unionChild),
@@ -97,7 +113,7 @@ var simpleTypeChildOrder = childOrder{
 		},
 	},
 	Label: "simpleType",
-}
+})
 
 type simpleDerivationKind uint8
 
@@ -116,7 +132,7 @@ var simpleRestrictionChildOrder = simpleDerivationOrder(simpleDerivationRestrict
 var simpleListChildOrder = simpleDerivationOrder(simpleDerivationList)
 var simpleUnionChildOrder = simpleDerivationOrder(simpleDerivationUnion)
 
-var complexTypeChildOrder = childOrder{
+var complexTypeChildOrder = checkedChildOrder(childOrder{
 	Rules: []childRule{
 		{
 			Match:    matchChildLocal(simpleContent, complexContent),
@@ -144,7 +160,7 @@ var complexTypeChildOrder = childOrder{
 		},
 	},
 	Label: "complexType",
-}
+})
 
 var complexContentChildOrder = derivationContainerOrder(complexContent)
 var simpleContentChildOrder = derivationContainerOrder(simpleContent)
@@ -152,7 +168,7 @@ var simpleContentRestrictionChildOrder = simpleContentDerivationOrder(restrictio
 var simpleContentExtensionChildOrder = simpleContentDerivationOrder(extensionChild)
 var complexContentRestrictionChildOrder = complexContentDerivationOrder(restrictionChild)
 var complexContentExtensionChildOrder = complexContentDerivationOrder(extensionChild)
-var attributeGroupDeclarationChildOrder = childOrder{
+var attributeGroupDeclarationChildOrder = checkedChildOrder(childOrder{
 	Rules: []childRule{
 		{
 			Match:    matchChildLocal(attributeChild, attributeGroup),
@@ -167,8 +183,8 @@ var attributeGroupDeclarationChildOrder = childOrder{
 		},
 	},
 	Label: attributeUseLabel,
-}
-var attributeDeclarationChildOrder = childOrder{
+})
+var attributeDeclarationChildOrder = checkedChildOrder(childOrder{
 	Rules: []childRule{
 		{
 			Match:  matchChildLocal(simpleTypeChild),
@@ -177,8 +193,8 @@ var attributeDeclarationChildOrder = childOrder{
 		},
 	},
 	Label: "attribute",
-}
-var elementDeclarationChildOrder = childOrder{
+})
+var elementDeclarationChildOrder = checkedChildOrder(childOrder{
 	Rules: []childRule{
 		{
 			Match:    matchChildLocal(simpleTypeChild, complexTypeChild),
@@ -193,7 +209,7 @@ var elementDeclarationChildOrder = childOrder{
 		},
 	},
 	Label: "element",
-}
+})
 
 // nestedModelGroupChildOrder is the content of xs:sequence and xs:choice,
 // whose particles are nestedParticle in the schema for schemas: no xs:all.
@@ -201,23 +217,23 @@ var elementDeclarationChildOrder = childOrder{
 // element declarations only. A model group reference that resolves to xs:all
 // is checked when the content model compiles.
 var (
-	nestedModelGroupChildOrder = childOrder{
+	nestedModelGroupChildOrder = checkedChildOrder(childOrder{
 		Rules: []childRule{
 			{Match: matchChildLocal(elementChild, sequenceChild, choiceChild, groupChild, anyChild)},
 			{Match: matchChildLocal(allChild), ForbiddenMsg: "xs:all cannot be nested in model groups"},
 		},
 		Label: schemaComponentModelGroupLabel,
-	}
-	allModelGroupChildOrder = childOrder{
+	})
+	allModelGroupChildOrder = checkedChildOrder(childOrder{
 		Rules: []childRule{
 			{Match: matchChildLocal(elementChild)},
 			{Match: matchChildLocal(sequenceChild, choiceChild, allChild, groupChild, anyChild), ForbiddenMsg: "xs:all can contain only element particles"},
 		},
 		Label: schemaComponentModelGroupLabel,
-	}
+	})
 )
 
-var topLevelGroupChildOrder = childOrder{
+var topLevelGroupChildOrder = checkedChildOrder(childOrder{
 	Rules: []childRule{
 		{
 			Match:  matchChildLocal(sequenceChild, choiceChild, allChild),
@@ -230,9 +246,9 @@ var topLevelGroupChildOrder = childOrder{
 		},
 	},
 	Label: "top-level group",
-}
+})
 
-var identityConstraintChildOrder = childOrder{
+var identityConstraintChildOrder = checkedChildOrder(childOrder{
 	Rules: []childRule{
 		{
 			Match:    matchChildLocal(selectorChild),
@@ -248,11 +264,11 @@ var identityConstraintChildOrder = childOrder{
 		},
 	},
 	Label: "identity constraint",
-}
+})
 
 // schemaChildOrder is the content of xs:schema, whose xs:annotation children
 // may appear anywhere.
-var schemaChildOrder = childOrder{
+var schemaChildOrder = checkedChildOrder(childOrder{
 	Rules: []childRule{
 		{
 			Match:    matchChildLocal(includeChild),
@@ -274,7 +290,7 @@ var schemaChildOrder = childOrder{
 		},
 	},
 	Label: "top-level schema",
-}
+})
 
 // childOrderFor returns the content model of the XSD element named local
 // whose parent is named parent, or nil when the element admits only
@@ -422,14 +438,14 @@ func simpleDerivationOrder(kind simpleDerivationKind) childOrder {
 			Level: 1,
 		})
 	}
-	return childOrder{
+	return checkedChildOrder(childOrder{
 		Rules: rules,
 		Label: derivation,
-	}
+	})
 }
 
 func derivationContainerOrder(label string) childOrder {
-	return childOrder{
+	return checkedChildOrder(childOrder{
 		Rules: []childRule{
 			{
 				Match:  matchChildLocal(extensionChild, restrictionChild),
@@ -438,7 +454,7 @@ func derivationContainerOrder(label string) childOrder {
 			},
 		},
 		Label: label,
-	}
+	})
 }
 
 func simpleContentDerivationOrder(derivation string) childOrder {
@@ -471,14 +487,14 @@ func simpleContentDerivationOrder(derivation string) childOrder {
 	} else {
 		rules[0].ForbiddenMsg = simpleContentExtensionCannotContainSimpleType
 	}
-	return childOrder{
+	return checkedChildOrder(childOrder{
 		Rules: rules,
 		Label: "simpleContent " + derivation,
-	}
+	})
 }
 
 func complexContentDerivationOrder(derivation string) childOrder {
-	return childOrder{
+	return checkedChildOrder(childOrder{
 		Rules: []childRule{
 			{
 				Match:    matchChildLocal(sequenceChild, choiceChild, allChild, groupChild),
@@ -500,7 +516,7 @@ func complexContentDerivationOrder(derivation string) childOrder {
 			},
 		},
 		Label: complexContent,
-	}
+	})
 }
 
 func matchChildLocal(locals ...string) func(string) bool {

@@ -203,9 +203,17 @@ type elementDeclarationConsistencyChecker struct {
 	states map[contentModelID]contentModelVisitState
 	cache  map[contentModelID][]namedElementDeclaration
 	// idle holds cleared name indexes for reuse; nested collection keeps one
-	// index live per model on the recursion stack.
+	// index live per model on the recursion stack. releaseNameIndex bounds it.
 	idle []map[QName]ElementID
 }
+
+const (
+	// maxIdleNameIndexes bounds the cleared name indexes one checker keeps.
+	maxIdleNameIndexes = 16
+	// maxReusedNameIndexLen is the largest name index kept for reuse: a
+	// cleared map keeps its buckets, so a larger one is dropped instead.
+	maxReusedNameIndexLen = 256
+)
 
 // namedElementDeclaration is the first element declaration EDC saw for a name
 // in one content model.
@@ -309,8 +317,17 @@ func (c *elementDeclarationConsistencyChecker) acquireNameIndex(hint int) map[QN
 	return make(map[QName]ElementID, hint)
 }
 
+// releaseNameIndex returns index for reuse. At most maxIdleNameIndexes indexes
+// of at most maxReusedNameIndexLen names are kept, the most recently released
+// ones; any other index is left to the collector.
 func (c *elementDeclarationConsistencyChecker) releaseNameIndex(index map[QName]ElementID) {
+	if len(index) > maxReusedNameIndexLen {
+		return
+	}
 	clear(index)
+	if len(c.idle) == maxIdleNameIndexes {
+		c.idle = append(c.idle[:0], c.idle[1:]...)
+	}
 	c.idle = append(c.idle, index)
 }
 

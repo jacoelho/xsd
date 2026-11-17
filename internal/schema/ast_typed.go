@@ -28,6 +28,7 @@ type typedSchemaParseFrame struct {
 	orders    childOrderState
 	textBytes int64
 	content   childContent
+	placement schemaElementPlacement
 	opaque    bool
 }
 
@@ -51,12 +52,11 @@ const (
 	childContentSchema
 )
 
-// childContentFor classifies the content of the element started by start,
-// whose parent is named parent, and selects the childOrder of an ordered
-// content. Only XSD-namespace elements reach it.
-func childContentFor(start *schemaSyntaxNode, parent xml.Name) (childContent, *childOrder) {
-	local := start.Name.Local
-	if isSchemaReference(start, parent) {
+// childContentFor classifies the content of the XSD element named local in
+// placement, whose parent is named parent, and selects the childOrder of an
+// ordered content. Only XSD-namespace elements reach it.
+func childContentFor(local string, placement schemaElementPlacement, parent xml.Name) (childContent, *childOrder) {
+	if placement == schemaPlacementReference {
 		return childContentAnnotationOnly, nil
 	}
 	switch local {
@@ -200,7 +200,9 @@ func (s *typedSchemaParseState) start(start xmlstream.StartElement, line, col in
 		opaque:    opaque,
 	}
 	if start.Name.Space == vocab.XSDNamespaceURI {
-		frame.content, frame.order = childContentFor(&syntax, typedParentName(parent))
+		parentName := typedParentName(parent)
+		frame.placement = schemaElementPlacementOf(&syntax, parentName)
+		frame.content, frame.order = childContentFor(start.Name.Local, frame.placement, parentName)
 	}
 	if err := s.admitTypedFrame(frame, line, col); err != nil {
 		return s.abortStart(namespaceFrame, err)
@@ -229,7 +231,7 @@ func (s *typedSchemaParseState) admitTypedFrame(initial typedSchemaParseFrame, l
 		parent = &s.stack[parentIndex]
 	}
 	var qnames semanticQNameProjection
-	if err := admitTypedStart(&frame.syntax, parent, &qnames); err != nil {
+	if err := admitTypedStart(&frame.syntax, frame.placement, parent, &qnames); err != nil {
 		s.stack = s.stack[:len(s.stack)-1]
 		return err
 	}
@@ -272,11 +274,11 @@ func (s *typedSchemaParseState) startSyntax(start xmlstream.StartElement, line, 
 	}, nil
 }
 
-func admitTypedStart(n *schemaSyntaxNode, parent *typedSchemaParseFrame, qnames *semanticQNameProjection) error {
+func admitTypedStart(n *schemaSyntaxNode, placement schemaElementPlacement, parent *typedSchemaParseFrame, qnames *semanticQNameProjection) error {
 	if !shouldAdmitTypedStart(parent) {
 		return nil
 	}
-	return admitStart(n, parent, qnames)
+	return admitStart(n, placement, parent, qnames)
 }
 
 func (s *typedSchemaParseState) recordTypedID(node *schemaNode, syntax *schemaSyntaxNode) {
@@ -365,7 +367,7 @@ func (s *typedSchemaParseState) parentFrame() *typedSchemaParseFrame {
 // parent precedes n in document order, so its diagnostic wins over every other
 // violation of n. QName-valued attributes are resolved into qnames as their
 // start tag is admitted.
-func admitStart(n *schemaSyntaxNode, parent *typedSchemaParseFrame, qnames *semanticQNameProjection) error {
+func admitStart(n *schemaSyntaxNode, placement schemaElementPlacement, parent *typedSchemaParseFrame, qnames *semanticQNameProjection) error {
 	if parent == nil {
 		return admitRootStart(n)
 	}
@@ -387,7 +389,7 @@ func admitStart(n *schemaSyntaxNode, parent *typedSchemaParseFrame, qnames *sema
 	if parent.content == childContentAnnotationPayload {
 		return admitAnnotationEnvelopeStart(n)
 	}
-	return admitXSDChildStart(n, parent.name, qnames)
+	return admitXSDChildStart(n, parent.name, placement, qnames)
 }
 
 // admitChildContent checks the schema-namespace child n against the content
@@ -467,12 +469,11 @@ func admitAnnotationEnvelopeStart(n *schemaSyntaxNode) error {
 // generic XML tree. Which unqualified attributes an element admits and
 // requires in its placement is decided here, so those violations precede
 // every later child in document order.
-func admitXSDChildStart(n *schemaSyntaxNode, parent xml.Name, qnames *semanticQNameProjection) error {
-	placement := schemaElementPlacementOf(n, parent)
+func admitXSDChildStart(n *schemaSyntaxNode, parent xml.Name, placement schemaElementPlacement, qnames *semanticQNameProjection) error {
 	if err := checkSchemaAttributesSyntax(n, placement, qnames); err != nil {
 		return err
 	}
-	return checkRequiredSchemaAttributesSyntax(n, parent, placement)
+	return checkRequiredSchemaAttributes(n, parent, placement)
 }
 
 func (s *typedSchemaParseState) end(line, col int) error {

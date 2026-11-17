@@ -5,6 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/vocab"
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 // schemaElementPlacement is where an XSD element appears, as far as the
@@ -31,13 +32,15 @@ const (
 )
 
 // schemaElementPlacementOf returns the placement of n, an XSD element whose
-// parent is named parent. xs:redefine is rejected at its own start, so no
-// child of it is classified.
+// parent is named parent. It classifies each start tag once; its content
+// (childContentFor) and its attributes (admitXSDChildStart) both read the
+// result. xs:redefine is rejected at its own start, so no child of it is
+// classified.
 func schemaElementPlacementOf(n *schemaSyntaxNode, parent xml.Name) schemaElementPlacement {
 	switch {
 	case isXSDName(parent, vocab.XSDElemSchema):
 		return schemaPlacementTopLevel
-	case isSchemaReference(n, parent):
+	case isSchemaReference(n):
 		return schemaPlacementReference
 	}
 	switch n.Name.Local {
@@ -86,16 +89,12 @@ func localComponentParent(local string, parent xml.Name) bool {
 	return false
 }
 
-// isSchemaReference reports whether start, an XSD element whose parent is
-// named parent, is a reference rather than a declaration or definition: an
-// xs:group or xs:attributeGroup outside xs:schema, or a local xs:element or
-// xs:attribute carrying ref (src-element.2.2, src-attribute.3.2). A reference
-// has (annotation?) content and admits only the attributes
-// referenceAttributeAllowed lists.
-func isSchemaReference(start *schemaSyntaxNode, parent xml.Name) bool {
-	if isXSDName(parent, vocab.XSDElemSchema) {
-		return false
-	}
+// isSchemaReference reports whether start, an XSD element that is not a
+// child of xs:schema, is a reference rather than a declaration or definition:
+// an xs:group or xs:attributeGroup, or an xs:element or xs:attribute carrying
+// ref (src-element.2.2, src-attribute.3.2). A reference has (annotation?)
+// content and admits only the attributes misplacedReferenceAttribute admits.
+func isSchemaReference(start *schemaSyntaxNode) bool {
 	switch start.Name.Local {
 	case vocab.XSDElemGroup, vocab.XSDElemAttributeGroup:
 		return true
@@ -107,116 +106,82 @@ func isSchemaReference(start *schemaSyntaxNode, parent xml.Name) bool {
 	}
 }
 
-// schemaAttributeVocabulary classifies an unqualified attribute of an XSD
-// element.
-type schemaAttributeVocabulary uint8
-
-const (
-	schemaAttributeUnknown schemaAttributeVocabulary = iota
-	schemaAttributeXSD10
-	// schemaAttributeMisplaced is an XSD 1.0 attribute of the element that
-	// its placement forbids.
-	schemaAttributeMisplaced
-)
-
-// schemaAttributeVocabularyOf and requiredSchemaAttributeMissing are the
+// misplacedSchemaAttributeError returns the error for attr, an XSD 1.0
+// attribute of n, when the placement of n forbids it, or nil.
+// misplacedSchemaAttributeError and checkRequiredSchemaAttributes are the
 // single owner of which unqualified XSD 1.0 attributes each XSD element
 // admits and requires in each placement, as the schema for schemas types of
-// that placement and src-element.2.1 and src-attribute.3.1 declare them.
-// Both run on the start tag, so their violations precede every child in
-// document order. Unsupported vocabulary never reaches them; see
+// that placement and src-element.2.1 and src-attribute.3.1 declare them. Both
+// run on the start tag, so their violations precede every child in document
+// order. Unsupported vocabulary never reaches them; see
 // rejectUnsupportedVocabulary. Elements outside the XSD 1.0 vocabulary never
 // reach them: their parent's content rejects them first; see
 // childContentViolation.
-func schemaAttributeVocabularyOf(element, attr string, placement schemaElementPlacement) schemaAttributeVocabulary {
-	switch {
-	case !schemaElementAttributeAllowed(element, attr):
-		return schemaAttributeUnknown
-	case placementForbidsAttribute(element, attr, placement):
-		return schemaAttributeMisplaced
-	default:
-		return schemaAttributeXSD10
-	}
-}
-
-func placementForbidsAttribute(element, attr string, placement schemaElementPlacement) bool {
-	switch placement {
-	case schemaPlacementTopLevel:
-		return topLevelAttributeForbidden(element, attr)
-	case schemaPlacementReference:
-		return !referenceAttributeAllowed(element, attr)
-	case schemaPlacementLocal:
-		return localAttributeForbidden(element, attr)
-	case schemaPlacementNamedGroupModel:
-		return attr == vocab.XSDAttrMinOccurs || attr == vocab.XSDAttrMaxOccurs
-	case schemaPlacementOther, schemaPlacementContentDerivation:
-	}
-	return false
-}
-
-// misplacedSchemaAttributeMessage describes attr, which placement forbids on
-// element. Both are XSD 1.0 vocabulary names, never unbounded schema text.
-func misplacedSchemaAttributeMessage(element, attr string, placement schemaElementPlacement) string {
-	switch placement {
-	case schemaPlacementTopLevel:
-		return "top-level " + diagnostictext.Quote(element) + " cannot have " + diagnostictext.Quote(attr)
-	case schemaPlacementReference:
-		return schemaReferenceLabel(element) + " cannot have attribute " + diagnostictext.Quote(attr)
-	case schemaPlacementLocal:
-		return "local " + element + " cannot have " + attr
-	case schemaPlacementOther, schemaPlacementNamedGroupModel, schemaPlacementContentDerivation:
-	}
-	return "top-level model group cannot have " + attr
-}
-
-// requiredSchemaAttributeMissing returns why n, an XSD element in placement
-// whose parent is named parent, lacks an attribute its placement requires,
-// or "" when it lacks none. The reason names only XSD 1.0 vocabulary.
-func requiredSchemaAttributeMissing(n *schemaSyntaxNode, parent xml.Name, placement schemaElementPlacement) string {
-	required := requiredSchemaAttribute(n.Name.Local, placement)
-	if required == "" {
-		return ""
-	}
-	if _, ok := n.attr(required); ok {
-		return ""
-	}
+func misplacedSchemaAttributeError(n *schemaSyntaxNode, attr string, placement schemaElementPlacement) error {
 	element := n.Name.Local
+	var message string
 	switch placement {
+	case schemaPlacementOther, schemaPlacementContentDerivation:
 	case schemaPlacementTopLevel:
-		return "top-level " + diagnostictext.Quote(element) + " missing name"
-	case schemaPlacementLocal:
-		if element == vocab.XSDElemElement {
-			return "local element missing name or ref"
+		if topLevelAttributeForbidden(element, attr) {
+			message = "top-level " + diagnostictext.Quote(element) + " cannot have " + diagnostictext.Quote(attr)
 		}
-		return "attribute missing name or ref"
 	case schemaPlacementReference:
-		return element + " use missing ref"
-	case schemaPlacementOther, schemaPlacementNamedGroupModel, schemaPlacementContentDerivation:
+		message = misplacedReferenceAttribute(element, attr)
+	case schemaPlacementLocal:
+		message = misplacedLocalAttribute(element, attr)
+	case schemaPlacementNamedGroupModel:
+		message = misplacedNamedGroupModelAttribute(attr)
+	default:
+		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("schema element placement is unknown"))
 	}
-	return parent.Local + " " + element + " missing base"
+	if message == "" {
+		return nil
+	}
+	return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, message)
 }
 
-// requiredSchemaAttribute returns the attribute that element requires in
-// placement, or "" when it requires none. A local declaration has no ref by
-// definition of its placement, so it requires name.
-func requiredSchemaAttribute(element string, placement schemaElementPlacement) string {
+// checkRequiredSchemaAttributes returns the error for n, an XSD element in
+// placement whose parent is named parent, when it lacks an attribute its
+// placement requires, or nil. A local declaration has no ref by definition of
+// its placement, so it requires name.
+func checkRequiredSchemaAttributes(n *schemaSyntaxNode, parent xml.Name, placement schemaElementPlacement) error {
+	element := n.Name.Local
+	var required, message string
 	switch placement {
+	case schemaPlacementOther, schemaPlacementNamedGroupModel:
 	case schemaPlacementTopLevel:
 		switch element {
 		case vocab.XSDElemSimpleType, vocab.XSDElemComplexType, vocab.XSDElemAttributeGroup, vocab.XSDElemGroup, vocab.XSDElemAttribute, vocab.XSDElemElement:
-			return vocab.XSDAttrName
+			required = vocab.XSDAttrName
 		}
 	case schemaPlacementLocal:
-		if element == vocab.XSDElemElement || element == vocab.XSDElemAttribute {
-			return vocab.XSDAttrName
+		switch element {
+		case vocab.XSDElemElement:
+			required, message = vocab.XSDAttrName, "local element missing name or ref"
+		case vocab.XSDElemAttribute:
+			required, message = vocab.XSDAttrName, "attribute missing name or ref"
 		}
 	case schemaPlacementReference:
-		return vocab.XSDAttrRef
+		required, message = vocab.XSDAttrRef, missingReferenceMessage(element)
 	case schemaPlacementContentDerivation:
-		return vocab.XSDAttrBase
-	case schemaPlacementOther, schemaPlacementNamedGroupModel:
+		required, message = vocab.XSDAttrBase, missingContentDerivationBaseMessage(parent.Local, element)
+	default:
+		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("schema element placement is unknown"))
 	}
-	return ""
+	if required == "" {
+		return nil
+	}
+	if _, ok := n.attr(required); ok {
+		return nil
+	}
+	if placement == schemaPlacementTopLevel {
+		message = "top-level " + diagnostictext.Quote(element) + " missing name"
+	}
+	if message == "" {
+		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("schema element xs:"+diagnostictext.Quote(element)+" has no required attribute message"))
+	}
+	return schemaCompileAt(n, xsderrors.CodeSchemaReference, message)
 }
 
 func topLevelAttributeForbidden(element, attr string) bool {
@@ -234,50 +199,115 @@ func topLevelAttributeForbidden(element, attr string) bool {
 	}
 }
 
-func localAttributeForbidden(element, attr string) bool {
+// misplacedLocalAttribute returns why a local declaration or definition named
+// element cannot have attr, or "" when it can.
+func misplacedLocalAttribute(element, attr string) string {
 	switch element {
 	case vocab.XSDElemElement:
-		return attr == vocab.XSDAttrAbstract || attr == vocab.XSDAttrFinal || attr == vocab.XSDAttrSubstitutionGroup
+		switch attr {
+		case vocab.XSDAttrAbstract:
+			return "local element cannot have " + vocab.XSDAttrAbstract
+		case vocab.XSDAttrFinal:
+			return "local element cannot have " + vocab.XSDAttrFinal
+		case vocab.XSDAttrSubstitutionGroup:
+			return "local element cannot have " + vocab.XSDAttrSubstitutionGroup
+		}
 	case vocab.XSDElemComplexType:
-		return attr == vocab.XSDAttrName || attr == vocab.XSDAttrAbstract || attr == vocab.XSDAttrFinal || attr == vocab.XSDAttrBlock
+		switch attr {
+		case vocab.XSDAttrName:
+			return "local complexType cannot have " + vocab.XSDAttrName
+		case vocab.XSDAttrAbstract:
+			return "local complexType cannot have " + vocab.XSDAttrAbstract
+		case vocab.XSDAttrFinal:
+			return "local complexType cannot have " + vocab.XSDAttrFinal
+		case vocab.XSDAttrBlock:
+			return "local complexType cannot have " + vocab.XSDAttrBlock
+		}
 	case vocab.XSDElemSimpleType:
-		return attr == vocab.XSDAttrName || attr == vocab.XSDAttrFinal
-	default:
-		return false
+		switch attr {
+		case vocab.XSDAttrName:
+			return "local simpleType cannot have " + vocab.XSDAttrName
+		case vocab.XSDAttrFinal:
+			return "local simpleType cannot have " + vocab.XSDAttrFinal
+		}
 	}
+	return ""
 }
 
-func referenceAttributeAllowed(element, attr string) bool {
+// misplacedNamedGroupModelAttribute returns why the model group of a
+// top-level xs:group cannot have attr, or "" when it can.
+func misplacedNamedGroupModelAttribute(attr string) string {
+	switch attr {
+	case vocab.XSDAttrMinOccurs:
+		return "top-level model group cannot have " + vocab.XSDAttrMinOccurs
+	case vocab.XSDAttrMaxOccurs:
+		return "top-level model group cannot have " + vocab.XSDAttrMaxOccurs
+	}
+	return ""
+}
+
+// misplacedReferenceAttribute returns why a reference named element, one of
+// those isSchemaReference admits, cannot have attr, or "" when it can.
+func misplacedReferenceAttribute(element, attr string) string {
 	switch element {
-	case vocab.XSDElemElement, vocab.XSDElemGroup:
+	case vocab.XSDElemElement:
 		switch attr {
 		case vocab.XSDAttrID, vocab.XSDAttrRef, vocab.XSDAttrMinOccurs, vocab.XSDAttrMaxOccurs:
-			return true
+			return ""
 		}
+		return "element ref cannot have attribute " + diagnostictext.Quote(attr)
+	case vocab.XSDElemGroup:
+		switch attr {
+		case vocab.XSDAttrID, vocab.XSDAttrRef, vocab.XSDAttrMinOccurs, vocab.XSDAttrMaxOccurs:
+			return ""
+		}
+		return "group cannot have attribute " + diagnostictext.Quote(attr)
 	case vocab.XSDElemAttribute:
 		switch attr {
 		case vocab.XSDAttrID, vocab.XSDAttrRef, vocab.XSDAttrUse, vocab.XSDAttrDefault, vocab.XSDAttrFixed:
-			return true
+			return ""
 		}
+		return "attribute ref cannot have attribute " + diagnostictext.Quote(attr)
 	case vocab.XSDElemAttributeGroup:
-		return attr == vocab.XSDAttrID || attr == vocab.XSDAttrRef
+		if attr == vocab.XSDAttrID || attr == vocab.XSDAttrRef {
+			return ""
+		}
+		return "attributeGroup use cannot have attribute " + diagnostictext.Quote(attr)
 	}
-	return false
+	return ""
 }
 
-// schemaReferenceLabel names a reference element, one of those
-// isSchemaReference admits, in diagnostics.
-func schemaReferenceLabel(element string) string {
+// missingReferenceMessage describes a reference named element, one of those
+// isSchemaReference admits, that lacks ref, or returns "" for any other
+// element.
+func missingReferenceMessage(element string) string {
 	switch element {
 	case vocab.XSDElemElement:
-		return "element ref"
+		return "element use missing ref"
 	case vocab.XSDElemAttribute:
-		return "attribute ref"
+		return "attribute use missing ref"
+	case vocab.XSDElemGroup:
+		return "group use missing ref"
 	case vocab.XSDElemAttributeGroup:
-		return "attributeGroup use"
-	default:
-		return "group"
+		return "attributeGroup use missing ref"
 	}
+	return ""
+}
+
+// missingContentDerivationBaseMessage describes a derivation named element
+// inside container that lacks base, or returns "" for any other pair.
+func missingContentDerivationBaseMessage(container, element string) string {
+	switch {
+	case container == vocab.XSDElemSimpleContent && element == vocab.XSDElemRestriction:
+		return "simpleContent restriction missing base"
+	case container == vocab.XSDElemSimpleContent && element == vocab.XSDElemExtension:
+		return "simpleContent extension missing base"
+	case container == vocab.XSDElemComplexContent && element == vocab.XSDElemRestriction:
+		return "complexContent restriction missing base"
+	case container == vocab.XSDElemComplexContent && element == vocab.XSDElemExtension:
+		return "complexContent extension missing base"
+	}
+	return ""
 }
 
 func schemaElementAttributeAllowed(element, attr string) bool {
