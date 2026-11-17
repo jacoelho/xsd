@@ -604,7 +604,7 @@ func admittedOrderedFixtures(tb testing.TB) [4]admittedOrderedFixture {
 			{exc, "1.5", `value "1.5" does not satisfy minExclusive "1.5"`}, {exc, "2", ""}, {exc, "2.5", `value "2.5" does not satisfy maxExclusive "2.5"`},
 			{exc, "1.49", `value "1.49" does not satisfy minExclusive "1.5"`}, {exc, "2.51", `value "2.51" does not satisfy maxExclusive "2.5"`}, {exc, "2.00", ""},
 		}},
-		// TimePartial times dateTime's partial order; recurring time is checked outside the loop.
+		// TimePartial times dateTime's partial order; xs:time order is checked by internal/value tests.
 		{"TimePartial", program, [6]admittedOrderedRow{
 			{timeLower, "2000-01-01T12:00:00Z", ""}, {timeUpper, "2000-01-01T12:00:00Z", ""},
 			{timeLower, "2000-01-01T12:00:00", `value "2000-01-01T12:00:00" does not satisfy minInclusive "2000-01-01T12:00:00Z"`}, {timeUpper, "2000-01-01T12:00:00", `value "2000-01-01T12:00:00" does not satisfy maxInclusive "2000-01-01T12:00:00Z"`},

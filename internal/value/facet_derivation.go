@@ -226,7 +226,7 @@ func validateEnumerationRestriction(derived, base facetProgram) error {
 }
 
 func orderedLowerRestricts(derived, base boundValue) bool {
-	relation, ok := compareDerivationBounds(derived, base)
+	relation, ok := compareAtomic(&derived.value, &base.value)
 	if !ok {
 		return false
 	}
@@ -234,34 +234,11 @@ func orderedLowerRestricts(derived, base boundValue) bool {
 }
 
 func orderedUpperRestricts(derived, base boundValue) bool {
-	relation, ok := compareDerivationBounds(derived, base)
+	relation, ok := compareAtomic(&derived.value, &base.value)
 	if !ok {
 		return false
 	}
 	return orderedFacetUpperRestricts(derived.exclusive, base.exclusive, relation)
-}
-
-// compareDerivationBounds orders two bound values, or a bound literal against
-// a bound, as schema components: in restriction derivation, base value-space
-// membership of a bound literal, and lower-versus-upper consistency. xs:time
-// bounds compare as raw UTC seconds on a reference day (rawTimeProjection),
-// not as recurring time of day: a maxInclusive base of 12:00:00-10:00 makes a
-// derived 12:00:00-14:00 invalid (W3C msMeta time_maxInclusive007_119).
-// Instance acceptance uses recurring time; see R-127 in
-// docs/spec/INTERPRETATIONS.md.
-func compareDerivationBounds(derived, base boundValue) (orderedFacetRelation, bool) {
-	if derived.value.kind != primitiveTime || base.value.kind != primitiveTime {
-		return compareAtomic(&derived.value, &base.value)
-	}
-	left := rawTimeProjection(derived)
-	right := rawTimeProjection(base)
-	return compareTimePartial(left, right), true
-}
-
-func rawTimeProjection(bound boundValue) TimeValue {
-	time := bound.value.time
-	time.second += int(bound.timeDayOffset) * daySeconds
-	return time
 }
 
 func validateFixedFacetDerivation(derived typeDef, own, candidate facetProgram, base typeDef) error {
@@ -333,15 +310,16 @@ func validateFixedBound(fixed FacetMask, flag FacetMask, own, base []boundValue)
 
 // equalBound reports whether two bound values are equal as schema components:
 // a restated exclusive bound (Datatypes §4.3.8.1, §4.3.9.1) and a bound under
-// a fixed base bound. xs:time bounds are equal in the derivation order
-// (compareDerivationBounds); other bounds by value-space identity, so
-// durations equal only in the §3.2.6.2 order, such as P400Y and P146097D,
-// are distinct (Duration equality and order in docs/spec/INTERPRETATIONS.md).
+// a fixed base bound. xs:time bounds are equal in the time order, which keeps
+// the day a timezone moves a time to (TimeValue); other bounds by value-space
+// identity, so durations equal only in the §3.2.6.2 order, such as P400Y and
+// P146097D, are distinct (Duration equality and order in
+// docs/spec/INTERPRETATIONS.md).
 func equalBound(a, b boundValue) bool {
 	if a.value.kind != primitiveTime {
 		return equalAtomic(&a.value, &b.value)
 	}
-	relation, ok := compareDerivationBounds(a, b)
+	relation, ok := compareAtomic(&a.value, &b.value)
 	return ok && relation == orderedFacetEqual
 }
 

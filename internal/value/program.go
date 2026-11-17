@@ -561,9 +561,8 @@ type facetProgram struct {
 }
 
 type boundValue struct {
-	value         atomicValue
-	exclusive     bool
-	timeDayOffset int8
+	value     atomicValue
+	exclusive bool
 }
 
 func (p *Program) typeDef(id TypeID) (*typeDef, bool) {
@@ -746,31 +745,7 @@ func (p *Program) compileBound(id TypeID, t *typeDef, source BoundFacet, budget 
 	if t.variety != Atomic || v.isList || v.atom.kind != t.primitive {
 		return boundValue{}, fmt.Errorf(msgIncompatibleBound, source.Lexical)
 	}
-	offset, err := p.timeBoundDayOffset(t, literalType, source.Lexical, v.atom)
-	if err != nil {
-		return boundValue{}, err
-	}
-	return boundValue{value: v.atom, timeDayOffset: offset}, nil
-}
-
-func (p *Program) timeBoundDayOffset(spec *typeDef, literalType TypeID, lexical string, value atomicValue) (int8, error) {
-	if spec.primitive != primitiveTime {
-		return 0, nil
-	}
-	normalized := normalize(lexical, effectiveWhitespace(p, literalType))
-	raw, err := parseTimeRawValue(normalized)
-	if err != nil {
-		return 0, err
-	}
-	delta := raw.second - value.time.second
-	if delta%daySeconds != 0 {
-		return 0, ErrMetadata
-	}
-	offset := delta / daySeconds
-	if offset < -128 || offset > 127 {
-		return 0, ErrLimit
-	}
-	return int8(offset), nil
+	return boundValue{value: v.atom}, nil
 }
 
 func (p *Program) compileEnumeration(id TypeID, source FacetSpec, own *facetProgram, budget *evaluationBudget) error {
@@ -941,7 +916,7 @@ func validateEffectiveFacetShape(f facetProgram) error {
 }
 
 func validBoundPair(lower, upper boundValue) bool {
-	relation, ok := compareDerivationBounds(lower, upper)
+	relation, ok := compareAtomic(&lower.value, &upper.value)
 	if !ok || relation == orderedFacetGreater || relation == orderedFacetEqual && lower.exclusive != upper.exclusive {
 		return false
 	}
