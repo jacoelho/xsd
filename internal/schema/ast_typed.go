@@ -137,10 +137,6 @@ func parseTypedSchemaSourceDocument(name, key string, input io.Reader, limits Li
 		return nil, xsderrors.WithLocation(name, 0, 0,
 			schemaParseAt(0, 0, xsderrors.CodeSchemaRoot, "empty schema document", nil))
 	}
-	if state.root.local != vocab.XSDElemSchema {
-		return nil, xsderrors.WithLocation(name, state.root.line, state.root.column,
-			schemaParseAt(state.root.line, state.root.column, xsderrors.CodeSchemaRoot, "root element must be xs:schema", nil))
-	}
 	doc.root = state.root
 	doc.nodes = state.nodes
 	return doc, nil
