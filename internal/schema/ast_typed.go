@@ -401,13 +401,17 @@ func admitChildContent(n *schemaSyntaxNode, parent *typedSchemaParseFrame) error
 	if message := childContentViolation(n.Name.Local, parent); message != "" {
 		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, message)
 	}
+	if parent.content == childContentOrdered || parent.content == childContentSchema {
+		return parent.orders.accept(n, parent.order, parent.node)
+	}
 	return nil
 }
 
-// childContentViolation admits a schema-namespace child named child into
-// parent after the children parent already has, or returns why parent cannot
-// contain it there. A parent with ordered content has an order; see
-// admitChildContent.
+// childContentViolation returns why parent cannot contain a schema-namespace
+// child named child after the children parent already has, as far as its
+// annotation-only content, annotation payload or annotation placement decide,
+// or "" when they admit it. The childOrder of an ordered content decides the
+// rest; see admitChildContent.
 func childContentViolation(child string, parent *typedSchemaParseFrame) string {
 	switch parent.content {
 	case childContentAnnotationPayload:
@@ -419,13 +423,9 @@ func childContentViolation(child string, parent *typedSchemaParseFrame) string {
 		if child != annotationChild {
 			return "xs:" + diagnostictext.Quote(parent.name.Local) + " can contain only xs:annotation, not xs:" + diagnostictext.Quote(child)
 		}
-		return annotationPlacementViolation(child, parent)
 	case childContentOrdered, childContentSchema:
 	}
-	if message := annotationPlacementViolation(child, parent); message != "" {
-		return message
-	}
-	return parent.orders.accept(child, parent.order)
+	return annotationPlacementViolation(child, parent)
 }
 
 // annotationPlacementViolation returns why child, an xs:annotation,

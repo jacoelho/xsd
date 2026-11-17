@@ -660,11 +660,7 @@ func (c *compiler) compileRestrictionBase(ctx *schemaSetDocument, n *schemaNode)
 	if !ok {
 		return NoSimpleType, withSchemaCompileLocation(n, xsderrors.InternalInvariant("restriction node has no typed derivation source"))
 	}
-	base := baseSource.Lexical
-	if err := validateSimpleRestrictionTypeSource(simpleRestrictionTypeSource{Base: base, HasSimpleTypeChild: len(children) != 0}); err != nil {
-		return NoSimpleType, withSchemaCompileLocation(n, err)
-	}
-	if base.Present {
+	if baseSource.Lexical.Present {
 		q, err := c.referenceQName(ctx, n, baseSource.Name)
 		if err != nil {
 			return NoSimpleType, err
@@ -682,12 +678,8 @@ func (c *compiler) compileList(ctx *schemaSetDocument, n *schemaNode, name QName
 	item := NoSimpleType
 	simpleTypeChildren := schemaSimpleTypeChildren(n)
 	itemTypeSource := n.semantic.derivationItemType()
-	itemType := itemTypeSource.Lexical
-	if err := validateSimpleListItemTypeSource(simpleListItemTypeSource{ItemType: itemType, HasSimpleTypeChild: len(simpleTypeChildren) != 0}); err != nil {
-		return simpleType{}, withSchemaCompileLocation(n, err)
-	}
 	switch {
-	case itemType.Present:
+	case itemTypeSource.Lexical.Present:
 		id, err := c.compileListItemType(ctx, n, itemTypeSource.Name)
 		if err != nil {
 			return simpleType{}, err

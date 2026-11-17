@@ -55,7 +55,9 @@ const (
 // reports a child that no child of a lower level precedes. A rule with a
 // MissingMsg requires a child: a parent that ends without one is reported
 // with MissingCode, unless Supplied reports that the parent's attributes
-// supply what the child would.
+// supply what the child would. A rule with a ConflictMsg forbids its child,
+// reported with ConflictCode, when Supplied holds: the parent's attributes and
+// the child would both supply it.
 type childRule struct {
 	Match        func(local string) bool
 	Supplied     func(parent *schemaNode) bool
@@ -64,7 +66,9 @@ type childRule struct {
 	DupMsg       string
 	PrecedingMsg string
 	MissingMsg   string
+	ConflictMsg  string
 	MissingCode  xsderrors.Code
+	ConflictCode xsderrors.Code
 	Level        int
 	MaxOne       bool
 	Terminal     bool
@@ -196,9 +200,12 @@ var attributeGroupDeclarationChildOrder = checkedChildOrder(childOrder{
 var attributeDeclarationChildOrder = checkedChildOrder(childOrder{
 	Rules: []childRule{
 		{
-			Match:  matchChildLocal(simpleTypeChild),
-			MaxOne: true,
-			DupMsg: "attribute can contain at most one simpleType",
+			Match:        matchChildLocal(simpleTypeChild),
+			MaxOne:       true,
+			DupMsg:       "attribute can contain at most one simpleType",
+			Supplied:     attributeTypeSupplied,
+			ConflictMsg:  "attribute cannot have both type and simpleType",
+			ConflictCode: xsderrors.CodeSchemaInvalidAttribute,
 		},
 	},
 	Label: "attribute",
@@ -206,11 +213,14 @@ var attributeDeclarationChildOrder = checkedChildOrder(childOrder{
 var elementDeclarationChildOrder = checkedChildOrder(childOrder{
 	Rules: []childRule{
 		{
-			Match:    matchChildLocal(simpleTypeChild, complexTypeChild),
-			Level:    0,
-			MaxOne:   true,
-			OrderMsg: "element anonymous type must precede identity constraints",
-			DupMsg:   "element can contain at most one anonymous type",
+			Match:        matchChildLocal(simpleTypeChild, complexTypeChild),
+			Level:        0,
+			MaxOne:       true,
+			OrderMsg:     "element anonymous type must precede identity constraints",
+			DupMsg:       "element can contain at most one anonymous type",
+			Supplied:     elementTypeSupplied,
+			ConflictMsg:  "element cannot have both type and anonymous type",
+			ConflictCode: xsderrors.CodeSchemaInvalidAttribute,
 		},
 		{
 			Match: matchChildLocal(uniqueChild, keyChild, keyrefChild),
@@ -366,38 +376,41 @@ type childOrderState struct {
 	terminalSeen bool
 }
 
-// accept admits child, the local name of the next XSD-namespace child, and
-// returns why order forbids it there, or "" when it is admitted. The
-// diagnostic is built only on rejection. Annotation placement is
-// childContentViolation's.
-func (s *childOrderState) accept(child string, order *childOrder) string {
+// accept admits n, the next XSD-namespace child of parent, into order, or
+// returns why order forbids it there. The diagnostic is built only on
+// rejection. Annotation placement is childContentViolation's.
+func (s *childOrderState) accept(n *schemaSyntaxNode, order *childOrder, parent *schemaNode) error {
+	child := n.Name.Local
 	if s.terminalSeen {
-		return "invalid " + order.Label + " child " + diagnostictext.Quote(child)
+		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "invalid "+order.Label+" child "+diagnostictext.Quote(child))
 	}
 	if child == annotationChild {
-		return ""
+		return nil
 	}
 	ruleIndex := childRuleIndex(child, order.Rules)
 	if ruleIndex < 0 {
-		return "invalid " + order.Label + " child " + diagnostictext.Quote(child)
+		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "invalid "+order.Label+" child "+diagnostictext.Quote(child))
 	}
 	rule := &order.Rules[ruleIndex]
 	switch {
 	case rule.ForbiddenMsg != "":
-		return rule.ForbiddenMsg
+		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, rule.ForbiddenMsg)
 	case s.levelSeen > rule.Level:
-		return rule.OrderMsg
+		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, rule.OrderMsg)
 	case rule.PrecedingMsg != "" && !s.seenBelow(rule.Level, order.Rules):
-		return rule.PrecedingMsg
+		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, rule.PrecedingMsg)
 	}
 	bit := uint64(1) << ruleIndex
 	if s.seen&bit != 0 && rule.MaxOne {
-		return rule.DupMsg
+		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, rule.DupMsg)
+	}
+	if rule.ConflictMsg != "" && rule.Supplied(parent) {
+		return schemaCompileAt(n, rule.ConflictCode, rule.ConflictMsg)
 	}
 	s.seen |= bit
 	s.levelSeen = max(s.levelSeen, rule.Level)
 	s.terminalSeen = rule.Terminal
-	return ""
+	return nil
 }
 
 // missingChild returns the first rule of order, in rule order, that requires
@@ -440,7 +453,7 @@ func simpleDerivationOrder(kind simpleDerivationKind) childOrder {
 	var singleChild bool
 	var allowFacets bool
 	var supplied func(*schemaNode) bool
-	var missing string
+	var missing, conflict string
 	switch kind {
 	case simpleDerivationRestriction:
 		derivation = restrictionChild
@@ -448,11 +461,13 @@ func simpleDerivationOrder(kind simpleDerivationKind) childOrder {
 		allowFacets = true
 		supplied = restrictionBaseSupplied
 		missing = "simple restriction missing base"
+		conflict = "restriction cannot have both base and simpleType"
 	case simpleDerivationList:
 		derivation = listChild
 		singleChild = true
 		supplied = listItemTypeSupplied
 		missing = "list missing item type"
+		conflict = "list cannot have both itemType and simpleType"
 	case simpleDerivationUnion:
 		derivation = unionChild
 		supplied = unionMemberTypesSupplied
@@ -464,14 +479,16 @@ func simpleDerivationOrder(kind simpleDerivationKind) childOrder {
 	}
 	rules := []childRule{
 		{
-			Match:       matchChildLocal(simpleTypeChild),
-			Level:       0,
-			MaxOne:      singleChild,
-			OrderMsg:    derivation + " simpleType must precede facets",
-			DupMsg:      derivation + " can contain one simpleType",
-			Supplied:    supplied,
-			MissingMsg:  missing,
-			MissingCode: xsderrors.CodeSchemaReference,
+			Match:        matchChildLocal(simpleTypeChild),
+			Level:        0,
+			MaxOne:       singleChild,
+			OrderMsg:     derivation + " simpleType must precede facets",
+			DupMsg:       derivation + " can contain one simpleType",
+			Supplied:     supplied,
+			MissingMsg:   missing,
+			MissingCode:  xsderrors.CodeSchemaReference,
+			ConflictMsg:  conflict,
+			ConflictCode: xsderrors.CodeSchemaContentModel,
 		},
 	}
 	if allowFacets {
@@ -484,6 +501,18 @@ func simpleDerivationOrder(kind simpleDerivationKind) childOrder {
 		Rules: rules,
 		Label: derivation,
 	})
+}
+
+// elementTypeSupplied reports whether n, an element declaration, names its
+// type in type (src-element.3).
+func elementTypeSupplied(n *schemaNode) bool {
+	return semanticSource[*schemaElementSource](&n.semantic).Type.Lexical.Present
+}
+
+// attributeTypeSupplied reports whether n, an attribute declaration, names
+// its type in type (src-attribute.4).
+func attributeTypeSupplied(n *schemaNode) bool {
+	return semanticSource[*schemaAttributeSource](&n.semantic).Type.Lexical.Present
 }
 
 // restrictionBaseSupplied reports whether n, a simple xs:restriction, names

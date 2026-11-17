@@ -76,3 +76,44 @@ func TestMissingRequiredChildWinsOverLaterErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestTypeSourceConflictReportedAtTheChild(t *testing.T) {
+	t.Parallel()
+	const laterUnknownAttribute = `<xs:element name="z" foo="1"/>`
+	const anonymousSimple = `<xs:simpleType><xs:restriction base="xs:string"/></xs:simpleType>`
+	conflict := func(name, body string, code xsderrors.Code, msg string, line, col int) placementAttributeCase {
+		return placementAttributeCase{name: name, body: body, wantCode: code, wantMsg: msg, wantLine: line, wantCol: col}
+	}
+	const (
+		elementConflict   = "element cannot have both type and anonymous type"
+		attributeConflict = "attribute cannot have both type and simpleType"
+		baseConflict      = "restriction cannot have both base and simpleType"
+		itemTypeConflict  = "list cannot have both itemType and simpleType"
+	)
+	cases := []placementAttributeCase{
+		conflict("top-level element type and anonymous simpleType", `  <xs:element name="e" type="xs:string">`+anonymousSimple+laterUnknownAttribute+`</xs:element>`, xsderrors.CodeSchemaInvalidAttribute, elementConflict, 2, 3+len(`<xs:element name="e" type="xs:string">`)),
+		conflict("local element type and anonymous complexType", inSequence(`<xs:element name="e" type="xs:string"><xs:annotation/><xs:complexType foo="1"/></xs:element>`), xsderrors.CodeSchemaInvalidAttribute, elementConflict, 4, 7+len(`<xs:element name="e" type="xs:string"><xs:annotation/>`)),
+		conflict("element type conflict before nested unbound prefix", `  <xs:element name="e" type="xs:string"><xs:simpleType><xs:restriction base="p:T"/></xs:simpleType></xs:element>`, xsderrors.CodeSchemaInvalidAttribute, elementConflict, 2, 3+len(`<xs:element name="e" type="xs:string">`)),
+		conflict("top-level attribute type and simpleType", `  <xs:attribute name="a" type="xs:string">`+anonymousSimple+`</xs:attribute>`+"\n  "+laterUnknownAttribute, xsderrors.CodeSchemaInvalidAttribute, attributeConflict, 2, 3+len(`<xs:attribute name="a" type="xs:string">`)),
+		conflict("prohibited local attribute type and simpleType", inComplexType(`<xs:attribute name="a" type="xs:string" use="prohibited"><xs:simpleType foo="1"/></xs:attribute>`), xsderrors.CodeSchemaInvalidAttribute, attributeConflict, 3, 5+len(`<xs:attribute name="a" type="xs:string" use="prohibited">`)),
+		conflict("restriction base and simpleType", inSimpleType(`<xs:restriction base="xs:string"><xs:simpleType foo="1"/></xs:restriction>`), xsderrors.CodeSchemaContentModel, baseConflict, 3, 5+len(`<xs:restriction base="xs:string">`)),
+		conflict("list itemType and simpleType before nested unbound prefix", inSimpleType(`<xs:list itemType="xs:int"><xs:simpleType><xs:restriction base="p:T"/></xs:simpleType></xs:list>`), xsderrors.CodeSchemaContentModel, itemTypeConflict, 3, 5+len(`<xs:list itemType="xs:int">`)),
+
+		conflict("earlier facet order before restriction conflict", inSimpleType(`<xs:restriction base="xs:string"><xs:minLength value="1"/><xs:simpleType/></xs:restriction>`), xsderrors.CodeSchemaContentModel, "restriction simpleType must precede facets", 3, 5+len(`<xs:restriction base="xs:string"><xs:minLength value="1"/>`)),
+		conflict("element anonymous type after identity constraint before conflict", inElement(`<xs:key name="k"><xs:selector xpath="."/><xs:field xpath="."/></xs:key><xs:complexType/>`), xsderrors.CodeSchemaContentModel, "element anonymous type must precede identity constraints", 3, 5+len(`<xs:key name="k"><xs:selector xpath="."/><xs:field xpath="."/></xs:key>`)),
+		conflict("earlier sibling attribute before element conflict", `  `+laterUnknownAttribute+"\n"+`  <xs:element name="e" type="xs:string">`+anonymousSimple+`</xs:element>`, xsderrors.CodeSchemaInvalidAttribute, `"element" cannot have attribute "foo"`, 2, 3),
+		conflict("earlier unbound type prefix before element conflict", `  <xs:element name="e" type="p:T">`+anonymousSimple+`</xs:element>`, xsderrors.CodeSchemaReference, `unbound QName prefix "p"`, 2, 3),
+
+		{name: "union memberTypes and simpleType", body: inSimpleType(`<xs:union memberTypes="xs:int">` + anonymousSimple + `</xs:union>`)},
+		{name: "simpleContent restriction base and simpleType", body: `  <xs:complexType name="B"><xs:simpleContent><xs:extension base="xs:string"/></xs:simpleContent></xs:complexType>
+  <xs:complexType name="C"><xs:simpleContent><xs:restriction base="B">` + anonymousSimple + `</xs:restriction></xs:simpleContent></xs:complexType>`},
+		{name: "element anonymous type without type", body: `  <xs:element name="e">` + anonymousSimple + `</xs:element>`},
+		{name: "attribute type without simpleType", body: `  <xs:attribute name="a" type="xs:string"><xs:annotation/></xs:attribute>`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			compilePlacementAttributeCase(t, tc)
+		})
+	}
+}

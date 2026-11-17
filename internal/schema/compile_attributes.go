@@ -70,13 +70,6 @@ func (c *compiler) compileAttributeDeclType(ctx *schemaSetDocument, n *schemaNod
 		return NoSimpleType, withSchemaCompileLocation(n, xsderrors.InternalInvariant("attribute node has no typed attribute source"))
 	}
 	if typeLex := source.Type.Lexical; typeLex.Present {
-		typeSource := attributeTypeSource{
-			Type:               typeLex,
-			HasSimpleTypeChild: n.firstXS(vocab.XSDElemSimpleType) != nil,
-		}
-		if err := validateAttributeTypeSource(typeSource); err != nil {
-			return NoSimpleType, withSchemaCompileLocation(n, err)
-		}
 		q, err := c.referenceQName(ctx, n, source.Type.Name)
 		if err != nil {
 			return NoSimpleType, err
@@ -609,11 +602,7 @@ func (c *compiler) admitAttributeProhibition(ctx *schemaSetDocument, n *schemaNo
 }
 
 func (c *compiler) admitProhibitedAttributeChildren(ctx *schemaSetDocument, n *schemaNode) error {
-	source := semanticSource[*schemaAttributeSource](&n.semantic)
 	simple := n.firstXS(vocab.XSDElemSimpleType)
-	if err := validateAttributeTypeSource(attributeTypeSource{Type: source.Type.Lexical, HasSimpleTypeChild: simple != nil}); err != nil {
-		return withSchemaCompileLocation(n, err)
-	}
 	// The prohibited source item maps to nothing, but its inline type maps
 	// independently and retains its own component checks and limits.
 	if simple == nil {

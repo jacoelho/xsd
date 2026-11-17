@@ -54,22 +54,6 @@ func checkNotationDeclaration(n *schemaNode) error {
 	return nil
 }
 
-func checkElementTypeSource(n *schemaNode) error {
-	if semanticSource[*schemaElementSource](&n.semantic).Type.Lexical.Present && hasAnonymousTypedElementType(n) {
-		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "element cannot have both type and anonymous type")
-	}
-	return nil
-}
-
-func hasAnonymousTypedElementType(n *schemaNode) bool {
-	for child := range n.xsdChildren() {
-		if child.local == simpleTypeChild || child.local == complexTypeChild {
-			return true
-		}
-	}
-	return false
-}
-
 func checkSchemaQNameParts(n *schemaNode, lexical string) (qNameParts, error) {
 	parts, err := parseQNameParts(lexical)
 	if err != nil {

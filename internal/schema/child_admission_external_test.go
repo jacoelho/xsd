@@ -188,7 +188,6 @@ func TestRequiredChildReportedAtItsParent(t *testing.T) {
 		missing("top-level group without model group", `  <xs:group name="G"><xs:annotation/></xs:group>`, xsderrors.CodeSchemaContentModel, "top-level group must contain exactly one model group", 2, 3),
 		missing("identity constraint without selector", inIdentity(`<xs:annotation/>`), xsderrors.CodeSchemaIdentity, "identity constraint missing selector", 3, 5),
 		missing("identity constraint without field", inIdentity(`<xs:selector xpath="."/>`), xsderrors.CodeSchemaIdentity, "identity constraint missing fields", 3, 5),
-		missing("element with type and anonymous type", `  <xs:element name="e" type="xs:string"><xs:simpleType><xs:restriction base="xs:string"/></xs:simpleType></xs:element>`, xsderrors.CodeSchemaInvalidAttribute, "element cannot have both type and anonymous type", 2, 3),
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
