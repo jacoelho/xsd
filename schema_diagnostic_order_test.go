@@ -31,8 +31,9 @@ const (
 	compileTier
 )
 
-// The stages of one decision point. Stages up to stageRequiredAttribute are
-// decided at a start tag, the others at an end tag.
+// The stages of one decision point. Stages up to stageExcludedAttributes are
+// decided at a start tag, the others at an end tag. Contract stage 6 decides
+// the attributes a tag requires and then the ones that exclude each other.
 const (
 	stageRoot = iota + 1
 	stageVocabulary
@@ -40,19 +41,21 @@ const (
 	stageChild
 	stageAttribute
 	stageRequiredAttribute
+	stageExcludedAttributes
 	stageText
 	stageRequiredChild
 )
 
 var stageNames = map[int]string{
-	stageRoot:              "1 root element",
-	stageVocabulary:        "2 unsupported vocabulary",
-	stageEarlierText:       "3 earlier character data",
-	stageChild:             "4 child admission",
-	stageAttribute:         "5 attribute",
-	stageRequiredAttribute: "6 required attribute",
-	stageText:              "7 character data",
-	stageRequiredChild:     "8 required child",
+	stageRoot:               "1 root element",
+	stageVocabulary:         "2 unsupported vocabulary",
+	stageEarlierText:        "3 earlier character data",
+	stageChild:              "4 child admission",
+	stageAttribute:          "5 attribute",
+	stageRequiredAttribute:  "6 required attribute",
+	stageExcludedAttributes: "6 excluded attributes",
+	stageText:               "7 character data",
+	stageRequiredChild:      "8 required child",
 }
 
 const (
@@ -291,7 +294,7 @@ func (v violation) editedKey() string {
 }
 
 func (v violation) decidedAtStart() bool {
-	return v.stage <= stageRequiredAttribute
+	return v.stage <= stageExcludedAttributes
 }
 
 // entry is one violation of one fixture.

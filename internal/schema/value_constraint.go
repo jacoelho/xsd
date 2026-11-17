@@ -6,7 +6,6 @@ import (
 
 	"github.com/jacoelho/xsd/internal/lex"
 	valuepkg "github.com/jacoelho/xsd/internal/value"
-	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -28,15 +27,12 @@ type valueConstraint struct {
 
 // sourceValueConstraint returns the unvalidated constraint that the default
 // and fixed attributes of n, an xs:element or xs:attribute, give, or nil when
-// they give none. A source that gives both is rejected at n.
+// they give none. Start-tag admission rejects a source that gives both
+// (checkValueConstraintAttributes), so both here is an internal invariant.
 func sourceValueConstraint(n *schemaNode, defaultAttr, fixedAttr lexicalAttribute) (*valueConstraint, error) {
 	switch {
 	case defaultAttr.Present && fixedAttr.Present:
-		message := "attribute cannot have both default and fixed"
-		if n.local == vocab.XSDElemElement {
-			message = "element cannot have both default and fixed"
-		}
-		return nil, schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, message)
+		return nil, withSchemaCompileLocation(n, xsderrors.InternalInvariant("start tag admitted default with fixed"))
 	case defaultAttr.Present:
 		return &valueConstraint{Lexical: defaultAttr.Value}, nil
 	case fixedAttr.Present:

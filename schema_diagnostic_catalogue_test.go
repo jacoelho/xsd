@@ -77,6 +77,12 @@ func requiredAttribute(name string, code xsderrors.Code, message string) violati
 	return parseViolation(stageRequiredAttribute, name, code, message)
 }
 
+// excludedAttributes is two attributes of one start tag that exclude each
+// other, decided after the attributes the tag requires.
+func excludedAttributes(name, message string) violation {
+	return parseViolation(stageExcludedAttributes, name, invalidAttribute, message)
+}
+
 // textInside is character data after the last child of the element at key,
 // whose local name is local.
 func textInside(key, local string) violation {
@@ -197,7 +203,7 @@ func topLevelElementFixture() fixture {
 			attributeViolation("block names a derivation elements cannot block", invalidAttribute, `element block cannot contain "list"`).at(key).setting(`block="list"`),
 			requiredAttribute("no name", reference, `top-level "element" missing name`).at(key).dropping("name"),
 			textInside(key, "element"),
-			compileViolation("default with fixed", invalidAttribute, "default").at(key).setting(`default="a"`, `fixed="b"`),
+			excludedAttributes("default with fixed", "element cannot have both default and fixed").at(key).setting(`default="a"`, `fixed="b"`),
 			compileViolation("type in a namespace that is not imported", reference, "namespace is not imported").at(key).setting(`type="f:other"`),
 			compileViolation("default outside the type's value space", facetCode, "invalid element default value").at(key).setting(`type="xs:int"`, `default="abc"`),
 		},
@@ -293,8 +299,9 @@ func localAttributeFixture() fixture {
 			attributeViolation("form is no form", invalidAttribute, `invalid attribute form "x"`).at(key).setting(`form="x"`),
 			requiredAttribute("no name and no ref", reference, "attribute missing name or ref").at(key).dropping("name"),
 			textInside(key, "attribute"),
-			compileViolation("default with fixed", invalidAttribute, "default").at(key).setting(`default="a"`, `fixed="b"`),
-			compileViolation("default on a required attribute", invalidAttribute, "default").at(key).setting(`use="required"`, `default="a"`),
+			excludedAttributes("default with fixed", "attribute cannot have both default and fixed").at(key).setting(`default="a"`, `fixed="b"`),
+			excludedAttributes("default on a required attribute", "required attribute cannot have default").at(key).setting(`use="required"`, `default="a"`),
+			excludedAttributes("default on a prohibited attribute", "prohibited attribute cannot have default").at(key).setting(`use="prohibited"`, `default="a"`),
 			compileViolation("attribute named xmlns", invalidAttribute, "xmlns").at(key).setting(`name="xmlns"`),
 
 			vocabulary("XSD 1.1 attribute defaultAttributesApply", xsd11, "XSD 1.1 attribute defaultAttributesApply on xs:complexType").at(owner).setting(`defaultAttributesApply="true"`),
@@ -326,6 +333,8 @@ func attributeReferenceFixture() fixture {
 			attributeViolation("form on a reference", invalidAttribute, `attribute ref cannot have attribute "form"`).at(key).setting(`form="qualified"`),
 			unboundPrefix(key, "ref"),
 			attributeViolation("use is no use", invalidAttribute, "invalid attribute use x").at(key).setting(`use="x"`),
+			excludedAttributes("default with fixed", "attribute cannot have both default and fixed").at(key).setting(`default="a"`, `fixed="b"`),
+			excludedAttributes("default on a required reference", "required attribute cannot have default").at(key).setting(`use="required"`, `default="a"`),
 			compileViolation("unresolved ref", reference, "unknown attribute").at(key).setting(`ref="missing"`),
 		},
 	}

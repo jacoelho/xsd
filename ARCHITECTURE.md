@@ -232,7 +232,10 @@ At a start tag:
    and `id`, an `id` the document already declares, the lexical form
    (`checkSchemaAttributeValueSyntax`), the lexical form and prefix binding of
    a QName, and anyURI syntax;
-6. the attributes the placement requires (`checkRequiredSchemaAttributes`).
+6. the attributes the placement requires (`checkRequiredSchemaAttributes`),
+   then the attributes that exclude each other
+   (`checkValueConstraintAttributes`): `default` with `fixed`, and `default`
+   with a `use` other than optional.
 
 At an end tag:
 
@@ -255,27 +258,29 @@ together; a value constraint against its type; a group reference that resolves
 to `xs:all`; and the content model rules (Unique Particle Attribution, Element
 Declarations Consistent, restriction).
 
-Compilation also owns the rules below. One start tag states each of them, but
-none is the presence or the form of one attribute, which is all that stages 5
-and 6 decide: they relate two attributes, or constrain the component the tag
-describes.
+Compilation also owns rules that one start tag states. They are constraints
+on the schema component the tag describes, not on the tag's XML
+representation, and the compiler checks each where it builds that component:
 
-- `default` together with `fixed`, and `default` on an attribute use that is
-  not optional.
-- `minOccurs` above `maxOccurs`, the occurrence range of an `xs:all` particle,
-  and an occurrence count above the occurrence limits.
-- An attribute declaration named `xmlns`.
+- `minOccurs` above `maxOccurs` (Particle Correct), and an occurrence count
+  above the occurrence limits.
+- The occurrence range of `xs:all` and of its particles (All Group Limited),
+  which a group reference reaches as well.
+- An attribute declaration named `xmlns` (xmlns Not Allowed).
 
-The path grammar of `xs:selector` and `xs:field` is the form of one attribute
-and is compile tier all the same: the identity constraint compiler owns the
-grammar, and stage 5 rejects only an empty `xpath`.
+The path of `xs:selector` and `xs:field` is the form of one attribute and is
+compile tier all the same: the identity constraint compiler owns the grammar,
+and stage 5 rejects only an empty `xpath`. A facet repeated in one restriction,
+which the start tag of the second could decide, is compile tier with the other
+facet rules.
 
 Each parse-tier rule has one owner. The child orders (`childOrderFor`) own
 where an element may appear; the placement of a component
 (`schemaElementPlacementOf`) selects its attribute rules and says nothing
 about whether its parent admits it. `schemaElementAttributeAllowed` and
 `misplacedSchemaAttributeError` own the attributes an element may have,
-`checkRequiredSchemaAttributes` the ones it must have, and
+`checkRequiredSchemaAttributes` the ones it must have,
+`checkValueConstraintAttributes` the ones that exclude each other, and
 `checkSchemaAttributeValueSyntax` the lexical form of a value. Compilation
 parses an admitted value again with the same parser to use it, and a lexical
 failure there is an internal invariant (`admittedValueInvariant`), not a second

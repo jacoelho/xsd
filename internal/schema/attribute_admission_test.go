@@ -52,36 +52,13 @@ func TestValidateAttributeUseValueConstraintAdmission(t *testing.T) {
 		admission attributeUseValueConstraintAdmission
 		wantErr   string
 	}{
-		{name: "optional unconstrained", admission: attributeUseValueConstraintAdmission{Mode: attributeUseOptional}},
+		{name: "no default"},
+		{name: "default on an unfixed declaration", admission: attributeUseValueConstraintAdmission{HasDefault: true}},
+		{name: "no default on a fixed declaration", admission: attributeUseValueConstraintAdmission{ReferencedDeclHasFixed: true}},
 		{
-			name: "required default",
-			admission: attributeUseValueConstraintAdmission{
-				Mode:       attributeUseRequired,
-				HasDefault: true,
-			},
-			wantErr: "required attribute cannot have default",
-		},
-		{
-			name: "prohibited default",
-			admission: attributeUseValueConstraintAdmission{
-				Mode:       attributeUseProhibited,
-				HasDefault: true,
-			},
-			wantErr: "prohibited attribute cannot have default",
-		},
-		{
-			name: "default conflicts with declaration fixed",
-			admission: attributeUseValueConstraintAdmission{
-				Mode:                   attributeUseOptional,
-				HasDefault:             true,
-				ReferencedDeclHasFixed: true,
-			},
-			wantErr: "attribute use default conflicts with fixed attribute declaration",
-		},
-		{
-			name:      "invalid mode",
-			admission: attributeUseValueConstraintAdmission{Mode: attributeUseMode(99)},
-			wantErr:   "attribute use mode is invalid",
+			name:      "default conflicts with declaration fixed",
+			admission: attributeUseValueConstraintAdmission{HasDefault: true, ReferencedDeclHasFixed: true},
+			wantErr:   "attribute use default conflicts with fixed attribute declaration",
 		},
 	}
 	for _, tt := range tests {
@@ -169,9 +146,9 @@ func TestDefaultAndFixedTogetherRejectedAtTheirSource(t *testing.T) {
 		{name: "local attribute", body: `<xs:complexType name="T"><xs:attribute name="a" ` + both + `/></xs:complexType>`, wantMsg: "attribute cannot have both default and fixed", line: 2, column: 26},
 		{name: "required local attribute", body: `<xs:complexType name="T"><xs:attribute name="a" use="required" ` + both + `/></xs:complexType>`, wantMsg: "attribute cannot have both default and fixed", line: 2, column: 26},
 		{name: "attribute reference", body: `<xs:attribute name="g"/><xs:complexType name="T"><xs:attribute ref="g" ` + both + `/></xs:complexType>`, wantMsg: "attribute cannot have both default and fixed", line: 2, column: 50},
-		{name: "reference to fixed declaration reports the default conflict first", body: `<xs:attribute name="g" fixed="1"/><xs:complexType name="T"><xs:attribute ref="g" ` + both + `/></xs:complexType>`, wantMsg: "attribute use default conflicts with fixed attribute declaration", line: 2, column: 60},
-		{name: "required reference reports the required default first", body: `<xs:attribute name="g"/><xs:complexType name="T"><xs:attribute ref="g" use="required" ` + both + `/></xs:complexType>`, wantMsg: "required attribute cannot have default", line: 2, column: 50},
-		{name: "prohibited local attribute reports the prohibited default first", body: `<xs:complexType name="T"><xs:attribute name="a" use="prohibited" ` + both + `/></xs:complexType>`, wantMsg: "prohibited attribute cannot have default", line: 2, column: 26},
+		{name: "reference to fixed declaration", body: `<xs:attribute name="g" fixed="1"/><xs:complexType name="T"><xs:attribute ref="g" ` + both + `/></xs:complexType>`, wantMsg: "attribute cannot have both default and fixed", line: 2, column: 60},
+		{name: "required reference", body: `<xs:attribute name="g"/><xs:complexType name="T"><xs:attribute ref="g" use="required" ` + both + `/></xs:complexType>`, wantMsg: "attribute cannot have both default and fixed", line: 2, column: 50},
+		{name: "prohibited local attribute", body: `<xs:complexType name="T"><xs:attribute name="a" use="prohibited" ` + both + `/></xs:complexType>`, wantMsg: "attribute cannot have both default and fixed", line: 2, column: 26},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()

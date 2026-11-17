@@ -23,9 +23,8 @@ const (
 )
 
 // attributeUseValueConstraintAdmission is the compile-time projection needed to
-// validate attribute-use value-constraint placement.
+// validate an attribute use's default against the declaration it references.
 type attributeUseValueConstraintAdmission struct {
-	Mode                   attributeUseMode
 	HasDefault             bool
 	ReferencedDeclHasFixed bool
 }
@@ -51,22 +50,24 @@ func parseAttributeUseMode(mode string) (attributeUseMode, error) {
 	}
 }
 
-// validateAttributeUseValueConstraintAdmission validates compile-time
-// default/fixed placement for one attribute use.
-func validateAttributeUseValueConstraintAdmission(admission attributeUseValueConstraintAdmission) error {
-	switch admission.Mode {
+// checkAttributeUseDefault returns the error for an xs:attribute that has a
+// default and the use mode, or nil: a default requires use to be optional
+// (src-attribute.2). Start-tag admission calls it.
+func checkAttributeUseDefault(mode attributeUseMode) error {
+	switch mode {
 	case attributeUseOptional:
+		return nil
 	case attributeUseRequired:
-		if admission.HasDefault {
-			return errors.New("required attribute cannot have default")
-		}
+		return errors.New("required attribute cannot have default")
 	case attributeUseProhibited:
-		if admission.HasDefault {
-			return errors.New("prohibited attribute cannot have default")
-		}
-	default:
-		return errors.New("attribute use mode is invalid")
+		return errors.New("prohibited attribute cannot have default")
 	}
+	return errors.New("attribute use mode is invalid")
+}
+
+// validateAttributeUseValueConstraintAdmission rejects the default of an
+// attribute use whose referenced declaration is fixed.
+func validateAttributeUseValueConstraintAdmission(admission attributeUseValueConstraintAdmission) error {
 	if admission.HasDefault && admission.ReferencedDeclHasFixed {
 		return errors.New("attribute use default conflicts with fixed attribute declaration")
 	}

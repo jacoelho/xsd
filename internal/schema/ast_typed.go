@@ -465,13 +465,16 @@ func admitAnnotationEnvelopeStart(n *schemaSyntaxNode, attrs startTagAttributes)
 // parent's content forbids report that violation rather than the child's own.
 // The syntax facts it reads are transient; compilation never treats them as a
 // generic XML tree. Which unqualified attributes an element admits and
-// requires in its placement is decided here, so those violations precede
-// every later child in document order.
+// requires in its placement, and which of them exclude each other, is decided
+// here, so those violations precede every later child in document order.
 func admitXSDChildStart(n *schemaSyntaxNode, parent xml.Name, placement schemaElementPlacement, attrs startTagAttributes) error {
 	if err := checkSchemaAttributesSyntax(n, placement, attrs); err != nil {
 		return err
 	}
-	return checkRequiredSchemaAttributes(n, parent, placement)
+	if err := checkRequiredSchemaAttributes(n, parent, placement); err != nil {
+		return err
+	}
+	return checkValueConstraintAttributes(n)
 }
 
 func (s *typedSchemaParseState) end(line, col int) error {

@@ -127,6 +127,37 @@ func checkRequiredSchemaAttributes(n *schemaSyntaxNode, parent xml.Name, placeme
 	return checkElementRequiredAttributes(n)
 }
 
+// checkValueConstraintAttributes returns the error for n when it is an
+// xs:element or xs:attribute whose default excludes another of its attributes:
+// a fixed (src-element.1, src-attribute.1), or a use other than optional
+// (src-attribute.2). It is the only owner of these rules; n has passed
+// checkSchemaAttributesSyntax, so its use is one of the three modes.
+func checkValueConstraintAttributes(n *schemaSyntaxNode) error {
+	element := n.Name.Local
+	if element != vocab.XSDElemElement && element != vocab.XSDElemAttribute {
+		return nil
+	}
+	if _, ok := n.attr(vocab.XSDAttrDefault); !ok {
+		return nil
+	}
+	if _, ok := n.attr(vocab.XSDAttrFixed); ok {
+		message := "attribute cannot have both default and fixed"
+		if element == vocab.XSDElemElement {
+			message = "element cannot have both default and fixed"
+		}
+		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, message)
+	}
+	use, ok := n.attr(vocab.XSDAttrUse)
+	if !ok {
+		return nil
+	}
+	mode, err := parseAttributeUseMode(use)
+	if err != nil {
+		return withSchemaCompileLocation(n, admittedValueInvariant(err))
+	}
+	return withSchemaCompileLocation(n, invalidAttributeError(checkAttributeUseDefault(mode)))
+}
+
 func checkPlacementRequiredAttribute(n *schemaSyntaxNode, parent xml.Name, placement schemaElementPlacement) error {
 	element := n.Name.Local
 	required, known := requiredSchemaAttribute(element, placement)
