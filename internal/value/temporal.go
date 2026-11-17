@@ -42,11 +42,10 @@ type TemporalValue struct {
 
 // TimeValue is the value-space projection for xs:time values. Like
 // xsdDateTimePoint, it keeps fractional seconds as a digit string rather than
-// a fixed-precision number. second is the timezone-normalized time of day,
-// below daySeconds, or daySeconds for the midnight that ends the day: the
-// lexical hour 24 without a timezone or with a zero offset (Time midnight in
-// docs/spec/INTERPRETATIONS.md). The day a timezone moves a time to is not
-// part of the value.
+// a fixed-precision number. second is the timezone-normalized time of day; a
+// parsed value has it below daySeconds, so 24:00:00 is 00:00:00 (Time
+// midnight in docs/spec/INTERPRETATIONS.md). The day that the hour 24, a
+// second 60 or a timezone moves a time to is not part of the value.
 type TimeValue struct {
 	frac   string
 	second int
@@ -209,23 +208,18 @@ func ParseTimeValue(s string) (TimeValue, error) {
 	return t, err
 }
 
-// parseTimeOnDay parses s as xs:time and also returns how many days timezone
-// normalization moved the time from its lexical day. The day is not part of
-// the value; only the restriction order of bound facets reads it
+// parseTimeOnDay parses s as xs:time and also returns how many days
+// normalization moved the time from its lexical day: the hour 24, a second 60
+// and a timezone offset can each carry it across midnight. The day is not
+// part of the value; only the restriction order of bound facets reads it
 // (boundValue.timeDayOffset).
 func parseTimeOnDay(s string) (TimeValue, int, error) {
 	tm, err := parseXSDTimeParts(s)
 	if err != nil {
 		return TimeValue{}, 0, err
 	}
-	t := TimeValue{frac: tm.frac, hasTZ: tm.tz.present}
-	if tm.hour == 24 && tm.tz.minutes == 0 {
-		t.second = daySeconds
-		return t, 0, nil
-	}
-	var days int
-	days, t.second = divModDay(tm.rawSecond())
-	return t, days, nil
+	days, second := divModDay(tm.rawSecond())
+	return TimeValue{second: second, frac: tm.frac, hasTZ: tm.tz.present}, days, nil
 }
 
 // CanonicalText returns the XML Schema canonical lexical form for v.

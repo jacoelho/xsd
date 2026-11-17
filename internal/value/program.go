@@ -561,8 +561,8 @@ type facetProgram struct {
 }
 
 // boundValue is one compiled bound facet. timeDayOffset is, for an xs:time
-// bound, how many days timezone normalization moved the literal from its
-// lexical day. It belongs to the facet, not to the value, and only the
+// bound, how many days normalization moved the literal from its lexical day
+// (parseTimeOnDay). It belongs to the facet, not to the value, and only the
 // same-side restriction order reads it (compareDerivationBounds).
 type boundValue struct {
 	value         atomicValue
@@ -580,7 +580,7 @@ func newBoundValue(atom atomicValue, normalized string) (boundValue, error) {
 	if err != nil {
 		return boundValue{}, ErrMetadata
 	}
-	bound.timeDayOffset = int8(days) // #nosec G115 -- a timezone offset of at most 14 hours moves a time by at most one day.
+	bound.timeDayOffset = int8(days) // #nosec G115 -- the hour 24 and an offset of at most 14 hours move a time by at most one day.
 	return bound, nil
 }
 

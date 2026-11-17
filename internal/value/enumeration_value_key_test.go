@@ -118,7 +118,7 @@ func valueSpaceKinds(t *testing.T) []valueSpaceKind {
 			{"2000-01-01", "2000-01-01Z", false}, {"2000-01-01", "2000-01-02", false},
 		}},
 		{name: "time", specs: builtinRestriction("time"), filler: func(i int) string { return fmt.Sprintf("05:%02d:07", i) }, pairs: []valueSpacePair{
-			{"00:00:00Z", "01:00:00+01:00", true}, {"24:00:00", "00:00:00", false}, {"24:00:00+00:00", "24:00:00Z", true}, {"12:00:00.000", "12:00:00", true},
+			{"00:00:00Z", "01:00:00+01:00", true}, {"24:00:00", "00:00:00", true}, {"24:00:00+00:00", "24:00:00Z", true}, {"12:00:00.000", "12:00:00", true},
 			{"00:30:00+01:00", "23:30:00Z", true}, {"00:00:00", "00:00:00Z", false}, {"12:00:00.1", "12:00:00.01", false},
 		}},
 		{name: "gYear", specs: builtinRestriction("gYear"), filler: func(i int) string { return fmt.Sprintf("19%02d", i) }, pairs: []valueSpacePair{
