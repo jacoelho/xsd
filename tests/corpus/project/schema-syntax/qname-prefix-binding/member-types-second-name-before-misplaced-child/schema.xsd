@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:simpleType name="S"><xs:union memberTypes="xs:int p:T"><xs:element name="e"/></xs:union></xs:simpleType>
+</xs:schema>

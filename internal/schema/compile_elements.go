@@ -120,7 +120,7 @@ type pendingElementConstraint struct {
 }
 
 func (c *compiler) compileElementDecl(ctx *schemaSetDocument, n *schemaNode, q QName) (elementDecl, *valueConstraint, error) {
-	if err := checkElementDeclarationChildren(n); err != nil {
+	if err := checkElementTypeSource(n); err != nil {
 		return elementDecl{}, nil, err
 	}
 	identityNodes := identityConstraintNodes(n)

@@ -1,13 +1,10 @@
 package schema
 
-// This file contains the compiler-facing grammar checks. Parser admission
-// uses the *Syntax variants in compile_children.go; compilation runs against
-// compact semantic nodes and does not reconstruct XML nodes.
+// This file contains the compiler-facing child selection of admitted source
+// nodes. Which children each element admits, in which order and at most how
+// often, is decided as each child starts; see childOrderFor.
 
 import (
-	"errors"
-
-	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -16,42 +13,10 @@ type contentDerivationSource struct {
 	kind contentDerivationKind
 }
 
-func checkOrderedXSDChildren(n *schemaNode, order childOrder) error {
-	state := childOrderState{maxLevelSeen: -1}
-	index := 0
-	for child := range n.xsdChildren() {
-		if err := state.accept(index, child.local, order); err != nil {
-			issue, ok := errors.AsType[*childOrderError](err)
-			if !ok {
-				return err
-			}
-			target := child
-			if issue.Index < 0 {
-				target = n
-			}
-			return schemaCompileAt(target, xsderrors.CodeSchemaContentModel, issue.Message)
-		}
-		index++
-	}
-	return nil
-}
-
-func checkComplexTypeChildren(n *schemaNode) error {
-	return checkOrderedXSDChildren(n, complexTypeChildOrder)
-}
-
-func checkComplexContentSyntax(n *schemaNode) (contentDerivationSource, error) {
-	return checkContentDerivation(n, complexContent, complexContentChildOrder)
-}
-
-func checkSimpleContentSyntax(n *schemaNode) (contentDerivationSource, error) {
-	return checkContentDerivation(n, simpleContent, simpleContentChildOrder)
-}
-
-func checkContentDerivation(n *schemaNode, container string, order childOrder) (contentDerivationSource, error) {
-	if err := checkOrderedXSDChildren(n, order); err != nil {
-		return contentDerivationSource{}, err
-	}
+// contentDerivationOf selects the extension or restriction child of n, an
+// xs:simpleContent or xs:complexContent named container. childOrderFor admits
+// at most one; a missing one is reported here.
+func contentDerivationOf(n *schemaNode, container string) (contentDerivationSource, error) {
 	for child := range n.xsdChildren() {
 		switch child.local {
 		case extensionChild:
@@ -63,46 +28,16 @@ func checkContentDerivation(n *schemaNode, container string, order childOrder) (
 	return contentDerivationSource{}, schemaCompileAt(n, xsderrors.CodeSchemaContentModel, container+" missing extension or restriction")
 }
 
-func checkSimpleContentRestrictionChildren(n *schemaNode) error {
-	return checkOrderedXSDChildren(n, simpleContentRestrictionChildOrder)
-}
-
-func checkSimpleContentExtensionChildren(n *schemaNode) error {
-	return checkOrderedXSDChildren(n, simpleContentExtensionChildOrder)
-}
-
-func checkComplexContentRestrictionChildren(n *schemaNode) error {
-	return checkOrderedXSDChildren(n, complexContentRestrictionChildOrder)
-}
-
-func checkComplexContentExtensionChildren(n *schemaNode) error {
-	return checkOrderedXSDChildren(n, complexContentExtensionChildOrder)
-}
-
-func checkAttributeGroupDeclarationChildren(n *schemaNode) error {
-	return checkOrderedXSDChildren(n, attributeGroupDeclarationChildOrder)
-}
-
-func checkTopLevelGroupChildren(n *schemaNode) (*schemaNode, error) {
-	var model *schemaNode
+// topLevelGroupModel selects the model group of n, a top-level xs:group.
+// childOrderFor admits at most one; a missing one is reported here.
+func topLevelGroupModel(n *schemaNode) (*schemaNode, error) {
 	for child := range n.xsdChildren() {
 		switch child.local {
-		case annotationChild:
 		case sequenceChild, choiceChild, allChild:
-			if model != nil {
-				return nil, schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "top-level group must contain exactly one model group")
-			}
-			model = child
-		case groupChild:
-			return nil, schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "top-level group cannot contain group ref")
-		default:
-			return nil, schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "invalid top-level group child "+diagnostictext.Quote(child.local))
+			return child, nil
 		}
 	}
-	if model == nil {
-		return nil, schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "top-level group must contain exactly one model group")
-	}
-	return model, nil
+	return nil, schemaCompileAt(n, xsderrors.CodeSchemaContentModel, topLevelGroupModelGroupCount)
 }
 
 func checkNotationDeclaration(n *schemaNode) error {
@@ -119,14 +54,7 @@ func checkNotationDeclaration(n *schemaNode) error {
 	return nil
 }
 
-func checkAttributeDeclarationChildren(n *schemaNode) error {
-	return checkOrderedXSDChildren(n, attributeDeclarationChildOrder)
-}
-
-func checkElementDeclarationChildren(n *schemaNode) error {
-	if err := checkOrderedXSDChildren(n, elementDeclarationChildOrder); err != nil {
-		return err
-	}
+func checkElementTypeSource(n *schemaNode) error {
 	if semanticSource[*schemaElementSource](&n.semantic).Type.Lexical.Present && hasAnonymousTypedElementType(n) {
 		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "element cannot have both type and anonymous type")
 	}

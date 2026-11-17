@@ -90,7 +90,7 @@ func (o valueConstraintOwner) label() string {
 	case valueConstraintOwnerAttributeDeclaration:
 		return attributeDeclarationLabel
 	case valueConstraintOwnerAttributeUse:
-		return "attribute use"
+		return attributeUseLabel
 	}
 	return "component"
 }

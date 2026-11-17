@@ -1,0 +1,19 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:annotation/>
+<xs:import namespace="urn:other"/>
+<xs:annotation/>
+<xs:simpleType name="S"><xs:annotation/><xs:restriction><xs:simpleType><xs:list itemType="xs:int"/></xs:simpleType><xs:minLength value="1"/><xs:maxLength value="3"/></xs:restriction></xs:simpleType>
+<xs:simpleType name="U"><xs:union memberTypes="xs:int"><xs:simpleType><xs:restriction base="xs:string"/></xs:simpleType><xs:simpleType><xs:restriction base="xs:date"/></xs:simpleType></xs:union></xs:simpleType>
+<xs:attributeGroup name="AG"><xs:attribute name="a"/><xs:attributeGroup ref="AG2"/><xs:anyAttribute/></xs:attributeGroup>
+<xs:attributeGroup name="AG2"><xs:attribute name="b"/></xs:attributeGroup>
+<xs:group name="G"><xs:annotation/><xs:choice><xs:element name="c"/><xs:sequence><xs:any namespace="urn:other"/></xs:sequence><xs:group ref="G2"/></xs:choice></xs:group>
+<xs:group name="G2"><xs:sequence><xs:element name="d"/></xs:sequence></xs:group>
+<xs:group name="G3"><xs:all><xs:element name="d"/><xs:element name="e"/></xs:all></xs:group>
+<xs:complexType name="C"><xs:sequence><xs:element name="f"/></xs:sequence><xs:attribute name="g"/><xs:attributeGroup ref="AG2"/><xs:attribute name="h"/><xs:anyAttribute/></xs:complexType>
+<xs:complexType name="D"><xs:complexContent><xs:extension base="C"><xs:sequence><xs:element name="i"/></xs:sequence><xs:attribute name="j"/></xs:extension></xs:complexContent></xs:complexType>
+<xs:complexType name="E"><xs:simpleContent><xs:extension base="xs:string"><xs:attribute name="k"/></xs:extension></xs:simpleContent></xs:complexType>
+<xs:complexType name="F"><xs:simpleContent><xs:restriction base="E"><xs:simpleType><xs:restriction base="xs:string"/></xs:simpleType><xs:maxLength value="4"/><xs:attribute name="k"/></xs:restriction></xs:simpleContent></xs:complexType>
+<xs:element name="r"><xs:complexType><xs:all><xs:element name="v" type="xs:string"/></xs:all></xs:complexType><xs:unique name="u"><xs:selector xpath="."/><xs:field xpath="v"/></xs:unique><xs:key name="k"><xs:selector xpath="."/><xs:field xpath="v"/></xs:key><xs:keyref name="kr" refer="k"><xs:selector xpath="."/><xs:field xpath="v"/></xs:keyref></xs:element>
+<xs:attribute name="t"><xs:simpleType><xs:restriction base="xs:string"/></xs:simpleType></xs:attribute>
+<xs:notation name="N" public="p"/>
+</xs:schema>

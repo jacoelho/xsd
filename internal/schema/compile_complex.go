@@ -246,9 +246,6 @@ func (c *compiler) canonicalComplexContentModel(id contentModelID, kind complexC
 }
 
 func (c *compiler) compileComplexType(ctx *schemaSetDocument, n *schemaNode, name QName) (complexTypeMetadata, error) {
-	if err := checkComplexTypeChildren(n); err != nil {
-		return complexTypeMetadata{}, err
-	}
 	ct, err := c.newComplexType(ctx, n, name)
 	if err != nil {
 		return complexTypeMetadata{}, err
@@ -348,7 +345,7 @@ func (c *compiler) compileDirectComplexModelChild(ctx *schemaSetDocument, child 
 }
 
 func (c *compiler) compileComplexContent(ctx *schemaSetDocument, n *schemaNode, ct complexTypeMetadata) (complexTypeMetadata, error) {
-	source, err := checkComplexContentSyntax(n)
+	source, err := contentDerivationOf(n, complexContent)
 	if err != nil {
 		return complexTypeMetadata{}, err
 	}
@@ -378,13 +375,7 @@ func (c *compiler) compileComplexContentDerivation(ctx *schemaSetDocument, child
 	}
 	ct.Base = ComplexRef(baseID)
 	if extension {
-		if err := checkComplexContentExtensionChildren(child); err != nil {
-			return complexTypeMetadata{}, err
-		}
 		return c.compileComplexContentExtension(ctx, child, ct, baseID, base, contentKind)
-	}
-	if err := checkComplexContentRestrictionChildren(child); err != nil {
-		return complexTypeMetadata{}, err
 	}
 	return c.compileComplexContentRestriction(ctx, child, ct, base, contentKind)
 }
@@ -586,7 +577,7 @@ type simpleContentDerivation struct {
 }
 
 func (c *compiler) resolveSimpleContentSource(ctx *schemaSetDocument, n *schemaNode) (simpleContentSource, error) {
-	syntax, err := checkSimpleContentSyntax(n)
+	syntax, err := contentDerivationOf(n, simpleContent)
 	if err != nil {
 		return simpleContentSource{}, err
 	}
@@ -603,17 +594,11 @@ func (c *compiler) resolveSimpleContentSource(ctx *schemaSetDocument, n *schemaN
 
 func (c *compiler) compileSimpleContentDerivation(ctx *schemaSetDocument, source simpleContentSource, textType SimpleTypeID) (simpleContentDerivation, error) {
 	if source.kind != contentDerivationRestriction {
-		if err := checkSimpleContentExtensionChildren(source.child); err != nil {
-			return simpleContentDerivation{}, err
-		}
 		return simpleContentDerivation{
 			textType:  textType,
 			mergeMode: attributeMergeExtension,
 			kind:      derivationKindExtension,
 		}, nil
-	}
-	if err := checkSimpleContentRestrictionChildren(source.child); err != nil {
-		return simpleContentDerivation{}, err
 	}
 	restricted, err := c.compileSimpleContentRestrictionType(ctx, source.child, textType)
 	return simpleContentDerivation{

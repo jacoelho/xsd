@@ -175,14 +175,6 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
 			wantMsg: annotationPayloadOnly("element"),
 		},
 		{
-			name: "annotation child grammar before unsupported child",
-			body: `  <xs:annotation>
-    <xs:redefine schemaLocation="other.xsd"/>
-  </xs:annotation>`,
-			wantLine: 3, wantCol: 5, wantCode: xsderrors.CodeSchemaContentModel,
-			wantMsg: annotationPayloadOnly("redefine"),
-		},
-		{
 			name: "nested annotation before later forbidden sibling",
 			body: `  <xs:annotation>
     <xs:annotation/>
@@ -209,12 +201,6 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
   </xs:annotation>`,
 			wantLine: 2, wantCol: 3, wantCode: xsderrors.CodeSchemaContentModel,
 			wantMsg: "xs:\"annotation\" cannot contain text",
-		},
-		{
-			name:     "facet child grammar before unsupported child",
-			body:     facetBody(`<xs:redefine schemaLocation="other.xsd"/>`),
-			wantLine: 4, wantCol: 28, wantCode: xsderrors.CodeSchemaContentModel,
-			wantMsg: annotationOnly("length", "redefine"),
 		},
 		{
 			name:     "facet child grammar before child attributes",

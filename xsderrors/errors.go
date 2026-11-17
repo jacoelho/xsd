@@ -56,8 +56,12 @@ const (
 	CodeUnsupportedExternal    Code = "unsupported.external_entity"
 	CodeUnsupportedEntity      Code = "unsupported.entity"
 	CodeUnsupportedNonUTF8     Code = "unsupported.non_utf8"
-	CodeUnsupportedRedefine    Code = "unsupported.xs_redefine"
-	CodeUnsupportedRegex       Code = "unsupported.regex"
+	// CodeUnsupportedRedefine reports an xs:redefine element. Like
+	// CodeUnsupportedXSD11 it is an opt-out by vocabulary: it is reported
+	// wherever the element appears outside xs:appinfo and xs:documentation,
+	// whatever its placement, attributes or content.
+	CodeUnsupportedRedefine Code = "unsupported.xs_redefine"
+	CodeUnsupportedRegex    Code = "unsupported.regex"
 	// CodeUnsupportedXMLVersion reports an XML declaration whose well-formed
 	// version is not "1.0". A malformed version is an XML well-formedness error.
 	CodeUnsupportedXMLVersion Code = "unsupported.xml_version"

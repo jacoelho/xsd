@@ -120,9 +120,15 @@ func TestCheckUnsupportedSchemaNode(t *testing.T) {
 		{name: "top-level notation", body: `  <xs:notation name="N" public=""/>`},
 		{name: "nested notation", body: `  <xs:element name="Root">
     <xs:notation name="N" public=""/>
-  </xs:element>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaContentModel, wantMsg: "xs:notation must be a top-level schema child", wantLine: 3, wantCol: 5},
-		{name: "namespace attr wins before names and unsupported", body: `  <xs:redefine xs:foo="" id=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "schema namespace attribute \"foo\" is not allowed", wantLine: 2, wantCol: 3},
-		{name: "invalid name wins before unsupported", body: `  <xs:redefine name=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "schema component name must be NCName", wantLine: 2, wantCol: 3},
+  </xs:element>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaContentModel, wantMsg: "invalid element child \"notation\"", wantLine: 3, wantCol: 5},
+		{name: "redefine wins before namespace attrs and names", body: `  <xs:redefine xs:foo="" id=""/>`, wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedRedefine, wantMsg: "xs:redefine is not supported", wantLine: 2, wantCol: 3},
+		{name: "redefine wins before invalid name", body: `  <xs:redefine name=""/>`, wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedRedefine, wantMsg: "xs:redefine is not supported", wantLine: 2, wantCol: 3},
+		{name: "redefine after declaration", body: "  <xs:element name=\"e\"/>\n  <xs:redefine schemaLocation=\"other.xsd\"/>", wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedRedefine, wantMsg: "xs:redefine is not supported", wantLine: 3, wantCol: 3},
+		{name: "redefine in annotation", body: "  <xs:annotation>\n    <xs:redefine schemaLocation=\"other.xsd\"/>\n  </xs:annotation>", wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedRedefine, wantMsg: "xs:redefine is not supported", wantLine: 3, wantCol: 5},
+		{name: "redefine in notation", body: "  <xs:notation name=\"N\" public=\"p\">\n    <xs:redefine/>\n  </xs:notation>", wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedRedefine, wantMsg: "xs:redefine is not supported", wantLine: 3, wantCol: 5},
+		{name: "redefine in facet", body: "  <xs:simpleType name=\"S\"><xs:restriction base=\"xs:string\"><xs:length value=\"1\">\n    <xs:redefine/>\n  </xs:length></xs:restriction></xs:simpleType>", wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedRedefine, wantMsg: "xs:redefine is not supported", wantLine: 3, wantCol: 5},
+		{name: "redefine in model group", body: "  <xs:complexType name=\"C\"><xs:sequence>\n    <xs:redefine/>\n  </xs:sequence></xs:complexType>", wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedRedefine, wantMsg: "xs:redefine is not supported", wantLine: 3, wantCol: 5},
+		{name: "redefine wins over earlier text", body: "  <xs:complexType name=\"C\"><xs:sequence>text\n    <xs:redefine/>\n  </xs:sequence></xs:complexType>", wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedRedefine, wantMsg: "xs:redefine is not supported", wantLine: 3, wantCol: 5},
 		{name: "foreign rejection wins before namespace attrs and names", body: `  <f:other xs:foo="" id=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaContentModel, wantMsg: "foreign element \"other\" is not allowed in schema grammar", wantLine: 2, wantCol: 3},
 	} {
 		t.Run(fixture.name, func(t *testing.T) {
@@ -247,7 +253,8 @@ func TestValidateSchemaNodeNames(t *testing.T) {
 }
 
 func checkElementChildAttributes(n *schemaSyntaxNode) error {
-	return checkSchemaAttributesSyntax(n, schemaPlacementOther)
+	var qnames semanticQNameProjection
+	return checkSchemaAttributesSyntax(n, schemaPlacementOther, &qnames)
 }
 
 func TestSchemaAnnotationStartAttributes(t *testing.T) {

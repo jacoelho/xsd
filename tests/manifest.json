@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16791,
-    "schemaCases": 16741,
+    "cases": 16827,
+    "schemaCases": 16777,
     "instanceRuns": 35537,
     "w3cCases": 14414,
-    "internalRuns": 2364,
+    "internalRuns": 2400,
     "xercesJCases": 13
   },
   "cases": [
@@ -878893,7 +878893,7 @@
           "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-redefine"
         ],
         "conditions": [
-          "An xs:redefine inside xs:annotation violates the annotation content model; the schema is invalid without processing the redefinition, whose target resolves."
+          "An xs:redefine inside xs:annotation violates the annotation content model; the schema is invalid without processing the redefinition, whose target resolves. xs:redefine is unsupported vocabulary, reported as unsupported.xs_redefine wherever it appears and before the parent's content model is checked."
         ]
       },
       "schema": {
@@ -878904,26 +878904,25 @@
             "role": "principal"
           }
         ],
-        "errorCode": "schema.content_model",
         "oracle": {
           "xerces": {
             "expected": "invalid",
-            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:57: src-annotation: <annotation> elements can only contain <appinfo> and <documentation> elements, but 'redefine' was found. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:57: src-annotation: <annotation> elements can only contain <appinfo> and <documentation> elements, but 'redefine' was found. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; xs:redefine is not supported, so the allowlist records unsupported.xs_redefine; this observation is not a majority-vote oracle.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
           },
           "dotnet": {
             "expected": "invalid",
-            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:17: The 'http://www.w3.org/2001/XMLSchema:redefine' element is not supported in this context. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:17: The 'http://www.w3.org/2001/XMLSchema:redefine' element is not supported in this context. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; xs:redefine is not supported, so the allowlist records unsupported.xs_redefine; this observation is not a majority-vote oracle.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
           },
           "xmlschema": {
             "expected": "invalid",
-            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:redefine' at position 1: Schema component: <xs:annotation xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:redefine schemaLocation=\"other.xsd\" /></xs:annotation> Path: /xs:schema/xs:annotation Schema URL: file://schema.xsd  The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:redefine' at position 1: Schema component: <xs:annotation xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:redefine schemaLocation=\"other.xsd\" /></xs:annotation> Path: /xs:schema/xs:annotation Schema URL: file://schema.xsd  The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; xs:redefine is not supported, so the allowlist records unsupported.xs_redefine; this observation is not a majority-vote oracle.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
           },
           "libxml2": {
             "expected": "invalid",
-            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element redefine: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}annotation': The content is not valid. Expected is (appinfo | documentation)*. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; this observation is not a majority-vote oracle.",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element redefine: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}annotation': The content is not valid. Expected is (appinfo | documentation)*. The project expectation follows the schema for schemas content of xs:annotation, (appinfo | documentation)*; xs:redefine is not supported, so the allowlist records unsupported.xs_redefine; this observation is not a majority-vote oracle.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
           }
         }
@@ -879109,7 +879108,7 @@
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
         ],
         "conditions": [
-          "An xs:redefine inside a facet element violates the facet content model; the redefinition target resolves."
+          "An xs:redefine inside a facet element violates the facet content model; the redefinition target resolves. xs:redefine is unsupported vocabulary, reported as unsupported.xs_redefine wherever it appears and before the parent's content model is checked."
         ]
       },
       "schema": {
@@ -879120,26 +879119,25 @@
             "role": "principal"
           }
         ],
-        "errorCode": "schema.content_model",
         "oracle": {
           "xerces": {
             "expected": "invalid",
-            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:120: s4s-elt-must-match.1: The content of 'length' must match (annotation?). A problem was found starting at: redefine. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:120: s4s-elt-must-match.1: The content of 'length' must match (annotation?). A problem was found starting at: redefine. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; xs:redefine is not supported, so the allowlist records unsupported.xs_redefine; this observation is not a majority-vote oracle.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
           },
           "dotnet": {
             "expected": "invalid",
-            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:80: The 'http://www.w3.org/2001/XMLSchema:redefine' element is not supported in this context. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:80: The 'http://www.w3.org/2001/XMLSchema:redefine' element is not supported in this context. The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; xs:redefine is not supported, so the allowlist records unsupported.xs_redefine; this observation is not a majority-vote oracle.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
           },
           "xmlschema": {
             "expected": "invalid",
-            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:redefine' at position 1: Schema component: <xs:length xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"1\"><xs:redefine schemaLocation=\"other.xsd\" /></xs:length> Path: /xs:schema/xs:simpleType/xs:restriction/xs:length Schema URL: file://schema.xsd  The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:redefine' at position 1: Schema component: <xs:length xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"1\"><xs:redefine schemaLocation=\"other.xsd\" /></xs:length> Path: /xs:schema/xs:simpleType/xs:restriction/xs:length Schema URL: file://schema.xsd  The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; xs:redefine is not supported, so the allowlist records unsupported.xs_redefine; this observation is not a majority-vote oracle.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
           },
           "libxml2": {
             "expected": "invalid",
-            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element redefine: Schemas parser error : Facet length has unexpected child content The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; this observation is not a majority-vote oracle.",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element redefine: Schemas parser error : Facet length has unexpected child content The project expectation follows the facet element content (annotation?) in the Datatypes XML representation; xs:redefine is not supported, so the allowlist records unsupported.xs_redefine; this observation is not a majority-vote oracle.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-length"
           }
         }
@@ -891323,6 +891321,1974 @@
       "files": [
         {
           "file": "corpus/project/schema-syntax/required-attributes/required-attributes-control/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/schema-unknown-child-before-later-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/schema-unknown-child-before-later-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "xs:schema holds the unknown XSD-namespace element xs:future followed by an xs:element carrying the unknown attribute foo. The schema for schemas admits no xs:future child, and that start tag comes first, so the schema is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/schema-unknown-child-before-later-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:13: s4s-elt-invalid-content.1: The content of 'schema' is invalid. Element 'future' is invalid, misplaced, or occurs too often. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:2: The 'http://www.w3.org/2001/XMLSchema:future' element is not supported in this context. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'foo' not allowed: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"e\" foo=\"1\" /> Path: /xs:schema/xs:element Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element future: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}schema': The content is not valid. Expected is ((include | import | redefine | annotation)*, (((simpleType | complexType | group | attributeGroup) | element | attribute | notation), annotation*)*). The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/schema-unknown-child-before-later-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/schema-misplaced-sequence-with-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/schema-misplaced-sequence-with-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "xs:schema holds an xs:sequence that carries the unknown attribute foo. xs:sequence is not a top-level schema component; the parent's content model rejects it before its own attributes are checked, so the schema is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/schema-misplaced-sequence-with-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:22: s4s-elt-invalid-content.1: The content of 'schema' is invalid. Element 'sequence' is invalid, misplaced, or occurs too often. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:2: The 'http://www.w3.org/2001/XMLSchema:sequence' element is not supported in this context. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:sequence' at position 1: Schema component: <xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"> <xs:sequence foo=\"1\"><xs:element name=\"e\" /></xs:sequence> </xs:schema> Path: /xs:schema Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element sequence: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}schema': The content is not valid. Expected is ((include | import | redefine | annotation)*, (((simpleType | complexType | group | attributeGroup) | element | attribute | notation), annotation*)*). The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/schema-misplaced-sequence-with-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/schema-redefine-after-declaration",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/schema-redefine-after-declaration",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-redefine",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "xs:redefine follows a top-level xs:element, where the schema for schemas does not admit it. xs:redefine is unsupported vocabulary, reported as unsupported.xs_redefine wherever it appears and before the parent's content model is checked."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/schema-redefine-after-declaration/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:42: s4s-elt-invalid-content.3: Elements of type 'redefine' cannot appear after declarations as children of a <schema> element. The project expectation follows the schema for schemas, which places xs:redefine only among the leading children of xs:schema; xs:redefine is not supported, and as unsupported vocabulary it is reported as unsupported.xs_redefine wherever it appears, before the parent's content model, so the allowlist records unsupported.xs_redefine; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:2: The 'redefine' element cannot appear at this location. The project expectation follows the schema for schemas, which places xs:redefine only among the leading children of xs:schema; xs:redefine is not supported, and as unsupported vocabulary it is reported as unsupported.xs_redefine wherever it appears, before the parent's content model, so the allowlist records unsupported.xs_redefine; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:redefine' at position 2: Schema component: <xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"> <xs:element name=\"e\" /> <xs:redefine schemaLocation=\"other.xsd\" /> </xs:schema> Path: /xs:schema Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, which places xs:redefine only among the leading children of xs:schema; xs:redefine is not supported, and as unsupported vocabulary it is reported as unsupported.xs_redefine wherever it appears, before the parent's content model, so the allowlist records unsupported.xs_redefine; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element redefine: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}schema': The content is not valid. Expected is ((include | import | redefine | annotation)*, (((simpleType | complexType | group | attributeGroup) | element | attribute | notation), annotation*)*). The project expectation follows the schema for schemas, which places xs:redefine only among the leading children of xs:schema; xs:redefine is not supported, and as unsupported vocabulary it is reported as unsupported.xs_redefine wherever it appears, before the parent's content model, so the allowlist records unsupported.xs_redefine; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/schema-redefine-after-declaration/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/schema-syntax/child-admission/schema-redefine-after-declaration/other.xsd",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/complex-type-unknown-child-before-later-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/complex-type-unknown-child-before-later-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "An xs:complexType holds the unknown XSD-namespace element xs:future followed by an xs:attribute carrying the unknown attribute foo. The complex type content admits no xs:future, and its start tag comes first, so the schema is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/complex-type-unknown-child-before-later-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:38: s4s-elt-invalid-content.1: The content of 'C' is invalid. Element 'future' is invalid, misplaced, or occurs too often. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:27: The 'http://www.w3.org/2001/XMLSchema:future' element is not supported in this context. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'foo' not allowed: Schema component: <xs:attribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"a\" foo=\"1\" /> Path: /xs:schema/xs:complexType/xs:attribute Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element future: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}complexType': The content is not valid. Expected is (annotation?, (simpleContent | complexContent | ((group | all | choice | sequence)?, ((attribute | attributeGroup)*, anyAttribute?)))). The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/complex-type-unknown-child-before-later-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/complex-type-element-child-before-unbound-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/complex-type-element-child-before-unbound-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "An xs:element appears directly inside an xs:complexType and carries a type whose prefix p is unbound. A complex type admits a model group, not an element declaration, and that violation is on the start tag, so the schema is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/complex-type-element-child-before-unbound-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:59: s4s-elt-invalid-content.1: The content of 'C' is invalid. Element 'element' is invalid, misplaced, or occurs too often. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:27: The 'http://www.w3.org/2001/XMLSchema:element' element is not supported in this context. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:element' at position 1: Schema component: <xs:complexType xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"C\"><xs:element name=\"e\" type=\"p:T\" /></xs:complexType> Path: /xs:schema/xs:complexType Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}complexType': The content is not valid. Expected is (annotation?, (simpleContent | complexContent | ((group | all | choice | sequence)?, ((attribute | attributeGroup)*, anyAttribute?)))). The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/complex-type-element-child-before-unbound-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/complex-type-attribute-after-any-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/complex-type-attribute-after-any-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "An xs:complexType holds xs:anyAttribute followed by an xs:attribute carrying the unknown attribute foo. The attribute wildcard must come last, so the out-of-order xs:attribute start tag is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/complex-type-attribute-after-any-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:76: s4s-elt-invalid-content.1: The content of 'C' is invalid. Element 'attribute' is invalid, misplaced, or occurs too often. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:45: 'anyAttribute' must be the last child. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'foo' not allowed: Schema component: <xs:attribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"a\" foo=\"1\" /> Path: /xs:schema/xs:complexType/xs:attribute Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element attribute: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}complexType': The content is not valid. Expected is (annotation?, (simpleContent | complexContent | ((group | all | choice | sequence)?, ((attribute | attributeGroup)*, anyAttribute?)))). The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/complex-type-attribute-after-any-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/sequence-unknown-child-before-later-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/sequence-unknown-child-before-later-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "An xs:sequence holds the unknown XSD-namespace element xs:future followed by an xs:element carrying the unknown attribute foo. A model group admits no xs:future, and its start tag comes first, so the schema is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/sequence-unknown-child-before-later-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:51: s4s-elt-must-match.1: The content of 'sequence' must match (annotation?, (element | group | choice | sequence | any)*). A problem was found starting at: future. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:40: The 'http://www.w3.org/2001/XMLSchema:future' element is not supported in this context. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'foo' not allowed: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"z\" foo=\"1\" /> Path: /xs:schema/xs:complexType/xs:sequence/xs:element Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element future: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}sequence': The content is not valid. Expected is (annotation?, (element | group | choice | sequence | any)*). The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/sequence-unknown-child-before-later-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/sequence-complex-type-child-before-later-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/sequence-complex-type-child-before-later-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "An xs:sequence holds an xs:complexType followed by an xs:element carrying the unknown attribute foo. A model group admits no type definition, so the schema is rejected with schema.content_model at the misplaced child."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/sequence-complex-type-child-before-later-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:56: s4s-elt-must-match.1: The content of 'sequence' must match (annotation?, (element | group | choice | sequence | any)*). A problem was found starting at: complexType. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:40: The 'http://www.w3.org/2001/XMLSchema:complexType' element is not supported in this context. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'foo' not allowed: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"z\" foo=\"1\" /> Path: /xs:schema/xs:complexType/xs:sequence/xs:element Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element complexType: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}sequence': The content is not valid. Expected is (annotation?, (element | group | choice | sequence | any)*). The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/sequence-complex-type-child-before-later-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/sequence-attribute-child-before-unbound-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/sequence-attribute-child-before-unbound-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "An xs:sequence holds an xs:attribute whose type prefix p is unbound. A model group admits no attribute declaration, and that violation is on the start tag, so the schema is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/sequence-attribute-child-before-unbound-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:74: s4s-elt-must-match.1: The content of 'sequence' must match (annotation?, (element | group | choice | sequence | any)*). A problem was found starting at: attribute. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:40: The 'http://www.w3.org/2001/XMLSchema:attribute' element is not supported in this context. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:attribute' at position 1: Schema component: <xs:sequence xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:attribute name=\"a\" type=\"p:T\" /></xs:sequence> Path: /xs:schema/xs:complexType/xs:sequence Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element attribute: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}sequence': The content is not valid. Expected is (annotation?, (element | group | choice | sequence | any)*). The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/sequence-attribute-child-before-unbound-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/sequence-nested-all-with-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/sequence-nested-all-with-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "An xs:sequence holds an xs:all that carries the unknown attribute foo. The particles of a sequence are nestedParticle, which excludes xs:all, so the schema is rejected with schema.content_model before the attribute is checked."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/sequence-nested-all-with-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:55: s4s-elt-must-match.1: The content of 'sequence' must match (annotation?, (element | group | choice | sequence | any)*). A problem was found starting at: all. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:40: The 'http://www.w3.org/2001/XMLSchema:all' element is not supported in this context. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:all' at position 1: Schema component: <xs:sequence xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:all foo=\"1\"><xs:element name=\"e\" /></xs:all></xs:sequence> Path: /xs:schema/xs:complexType/xs:sequence Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element all: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}sequence': The content is not valid. Expected is (annotation?, (element | group | choice | sequence | any)*). The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/sequence-nested-all-with-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/all-sequence-child-before-unknown-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/all-sequence-child-before-unknown-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "An xs:all holds an xs:sequence followed by the unknown element xs:future. xs:all admits only element declarations, and the xs:sequence start tag is the first violation, so the schema is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/all-sequence-child-before-unknown-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:48: s4s-elt-must-match.1: The content of 'all' must match (annotation?, element*). A problem was found starting at: sequence. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:35: The 'http://www.w3.org/2001/XMLSchema:sequence' element is not supported in this context. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:sequence' at position 1: Schema component: <xs:all xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:sequence /><xs:future /></xs:all> Path: /xs:schema/xs:complexType/xs:all Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element sequence: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}all': The content is not valid. Expected is (annotation?, (annotation?, element*). The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/all-sequence-child-before-unknown-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/simple-content-unknown-child-before-unbound-base",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/simple-content-unknown-child-before-unbound-base",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleContent",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "An xs:simpleContent holds the unknown element xs:future before an xs:extension whose base prefix p is unbound. simpleContent admits only one extension or restriction, so the schema is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/simple-content-unknown-child-before-unbound-base/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:56: s4s-elt-invalid-content.1: The content of 'C' is invalid. Element 'future' is invalid, misplaced, or occurs too often. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleContent"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:45: The 'http://www.w3.org/2001/XMLSchema:future' element is not supported in this context. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleContent"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:future' at position 1. Tag ('xs:restriction' | 'xs:extension') expected: Schema component: <xs:simpleContent xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:future /><xs:extension base=\"p:T\" /></xs:simpleContent> Path: /xs:schema/xs:complexType/xs:simpleContent Schema U The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleContent"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element future: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}simpleContent': The content is not valid. Expected is (annotation?, (restriction | extension)). The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleContent"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/simple-content-unknown-child-before-unbound-base/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/complex-content-extension-model-group-after-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/complex-content-extension-model-group-after-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexContent",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "An xs:extension in xs:complexContent holds an xs:sequence, carrying the unknown attribute foo, after an xs:attribute. The model group must precede the attribute uses, so the misplaced xs:sequence is rejected with schema.content_model before its own attribute is checked."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/complex-content-extension-model-group-after-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:123: s4s-elt-invalid-content.1: The content of 'C' is invalid. Element 'sequence' is invalid, misplaced, or occurs too often. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexContent"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:102: Complex content restriction or extension should consist of zero or one of 'group', 'choice', 'sequence', or 'all'; followed by zero or more 'attribute' or 'attributeGroup'; followed by zero or one 'anyAttribute'. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexContent"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'foo' not allowed: Schema component: <xs:sequence xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" foo=\"1\" /> Path: /xs:schema/xs:complexType/xs:complexContent/xs:extension/xs:sequence Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexContent"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element sequence: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}extension': The content is not valid. Expected is (annotation?, ((group | all | choice | sequence)?, ((attribute | attributeGroup)*, anyAttribute?))). The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexContent"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/complex-content-extension-model-group-after-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/simple-type-second-derivation-before-unbound-item-type",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/simple-type-second-derivation-before-unbound-item-type",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleType",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "An xs:simpleType holds an xs:restriction and then an xs:list whose itemType prefix p is unbound. A simple type has exactly one derivation, so the second one is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/simple-type-second-derivation-before-unbound-item-type/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:84: s4s-elt-must-match.1: The content of 'simpleType' must match (annotation?, (restriction | list | union)). A problem was found starting at: list. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleType"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:60: 'simpleType' should have only one child 'union', 'list', or 'restriction'. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleType"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:list' at position 2: Schema component: <xs:simpleType xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"S\"><xs:restriction base=\"xs:string\" /><xs:list itemType=\"p:T\" /></xs:simpleType> Path: /xs:schema/xs:simpleType Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleType"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element list: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}simpleType': The content is not valid. Expected is (annotation?, (restriction | list | union)). The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleType"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/simple-type-second-derivation-before-unbound-item-type/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/element-attribute-child-before-unbound-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/element-attribute-child-before-unbound-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "A top-level xs:element holds an xs:attribute whose type prefix p is unbound. An element declaration admits only an anonymous type and identity constraints, so the schema is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/element-attribute-child-before-unbound-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:57: s4s-elt-must-match.1: The content of 'r' must match (annotation?, (simpleType | complexType)?, (unique | key | keyref)*)). A problem was found starting at: attribute. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:23: The 'http://www.w3.org/2001/XMLSchema:attribute' element is not supported in this context. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:attribute' at position 1: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"r\"><xs:attribute name=\"a\" type=\"p:T\" /></xs:element> Path: /xs:schema/xs:element Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element attribute: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element': The content is not valid. Expected is (annotation?, ((simpleType | complexType)?, (unique | key | keyref)*)). The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/element-attribute-child-before-unbound-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/element-second-anonymous-type-with-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/element-second-anonymous-type-with-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "A top-level xs:element holds an anonymous xs:simpleType and then an xs:complexType carrying the unknown attribute foo. An element has at most one anonymous type, so the second is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/element-second-anonymous-type-with-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:112: s4s-elt-must-match.1: The content of 'r' must match (annotation?, (simpleType | complexType)?, (unique | key | keyref)*)). A problem was found starting at: complexType. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:88: The 'complexType' element already exists in the content model. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'foo' not allowed: Schema component: <xs:complexType xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" foo=\"1\" /> Path: /xs:schema/xs:element/xs:complexType Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element complexType: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element': The content is not valid. Expected is (annotation?, ((simpleType | complexType)?, (unique | key | keyref)*)). The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/element-second-anonymous-type-with-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/attribute-complex-type-child-before-unbound-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/attribute-complex-type-child-before-unbound-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-attribute",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "A top-level xs:attribute holds an xs:complexType before a simple type whose base prefix p is unbound. An attribute declaration admits only a simple type, so the schema is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/attribute-complex-type-child-before-unbound-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:41: s4s-elt-must-match.1: The content of 't' must match (annotation?, (simpleType?)). A problem was found starting at: complexType. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-attribute"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:25: The 'http://www.w3.org/2001/XMLSchema:complexType' element is not supported in this context. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-attribute"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:complexType' at position 1: Schema component: <xs:attribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"t\"><xs:complexType /><xs:simpleType><xs:restriction base=\"p:T\" /></xs:simpleType></xs:attribute> Path: /xs:schema/xs:attribute Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-attribute"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element complexType: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}attribute': The content is not valid. Expected is (annotation?, simpleType?). The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-attribute"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/attribute-complex-type-child-before-unbound-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/attribute-group-attribute-after-any-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/attribute-group-attribute-after-any-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-attributeGroup",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "A top-level xs:attributeGroup holds xs:anyAttribute followed by an xs:attribute whose type prefix p is unbound. The attribute wildcard must come last, so the schema is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/attribute-group-attribute-after-any-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:83: s4s-elt-must-match.1: The content of 'AG' must match (annotation?, ((attribute | attributeGroup)*, anyAttribute?)). A problem was found starting at: attribute. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-attributeGroup"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:49: 'anyAttribute' must be the last child. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-attributeGroup"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:attribute' at position 2: Schema component: <xs:attributeGroup xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"AG\"><xs:anyAttribute /><xs:attribute name=\"a\" type=\"p:T\" /></xs:attributeGroup> Path: /xs:schema/xs:attributeGroup Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-attributeGroup"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element attribute: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}attributeGroup': The content is not valid. Expected is (annotation?, ((attribute | attributeGroup)*, anyAttribute?)). The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-attributeGroup"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/attribute-group-attribute-after-any-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/group-element-child-with-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/group-element-child-with-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "A top-level xs:group holds an xs:element carrying the unknown attribute foo. A named model group admits one sequence, choice or all, so the element is rejected with schema.content_model before its attribute is checked."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/group-element-child-with-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:50: s4s-elt-must-match.1: The content of 'group (global)' must match (annotation?, (all | choice | sequence)). A problem was found starting at: element. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:21: The 'http://www.w3.org/2001/XMLSchema:element' element is not supported in this context. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:element' at position 1. Tag ('xs:all' | 'xs:choice' | 'xs:sequence') expected: Schema component: <xs:group xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"G\"><xs:element name=\"e\" foo=\"1\" /></xs:group> Path: /xs:schema/xs:group Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}group': The content is not valid. Expected is (annotation?, (all | choice | sequence)?). The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/group-element-child-with-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/group-reference-child-before-unbound-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/group-reference-child-before-unbound-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "A top-level xs:group holds a group reference whose prefix p is unbound. A named model group admits only a sequence, choice or all, so the schema is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/group-reference-child-before-unbound-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:41: s4s-elt-must-match.1: The content of 'group (global)' must match (annotation?, (all | choice | sequence)). A problem was found starting at: group. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:21: The 'http://www.w3.org/2001/XMLSchema:group' element is not supported in this context. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:group' at position 1. Tag ('xs:all' | 'xs:choice' | 'xs:sequence') expected: Schema component: <xs:group xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"G\"><xs:group ref=\"p:H\" /></xs:group> Path: /xs:schema/xs:group Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element group: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}group': The content is not valid. Expected is (annotation?, (all | choice | sequence)?). The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/group-reference-child-before-unbound-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/identity-field-before-selector-with-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/identity-field-before-selector-with-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-key",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "An xs:key holds an xs:field before its xs:selector, which carries the unknown attribute foo. The selector must come first, so the xs:field start tag is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/identity-field-before-selector-with-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:60: s4s-elt-must-match.1: The content of 'identity constraint' must match (annotation?, selector, field+). A problem was found starting at: selector. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-key"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:40: Cannot define fields before selector. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-key"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'foo' not allowed: Schema component: <xs:selector xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xpath=\".\" foo=\"1\" /> Path: /xs:schema/xs:element/xs:key/xs:selector Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-key"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element field: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}key': The content is not valid. Expected is (annotation?, (selector, field+)). The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-key"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/identity-field-before-selector-with-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/identity-element-child-before-unbound-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/identity-element-child-before-unbound-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-unique",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "An xs:unique holds an xs:element whose type prefix p is unbound after its selector. An identity constraint admits only a selector and fields, so the schema is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/identity-element-child-before-unbound-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:99: s4s-elt-must-match.1: The content of 'identity constraint' must match (annotation?, selector, field+). A problem was found starting at: field. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-unique"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:67: The 'http://www.w3.org/2001/XMLSchema:element' element is not supported in this context. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-unique"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:element' at position 2. Tag 'xs:field' expected: Schema component: <xs:unique xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"u\"><xs:selector xpath=\".\" /><xs:element name=\"e\" type=\"p:T\" /></xs:unique> Path: /xs:schema/xs:element/xs:unique Schema URL: file://schema.xsd The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-unique"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}unique': The content is not valid. Expected is (annotation?, (selector, field+)). The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-unique"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/identity-element-child-before-unbound-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/schema-for-schemas-content-control",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/schema-for-schemas-content-control",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleType",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-key",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "Every schema element holds only the children its schema for schemas content model admits, in order and at most as often as allowed: annotations anywhere in xs:schema, import before declarations, a simple restriction with a simple type before facets, union member types, attribute uses before the attribute wildcard, a named group with one model group, a complex type with model group, attributes and wildcard in order, content derivations, and identity constraints with the selector before their fields. The schema is accepted."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/schema-for-schemas-content-control/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/schema-for-schemas-content-control/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/restriction-attribute-child-before-unbound-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/restriction-attribute-child-before-unbound-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "An xs:restriction in xs:simpleType holds an xs:attribute whose type prefix p is unbound. A simple restriction admits a simple type and facets only, so the schema is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/restriction-attribute-child-before-unbound-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:93: s4s-elt-must-match.1: The content of 'restriction' must match (annotation?, (simpleType?, (minExclusive | minInclusive | maxExclusive | maxInclusive | totalDigits | fractionDigits | length | minLength | maxLength | enumeration | whiteSpace | pattern)*)). A problem was found starting The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-restriction"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:59: The 'http://www.w3.org/2001/XMLSchema:attribute' element is not supported in this context. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-restriction"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:attribute' at position 1: Schema component: <xs:restriction xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" base=\"xs:string\"><xs:attribute name=\"a\" type=\"p:T\" /></xs:restriction> Path: /xs:schema/xs:simpleType/xs:restriction Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-restriction"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element attribute: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}restriction': The content is not valid. Expected is (annotation?, (simpleType?, (minExclusive | minInclusive | maxExclusive | maxInclusive | totalDigits | fractionDigits | length | minLength | maxLengt The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-restriction"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/restriction-attribute-child-before-unbound-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/list-facet-child-with-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/list-facet-child-with-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-list",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "An xs:list holds an xs:minLength facet carrying the unknown attribute foo. A list admits only an item simple type, so the facet is rejected with schema.content_model before its attribute is checked."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/list-facet-child-with-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:85: s4s-elt-must-match.1: The content of 'list' must match (annotation?, (simpleType?)). A problem was found starting at: minLength. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-list"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:53: The 'http://www.w3.org/2001/XMLSchema:minLength' element is not supported in this context. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-list"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:minLength' at position 1: Schema component: <xs:list xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" itemType=\"xs:int\"><xs:minLength value=\"1\" foo=\"1\" /></xs:list> Path: /xs:schema/xs:simpleType/xs:list Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-list"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element minLength: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}list': The content is not valid. Expected is (annotation?, simpleType?). The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-list"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/list-facet-child-with-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/union-element-child-before-unbound-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/union-element-child-before-unbound-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-union",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "An xs:union holds an xs:element whose type prefix p is unbound. A union admits only member simple types, so the schema is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/union-element-child-before-unbound-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:89: s4s-elt-must-match.1: The content of 'union' must match (annotation?, (simpleType*)). A problem was found starting at: element. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-union"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:57: The 'http://www.w3.org/2001/XMLSchema:element' element is not supported in this context. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-union"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:element' at position 1: Schema component: <xs:union xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" memberTypes=\"xs:int\"><xs:element name=\"e\" type=\"p:T\" /></xs:union> Path: /xs:schema/xs:simpleType/xs:union Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-union"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}union': The content is not valid. Expected is (annotation?, simpleType*). The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-union"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/union-element-child-before-unbound-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/include-after-declaration-with-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/include-after-declaration-with-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-include",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "xs:include, carrying the unknown attribute foo, follows a top-level xs:element. The schema for schemas places include before every declaration, and the parent's content model rejects the misplaced child before its own attributes are checked, so the schema is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/include-after-declaration-with-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:49: s4s-elt-invalid-content.3: Elements of type 'include' cannot appear after declarations as children of a <schema> element. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:2: The 'include' element cannot appear at this location. The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'foo' not allowed: Schema component: <xs:include xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" schemaLocation=\"other.xsd\" foo=\"1\" /> Path: /xs:schema/xs:include Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element include: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}schema': The content is not valid. Expected is ((include | import | redefine | annotation)*, (((simpleType | complexType | group | attributeGroup) | element | attribute | notation), annotation*)*). The project expectation follows the schema for schemas, whose content model for each schema element admits only the XSD-namespace children it names, in its order and at most as often as it allows; a child it does not admit is the violation at that child's start tag, which precedes the child's own attributes, later siblings, and QName prefixes resolved when an element ends; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/include-after-declaration-with-attribute/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/schema-syntax/child-admission/include-after-declaration-with-attribute/other.xsd",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/sequence-redefine-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/sequence-redefine-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-redefine",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "An xs:redefine appears inside an xs:sequence, where a model group admits no xs:redefine. xs:redefine is unsupported vocabulary, reported as unsupported.xs_redefine wherever it appears and before the parent's content model is checked."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/sequence-redefine-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:80: s4s-elt-must-match.1: The content of 'sequence' must match (annotation?, (element | group | choice | sequence | any)*). A problem was found starting at: redefine. The project expectation follows the schema for schemas, which places xs:redefine only among the leading children of xs:schema; xs:redefine is not supported, and as unsupported vocabulary it is reported as unsupported.xs_redefine wherever it appears, before the parent's content model, so the allowlist records unsupported.xs_redefine; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:40: The 'http://www.w3.org/2001/XMLSchema:redefine' element is not supported in this context. The project expectation follows the schema for schemas, which places xs:redefine only among the leading children of xs:schema; xs:redefine is not supported, and as unsupported vocabulary it is reported as unsupported.xs_redefine wherever it appears, before the parent's content model, so the allowlist records unsupported.xs_redefine; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:redefine' at position 1: Schema component: <xs:sequence xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:redefine schemaLocation=\"other.xsd\" /></xs:sequence> Path: /xs:schema/xs:complexType/xs:sequence Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, which places xs:redefine only among the leading children of xs:schema; xs:redefine is not supported, and as unsupported vocabulary it is reported as unsupported.xs_redefine wherever it appears, before the parent's content model, so the allowlist records unsupported.xs_redefine; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element redefine: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}sequence': The content is not valid. Expected is (annotation?, (element | group | choice | sequence | any)*). The project expectation follows the schema for schemas, which places xs:redefine only among the leading children of xs:schema; xs:redefine is not supported, and as unsupported vocabulary it is reported as unsupported.xs_redefine wherever it appears, before the parent's content model, so the allowlist records unsupported.xs_redefine; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/sequence-redefine-child/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/schema-syntax/child-admission/sequence-redefine-child/other.xsd",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/qname-prefix-binding/restriction-base-before-misplaced-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/qname-prefix-binding/restriction-base-before-misplaced-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "An xs:restriction whose base prefix p is unbound holds an xs:attribute, which a simple restriction does not admit. The unbound prefix is on the earlier start tag, so the schema is rejected with schema.reference."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/qname-prefix-binding/restriction-base-before-misplaced-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.reference",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:52: s4s-att-invalid-value: Invalid attribute value for 'base' in element 'restriction'. Recorded reason: UndeclaredPrefix: Cannot resolve 'p:T' as a QName: the prefix 'p' is not declared. The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:41: 'p:T' is an invalid value for the 'base' attribute. The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:attribute' at position 1: Schema component: <xs:restriction xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" base=\"p:T\"><xs:attribute name=\"a\" /></xs:restriction> Path: /xs:schema/xs:simpleType/xs:restriction Schema URL: file://schema.xsd  The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element restriction: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}restriction', attribute 'base': The value 'p:T' of simple type 'xs:QName' has no corresponding namespace declaration in scope. The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/qname-prefix-binding/restriction-base-before-misplaced-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/qname-prefix-binding/extension-base-before-out-of-order-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/qname-prefix-binding/extension-base-before-out-of-order-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "An xs:extension in xs:complexContent has an unbound base prefix p and holds an xs:sequence after an xs:attribute. The unbound prefix is on the extension start tag, which precedes the out-of-order child, so the schema is rejected with schema.reference."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/qname-prefix-binding/extension-base-before-out-of-order-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.reference",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:70: s4s-att-invalid-value: Invalid attribute value for 'base' in element 'extension'. Recorded reason: UndeclaredPrefix: Cannot resolve 'p:T' as a QName: the prefix 'p' is not declared. The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:59: 'p:T' is an invalid value for the 'base' attribute. The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:sequence' at position 2: Schema component: <xs:extension xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" base=\"p:T\"><xs:attribute name=\"a\" /><xs:sequence /></xs:extension> Path: /xs:schema/xs:complexType/xs:complexContent/xs:extension Schema URL: file://schema.xsd  The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element extension: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}extension', attribute 'base': The value 'p:T' of simple type 'xs:QName' has no corresponding namespace declaration in scope. The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/qname-prefix-binding/extension-base-before-out-of-order-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/qname-prefix-binding/member-types-second-name-before-misplaced-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/qname-prefix-binding/member-types-second-name-before-misplaced-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "The second name in the memberTypes of an xs:union has the unbound prefix p, and the union holds an xs:element. The unbound prefix is on the union start tag, so the schema is rejected with schema.reference."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/qname-prefix-binding/member-types-second-name-before-misplaced-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.reference",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:60: s4s-att-invalid-value: Invalid attribute value for 'memberTypes' in element 'union'. Recorded reason: cvc-datatype-valid.1.2.2: 'xs:int p:T' is not a valid value of list type '(List of QName)'. The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:35: The value 'xs:int p:T' is invalid according to its schema type 'List of QName' - 'p' is an undeclared prefix. The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:element' at position 1: Schema component: <xs:union xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" memberTypes=\"xs:int p:T\"><xs:element name=\"e\" /></xs:union> Path: /xs:schema/xs:simpleType/xs:union Schema URL: file://schema.xsd  The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element union: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}union', attribute 'memberTypes': The value 'p:T' of simple type 'xs:QName' has no corresponding namespace declaration in scope. The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/qname-prefix-binding/member-types-second-name-before-misplaced-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/qname-prefix-binding/keyref-refer-before-misplaced-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/qname-prefix-binding/keyref-refer-before-misplaced-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "An xs:keyref whose refer prefix p is unbound holds an xs:element, which an identity constraint does not admit. The unbound prefix is on the keyref start tag, so the schema is rejected with schema.reference."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/qname-prefix-binding/keyref-refer-before-misplaced-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.reference",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:55: s4s-att-invalid-value: Invalid attribute value for 'refer' in element 'keyref'. Recorded reason: UndeclaredPrefix: Cannot resolve 'p:K' as a QName: the prefix 'p' is not declared. The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:43: 'p:K' is an invalid value for the 'refer' attribute. The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:element' at position 1. Tag ('xs:selector' | 'xs:field') expected: Schema component: <xs:keyref xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"kr\" refer=\"p:K\"><xs:element name=\"e\" /></xs:keyref> Path: /xs:schema/xs:element/xs:keyref Schema URL: file://schema.xsd  The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element keyref: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}keyref', attribute 'refer': The value 'p:K' of simple type 'xs:QName' has no corresponding namespace declaration in scope. The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/qname-prefix-binding/keyref-refer-before-misplaced-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/qname-prefix-binding/type-before-later-unknown-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/qname-prefix-binding/type-before-later-unknown-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "A top-level xs:element carries type with the unbound prefix p followed by the unknown attribute foo. The type attribute comes first in the start tag, so the schema is rejected with schema.reference."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/qname-prefix-binding/type-before-later-unknown-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.reference",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:42: s4s-att-invalid-value: Invalid attribute value for 'type' in element 'element'. Recorded reason: UndeclaredPrefix: Cannot resolve 'p:T' as a QName: the prefix 'p' is not declared. The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:22: 'p:T' is an invalid value for the 'type' attribute. The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'foo' not allowed: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"e\" type=\"p:T\" foo=\"1\" /> Path: /xs:schema/xs:element Schema URL: file://schema.xsd  The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element': The attribute 'foo' is not allowed. The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/qname-prefix-binding/type-before-later-unknown-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/qname-prefix-binding/type-before-child-attribute-error",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/qname-prefix-binding/type-before-child-attribute-error",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "A top-level xs:element whose type prefix p is unbound holds an xs:annotation carrying the unknown attribute foo. The unbound prefix is on the element start tag, which precedes its child, so the schema is rejected with schema.reference."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/qname-prefix-binding/type-before-child-attribute-error/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.reference",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:33: s4s-att-invalid-value: Invalid attribute value for 'type' in element 'element'. Recorded reason: UndeclaredPrefix: Cannot resolve 'p:T' as a QName: the prefix 'p' is not declared. The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:22: 'p:T' is an invalid value for the 'type' attribute. The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'foo' not allowed: Schema component: <xs:annotation xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" foo=\"1\" /> Path: /xs:schema/xs:element/xs:annotation Schema URL: file://schema.xsd  The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element annotation: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}annotation': The attribute 'foo' is not allowed. The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/qname-prefix-binding/type-before-child-attribute-error/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/qname-prefix-binding/unknown-attribute-before-later-type",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/qname-prefix-binding/unknown-attribute-before-later-type",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "A top-level xs:element carries the unknown attribute foo followed by type with the unbound prefix p. The unknown attribute comes first in the start tag, so the schema is rejected with schema.invalid_attribute."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/qname-prefix-binding/unknown-attribute-before-later-type/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:42: s4s-att-not-allowed: Attribute 'foo' cannot appear in element 'element'. The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:22: The 'foo' attribute is not supported in this context. The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'foo' not allowed: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"e\" foo=\"1\" type=\"p:T\" /> Path: /xs:schema/xs:element Schema URL: file://schema.xsd  The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element': The attribute 'foo' is not allowed. The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/qname-prefix-binding/unknown-attribute-before-later-type/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/qname-prefix-binding/prefix-bound-on-same-start-tag-control",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/qname-prefix-binding/prefix-bound-on-same-start-tag-control",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "A top-level xs:element declares the prefix p on its own start tag and uses it in type. The prefix is in scope on that start tag, so the schema is accepted."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/qname-prefix-binding/prefix-bound-on-same-start-tag-control/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows QName interpretation in schema documents, under which a QName-valued attribute is resolved against the namespace bindings in scope on the start tag that carries it, so an unbound prefix or an invalid QName is a violation of that start tag, ordered with its other attributes and preceding its children; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-qname"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/qname-prefix-binding/prefix-bound-on-same-start-tag-control/schema.xsd",
           "role": "principal"
         }
       ]

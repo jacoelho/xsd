@@ -349,7 +349,7 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
   <xs:element minOccurs="0" ref="r:R"/>
 </xs:sequence></xs:complexType></xs:schema>`, code: xsderrors.CodeSchemaReference, line: 2, column: 3, messageContains: "prefix \"r\""},
 		{name: "element substitution", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element type="t:T" substitutionGroup="s:H" name="e"/>
+  <xs:element substitutionGroup="s:H" type="t:T" name="e"/>
 </xs:schema>`, code: xsderrors.CodeSchemaReference, line: 2, column: 3, messageContains: "prefix \"s\""},
 		{name: "attribute reference", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:complexType name="container">
   <xs:attribute use="optional" ref="r:R"/>

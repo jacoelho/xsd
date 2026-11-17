@@ -6,26 +6,35 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// xsderrors.CodeUnsupportedXSD11 defines what XSD 1.1 vocabulary reports.
-// Whether a name is vocabulary depends only on the carrying element's local
-// name, never on its ancestors, siblings or attribute values.
+// Unsupported vocabulary is the opt-out XSD-namespace syntax the library
+// does not implement: xs:redefine, reported as
+// xsderrors.CodeUnsupportedRedefine, and XSD 1.1 vocabulary, reported as
+// xsderrors.CodeUnsupportedXSD11. Whether a name is unsupported vocabulary
+// depends only on the carrying element's local name, never on its ancestors,
+// siblings or attribute values, so it is reported wherever it appears and
+// whatever its placement or values.
 //
 // The root element must be xs:schema before its vocabulary is judged, so a
 // root of any other name is a schema.root error whatever it carries.
-// Otherwise rejectXSD11Vocabulary is the first schema check of every admitted
-// XSD-namespace start tag, so the first XSD 1.1 vocabulary in document order
-// wins over the parent's content model and the element's own XSD 1.0 checks,
-// and loses only to an XSD 1.0 error already reported at an earlier start or
-// end tag. Content of xs:appinfo and xs:documentation is never schema
-// grammar, so nothing in it is vocabulary. Text is judged when its parent ends or rejects a child, so text
-// before XSD 1.1 vocabulary does not win over it. The abstract
-// substitution-group head xs:facet, which the XSD 1.1 schema for schemas also
-// declares, is not vocabulary: no XSD 1.1 schema document can contain it.
+// Otherwise rejectUnsupportedVocabulary is the first schema check of every
+// admitted XSD-namespace start tag, so the first unsupported vocabulary in
+// document order wins over the parent's content model and the element's own
+// XSD 1.0 checks, and loses only to an XSD 1.0 error already reported at an
+// earlier start or end tag. Content of xs:appinfo and xs:documentation is
+// never schema grammar, so nothing in it is vocabulary. Text is judged when
+// its parent ends or rejects a child, so text before unsupported vocabulary
+// does not win over it. The abstract substitution-group head xs:facet, which
+// the XSD 1.1 schema for schemas also declares, is not vocabulary: no XSD 1.1
+// schema document can contain it.
 
-// rejectXSD11Vocabulary reports n, an XSD-namespace start tag, when its name
-// or one of its unqualified attributes is XSD 1.1 vocabulary. The element name
-// is checked before the attributes, which are checked in start-tag order.
-func rejectXSD11Vocabulary(n *schemaSyntaxNode) error {
+// rejectUnsupportedVocabulary reports n, an XSD-namespace start tag, when its
+// name is unsupported vocabulary or one of its unqualified attributes is XSD
+// 1.1 vocabulary. The element name is checked before the attributes, which
+// are checked in start-tag order.
+func rejectUnsupportedVocabulary(n *schemaSyntaxNode) error {
+	if n.Name.Local == vocab.XSDElemRedefine {
+		return unsupportedAtSchemaNode(n, xsderrors.CodeUnsupportedRedefine, "xs:redefine is not supported")
+	}
 	if isXSD11Element(n.Name.Local) {
 		return unsupportedAtSchemaNode(n, xsderrors.CodeUnsupportedXSD11, "XSD 1.1 feature "+n.Name.Local+" is not supported")
 	}

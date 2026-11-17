@@ -40,37 +40,6 @@ func TestCheckIdentityConstraintChildren(t *testing.T) {
 			wantSelector: 1, wantFields: []int{2, 3},
 		},
 		{
-			name: "duplicate selector",
-			children: []identityChildFixture{
-				{local: selectorChild, xpath: lexicalAttribute{Value: "row", Present: true}},
-				{local: selectorChild, xpath: lexicalAttribute{Value: "row", Present: true}},
-			},
-			wantChild:   1,
-			wantNested:  -1,
-			wantCode:    xsderrors.CodeSchemaContentModel,
-			wantMessage: "identity constraint can contain at most one selector",
-		},
-		{
-			name: "field before selector",
-			children: []identityChildFixture{
-				{local: fieldChild, xpath: lexicalAttribute{Value: "@id", Present: true}},
-			},
-			wantChild:   0,
-			wantNested:  -1,
-			wantCode:    xsderrors.CodeSchemaContentModel,
-			wantMessage: "identity constraint field requires selector",
-		},
-		{
-			name: "invalid child",
-			children: []identityChildFixture{
-				{local: "element"},
-			},
-			wantChild:   0,
-			wantNested:  -1,
-			wantCode:    xsderrors.CodeSchemaContentModel,
-			wantMessage: "invalid identity constraint child \"element\"",
-		},
-		{
 			name: "missing selector",
 			children: []identityChildFixture{
 				{local: annotationChild},

@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:element name="r"><xs:unique name="u"><xs:selector xpath="."/><xs:element name="e" type="p:T"/></xs:unique></xs:element>
+</xs:schema>

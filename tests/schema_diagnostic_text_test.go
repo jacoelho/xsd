@@ -144,7 +144,11 @@ var schemaDiagnosticLabelFuncs = map[string]bool{
 // or already-quoted text at construction. The lint does not check the
 // constructors, which is one of its known gaps.
 var schemaDiagnosticFields = map[string]bool{
-	"childOrderError.Message":                 true,
+	"childOrder.Label":                        true,
+	"childRule.ForbiddenMsg":                  true,
+	"childRule.OrderMsg":                      true,
+	"childRule.DupMsg":                        true,
+	"childRule.PrecedingMsg":                  true,
 	"derivationSetParser.label":               true,
 	"contentDerivationBase.Container":         true,
 	"contentDerivationBase.Derivation":        true,

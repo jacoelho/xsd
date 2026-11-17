@@ -12,30 +12,22 @@ const (
 	fieldChild    = vocab.XSDElemField
 )
 
-//nolint:gocognit // One ordered traversal preserves child-error precedence and selects the validated source nodes.
+// checkIdentityConstraintChildren selects the selector and fields of n, an
+// identity constraint whose child order was admitted as each child started,
+// and checks what is required of them.
 func checkIdentityConstraintChildren(n *schemaNode) (identityConstraintSyntax, error) {
 	var syntax identityConstraintSyntax
 	for child := range n.xsdChildren() {
 		switch child.local {
-		case annotationChild:
 		case selectorChild:
-			if syntax.selector != nil {
-				return identityConstraintSyntax{}, schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "identity constraint can contain at most one selector")
-			}
-			if err := checkIdentityXPathChild(child); err != nil {
-				return identityConstraintSyntax{}, err
-			}
 			syntax.selector = child
 		case fieldChild:
-			if syntax.selector == nil {
-				return identityConstraintSyntax{}, schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "identity constraint field requires selector")
-			}
-			if err := checkIdentityXPathChild(child); err != nil {
-				return identityConstraintSyntax{}, err
-			}
 			syntax.fields = append(syntax.fields, child)
 		default:
-			return identityConstraintSyntax{}, schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "invalid identity constraint child "+diagnostictext.Quote(child.local))
+			continue
+		}
+		if err := checkIdentityXPathChild(child); err != nil {
+			return identityConstraintSyntax{}, err
 		}
 	}
 	if syntax.selector == nil {

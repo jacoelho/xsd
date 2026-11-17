@@ -136,7 +136,7 @@ func (c *compiler) resolveModelGroupRef(ctx *schemaSetDocument, n *schemaNode, r
 	if !ok {
 		return modelGroupRefSource{}, withSchemaCompileLocation(n, schemaComponentMissingError(schemaComponentModelGroup, label))
 	}
-	modelNode, err := checkTopLevelGroupChildren(raw.sourceNode())
+	modelNode, err := topLevelGroupModel(raw.sourceNode())
 	if err != nil {
 		return modelGroupRefSource{}, err
 	}
@@ -200,13 +200,6 @@ func (c *compiler) appendModelChild(ctx *schemaSetDocument, m *contentModelNode,
 }
 
 func (c *compiler) compileNestedModelChild(ctx *schemaSetDocument, child *schemaNode, parent modelKind) (contentModelID, contentModelNode, error) {
-	admission, err := modelChildAdmissionForNode(child)
-	if err != nil {
-		return noContentModel, contentModelNode{}, err
-	}
-	if admissionErr := validateModelGroupChildAtNode(child, parent, admission); admissionErr != nil {
-		return noContentModel, contentModelNode{}, admissionErr
-	}
 	id, err := c.compileModel(ctx, child)
 	if err != nil || id == noContentModel {
 		return id, contentModelNode{}, err
@@ -264,7 +257,7 @@ func (c *compiler) compileDeferredModelChildren(source schemaComponent) error {
 		case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll, vocab.XSDElemGroup:
 			_, _, err = c.compileNestedModelChild(source.ctx, child, kind)
 		default:
-			return schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "invalid model group child "+diagnostictext.Quote(child.local))
+			return withSchemaCompileLocation(child, xsderrors.InternalInvariant("model group child order admitted xs:"+diagnostictext.Quote(child.local)))
 		}
 		if err != nil {
 			return err
@@ -275,24 +268,6 @@ func (c *compiler) compileDeferredModelChildren(source schemaComponent) error {
 
 func validateModelGroupChildAtNode(n *schemaNode, parent modelKind, child modelChildAdmission) error {
 	return withSchemaCompileLocation(n, validateModelGroupChildAdmission(parent, child))
-}
-
-func modelChildAdmissionForNode(n *schemaNode) (modelChildAdmission, error) {
-	switch n.local {
-	case vocab.XSDElemElement:
-		return modelChildAdmission{Kind: modelChildElement}, nil
-	case vocab.XSDElemAny:
-		return modelChildAdmission{Kind: modelChildWildcard}, nil
-	case vocab.XSDElemGroup:
-		return modelChildAdmission{Kind: modelChildModel}, nil
-	case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll:
-		kind, ok := schemaModelKind(n)
-		if !ok {
-			return modelChildAdmission{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("model group node has no typed model kind"))
-		}
-		return modelChildAdmissionForModelKind(kind), nil
-	}
-	return modelChildAdmission{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("model child has no typed schema kind"))
 }
 
 func validateModelOccurrence(n *schemaNode, limits Limits) error {

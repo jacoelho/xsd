@@ -19,6 +19,7 @@ const (
 	schemaComponentLabel               = "schema component"
 	elementDeclarationLabel            = "element declaration"
 	attributeDeclarationLabel          = "attribute declaration"
+	attributeUseLabel                  = "attribute use"
 )
 
 const (

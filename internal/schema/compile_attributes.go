@@ -42,9 +42,6 @@ func (c *compiler) compileAttributeByQName(q QName) (result AttributeID, err err
 }
 
 func (c *compiler) compileAttributeDecl(ctx *schemaSetDocument, n *schemaNode, q QName) (attributeDecl, error) {
-	if err := checkAttributeDeclarationChildren(n); err != nil {
-		return attributeDecl{}, err
-	}
 	if err := c.validateAttributeDeclName(n, q); err != nil {
 		return attributeDecl{}, err
 	}
@@ -166,11 +163,6 @@ func schemaQNameResolver(n *schemaNode) valuepkg.QNameResolver {
 }
 
 func (c *compiler) compileAttributeUses(ctx *schemaSetDocument, parent *schemaNode, inherited []attributeUse, inheritedWildcard WildcardID, mode attributeMergeMode) (attributeUseSetID, error) {
-	if parent.local == vocab.XSDElemAttributeGroup {
-		if err := checkAttributeGroupDeclarationChildren(parent); err != nil {
-			return noAttributeUseSet, err
-		}
-	}
 	if id, ok, err := c.compileDirectAttributeGroupUse(ctx, parent, inherited, inheritedWildcard, mode); ok {
 		return id, err
 	}
@@ -622,9 +614,6 @@ func (c *compiler) admitAttributeProhibition(ctx *schemaSetDocument, n *schemaNo
 }
 
 func (c *compiler) admitProhibitedAttributeChildren(ctx *schemaSetDocument, n *schemaNode) error {
-	if err := checkAttributeDeclarationChildren(n); err != nil {
-		return err
-	}
 	source := semanticSource[*schemaAttributeSource](&n.semantic)
 	simple := n.firstXS(vocab.XSDElemSimpleType)
 	if err := validateAttributeTypeSource(attributeTypeSource{Type: source.Type.Lexical, HasSimpleTypeChild: simple != nil}); err != nil {

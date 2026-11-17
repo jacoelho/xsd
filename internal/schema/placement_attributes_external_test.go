@@ -156,12 +156,12 @@ func TestPlacementRequiredAttributeWinsOverLaterErrors(t *testing.T) {
 	}
 	cases := []placementAttributeCase{
 		missing("local element name before child", inSequence(`<xs:element minOccurs="0"><xs:complexType foo="1"/></xs:element>`), "local element missing name or ref", 4, 7),
-		missing("local element name before unbound type prefix", inSequence(`<xs:element type="p:T"/>`), "local element missing name or ref", 4, 7),
+		missing("unbound type prefix before missing local element name", inSequence(`<xs:element type="p:T"/>`), `unbound QName prefix "p"`, 4, 7),
 		missing("local attribute name before child", inComplexType(`<xs:attribute><xs:simpleType foo="1"/></xs:attribute>`), "attribute missing name or ref", 3, 5),
-		missing("local attribute name before unbound type prefix", inComplexType(`<xs:attribute type="p:T"/>`), "attribute missing name or ref", 3, 5),
+		missing("unbound type prefix before missing local attribute name", inComplexType(`<xs:attribute type="p:T"/>`), `unbound QName prefix "p"`, 3, 5),
 		missing("group use ref before child", inSequence(`<xs:group minOccurs="0"><xs:annotation foo="1"/></xs:group>`), "group use missing ref", 4, 7),
 		missing("attributeGroup use ref before child", inComplexType(`<xs:attributeGroup><xs:annotation foo="1"/></xs:attributeGroup>`), "attributeGroup use missing ref", 3, 5),
-		missing("top-level element name before unbound type prefix", `  <xs:element type="p:T"/>`, `top-level "element" missing name`, 2, 3),
+		missing("unbound type prefix before missing top-level element name", `  <xs:element type="p:T"/>`, `unbound QName prefix "p"`, 2, 3),
 	}
 	for _, container := range []string{"simpleContent", "complexContent"} {
 		for _, derivation := range []string{"restriction", "extension"} {

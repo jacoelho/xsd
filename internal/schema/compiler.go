@@ -368,7 +368,7 @@ func (c *compiler) compileModelGroupByQName(q QName) error {
 	if !ok {
 		return schemaComponentMissingError(schemaComponentModelGroup, label)
 	}
-	modelNode, err := checkTopLevelGroupChildren(raw.sourceNode())
+	modelNode, err := topLevelGroupModel(raw.sourceNode())
 	if err != nil {
 		return err
 	}
@@ -632,9 +632,6 @@ func simpleTypeDerivationChild(n *schemaNode) *schemaNode {
 }
 
 func validateSimpleTypeChildren(n *schemaNode) error {
-	if err := checkOrderedXSDChildren(n, simpleTypeChildOrder); err != nil {
-		return err
-	}
 	for child := range n.xsdChildren() {
 		switch child.local {
 		case restrictionChild, listChild, unionChild:
@@ -645,9 +642,6 @@ func validateSimpleTypeChildren(n *schemaNode) error {
 }
 
 func (c *compiler) compileRestriction(ctx *schemaSetDocument, n *schemaNode, name QName) (simpleType, error) {
-	if err := checkOrderedXSDChildren(n, simpleRestrictionChildOrder); err != nil {
-		return simpleType{}, err
-	}
 	baseID, err := c.compileRestrictionBase(ctx, n)
 	if err != nil {
 		return simpleType{}, err
@@ -698,9 +692,6 @@ func (c *compiler) compileRestrictionBase(ctx *schemaSetDocument, n *schemaNode)
 }
 
 func (c *compiler) compileList(ctx *schemaSetDocument, n *schemaNode, name QName) (simpleType, error) {
-	if err := checkOrderedXSDChildren(n, simpleListChildOrder); err != nil {
-		return simpleType{}, err
-	}
 	item := NoSimpleType
 	simpleTypeChildren := schemaSimpleTypeChildren(n)
 	itemTypeSource := n.semantic.derivationItemType()
@@ -775,9 +766,6 @@ func (c *compiler) compileSimpleTypeReference(n *schemaNode, q QName) (SimpleTyp
 }
 
 func (c *compiler) compileUnion(ctx *schemaSetDocument, n *schemaNode, name QName) (simpleType, error) {
-	if err := checkOrderedXSDChildren(n, simpleUnionChildOrder); err != nil {
-		return simpleType{}, err
-	}
 	compilation := simpleUnionCompilation{
 		compiler: c,
 		ctx:      ctx,

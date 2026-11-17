@@ -124,9 +124,10 @@ const (
 // admits and requires in each placement, as the schema for schemas types of
 // that placement and src-element.2.1 and src-attribute.3.1 declare them.
 // Both run on the start tag, so their violations precede every child in
-// document order. XSD 1.1 attributes never reach them; see
-// rejectXSD11Vocabulary. Elements outside the XSD 1.0 vocabulary admit every
-// attribute; compilation rejects them.
+// document order. Unsupported vocabulary never reaches them; see
+// rejectUnsupportedVocabulary. Elements outside the XSD 1.0 vocabulary never
+// reach them: their parent's content rejects them first; see
+// childContentViolation.
 func schemaAttributeVocabularyOf(element, attr string, placement schemaElementPlacement) schemaAttributeVocabulary {
 	switch {
 	case !schemaElementAttributeAllowed(element, attr):
@@ -311,7 +312,7 @@ func schemaElementAttributeAllowed(element, attr string) bool {
 		if _, ok := facetMaskForLocal(element); ok {
 			return facetAttributeAllowed(element, attr)
 		}
-		return true
+		return false
 	}
 }
 

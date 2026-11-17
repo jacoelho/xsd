@@ -396,37 +396,37 @@ func schemaGlobalSourceFor(n *schemaSyntaxNode) schemaGlobalSource {
 	}
 }
 
-func schemaQNameSourceFor(n *schemaSyntaxNode, local string) (schemaQNameAttribute, error) {
-	lexical := schemaLexicalAttributeSyntax(n, local)
-	if !lexical.Present {
-		return schemaQNameAttribute{Lexical: lexical}, nil
+// admitSchemaQNameAttribute resolves attr, a QName-valued attribute of n, or
+// each QName of a memberTypes list, into qnames. A QName must be lexically
+// valid and its prefix bound in the namespace scope of the start tag that
+// carries it; both are known on that start tag, so the violation is ordered
+// with the tag's other attribute checks. The components the names denote are
+// resolved when the referring component compiles.
+func admitSchemaQNameAttribute(n *schemaSyntaxNode, attr schemaAttribute, qnames *semanticQNameProjection) error {
+	lexical := lexicalAttribute{Value: attr.Value, Present: true}
+	if attr.Name.Local != vocab.XSDAttrMemberTypes {
+		name, err := n.resolveQName(attr.Value)
+		if err != nil {
+			return err
+		}
+		setSemanticQNameAttribute(qnames, attr.Name.Local, schemaQNameAttribute{Lexical: lexical, Name: name})
+		return nil
 	}
-	name, err := n.resolveQName(lexical.Value)
-	if err != nil {
-		return schemaQNameAttribute{}, err
-	}
-	return schemaQNameAttribute{Lexical: lexical, Name: name}, nil
-}
-
-func schemaQNameListSourceFor(n *schemaSyntaxNode, local string) (schemaQNameListAttribute, error) {
-	lexical := schemaLexicalAttributeSyntax(n, local)
-	if !lexical.Present {
-		return schemaQNameListAttribute{Lexical: lexical}, nil
-	}
-	names := make([]xml.Name, 0, xmlFieldCount(lexical.Value))
-	for start := 0; start < len(lexical.Value); {
-		part, next, ok := nextXMLField(lexical.Value, start)
+	names := make([]xml.Name, 0, xmlFieldCount(attr.Value))
+	for start := 0; ; {
+		part, next, ok := nextXMLField(attr.Value, start)
 		if !ok {
 			break
 		}
 		name, err := n.resolveQName(part)
 		if err != nil {
-			return schemaQNameListAttribute{}, err
+			return err
 		}
 		names = append(names, name)
 		start = next
 	}
-	return schemaQNameListAttribute{Lexical: lexical, Names: names}, nil
+	qnames.memberTypes = schemaQNameListAttribute{Lexical: lexical, Names: names}
+	return nil
 }
 
 func nextXMLField(s string, start int) (field string, next int, ok bool) {
@@ -459,7 +459,9 @@ func xmlFieldCount(s string) int {
 	return count
 }
 
-func (syntax *schemaSyntaxNode) buildSemanticSource(n *schemaNode) error {
+// buildSemanticSource publishes the semantic source of n from its admitted
+// start tag and the QName attributes resolved while it was admitted.
+func (syntax *schemaSyntaxNode) buildSemanticSource(n *schemaNode, qnames *semanticQNameProjection) {
 	var s schemaSemanticSource
 	for _, attr := range syntax.Attrs {
 		if attr.Name.Space == vocab.XMLNamespaceURI && attr.Name.Local == vocab.XMLAttrBase {
@@ -467,55 +469,8 @@ func (syntax *schemaSyntaxNode) buildSemanticSource(n *schemaNode) error {
 			continue
 		}
 	}
-	projection, err := resolveSemanticQNames(syntax)
-	if err != nil {
-		return err
-	}
-	s.kind = buildSemanticKind(syntax, &projection)
+	s.kind = buildSemanticKind(syntax, qnames)
 	n.semantic = s
-	return nil
-}
-
-func resolveSemanticQNames(n *schemaSyntaxNode) (semanticQNameProjection, error) {
-	projection, err := resolveSemanticQNameAttributes(n)
-	if err != nil {
-		return semanticQNameProjection{}, err
-	}
-	if !schemaNodeHasQNameAttr(n, vocab.XSDAttrMemberTypes) {
-		return projection, nil
-	}
-	value, err := schemaQNameListSourceFor(n, vocab.XSDAttrMemberTypes)
-	if err != nil {
-		return semanticQNameProjection{}, err
-	}
-	if value.Lexical.Present {
-		projection.memberTypes = value
-	}
-	return projection, nil
-}
-
-var semanticQNameAttributeNames = [...]string{
-	vocab.XSDAttrBase,
-	vocab.XSDAttrItemType,
-	vocab.XSDAttrRef,
-	vocab.XSDAttrRefer,
-	vocab.XSDAttrSubstitutionGroup,
-	vocab.XSDAttrType,
-}
-
-func resolveSemanticQNameAttributes(n *schemaSyntaxNode) (semanticQNameProjection, error) {
-	var projection semanticQNameProjection
-	for _, local := range semanticQNameAttributeNames {
-		if !schemaNodeHasQNameAttr(n, local) {
-			continue
-		}
-		value, err := schemaQNameSourceFor(n, local)
-		if err != nil {
-			return semanticQNameProjection{}, err
-		}
-		setSemanticQNameAttribute(&projection, local, value)
-	}
-	return projection, nil
 }
 
 func setSemanticQNameAttribute(projection *semanticQNameProjection, local string, value schemaQNameAttribute) {

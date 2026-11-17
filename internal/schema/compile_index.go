@@ -2,7 +2,6 @@ package schema
 
 import (
 	"github.com/jacoelho/xsd/internal/vocab"
-	"github.com/jacoelho/xsd/xsderrors"
 )
 
 // index scans each plan document once per effective-namespace context, so a
@@ -80,7 +79,7 @@ func (c *compiler) indexType(child *schemaNode, q QName, label string, component
 }
 
 func (c *compiler) indexModelGroup(child *schemaNode, q QName, label string, component schemaComponent) error {
-	model, err := checkTopLevelGroupChildren(child)
+	model, err := topLevelGroupModel(child)
 	if err != nil {
 		return err
 	}
@@ -101,50 +100,16 @@ func (c *compiler) indexNotation(ctx *schemaSetDocument, n *schemaNode, name str
 	return withSchemaCompileLocation(n, c.addNotation(q, c.rt.formatName(q)))
 }
 
+// validateModelGroupSyntax checks the occurrence attributes of the model
+// groups nested in n. Which particles n admits was decided as each started.
 func validateModelGroupSyntax(n *schemaNode, limits Limits) error {
-	if n.local == vocab.XSDElemGroup {
-		return nil
-	}
-	parentKind, ok := schemaModelKind(n)
-	if !ok {
-		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("model group has no typed model kind"))
-	}
-	var orderLocal string
-	switch parentKind {
-	case modelSequence:
-		orderLocal = vocab.XSDElemSequence
-	case modelChoice:
-		orderLocal = vocab.XSDElemChoice
-	case modelAll:
-		orderLocal = vocab.XSDElemAll
-	case modelEmpty, modelAny:
-		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("unknown typed model group kind"))
-	}
-	if err := checkOrderedXSDChildren(n, modelGroupChildOrder(orderLocal)); err != nil {
-		return err
-	}
 	for child := range n.xsdChildren() {
-		if child.local == vocab.XSDElemAnnotation {
-			continue
+		switch child.local {
+		case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll:
+			if err := validateNestedModelGroupOccurrence(child, limits); err != nil {
+				return err
+			}
 		}
-		if err := validateModelGroupChild(child, parentKind, limits); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func validateModelGroupChild(child *schemaNode, parent modelKind, limits Limits) error {
-	admission, err := modelChildAdmissionForNode(child)
-	if err != nil {
-		return err
-	}
-	if err := validateModelGroupChildAdmission(parent, admission); err != nil {
-		return withSchemaCompileLocation(child, err)
-	}
-	switch child.local {
-	case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll:
-		return validateNestedModelGroupOccurrence(child, limits)
 	}
 	return nil
 }

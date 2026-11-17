@@ -10,7 +10,7 @@ import (
 func testRawNodeWithLocalAttrs(local string, attrs []string) *schemaSyntaxNode {
 	rawAttrs := make([]xmlstream.Attr, len(attrs))
 	for i, attr := range attrs {
-		rawAttrs[i] = testRawAttr("", attr, "")
+		rawAttrs[i] = testRawAttr("", attr, "v")
 	}
 	return testXSDRawNode(local, rawAttrs)
 }
@@ -146,11 +146,6 @@ func TestCheckRawSchemaAttributes(t *testing.T) {
 			element:     "maxLength",
 			attrs:       []string{"value", "ref"},
 			wantMessage: "\"maxLength\" cannot have attribute \"ref\"",
-		},
-		{
-			name:    "unknown xsd element remains permissive",
-			element: "futureElement",
-			attrs:   []string{"futureAttr"},
 		},
 	}
 	for _, tt := range tests {
