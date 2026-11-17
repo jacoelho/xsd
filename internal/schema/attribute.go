@@ -191,12 +191,12 @@ func (s AttributeUseSetRead) ValueConstraintSlots() AttributeUseSlots {
 // AttributeUseRead exposes validation-facing facts for one declared attribute
 // use without exposing compiler-owned storage.
 type AttributeUseRead struct {
-	label      string
+	quotedName string
 	constraint ValueConstraintRead
 	name       QName
 	typ        SimpleTypeID
 	required   bool
-	kind       declarationValueConstraint
+	kind       valueConstraintKind
 }
 
 // newAttributeUseRead returns an immutable validation read projection for one
@@ -213,7 +213,7 @@ func newAttributeUseRead(names *nameTable, use attributeUse) AttributeUseRead {
 	return AttributeUseRead{
 		name:       use.Name,
 		typ:        use.Type,
-		label:      names.Format(use.Name),
+		quotedName: names.Format(use.Name),
 		constraint: constraint,
 		kind:       use.ValueConstraint.kind(),
 		required:   use.Required,
@@ -230,9 +230,9 @@ func (u AttributeUseRead) TypeID() SimpleTypeID {
 	return u.typ
 }
 
-// Label returns the formatted attribute name for diagnostics.
-func (u AttributeUseRead) Label() string {
-	return u.label
+// QuotedName returns the attribute's expanded name, quoted for diagnostics.
+func (u AttributeUseRead) QuotedName() string {
+	return u.quotedName
 }
 
 // Required reports whether the attribute must be present.
@@ -242,7 +242,7 @@ func (u AttributeUseRead) Required() bool {
 
 // FixedValue returns the fixed value, if present.
 func (u AttributeUseRead) FixedValue() (ValueConstraintRead, bool) {
-	if u.kind != declarationValueConstraintFixed {
+	if u.kind != valueConstraintFixed {
 		return ValueConstraintRead{}, false
 	}
 	return u.constraint, true

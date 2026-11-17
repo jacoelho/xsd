@@ -244,9 +244,9 @@ func orderedUpperRestricts(derived, base boundValue) bool {
 // compareDerivationBounds orders a derived bound against its base. xs:time
 // bounds compare as raw UTC seconds on a reference day (rawTimeProjection),
 // not as recurring time of day: a maxInclusive base of 12:00:00-10:00 makes a
-// derived 12:00:00-14:00 invalid. Instance acceptance still uses recurring
-// time. This oracle is source-qualified; see R-127 in
-// docs/spec/INTERPRETATIONS.md.
+// derived 12:00:00-14:00 invalid (W3C msMeta time_maxInclusive007_119).
+// Instance acceptance and exclusive-bound restatement equality use recurring
+// time; see R-127 in docs/spec/INTERPRETATIONS.md.
 func compareDerivationBounds(derived, base boundValue) (orderedFacetRelation, bool) {
 	if derived.value.kind != primitiveTime || base.value.kind != primitiveTime {
 		return compareAtomic(&derived.value, &base.value)
@@ -254,13 +254,6 @@ func compareDerivationBounds(derived, base boundValue) (orderedFacetRelation, bo
 	left := rawTimeProjection(derived)
 	right := rawTimeProjection(base)
 	return compareTimePartial(left, right), true
-}
-
-// equalDerivationBounds reports whether a and b are equal under the order of
-// compareDerivationBounds.
-func equalDerivationBounds(a, b boundValue) bool {
-	relation, ok := compareDerivationBounds(a, b)
-	return ok && relation == orderedFacetEqual
 }
 
 func rawTimeProjection(bound boundValue) TimeValue {

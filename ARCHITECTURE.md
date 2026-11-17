@@ -260,7 +260,9 @@ owner, `internal/schema`, because no value-owned parser exists for them.
   reading the facet, so the diagnostic names the literal; ordering against
   inherited bounds and fixed-facet checks belong to `Builder.Complete`'s
   restriction derivation, located at the simple type. Restatement equality is
-  the same-side derivation order (`compareDerivationBounds`). Restriction
+  value-space equality, the order instance values are checked against; for
+  `xs:time` that is the recurring time of day, while `Builder.Complete` orders
+  derived bounds day-preserving (`compareDerivationBounds`). Restriction
   derivation returns the effective facet program, and the compiler does not
   reconstruct that merge. `FacetAllowed` is the only facet-applicability rule
   for schema admission, value construction, and diagnostics.

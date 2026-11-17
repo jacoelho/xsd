@@ -448,15 +448,15 @@ func (c *compiler) validateAttributeDeclName(n *schemaNode, q QName) error {
 	return nil
 }
 
-func validateElementDeclValueConstraintAtNode(n *schemaNode, constraint declarationValueConstraint) error {
-	if err := validateElementDeclValueConstraintAdmission(constraint); err != nil {
+func validateElementDeclValueConstraintAtNode(n *schemaNode, defaultAttr, fixedAttr lexicalAttribute) error {
+	if err := validateElementDeclValueConstraintAdmission(defaultAttr, fixedAttr); err != nil {
 		return withSchemaCompileLocation(n, invalidAttributeError(err))
 	}
 	return nil
 }
 
-func validateAttributeDeclValueConstraintAtNode(n *schemaNode, constraint declarationValueConstraint) error {
-	if err := validateAttributeDeclValueConstraintAdmission(constraint); err != nil {
+func validateAttributeDeclValueConstraintAtNode(n *schemaNode, defaultAttr, fixedAttr lexicalAttribute) error {
+	if err := validateAttributeDeclValueConstraintAdmission(defaultAttr, fixedAttr); err != nil {
 		return withSchemaCompileLocation(n, invalidAttributeError(err))
 	}
 	return nil

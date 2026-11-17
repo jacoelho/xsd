@@ -282,27 +282,24 @@ func TestSourceValueConstraint(t *testing.T) {
 		defaultAttr lexicalAttribute
 		fixedAttr   lexicalAttribute
 		want        *valueConstraint
-		wantKind    declarationValueConstraint
+		wantKind    valueConstraintKind
 	}{
-		{name: "none", wantKind: declarationValueConstraintNone},
-		{name: "default", defaultAttr: present("d"), want: &valueConstraint{Lexical: "d"}, wantKind: declarationValueConstraintDefault},
-		{name: "fixed", fixedAttr: present("f"), want: &valueConstraint{Lexical: "f", Fixed: true}, wantKind: declarationValueConstraintFixed},
-		{name: "empty fixed", fixedAttr: present(""), want: &valueConstraint{Fixed: true}, wantKind: declarationValueConstraintFixed},
-		{name: "conflict", defaultAttr: present("d"), fixedAttr: present("f"), wantKind: declarationValueConstraintConflict},
+		{name: "none", wantKind: valueConstraintNone},
+		{name: "default", defaultAttr: present("d"), want: &valueConstraint{Lexical: "d"}, wantKind: valueConstraintDefault},
+		{name: "fixed", fixedAttr: present("f"), want: &valueConstraint{Lexical: "f", Fixed: true}, wantKind: valueConstraintFixed},
+		{name: "empty fixed", fixedAttr: present(""), want: &valueConstraint{Fixed: true}, wantKind: valueConstraintFixed},
+		{name: "both", defaultAttr: present("d"), fixedAttr: present("f"), wantKind: valueConstraintNone},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, kind := sourceValueConstraint(tt.defaultAttr, tt.fixedAttr)
-			if kind != tt.wantKind {
-				t.Fatalf("sourceValueConstraint() kind = %d, want %d", kind, tt.wantKind)
-			}
+			got := sourceValueConstraint(tt.defaultAttr, tt.fixedAttr)
 			if (got == nil) != (tt.want == nil) || got != nil && (got.Lexical != tt.want.Lexical || got.Fixed != tt.want.Fixed) {
 				t.Fatalf("sourceValueConstraint() = %+v, want %+v", got, tt.want)
 			}
-			if got.kind() != kind && kind != declarationValueConstraintConflict {
-				t.Fatalf("constraint kind = %d, want %d", got.kind(), kind)
+			if got.kind() != tt.wantKind {
+				t.Fatalf("constraint kind = %d, want %d", got.kind(), tt.wantKind)
 			}
 		})
 	}

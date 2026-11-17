@@ -2,8 +2,6 @@ package schema
 
 import (
 	"errors"
-
-	"github.com/jacoelho/xsd/xsderrors"
 )
 
 // attributeUseMode identifies the lexical xs:attribute use mode.
@@ -92,26 +90,18 @@ func validateAttributeUseFixedValueAdmission(admission attributeUseFixedValueAdm
 
 // validateElementDeclValueConstraintAdmission validates compile-time
 // default/fixed placement for one element declaration.
-func validateElementDeclValueConstraintAdmission(constraint declarationValueConstraint) error {
-	switch constraint {
-	case declarationValueConstraintNone, declarationValueConstraintDefault, declarationValueConstraintFixed:
-		return nil
-	case declarationValueConstraintConflict:
+func validateElementDeclValueConstraintAdmission(defaultAttr, fixedAttr lexicalAttribute) error {
+	if defaultAttr.Present && fixedAttr.Present {
 		return errors.New("element cannot have both default and fixed")
-	default:
-		return xsderrors.InternalInvariant("element declaration has unknown value constraint")
 	}
+	return nil
 }
 
 // validateAttributeDeclValueConstraintAdmission validates compile-time
 // default/fixed placement for one attribute declaration.
-func validateAttributeDeclValueConstraintAdmission(constraint declarationValueConstraint) error {
-	switch constraint {
-	case declarationValueConstraintNone, declarationValueConstraintDefault, declarationValueConstraintFixed:
-		return nil
-	case declarationValueConstraintConflict:
+func validateAttributeDeclValueConstraintAdmission(defaultAttr, fixedAttr lexicalAttribute) error {
+	if defaultAttr.Present && fixedAttr.Present {
 		return errors.New("attribute cannot have both default and fixed")
-	default:
-		return xsderrors.InternalInvariant("attribute declaration has unknown value constraint")
 	}
+	return nil
 }

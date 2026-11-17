@@ -61,11 +61,10 @@ func (c *compiler) compileAttributeDecl(ctx *schemaSetDocument, n *schemaNode, q
 		return attributeDecl{}, err
 	}
 	source := semanticSource[*schemaAttributeSource](&n.semantic)
-	constraint, kind := sourceValueConstraint(source.Default, source.Fixed)
-	if err = validateAttributeDeclValueConstraintAtNode(n, kind); err != nil {
+	if err = validateAttributeDeclValueConstraintAtNode(n, source.Default, source.Fixed); err != nil {
 		return attributeDecl{}, err
 	}
-	decl := attributeDecl{Name: q, Type: typ, ValueConstraint: constraint}
+	decl := attributeDecl{Name: q, Type: typ, ValueConstraint: sourceValueConstraint(source.Default, source.Fixed)}
 	if err = c.validateAttributeValueConstraint(&decl.ValueConstraint, q, typ, n, validateAttributeDeclValueConstraintRuntime); err != nil {
 		return attributeDecl{}, withSchemaCompileLocation(n, err)
 	}
@@ -525,7 +524,7 @@ func (c *compiler) validateAttributeUseOverrides(n *schemaNode, use *attributeUs
 	if !base.ref {
 		return nil
 	}
-	local, _ := sourceValueConstraint(overrides.defaultAttr, overrides.fixedAttr)
+	local := sourceValueConstraint(overrides.defaultAttr, overrides.fixedAttr)
 	if local == nil {
 		return nil
 	}

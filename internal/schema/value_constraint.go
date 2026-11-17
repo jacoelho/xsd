@@ -24,31 +24,45 @@ type valueConstraint struct {
 	Fixed         bool
 }
 
-// sourceValueConstraint classifies the default and fixed attributes of one
-// schema source element and returns the unvalidated constraint they give,
-// nil when they give none or conflict.
-func sourceValueConstraint(defaultAttr, fixedAttr lexicalAttribute) (*valueConstraint, declarationValueConstraint) {
+// sourceValueConstraint returns the unvalidated constraint that the default
+// and fixed attributes of one schema source element give, nil when they give
+// none or both; admission rejects a source that gives both.
+func sourceValueConstraint(defaultAttr, fixedAttr lexicalAttribute) *valueConstraint {
 	switch {
 	case defaultAttr.Present && fixedAttr.Present:
-		return nil, declarationValueConstraintConflict
+		return nil
 	case defaultAttr.Present:
-		return &valueConstraint{Lexical: defaultAttr.Value}, declarationValueConstraintDefault
+		return &valueConstraint{Lexical: defaultAttr.Value}
 	case fixedAttr.Present:
-		return &valueConstraint{Lexical: fixedAttr.Value, Fixed: true}, declarationValueConstraintFixed
+		return &valueConstraint{Lexical: fixedAttr.Value, Fixed: true}
 	default:
-		return nil, declarationValueConstraintNone
+		return nil
 	}
 }
 
-// kind classifies vc; nil is declarationValueConstraintNone.
-func (vc *valueConstraint) kind() declarationValueConstraint {
+// valueConstraintKind is the variety of a {value constraint}: absent, default
+// or fixed.
+type valueConstraintKind uint8
+
+const (
+	valueConstraintNone valueConstraintKind = iota
+	valueConstraintDefault
+	valueConstraintFixed
+)
+
+func (k valueConstraintKind) present() bool {
+	return k != valueConstraintNone
+}
+
+// kind classifies vc; nil is valueConstraintNone.
+func (vc *valueConstraint) kind() valueConstraintKind {
 	switch {
 	case vc == nil:
-		return declarationValueConstraintNone
+		return valueConstraintNone
 	case vc.Fixed:
-		return declarationValueConstraintFixed
+		return valueConstraintFixed
 	default:
-		return declarationValueConstraintDefault
+		return valueConstraintDefault
 	}
 }
 
@@ -149,7 +163,7 @@ func (c ElementValueConstraints) HasAny() bool {
 
 // FixedValue returns the fixed value, if present.
 func (c ElementValueConstraints) FixedValue() (ValueConstraintRead, bool) {
-	if c.constraint.kind != declarationValueConstraintFixed {
+	if c.constraint.kind != valueConstraintFixed {
 		return ValueConstraintRead{}, false
 	}
 	return c.constraint.value, true
@@ -157,7 +171,7 @@ func (c ElementValueConstraints) FixedValue() (ValueConstraintRead, bool) {
 
 // DefaultValueConstraint returns the default value, if present.
 func (c ElementValueConstraints) DefaultValueConstraint() (ValueConstraintRead, bool) {
-	if c.constraint.kind != declarationValueConstraintDefault {
+	if c.constraint.kind != valueConstraintDefault {
 		return ValueConstraintRead{}, false
 	}
 	return c.constraint.value, true

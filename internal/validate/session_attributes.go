@@ -493,7 +493,7 @@ func requiredAttributeError(ctx startContext, set xsdSchema.AttributeUseSetRead,
 	if !ok {
 		return xsderrors.InternalInvariant("required attribute slot is invalid")
 	}
-	return attributeValidation(ctx, requiredAttributeMessage(use.Label()))
+	return attributeValidation(ctx, requiredAttributeMessage(use.QuotedName()))
 }
 
 func (s *session) validateDefaultAttributes(ctx startContext, set xsdSchema.AttributeUseSetRead, seen attributeSeen) error {
