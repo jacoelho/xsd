@@ -9,13 +9,12 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// facetSource is the raw source information needed to admit a simple-type
-// facet child.
+// facetSource is the source information needed to admit a facet element on a
+// simple type.
 type facetSource struct {
-	Local          string
-	InXSDNamespace bool
-	Variety        valuepkg.Variety
-	Primitive      valuepkg.PrimitiveKind
+	Local     string
+	Variety   valuepkg.Variety
+	Primitive valuepkg.PrimitiveKind
 }
 
 // isFacetLocal reports whether local is one of the XSD facet element names.
@@ -24,20 +23,18 @@ func isFacetLocal(local string) bool {
 	return ok
 }
 
-// validateFacetSource validates a facet child and reports whether schema
-// compilation should compile it. Non-XSD non-facet children are skipped.
-func validateFacetSource(source facetSource) (bool, error) {
+// validateFacetSource returns the facet that source, a facet element,
+// declares on its simple type, or an error when the type does not admit that
+// facet.
+func validateFacetSource(source facetSource) (valuepkg.FacetMask, error) {
 	mask, ok := facetMaskForLocal(source.Local)
 	if !ok {
-		if source.InXSDNamespace {
-			return false, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "unsupported facet "+diagnostictext.Quote(source.Local))
-		}
-		return false, nil
+		return 0, xsderrors.InternalInvariant("facet source is not a facet element")
 	}
 	if !valuepkg.FacetAllowed(source.Variety, source.Primitive, mask) {
-		return false, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "facet "+facetLabel(source.Local)+" is not allowed")
+		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "facet "+facetLabel(source.Local)+" is not allowed")
 	}
-	return true, nil
+	return mask, nil
 }
 
 // parseWhitespaceFacetValue parses an xs:whiteSpace facet value. Loosening the

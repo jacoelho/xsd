@@ -24,27 +24,23 @@ func TestValidateFacetSource(t *testing.T) {
 	tests := []struct {
 		name        string
 		source      facetSource
-		wantCompile bool
+		want        valuepkg.FacetMask
 		wantMessage string
 	}{
 		{
-			name:   "skips non xsd non facet child",
-			source: facetSource{Local: "other"},
-		},
-		{
-			name:        "rejects unsupported xsd facet",
-			source:      facetSource{Local: "other", InXSDNamespace: true},
-			wantMessage: "unsupported facet \"other\"",
-		},
-		{
 			name:        "rejects facet not allowed for type",
-			source:      facetSource{Local: "length", InXSDNamespace: true, Variety: booleanType.Variety, Primitive: booleanType.Primitive},
+			source:      facetSource{Local: "length", Variety: booleanType.Variety, Primitive: booleanType.Primitive},
 			wantMessage: "facet length is not allowed",
 		},
 		{
-			name:        "admits allowed facet",
-			source:      facetSource{Local: "length", InXSDNamespace: true, Variety: stringType.Variety, Primitive: stringType.Primitive},
-			wantCompile: true,
+			name:   "admits allowed facet",
+			source: facetSource{Local: "length", Variety: stringType.Variety, Primitive: stringType.Primitive},
+			want:   valuepkg.FacetLength,
+		},
+		{
+			name:   "admits another allowed facet",
+			source: facetSource{Local: "pattern", Variety: booleanType.Variety, Primitive: booleanType.Primitive},
+			want:   valuepkg.FacetPattern,
 		},
 	}
 	for _, tt := range tests {
@@ -57,10 +53,10 @@ func TestValidateFacetSource(t *testing.T) {
 				return
 			}
 			if err != nil {
-				t.Fatalf("ValidateFacetSource() error = %v", err)
+				t.Fatalf("validateFacetSource() error = %v", err)
 			}
-			if got != tt.wantCompile {
-				t.Fatalf("ValidateFacetSource() = %v, want %v", got, tt.wantCompile)
+			if got != tt.want {
+				t.Fatalf("validateFacetSource() = %v, want %v", got, tt.want)
 			}
 		})
 	}

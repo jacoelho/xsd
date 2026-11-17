@@ -68,7 +68,7 @@ func (s *compiledFacetState) apply(st *simpleType) {
 
 func (c *compiler) compileFacetChild(child *schemaNode, st *simpleType, base SimpleTypeID, state *compiledFacetState) error {
 	flag, err := validateFacetChildSource(child, st, &state.stepSingleFacets)
-	if err != nil || flag == 0 {
+	if err != nil {
 		return err
 	}
 	facet, err := facetAttrs(child, flag)
@@ -83,17 +83,12 @@ func validateFacetChildSource(child *schemaNode, st *simpleType, single *valuepk
 	if source == nil {
 		return 0, withSchemaCompileLocation(child, xsderrors.InternalInvariant("facet node has no typed facet source"))
 	}
-	compile, err := validateFacetSource(facetSource{
-		Local: child.local, InXSDNamespace: true,
-		Variety: st.ValueSpec.Variety, Primitive: st.ValueSpec.Primitive,
+	mask, err := validateFacetSource(facetSource{
+		Local: child.local, Variety: st.ValueSpec.Variety, Primitive: st.ValueSpec.Primitive,
 	})
 	if err != nil {
 		return 0, withSchemaCompileLocation(child, err)
 	}
-	if !compile {
-		return 0, nil
-	}
-	mask, _ := facetMaskForLocal(child.local)
 	if mask != valuepkg.FacetPattern && mask != valuepkg.FacetEnumeration {
 		if *single&mask != 0 {
 			return 0, withSchemaCompileLocation(child, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "duplicate "+facetLabel(child.local)+" facet"))
@@ -170,7 +165,7 @@ func facetAttrs(n *schemaNode, flag valuepkg.FacetMask) (facetInput, error) {
 	value := source.Value.Value
 	fixed, err := parseBooleanAttr(booleanAttr{Name: vocab.XSDAttrFixed, Value: source.Fixed.Value, HasValue: source.Fixed.Present})
 	if err != nil {
-		return facetInput{}, err
+		return facetInput{}, withSchemaCompileLocation(n, admittedValueInvariant(err))
 	}
 	return facetInput{value: value, flag: flag, fixed: fixed}, nil
 }
