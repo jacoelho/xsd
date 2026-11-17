@@ -984,6 +984,12 @@ graph preserves these ownership rules:
   the schema compiler, and enumeration literals keep the same
   admit-then-complete shape. The cost is a second parse of each bound literal
   at compile time.
+- Carrying the bound that `Builder.AdmitBoundLiteral` parsed to
+  `Builder.Complete`, so each bound literal is parsed once, was rejected: the
+  second parse allocates nothing, while a compiled bound carried in
+  `BoundFacet` costs an allocation per bound and enlarges the `FacetSpec` of
+  every simple type when held by pointer, and multiplies that size when held
+  inline.
 - A second `xs:time` order for instance values, comparing recurring times of
   day while bounds keep their day, was rejected: a bound is a value of the
   same value space and the bound facets compare instances with it, and two

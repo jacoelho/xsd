@@ -247,45 +247,130 @@ func (b *Builder) AdmitBoundLiteral(base TypeID, facet FacetMask, lexical string
 	if err != nil {
 		return describeValueFailure(p, base, lexical, &v, err)
 	}
-	literal := boundValue{value: v.atom}
-	admitting := *t
-	var lower, upper []boundValue
-	admitting.facets, lower, upper = admittingFacets(&t.facets, facet, literal)
-	if err := applyFacets(&admitting, &v, normalized, nil, &budget); err != nil {
-		return describeTypeValueFailure(p, base, &admitting, lexical, &v, err)
+	admission := newBoundAdmission(&t.facets, facet, &v.atom)
+	if err := admission.applyNonBound(&v, normalized, &budget); err != nil {
+		checked := typeWithFacets(t, admission.nonBoundFacets())
+		return describeTypeValueFailure(p, base, &checked, lexical, &v, err)
 	}
-	if err := applyBounds(lower, upper, &v); err != nil {
-		admitting.facets = facetProgram{lower: lower, upper: upper}
-		return describeTypeValueFailure(p, base, &admitting, lexical, &v, err)
+	if err := admission.applyBounds(&v); err != nil {
+		checked := typeWithFacets(t, admission.boundFacets())
+		return describeTypeValueFailure(p, base, &checked, lexical, &v, err)
 	}
 	return nil
 }
 
-// admittingFacets splits f, the facets of a base, for admitting literal as the
-// {value} of facet: it returns the non-bound facets the literal must satisfy
-// and the lower and upper bounds it is ordered against. A restatement of the
-// effective exclusive bound of facet's side keeps only the patterns and drops
-// the exclusive bounds of that side.
-func admittingFacets(f *facetProgram, facet FacetMask, literal boundValue) (nonBound facetProgram, lower, upper []boundValue) {
+// boundSide names the lower or upper bounds of a type.
+type boundSide uint8
+
+const (
+	noBoundSide boundSide = iota
+	lowerBoundSide
+	upperBoundSide
+)
+
+// boundAdmission selects the facets of a base that a literal offered as the
+// {value} of one of its ordered-bound facets is checked against: every facet,
+// or, for a literal that restates the effective exclusive bound of the facet's
+// side, only the patterns of the base and its bounds other than the exclusive
+// bounds of that side.
+type boundAdmission struct {
+	base *facetProgram
+	// restated is the side whose effective exclusive bound the literal
+	// restates.
+	restated boundSide
+}
+
+func newBoundAdmission(base *facetProgram, facet FacetMask, literal *atomicValue) boundAdmission {
+	admission := boundAdmission{base: base}
 	switch {
-	case facet == FacetMinExclusive && restatesExclusiveBound(f.lower, literal):
-		return facetProgram{patterns: f.patterns}, inclusiveBounds(f.lower), f.upper
-	case facet == FacetMaxExclusive && restatesExclusiveBound(f.upper, literal):
-		return facetProgram{patterns: f.patterns}, f.lower, inclusiveBounds(f.upper)
+	case facet == FacetMinExclusive && restatesExclusiveBound(base.lower, literal):
+		admission.restated = lowerBoundSide
+	case facet == FacetMaxExclusive && restatesExclusiveBound(base.upper, literal):
+		admission.restated = upperBoundSide
 	}
-	nonBound = *f
+	return admission
+}
+
+func (a boundAdmission) applyNonBound(v *parsedValue, normalized string, budget *evaluationBudget) error {
+	if a.restated != noBoundSide {
+		return applyPatternFacets(a.base.patterns, normalized, nil, budget)
+	}
+	return applyNonBoundFacets(a.base, v, normalized, nil, budget)
+}
+
+func (a boundAdmission) applyBounds(v *parsedValue) error {
+	lower, upper := a.base.lower, a.base.upper
+	switch a.restated {
+	case lowerBoundSide:
+		if err := applyInclusiveBounds(lowerBoundSide, lower, v); err != nil {
+			return err
+		}
+		return applyBounds(nil, upper, v)
+	case upperBoundSide:
+		if err := applyBounds(lower, nil, v); err != nil {
+			return err
+		}
+		return applyInclusiveBounds(upperBoundSide, upper, v)
+	case noBoundSide:
+	}
+	return applyBounds(lower, upper, v)
+}
+
+// applyInclusiveBounds orders value against the inclusive bounds among
+// bounds, the bounds of one side.
+func applyInclusiveBounds(side boundSide, bounds []boundValue, value *parsedValue) error {
+	for i := range bounds {
+		if bounds[i].exclusive {
+			continue
+		}
+		lowers, uppers := bounds[i:i+1], []boundValue(nil)
+		if side == upperBoundSide {
+			lowers, uppers = uppers, lowers
+		}
+		if err := applyBounds(lowers, uppers, value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a boundAdmission) nonBoundFacets() facetProgram {
+	if a.restated != noBoundSide {
+		return facetProgram{patterns: a.base.patterns}
+	}
+	nonBound := *a.base
 	nonBound.lower, nonBound.upper = nil, nil
-	return nonBound, f.lower, f.upper
+	return nonBound
+}
+
+func (a boundAdmission) boundFacets() facetProgram {
+	checked := facetProgram{lower: a.base.lower, upper: a.base.upper}
+	switch a.restated {
+	case lowerBoundSide:
+		checked.lower = inclusiveBounds(checked.lower)
+	case upperBoundSide:
+		checked.upper = inclusiveBounds(checked.upper)
+	case noBoundSide:
+	}
+	return checked
+}
+
+// typeWithFacets returns t restricted to checked, the facets a rejected
+// literal was checked against, for describing the failure.
+func typeWithFacets(t *typeDef, checked facetProgram) typeDef {
+	described := *t
+	described.facets = checked
+	return described
 }
 
 // restatesExclusiveBound reports whether literal equals the effective
 // exclusive bound among side, the bounds of base on the restated facet's side.
-func restatesExclusiveBound(side []boundValue, literal boundValue) bool {
+func restatesExclusiveBound(side []boundValue, literal *atomicValue) bool {
 	effective, ok := findBound(side, true)
 	if !ok {
 		return false
 	}
-	return equalAtomic(&literal.value, &effective.value)
+	return equalAtomic(literal, &effective.value)
 }
 
 func inclusiveBounds(bounds []boundValue) []boundValue {
@@ -1575,6 +1660,21 @@ func applyFacets(t *typeDef, value *parsedValue, normalized string, scratch *Scr
 		return err
 	}
 	if err := applyBounds(f.lower, f.upper, value); err != nil {
+		return err
+	}
+	if err := applyPatternFacets(f.patterns, normalized, scratch, budget); err != nil {
+		return err
+	}
+	return applyEnumerationFacets(f, value)
+}
+
+// applyNonBoundFacets applies the facets of f other than its ordered bounds,
+// in the order applyFacets applies them.
+func applyNonBoundFacets(f *facetProgram, value *parsedValue, normalized string, scratch *Scratch, budget *evaluationBudget) error {
+	if err := applyLengthFacet(f, value); err != nil {
+		return err
+	}
+	if err := applyDigitFacets(f, value); err != nil {
 		return err
 	}
 	if err := applyPatternFacets(f.patterns, normalized, scratch, budget); err != nil {
