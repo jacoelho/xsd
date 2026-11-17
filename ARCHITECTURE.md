@@ -262,12 +262,14 @@ owner, `internal/schema`, because no value-owned parser exists for them.
   against inherited bounds is repeated by, and the lower-versus-upper and
   fixed-facet checks belong to, `Builder.Complete`'s restriction derivation,
   located at the simple type.
-  Every schema-level relation between bounds (restatement equality, a literal
-  against the base's bounds, restriction derivation, the effective
-  lower-versus-upper check, and, for `xs:time`, equality with a fixed bound)
-  uses the
-  derivation order (`compareDerivationBounds`), day-preserving for `xs:time`
-  (Time midnight boundary in `docs/spec/INTERPRETATIONS.md`). Restriction
+  Every schema-level order between bounds (a literal against the base's
+  bounds, restriction derivation, and the effective lower-versus-upper check)
+  uses the derivation order (`compareDerivationBounds`), day-preserving for
+  `xs:time` (Time midnight boundary in `docs/spec/INTERPRETATIONS.md`). Every
+  schema-level equality between bounds (an exclusive restatement and a bound
+  under a fixed base bound) is `equalBound`: equality in that order for
+  `xs:time`, value identity otherwise, so durations equal only in order are
+  distinct (Duration equality and order in `docs/spec/INTERPRETATIONS.md`). Restriction
   derivation returns the effective facet program, and the compiler does not
   reconstruct that merge. `FacetAllowed` is the only facet-applicability rule
   for schema admission, value construction, and diagnostics.

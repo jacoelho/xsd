@@ -325,25 +325,22 @@ func validateFixedBound(fixed FacetMask, flag FacetMask, own, base []boundValue)
 		return ErrMetadata
 	}
 	declared, hasDeclared := findBound(own, exclusive)
-	if hasDeclared && !equalFixedBound(declared, baseBound) {
+	if hasDeclared && !equalBound(declared, baseBound) {
 		return errFixedOrderedChanges
 	}
 	return nil
 }
 
-// equalFixedBound reports whether declared restates fixed, a fixed bound of
-// the base. xs:time bounds are equal in the derivation order
-// (compareDerivationBounds); other bounds by value-space equality.
-func equalFixedBound(declared, fixed boundValue) bool {
-	if declared.value.kind != primitiveTime {
-		return equalAtomic(&declared.value, &fixed.value)
+// equalBound reports whether two bound values are equal as schema components:
+// a restated exclusive bound (Datatypes §4.3.8.1, §4.3.9.1) and a bound under
+// a fixed base bound. xs:time bounds are equal in the derivation order
+// (compareDerivationBounds); other bounds by value-space identity, so
+// durations equal only in the §3.2.6.2 order, such as P400Y and P146097D,
+// are distinct (Duration equality and order in docs/spec/INTERPRETATIONS.md).
+func equalBound(a, b boundValue) bool {
+	if a.value.kind != primitiveTime {
+		return equalAtomic(&a.value, &b.value)
 	}
-	return equalDerivationBounds(declared, fixed)
-}
-
-// equalDerivationBounds reports whether a and b are equal in the derivation
-// order.
-func equalDerivationBounds(a, b boundValue) bool {
 	relation, ok := compareDerivationBounds(a, b)
 	return ok && relation == orderedFacetEqual
 }

@@ -222,9 +222,10 @@ func (b *Builder) Validate(id TypeID, lexical string, resolver Resolver, needs N
 // is then ordered against the bounds of base in the derivation order
 // (compareDerivationBounds), day-preserving for xs:time, so membership agrees
 // with every clause of the valid-restriction constraints. Restatement equality
-// is equality in that order, so an xs:time restatement spelled on another day
-// is an ordinary literal. A restatement is checked only against the patterns
-// of base and its bounds other than the exclusive bounds of the restated side.
+// is equalBound, so an xs:time restatement spelled on another day, or a
+// duration equal to the base facet only in order, is an ordinary literal. A
+// restatement is checked only against the patterns of base and its bounds
+// other than the exclusive bounds of the restated side.
 // Fixed-facet checks belong to Complete. facet must be one of
 // FacetMinInclusive, FacetMaxInclusive, FacetMinExclusive or
 // FacetMaxExclusive; any other mask returns ErrMetadata. Each call charges the
@@ -310,15 +311,15 @@ func failedDerivationBound(literal boundValue, bounds []boundValue, accepts func
 	return nil
 }
 
-// restatesExclusiveBound reports whether literal equals the effective
-// exclusive bound among side, the bounds of base on the restated facet's side,
-// in the derivation order.
+// restatesExclusiveBound reports whether literal equals (equalBound) the
+// effective exclusive bound among side, the bounds of base on the restated
+// facet's side.
 func restatesExclusiveBound(side []boundValue, literal boundValue) bool {
 	effective, ok := findBound(side, true)
 	if !ok {
 		return false
 	}
-	return equalDerivationBounds(literal, effective)
+	return equalBound(literal, effective)
 }
 
 func inclusiveBounds(bounds []boundValue) []boundValue {
