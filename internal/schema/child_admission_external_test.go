@@ -87,6 +87,12 @@ func TestChildAdmissionWinsOverLaterErrors(t *testing.T) {
       <xs:any/>
     </xs:all>
   </xs:complexType>`, "xs:all can contain only element particles", 4, 7),
+		misplaced("sequence reference to all group before the group's own defect", `  <xs:complexType name="C">
+    <xs:sequence>
+      <xs:group ref="G"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:group name="G"><xs:all><xs:element name="a" maxOccurs="2"/></xs:all></xs:group>`, "xs:all cannot be nested in model groups", 4, 7),
 		misplaced("named group model unknown child", inTopLevel("group", `<xs:sequence><xs:future/></xs:sequence>`), `invalid model group child "future"`, 3, 5+len(`<xs:sequence>`)),
 
 		misplaced("simpleType unknown child before unbound base", inSimpleType(`<xs:future/><xs:restriction base="p:T"/>`), `invalid simpleType child "future"`, 3, 5),

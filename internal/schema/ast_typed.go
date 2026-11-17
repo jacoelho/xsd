@@ -361,18 +361,25 @@ func (s *typedSchemaParseState) parentFrame() *typedSchemaParseFrame {
 }
 
 // admitStart checks unsupported vocabulary before any other rule except that
-// the root is xs:schema; see rejectUnsupportedVocabulary.
-// QName-valued attributes are resolved into qnames as their start tag is
-// admitted.
+// the root is xs:schema; see rejectUnsupportedVocabulary. Text earlier in
+// parent precedes n in document order, so its diagnostic wins over every other
+// violation of n. QName-valued attributes are resolved into qnames as their
+// start tag is admitted.
 func admitStart(n *schemaSyntaxNode, parent *typedSchemaParseFrame, qnames *semanticQNameProjection) error {
 	if parent == nil {
 		return admitRootStart(n)
 	}
-	if n.Name.Space != vocab.XSDNamespaceURI {
-		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "foreign element "+diagnostictext.Quote(n.Name.Local)+" is not allowed in schema grammar")
+	foreign := n.Name.Space != vocab.XSDNamespaceURI
+	if !foreign {
+		if err := rejectUnsupportedVocabulary(n); err != nil {
+			return err
+		}
 	}
-	if err := rejectUnsupportedVocabulary(n); err != nil {
+	if err := rejectInvalidSchemaTextTyped(parent.node); err != nil {
 		return err
+	}
+	if foreign {
+		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "foreign element "+diagnostictext.Quote(n.Name.Local)+" is not allowed in schema grammar")
 	}
 	if err := admitChildContent(n, parent); err != nil {
 		return err
@@ -384,22 +391,15 @@ func admitStart(n *schemaSyntaxNode, parent *typedSchemaParseFrame, qnames *sema
 }
 
 // admitChildContent checks the schema-namespace child n against the content
-// of parent and admits it there. Text earlier in parent precedes n in
-// document order, so its diagnostic wins over n's XSD 1.0 violations, though
-// not over unsupported vocabulary, which rejectUnsupportedVocabulary reports
-// first.
+// of parent and admits it there.
 func admitChildContent(n *schemaSyntaxNode, parent *typedSchemaParseFrame) error {
 	if parent.content == childContentOrdered && parent.order == nil {
 		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("schema element xs:"+diagnostictext.Quote(parent.name.Local)+" has no child order"))
 	}
-	message := childContentViolation(n.Name.Local, parent)
-	if message == "" {
-		return nil
+	if message := childContentViolation(n.Name.Local, parent); message != "" {
+		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, message)
 	}
-	if err := rejectInvalidSchemaTextTyped(parent.node); err != nil {
-		return err
-	}
-	return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, message)
+	return nil
 }
 
 // childContentViolation admits a schema-namespace child named child into
@@ -450,71 +450,29 @@ func admitRootStart(n *schemaSyntaxNode) error {
 	if err := rejectUnsupportedVocabulary(n); err != nil {
 		return err
 	}
-	if err := rejectSchemaNamespaceAttributes(n); err != nil {
-		return err
-	}
-	if err := checkSchemaNodeNamesSyntax(n); err != nil {
-		return err
-	}
-	if err := checkXMLBaseAttributeSyntax(n); err != nil {
-		return err
-	}
 	return checkSchemaAttributesSyntax(n, schemaPlacementOther, nil)
 }
 
 func admitAnnotationEnvelopeStart(n *schemaSyntaxNode) error {
 	// The payload envelope is admitted separately; arbitrary descendants are
-	// skipped by the caller after this attribute and annotation check.
-	if err := rejectSchemaNamespaceAttributes(n); err != nil {
-		return err
-	}
-	if err := checkSchemaNodeNamesSyntax(n); err != nil {
-		return err
-	}
-	if err := checkXMLBaseAttributeSyntax(n); err != nil {
-		return err
-	}
-	if err := checkSchemaAttributesSyntax(n, schemaPlacementOther, nil); err != nil {
-		return err
-	}
-	return checkAnnotationEnvelopeStart(n)
+	// skipped by the caller after this attribute check.
+	return checkSchemaAttributesSyntax(n, schemaPlacementOther, nil)
 }
 
-// admitXSDChildStart runs start checks in a fixed order that decides which
-// diagnostic wins when a node violates several rules. It runs after
-// rejectUnsupportedVocabulary and admitChildContent, so unsupported vocabulary
-// and a child that its parent's content forbids report that violation rather than
-// the child's own. The syntax facts it reads are transient; compilation never
-// treats them as a generic XML tree. Which unqualified attributes an element
-// admits and requires in its placement is decided here, so those violations
-// precede every later child in document order.
+// admitXSDChildStart checks the attributes of n in start-tag order, then the
+// attributes its placement requires. It runs after rejectUnsupportedVocabulary
+// and admitChildContent, so unsupported vocabulary and a child that its
+// parent's content forbids report that violation rather than the child's own.
+// The syntax facts it reads are transient; compilation never treats them as a
+// generic XML tree. Which unqualified attributes an element admits and
+// requires in its placement is decided here, so those violations precede
+// every later child in document order.
 func admitXSDChildStart(n *schemaSyntaxNode, parent xml.Name, qnames *semanticQNameProjection) error {
-	if err := rejectSchemaNamespaceAttributes(n); err != nil {
-		return err
-	}
-	if err := checkSchemaNodeNamesSyntax(n); err != nil {
-		return err
-	}
-	if err := checkXMLBaseAttributeSyntax(n); err != nil {
-		return err
-	}
 	placement := schemaElementPlacementOf(n, parent)
 	if err := checkSchemaAttributesSyntax(n, placement, qnames); err != nil {
 		return err
 	}
 	return checkRequiredSchemaAttributesSyntax(n, parent, placement)
-}
-
-func checkAnnotationEnvelopeStart(n *schemaSyntaxNode) error {
-	if n.Name.Local != vocab.XSDElemDocumentation {
-		return nil
-	}
-	for _, attr := range n.Attrs {
-		if attr.Name.Space == vocab.XMLNamespaceURI && attr.Name.Local == vocab.XMLAttrLang && !lex.IsLanguage(lex.CollapseXMLWhitespace(attr.Value)) {
-			return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "invalid xml:lang on xs:documentation")
-		}
-	}
-	return nil
 }
 
 func (s *typedSchemaParseState) end(line, col int) error {
@@ -539,9 +497,6 @@ func (s *typedSchemaParseState) end(line, col int) error {
 func completeTypedNode(frame *typedSchemaParseFrame) error {
 	if !schemaNodeNeedsDeferredQNameContext(frame.node, frame.syntax.Attrs) {
 		frame.node.namespace = xmlstream.Context{}
-	}
-	if err := checkAnnotationEnvelopeStart(&frame.syntax); err != nil {
-		return err
 	}
 	return rejectInvalidSchemaTextTyped(frame.node)
 }

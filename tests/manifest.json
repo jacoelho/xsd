@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16846,
-    "schemaCases": 16796,
+    "cases": 16847,
+    "schemaCases": 16797,
     "instanceRuns": 35546,
     "w3cCases": 14414,
-    "internalRuns": 2419,
+    "internalRuns": 2420,
     "xercesJCases": 13
   },
   "cases": [
@@ -894562,6 +894562,60 @@
         {
           "file": "corpus/project/datatypes/bounds/same-step-minExclusive-maxExclusive-time-later-day-earlier-clock/after-min.xml",
           "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/child-admission/sequence-text-before-child-with-unknown-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/child-admission/sequence-text-before-child-with-unknown-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element"
+        ],
+        "conditions": [
+          "An xs:sequence holds text before an xs:element child that carries the unknown attribute foo; the text precedes the child in document order and is reported first."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/child-admission/sequence-text-before-child-with-unknown-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:43: s4s-elt-character: Non-whitespace characters are not allowed in schema elements other than 'xs:appinfo' and 'xs:documentation'. Saw 'text'. The project expectation follows the schema for schemas, under which xs:sequence has element-only content and xs:element admits no attribute foo, with the first violation in document order reported; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:39: The following text is not allowed in this context: 'text'. The project expectation follows the schema for schemas, under which xs:sequence has element-only content and xs:element admits no attribute foo, with the first violation in document order reported; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. character data between child elements not allowed: Schema component: <xs:sequence xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">text<xs:element name=\"a\" foo=\"1\" /></xs:sequence> Path: /xs:schema/xs:complexType/xs:sequence Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, under which xs:sequence has element-only content and xs:element admits no attribute foo, with the first violation in document order reported; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element sequence: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}sequence': The content is not valid. Expected is (annotation?, (element | group | choice | sequence | any)*). The project expectation follows the schema for schemas, under which xs:sequence has element-only content and xs:element admits no attribute foo, with the first violation in document order reported; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-sequence"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/child-admission/sequence-text-before-child-with-unknown-attribute/schema.xsd",
+          "role": "principal"
         }
       ]
     }

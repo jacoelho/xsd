@@ -18,7 +18,7 @@ func (c *compiler) contentModel(id contentModelID, msg string) (contentModelNode
 
 func (c *compiler) compileModel(ctx *schemaSetDocument, n *schemaNode) (contentModelID, error) {
 	if source := semanticSource[*schemaGroupSource](&n.semantic); source != nil && source.Ref.Lexical.Present {
-		return c.compileModelGroupRef(ctx, n, source.Ref.Name)
+		return c.compileModelGroupRef(ctx, n, source.Ref.Name, nil)
 	}
 	if id, done, err := c.existingModel(ctx, n); done || err != nil {
 		return id, err
@@ -93,7 +93,11 @@ func (c *compiler) compileModelValue(ctx *schemaSetDocument, n *schemaNode, occu
 	return m, nil
 }
 
-func (c *compiler) compileModelGroupRef(ctx *schemaSetDocument, n *schemaNode, ref xml.Name) (contentModelID, error) {
+// compileModelGroupRef compiles the model group reference n. When parent is
+// not nil, n is a child of a model group of that kind, and the referenced
+// group's kind is admitted there before the group compiles, so a misplaced
+// reference is reported at its use rather than a defect inside the group.
+func (c *compiler) compileModelGroupRef(ctx *schemaSetDocument, n *schemaNode, ref xml.Name, parent *modelKind) (contentModelID, error) {
 	occurs, err := parseOccurs(n, c.limits)
 	if err != nil {
 		return noContentModel, err
@@ -105,6 +109,11 @@ func (c *compiler) compileModelGroupRef(ctx *schemaSetDocument, n *schemaNode, r
 	source, err := c.resolveModelGroupRef(ctx, n, ref)
 	if err != nil {
 		return noContentModel, err
+	}
+	if parent != nil {
+		if err = admitModelGroupRef(n, source, *parent); err != nil {
+			return noContentModel, err
+		}
 	}
 	if c.compilingModel[nodeKey(source.raw.ctx, source.modelNode)] {
 		err = schemaComponentRecursionError(schemaComponentModelGroup, c.rt.formatName(source.q))
@@ -118,6 +127,16 @@ func (c *compiler) compileModelGroupRef(ctx *schemaSetDocument, n *schemaNode, r
 		return noContentModel, err
 	}
 	return c.applyModelGroupOccurrence(n, id, occurs)
+}
+
+// admitModelGroupRef admits the model group that source resolves the
+// reference n to as a child of a model group of kind parent.
+func admitModelGroupRef(n *schemaNode, source modelGroupRefSource, parent modelKind) error {
+	kind, err := modelKindForNode(source.modelNode)
+	if err != nil {
+		return err
+	}
+	return validateModelGroupChildAtNode(n, parent, modelChildAdmissionForModelKind(kind))
 }
 
 type modelGroupRefSource struct {
@@ -199,16 +218,28 @@ func (c *compiler) appendModelChild(ctx *schemaSetDocument, m *contentModelNode,
 	return withSchemaCompileLocation(child, xsderrors.InternalInvariant("model child has no supported typed schema kind"))
 }
 
+// compileNestedModelChild compiles child, a model group or group reference
+// inside a model group of kind parent, after admitting its kind there.
 func (c *compiler) compileNestedModelChild(ctx *schemaSetDocument, child *schemaNode, parent modelKind) (contentModelID, contentModelNode, error) {
-	id, err := c.compileModel(ctx, child)
+	var id contentModelID
+	var err error
+	if source := semanticSource[*schemaGroupSource](&child.semantic); source != nil && source.Ref.Lexical.Present {
+		id, err = c.compileModelGroupRef(ctx, child, source.Ref.Name, &parent)
+	} else {
+		var kind modelKind
+		if kind, err = modelKindForNode(child); err != nil {
+			return noContentModel, contentModelNode{}, err
+		}
+		if err = validateModelGroupChildAtNode(child, parent, modelChildAdmissionForModelKind(kind)); err != nil {
+			return noContentModel, contentModelNode{}, err
+		}
+		id, err = c.compileModel(ctx, child)
+	}
 	if err != nil || id == noContentModel {
 		return id, contentModelNode{}, err
 	}
 	model, err := c.contentModel(id, "nested model child references missing content model")
 	if err != nil {
-		return noContentModel, contentModelNode{}, err
-	}
-	if err := validateModelGroupChildAtNode(child, parent, modelChildAdmissionForModelKind(model.Kind)); err != nil {
 		return noContentModel, contentModelNode{}, err
 	}
 	return id, model, nil
