@@ -2,6 +2,7 @@ package value
 
 import (
 	"cmp"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"slices"
@@ -190,10 +191,16 @@ func compareTemporalValues(a, b TemporalValue) orderedFacetRelation {
 	return orderedFacetIncomparable
 }
 
-// equalTemporalValues reports XML Schema equality for xs:date/xs:dateTime
-// values, including timezone-presence equivalence.
+// equalTemporalValues reports whether compareTemporalValues ranks a and b
+// equal, which it does only for values of equal timezone presence.
 func equalTemporalValues(a, b TemporalValue) bool {
 	return a.hasTZ == b.hasTZ && compareXSDDateTimePoint(a.instant, b.instant) == 0
+}
+
+// appendTemporalEnumerationKey appends what equalTemporalValues compares.
+func appendTemporalEnumerationKey(b []byte, v TemporalValue) []byte {
+	b = appendKeyBool(b, v.hasTZ)
+	return appendKeyDateTimePoint(b, v.instant)
 }
 
 // ParseTimeValue parses s as an XML Schema xs:time value.
@@ -251,10 +258,17 @@ func compareTimePartial(a, b TimeValue) orderedFacetRelation {
 	return compareTemporalValues(xsdTimeTemporalValue(a), xsdTimeTemporalValue(b))
 }
 
-// equalTimeValues reports XML Schema equality for xs:time values, including
-// timezone-presence equivalence.
+// equalTimeValues reports whether compareTimePartial ranks a and b equal,
+// which it does only for values of equal timezone presence.
 func equalTimeValues(a, b TimeValue) bool {
 	return a.hasTZ == b.hasTZ && compareTimeValues(a, b) == 0
+}
+
+// appendTimeEnumerationKey appends what equalTimeValues compares.
+func appendTimeEnumerationKey(b []byte, v TimeValue) []byte {
+	b = appendKeyBool(b, v.hasTZ)
+	b = binary.AppendVarint(b, int64(v.second))
+	return appendKeyText(b, v.frac)
 }
 
 type xsdDatePart struct {
@@ -464,6 +478,18 @@ func compareXSDDateTimePoint(a, b xsdDateTimePoint) int {
 		return n
 	}
 	return compareFraction(a.frac, b.frac)
+}
+
+// appendKeyDateTimePoint appends the fields compareXSDDateTimePoint compares,
+// the year as the sign and magnitude compareYear compares.
+func appendKeyDateTimePoint(b []byte, p xsdDateTimePoint) []byte {
+	year := strings.TrimLeft(p.year.digits, "0")
+	b = appendKeyBool(b, p.year.neg && year != "")
+	b = appendKeyText(b, year)
+	b = binary.AppendVarint(b, int64(p.month))
+	b = binary.AppendVarint(b, int64(p.day))
+	b = binary.AppendVarint(b, int64(p.second))
+	return appendKeyText(b, p.frac)
 }
 
 func addMinutes(p xsdDateTimePoint, minutes int) xsdDateTimePoint {

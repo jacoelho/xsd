@@ -1,7 +1,6 @@
 package value
 
 import (
-	"bytes"
 	"errors"
 	"math"
 	"slices"
@@ -72,6 +71,19 @@ type parsedValue struct {
 	identityReady      bool
 }
 
+// atomicValue is one primitive value; kind selects the field that holds it.
+//
+// The file that declares a primitive's value type owns that primitive's
+// order, equality and enumeration key. compareAtomic, equalAtomic and
+// appendAtomicEnumerationKey only dispatch on kind. Two values of an ordered
+// primitive are equal exactly when its order ranks them equal, except
+// durations (durationValue); FloatValue states how NaN relates. String,
+// boolean, hexBinary, base64Binary, anyURI, QName and NOTATION values have no
+// order.
+//
+// A value type holds a value and representations of it, never a fact that
+// only one schema relation reads. Such a fact belongs to the owner of that
+// relation, as the day offset of an xs:time bound belongs to boundValue.
 type atomicValue struct {
 	expandedName ExpandedName
 	lexical      lexicalValue
@@ -1606,11 +1618,11 @@ func equalAtomic(a, b *atomicValue) bool {
 	}
 	switch a.kind {
 	case PrimitiveString, PrimitiveAnyURI:
-		return a.lexical.Canonical == b.lexical.Canonical
+		return equalTextValues(&a.lexical, &b.lexical)
 	case PrimitiveBoolean:
 		return a.boolean == b.boolean
 	case PrimitiveDecimal:
-		return CompareDecimalValues(a.decimal, b.decimal) == 0
+		return equalDecimalValues(a.decimal, b.decimal)
 	case PrimitiveFloat, PrimitiveDouble:
 		return equalFloatValues(a.float, b.float)
 	case PrimitiveDuration:
@@ -1620,24 +1632,39 @@ func equalAtomic(a, b *atomicValue) bool {
 	case primitiveTime:
 		return equalTimeValues(a.time, b.time)
 	case primitiveGYearMonth, primitiveGYear, primitiveGMonthDay, primitiveGDay, primitiveGMonth:
-		return equalGValues(a.g, b.g)
-	case PrimitiveHexBinary, PrimitiveBase64Binary:
-		if a.kind == PrimitiveHexBinary {
-			return strings.EqualFold(a.lexical.Canonical, b.lexical.Canonical)
-		}
-		// Equality never compacts an operand in place; unless both are
-		// already compact it compares decoded octets.
-		if a.lexical.canonicalReady && b.lexical.canonicalReady {
-			return a.lexical.Canonical == b.lexical.Canonical
-		}
-		left, leftErr := decodeBase64Binary(a.lexical.Canonical)
-		right, rightErr := decodeBase64Binary(b.lexical.Canonical)
-		return leftErr == nil && rightErr == nil && bytes.Equal(left, right)
+		return equalTemporalValues(a.g.temporal(), b.g.temporal())
+	case PrimitiveHexBinary:
+		return equalHexBinaryValues(&a.lexical, &b.lexical)
+	case PrimitiveBase64Binary:
+		return equalBase64BinaryValues(&a.lexical, &b.lexical)
 	case PrimitiveQName, PrimitiveNotation:
-		return a.expandedName == b.expandedName
+		return equalExpandedNames(a.expandedName, b.expandedName)
 	default:
 		return false
 	}
+}
+
+func compareAtomic(a, b *atomicValue) (orderedFacetRelation, bool) {
+	if a.kind != b.kind {
+		return orderedFacetIncomparable, false
+	}
+	switch a.kind {
+	case PrimitiveDecimal:
+		return orderedFacetRelationFromInt(CompareDecimalValues(a.decimal, b.decimal)), true
+	case PrimitiveFloat, PrimitiveDouble:
+		return floatRelation(a.float, b.float), true
+	case PrimitiveDuration:
+		return compareDurationValues(a.duration, b.duration), true
+	case primitiveDate, PrimitiveDateTime:
+		return compareTemporalValues(a.temporal, b.temporal), true
+	case primitiveTime:
+		return compareTimePartial(a.time, b.time), true
+	case primitiveGYearMonth, primitiveGYear, primitiveGMonthDay, primitiveGDay, primitiveGMonth:
+		return compareTemporalValues(a.g.temporal(), b.g.temporal()), true
+	case PrimitiveString, PrimitiveBoolean, PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
+		return orderedFacetIncomparable, false
+	}
+	return orderedFacetIncomparable, false
 }
 
 // prepareBase64Canonical compacts one document-local value when an
@@ -1805,29 +1832,6 @@ func applyBounds(lowers, uppers []boundValue, value *parsedValue) error {
 		}
 	}
 	return nil
-}
-
-func compareAtomic(a, b *atomicValue) (orderedFacetRelation, bool) {
-	if a.kind != b.kind {
-		return orderedFacetIncomparable, false
-	}
-	switch a.kind {
-	case PrimitiveDecimal:
-		return orderedFacetRelationFromInt(CompareDecimalValues(a.decimal, b.decimal)), true
-	case PrimitiveFloat, PrimitiveDouble:
-		return floatRelation(a.float, b.float), true
-	case PrimitiveDuration:
-		return compareDurationValues(a.duration, b.duration), true
-	case primitiveDate, PrimitiveDateTime:
-		return compareTemporalValues(a.temporal, b.temporal), true
-	case primitiveTime:
-		return compareTimePartial(a.time, b.time), true
-	case primitiveGYearMonth, primitiveGYear, primitiveGMonthDay, primitiveGDay, primitiveGMonth:
-		return compareGValues(a.g, b.g), true
-	case PrimitiveString, PrimitiveBoolean, PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
-		return orderedFacetIncomparable, false
-	}
-	return orderedFacetIncomparable, false
 }
 
 func equalParsed(a, b *parsedValue) bool {

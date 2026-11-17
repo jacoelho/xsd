@@ -178,6 +178,18 @@ type ExpandedName struct {
 	Local     string
 }
 
+// equalExpandedNames reports whether two QName or NOTATION values are the
+// same name.
+func equalExpandedNames(a, b ExpandedName) bool {
+	return a == b
+}
+
+// appendExpandedNameEnumerationKey appends both parts of n.
+func appendExpandedNameEnumerationKey(b []byte, n ExpandedName) []byte {
+	b = appendKeyText(b, n.Namespace)
+	return appendKeyText(b, n.Local)
+}
+
 // QNameResolver resolves one lexical QName into an expanded name. The boolean
 // reports whether the lexical value was resolved in the active namespace
 // context.

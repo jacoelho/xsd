@@ -1,6 +1,7 @@
 package value
 
 import (
+	"encoding/binary"
 	"errors"
 	"math"
 	"strconv"
@@ -13,6 +14,10 @@ const (
 )
 
 // FloatValue is the value-space projection for xs:float and xs:double values.
+// NaN equals itself and is incomparable with every other value (Datatypes
+// §3.2.4), so equality is not the IEEE 754 comparison and the order is
+// partial. floatRelation ranks equal exactly the values equalFloatValues
+// equates.
 type FloatValue struct {
 	Canonical string
 	Value     float64
@@ -51,6 +56,25 @@ func floatRelation(got, base float64) orderedFacetRelation {
 		return orderedFacetGreater
 	default:
 		return orderedFacetIncomparable
+	}
+}
+
+// appendFloatEnumerationKey appends one encoding for the values
+// equalFloatValues equates.
+func appendFloatEnumerationKey(b []byte, f float64) []byte {
+	return binary.BigEndian.AppendUint64(b, enumerationFloatBits(f))
+}
+
+// enumerationFloatBits folds the float values equalFloatValues equates: both
+// zeros, and every NaN.
+func enumerationFloatBits(f float64) uint64 {
+	switch {
+	case f == 0:
+		return 0
+	case math.IsNaN(f):
+		return math.Float64bits(math.NaN())
+	default:
+		return math.Float64bits(f)
 	}
 }
 

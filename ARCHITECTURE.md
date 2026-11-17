@@ -269,7 +269,9 @@ owner, `internal/schema`, because no value-owned parser exists for them.
   bound, the opposite-side restriction clauses, and the effective
   lower-versus-upper check. The order never separates equal values, and two
   values it ranks equal are equal, except durations equal only in order
-  (Duration equality and order in `docs/spec/INTERPRETATIONS.md`). An
+  (Duration equality and order in `docs/spec/INTERPRETATIONS.md`). The doc
+  comment of `atomicValue` names the owner of each primitive's order,
+  equality and enumeration key and states what a value type may hold. An
   `xs:time` value is its timezone-normalized time of day (Time midnight
   boundary in `docs/spec/INTERPRETATIONS.md`). One relation needs more than
   the two values: the same-side restriction clause orders `xs:time` bounds by

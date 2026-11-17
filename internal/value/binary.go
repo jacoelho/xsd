@@ -1,7 +1,9 @@
 package value
 
 import (
+	"bytes"
 	"encoding/base64"
+	"encoding/binary"
 	"errors"
 	"strings"
 
@@ -10,6 +12,46 @@ import (
 
 // binaryValue is the value-space projection for binary primitive values.
 type binaryValue lexicalValue
+
+// equalHexBinaryValues reports whether two xs:hexBinary values hold the same
+// octets; their digits may differ in letter case.
+func equalHexBinaryValues(a, b *lexicalValue) bool {
+	return strings.EqualFold(a.Canonical, b.Canonical)
+}
+
+// appendHexBinaryEnumerationKey appends v's digits in upper case, one
+// spelling for the values equalHexBinaryValues equates.
+func appendHexBinaryEnumerationKey(b []byte, v *lexicalValue) []byte {
+	text := v.Canonical
+	b = binary.AppendUvarint(b, uint64(len(text)))
+	for i := range len(text) {
+		c := text[i]
+		if 'a' <= c && c <= 'f' {
+			c -= 'a' - 'A'
+		}
+		b = append(b, c)
+	}
+	return b
+}
+
+// equalBase64BinaryValues reports whether two xs:base64Binary values hold the
+// same octets. It never compacts an operand in place; unless both are already
+// compact it compares decoded octets.
+func equalBase64BinaryValues(a, b *lexicalValue) bool {
+	if a.canonicalReady && b.canonicalReady {
+		return a.Canonical == b.Canonical
+	}
+	left, leftErr := decodeBase64Binary(a.Canonical)
+	right, rightErr := decodeBase64Binary(b.Canonical)
+	return leftErr == nil && rightErr == nil && bytes.Equal(left, right)
+}
+
+// appendBase64BinaryEnumerationKey appends v's text, which must be compact:
+// literals are, and prepareBase64EnumerationValue compacts a value before
+// membership. Admitted compact text has one spelling per octet sequence.
+func appendBase64BinaryEnumerationKey(b []byte, v *lexicalValue) []byte {
+	return appendKeyText(b, v.Canonical)
+}
 
 // parseBinaryValue parses normalized as an XML Schema binary primitive value.
 func parseBinaryValue(kind PrimitiveKind, normalized string, needs primitiveValueNeed) (binaryValue, error) {
