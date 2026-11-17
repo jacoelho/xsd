@@ -258,14 +258,17 @@ together; a value constraint against its type; a group reference that resolves
 to `xs:all`; and the content model rules (Unique Particle Attribution, Element
 Declarations Consistent, restriction).
 
-Compilation also owns rules that one start tag states. They are constraints
-on the schema component the tag describes, not on the tag's XML
-representation, and the compiler checks each where it builds that component:
+Compilation also owns rules that one start tag states. They are Schema
+Component Constraints, and the compiler checks each where it builds the
+component:
 
 - `minOccurs` above `maxOccurs` (Particle Correct), and an occurrence count
   above the occurrence limits.
-- The occurrence range of `xs:all` and of its particles (All Group Limited),
-  which a group reference reaches as well.
+- The occurrence range of `xs:all` (`validateAllModelOccurrence`) and of its
+  particles (`appendParticle`). The XML representation of `xs:all` states the
+  same ranges; they are compile tier so that All Group Limited, which also
+  rejects an `xs:all` that a group reference brings into a model group, has
+  one owner.
 - An attribute declaration named `xmlns` (xmlns Not Allowed).
 
 The path of `xs:selector` and `xs:field` is the form of one attribute and is
