@@ -90,9 +90,6 @@ func (c *compiler) indexModelGroup(child *schemaNode, q QName, label string, com
 }
 
 func (c *compiler) indexNotation(ctx *schemaSetDocument, n *schemaNode, name string) error {
-	if err := checkNotationDeclaration(n); err != nil {
-		return err
-	}
 	q, err := c.rt.internQName(ctx.effectiveTargetNS, name)
 	if err != nil {
 		return err

@@ -791,7 +791,7 @@ func schemaReferenceKindForLocal(local string) (schemaReferenceKind, bool) {
 func parseSchemaReferenceLocation(child *schemaNode, kind schemaReferenceKind) (uriref.Reference, bool, error) {
 	raw, present := schemaLocationAttr(child)
 	if kind == schemaReferenceInclude && !present {
-		return uriref.Reference{}, false, schemaCompileAt(child, xsderrors.CodeSchemaReference, "include missing schemaLocation")
+		return uriref.Reference{}, false, withSchemaCompileLocation(child, xsderrors.InternalInvariant("include start tag admitted no schemaLocation"))
 	}
 	if !present {
 		return uriref.Reference{}, false, nil

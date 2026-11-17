@@ -6,31 +6,6 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// validateIdentityConstraintNameSource validates declaration-level identity
-// constraint name source.
-func validateIdentityConstraintNameSource(name lexicalAttribute) error {
-	if !name.Present || name.Value == "" {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "identity constraint missing name")
-	}
-	return nil
-}
-
-// identityConstraintReferSource keeps the declaration kind and refer attribute
-// together for keyref source admission.
-type identityConstraintReferSource struct {
-	Local string
-	Refer lexicalAttribute
-}
-
-// validateIdentityConstraintReferSource validates declaration-level keyref
-// reference source.
-func validateIdentityConstraintReferSource(source identityConstraintReferSource) error {
-	if source.Local == vocab.XSDElemKeyref && !source.Refer.Present {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "keyref missing refer")
-	}
-	return nil
-}
-
 // identityConstraintKindForLocal maps identity constraint element names to
 // runtime identity kinds.
 func identityConstraintKindForLocal(local string) (IdentityKind, error) {

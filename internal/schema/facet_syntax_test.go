@@ -37,18 +37,13 @@ func TestValidateFacetSource(t *testing.T) {
 			wantMessage: "unsupported facet \"other\"",
 		},
 		{
-			name:        "rejects missing value",
-			source:      facetSource{Local: "length", InXSDNamespace: true, Variety: stringType.Variety, Primitive: stringType.Primitive},
-			wantMessage: "length missing value",
-		},
-		{
 			name:        "rejects facet not allowed for type",
-			source:      facetSource{Local: "length", InXSDNamespace: true, HasValue: true, Variety: booleanType.Variety, Primitive: booleanType.Primitive},
+			source:      facetSource{Local: "length", InXSDNamespace: true, Variety: booleanType.Variety, Primitive: booleanType.Primitive},
 			wantMessage: "facet length is not allowed",
 		},
 		{
 			name:        "admits allowed facet",
-			source:      facetSource{Local: "length", InXSDNamespace: true, HasValue: true, Variety: stringType.Variety, Primitive: stringType.Primitive},
+			source:      facetSource{Local: "length", InXSDNamespace: true, Variety: stringType.Variety, Primitive: stringType.Primitive},
 			wantCompile: true,
 		},
 	}

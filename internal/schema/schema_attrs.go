@@ -143,11 +143,18 @@ func misplacedSchemaAttributeError(n *schemaSyntaxNode, attr string, placement s
 
 // checkRequiredSchemaAttributes returns the error for n, an XSD element in
 // placement whose parent is named parent, when it lacks an attribute its
-// placement requires, or nil. A local declaration has no ref by definition of
-// its placement, so it requires name. A selector or field without xpath is an
-// identity-constraint violation; every other missing attribute is a reference
-// violation.
+// placement or its element requires, or nil. A local declaration has no ref by
+// definition of its placement, so it requires name. A missing attribute that
+// the placement requires is a reference violation; one that the element
+// requires in every placement carries the code of the rule it breaks.
 func checkRequiredSchemaAttributes(n *schemaSyntaxNode, parent xml.Name, placement schemaElementPlacement) error {
+	if err := checkPlacementRequiredAttribute(n, parent, placement); err != nil {
+		return err
+	}
+	return checkElementRequiredAttributes(n)
+}
+
+func checkPlacementRequiredAttribute(n *schemaSyntaxNode, parent xml.Name, placement schemaElementPlacement) error {
 	element := n.Name.Local
 	required, known := requiredSchemaAttribute(element, placement)
 	if !known {
@@ -163,11 +170,88 @@ func checkRequiredSchemaAttributes(n *schemaSyntaxNode, parent xml.Name, placeme
 	if message == "" {
 		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("schema element xs:"+diagnostictext.Quote(element)+" has no required attribute message"))
 	}
-	code := xsderrors.CodeSchemaReference
-	if required == vocab.XSDAttrXPath {
-		code = xsderrors.CodeSchemaIdentity
+	return schemaCompileAt(n, xsderrors.CodeSchemaReference, message)
+}
+
+// elementAttributeRequirement is an attribute that an XSD element requires in
+// every placement that admits it; when alternative is set, either attribute
+// satisfies it.
+type elementAttributeRequirement struct {
+	attr        string
+	alternative string
+	message     string
+	code        xsderrors.Code
+}
+
+var (
+	includeAttributeRequirements = []elementAttributeRequirement{
+		{attr: vocab.XSDAttrSchemaLocation, message: "include missing schemaLocation", code: xsderrors.CodeSchemaReference},
 	}
-	return schemaCompileAt(n, code, message)
+	notationAttributeRequirements = []elementAttributeRequirement{
+		{attr: vocab.XSDAttrName, message: "notation missing name", code: xsderrors.CodeSchemaInvalidAttribute},
+		{attr: vocab.XSDAttrPublic, alternative: vocab.XSDAttrSystem, message: "notation requires public or system", code: xsderrors.CodeSchemaInvalidAttribute},
+	}
+	identityAttributeRequirements = []elementAttributeRequirement{
+		{attr: vocab.XSDAttrName, message: "identity constraint missing name", code: xsderrors.CodeSchemaIdentity},
+	}
+	keyrefAttributeRequirements = []elementAttributeRequirement{
+		identityAttributeRequirements[0],
+		{attr: vocab.XSDAttrRefer, message: "keyref missing refer", code: xsderrors.CodeSchemaIdentity},
+	}
+	selectorAttributeRequirements = []elementAttributeRequirement{
+		{attr: vocab.XSDAttrXPath, message: `"selector" missing xpath`, code: xsderrors.CodeSchemaIdentity},
+	}
+	fieldAttributeRequirements = []elementAttributeRequirement{
+		{attr: vocab.XSDAttrXPath, message: `"field" missing xpath`, code: xsderrors.CodeSchemaIdentity},
+	}
+)
+
+// checkElementRequiredAttributes returns the error for the first attribute,
+// in requirement order, that n lacks and its element requires in every
+// placement, or nil.
+func checkElementRequiredAttributes(n *schemaSyntaxNode) error {
+	element := n.Name.Local
+	if isFacetLocal(element) {
+		if _, ok := n.attr(vocab.XSDAttrValue); !ok {
+			return schemaCompileAt(n, xsderrors.CodeSchemaFacet, facetLabel(element)+" missing value")
+		}
+		return nil
+	}
+	for _, requirement := range elementAttributeRequirements(element) {
+		if !requirement.satisfiedBy(n) {
+			return schemaCompileAt(n, requirement.code, requirement.message)
+		}
+	}
+	return nil
+}
+
+func (r elementAttributeRequirement) satisfiedBy(n *schemaSyntaxNode) bool {
+	if _, ok := n.attr(r.attr); ok {
+		return true
+	}
+	if r.alternative == "" {
+		return false
+	}
+	_, ok := n.attr(r.alternative)
+	return ok
+}
+
+func elementAttributeRequirements(element string) []elementAttributeRequirement {
+	switch element {
+	case vocab.XSDElemInclude:
+		return includeAttributeRequirements
+	case vocab.XSDElemNotation:
+		return notationAttributeRequirements
+	case vocab.XSDElemKey, vocab.XSDElemUnique:
+		return identityAttributeRequirements
+	case vocab.XSDElemKeyref:
+		return keyrefAttributeRequirements
+	case vocab.XSDElemSelector:
+		return selectorAttributeRequirements
+	case vocab.XSDElemField:
+		return fieldAttributeRequirements
+	}
+	return nil
 }
 
 // requiredSchemaAttribute returns the attribute an XSD element named element
@@ -175,11 +259,7 @@ func checkRequiredSchemaAttributes(n *schemaSyntaxNode, parent xml.Name, placeme
 // is known.
 func requiredSchemaAttribute(element string, placement schemaElementPlacement) (string, bool) {
 	switch placement {
-	case schemaPlacementOther:
-		if element == vocab.XSDElemSelector || element == vocab.XSDElemField {
-			return vocab.XSDAttrXPath, true
-		}
-	case schemaPlacementNamedGroupModel:
+	case schemaPlacementOther, schemaPlacementNamedGroupModel:
 	case schemaPlacementTopLevel:
 		switch element {
 		case vocab.XSDElemSimpleType, vocab.XSDElemComplexType, vocab.XSDElemAttributeGroup, vocab.XSDElemGroup, vocab.XSDElemAttribute, vocab.XSDElemElement:
@@ -225,14 +305,7 @@ func missingSchemaAttributeMessage(element string, parent xml.Name, placement sc
 		}
 	case schemaPlacementContentDerivation:
 		return missingContentDerivationBaseMessage(parent.Local, element)
-	case schemaPlacementOther:
-		switch element {
-		case vocab.XSDElemSelector:
-			return `"selector" missing xpath`
-		case vocab.XSDElemField:
-			return `"field" missing xpath`
-		}
-	case schemaPlacementNamedGroupModel:
+	case schemaPlacementOther, schemaPlacementNamedGroupModel:
 	}
 	return ""
 }

@@ -139,7 +139,7 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
   <xs:simpleType name="Restricted">
     <xs:restriction base="xs:QName">
       <xs:enumeration value="p:item"/>
-      <xs:enumeration/>
+      <xs:totalDigits value="1"/>
     </xs:restriction>
   </xs:simpleType>
 </xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 4, column: 7},
@@ -149,7 +149,7 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
     <xs:simpleContent>
       <xs:restriction base="Base">
         <xs:enumeration value="p:item"/>
-        <xs:enumeration/>
+        <xs:totalDigits value="1"/>
       </xs:restriction>
     </xs:simpleContent>
   </xs:complexType>
@@ -159,7 +159,7 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
   <xs:simpleType name="Restricted">
     <xs:restriction base="Base">
       <xs:enumeration value="p:item"/>
-      <xs:enumeration/>
+      <xs:totalDigits value="1"/>
     </xs:restriction>
   </xs:simpleType>
 </xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 6, column: 7},
@@ -170,7 +170,7 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
     <xs:simpleContent>
       <xs:restriction base="Base">
         <xs:enumeration value="p:item"/>
-        <xs:enumeration/>
+        <xs:totalDigits value="1"/>
       </xs:restriction>
     </xs:simpleContent>
   </xs:complexType>

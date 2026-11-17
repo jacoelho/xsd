@@ -41,20 +41,6 @@ func topLevelGroupModel(n *schemaNode) (*schemaNode, error) {
 	return nil, withSchemaCompileLocation(n, xsderrors.InternalInvariant("top-level group child order admitted no model group"))
 }
 
-func checkNotationDeclaration(n *schemaNode) error {
-	source, ok := n.semantic.kind.(*schemaNotationSource)
-	if !ok || source == nil {
-		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("notation node has no typed notation source"))
-	}
-	if !source.Global.Name.Present {
-		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "notation missing name")
-	}
-	if !source.Public.Present && !source.System.Present {
-		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "notation requires public or system")
-	}
-	return nil
-}
-
 func checkSchemaQNameParts(n *schemaNode, lexical string) (qNameParts, error) {
 	parts, err := parseQNameParts(lexical)
 	if err != nil {

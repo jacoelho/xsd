@@ -14,7 +14,6 @@ import (
 type facetSource struct {
 	Local          string
 	InXSDNamespace bool
-	HasValue       bool
 	Variety        valuepkg.Variety
 	Primitive      valuepkg.PrimitiveKind
 }
@@ -34,9 +33,6 @@ func validateFacetSource(source facetSource) (bool, error) {
 			return false, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "unsupported facet "+diagnostictext.Quote(source.Local))
 		}
 		return false, nil
-	}
-	if !source.HasValue {
-		return false, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, facetLabel(source.Local)+" missing value")
 	}
 	if !valuepkg.FacetAllowed(source.Variety, source.Primitive, mask) {
 		return false, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "facet "+facetLabel(source.Local)+" is not allowed")

@@ -117,3 +117,40 @@ func TestTypeSourceConflictReportedAtTheChild(t *testing.T) {
 		})
 	}
 }
+
+func TestElementRequiredAttributeWinsOverLaterErrors(t *testing.T) {
+	t.Parallel()
+	const laterEmptySimpleType = "\n  <xs:simpleType name=\"S\"/>"
+	const laterUnknownAttribute = "\n  <xs:element name=\"z\" foo=\"1\"/>"
+	missing := func(name, body string, code xsderrors.Code, msg string, line, col int) placementAttributeCase {
+		return placementAttributeCase{name: name, body: body, wantCode: code, wantMsg: msg, wantLine: line, wantCol: col}
+	}
+	const (
+		identity  = xsderrors.CodeSchemaIdentity
+		invalid   = xsderrors.CodeSchemaInvalidAttribute
+		reference = xsderrors.CodeSchemaReference
+	)
+	cases := []placementAttributeCase{
+		missing("include without schemaLocation before later missing derivation", `  <xs:include/>`+laterEmptySimpleType, reference, "include missing schemaLocation", 2, 3),
+		missing("notation without name before later missing derivation", `  <xs:notation public="p"/>`+laterEmptySimpleType, invalid, "notation missing name", 2, 3),
+		missing("notation without public or system before later attribute", `  <xs:notation name="N"/>`+laterUnknownAttribute, invalid, "notation requires public or system", 2, 3),
+		missing("notation without name reports name before public or system", `  <xs:notation/>`, invalid, "notation missing name", 2, 3),
+		missing("facet without value before later missing derivation", inSimpleType(`<xs:restriction base="xs:string"><xs:minLength/></xs:restriction>`)+laterEmptySimpleType, xsderrors.CodeSchemaFacet, "minLength missing value", 3, 5+len(`<xs:restriction base="xs:string">`)),
+		missing("key without name before its missing field", "  <xs:element name=\"r\">\n    <xs:key><xs:selector xpath=\".\"/></xs:key>\n  </xs:element>", identity, "identity constraint missing name", 3, 5),
+		missing("unique without name before its selector without xpath", "  <xs:element name=\"r\">\n    <xs:unique><xs:selector/><xs:field xpath=\".\"/></xs:unique>\n  </xs:element>", identity, "identity constraint missing name", 3, 5),
+		missing("keyref without refer before its missing field", "  <xs:element name=\"r\">\n    <xs:keyref name=\"kr\"><xs:selector xpath=\".\"/></xs:keyref>\n  </xs:element>", identity, "keyref missing refer", 3, 5),
+		missing("keyref without name reports name before refer", "  <xs:element name=\"r\">\n    <xs:keyref><xs:selector xpath=\".\"/><xs:field xpath=\".\"/></xs:keyref>\n  </xs:element>", identity, "identity constraint missing name", 3, 5),
+
+		missing("earlier unknown attribute before missing schemaLocation", `  <xs:include foo="1"/>`, invalid, `"include" cannot have attribute "foo"`, 2, 3),
+		missing("earlier sibling missing derivation before missing schemaLocation", `  <xs:simpleType name="S"/>`+"\n  <xs:notation name=\"N\"/>", xsderrors.CodeSchemaContentModel, "simpleType must contain one restriction, list, or union", 2, 3),
+
+		{name: "notation with system only", body: `  <xs:notation name="N" system="urn:n"/>`},
+		{name: "keyref with name and refer", body: "  <xs:element name=\"r\">\n    <xs:key name=\"k\"><xs:selector xpath=\".\"/><xs:field xpath=\"@a\"/></xs:key>\n    <xs:keyref name=\"kr\" refer=\"k\"><xs:selector xpath=\".\"/><xs:field xpath=\"@a\"/></xs:keyref>\n  </xs:element>"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			compilePlacementAttributeCase(t, tc)
+		})
+	}
+}

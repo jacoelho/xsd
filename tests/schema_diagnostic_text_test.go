@@ -152,6 +152,7 @@ var schemaDiagnosticFields = map[string]bool{
 	"childRule.PrecedingMsg":                  true,
 	"childRule.MissingMsg":                    true,
 	"childRule.ConflictMsg":                   true,
+	"elementAttributeRequirement.message":     true,
 	"derivationSetParser.label":               true,
 	"substitutionMembershipLabels.MemberName": true,
 	"substitutionMembershipLabels.MemberType": true,

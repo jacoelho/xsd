@@ -60,7 +60,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
 	}{
 		{
 			name: "include text before invalid child",
-			body: `  <xs:include>
+			body: `  <xs:include schemaLocation="other.xsd">
     text
     <xs:attribute name="a"/>
   </xs:include>`,
@@ -78,7 +78,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
 		},
 		{
 			name: "include invalid child before duplicate annotation",
-			body: `  <xs:include>
+			body: `  <xs:include schemaLocation="other.xsd">
     <xs:annotation/>
     <xs:attribute name="a"/>
     <xs:annotation/>
@@ -118,7 +118,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
 		},
 		{
 			name: "include duplicate annotation before invalid child",
-			body: `  <xs:include>
+			body: `  <xs:include schemaLocation="other.xsd">
     <xs:annotation/>
     <xs:annotation/>
     <xs:attribute name="a"/>
@@ -152,7 +152,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
 		},
 		{
 			name: "include child grammar before documentation language",
-			body: `  <xs:include>
+			body: `  <xs:include schemaLocation="other.xsd">
     <xs:documentation xml:lang=" "/>
   </xs:include>`,
 			wantLine: 3, wantCol: 5, wantCode: xsderrors.CodeSchemaContentModel,

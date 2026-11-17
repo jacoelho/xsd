@@ -84,7 +84,7 @@ func validateFacetChildSource(child *schemaNode, st *simpleType, single *valuepk
 		return 0, withSchemaCompileLocation(child, xsderrors.InternalInvariant("facet node has no typed facet source"))
 	}
 	compile, err := validateFacetSource(facetSource{
-		Local: child.local, InXSDNamespace: true, HasValue: source.Value.Present,
+		Local: child.local, InXSDNamespace: true,
 		Variety: st.ValueSpec.Variety, Primitive: st.ValueSpec.Primitive,
 	})
 	if err != nil {
