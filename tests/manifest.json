@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16872,
-    "schemaCases": 16822,
-    "instanceRuns": 35564,
+    "cases": 16888,
+    "schemaCases": 16838,
+    "instanceRuns": 35565,
     "w3cCases": 14414,
-    "internalRuns": 2445,
+    "internalRuns": 2461,
     "xercesJCases": 13
   },
   "cases": [
@@ -880061,22 +880061,22 @@
         "oracle": {
           "xerces": {
             "expected": "invalid",
-            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:69: s4s-elt-must-match.1: The content of 'selector' must match (annotation?). A problem was found starting at: field. The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:69: s4s-elt-must-match.1: The content of 'selector' must match (annotation?). A problem was found starting at: field. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:selector carries the required xpath attribute and has (annotation?) content; the project reports the first violation in document order, and a missing or empty xpath is known at its own start tag, so it precedes the later xs:field child (schema.content_model) that its content forbids; this observation is not a majority-vote oracle.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-selector"
           },
           "dotnet": {
             "expected": "invalid",
-            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:48: The 'http://www.w3.org/2001/XMLSchema:field' element is not supported in this context. The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:48: The 'http://www.w3.org/2001/XMLSchema:field' element is not supported in this context. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:selector carries the required xpath attribute and has (annotation?) content; the project reports the first violation in document order, and a missing or empty xpath is known at its own start tag, so it precedes the later xs:field child (schema.content_model) that its content forbids; this observation is not a majority-vote oracle.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-selector"
           },
           "xmlschema": {
             "expected": "invalid",
-            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. missing required attribute 'xpath': Schema component: <xs:selector xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:annotation /><xs:field xpath=\"@a\" /></xs:selector> Path: /xs:schema/xs:element/xs:key/xs:selector Schema URL: file://schema.xsd  The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. missing required attribute 'xpath': Schema component: <xs:selector xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:annotation /><xs:field xpath=\"@a\" /></xs:selector> Path: /xs:schema/xs:element/xs:key/xs:selector Schema URL: file://schema.xsd  The project expectation follows the schema for schemas and its XML representation constraints, under which xs:selector carries the required xpath attribute and has (annotation?) content; the project reports the first violation in document order, and a missing or empty xpath is known at its own start tag, so it precedes the later xs:field child (schema.content_model) that its content forbids; this observation is not a majority-vote oracle.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-selector"
           },
           "libxml2": {
             "expected": "invalid",
-            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element selector: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}selector': The attribute 'name' is required but missing. The project expectation follows the schema for schemas content (annotation?) of include, import, notation, selector, field and groupRef; this observation is not a majority-vote oracle.",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element selector: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}selector': The attribute 'name' is required but missing. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:selector carries the required xpath attribute and has (annotation?) content; the project reports the first violation in document order, and a missing or empty xpath is known at its own start tag, so it precedes the later xs:field child (schema.content_model) that its content forbids; this observation is not a majority-vote oracle.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-selector"
           }
         }
@@ -896535,6 +896535,897 @@
         },
         {
           "file": "corpus/project/datatypes/bounds/instance-maxExclusive-duration-order-equal/at-max-in-years.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/required-children/simple-type-missing-derivation-before-unbound-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/required-children/simple-type-missing-derivation-before-unbound-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-simpleType"
+        ],
+        "conditions": [
+          "An xs:simpleType holds no derivation and is followed by an element whose type has an unbound prefix. The missing derivation is known at the simpleType end tag, so the schema is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/required-children/simple-type-missing-derivation-before-unbound-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:26: s4s-elt-must-match.2: The content of 'simpleType' must match (annotation?, (restriction | list | union)). Not enough elements were found. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:simpleType holds one of restriction, list or union; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unbound QName prefix (schema.reference) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-simpleType"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:22: 'p:T' is an invalid value for the 'type' attribute. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:simpleType holds one of restriction, list or union; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unbound QName prefix (schema.reference) of a later start tag; this observation is not a majority-vote oracle. .NET reports the later unbound prefix first; XSD 1.0 does not order diagnostics. On an isolated variant without that violation (same fixture, observed offline through tools/oracles/run.sh), it rejects the schema for the missing simpleType content.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-simpleType"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. The content of element 'xs:simpleType' is not complete. Tag ('xs:restriction' | 'xs:list' | 'xs:union') expected: Schema component: <xs:simpleType xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"S\" /> Path: /xs:schema/xs:simpleType Schema URL: file://schema.xsd  The project expectation follows the schema for schemas and its XML representation constraints, under which xs:simpleType holds one of restriction, list or union; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unbound QName prefix (schema.reference) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-simpleType"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element simpleType: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}simpleType': The content is not valid. Expected is (annotation?, (restriction | list | union)). The project expectation follows the schema for schemas and its XML representation constraints, under which xs:simpleType holds one of restriction, list or union; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unbound QName prefix (schema.reference) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-simpleType"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/required-children/simple-type-missing-derivation-before-unbound-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/required-children/simple-content-missing-derivation-before-unknown-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/required-children/simple-content-missing-derivation-before-unknown-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleContent"
+        ],
+        "conditions": [
+          "An xs:simpleContent holds only an annotation and is followed by an element with an unknown attribute. The missing derivation is known at the simpleContent end tag, so the schema is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/required-children/simple-content-missing-derivation-before-unknown-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:44: s4s-elt-invalid-content.2: The content of 'C' is invalid. Element 'simpleContent' cannot be empty. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:simpleContent holds one restriction or extension; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleContent"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:22: The 'foo' attribute is not supported in this context. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:simpleContent holds one restriction or extension; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle. .NET reports the later unknown attribute first; XSD 1.0 does not order diagnostics. On an isolated variant without that violation (same fixture, observed offline through tools/oracles/run.sh), it rejects the schema for the missing simpleContent derivation.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleContent"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. The content of element 'xs:simpleContent' is not complete. Tag ('xs:restriction' | 'xs:extension') expected: Schema component: <xs:simpleContent xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:annotation /></xs:simpleContent> Path: /xs:schema/xs:complexType/xs:simpleContent Schema URL: file://schema The project expectation follows the schema for schemas and its XML representation constraints, under which xs:simpleContent holds one restriction or extension; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleContent"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element simpleContent: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}simpleContent': The content is not valid. Expected is (annotation?, (restriction | extension)). The project expectation follows the schema for schemas and its XML representation constraints, under which xs:simpleContent holds one restriction or extension; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleContent"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/required-children/simple-content-missing-derivation-before-unknown-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/required-children/complex-content-missing-derivation-before-unknown-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/required-children/complex-content-missing-derivation-before-unknown-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexContent"
+        ],
+        "conditions": [
+          "An empty xs:complexContent is followed by an element with an unknown attribute. The missing derivation is known at the complexContent end tag, so the schema is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/required-children/complex-content-missing-derivation-before-unknown-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:46: s4s-elt-invalid-content.2: The content of 'C' is invalid. Element 'complexContent' cannot be empty. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:complexContent holds one restriction or extension; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexContent"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:22: The 'foo' attribute is not supported in this context. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:complexContent holds one restriction or extension; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle. .NET reports the later unknown attribute first; XSD 1.0 does not order diagnostics. On an isolated variant without that violation (same fixture, observed offline through tools/oracles/run.sh), it rejects the schema for the missing complexContent derivation.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexContent"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. The content of element 'xs:complexContent' is not complete. Tag ('xs:restriction' | 'xs:extension') expected: Schema component: <xs:complexContent xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" /> Path: /xs:schema/xs:complexType/xs:complexContent Schema URL: file://schema.xsd  The project expectation follows the schema for schemas and its XML representation constraints, under which xs:complexContent holds one restriction or extension; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexContent"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element complexContent: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}complexContent': The content is not valid. Expected is (annotation?, (restriction | extension)). The project expectation follows the schema for schemas and its XML representation constraints, under which xs:complexContent holds one restriction or extension; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexContent"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/required-children/complex-content-missing-derivation-before-unknown-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/required-children/group-missing-model-group-before-unbound-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/required-children/group-missing-model-group-before-unbound-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+        ],
+        "conditions": [
+          "A top-level xs:group holds only an annotation and is followed by an element whose type has an unbound prefix. The missing model group is known at the group end tag, so the schema is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/required-children/group-missing-model-group-before-unbound-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:20: s4s-elt-must-match.2: The content of 'group (global)' must match (annotation?, (all | choice | sequence)). Not enough elements were found. The project expectation follows the schema for schemas and its XML representation constraints, under which a top-level xs:group holds one all, choice or sequence; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unbound QName prefix (schema.reference) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:22: 'p:T' is an invalid value for the 'type' attribute. The project expectation follows the schema for schemas and its XML representation constraints, under which a top-level xs:group holds one all, choice or sequence; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unbound QName prefix (schema.reference) of a later start tag; this observation is not a majority-vote oracle. .NET reports the later unbound prefix first; XSD 1.0 does not order diagnostics. On an isolated variant without that violation (same fixture, observed offline through tools/oracles/run.sh), it rejects the schema for the missing model group.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. The content of element 'xs:group' is not complete. Tag ('xs:all' | 'xs:choice' | 'xs:sequence') expected: Schema component: <xs:group xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"G\"><xs:annotation /></xs:group> Path: /xs:schema/xs:group Schema URL: file://schema.xsd  The project expectation follows the schema for schemas and its XML representation constraints, under which a top-level xs:group holds one all, choice or sequence; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unbound QName prefix (schema.reference) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'type': The value 'p:T' of simple type 'xs:QName' has no corresponding namespace declaration in scope. The project expectation follows the schema for schemas and its XML representation constraints, under which a top-level xs:group holds one all, choice or sequence; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unbound QName prefix (schema.reference) of a later start tag; this observation is not a majority-vote oracle. libxml2 reports the later unbound prefix first. On an isolated variant without it (observed offline through tools/oracles/run.sh), it accepts the top-level xs:group that holds only an annotation, contrary to the schema for schemas content (annotation?, (all | choice | sequence)).",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/required-children/group-missing-model-group-before-unbound-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/required-children/key-missing-selector-before-unknown-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/required-children/key-missing-selector-before-unknown-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-key"
+        ],
+        "conditions": [
+          "An xs:key holds no selector and no field and is followed by an element with an unknown attribute. The missing selector is known at the key end tag, so the schema is rejected with schema.identity."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/required-children/key-missing-selector-before-unknown-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.identity",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:18: s4s-elt-must-match.2: The content of 'identity constraint' must match (annotation?, selector, field+). Not enough elements were found. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:key holds a selector followed by at least one field; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-key"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:5:22: The 'foo' attribute is not supported in this context. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:key holds a selector followed by at least one field; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle. .NET reports the later unknown attribute first; XSD 1.0 does not order diagnostics. On an isolated variant without that violation (same fixture, observed offline through tools/oracles/run.sh), it rejects the schema for the missing selector.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-key"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. The content of element 'xs:key' is not complete. Tag ('xs:selector' | 'xs:field') expected: Schema component: <xs:key xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"k\" /> Path: /xs:schema/xs:element[1]/xs:key Schema URL: file://schema.xsd  The project expectation follows the schema for schemas and its XML representation constraints, under which xs:key holds a selector followed by at least one field; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-key"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element key: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}key': A child element is missing. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:key holds a selector followed by at least one field; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-key"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/required-children/key-missing-selector-before-unknown-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/required-children/key-missing-field-before-unknown-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/required-children/key-missing-field-before-unknown-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-key"
+        ],
+        "conditions": [
+          "An xs:key holds a selector and no field and is followed by an element with an unknown attribute. The missing field is known at the key end tag, so the schema is rejected with schema.identity."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/required-children/key-missing-field-before-unknown-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.identity",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:42: s4s-elt-must-match.2: The content of 'identity constraint' must match (annotation?, selector, field+). Not enough elements were found. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:key holds a selector followed by at least one field; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-key"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:5:22: The 'foo' attribute is not supported in this context. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:key holds a selector followed by at least one field; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle. .NET reports the later unknown attribute first; XSD 1.0 does not order diagnostics. On an isolated variant without that violation (same fixture, observed offline through tools/oracles/run.sh), it rejects the schema for the missing field.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-key"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. The content of element 'xs:key' is not complete. Tag 'xs:field' expected: Schema component: <xs:key xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"k\"><xs:selector xpath=\".\" /></xs:key> Path: /xs:schema/xs:element[1]/xs:key Schema URL: file://schema.xsd  The project expectation follows the schema for schemas and its XML representation constraints, under which xs:key holds a selector followed by at least one field; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-key"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element key: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}key': The content is not valid. Expected is (annotation?, (selector, field+)). The project expectation follows the schema for schemas and its XML representation constraints, under which xs:key holds a selector followed by at least one field; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-key"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/required-children/key-missing-field-before-unknown-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/required-children/restriction-missing-base-before-unknown-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/required-children/restriction-missing-base-before-unknown-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-simple-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-restriction"
+        ],
+        "conditions": [
+          "A simple xs:restriction has no base and holds only a facet, and is followed by an element with an unknown attribute. The missing base is known at the restriction end tag, so the schema is rejected with schema.reference."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/required-children/restriction-missing-base-before-unknown-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.reference",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:41: src-simple-type.2.b: A <restriction> element was found that has neither a base [attribute] nor a <simpleType> element among its [children]. One is required. The project expectation follows the schema for schemas and its XML representation constraints, under which a simple xs:restriction names its base in base or holds a simpleType child; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-simple-type"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:22: The 'foo' attribute is not supported in this context. The project expectation follows the schema for schemas and its XML representation constraints, under which a simple xs:restriction names its base in base or holds a simpleType child; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle. .NET reports the later unknown attribute first; XSD 1.0 does not order diagnostics. On an isolated variant without that violation (same fixture, observed offline through tools/oracles/run.sh), it rejects the schema for the restriction without base or simpleType child.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-simple-type"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'foo' not allowed: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"z\" foo=\"1\" /> Path: /xs:schema/xs:element Schema URL: file://schema.xsd  The project expectation follows the schema for schemas and its XML representation constraints, under which a simple xs:restriction names its base in base or holds a simpleType child; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle. xmlschema reports the later unknown attribute first; XSD 1.0 does not order diagnostics. On an isolated variant without that violation (same fixture, observed offline through tools/oracles/run.sh), it rejects the schema for the restriction without base or simpleType child.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-simple-type"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element minLength: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}restriction': Either the attribute 'base' or a <simpleType> child must be present. The project expectation follows the schema for schemas and its XML representation constraints, under which a simple xs:restriction names its base in base or holds a simpleType child; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-simple-type"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/required-children/restriction-missing-base-before-unknown-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/required-children/list-missing-item-type-before-unknown-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/required-children/list-missing-item-type-before-unknown-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-simple-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-list"
+        ],
+        "conditions": [
+          "An xs:list has no itemType and no simpleType child, and is followed by an element with an unknown attribute. The missing item type is known at the list end tag, so the schema is rejected with schema.reference."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/required-children/list-missing-item-type-before-unknown-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.reference",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:35: src-simple-type.3.b: A <list> element was found that has neither an itemType [attribute] nor a <simpleType> element among its [children]. One is required. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:list names its item type in itemType or holds a simpleType child; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-simple-type"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:22: The 'foo' attribute is not supported in this context. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:list names its item type in itemType or holds a simpleType child; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle. .NET reports the later unknown attribute first; XSD 1.0 does not order diagnostics. On an isolated variant without that violation (same fixture, observed offline through tools/oracles/run.sh), it rejects the schema for the list without itemType or simpleType child.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-simple-type"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'foo' not allowed: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"z\" foo=\"1\" /> Path: /xs:schema/xs:element Schema URL: file://schema.xsd  The project expectation follows the schema for schemas and its XML representation constraints, under which xs:list names its item type in itemType or holds a simpleType child; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle. xmlschema reports the later unknown attribute first; XSD 1.0 does not order diagnostics. On an isolated variant without that violation (same fixture, observed offline through tools/oracles/run.sh), it rejects the schema for the list without itemType or simpleType child.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-simple-type"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element list: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}list': Either the attribute 'itemType' or the <simpleType> child must be present. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:list names its item type in itemType or holds a simpleType child; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-simple-type"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/required-children/list-missing-item-type-before-unknown-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/required-children/union-empty-member-types-before-unknown-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/required-children/union-empty-member-types-before-unknown-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-simple-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-union"
+        ],
+        "conditions": [
+          "An xs:union has an empty memberTypes and no simpleType child, and is followed by an element with an unknown attribute. The missing member types are known at the union end tag, so the schema is rejected with schema.reference."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/required-children/union-empty-member-types-before-unknown-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.reference",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:51: src-union-memberTypes-or-simpleTypes: A <union> element must have either a non-empty memberTypes [attribute] or at least one <simpleType> element among its [children]. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:union names a member type in memberTypes or holds a simpleType child; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-simple-type"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:22: The 'foo' attribute is not supported in this context. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:union names a member type in memberTypes or holds a simpleType child; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle. .NET reports the later unknown attribute first; XSD 1.0 does not order diagnostics. On an isolated variant without that violation (same fixture, observed offline through tools/oracles/run.sh), it rejects the schema for the union without member types.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-simple-type"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'foo' not allowed: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"z\" foo=\"1\" /> Path: /xs:schema/xs:element Schema URL: file://schema.xsd  The project expectation follows the schema for schemas and its XML representation constraints, under which xs:union names a member type in memberTypes or holds a simpleType child; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle. xmlschema reports the later unknown attribute first; XSD 1.0 does not order diagnostics. On an isolated variant without that violation (same fixture, observed offline through tools/oracles/run.sh), it rejects the schema for the union without member types.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-simple-type"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element': The attribute 'foo' is not allowed. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:union names a member type in memberTypes or holds a simpleType child; the project reports the first violation in document order, and a missing required child is known at its parent's end tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle. libxml2 reports the later unknown attribute first. On an isolated variant without it (observed offline through tools/oracles/run.sh), it stops with an internal error (xmlSchemaFixupSimpleTypeStageOne, union type has no member-types assigned) and produces no validity outcome.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-simple-type"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/required-children/union-empty-member-types-before-unknown-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/required-children/element-type-and-anonymous-type-before-unbound-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/required-children/element-type-and-anonymous-type-before-unbound-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+        ],
+        "conditions": [
+          "An element declaration with type holds an anonymous simpleType whose restriction base has an unbound prefix. The conflict is known at the simpleType start tag, so the schema is rejected with schema.invalid_attribute."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/required-children/element-type-and-anonymous-type-before-unbound-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:82: s4s-att-invalid-value: Invalid attribute value for 'base' in element 'restriction'. Recorded reason: UndeclaredPrefix: Cannot resolve 'p:T' as a QName: the prefix 'p' is not declared. The project expectation follows the schema for schemas and its XML representation constraints, under which an element declaration does not have both a type attribute and an anonymous type child (src-element.3); the project reports the first violation in document order, and a type given both by attribute and by child is known at the child's start tag, so it precedes the later unbound QName prefix (schema.reference) inside the anonymous type; this observation is not a majority-vote oracle. Xerces-J reports the unbound prefix inside the anonymous type first; XSD 1.0 does not order diagnostics. On an isolated variant without that violation (same fixture, observed offline through tools/oracles/run.sh), it rejects the schema for the type attribute together with an anonymous type.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:70: 'p:T' is an invalid value for the 'base' attribute. The project expectation follows the schema for schemas and its XML representation constraints, under which an element declaration does not have both a type attribute and an anonymous type child (src-element.3); the project reports the first violation in document order, and a type given both by attribute and by child is known at the child's start tag, so it precedes the later unbound QName prefix (schema.reference) inside the anonymous type; this observation is not a majority-vote oracle. .NET reports the unbound prefix inside the anonymous type first; XSD 1.0 does not order diagnostics. On an isolated variant without that violation (same fixture, observed offline through tools/oracles/run.sh), it rejects the schema for the type attribute together with an anonymous type.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. the attribute 'type' and a xs:simpleType local declaration are mutually exclusive: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"e\" type=\"xs:string\"><xs:simpleType><xs:restriction base=\"p:T\" /></xs:simpleType></xs:element> Path: /xs:schema/xs:element Schema URL: fil The project expectation follows the schema for schemas and its XML representation constraints, under which an element declaration does not have both a type attribute and an anonymous type child (src-element.3); the project reports the first violation in document order, and a type given both by attribute and by child is known at the child's start tag, so it precedes the later unbound QName prefix (schema.reference) inside the anonymous type; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element simpleType: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element': The attribute 'type' and the <simpleType> child are mutually exclusive. The project expectation follows the schema for schemas and its XML representation constraints, under which an element declaration does not have both a type attribute and an anonymous type child (src-element.3); the project reports the first violation in document order, and a type given both by attribute and by child is known at the child's start tag, so it precedes the later unbound QName prefix (schema.reference) inside the anonymous type; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/required-children/element-type-and-anonymous-type-before-unbound-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/required-children/attribute-type-and-simple-type-before-unbound-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/required-children/attribute-type-and-simple-type-before-unbound-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+        ],
+        "conditions": [
+          "An attribute declaration with type holds a simpleType whose restriction base has an unbound prefix. The conflict is known at the simpleType start tag, so the schema is rejected with schema.invalid_attribute."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/required-children/attribute-type-and-simple-type-before-unbound-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:84: s4s-att-invalid-value: Invalid attribute value for 'base' in element 'restriction'. Recorded reason: UndeclaredPrefix: Cannot resolve 'p:T' as a QName: the prefix 'p' is not declared. The project expectation follows the schema for schemas and its XML representation constraints, under which an attribute declaration does not have both a type attribute and a simpleType child (src-attribute.4); the project reports the first violation in document order, and a type given both by attribute and by child is known at the child's start tag, so it precedes the later unbound QName prefix (schema.reference) inside the simpleType; this observation is not a majority-vote oracle. Xerces-J reports the unbound prefix inside the simpleType first; XSD 1.0 does not order diagnostics. On an isolated variant without that violation (same fixture, observed offline through tools/oracles/run.sh), it rejects the schema for the type attribute together with a simpleType child.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:72: 'p:T' is an invalid value for the 'base' attribute. The project expectation follows the schema for schemas and its XML representation constraints, under which an attribute declaration does not have both a type attribute and a simpleType child (src-attribute.4); the project reports the first violation in document order, and a type given both by attribute and by child is known at the child's start tag, so it precedes the later unbound QName prefix (schema.reference) inside the simpleType; this observation is not a majority-vote oracle. .NET reports the unbound prefix inside the simpleType first; XSD 1.0 does not order diagnostics. On an isolated variant without that violation (same fixture, observed offline through tools/oracles/run.sh), it rejects the schema for the type attribute together with a simpleType child.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. ambiguous type definition for XSD attribute: Schema component: <xs:attribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"a\" type=\"xs:string\"><xs:simpleType><xs:restriction base=\"p:T\" /></xs:simpleType></xs:attribute> Path: /xs:schema/xs:attribute Schema URL: file://schema.xsd  The project expectation follows the schema for schemas and its XML representation constraints, under which an attribute declaration does not have both a type attribute and a simpleType child (src-attribute.4); the project reports the first violation in document order, and a type given both by attribute and by child is known at the child's start tag, so it precedes the later unbound QName prefix (schema.reference) inside the simpleType; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element simpleType: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}attribute': The attribute 'type' and the <simpleType> child are mutually exclusive. The project expectation follows the schema for schemas and its XML representation constraints, under which an attribute declaration does not have both a type attribute and a simpleType child (src-attribute.4); the project reports the first violation in document order, and a type given both by attribute and by child is known at the child's start tag, so it precedes the later unbound QName prefix (schema.reference) inside the simpleType; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/required-children/attribute-type-and-simple-type-before-unbound-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/required-children/restriction-base-and-simple-type-before-unbound-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/required-children/restriction-base-and-simple-type-before-unbound-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-simple-type"
+        ],
+        "conditions": [
+          "A simple xs:restriction with base holds a simpleType whose restriction base has an unbound prefix. The conflict is known at the inner simpleType start tag, so the schema is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/required-children/restriction-base-and-simple-type-before-unbound-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:73: src-simple-type.2.a: A <restriction> element was found that has both a base [attribute] and a <simpleType> element among its [children]. Only one is allowed. The project expectation follows the schema for schemas and its XML representation constraints, under which a simple xs:restriction does not have both a base attribute and a simpleType child; the project reports the first violation in document order, and a type given both by attribute and by child is known at the child's start tag, so it precedes the later unbound QName prefix (schema.reference) inside the simpleType; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-simple-type"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:89: 'p:T' is an invalid value for the 'base' attribute. The project expectation follows the schema for schemas and its XML representation constraints, under which a simple xs:restriction does not have both a base attribute and a simpleType child; the project reports the first violation in document order, and a type given both by attribute and by child is known at the child's start tag, so it precedes the later unbound QName prefix (schema.reference) inside the simpleType; this observation is not a majority-vote oracle. .NET reports the unbound prefix inside the simpleType first; XSD 1.0 does not order diagnostics. On an isolated variant without that violation (same fixture, observed offline through tools/oracles/run.sh), it rejects the schema for the base attribute together with a simpleType child.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-simple-type"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. restriction with 'base' attribute and simpleType declaration: Schema component: <xs:restriction xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" base=\"xs:string\"><xs:simpleType><xs:restriction base=\"p:T\" /></xs:simpleType></xs:restriction> Path: /xs:schema/xs:simpleType/xs:restriction Schema URL: file:// The project expectation follows the schema for schemas and its XML representation constraints, under which a simple xs:restriction does not have both a base attribute and a simpleType child; the project reports the first violation in document order, and a type given both by attribute and by child is known at the child's start tag, so it precedes the later unbound QName prefix (schema.reference) inside the simpleType; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-simple-type"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element simpleType: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}restriction': The attribute 'base' and the <simpleType> child are mutually exclusive. The project expectation follows the schema for schemas and its XML representation constraints, under which a simple xs:restriction does not have both a base attribute and a simpleType child; the project reports the first violation in document order, and a type given both by attribute and by child is known at the child's start tag, so it precedes the later unbound QName prefix (schema.reference) inside the simpleType; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-simple-type"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/required-children/restriction-base-and-simple-type-before-unbound-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/required-children/list-item-type-and-simple-type-before-unbound-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/required-children/list-item-type-and-simple-type-before-unbound-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-simple-type"
+        ],
+        "conditions": [
+          "An xs:list with itemType holds a simpleType whose restriction base has an unbound prefix. The conflict is known at the inner simpleType start tag, so the schema is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/required-children/list-item-type-and-simple-type-before-unbound-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:67: src-simple-type.3.a: A <list> element was found that has both an itemType [attribute] and a <simpleType> element among its [children]. Only one is allowed. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:list does not have both an itemType attribute and a simpleType child; the project reports the first violation in document order, and a type given both by attribute and by child is known at the child's start tag, so it precedes the later unbound QName prefix (schema.reference) inside the simpleType; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-simple-type"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:83: 'p:T' is an invalid value for the 'base' attribute. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:list does not have both an itemType attribute and a simpleType child; the project reports the first violation in document order, and a type given both by attribute and by child is known at the child's start tag, so it precedes the later unbound QName prefix (schema.reference) inside the simpleType; this observation is not a majority-vote oracle. .NET reports the unbound prefix inside the simpleType first; XSD 1.0 does not order diagnostics. On an isolated variant without that violation (same fixture, observed offline through tools/oracles/run.sh), it rejects the schema for the itemType attribute together with a simpleType child.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-simple-type"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. prefix 'p' not found in namespace map: Schema component: <xs:restriction xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" base=\"p:T\" /> Path: /xs:schema/xs:simpleType/xs:list/xs:simpleType/xs:restriction Schema URL: file://schema.xsd  The project expectation follows the schema for schemas and its XML representation constraints, under which xs:list does not have both an itemType attribute and a simpleType child; the project reports the first violation in document order, and a type given both by attribute and by child is known at the child's start tag, so it precedes the later unbound QName prefix (schema.reference) inside the simpleType; this observation is not a majority-vote oracle. xmlschema reports the unbound prefix inside the simpleType first; XSD 1.0 does not order diagnostics. On an isolated variant without that violation (same fixture, observed offline through tools/oracles/run.sh), it rejects the schema for the itemType attribute together with a simpleType child.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-simple-type"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element list: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}list': The attribute 'itemType' and the <simpleType> child are mutually exclusive. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:list does not have both an itemType attribute and a simpleType child; the project reports the first violation in document order, and a type given both by attribute and by child is known at the child's start tag, so it precedes the later unbound QName prefix (schema.reference) inside the simpleType; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-simple-type"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/required-children/list-item-type-and-simple-type-before-unbound-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/required-children/selector-missing-xpath-before-unknown-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/required-children/selector-missing-xpath-before-unknown-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-selector"
+        ],
+        "conditions": [
+          "An xs:selector has no xpath and is followed by a field with an unknown attribute. The missing xpath is known at the selector start tag, so the schema is rejected with schema.identity."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/required-children/selector-missing-xpath-before-unknown-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.identity",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:32: s4s-att-must-appear: Attribute 'xpath' must appear in element 'selector'. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:selector carries the required xpath attribute; the project reports the first violation in document order, and a missing or empty xpath is known at its own start tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-selector"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:53: The 'foo' attribute is not supported in this context. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:selector carries the required xpath attribute; the project reports the first violation in document order, and a missing or empty xpath is known at its own start tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle. .NET reports the later unknown attribute first; XSD 1.0 does not order diagnostics. On an isolated variant without that violation (same fixture, observed offline through tools/oracles/run.sh), it rejects the schema for the missing xpath.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-selector"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. missing required attribute 'xpath': Schema component: <xs:selector xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" /> Path: /xs:schema/xs:element/xs:key/xs:selector Schema URL: file://schema.xsd  The project expectation follows the schema for schemas and its XML representation constraints, under which xs:selector carries the required xpath attribute; the project reports the first violation in document order, and a missing or empty xpath is known at its own start tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-selector"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element selector: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}selector': The attribute 'name' is required but missing. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:selector carries the required xpath attribute; the project reports the first violation in document order, and a missing or empty xpath is known at its own start tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-selector"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/required-children/selector-missing-xpath-before-unknown-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/required-children/field-empty-xpath-before-unknown-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/required-children/field-empty-xpath-before-unknown-attribute",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-field",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-fields-xpaths"
+        ],
+        "conditions": [
+          "An xs:field has a whitespace-only xpath and is followed by a field with an unknown attribute. The empty xpath is known at the field start tag, so the schema is rejected with schema.identity."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/required-children/field-empty-xpath-before-unknown-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.identity",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:63: c-general-xpath: The expression '' is not valid with respect to the XPath subset supported by XML Schema. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:field carries an xpath that is a field path, which an empty or whitespace-only value is not; the project reports the first violation in document order, and a missing or empty xpath is known at its own start tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-field"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:84: The 'foo' attribute is not supported in this context. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:field carries an xpath that is a field path, which an empty or whitespace-only value is not; the project reports the first violation in document order, and a missing or empty xpath is known at its own start tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle. .NET reports the later unknown attribute first; XSD 1.0 does not order diagnostics. On an isolated variant without that violation (same fixture, observed offline through tools/oracles/run.sh), it rejects the schema for the empty xpath.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-field"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'foo' not allowed: Schema component: <xs:field xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xpath=\"@a\" foo=\"1\" /> Path: /xs:schema/xs:element/xs:key/xs:field[2] Schema URL: file://schema.xsd  The project expectation follows the schema for schemas and its XML representation constraints, under which xs:field carries an xpath that is a field path, which an empty or whitespace-only value is not; the project reports the first violation in document order, and a missing or empty xpath is known at its own start tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle. xmlschema reports the later unknown attribute first; XSD 1.0 does not order diagnostics. On an isolated variant without that violation (same fixture, observed offline through tools/oracles/run.sh), it rejects the schema for the empty xpath.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-field"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element field: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}field', attribute 'xpath': The XPath expression ' ' could not be compiled. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:field carries an xpath that is a field path, which an empty or whitespace-only value is not; the project reports the first violation in document order, and a missing or empty xpath is known at its own start tag, so it precedes the later unknown attribute (schema.invalid_attribute) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-field"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/required-children/field-empty-xpath-before-unknown-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/required-children/required-children-control",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/required-children/required-children-control",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-simpleType",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-simple-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-simpleContent",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexContent",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-key",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+        ],
+        "conditions": [
+          "Every simpleType, simpleContent, complexContent, top-level group and key holds its required children, and each element, attribute, restriction, list and union names its type once, by attribute or by child, so the schema is accepted."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/required-children/required-children-control/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and its XML representation constraints, under which each of these elements holds its required children and a type is given by attribute or by child but not both (except that a union may combine memberTypes with simpleType children); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-simpleType"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and its XML representation constraints, under which each of these elements holds its required children and a type is given by attribute or by child but not both (except that a union may combine memberTypes with simpleType children); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-simpleType"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and its XML representation constraints, under which each of these elements holds its required children and a type is given by attribute or by child but not both (except that a union may combine memberTypes with simpleType children); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-simpleType"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and its XML representation constraints, under which each of these elements holds its required children and a type is given by attribute or by child but not both (except that a union may combine memberTypes with simpleType children); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-simpleType"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "valid",
+          "file": "corpus/project/schema-syntax/required-children/required-children-control/valid.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the schema for schemas and its XML representation constraints, under which each of these elements holds its required children and a type is given by attribute or by child but not both (except that a union may combine memberTypes with simpleType children); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-simpleType"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the schema for schemas and its XML representation constraints, under which each of these elements holds its required children and a type is given by attribute or by child but not both (except that a union may combine memberTypes with simpleType children); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-simpleType"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the schema for schemas and its XML representation constraints, under which each of these elements holds its required children and a type is given by attribute or by child but not both (except that a union may combine memberTypes with simpleType children); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-simpleType"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the schema for schemas and its XML representation constraints, under which each of these elements holds its required children and a type is given by attribute or by child but not both (except that a union may combine memberTypes with simpleType children); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-simpleType"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/required-children/required-children-control/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/schema-syntax/required-children/required-children-control/valid.xml",
           "role": "instance"
         }
       ]
