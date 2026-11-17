@@ -125,27 +125,6 @@ func validateAttributeName(names *nameTable, name QName) error {
 	return nil
 }
 
-// declarationValueConstraint classifies a {value constraint}, or the default
-// and fixed attributes of one schema source element; only source attributes
-// can conflict.
-type declarationValueConstraint uint8
-
-const (
-	// declarationValueConstraintNone means the declaration has no constraint.
-	declarationValueConstraintNone declarationValueConstraint = iota
-	// declarationValueConstraintDefault means the declaration has a default.
-	declarationValueConstraintDefault
-	// declarationValueConstraintFixed means the declaration has a fixed value.
-	declarationValueConstraintFixed
-	// declarationValueConstraintConflict means both mutually exclusive
-	// constraints were supplied.
-	declarationValueConstraintConflict
-)
-
-func (c declarationValueConstraint) present() bool {
-	return c == declarationValueConstraintDefault || c == declarationValueConstraintFixed
-}
-
 // validateElementDeclValueConstraintRuntime validates element declaration
 // value-constraint rules that depend on the constraint's simple owner type.
 func validateElementDeclValueConstraintRuntime(rt *schemaBuild, typ SimpleTypeID, vc *valueConstraint) error {

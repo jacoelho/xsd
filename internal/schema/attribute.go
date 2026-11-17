@@ -196,7 +196,7 @@ type AttributeUseRead struct {
 	name       QName
 	typ        SimpleTypeID
 	required   bool
-	kind       declarationValueConstraint
+	kind       valueConstraintKind
 }
 
 // newAttributeUseRead returns an immutable validation read projection for one
@@ -242,7 +242,7 @@ func (u AttributeUseRead) Required() bool {
 
 // FixedValue returns the fixed value, if present.
 func (u AttributeUseRead) FixedValue() (ValueConstraintRead, bool) {
-	if u.kind != declarationValueConstraintFixed {
+	if u.kind != valueConstraintFixed {
 		return ValueConstraintRead{}, false
 	}
 	return u.constraint, true

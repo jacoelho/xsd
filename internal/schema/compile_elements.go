@@ -235,11 +235,10 @@ func compileElementConstraintSource(n *schemaNode) (*valueConstraint, error) {
 	if source == nil {
 		return nil, withSchemaCompileLocation(n, xsderrors.InternalInvariant("element node has no typed element source"))
 	}
-	constraint, kind := sourceValueConstraint(source.Default, source.Fixed)
-	if err := validateElementDeclValueConstraintAtNode(n, kind); err != nil {
+	if err := validateElementDeclValueConstraintAtNode(n, source.Default, source.Fixed); err != nil {
 		return nil, err
 	}
-	return constraint, nil
+	return sourceValueConstraint(source.Default, source.Fixed), nil
 }
 
 func (c *compiler) addPendingElementConstraint(id ElementID, n *schemaNode, constraint *valueConstraint) {

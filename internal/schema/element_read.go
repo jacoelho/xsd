@@ -18,7 +18,7 @@ type elementReadMeta struct {
 
 type elementConstraintRead struct {
 	value ValueConstraintRead
-	kind  declarationValueConstraint
+	kind  valueConstraintKind
 }
 
 // elementReadTable is the sole published owner of element declaration facts.
@@ -115,8 +115,8 @@ func (t *elementReadTable) start(id ElementID) (ElementStartInfo, bool) {
 		Block:    meta.block,
 		Abstract: meta.flags&elementReadAbstract != 0,
 		Nillable: meta.flags&elementReadNillable != 0,
-		Fixed:    constraint != nil && constraint.kind == declarationValueConstraintFixed,
-		Default:  constraint != nil && constraint.kind == declarationValueConstraintDefault,
+		Fixed:    constraint != nil && constraint.kind == valueConstraintFixed,
+		Default:  constraint != nil && constraint.kind == valueConstraintDefault,
 	}, true
 }
 
@@ -171,5 +171,5 @@ func (t *elementReadTable) constraintFlags(id ElementID) (fixed, present, valid 
 	if constraint == nil {
 		return false, false, valid
 	}
-	return constraint.kind == declarationValueConstraintFixed, true, true
+	return constraint.kind == valueConstraintFixed, true, true
 }

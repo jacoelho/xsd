@@ -164,48 +164,27 @@ func TestValidateAttributeUseFixedValueAdmission(t *testing.T) {
 func TestValidateDeclValueConstraintAdmission(t *testing.T) {
 	t.Parallel()
 
+	present := lexicalAttribute{Value: "v", Present: true}
 	tests := []struct {
-		name       string
-		fn         func(declarationValueConstraint) error
-		wantErr    string
-		constraint declarationValueConstraint
+		name                   string
+		fn                     func(defaultAttr, fixedAttrtr lexicalAttribute) error
+		defaultAttr, fixedAttr lexicalAttribute
+		wantErr                string
 	}{
 		{name: "element absent", fn: validateElementDeclValueConstraintAdmission},
-		{name: "element default", fn: validateElementDeclValueConstraintAdmission, constraint: declarationValueConstraintDefault},
-		{name: "element fixed", fn: validateElementDeclValueConstraintAdmission, constraint: declarationValueConstraintFixed},
-		{
-			name:       "element both",
-			fn:         validateElementDeclValueConstraintAdmission,
-			constraint: declarationValueConstraintConflict,
-			wantErr:    "element cannot have both default and fixed",
-		},
-		{
-			name:       "element unknown",
-			fn:         validateElementDeclValueConstraintAdmission,
-			constraint: declarationValueConstraint(99),
-			wantErr:    "element declaration has unknown value constraint",
-		},
+		{name: "element default", fn: validateElementDeclValueConstraintAdmission, defaultAttr: present},
+		{name: "element fixed", fn: validateElementDeclValueConstraintAdmission, fixedAttr: present},
+		{name: "element both", fn: validateElementDeclValueConstraintAdmission, defaultAttr: present, fixedAttr: present, wantErr: "element cannot have both default and fixed"},
 		{name: "attribute absent", fn: validateAttributeDeclValueConstraintAdmission},
-		{name: "attribute default", fn: validateAttributeDeclValueConstraintAdmission, constraint: declarationValueConstraintDefault},
-		{name: "attribute fixed", fn: validateAttributeDeclValueConstraintAdmission, constraint: declarationValueConstraintFixed},
-		{
-			name:       "attribute both",
-			fn:         validateAttributeDeclValueConstraintAdmission,
-			constraint: declarationValueConstraintConflict,
-			wantErr:    "attribute cannot have both default and fixed",
-		},
-		{
-			name:       "attribute unknown",
-			fn:         validateAttributeDeclValueConstraintAdmission,
-			constraint: declarationValueConstraint(99),
-			wantErr:    "attribute declaration has unknown value constraint",
-		},
+		{name: "attribute default", fn: validateAttributeDeclValueConstraintAdmission, defaultAttr: present},
+		{name: "attribute fixed", fn: validateAttributeDeclValueConstraintAdmission, fixedAttr: present},
+		{name: "attribute both", fn: validateAttributeDeclValueConstraintAdmission, defaultAttr: present, fixedAttr: present, wantErr: "attribute cannot have both default and fixed"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := tt.fn(tt.constraint)
+			err := tt.fn(tt.defaultAttr, tt.fixedAttr)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("admission validator error = %v", err)
