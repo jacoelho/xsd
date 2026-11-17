@@ -258,20 +258,24 @@ owner, `internal/schema`, because no value-owned parser exists for them.
   `minExclusive` or `maxExclusive` equal to the base's effective same facet,
   only the base's patterns and other bounds; the base's non-bound facets are
   checked before its bounds. The compiler admits it while
-  reading the facet, so the diagnostic names the literal; same-side ordering
-  against inherited bounds is repeated by, and the lower-versus-upper and
-  fixed-facet checks belong to, `Builder.Complete`'s restriction derivation,
-  located at the simple type.
-  One order (`compareAtomic`) relates values and bounds everywhere: an
-  instance value against a bound, a literal against the base's bounds,
-  restriction derivation, and the effective lower-versus-upper check. For
-  `xs:time` it keeps the day a timezone moves a time to (Time midnight
-  boundary in `docs/spec/INTERPRETATIONS.md`); value equality ignores that
-  day. Every schema-level equality between bounds (an exclusive restatement
-  and a bound under a fixed base bound) is `equalBound`: equality in that
-  order for `xs:time`, value identity otherwise, so durations equal only in
-  order are distinct (Duration equality and order in
-  `docs/spec/INTERPRETATIONS.md`). Restriction
+  reading the facet, so the diagnostic names the literal; the
+  valid-restriction clauses against inherited bounds and the
+  lower-versus-upper and fixed-facet checks belong to `Builder.Complete`'s
+  restriction derivation, located at the simple type.
+  One order (`compareAtomic`) and one equality (`equalAtomic`) relate two
+  values of a primitive wherever they are related: an instance value against
+  a bound, enumeration, fixed values, identity constraints, a literal against
+  the base's bounds, an exclusive restatement, a bound under a fixed base
+  bound, the opposite-side restriction clauses, and the effective
+  lower-versus-upper check. The order never separates equal values, and two
+  values it ranks equal are equal, except durations equal only in order
+  (Duration equality and order in `docs/spec/INTERPRETATIONS.md`). An
+  `xs:time` value is its timezone-normalized time of day (Time midnight
+  boundary in `docs/spec/INTERPRETATIONS.md`). One relation needs more than
+  the two values: the same-side restriction clause orders `xs:time` bounds by
+  un-wrapped time. The day offset it reads is a fact of the bound facet
+  (`boundValue`), not of the value, and `compareDerivationBounds` is its only
+  reader. Restriction
   derivation returns the effective facet program, and the compiler does not
   reconstruct that merge. `FacetAllowed` is the only facet-applicability rule
   for schema admission, value construction, and diagnostics.
@@ -767,6 +771,7 @@ change-detector tests that mirror the implementation or assert their own setup.
 | `tests/phase_import_graph_test.go` | Package allowlists, dependency direction, context-free and reflection-free library code, source I/O ownership, and capability isolation |
 | `tests/phase_boundary_test.go` | Required modules, single facade execution edges, session construction ownership, and retired public paths |
 | `tests/schema_diagnostic_text_test.go` | Schema diagnostics quote schema text through `internal/diagnostictext`: an allowlist lint over `internal/schema` message operands (known gaps are listed in its doc comment); the public hostile-value table in `schema_diagnostic_bound_test.go` is the contract proof |
+| `internal/value/value_laws_contract_test.go` | For every primitive, one order and one equality: equality decides identity keys and enumeration membership, the bound facets agree on one order that never separates equal values and separates unequal ones outside the declared duration exception, and canonical text denotes its value; checked on declared pairs and on a generated grid of lexical forms |
 | `tests/schema_export_surface_test.go` | The exported top-level identifiers of `internal/schema`, `internal/value` and `internal/validate` equal an explicit allowlist of the surface consumed across packages |
 | `tests/resource_limits_doc_test.go` | `docs/RESOURCE_LIMITS.md` option tables list every public option with its code-owned default |
 | `tests/root_public_shape_test.go` and `tests/external_api_smoke_test.go` | External callers use only the supported public packages and interface |
@@ -990,11 +995,21 @@ graph preserves these ownership rules:
   `BoundFacet` costs an allocation per bound and enlarges the `FacetSpec` of
   every simple type when held by pointer, and multiplies that size when held
   inline.
-- A second `xs:time` order for instance values, comparing recurring times of
-  day while bounds keep their day, was rejected: a bound is a value of the
-  same value space and the bound facets compare instances with it, and two
-  orders left types valid in one order with fewer instances, or none, in the
-  other (Time midnight boundary in `docs/spec/INTERPRETATIONS.md`).
+- Making the day a timezone moves an `xs:time` to part of its value was
+  rejected: it contradicts the equality Xerces-J applies in enumerations,
+  fixed values and identity constraints, where `00:30:00+14:00` is
+  `10:30:00Z` (Time midnight boundary in `docs/spec/INTERPRETATIONS.md`).
+- Keeping that day in `TimeValue` for the order while equality ignores it was
+  rejected: order and equality then disagree, so a bound separates two equal
+  values and a value can equal an enumerated literal that a bound of the same
+  spelling rejects.
+- Extending the un-wrapped `xs:time` order beyond the same-side restriction
+  clauses was rejected: W3C `time_maxInclusive007_119` requires it only
+  there, no W3C test requires it elsewhere, and Xerces-J orders every other
+  relation by time of day.
+- Using the §3.2.8.2 canonical form `00:00:00` for the end-of-day midnight
+  was rejected: canonical text would denote another value, and a value
+  constraint applied through its canonical text would change value.
 - Combining Gregorian primitive parsers was rejected because their field
   grammars and failure precedence differ.
 - Re-resolving schema-supplied QNames in instance namespaces was rejected
