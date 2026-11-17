@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16889,
-    "schemaCases": 16839,
-    "instanceRuns": 35645,
+    "cases": 16891,
+    "schemaCases": 16841,
+    "instanceRuns": 35649,
     "w3cCases": 14414,
-    "internalRuns": 2462,
+    "internalRuns": 2464,
     "xercesJCases": 13
   },
   "cases": [
@@ -899851,6 +899851,242 @@
         },
         {
           "file": "corpus/project/datatypes/bounds/default-time-under-next-day-max/defaulted.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/instance-maxInclusive-time-leap-second",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/instance-maxInclusive-time-leap-second",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-maxInclusive-valid",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#time"
+        ],
+        "conditions": [
+          "An instance 23:59:60Z is 00:00:00Z of the next day in the day-preserving order, after the maxInclusive 23:59:59Z."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/instance-maxInclusive-time-leap-second/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxInclusive Valid rule, under which the value must be chronologically less than or equal to {value}, ordered by the day-preserving time order, the dateTime order on an arbitrary date of Datatypes 3.2.8 (\"The order relation on time values is the Order relation on dateTime using an arbitrary date\"), which W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles for bounds (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid); a bound {value} is a value of the base value space, and an instance value meets it in that order. A leap second 23:59:60 normalizes, as 24:00:00 does, to 00:00:00 of the next day, so it orders after 23:59:59 of its lexical day; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-maxInclusive-valid"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxInclusive Valid rule, under which the value must be chronologically less than or equal to {value}, ordered by the day-preserving time order, the dateTime order on an arbitrary date of Datatypes 3.2.8 (\"The order relation on time values is the Order relation on dateTime using an arbitrary date\"), which W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles for bounds (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid); a bound {value} is a value of the base value space, and an instance value meets it in that order. A leap second 23:59:60 normalizes, as 24:00:00 does, to 00:00:00 of the next day, so it orders after 23:59:59 of its lexical day; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-maxInclusive-valid"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxInclusive Valid rule, under which the value must be chronologically less than or equal to {value}, ordered by the day-preserving time order, the dateTime order on an arbitrary date of Datatypes 3.2.8 (\"The order relation on time values is the Order relation on dateTime using an arbitrary date\"), which W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles for bounds (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid); a bound {value} is a value of the base value space, and an instance value meets it in that order. A leap second 23:59:60 normalizes, as 24:00:00 does, to 00:00:00 of the next day, so it orders after 23:59:59 of its lexical day; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-maxInclusive-valid"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxInclusive Valid rule, under which the value must be chronologically less than or equal to {value}, ordered by the day-preserving time order, the dateTime order on an arbitrary date of Datatypes 3.2.8 (\"The order relation on time values is the Order relation on dateTime using an arbitrary date\"), which W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles for bounds (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid); a bound {value} is a value of the base value space, and an instance value meets it in that order. A leap second 23:59:60 normalizes, as 24:00:00 does, to 00:00:00 of the next day, so it orders after 23:59:59 of its lexical day; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-maxInclusive-valid"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "leap-second",
+          "file": "corpus/project/datatypes/bounds/instance-maxInclusive-time-leap-second/leap-second.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. leap-second.xml:1:17: cvc-datatype-valid.1.2.1: '23:59:60Z' is not a valid value for 'time'. The project expectation follows the maxInclusive Valid rule, under which the value must be chronologically less than or equal to {value}, ordered by the day-preserving time order, the dateTime order on an arbitrary date of Datatypes 3.2.8 (\"The order relation on time values is the Order relation on dateTime using an arbitrary date\"), which W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles for bounds (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid); a bound {value} is a value of the base value space, and an instance value meets it in that order. A leap second 23:59:60 normalizes, as 24:00:00 does, to 00:00:00 of the next day, so it orders after 23:59:59 of its lexical day; this observation is not a majority-vote oracle. Xerces-J rejects for another reason: it does not admit the second 60 in a time lexical form, which the project admits under the Temporal boundaries row of docs/spec/INTERPRETATIONS.md; no provider observes the order of an admitted leap second.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-maxInclusive-valid"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. leap-second.xml:1:15: The 'r' element is invalid - The value '23:59:60Z' is invalid according to its datatype 'D' - The string '23:59:60Z' is not a valid Time value. The project expectation follows the maxInclusive Valid rule, under which the value must be chronologically less than or equal to {value}, ordered by the day-preserving time order, the dateTime order on an arbitrary date of Datatypes 3.2.8 (\"The order relation on time values is the Order relation on dateTime using an arbitrary date\"), which W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles for bounds (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid); a bound {value} is a value of the base value space, and an instance value meets it in that order. A leap second 23:59:60 normalizes, as 24:00:00 does, to 00:00:00 of the next day, so it orders after 23:59:59 of its lexical day; this observation is not a majority-vote oracle. .NET rejects for another reason: it does not admit the second 60 in a time lexical form, which the project admits under the Temporal boundaries row of docs/spec/INTERPRETATIONS.md; no provider observes the order of an admitted leap second.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-maxInclusive-valid"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: second must be in 0..59 (path /r) The project expectation follows the maxInclusive Valid rule, under which the value must be chronologically less than or equal to {value}, ordered by the day-preserving time order, the dateTime order on an arbitrary date of Datatypes 3.2.8 (\"The order relation on time values is the Order relation on dateTime using an arbitrary date\"), which W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles for bounds (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid); a bound {value} is a value of the base value space, and an instance value meets it in that order. A leap second 23:59:60 normalizes, as 24:00:00 does, to 00:00:00 of the next day, so it orders after 23:59:59 of its lexical day; this observation is not a majority-vote oracle. xmlschema rejects for another reason: it does not admit the second 60 in a time lexical form, which the project admits under the Temporal boundaries row of docs/spec/INTERPRETATIONS.md; no provider observes the order of an admitted leap second.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-maxInclusive-valid"
+            },
+            "libxml2": {
+              "expected": "invalid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance rejected. leap-second.xml:1: element r: Schemas validity error : Element 'r': '23:59:60Z' is not a valid value of the atomic type 'D'. The project expectation follows the maxInclusive Valid rule, under which the value must be chronologically less than or equal to {value}, ordered by the day-preserving time order, the dateTime order on an arbitrary date of Datatypes 3.2.8 (\"The order relation on time values is the Order relation on dateTime using an arbitrary date\"), which W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles for bounds (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid); a bound {value} is a value of the base value space, and an instance value meets it in that order. A leap second 23:59:60 normalizes, as 24:00:00 does, to 00:00:00 of the next day, so it orders after 23:59:59 of its lexical day; this observation is not a majority-vote oracle. libxml2 rejects for another reason: it does not admit the second 60 in a time lexical form, which the project admits under the Temporal boundaries row of docs/spec/INTERPRETATIONS.md; no provider observes the order of an admitted leap second.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-maxInclusive-valid"
+            }
+          }
+        },
+        {
+          "testName": "at-max",
+          "file": "corpus/project/datatypes/bounds/instance-maxInclusive-time-leap-second/at-max.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the maxInclusive Valid rule, under which the value must be chronologically less than or equal to {value}, ordered by the day-preserving time order, the dateTime order on an arbitrary date of Datatypes 3.2.8 (\"The order relation on time values is the Order relation on dateTime using an arbitrary date\"), which W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles for bounds (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid); a bound {value} is a value of the base value space, and an instance value meets it in that order. A leap second 23:59:60 normalizes, as 24:00:00 does, to 00:00:00 of the next day, so it orders after 23:59:59 of its lexical day; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-maxInclusive-valid"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the maxInclusive Valid rule, under which the value must be chronologically less than or equal to {value}, ordered by the day-preserving time order, the dateTime order on an arbitrary date of Datatypes 3.2.8 (\"The order relation on time values is the Order relation on dateTime using an arbitrary date\"), which W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles for bounds (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid); a bound {value} is a value of the base value space, and an instance value meets it in that order. A leap second 23:59:60 normalizes, as 24:00:00 does, to 00:00:00 of the next day, so it orders after 23:59:59 of its lexical day; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-maxInclusive-valid"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the maxInclusive Valid rule, under which the value must be chronologically less than or equal to {value}, ordered by the day-preserving time order, the dateTime order on an arbitrary date of Datatypes 3.2.8 (\"The order relation on time values is the Order relation on dateTime using an arbitrary date\"), which W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles for bounds (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid); a bound {value} is a value of the base value space, and an instance value meets it in that order. A leap second 23:59:60 normalizes, as 24:00:00 does, to 00:00:00 of the next day, so it orders after 23:59:59 of its lexical day; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-maxInclusive-valid"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the maxInclusive Valid rule, under which the value must be chronologically less than or equal to {value}, ordered by the day-preserving time order, the dateTime order on an arbitrary date of Datatypes 3.2.8 (\"The order relation on time values is the Order relation on dateTime using an arbitrary date\"), which W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles for bounds (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid); a bound {value} is a value of the base value space, and an instance value meets it in that order. A leap second 23:59:60 normalizes, as 24:00:00 does, to 00:00:00 of the next day, so it orders after 23:59:59 of its lexical day; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-maxInclusive-valid"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/instance-maxInclusive-time-leap-second/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/instance-maxInclusive-time-leap-second/leap-second.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/instance-maxInclusive-time-leap-second/at-max.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/enumeration-time-equal-across-day",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/enumeration-time-equal-across-day",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-enumeration",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#time"
+        ],
+        "conditions": [
+          "00:30:00+14:00 is 10:30:00Z of the previous day; it equals the enumerated time of day 10:30:00Z, whose canonical representation it shares, though it lies a day earlier in the order of bounds."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/enumeration-time-equal-across-day/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the enumeration Valid rule, under which the value must equal one of the enumerated values, with time equality comparing the timezone-normalized time of day; the day-preserving order of bounds does not apply to equality, so a value spelled on another day of that order still equals the enumerated time; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-enumeration"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the enumeration Valid rule, under which the value must equal one of the enumerated values, with time equality comparing the timezone-normalized time of day; the day-preserving order of bounds does not apply to equality, so a value spelled on another day of that order still equals the enumerated time; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-enumeration"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the enumeration Valid rule, under which the value must equal one of the enumerated values, with time equality comparing the timezone-normalized time of day; the day-preserving order of bounds does not apply to equality, so a value spelled on another day of that order still equals the enumerated time; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-enumeration"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the enumeration Valid rule, under which the value must equal one of the enumerated values, with time equality comparing the timezone-normalized time of day; the day-preserving order of bounds does not apply to equality, so a value spelled on another day of that order still equals the enumerated time; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-enumeration"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "previous-day-spelling",
+          "file": "corpus/project/datatypes/bounds/enumeration-time-equal-across-day/previous-day-spelling.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the enumeration Valid rule, under which the value must equal one of the enumerated values, with time equality comparing the timezone-normalized time of day; the day-preserving order of bounds does not apply to equality, so a value spelled on another day of that order still equals the enumerated time; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-enumeration"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. previous-day-spelling.xml:1:20: The 'r' element is invalid - The value '00:30:00+14:00' is invalid according to its datatype 'D' - The Enumeration constraint failed. The project expectation follows the enumeration Valid rule, under which the value must equal one of the enumerated values, with time equality comparing the timezone-normalized time of day; the day-preserving order of bounds does not apply to equality, so a value spelled on another day of that order still equals the enumerated time; this observation is not a majority-vote oracle. .NET takes time equality from the same day-preserving order it uses for bounds, so it distinguishes 00:30:00+14:00 from 10:30:00Z; equality is identity in the time value space, whose canonical representation of both is 10:30:00Z, and Xerces-J and libxml2 accept the value.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-enumeration"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: value must be one of [Time(10, 30, 0, tzinfo=Timezone(datetime.timedelta(0)))] (path /r) The project expectation follows the enumeration Valid rule, under which the value must equal one of the enumerated values, with time equality comparing the timezone-normalized time of day; the day-preserving order of bounds does not apply to equality, so a value spelled on another day of that order still equals the enumerated time; this observation is not a majority-vote oracle. xmlschema takes time equality from the same day-preserving order it uses for bounds, so it distinguishes 00:30:00+14:00 from 10:30:00Z; equality is identity in the time value space, whose canonical representation of both is 10:30:00Z, and Xerces-J and libxml2 accept the value.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-enumeration"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the enumeration Valid rule, under which the value must equal one of the enumerated values, with time equality comparing the timezone-normalized time of day; the day-preserving order of bounds does not apply to equality, so a value spelled on another day of that order still equals the enumerated time; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-enumeration"
+            }
+          }
+        },
+        {
+          "testName": "other-time",
+          "file": "corpus/project/datatypes/bounds/enumeration-time-equal-across-day/other-time.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. other-time.xml:1:17: cvc-enumeration-valid: Value '10:30:01Z' is not facet-valid with respect to enumeration '[10:30:00Z]'. It must be a value from the enumeration. The project expectation follows the enumeration Valid rule, under which the value must equal one of the enumerated values, with time equality comparing the timezone-normalized time of day; the day-preserving order of bounds does not apply to equality, so a value spelled on another day of that order still equals the enumerated time; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-enumeration"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. other-time.xml:1:15: The 'r' element is invalid - The value '10:30:01Z' is invalid according to its datatype 'D' - The Enumeration constraint failed. The project expectation follows the enumeration Valid rule, under which the value must equal one of the enumerated values, with time equality comparing the timezone-normalized time of day; the day-preserving order of bounds does not apply to equality, so a value spelled on another day of that order still equals the enumerated time; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-enumeration"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: value must be one of [Time(10, 30, 0, tzinfo=Timezone(datetime.timedelta(0)))] (path /r) The project expectation follows the enumeration Valid rule, under which the value must equal one of the enumerated values, with time equality comparing the timezone-normalized time of day; the day-preserving order of bounds does not apply to equality, so a value spelled on another day of that order still equals the enumerated time; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-enumeration"
+            },
+            "libxml2": {
+              "expected": "invalid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance rejected. other-time.xml:1: element r: Schemas validity error : Element 'r': [facet 'enumeration'] The value '10:30:01Z' is not an element of the set {'10:30:00Z'}. The project expectation follows the enumeration Valid rule, under which the value must equal one of the enumerated values, with time equality comparing the timezone-normalized time of day; the day-preserving order of bounds does not apply to equality, so a value spelled on another day of that order still equals the enumerated time; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-enumeration"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/enumeration-time-equal-across-day/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/enumeration-time-equal-across-day/previous-day-spelling.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/enumeration-time-equal-across-day/other-time.xml",
           "role": "instance"
         }
       ]
