@@ -20,7 +20,8 @@ const (
 	schemaPlacementReference
 	// schemaPlacementLocal is an xs:element or xs:attribute declaration, or
 	// an xs:complexType or xs:simpleType definition, that is neither
-	// top-level nor a reference.
+	// top-level nor a reference. Whether its parent admits it there is the
+	// parent's content model; see schemaElementPlacementOf.
 	schemaPlacementLocal
 	// schemaPlacementNamedGroupModel is the model group of a top-level
 	// xs:group. A nested xs:group is a reference, whose model group child
@@ -34,8 +35,11 @@ const (
 // schemaElementPlacementOf returns the placement of n, an XSD element whose
 // parent is named parent. It classifies each start tag once; its content
 // (childContentFor) and its attributes (admitXSDChildStart) both read the
-// result. xs:redefine is rejected at its own start, so no child of it is
-// classified.
+// result. The placement says nothing about whether parent admits n:
+// admitChildContent rejects a misplaced element before its attributes are
+// read, so the content model of each parent stays the single owner of where a
+// component may appear. xs:redefine is rejected at its own start, so no child
+// of it is classified.
 func schemaElementPlacementOf(n *schemaSyntaxNode, parent xml.Name) schemaElementPlacement {
 	switch {
 	case isXSDName(parent, vocab.XSDElemSchema):
@@ -45,9 +49,7 @@ func schemaElementPlacementOf(n *schemaSyntaxNode, parent xml.Name) schemaElemen
 	}
 	switch n.Name.Local {
 	case vocab.XSDElemElement, vocab.XSDElemAttribute, vocab.XSDElemComplexType, vocab.XSDElemSimpleType:
-		if localComponentParent(n.Name.Local, parent) {
-			return schemaPlacementLocal
-		}
+		return schemaPlacementLocal
 	case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll:
 		if isXSDName(parent, vocab.XSDElemGroup) {
 			return schemaPlacementNamedGroupModel
@@ -58,35 +60,6 @@ func schemaElementPlacementOf(n *schemaSyntaxNode, parent xml.Name) schemaElemen
 		}
 	}
 	return schemaPlacementOther
-}
-
-// localComponentParent reports whether the schema for schemas admits a local
-// declaration or definition named local under parent. A component under any
-// other parent is misplaced, and its parent's content model reports it.
-func localComponentParent(local string, parent xml.Name) bool {
-	if parent.Space != vocab.XSDNamespaceURI {
-		return false
-	}
-	switch local {
-	case vocab.XSDElemElement:
-		switch parent.Local {
-		case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll:
-			return true
-		}
-	case vocab.XSDElemAttribute:
-		switch parent.Local {
-		case vocab.XSDElemComplexType, vocab.XSDElemRestriction, vocab.XSDElemExtension, vocab.XSDElemAttributeGroup:
-			return true
-		}
-	case vocab.XSDElemComplexType:
-		return parent.Local == vocab.XSDElemElement
-	case vocab.XSDElemSimpleType:
-		switch parent.Local {
-		case vocab.XSDElemElement, vocab.XSDElemAttribute, vocab.XSDElemRestriction, vocab.XSDElemList, vocab.XSDElemUnion:
-			return true
-		}
-	}
-	return false
 }
 
 // isSchemaReference reports whether start, an XSD element that is not a
@@ -152,6 +125,37 @@ func checkRequiredSchemaAttributes(n *schemaSyntaxNode, parent xml.Name, placeme
 		return err
 	}
 	return checkElementRequiredAttributes(n)
+}
+
+// checkValueConstraintAttributes returns the error for n when it is an
+// xs:element or xs:attribute whose default excludes another of its attributes:
+// a fixed (src-element.1, src-attribute.1), or a use other than optional
+// (src-attribute.2). It is the only owner of these rules; n has passed
+// checkSchemaAttributesSyntax, so its use is one of the three modes.
+func checkValueConstraintAttributes(n *schemaSyntaxNode) error {
+	element := n.Name.Local
+	if element != vocab.XSDElemElement && element != vocab.XSDElemAttribute {
+		return nil
+	}
+	if _, ok := n.attr(vocab.XSDAttrDefault); !ok {
+		return nil
+	}
+	if _, ok := n.attr(vocab.XSDAttrFixed); ok {
+		message := "attribute cannot have both default and fixed"
+		if element == vocab.XSDElemElement {
+			message = "element cannot have both default and fixed"
+		}
+		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, message)
+	}
+	use, ok := n.attr(vocab.XSDAttrUse)
+	if !ok {
+		return nil
+	}
+	mode, err := parseAttributeUseMode(use)
+	if err != nil {
+		return withSchemaCompileLocation(n, admittedValueInvariant(err))
+	}
+	return withSchemaCompileLocation(n, invalidAttributeError(checkAttributeUseDefault(mode)))
 }
 
 func checkPlacementRequiredAttribute(n *schemaSyntaxNode, parent xml.Name, placement schemaElementPlacement) error {
@@ -453,6 +457,68 @@ func schemaElementAttributeAllowed(element, attr string) bool {
 		}
 		return false
 	}
+}
+
+// checkSchemaAttributeValueSyntax checks the value of attr, an unqualified
+// attribute of the XSD element named element, against the lexical form the
+// element gives it: a boolean, an occurrence count, a form, an attribute use,
+// a derivation set, a wildcard namespace list, a processContents mode, or a
+// namespace name that cannot be empty. An attribute with none of these forms
+// passes. Start-tag admission decides these violations; compilation parses the
+// admitted value with the same parsers.
+func checkSchemaAttributeValueSyntax(element, attr, value string) error {
+	if rule, ok := derivationAttrRuleOf(element, attr); ok {
+		_, err := parseDerivationSet(value, rule.Label, rule.Allowed)
+		return err
+	}
+	var err error
+	switch attr {
+	case vocab.XSDAttrNillable, vocab.XSDAttrAbstract, vocab.XSDAttrMixed:
+		_, err = parseBooleanAttr(booleanAttr{Name: attr, Value: value, HasValue: true})
+	case vocab.XSDAttrFixed:
+		if isFacetLocal(element) {
+			_, err = parseBooleanAttr(booleanAttr{Name: attr, Value: value, HasValue: true})
+		}
+	case vocab.XSDAttrMinOccurs:
+		_, err = parseMinOccursLexical(value)
+	case vocab.XSDAttrMaxOccurs:
+		_, err = parseMaxOccursLexical(value)
+	case vocab.XSDAttrForm:
+		err = checkFormSyntax(element, value)
+	case vocab.XSDAttrElementFormDefault, vocab.XSDAttrAttributeFormDefault:
+		_, err = parseFormDefaultAttr(formAttr{Name: attr, Value: value, HasValue: true})
+	case vocab.XSDAttrUse:
+		_, err = parseAttributeUseMode(value)
+		err = invalidAttributeError(err)
+	case vocab.XSDAttrProcessContents:
+		_, err = parseWildcardProcessContents(wildcardAttrs{ProcessContents: value, HasProcessContents: true})
+	case vocab.XSDAttrNamespace:
+		err = checkNamespaceAttributeSyntax(element, value)
+	case vocab.XSDAttrTargetNamespace:
+		err = validateSchemaTargetNamespace(lexicalAttribute{Value: value, Present: true})
+	}
+	return err
+}
+
+func checkFormSyntax(element, value string) error {
+	var err error
+	switch element {
+	case vocab.XSDElemElement:
+		_, err = parseElementFormAttr(formAttr{Value: value, HasValue: true})
+	case vocab.XSDElemAttribute:
+		_, err = parseAttributeFormAttr(formAttr{Value: value, HasValue: true})
+	}
+	return err
+}
+
+func checkNamespaceAttributeSyntax(element, value string) error {
+	switch element {
+	case vocab.XSDElemAny, vocab.XSDElemAnyAttribute:
+		return checkWildcardNamespaceSyntax(value)
+	case vocab.XSDElemImport:
+		return validateSchemaImportNamespace(lexicalAttribute{Value: value, Present: true})
+	}
+	return nil
 }
 
 func schemaAnyURIAttribute(element, attr string) bool {

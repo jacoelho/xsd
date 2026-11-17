@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -17,7 +18,6 @@ func TestParseWildcard(t *testing.T) {
 		wantNS     []string
 		wantOther  string
 		wantProc   ProcessContents
-		wantCode   xsderrors.Code
 		wantNoName bool
 	}{
 		{
@@ -71,31 +71,6 @@ func TestParseWildcard(t *testing.T) {
 			wantNS:   []string{"", "urn:b", "urn:a", "urn:t"},
 			wantProc: ProcessLax,
 		},
-		{
-			name: "invalid reserved namespace token",
-			attrs: wildcardAttrs{
-				Namespace:    "urn:a ##bogus",
-				HasNamespace: true,
-			},
-			wantCode: xsderrors.CodeSchemaInvalidAttribute,
-		},
-		{
-			name: "invalid anyURI namespace",
-			attrs: wildcardAttrs{
-				Namespace:    "urn:a %zz",
-				HasNamespace: true,
-			},
-			wantCode: xsderrors.CodeSchemaInvalidAttribute,
-		},
-		{
-			name: "invalid process contents",
-			attrs: wildcardAttrs{
-				ProcessContents:    "open",
-				HasProcessContents: true,
-			},
-			wantCode:   xsderrors.CodeSchemaInvalidAttribute,
-			wantNoName: true,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -110,10 +85,6 @@ func TestParseWildcard(t *testing.T) {
 				interner = nameInterner{}
 			}
 			got, err := parseWildcard(interner, tt.attrs)
-			if tt.wantCode != "" {
-				expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, tt.wantCode)
-				return
-			}
 			if err != nil {
 				t.Fatalf("ParseWildcard() error = %v", err)
 			}
@@ -151,9 +122,47 @@ func wildcardNamespaceIDForTest(t *testing.T, names *nameTable, uri string) name
 	}
 	return id
 }
-func TestParseWildcardZeroInternerPreservesTokenErrors(t *testing.T) {
-	for _, namespace := range []string{"##bogus", "%zz"} {
-		_, err := parseWildcard(nameInterner{}, wildcardAttrs{Namespace: namespace, HasNamespace: true})
-		expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaInvalidAttribute)
+
+func TestWildcardNamespaceSyntax(t *testing.T) {
+	t.Parallel()
+
+	for _, value := range []string{"", "##any", "##other", "##local", "##targetNamespace", "urn:b\t##local\nurn:a\rurn:b ##targetNamespace"} {
+		if err := checkWildcardNamespaceSyntax(value); err != nil {
+			t.Errorf("checkWildcardNamespaceSyntax(%q) = %v, want no error", value, err)
+		}
+	}
+	for value, token := range map[string]string{
+		"##bogus":       "##bogus",
+		"urn:a ##bogus": "##bogus",
+		"urn:a %zz":     "%zz",
+		"##any urn:a":   "##any",
+		"urn:a ##other": "##other",
+		" ##any":        "##any",
+	} {
+		err := checkWildcardNamespaceSyntax(value)
+		if err == nil {
+			t.Errorf("checkWildcardNamespaceSyntax(%q) accepted the value", value)
+			continue
+		}
+		expectInvalidAttributeMessage(t, err, "invalid wildcard namespace "+diagnostictext.Quote(token))
+	}
+}
+
+func TestWildcardProcessContentsSyntax(t *testing.T) {
+	t.Parallel()
+
+	for value, want := range map[string]ProcessContents{"strict": processStrict, "lax": ProcessLax, "skip": ProcessSkip} {
+		got, err := parseWildcardProcessContents(wildcardAttrs{ProcessContents: value, HasProcessContents: true})
+		if err != nil || got != want {
+			t.Errorf("processContents %q = %d, %v, want %d", value, got, err, want)
+		}
+	}
+	for _, value := range []string{"", "open", "Lax", " lax"} {
+		_, err := parseWildcardProcessContents(wildcardAttrs{ProcessContents: value, HasProcessContents: true})
+		if err == nil {
+			t.Errorf("processContents %q was accepted", value)
+			continue
+		}
+		expectInvalidAttributeMessage(t, err, "invalid processContents")
 	}
 }

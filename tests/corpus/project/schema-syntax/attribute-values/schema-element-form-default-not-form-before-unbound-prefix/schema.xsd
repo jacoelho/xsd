@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="Qualified">
+<xs:element name="e"/>
+<xs:element name="z" type="p:T"/>
+</xs:schema>

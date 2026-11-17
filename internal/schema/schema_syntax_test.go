@@ -153,38 +153,32 @@ func TestCheckUnsupportedSchemaNode(t *testing.T) {
 	}
 }
 
-func TestValidateSchemaIDs(t *testing.T) {
+func TestSchemaIDsAreUniqueInTheDocument(t *testing.T) {
 	t.Parallel()
-	doc := &schemaDocument{name: "ids.xsd"}
-	first := &schemaNode{doc: doc, local: vocab.XSDElemAnnotation, line: 2, column: 3}
-	second := &schemaNode{doc: doc, local: vocab.XSDElemAnnotation, line: 3, column: 5}
-	third := &schemaNode{doc: doc, local: vocab.XSDElemAnnotation, line: 4, column: 7}
-	for _, test := range []struct {
-		name          string
-		ids           []typedSchemaIDRecord
-		wantDuplicate bool
-	}{
-		{name: "no IDs"},
-		{name: "distinct", ids: []typedSchemaIDRecord{{node: first, value: "a"}, {node: second, value: "b"}}},
-		{name: "first duplicate", ids: []typedSchemaIDRecord{{node: first, value: "a"}, {node: second, value: "b"}, {node: third, value: "a"}, {node: second, value: "b"}}, wantDuplicate: true},
+	const invalidAttribute = xsderrors.CodeSchemaInvalidAttribute
+	for _, fixture := range []schemaStartFixture{
+		{name: "no ids", body: `  <xs:element name="a"/>`},
+		{name: "distinct ids", rootAttrs: ` id="r"`, body: `  <xs:element name="a" id="a"/>` + "\n" + `  <xs:element name="b" id="b"/>`},
+		{name: "ids in annotation payload are not schema ids", body: `  <xs:annotation id="a"><xs:appinfo><f:x id="a"/><f:x id="a"/></xs:appinfo></xs:annotation>`},
+		{name: "second declaration of an id", body: `  <xs:element name="a" id="a"/>` + "\n" + `  <xs:element name="b" id="b"/>` + "\n" + `    <xs:element name="c" id="a"/>`,
+			wantCat: xsderrors.CategorySchemaCompile, wantCode: invalidAttribute, wantMsg: `duplicate schema id "a"`, wantLine: 4, wantCol: 5},
+		{name: "id of the root declared again", rootAttrs: ` id="r"`, body: `  <xs:element name="a" id="r"/>`,
+			wantCat: xsderrors.CategorySchemaCompile, wantCode: invalidAttribute, wantMsg: `duplicate schema id "r"`, wantLine: 2, wantCol: 3},
+		{name: "id declared again by a descendant", body: `  <xs:element name="a" id="a"><xs:complexType id="a"/></xs:element>`,
+			wantCat: xsderrors.CategorySchemaCompile, wantCode: invalidAttribute, wantMsg: `duplicate schema id "a"`, wantLine: 2, wantCol: 31},
+		{name: "attribute written before the duplicate id wins", body: `  <xs:element name="a" id="a"/>` + "\n" + `  <xs:element name="b" nillable="x" id="a"/>`,
+			wantCat: xsderrors.CategorySchemaCompile, wantCode: invalidAttribute, wantMsg: `invalid boolean attribute "nillable"`, wantLine: 3, wantCol: 3},
+		{name: "duplicate id wins over an attribute written after it", body: `  <xs:element name="a" id="a"/>` + "\n" + `  <xs:element name="b" id="a" nillable="x"/>`,
+			wantCat: xsderrors.CategorySchemaCompile, wantCode: invalidAttribute, wantMsg: `duplicate schema id "a"`, wantLine: 3, wantCol: 3},
+		{name: "duplicate id wins over a later element", body: `  <xs:element name="a" id="a"/>` + "\n" + `  <xs:element name="b" id="a"/>` + "\n" + `  <xs:foo/>`,
+			wantCat: xsderrors.CategorySchemaCompile, wantCode: invalidAttribute, wantMsg: `duplicate schema id "a"`, wantLine: 3, wantCol: 3},
+		{name: "earlier element wins over a duplicate id", body: `  <xs:element name="a" id="a"/>` + "\n" + `  <xs:foo/>` + "\n" + `  <xs:element name="b" id="a"/>`,
+			wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaContentModel, wantMsg: `invalid top-level schema child "foo"`, wantLine: 3, wantCol: 3},
 	} {
-		t.Run(test.name, func(t *testing.T) {
+		t.Run(fixture.name, func(t *testing.T) {
 			t.Parallel()
-			state := typedSchemaParseState{ids: test.ids}
-			err := state.validateIDs()
-			if !test.wantDuplicate {
-				if err != nil {
-					t.Fatalf("validateIDs() error = %v", err)
-				}
-				return
-			}
-			diagnostic, ok := errors.AsType[*xsderrors.Error](err)
-			if !ok {
-				t.Fatalf("error = %T %[1]v, want structured diagnostic", err)
-			}
-			if diagnostic.Category() != xsderrors.CategorySchemaCompile || diagnostic.Code() != xsderrors.CodeSchemaInvalidAttribute || diagnostic.Message() != "duplicate schema id \"a\"" || diagnostic.Path() != "ids.xsd" || diagnostic.Line() != 4 || diagnostic.Column() != 7 || diagnostic.Cause() != nil {
-				t.Fatalf("duplicate diagnostic = %#v", diagnostic)
-			}
+			_, err := parseSchemaStartFixture(t, fixture)
+			assertSchemaStartFixture(t, err, fixture)
 		})
 	}
 }
@@ -254,7 +248,8 @@ func TestValidateSchemaNameAttribute(t *testing.T) {
 
 func checkElementChildAttributes(n *schemaSyntaxNode) error {
 	var qnames semanticQNameProjection
-	return checkSchemaAttributesSyntax(n, schemaPlacementOther, &qnames)
+	var ids schemaIDs
+	return checkSchemaAttributesSyntax(n, schemaPlacementOther, startTagAttributes{qnames: &qnames, ids: &ids})
 }
 
 func TestSchemaAnnotationStartAttributes(t *testing.T) {

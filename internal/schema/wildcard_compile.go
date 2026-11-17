@@ -27,8 +27,8 @@ type wildcardAttrs struct {
 	HasProcessContents bool
 }
 
-// parseWildcard parses compile-time wildcard namespace and processContents
-// attributes.
+// parseWildcard parses the admitted namespace and processContents attributes
+// of a wildcard and interns its namespaces.
 func parseWildcard(names nameInterner, attrs wildcardAttrs) (wildcardRuntime, error) {
 	wildcard, err := parseWildcardNamespace(names, attrs)
 	if err != nil {
@@ -36,7 +36,7 @@ func parseWildcard(names nameInterner, attrs wildcardAttrs) (wildcardRuntime, er
 	}
 	process, err := parseWildcardProcessContents(attrs)
 	if err != nil {
-		return wildcardRuntime{}, err
+		return wildcardRuntime{}, admittedValueInvariant(err)
 	}
 	wildcard.Process = process
 	return wildcard, nil
@@ -73,12 +73,27 @@ func parseWildcardNamespace(names nameInterner, attrs wildcardAttrs) (wildcardRu
 	}
 }
 
+// checkWildcardNamespaceSyntax checks the lexical form of a wildcard
+// namespace attribute: ##any or ##other alone, or a list of namespace names,
+// ##local and ##targetNamespace.
+func checkWildcardNamespaceSyntax(nsSpec string) error {
+	if nsSpec == wildcardNamespaceAny || nsSpec == wildcardNamespaceOther {
+		return nil
+	}
+	for part := range lex.XMLFieldsSeq(nsSpec) {
+		if _, err := wildcardNamespaceURI(part, ""); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func parseWildcardNamespaceList(names nameInterner, targetNS, nsSpec string) ([]namespaceID, error) {
 	var namespaces []namespaceID
 	for part := range lex.XMLFieldsSeq(nsSpec) {
 		uri, err := wildcardNamespaceURI(part, targetNS)
 		if err != nil {
-			return nil, err
+			return nil, admittedValueInvariant(err)
 		}
 		ns, err := internWildcardNamespace(names, uri)
 		if err != nil {

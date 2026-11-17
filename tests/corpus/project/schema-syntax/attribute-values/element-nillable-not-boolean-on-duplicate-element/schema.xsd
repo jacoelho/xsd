@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:element name="d"/>
+<xs:element name="d" nillable="yes"/>
+</xs:schema>

@@ -258,9 +258,6 @@ func (b *attributeUseCompilation) addAttribute(child *schemaNode) error {
 		if admissionErr != nil {
 			return admissionErr
 		}
-		if err = validateAttributeUseValueConstraintAtNode(child, mode, overrides.defaultAttr.Present, false); err != nil {
-			return err
-		}
 		b.addProhibition(name)
 		return nil
 	}
@@ -451,7 +448,7 @@ func (c *compiler) compileAttributeUse(ctx *schemaSetDocument, n *schemaNode, mo
 		return attributeUse{}, err
 	}
 	use := base.use
-	if err = validateAttributeUseValueConstraintAtNode(n, mode, overrides.defaultAttr.Present, base.refFixed != nil); err != nil {
+	if err = validateAttributeUseValueConstraintAtNode(n, overrides.defaultAttr.Present, base.refFixed != nil); err != nil {
 		return attributeUse{}, err
 	}
 	use.Required = mode == attributeUseRequired
@@ -564,7 +561,7 @@ func (c *compiler) localAttributeUseName(ctx *schemaSetDocument, n *schemaNode) 
 		DefaultQualified: ctx.doc.defaults.AttributeQualified,
 	})
 	if err != nil {
-		return QName{}, withSchemaCompileLocation(n, err)
+		return QName{}, withSchemaCompileLocation(n, admittedValueInvariant(err))
 	}
 	if qualified {
 		ns = ctx.effectiveTargetNS

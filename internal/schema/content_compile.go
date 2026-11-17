@@ -202,18 +202,13 @@ type elementDeclarationConsistencyChecker struct {
 	work   contentModelWork
 	states map[contentModelID]contentModelVisitState
 	cache  map[contentModelID][]namedElementDeclaration
-	// idle holds cleared name indexes for reuse; nested collection keeps one
-	// index live per model on the recursion stack. releaseNameIndex bounds it.
-	idle []map[QName]ElementID
+	// scratch holds one empty name index per content model on the collection
+	// stack, and depth counts the ones in use. A model empties its index by
+	// deleting the names it added, so reusing an index costs a model its own
+	// size, however many names an earlier model at that depth had.
+	scratch []map[QName]ElementID
+	depth   int
 }
-
-const (
-	// maxIdleNameIndexes bounds the cleared name indexes one checker keeps.
-	maxIdleNameIndexes = 16
-	// maxReusedNameIndexLen is the largest name index kept for reuse: a
-	// cleared map keeps its buckets, so a larger one is dropped instead.
-	maxReusedNameIndexLen = 256
-)
 
 // namedElementDeclaration is the first element declaration EDC saw for a name
 // in one content model.
@@ -292,11 +287,20 @@ func (c *elementDeclarationConsistencyChecker) collectParticles(
 	particles []contentParticle,
 ) ([]namedElementDeclaration, error) {
 	hint := c.particleDeclarationsHint(particles)
+	if c.depth == len(c.scratch) {
+		c.scratch = append(c.scratch, make(map[QName]ElementID, hint))
+	}
 	declarations := elementDeclarationSet{
-		first:   c.acquireNameIndex(hint),
+		first:   c.scratch[c.depth],
 		ordered: make([]namedElementDeclaration, 0, hint),
 	}
-	defer c.releaseNameIndex(declarations.first)
+	c.depth++
+	defer func() {
+		c.depth--
+		for _, declaration := range declarations.ordered {
+			delete(declarations.first, declaration.name)
+		}
+	}()
 	for _, p := range particles {
 		if err := c.spend(); err != nil {
 			return nil, err
@@ -306,29 +310,6 @@ func (c *elementDeclarationConsistencyChecker) collectParticles(
 		}
 	}
 	return declarations.ordered, nil
-}
-
-func (c *elementDeclarationConsistencyChecker) acquireNameIndex(hint int) map[QName]ElementID {
-	if n := len(c.idle); n > 0 {
-		index := c.idle[n-1]
-		c.idle = c.idle[:n-1]
-		return index
-	}
-	return make(map[QName]ElementID, hint)
-}
-
-// releaseNameIndex returns index for reuse. At most maxIdleNameIndexes indexes
-// of at most maxReusedNameIndexLen names are kept, the most recently released
-// ones; any other index is left to the collector.
-func (c *elementDeclarationConsistencyChecker) releaseNameIndex(index map[QName]ElementID) {
-	if len(index) > maxReusedNameIndexLen {
-		return
-	}
-	clear(index)
-	if len(c.idle) == maxIdleNameIndexes {
-		c.idle = append(c.idle[:0], c.idle[1:]...)
-	}
-	c.idle = append(c.idle, index)
 }
 
 // particleDeclarationsHint sizes a model's declaration set from its element

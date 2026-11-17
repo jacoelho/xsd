@@ -819,17 +819,16 @@ func (c schemaDocumentReferenceContext) parseLocalBase(child *schemaNode) (urire
 }
 
 // schemaImportNamespace returns the import namespace; "" means the attribute
-// is absent because an empty value is rejected here.
+// is absent because start-tag admission rejects an empty value.
 func schemaImportNamespace(child *schemaNode) (string, error) {
 	referenceSource, ok := child.semantic.kind.(*schemaReferenceSource)
 	if !ok || referenceSource == nil {
 		return "", withSchemaCompileLocation(child, xsderrors.InternalInvariant("import node has no typed reference source"))
 	}
-	attr := referenceSource.Namespace
-	if attr.Present && attr.Value == "" {
-		return "", schemaCompileAt(child, xsderrors.CodeSchemaInvalidAttribute, "import namespace cannot be empty")
+	if err := validateSchemaImportNamespace(referenceSource.Namespace); err != nil {
+		return "", withSchemaCompileLocation(child, admittedValueInvariant(err))
 	}
-	return attr.Value, nil
+	return referenceSource.Namespace.Value, nil
 }
 
 func schemaDocumentImports(refs []schemaReference) map[string]bool {

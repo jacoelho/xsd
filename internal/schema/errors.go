@@ -37,6 +37,16 @@ func withSchemaCompileLocation(n schemaLocated, err error) error {
 	return xsderrors.WithLocation(path, line, column, err)
 }
 
+// admittedValueInvariant converts err, the failure of a lexical parser on an
+// attribute value whose start tag was admitted, into an internal invariant:
+// checkSchemaAttributeValueSyntax owns the diagnostic of such a value.
+func admittedValueInvariant(err error) error {
+	if err == nil {
+		return nil
+	}
+	return xsderrors.InternalInvariant("start tag admitted an invalid attribute value: " + err.Error())
+}
+
 func unsupportedAtSchemaNode(n schemaLocated, code xsderrors.Code, msg string) error {
 	if n == nil {
 		return xsderrors.Unsupported(code, msg, nil)

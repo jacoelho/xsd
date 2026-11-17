@@ -1,16 +1,34 @@
 package schema
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+// testRawNodeWithLocalAttrs returns an XSD element whose unqualified
+// attributes each carry a value of the lexical form the attribute requires.
 func testRawNodeWithLocalAttrs(local string, attrs []string) *schemaSyntaxNode {
 	rawAttrs := make([]xmlstream.Attr, len(attrs))
 	for i, attr := range attrs {
-		rawAttrs[i] = testRawAttr("", attr, "v")
+		value := "v"
+		switch attr {
+		case "nillable", "abstract", "mixed", "fixed":
+			value = "true"
+		case "minOccurs", "maxOccurs":
+			value = "1"
+		case "form", "elementFormDefault", "attributeFormDefault":
+			value = "qualified"
+		case "use":
+			value = "optional"
+		case "processContents":
+			value = "lax"
+		case "block", "final", "blockDefault", "finalDefault":
+			value = "#all"
+		}
+		rawAttrs[i] = testRawAttr("", attr, value)
 	}
 	return testXSDRawNode(local, rawAttrs)
 }
@@ -160,6 +178,156 @@ func TestCheckRawSchemaAttributes(t *testing.T) {
 			if err != nil {
 				t.Fatalf("checkSchemaAttributesSyntax() error = %v", err)
 			}
+		})
+	}
+}
+
+func TestSchemaAttributeValueSyntax(t *testing.T) {
+	t.Parallel()
+
+	const (
+		invalidAttribute = xsderrors.CodeSchemaInvalidAttribute
+		occurrence       = xsderrors.CodeSchemaOccurrence
+	)
+	tests := []struct {
+		element  string
+		attr     string
+		value    string
+		wantCode xsderrors.Code
+		wantMsg  string
+	}{
+		{element: "element", attr: "nillable", value: " true "},
+		{element: "element", attr: "nillable", value: "yes", wantCode: invalidAttribute, wantMsg: `invalid boolean attribute "nillable"`},
+		{element: "element", attr: "abstract", value: "0"},
+		{element: "element", attr: "abstract", value: "", wantCode: invalidAttribute, wantMsg: `invalid boolean attribute "abstract"`},
+		{element: "complexType", attr: "abstract", value: "TRUE", wantCode: invalidAttribute, wantMsg: `invalid boolean attribute "abstract"`},
+		{element: "complexType", attr: "mixed", value: "1"},
+		{element: "complexType", attr: "mixed", value: "2", wantCode: invalidAttribute, wantMsg: `invalid boolean attribute "mixed"`},
+		{element: "complexContent", attr: "mixed", value: "no", wantCode: invalidAttribute, wantMsg: `invalid boolean attribute "mixed"`},
+		{element: "maxLength", attr: "fixed", value: "false"},
+		{element: "maxLength", attr: "fixed", value: "x", wantCode: invalidAttribute, wantMsg: `invalid boolean attribute "fixed"`},
+		{element: "whiteSpace", attr: "fixed", value: "x", wantCode: invalidAttribute, wantMsg: `invalid boolean attribute "fixed"`},
+		{element: "element", attr: "fixed", value: "x"},
+		{element: "attribute", attr: "fixed", value: "x"},
+		{element: "element", attr: "minOccurs", value: "0"},
+		{element: "element", attr: "minOccurs", value: "unbounded", wantCode: occurrence, wantMsg: `invalid minOccurs "unbounded"`},
+		{element: "element", attr: "minOccurs", value: "99999999999"},
+		{element: "sequence", attr: "minOccurs", value: "-1", wantCode: occurrence, wantMsg: `invalid minOccurs "-1"`},
+		{element: "group", attr: "maxOccurs", value: "unbounded"},
+		{element: "choice", attr: "maxOccurs", value: "many", wantCode: occurrence, wantMsg: `invalid maxOccurs "many"`},
+		{element: "all", attr: "maxOccurs", value: "1.0", wantCode: occurrence, wantMsg: `invalid maxOccurs "1.0"`},
+		{element: "any", attr: "maxOccurs", value: "", wantCode: occurrence, wantMsg: `invalid maxOccurs ""`},
+		{element: "element", attr: "form", value: "qualified"},
+		{element: "element", attr: "form", value: "local", wantCode: invalidAttribute, wantMsg: `invalid element form value "local"`},
+		{element: "attribute", attr: "form", value: "unqualified"},
+		{element: "attribute", attr: "form", value: "local", wantCode: invalidAttribute, wantMsg: `invalid attribute form "local"`},
+		{element: "schema", attr: "elementFormDefault", value: "qualified"},
+		{element: "schema", attr: "elementFormDefault", value: "local", wantCode: invalidAttribute, wantMsg: `invalid "elementFormDefault" value "local"`},
+		{element: "schema", attr: "attributeFormDefault", value: "local", wantCode: invalidAttribute, wantMsg: `invalid "attributeFormDefault" value "local"`},
+		{element: "attribute", attr: "use", value: "prohibited"},
+		{element: "attribute", attr: "use", value: "sometimes", wantCode: invalidAttribute, wantMsg: "invalid attribute use sometimes"},
+		{element: "any", attr: "processContents", value: "skip"},
+		{element: "any", attr: "processContents", value: "open", wantCode: invalidAttribute, wantMsg: "invalid processContents"},
+		{element: "anyAttribute", attr: "processContents", value: "open", wantCode: invalidAttribute, wantMsg: "invalid processContents"},
+		{element: "any", attr: "namespace", value: "##other"},
+		{element: "any", attr: "namespace", value: ""},
+		{element: "any", attr: "namespace", value: "urn:a ##bogus", wantCode: invalidAttribute, wantMsg: `invalid wildcard namespace "##bogus"`},
+		{element: "anyAttribute", attr: "namespace", value: "%zz", wantCode: invalidAttribute, wantMsg: `invalid wildcard namespace "%zz"`},
+		{element: "import", attr: "namespace", value: "##bogus"},
+		{element: "import", attr: "namespace", value: "", wantCode: invalidAttribute, wantMsg: "import namespace cannot be empty"},
+		{element: "schema", attr: "targetNamespace", value: "urn:a"},
+		{element: "schema", attr: "targetNamespace", value: "", wantCode: invalidAttribute, wantMsg: "schema targetNamespace cannot be empty"},
+		{element: "schema", attr: "blockDefault", value: "#all"},
+		{element: "schema", attr: "blockDefault", value: "list", wantCode: invalidAttribute, wantMsg: `schema blockDefault cannot contain "list"`},
+		{element: "schema", attr: "finalDefault", value: "list union"},
+		{element: "schema", attr: "finalDefault", value: "#all extension", wantCode: invalidAttribute, wantMsg: "schema finalDefault cannot combine #all with other values"},
+		{element: "schema", attr: "finalDefault", value: "substitution", wantCode: invalidAttribute, wantMsg: `schema finalDefault cannot contain "substitution"`},
+		{element: "element", attr: "block", value: "substitution extension"},
+		{element: "element", attr: "block", value: "list", wantCode: invalidAttribute, wantMsg: `element block cannot contain "list"`},
+		{element: "element", attr: "final", value: "substitution", wantCode: invalidAttribute, wantMsg: `element final cannot contain "substitution"`},
+		{element: "complexType", attr: "block", value: "substitution", wantCode: invalidAttribute, wantMsg: `complexType block cannot contain "substitution"`},
+		{element: "complexType", attr: "final", value: "x", wantCode: invalidAttribute, wantMsg: `invalid complexType final value "x"`},
+		{element: "simpleType", attr: "final", value: "list union restriction"},
+		{element: "simpleType", attr: "final", value: "extension", wantCode: invalidAttribute, wantMsg: `simpleType final cannot contain "extension"`},
+		{element: "element", attr: "default", value: "#all extension"},
+		{element: "enumeration", attr: "value", value: "unbounded"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.element+" "+tt.attr+"="+tt.value, func(t *testing.T) {
+			t.Parallel()
+
+			err := checkSchemaAttributeValueSyntax(tt.element, tt.attr, tt.value)
+			if tt.wantMsg == "" {
+				if err != nil {
+					t.Fatalf("checkSchemaAttributeValueSyntax() = %v, want no error", err)
+				}
+				return
+			}
+			diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+			if !ok {
+				t.Fatalf("error = %T %[1]v, want structured diagnostic", err)
+			}
+			if diagnostic.Category() != xsderrors.CategorySchemaCompile || diagnostic.Code() != tt.wantCode || diagnostic.Message() != tt.wantMsg {
+				t.Fatalf("diagnostic = (%s, %s, %q), want (%s, %s, %q)", diagnostic.Category(), diagnostic.Code(), diagnostic.Message(), xsderrors.CategorySchemaCompile, tt.wantCode, tt.wantMsg)
+			}
+		})
+	}
+}
+
+func TestCompilationReportsAdmittedValueSyntaxAsInvariant(t *testing.T) {
+	t.Parallel()
+
+	present := func(value string) lexicalAttribute { return lexicalAttribute{Value: value, Present: true} }
+	tests := map[string]func() error{
+		"schema targetNamespace": func() error {
+			_, err := parseSchemaDefaults(schemaDocumentSource{TargetNamespace: present("")})
+			return err
+		},
+		"schema blockDefault": func() error {
+			_, err := parseSchemaDefaults(schemaDocumentSource{BlockDefault: present("list")})
+			return err
+		},
+		"schema finalDefault": func() error {
+			_, err := parseSchemaDefaults(schemaDocumentSource{FinalDefault: present("#all extension")})
+			return err
+		},
+		"schema elementFormDefault": func() error {
+			_, err := parseSchemaDefaults(schemaDocumentSource{ElementFormDefault: present("local")})
+			return err
+		},
+		"schema attributeFormDefault": func() error {
+			_, err := parseSchemaDefaults(schemaDocumentSource{AttributeFormDefault: present("local")})
+			return err
+		},
+		"derivation set": func() error {
+			_, err := parseDerivationAttrWithDefault(present("list"), 0, complexTypeBlockDerivation())
+			return err
+		},
+		"minOccurs": func() error {
+			_, err := parseOccurrence(rawOccurrence{MinOccurs: "x", HasMinOccurs: true}, Limits{})
+			return err
+		},
+		"maxOccurs": func() error {
+			_, err := parseOccurrence(rawOccurrence{MaxOccurs: "x", HasMaxOccurs: true}, Limits{})
+			return err
+		},
+		"wildcard namespace": func() error {
+			names, err := newNameTable(64, []string{EmptyNamespaceURI}, nil)
+			if err != nil {
+				return err
+			}
+			_, err = parseWildcard(newNameInterner(&names), wildcardAttrs{Namespace: "urn:a ##bogus", HasNamespace: true})
+			return err
+		},
+		"wildcard processContents": func() error {
+			_, err := parseWildcard(nameInterner{}, wildcardAttrs{ProcessContents: "open", HasProcessContents: true})
+			return err
+		},
+	}
+	for name, parse := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			expectDiagnostic(t, parse(), xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 		})
 	}
 }

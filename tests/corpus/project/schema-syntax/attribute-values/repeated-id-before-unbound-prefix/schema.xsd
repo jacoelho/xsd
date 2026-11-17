@@ -1,0 +1,5 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:element name="a" id="i"/>
+<xs:element name="b" id="i"/>
+<xs:element name="z" type="p:T"/>
+</xs:schema>

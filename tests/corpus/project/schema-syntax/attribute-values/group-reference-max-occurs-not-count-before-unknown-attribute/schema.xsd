@@ -1,0 +1,5 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:group name="G"><xs:sequence><xs:element name="e"/></xs:sequence></xs:group>
+<xs:complexType name="C"><xs:sequence><xs:group ref="G" maxOccurs="+"/></xs:sequence></xs:complexType>
+<xs:element name="z" foo="1"/>
+</xs:schema>

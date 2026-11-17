@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:element name="e" abstract="TRUE"/>
+<xs:element name="z" type="p:T"/>
+</xs:schema>

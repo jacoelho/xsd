@@ -454,14 +454,13 @@ func parseAttributeUseModeChecked(n *schemaNode, modeSource lexicalAttribute) (a
 	}
 	parsed, err := parseAttributeUseMode(modeSource.Value)
 	if err != nil {
-		return attributeUseOptional, withSchemaCompileLocation(n, invalidAttributeError(err))
+		return attributeUseOptional, withSchemaCompileLocation(n, admittedValueInvariant(err))
 	}
 	return parsed, nil
 }
 
-func validateAttributeUseValueConstraintAtNode(n *schemaNode, mode attributeUseMode, hasDefault, refHasFixed bool) error {
+func validateAttributeUseValueConstraintAtNode(n *schemaNode, hasDefault, refHasFixed bool) error {
 	if err := validateAttributeUseValueConstraintAdmission(attributeUseValueConstraintAdmission{
-		Mode:                   mode,
 		HasDefault:             hasDefault,
 		ReferencedDeclHasFixed: refHasFixed,
 	}); err != nil {
