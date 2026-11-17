@@ -553,7 +553,7 @@ func failedLowerBoundDiagnostic[T byteText](t *typeDef, lexical T, parsed *parse
 		bound := &t.facets.lower[i]
 		relation, ok := compareAtomic(&parsed.atom, &bound.value)
 		if !ok || !orderedFacetLowerBoundAccepts(bound.exclusive, relation) {
-			return orderedBoundDiagnostic(t, lexical, minBoundPrefix, &parsed.atom, bound)
+			return boundDiagnostic(t, lexical, diagnosticBoundName(minBoundPrefix, bound), bound)
 		}
 	}
 	return ""
@@ -567,7 +567,7 @@ func failedOrderedBoundDiagnostic[T byteText](t *typeDef, lexical T, parsed *par
 		bound := &t.facets.upper[i]
 		relation, ok := compareAtomic(&parsed.atom, &bound.value)
 		if !ok || !orderedFacetUpperBoundAccepts(bound.exclusive, relation) {
-			return orderedBoundDiagnostic(t, lexical, maxBoundPrefix, &parsed.atom, bound)
+			return boundDiagnostic(t, lexical, diagnosticBoundName(maxBoundPrefix, bound), bound)
 		}
 	}
 	return ""
@@ -575,27 +575,6 @@ func failedOrderedBoundDiagnostic[T byteText](t *typeDef, lexical T, parsed *par
 
 func boundDiagnostic[T byteText](t *typeDef, lexical T, name string, bound *boundValue) string {
 	return fmt.Sprintf("value %s does not satisfy %s %s", diagnostictext.Quote(lexical), name, diagnosticBoundValue(t.builtin, &bound.value))
-}
-
-// orderedBoundDiagnostic describes value failing bound. An xs:time bound
-// renders as its time of day, so a bound on another day of the time order
-// than value names that day.
-func orderedBoundDiagnostic[T byteText](t *typeDef, lexical T, prefix string, value *atomicValue, bound *boundValue) string {
-	message := boundDiagnostic(t, lexical, diagnosticBoundName(prefix, bound), bound)
-	if value.kind != primitiveTime {
-		return message
-	}
-	switch days := int(bound.value.time.day) - int(value.time.day); {
-	case days == -1:
-		return message + " on the previous day"
-	case days == 1:
-		return message + " on the next day"
-	case days < 0:
-		return fmt.Sprintf("%s %d days earlier", message, -days)
-	case days > 0:
-		return fmt.Sprintf("%s %d days later", message, days)
-	}
-	return message
 }
 
 // diagnosticBoundValue renders a bound in the canonical form of the

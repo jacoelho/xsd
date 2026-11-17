@@ -226,7 +226,7 @@ func validateEnumerationRestriction(derived, base facetProgram) error {
 }
 
 func orderedLowerRestricts(derived, base boundValue) bool {
-	relation, ok := compareAtomic(&derived.value, &base.value)
+	relation, ok := compareDerivationBounds(derived, base)
 	if !ok {
 		return false
 	}
@@ -234,11 +234,31 @@ func orderedLowerRestricts(derived, base boundValue) bool {
 }
 
 func orderedUpperRestricts(derived, base boundValue) bool {
-	relation, ok := compareAtomic(&derived.value, &base.value)
+	relation, ok := compareDerivationBounds(derived, base)
 	if !ok {
 		return false
 	}
 	return orderedFacetUpperRestricts(derived.exclusive, base.exclusive, relation)
+}
+
+// compareDerivationBounds orders a derived bound against the base bound of
+// the same side. xs:time bounds are ordered there by their timezone-normalized
+// time before it is wrapped into one day, so a base maxInclusive of
+// 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid (W3C
+// time_maxInclusive007_119). Every other relation between bounds and values
+// uses compareAtomic, which knows no day (Time midnight in
+// docs/spec/INTERPRETATIONS.md).
+func compareDerivationBounds(derived, base boundValue) (orderedFacetRelation, bool) {
+	if derived.value.kind != primitiveTime || base.value.kind != primitiveTime {
+		return compareAtomic(&derived.value, &base.value)
+	}
+	return compareTimePartial(unwrappedTime(derived), unwrappedTime(base)), true
+}
+
+func unwrappedTime(bound boundValue) TimeValue {
+	time := bound.value.time
+	time.second += int(bound.timeDayOffset) * daySeconds
+	return time
 }
 
 func validateFixedFacetDerivation(derived typeDef, own, candidate facetProgram, base typeDef) error {
@@ -302,25 +322,10 @@ func validateFixedBound(fixed FacetMask, flag FacetMask, own, base []boundValue)
 		return ErrMetadata
 	}
 	declared, hasDeclared := findBound(own, exclusive)
-	if hasDeclared && !equalBound(declared, baseBound) {
+	if hasDeclared && !equalAtomic(&declared.value, &baseBound.value) {
 		return errFixedOrderedChanges
 	}
 	return nil
-}
-
-// equalBound reports whether two bound values are equal as schema components:
-// a restated exclusive bound (Datatypes §4.3.8.1, §4.3.9.1) and a bound under
-// a fixed base bound. xs:time bounds are equal in the time order, which keeps
-// the day a timezone moves a time to (TimeValue); other bounds by value-space
-// identity, so durations equal only in the §3.2.6.2 order, such as P400Y and
-// P146097D, are distinct (Duration equality and order in
-// docs/spec/INTERPRETATIONS.md).
-func equalBound(a, b boundValue) bool {
-	if a.value.kind != primitiveTime {
-		return equalAtomic(&a.value, &b.value)
-	}
-	relation, ok := compareAtomic(&a.value, &b.value)
-	return ok && relation == orderedFacetEqual
 }
 
 //nolint:revive // Exclusivity is the admitted bound fact sought by this lookup.

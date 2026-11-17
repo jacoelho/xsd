@@ -219,14 +219,13 @@ func (b *Builder) Validate(id TypeID, lexical string, resolver Resolver, needs N
 // the value space of base, or a minExclusive or maxExclusive may instead equal
 // the effective same facet of base (Datatypes §4.3.8.1, §4.3.9.1). The base's
 // length, digit, pattern and enumeration facets are checked first. The literal
-// is then ordered against the bounds of base as an instance value is, so
-// membership agrees with every clause of the valid-restriction constraints.
-// Restatement equality is equalBound, so an xs:time restatement spelled on
-// another day, or a duration equal to the base facet only in order, is an
-// ordinary literal. A
-// restatement is checked only against the patterns of base and its bounds
-// other than the exclusive bounds of the restated side.
-// Fixed-facet checks belong to Complete. facet must be one of
+// is then ordered against the bounds of base as an instance value is.
+// Restatement equality is value equality, so a duration equal to the base
+// facet only in order is an ordinary literal. A restatement is checked only
+// against the patterns of base and its bounds other than the exclusive bounds
+// of the restated side. The valid-restriction clauses, which order xs:time
+// bounds of one side by their unwrapped time (compareDerivationBounds), and
+// the fixed-facet checks belong to Complete. facet must be one of
 // FacetMinInclusive, FacetMaxInclusive, FacetMinExclusive or
 // FacetMaxExclusive; any other mask returns ErrMetadata. Each call charges the
 // builder's aggregate pattern account, as Validate does.
@@ -279,15 +278,14 @@ func admittingFacets(f *facetProgram, facet FacetMask, literal boundValue) (nonB
 	return nonBound, f.lower, f.upper
 }
 
-// restatesExclusiveBound reports whether literal equals (equalBound) the
-// effective exclusive bound among side, the bounds of base on the restated
-// facet's side.
+// restatesExclusiveBound reports whether literal equals the effective
+// exclusive bound among side, the bounds of base on the restated facet's side.
 func restatesExclusiveBound(side []boundValue, literal boundValue) bool {
 	effective, ok := findBound(side, true)
 	if !ok {
 		return false
 	}
-	return equalBound(literal, effective)
+	return equalAtomic(&literal.value, &effective.value)
 }
 
 func inclusiveBounds(bounds []boundValue) []boundValue {

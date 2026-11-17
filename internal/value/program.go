@@ -560,9 +560,28 @@ type facetProgram struct {
 	fixed          FacetMask
 }
 
+// boundValue is one compiled bound facet. timeDayOffset is, for an xs:time
+// bound, how many days timezone normalization moved the literal from its
+// lexical day. It belongs to the facet, not to the value, and only the
+// same-side restriction order reads it (compareDerivationBounds).
 type boundValue struct {
-	value     atomicValue
-	exclusive bool
+	value         atomicValue
+	exclusive     bool
+	timeDayOffset int8
+}
+
+// newBoundValue returns the bound of an atomic value parsed from normalized.
+func newBoundValue(atom atomicValue, normalized string) (boundValue, error) {
+	bound := boundValue{value: atom}
+	if atom.kind != primitiveTime {
+		return bound, nil
+	}
+	_, days, err := parseTimeOnDay(normalized)
+	if err != nil {
+		return boundValue{}, ErrMetadata
+	}
+	bound.timeDayOffset = int8(days) // #nosec G115 -- a timezone offset of at most 14 hours moves a time by at most one day.
+	return bound, nil
 }
 
 func (p *Program) typeDef(id TypeID) (*typeDef, bool) {
@@ -734,7 +753,7 @@ func (p *Program) compileBound(id TypeID, t *typeDef, source BoundFacet, budget 
 	}
 	var v parsedValue
 	budget.beginPatternValue()
-	_, err := p.eval(literalType, source.Lexical, evalOptions{
+	normalized, err := p.eval(literalType, source.Lexical, evalOptions{
 		resolver:      source.Resolver,
 		enforceFacets: false,
 		work:          budget,
@@ -745,7 +764,7 @@ func (p *Program) compileBound(id TypeID, t *typeDef, source BoundFacet, budget 
 	if t.variety != Atomic || v.isList || v.atom.kind != t.primitive {
 		return boundValue{}, fmt.Errorf(msgIncompatibleBound, source.Lexical)
 	}
-	return boundValue{value: v.atom}, nil
+	return newBoundValue(v.atom, normalized)
 }
 
 func (p *Program) compileEnumeration(id TypeID, source FacetSpec, own *facetProgram, budget *evaluationBudget) error {

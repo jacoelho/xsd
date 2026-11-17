@@ -1,5 +1,5 @@
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 <xs:simpleType name="B"><xs:restriction base="xs:time"><xs:pattern value="\d\d:00:00Z"/><xs:maxInclusive value="23:00:00-02:00"/></xs:restriction></xs:simpleType>
-<xs:simpleType name="D"><xs:restriction base="B"><xs:maxInclusive value="02:00:00Z"/></xs:restriction></xs:simpleType>
+<xs:simpleType name="D"><xs:restriction base="B"><xs:maxInclusive value="01:00:00Z"/></xs:restriction></xs:simpleType>
 <xs:element name="r" type="D"/>
 </xs:schema>
