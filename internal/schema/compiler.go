@@ -448,20 +448,6 @@ func (c *compiler) validateAttributeDeclName(n *schemaNode, q QName) error {
 	return nil
 }
 
-func validateElementDeclValueConstraintAtNode(n *schemaNode, defaultAttr, fixedAttr lexicalAttribute) error {
-	if err := validateElementDeclValueConstraintAdmission(defaultAttr, fixedAttr); err != nil {
-		return withSchemaCompileLocation(n, invalidAttributeError(err))
-	}
-	return nil
-}
-
-func validateAttributeDeclValueConstraintAtNode(n *schemaNode, defaultAttr, fixedAttr lexicalAttribute) error {
-	if err := validateAttributeDeclValueConstraintAdmission(defaultAttr, fixedAttr); err != nil {
-		return withSchemaCompileLocation(n, invalidAttributeError(err))
-	}
-	return nil
-}
-
 func parseAttributeUseModeChecked(n *schemaNode, modeSource lexicalAttribute) (attributeUseMode, error) {
 	if !modeSource.Present {
 		return attributeUseOptional, nil
@@ -473,11 +459,10 @@ func parseAttributeUseModeChecked(n *schemaNode, modeSource lexicalAttribute) (a
 	return parsed, nil
 }
 
-func validateAttributeUseValueConstraintAtNode(n *schemaNode, mode attributeUseMode, hasDefault, hasFixed, refHasFixed bool) error {
+func validateAttributeUseValueConstraintAtNode(n *schemaNode, mode attributeUseMode, hasDefault, refHasFixed bool) error {
 	if err := validateAttributeUseValueConstraintAdmission(attributeUseValueConstraintAdmission{
 		Mode:                   mode,
 		HasDefault:             hasDefault,
-		HasFixed:               hasFixed,
 		ReferencedDeclHasFixed: refHasFixed,
 	}); err != nil {
 		return withSchemaCompileLocation(n, invalidAttributeError(err))

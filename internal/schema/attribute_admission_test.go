@@ -1,8 +1,12 @@
 package schema
 
 import (
+	"errors"
 	"strings"
 	"testing"
+
+	"github.com/jacoelho/xsd/internal/source"
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 func TestParseAttributeUseMode(t *testing.T) {
@@ -73,15 +77,6 @@ func TestValidateAttributeUseValueConstraintAdmission(t *testing.T) {
 				ReferencedDeclHasFixed: true,
 			},
 			wantErr: "attribute use default conflicts with fixed attribute declaration",
-		},
-		{
-			name: "default and fixed",
-			admission: attributeUseValueConstraintAdmission{
-				Mode:       attributeUseOptional,
-				HasDefault: true,
-				HasFixed:   true,
-			},
-			wantErr: "attribute cannot have both default and fixed",
 		},
 		{
 			name:      "invalid mode",
@@ -161,38 +156,33 @@ func TestValidateAttributeUseFixedValueAdmission(t *testing.T) {
 	}
 }
 
-func TestValidateDeclValueConstraintAdmission(t *testing.T) {
+func TestDefaultAndFixedTogetherRejectedAtTheirSource(t *testing.T) {
 	t.Parallel()
-
-	present := lexicalAttribute{Value: "v", Present: true}
-	tests := []struct {
-		name                   string
-		fn                     func(defaultAttr, fixedAttrtr lexicalAttribute) error
-		defaultAttr, fixedAttr lexicalAttribute
-		wantErr                string
+	const both = `default="1" fixed="1"`
+	for _, tt := range []struct {
+		name, body, wantMsg string
+		line, column        int
 	}{
-		{name: "element absent", fn: validateElementDeclValueConstraintAdmission},
-		{name: "element default", fn: validateElementDeclValueConstraintAdmission, defaultAttr: present},
-		{name: "element fixed", fn: validateElementDeclValueConstraintAdmission, fixedAttr: present},
-		{name: "element both", fn: validateElementDeclValueConstraintAdmission, defaultAttr: present, fixedAttr: present, wantErr: "element cannot have both default and fixed"},
-		{name: "attribute absent", fn: validateAttributeDeclValueConstraintAdmission},
-		{name: "attribute default", fn: validateAttributeDeclValueConstraintAdmission, defaultAttr: present},
-		{name: "attribute fixed", fn: validateAttributeDeclValueConstraintAdmission, fixedAttr: present},
-		{name: "attribute both", fn: validateAttributeDeclValueConstraintAdmission, defaultAttr: present, fixedAttr: present, wantErr: "attribute cannot have both default and fixed"},
-	}
-	for _, tt := range tests {
+		{name: "global element", body: `<xs:element name="e" ` + both + `/>`, wantMsg: "element cannot have both default and fixed", line: 2, column: 1},
+		{name: "local element", body: `<xs:complexType name="T"><xs:sequence><xs:element name="e" ` + both + `/></xs:sequence></xs:complexType>`, wantMsg: "element cannot have both default and fixed", line: 2, column: 39},
+		{name: "global attribute", body: `<xs:attribute name="g" ` + both + `/>`, wantMsg: "attribute cannot have both default and fixed", line: 2, column: 1},
+		{name: "local attribute", body: `<xs:complexType name="T"><xs:attribute name="a" ` + both + `/></xs:complexType>`, wantMsg: "attribute cannot have both default and fixed", line: 2, column: 26},
+		{name: "required local attribute", body: `<xs:complexType name="T"><xs:attribute name="a" use="required" ` + both + `/></xs:complexType>`, wantMsg: "attribute cannot have both default and fixed", line: 2, column: 26},
+		{name: "attribute reference", body: `<xs:attribute name="g"/><xs:complexType name="T"><xs:attribute ref="g" ` + both + `/></xs:complexType>`, wantMsg: "attribute cannot have both default and fixed", line: 2, column: 50},
+		{name: "reference to fixed declaration reports the default conflict first", body: `<xs:attribute name="g" fixed="1"/><xs:complexType name="T"><xs:attribute ref="g" ` + both + `/></xs:complexType>`, wantMsg: "attribute use default conflicts with fixed attribute declaration", line: 2, column: 60},
+		{name: "required reference reports the required default first", body: `<xs:attribute name="g"/><xs:complexType name="T"><xs:attribute ref="g" use="required" ` + both + `/></xs:complexType>`, wantMsg: "required attribute cannot have default", line: 2, column: 50},
+		{name: "prohibited local attribute reports the prohibited default first", body: `<xs:complexType name="T"><xs:attribute name="a" use="prohibited" ` + both + `/></xs:complexType>`, wantMsg: "prohibited attribute cannot have default", line: 2, column: 26},
+	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-
-			err := tt.fn(tt.defaultAttr, tt.fixedAttr)
-			if tt.wantErr == "" {
-				if err != nil {
-					t.Fatalf("admission validator error = %v", err)
-				}
-				return
+			schema := "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n" + tt.body + "\n</xs:schema>"
+			_, err := Compile(Options{}, []source.Source{source.Bytes("constraints.xsd", []byte(schema))})
+			issue, ok := errors.AsType[*xsderrors.Error](err)
+			if !ok {
+				t.Fatalf("Compile() error = %T %[1]v, want structured diagnostic", err)
 			}
-			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
-				t.Fatalf("admission validator error = %v, want %q", err, tt.wantErr)
+			if issue.Code() != xsderrors.CodeSchemaInvalidAttribute || issue.Message() != tt.wantMsg || issue.Line() != tt.line || issue.Column() != tt.column {
+				t.Fatalf("diagnostic = %s %q at %d:%d, want %s %q at %d:%d", issue.Code(), issue.Message(), issue.Line(), issue.Column(), xsderrors.CodeSchemaInvalidAttribute, tt.wantMsg, tt.line, tt.column)
 			}
 		})
 	}

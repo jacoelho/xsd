@@ -214,8 +214,9 @@ type namedElementDeclaration struct {
 	element ElementID
 }
 
-// elementDeclarationSet collects one content model's first declarations in
-// particle order; first indexes ordered by name.
+// elementDeclarationSet collects the first declaration EDC saw for each name
+// in one content model: ordered lists them in particle order and first indexes
+// them by name.
 type elementDeclarationSet struct {
 	first   map[QName]ElementID
 	ordered []namedElementDeclaration

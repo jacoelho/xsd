@@ -8,11 +8,6 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-const (
-	elementDefaultConstraintLabel = "element default"
-	elementFixedConstraintLabel   = "element fixed"
-)
-
 func (c *compiler) compileElementParticle(ctx *schemaSetDocument, n *schemaNode) (contentParticle, error) {
 	id, err := c.compileElementParticleDeclaration(ctx, n)
 	if err != nil {
@@ -229,10 +224,7 @@ func compileElementConstraintSource(n *schemaNode) (*valueConstraint, error) {
 	if source == nil {
 		return nil, withSchemaCompileLocation(n, xsderrors.InternalInvariant("element node has no typed element source"))
 	}
-	if err := validateElementDeclValueConstraintAtNode(n, source.Default, source.Fixed); err != nil {
-		return nil, err
-	}
-	return sourceValueConstraint(source.Default, source.Fixed), nil
+	return sourceValueConstraint(n, source.Default, source.Fixed)
 }
 
 func (c *compiler) addPendingElementConstraint(id ElementID, n *schemaNode, constraint *valueConstraint) {
@@ -283,14 +275,10 @@ func (c *compiler) validateElementValueConstraints(decl *elementDecl, n *schemaN
 		decl.ValueConstraint = nil
 		return nil
 	}
-	if err = validateElementDeclValueConstraintRuntime(&c.rt, simpleID, constraint); err != nil {
+	if err = validateValueConstraintIdentity(&c.rt, simpleID, constraint, valueConstraintOwnerElementDeclaration); err != nil {
 		return schemaValueError(c.limits, xsderrors.CodeSchemaInvalidAttribute, "invalid element value constraint", err)
 	}
-	label := elementDefaultConstraintLabel
-	if constraint.Fixed {
-		label = elementFixedConstraintLabel
-	}
-	validated, err := c.validateValueConstraint(simpleID, constraint, schemaQNameResolver(n), n.namespace.Lookup, decl.Name, label)
+	validated, err := c.validateValueConstraint(simpleID, constraint, schemaQNameResolver(n), n.namespace.Lookup, decl.Name, "element")
 	if err != nil {
 		return err
 	}

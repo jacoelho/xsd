@@ -743,16 +743,10 @@ func (p *Program) compileBound(id TypeID, t *typeDef, source BoundFacet, budget 
 	if err != nil {
 		return boundValue{}, fmt.Errorf(msgBoundValue, source.Lexical, err)
 	}
-	return p.boundOf(t, literalType, source.Lexical, &v)
-}
-
-// boundOf returns the inclusive bound of t that v sets, where v is lexical
-// evaluated as literalType.
-func (p *Program) boundOf(t *typeDef, literalType TypeID, lexical string, v *parsedValue) (boundValue, error) {
 	if t.variety != Atomic || v.isList || v.atom.kind != t.primitive {
-		return boundValue{}, fmt.Errorf(msgIncompatibleBound, lexical)
+		return boundValue{}, fmt.Errorf(msgIncompatibleBound, source.Lexical)
 	}
-	offset, err := p.timeBoundDayOffset(t, literalType, lexical, v.atom)
+	offset, err := p.timeBoundDayOffset(t, literalType, source.Lexical, v.atom)
 	if err != nil {
 		return boundValue{}, err
 	}

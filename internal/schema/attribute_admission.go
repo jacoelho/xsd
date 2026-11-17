@@ -27,7 +27,6 @@ const (
 type attributeUseValueConstraintAdmission struct {
 	Mode                   attributeUseMode
 	HasDefault             bool
-	HasFixed               bool
 	ReferencedDeclHasFixed bool
 }
 
@@ -71,9 +70,6 @@ func validateAttributeUseValueConstraintAdmission(admission attributeUseValueCon
 	if admission.HasDefault && admission.ReferencedDeclHasFixed {
 		return errors.New("attribute use default conflicts with fixed attribute declaration")
 	}
-	if admission.HasDefault && admission.HasFixed {
-		return errors.New("attribute cannot have both default and fixed")
-	}
 	return nil
 }
 
@@ -84,24 +80,6 @@ func validateAttributeUseFixedValueAdmission(admission attributeUseFixedValueAdm
 		admission.Fixed.Present &&
 		!fixedValueConstraintEqual(admission.ReferencedDeclFixed, admission.Fixed) {
 		return errors.New("attribute use fixed value conflicts with fixed attribute declaration")
-	}
-	return nil
-}
-
-// validateElementDeclValueConstraintAdmission validates compile-time
-// default/fixed placement for one element declaration.
-func validateElementDeclValueConstraintAdmission(defaultAttr, fixedAttr lexicalAttribute) error {
-	if defaultAttr.Present && fixedAttr.Present {
-		return errors.New("element cannot have both default and fixed")
-	}
-	return nil
-}
-
-// validateAttributeDeclValueConstraintAdmission validates compile-time
-// default/fixed placement for one attribute declaration.
-func validateAttributeDeclValueConstraintAdmission(defaultAttr, fixedAttr lexicalAttribute) error {
-	if defaultAttr.Present && fixedAttr.Present {
-		return errors.New("attribute cannot have both default and fixed")
 	}
 	return nil
 }

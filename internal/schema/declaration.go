@@ -125,25 +125,10 @@ func validateAttributeName(names *nameTable, name QName) error {
 	return nil
 }
 
-// validateElementDeclValueConstraintRuntime validates element declaration
-// value-constraint rules that depend on the constraint's simple owner type.
-func validateElementDeclValueConstraintRuntime(rt *schemaBuild, typ SimpleTypeID, vc *valueConstraint) error {
-	return validateValueConstraintIdentity(rt, typ, vc, "ID-typed element declaration stores value constraint")
-}
-
-// validateAttributeDeclValueConstraintRuntime validates attribute declaration
-// value-constraint rules that depend on the declaration's simple type.
-func validateAttributeDeclValueConstraintRuntime(rt *schemaBuild, typ SimpleTypeID, vc *valueConstraint) error {
-	return validateValueConstraintIdentity(rt, typ, vc, "ID-typed attribute declaration stores value constraint")
-}
-
-// validateAttributeUseValueConstraintRuntime validates the value constraint an
-// attribute reference gives its use against the declaration's simple type.
-func validateAttributeUseValueConstraintRuntime(rt *schemaBuild, typ SimpleTypeID, vc *valueConstraint) error {
-	return validateValueConstraintIdentity(rt, typ, vc, "ID-typed attribute use stores value constraint")
-}
-
-func validateValueConstraintIdentity(rt *schemaBuild, typ SimpleTypeID, vc *valueConstraint, msg string) error {
+// validateValueConstraintIdentity rejects vc, the value constraint owner
+// carries, when typ, the simple type that validates it, is or derives from
+// xs:ID.
+func validateValueConstraintIdentity(rt *schemaBuild, typ SimpleTypeID, vc *valueConstraint, owner valueConstraintOwner) error {
 	if vc == nil || typ == NoSimpleType {
 		return nil
 	}
@@ -155,7 +140,7 @@ func validateValueConstraintIdentity(rt *schemaBuild, typ SimpleTypeID, vc *valu
 		return errors.New("declaration value constraint references invalid type")
 	}
 	if carriesID {
-		return errors.New(msg)
+		return errors.New("ID-typed " + owner.label() + " stores value constraint")
 	}
 	return nil
 }

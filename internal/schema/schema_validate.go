@@ -608,10 +608,10 @@ func validateElementDeclValueConstraints(rt *schemaValidation, decl elementDecl)
 	if err != nil {
 		return err
 	}
-	if err := validateElementDeclValueConstraintRuntime(rt.build, defaultType, decl.ValueConstraint); err != nil {
+	if err := validateValueConstraintIdentity(rt.build, defaultType, decl.ValueConstraint, valueConstraintOwnerElementDeclaration); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
-	return validateValueConstraintRuntime(rt, decl.ValueConstraint, defaultType, "element declaration")
+	return validateValueConstraintRuntime(rt, decl.ValueConstraint, defaultType, valueConstraintOwnerElementDeclaration)
 }
 
 func validateAttributeDecl(rt *schemaValidation, decl attributeDecl) error {
@@ -623,10 +623,10 @@ func validateAttributeDecl(rt *schemaValidation, decl attributeDecl) error {
 	if err := checkNotationTypeUse(rt.build, decl.Type); err != nil {
 		return schemaBuildValidationError(err)
 	}
-	if err := validateAttributeDeclValueConstraintRuntime(rt.build, decl.Type, decl.ValueConstraint); err != nil {
+	if err := validateValueConstraintIdentity(rt.build, decl.Type, decl.ValueConstraint, valueConstraintOwnerAttributeDeclaration); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
-	return validateValueConstraintRuntime(rt, decl.ValueConstraint, decl.Type, "attribute declaration")
+	return validateValueConstraintRuntime(rt, decl.ValueConstraint, decl.Type, valueConstraintOwnerAttributeDeclaration)
 }
 
 func validateSimpleType(rt *schemaValidation, id SimpleTypeID, st simpleType) error {
@@ -779,7 +779,7 @@ func validateAttributeUseSetRuntime(rt *schemaValidation, _ attributeUseSetID, s
 		if err := checkNotationTypeUse(rt.build, use.Type); err != nil {
 			return schemaBuildValidationError(err)
 		}
-		if err := validateValueConstraintRuntime(rt, use.ValueConstraint, use.Type, "attribute use"); err != nil {
+		if err := validateValueConstraintRuntime(rt, use.ValueConstraint, use.Type, valueConstraintOwnerAttributeUse); err != nil {
 			return err
 		}
 	}
@@ -808,21 +808,18 @@ func auditElementValueConstraintType(rt *schemaValidation, decl elementDecl) (Si
 // context and resolved-name proof structurally; it never re-evaluates the
 // lexical value of any element or attribute value constraint, because
 // compilation charged and proved that evaluation.
-func validateValueConstraintRuntime(rt *schemaValidation, vc *valueConstraint, expected SimpleTypeID, label string) error {
+func validateValueConstraintRuntime(rt *schemaValidation, vc *valueConstraint, expected SimpleTypeID, owner valueConstraintOwner) error {
 	if vc == nil {
 		return nil
 	}
-	kind := " default "
-	if vc.Fixed {
-		kind = " fixed "
-	}
+	label := owner.label() + " " + vc.kind().label() + " "
 	cached := newValueConstraintValidation(vc)
 	if err := validateValueConstraintShape(rt.build, cached, expected); err != nil {
-		return xsderrors.InternalInvariant(label + kind + err.Error())
+		return xsderrors.InternalInvariant(label + err.Error())
 	}
 	application := valueConstraintApplication(vc.Lexical, vc.Canonical, vc.Value)
 	if err := validateValueConstraintQNameContext(application, vc.qnameContext, vc.ResolvedNames); err != nil {
-		return xsderrors.InternalInvariant(label + kind + err.Error())
+		return xsderrors.InternalInvariant(label + err.Error())
 	}
 	return nil
 }

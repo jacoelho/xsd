@@ -9,11 +9,6 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-const (
-	attributeDefaultConstraintLabel = "attribute default"
-	attributeFixedConstraintLabel   = "attribute fixed"
-)
-
 func (c *compiler) compileAttributeByQName(q QName) (result AttributeID, err error) {
 	raw, exists := c.attributeComponents[q]
 	var source *schemaNode
@@ -61,11 +56,12 @@ func (c *compiler) compileAttributeDecl(ctx *schemaSetDocument, n *schemaNode, q
 		return attributeDecl{}, err
 	}
 	source := semanticSource[*schemaAttributeSource](&n.semantic)
-	if err = validateAttributeDeclValueConstraintAtNode(n, source.Default, source.Fixed); err != nil {
+	constraint, err := sourceValueConstraint(n, source.Default, source.Fixed)
+	if err != nil {
 		return attributeDecl{}, err
 	}
-	decl := attributeDecl{Name: q, Type: typ, ValueConstraint: sourceValueConstraint(source.Default, source.Fixed)}
-	if err = c.validateAttributeValueConstraint(&decl.ValueConstraint, q, typ, n, validateAttributeDeclValueConstraintRuntime); err != nil {
+	decl := attributeDecl{Name: q, Type: typ, ValueConstraint: constraint}
+	if err = c.validateAttributeValueConstraint(&decl.ValueConstraint, q, typ, n, valueConstraintOwnerAttributeDeclaration); err != nil {
 		return attributeDecl{}, withSchemaCompileLocation(n, err)
 	}
 	return decl, nil
@@ -96,15 +92,15 @@ func (c *compiler) compileAttributeDeclType(ctx *schemaSetDocument, n *schemaNod
 	return valuepkg.AnySimpleTypeID, nil
 }
 
-// validateAttributeValueConstraint replaces *constraint with its validation
-// against the attribute type of owner, or with nil when that type is
-// unavailable.
+// validateAttributeValueConstraint replaces *constraint, which owner carries
+// for the attribute named name, with its validation against typ, or with nil
+// when typ is unavailable.
 func (c *compiler) validateAttributeValueConstraint(
 	constraint **valueConstraint,
-	owner QName,
+	name QName,
 	typ SimpleTypeID,
 	n *schemaNode,
-	validateIdentity func(*schemaBuild, SimpleTypeID, *valueConstraint) error,
+	owner valueConstraintOwner,
 ) error {
 	if !validSimpleTypeID(typ, len(c.rt.simpleTypeUnavailable)) {
 		return xsderrors.InternalInvariant("attribute value constraint references invalid simple type")
@@ -113,13 +109,13 @@ func (c *compiler) validateAttributeValueConstraint(
 		*constraint = nil
 		return nil
 	}
-	if err := validateIdentity(&c.rt, typ, *constraint); err != nil {
+	if err := validateValueConstraintIdentity(&c.rt, typ, *constraint, owner); err != nil {
 		return invalidAttributeError(err)
 	}
 	if *constraint == nil {
 		return nil
 	}
-	validated, err := c.validateValueConstraint(typ, *constraint, schemaQNameResolver(n), n.namespace.Lookup, owner, attributeValueConstraintLabel(*constraint))
+	validated, err := c.validateValueConstraint(typ, *constraint, schemaQNameResolver(n), n.namespace.Lookup, name, "attribute")
 	if err != nil {
 		return err
 	}
@@ -127,18 +123,13 @@ func (c *compiler) validateAttributeValueConstraint(
 	return nil
 }
 
-func attributeValueConstraintLabel(constraint *valueConstraint) string {
-	if constraint.Fixed {
-		return attributeFixedConstraintLabel
-	}
-	return attributeDefaultConstraintLabel
-}
-
-func (c *compiler) validateValueConstraint(id SimpleTypeID, constraint *valueConstraint, resolve valuepkg.QNameResolver, lookup func(string) (string, bool), owner QName, label string) (*valueConstraint, error) {
+// validateValueConstraint validates constraint, which the component kind
+// names for owner, against id.
+func (c *compiler) validateValueConstraint(id SimpleTypeID, constraint *valueConstraint, resolve valuepkg.QNameResolver, lookup func(string) (string, bool), owner QName, kind string) (*valueConstraint, error) {
 	lexical := constraint.Lexical
 	validated, resolvedNames, err := c.validateValue(id, lexical, resolve, valuepkg.NeedCanonical|valuepkg.NeedIdentity)
 	if err != nil {
-		return nil, schemaValueError(c.limits, xsderrors.CodeSchemaFacet, "invalid "+label+" value for "+c.rt.formatName(owner), err)
+		return nil, schemaValueError(c.limits, xsderrors.CodeSchemaFacet, "invalid "+kind+" "+constraint.kind().label()+" value for "+c.rt.formatName(owner), err)
 	}
 	canonical := validated.CanonicalText()
 	return &valueConstraint{
@@ -288,7 +279,7 @@ func (b *attributeUseCompilation) addAttribute(child *schemaNode) error {
 		if admissionErr != nil {
 			return admissionErr
 		}
-		if err = validateAttributeUseValueConstraintAtNode(child, mode, overrides.defaultAttr.Present, overrides.fixedAttr.Present, false); err != nil {
+		if err = validateAttributeUseValueConstraintAtNode(child, mode, overrides.defaultAttr.Present, false); err != nil {
 			return err
 		}
 		b.addProhibition(name)
@@ -481,7 +472,7 @@ func (c *compiler) compileAttributeUse(ctx *schemaSetDocument, n *schemaNode, mo
 		return attributeUse{}, err
 	}
 	use := base.use
-	if err = validateAttributeUseValueConstraintAtNode(n, mode, overrides.defaultAttr.Present, overrides.fixedAttr.Present, base.refFixed != nil); err != nil {
+	if err = validateAttributeUseValueConstraintAtNode(n, mode, overrides.defaultAttr.Present, base.refFixed != nil); err != nil {
 		return attributeUse{}, err
 	}
 	use.Required = mode == attributeUseRequired
@@ -524,11 +515,11 @@ func (c *compiler) validateAttributeUseOverrides(n *schemaNode, use *attributeUs
 	if !base.ref {
 		return nil
 	}
-	local := sourceValueConstraint(overrides.defaultAttr, overrides.fixedAttr)
-	if local == nil {
-		return nil
+	local, err := sourceValueConstraint(n, overrides.defaultAttr, overrides.fixedAttr)
+	if err != nil || local == nil {
+		return err
 	}
-	if err := c.validateAttributeValueConstraint(&local, use.Name, use.Type, n, validateAttributeUseValueConstraintRuntime); err != nil {
+	if err := c.validateAttributeValueConstraint(&local, use.Name, use.Type, n, valueConstraintOwnerAttributeUse); err != nil {
 		return withSchemaCompileLocation(n, err)
 	}
 	// The local constraint replaces the declaration's rather than joining it

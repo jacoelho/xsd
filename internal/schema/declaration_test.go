@@ -185,7 +185,7 @@ func TestValidateAttributeDeclRuntime(t *testing.T) {
 	}
 }
 
-func TestValidateElementDeclValueConstraintRuntime(t *testing.T) {
+func TestElementDeclarationValueConstraintIdentity(t *testing.T) {
 	t.Parallel()
 	fixture := notationConstraintFixture(t)
 	rt := fixture.build
@@ -217,21 +217,21 @@ func TestValidateElementDeclValueConstraintRuntime(t *testing.T) {
 			if tt.nilRuntime {
 				runtime = nil
 			}
-			err := validateElementDeclValueConstraintRuntime(runtime, tt.typ, tt.constraint)
+			err := validateValueConstraintIdentity(runtime, tt.typ, tt.constraint, valueConstraintOwnerElementDeclaration)
 			if tt.wantErr == "" {
 				if err != nil {
-					t.Fatalf("ValidateElementDeclValueConstraintRuntime() error = %v", err)
+					t.Fatalf("validateValueConstraintIdentity() error = %v", err)
 				}
 				return
 			}
 			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
-				t.Fatalf("ValidateElementDeclValueConstraintRuntime() error = %v, want %q", err, tt.wantErr)
+				t.Fatalf("validateValueConstraintIdentity() error = %v, want %q", err, tt.wantErr)
 			}
 		})
 	}
 }
 
-func TestValidateAttributeDeclValueConstraintRuntime(t *testing.T) {
+func TestAttributeDeclarationValueConstraintIdentity(t *testing.T) {
 	t.Parallel()
 	rt, idTypes := attributeUseSetIDFixture(t)
 	stringID := valuepkg.BuiltinType(valuepkg.PrimitiveString)
@@ -259,15 +259,15 @@ func TestValidateAttributeDeclValueConstraintRuntime(t *testing.T) {
 			if tt.nilRuntime {
 				runtime = nil
 			}
-			err := validateAttributeDeclValueConstraintRuntime(runtime, tt.typ, tt.constraint)
+			err := validateValueConstraintIdentity(runtime, tt.typ, tt.constraint, valueConstraintOwnerAttributeDeclaration)
 			if tt.wantErr == "" {
 				if err != nil {
-					t.Fatalf("ValidateAttributeDeclValueConstraintRuntime() error = %v", err)
+					t.Fatalf("validateValueConstraintIdentity() error = %v", err)
 				}
 				return
 			}
 			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
-				t.Fatalf("ValidateAttributeDeclValueConstraintRuntime() error = %v, want %q", err, tt.wantErr)
+				t.Fatalf("validateValueConstraintIdentity() error = %v, want %q", err, tt.wantErr)
 			}
 		})
 	}
@@ -288,13 +288,15 @@ func TestSourceValueConstraint(t *testing.T) {
 		{name: "default", defaultAttr: present("d"), want: &valueConstraint{Lexical: "d"}, wantKind: valueConstraintDefault},
 		{name: "fixed", fixedAttr: present("f"), want: &valueConstraint{Lexical: "f", Fixed: true}, wantKind: valueConstraintFixed},
 		{name: "empty fixed", fixedAttr: present(""), want: &valueConstraint{Fixed: true}, wantKind: valueConstraintFixed},
-		{name: "both", defaultAttr: present("d"), fixedAttr: present("f"), wantKind: valueConstraintNone},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := sourceValueConstraint(tt.defaultAttr, tt.fixedAttr)
+			got, err := sourceValueConstraint(&schemaNode{local: attributeChild}, tt.defaultAttr, tt.fixedAttr)
+			if err != nil {
+				t.Fatal(err)
+			}
 			if (got == nil) != (tt.want == nil) || got != nil && (got.Lexical != tt.want.Lexical || got.Fixed != tt.want.Fixed) {
 				t.Fatalf("sourceValueConstraint() = %+v, want %+v", got, tt.want)
 			}

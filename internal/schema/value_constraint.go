@@ -6,6 +6,8 @@ import (
 
 	"github.com/jacoelho/xsd/internal/lex"
 	valuepkg "github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/vocab"
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 // valueConstraint is a prevalidated {value constraint}: one value that is
@@ -25,18 +27,22 @@ type valueConstraint struct {
 }
 
 // sourceValueConstraint returns the unvalidated constraint that the default
-// and fixed attributes of one schema source element give, nil when they give
-// none or both; admission rejects a source that gives both.
-func sourceValueConstraint(defaultAttr, fixedAttr lexicalAttribute) *valueConstraint {
+// and fixed attributes of n, an xs:element or xs:attribute, give, or nil when
+// they give none. A source that gives both is rejected at n.
+func sourceValueConstraint(n *schemaNode, defaultAttr, fixedAttr lexicalAttribute) (*valueConstraint, error) {
 	switch {
 	case defaultAttr.Present && fixedAttr.Present:
-		return nil
+		message := "attribute cannot have both default and fixed"
+		if n.local == vocab.XSDElemElement {
+			message = "element cannot have both default and fixed"
+		}
+		return nil, schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, message)
 	case defaultAttr.Present:
-		return &valueConstraint{Lexical: defaultAttr.Value}
+		return &valueConstraint{Lexical: defaultAttr.Value}, nil
 	case fixedAttr.Present:
-		return &valueConstraint{Lexical: fixedAttr.Value, Fixed: true}
+		return &valueConstraint{Lexical: fixedAttr.Value, Fixed: true}, nil
 	default:
-		return nil
+		return nil, nil //nolint:nilnil // A nil constraint is the absent {value constraint}; see valueConstraint.
 	}
 }
 
@@ -52,6 +58,41 @@ const (
 
 func (k valueConstraintKind) present() bool {
 	return k != valueConstraintNone
+}
+
+// label names k in diagnostics.
+func (k valueConstraintKind) label() string {
+	switch k {
+	case valueConstraintDefault:
+		return "default"
+	case valueConstraintFixed:
+		return "fixed"
+	case valueConstraintNone:
+	}
+	return "absent"
+}
+
+// valueConstraintOwner is the kind of component that carries a {value
+// constraint}.
+type valueConstraintOwner uint8
+
+const (
+	valueConstraintOwnerElementDeclaration valueConstraintOwner = iota
+	valueConstraintOwnerAttributeDeclaration
+	valueConstraintOwnerAttributeUse
+)
+
+// label names o in diagnostics.
+func (o valueConstraintOwner) label() string {
+	switch o {
+	case valueConstraintOwnerElementDeclaration:
+		return elementDeclarationLabel
+	case valueConstraintOwnerAttributeDeclaration:
+		return attributeDeclarationLabel
+	case valueConstraintOwnerAttributeUse:
+		return "attribute use"
+	}
+	return "component"
 }
 
 // kind classifies vc; nil is valueConstraintNone.
