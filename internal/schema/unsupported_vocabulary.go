@@ -22,8 +22,8 @@ import (
 // XSD 1.0 checks, and loses only to an XSD 1.0 error already reported at an
 // earlier start or end tag. Content of xs:appinfo and xs:documentation is
 // never schema grammar, so nothing in it is vocabulary. Text is judged when
-// its parent ends or rejects a child, so text before unsupported vocabulary
-// does not win over it. The abstract substitution-group head xs:facet, which
+// its parent ends or the next child starts, after that child's vocabulary, so
+// text before unsupported vocabulary does not win over it. The abstract substitution-group head xs:facet, which
 // the XSD 1.1 schema for schemas also declares, is not vocabulary: no XSD 1.1
 // schema document can contain it.
 

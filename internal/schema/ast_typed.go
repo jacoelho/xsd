@@ -18,9 +18,9 @@ import (
 // retained while parsing the next sibling.
 type typedSchemaParseFrame struct {
 	node *schemaNode
-	// order is the content model that childOrderFor selected for an element
-	// whose content is childContentOrdered or childContentSchema; orders
-	// is its progress through it.
+	// order is the content model that childContentFor selected for an
+	// element whose content is childContentOrdered or childContentSchema;
+	// orders is its progress through it.
 	order     *childOrder
 	name      xml.Name
 	namespace xmlstream.Handle
@@ -395,7 +395,7 @@ func admitStart(n *schemaSyntaxNode, placement schemaElementPlacement, parent *t
 // admitChildContent checks the schema-namespace child n against the content
 // of parent and admits it there.
 func admitChildContent(n *schemaSyntaxNode, parent *typedSchemaParseFrame) error {
-	if parent.content == childContentOrdered && parent.order == nil {
+	if (parent.content == childContentOrdered || parent.content == childContentSchema) && parent.order == nil {
 		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("schema element xs:"+diagnostictext.Quote(parent.name.Local)+" has no child order"))
 	}
 	if message := childContentViolation(n.Name.Local, parent); message != "" {
@@ -406,7 +406,8 @@ func admitChildContent(n *schemaSyntaxNode, parent *typedSchemaParseFrame) error
 
 // childContentViolation admits a schema-namespace child named child into
 // parent after the children parent already has, or returns why parent cannot
-// contain it there.
+// contain it there. A parent with ordered content has an order; see
+// admitChildContent.
 func childContentViolation(child string, parent *typedSchemaParseFrame) string {
 	switch parent.content {
 	case childContentAnnotationPayload:
@@ -423,9 +424,6 @@ func childContentViolation(child string, parent *typedSchemaParseFrame) string {
 	}
 	if message := annotationPlacementViolation(child, parent); message != "" {
 		return message
-	}
-	if parent.order == nil {
-		return ""
 	}
 	return parent.orders.accept(child, parent.order)
 }

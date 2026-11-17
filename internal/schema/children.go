@@ -65,8 +65,8 @@ type childRule struct {
 
 // childOrder is the XSD 1.0 content model of one schema element in one
 // placement, after its leading annotation, whose placement
-// childContentViolation owns: ordered sections of rules. childOrderFor selects
-// it when the element starts, and childOrderState admits each child as it
+// childContentViolation owns: ordered sections of rules. childContentFor
+// selects it when the element starts, and childOrderState admits each child as it
 // starts, so a misplaced, repeated or unknown child is the violation at its
 // own start tag. Which children are required is checked when the component
 // compiles.
@@ -292,15 +292,14 @@ var schemaChildOrder = checkedChildOrder(childOrder{
 	Label: "top-level schema",
 })
 
-// childOrderFor returns the content model of the XSD element named local
-// whose parent is named parent, or nil when the element admits only
-// xs:annotation or is never admitted as a parent. An element whose parent's
+// childOrderFor returns the content model of the XSD element named local,
+// other than xs:schema, whose parent is named parent, or nil when the element
+// admits only xs:annotation or is never admitted as a parent; childContentFor
+// selects the content model of xs:schema. An element whose parent's
 // content model does not admit it never starts, so parent here is one that
 // admits local.
 func childOrderFor(local string, parent xml.Name) *childOrder {
 	switch local {
-	case vocab.XSDElemSchema:
-		return &schemaChildOrder
 	case simpleTypeChild:
 		return &simpleTypeChildOrder
 	case restrictionChild:

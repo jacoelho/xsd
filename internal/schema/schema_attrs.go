@@ -147,7 +147,7 @@ func misplacedSchemaAttributeError(n *schemaSyntaxNode, attr string, placement s
 // its placement, so it requires name.
 func checkRequiredSchemaAttributes(n *schemaSyntaxNode, parent xml.Name, placement schemaElementPlacement) error {
 	element := n.Name.Local
-	var required, message string
+	var required string
 	switch placement {
 	case schemaPlacementOther, schemaPlacementNamedGroupModel:
 	case schemaPlacementTopLevel:
@@ -156,16 +156,13 @@ func checkRequiredSchemaAttributes(n *schemaSyntaxNode, parent xml.Name, placeme
 			required = vocab.XSDAttrName
 		}
 	case schemaPlacementLocal:
-		switch element {
-		case vocab.XSDElemElement:
-			required, message = vocab.XSDAttrName, "local element missing name or ref"
-		case vocab.XSDElemAttribute:
-			required, message = vocab.XSDAttrName, "attribute missing name or ref"
+		if element == vocab.XSDElemElement || element == vocab.XSDElemAttribute {
+			required = vocab.XSDAttrName
 		}
 	case schemaPlacementReference:
-		required, message = vocab.XSDAttrRef, missingReferenceMessage(element)
+		required = vocab.XSDAttrRef
 	case schemaPlacementContentDerivation:
-		required, message = vocab.XSDAttrBase, missingContentDerivationBaseMessage(parent.Local, element)
+		required = vocab.XSDAttrBase
 	default:
 		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("schema element placement is unknown"))
 	}
@@ -175,13 +172,58 @@ func checkRequiredSchemaAttributes(n *schemaSyntaxNode, parent xml.Name, placeme
 	if _, ok := n.attr(required); ok {
 		return nil
 	}
-	if placement == schemaPlacementTopLevel {
-		message = "top-level " + diagnostictext.Quote(element) + " missing name"
-	}
+	message := missingSchemaAttributeMessage(element, parent, placement)
 	if message == "" {
 		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("schema element xs:"+diagnostictext.Quote(element)+" has no required attribute message"))
 	}
 	return schemaCompileAt(n, xsderrors.CodeSchemaReference, message)
+}
+
+// missingSchemaAttributeMessage describes an XSD element named element in
+// placement, whose parent is named parent, that lacks the attribute
+// checkRequiredSchemaAttributes requires, or returns "" when the placement
+// requires none of it. A reference to an element or attribute carries ref by
+// definition of its placement. Element names reach a message only as
+// constants or quoted, so no raw schema text does.
+func missingSchemaAttributeMessage(element string, parent xml.Name, placement schemaElementPlacement) string {
+	switch placement {
+	case schemaPlacementTopLevel:
+		return "top-level " + diagnostictext.Quote(element) + " missing name"
+	case schemaPlacementLocal:
+		switch element {
+		case vocab.XSDElemElement:
+			return "local element missing name or ref"
+		case vocab.XSDElemAttribute:
+			return "attribute missing name or ref"
+		}
+	case schemaPlacementReference:
+		switch element {
+		case vocab.XSDElemGroup:
+			return "group use missing ref"
+		case vocab.XSDElemAttributeGroup:
+			return "attributeGroup use missing ref"
+		}
+	case schemaPlacementContentDerivation:
+		return missingContentDerivationBaseMessage(parent.Local, element)
+	case schemaPlacementOther, schemaPlacementNamedGroupModel:
+	}
+	return ""
+}
+
+// missingContentDerivationBaseMessage describes a derivation named element
+// inside container that lacks base, or returns "" for any other pair.
+func missingContentDerivationBaseMessage(container, element string) string {
+	switch {
+	case container == vocab.XSDElemSimpleContent && element == vocab.XSDElemRestriction:
+		return "simpleContent restriction missing base"
+	case container == vocab.XSDElemSimpleContent && element == vocab.XSDElemExtension:
+		return "simpleContent extension missing base"
+	case container == vocab.XSDElemComplexContent && element == vocab.XSDElemRestriction:
+		return "complexContent restriction missing base"
+	case container == vocab.XSDElemComplexContent && element == vocab.XSDElemExtension:
+		return "complexContent extension missing base"
+	}
+	return ""
 }
 
 func topLevelAttributeForbidden(element, attr string) bool {
@@ -200,38 +242,38 @@ func topLevelAttributeForbidden(element, attr string) bool {
 }
 
 // misplacedLocalAttribute returns why a local declaration or definition named
-// element cannot have attr, or "" when it can.
+// element cannot have attr, or "" when it can. Each message is a constant, so
+// no schema text reaches it.
 func misplacedLocalAttribute(element, attr string) string {
-	switch element {
-	case vocab.XSDElemElement:
-		switch attr {
-		case vocab.XSDAttrAbstract:
-			return "local element cannot have " + vocab.XSDAttrAbstract
-		case vocab.XSDAttrFinal:
-			return "local element cannot have " + vocab.XSDAttrFinal
-		case vocab.XSDAttrSubstitutionGroup:
-			return "local element cannot have " + vocab.XSDAttrSubstitutionGroup
-		}
-	case vocab.XSDElemComplexType:
-		switch attr {
-		case vocab.XSDAttrName:
-			return "local complexType cannot have " + vocab.XSDAttrName
-		case vocab.XSDAttrAbstract:
-			return "local complexType cannot have " + vocab.XSDAttrAbstract
-		case vocab.XSDAttrFinal:
-			return "local complexType cannot have " + vocab.XSDAttrFinal
-		case vocab.XSDAttrBlock:
-			return "local complexType cannot have " + vocab.XSDAttrBlock
-		}
-	case vocab.XSDElemSimpleType:
-		switch attr {
-		case vocab.XSDAttrName:
-			return "local simpleType cannot have " + vocab.XSDAttrName
-		case vocab.XSDAttrFinal:
-			return "local simpleType cannot have " + vocab.XSDAttrFinal
-		}
+	switch (schemaElementAttribute{element: element, attr: attr}) {
+	case schemaElementAttribute{vocab.XSDElemElement, vocab.XSDAttrAbstract}:
+		return "local element cannot have abstract"
+	case schemaElementAttribute{vocab.XSDElemElement, vocab.XSDAttrFinal}:
+		return "local element cannot have final"
+	case schemaElementAttribute{vocab.XSDElemElement, vocab.XSDAttrSubstitutionGroup}:
+		return "local element cannot have substitutionGroup"
+	case schemaElementAttribute{vocab.XSDElemComplexType, vocab.XSDAttrName}:
+		return "local complexType cannot have name"
+	case schemaElementAttribute{vocab.XSDElemComplexType, vocab.XSDAttrAbstract}:
+		return "local complexType cannot have abstract"
+	case schemaElementAttribute{vocab.XSDElemComplexType, vocab.XSDAttrFinal}:
+		return "local complexType cannot have final"
+	case schemaElementAttribute{vocab.XSDElemComplexType, vocab.XSDAttrBlock}:
+		return "local complexType cannot have block"
+	case schemaElementAttribute{vocab.XSDElemSimpleType, vocab.XSDAttrName}:
+		return "local simpleType cannot have name"
+	case schemaElementAttribute{vocab.XSDElemSimpleType, vocab.XSDAttrFinal}:
+		return "local simpleType cannot have final"
+	default:
+		return ""
 	}
-	return ""
+}
+
+// schemaElementAttribute is an unqualified attribute named attr of the XSD
+// element named element.
+type schemaElementAttribute struct {
+	element string
+	attr    string
 }
 
 // misplacedNamedGroupModelAttribute returns why the model group of a
@@ -273,39 +315,6 @@ func misplacedReferenceAttribute(element, attr string) string {
 			return ""
 		}
 		return "attributeGroup use cannot have attribute " + diagnostictext.Quote(attr)
-	}
-	return ""
-}
-
-// missingReferenceMessage describes a reference named element, one of those
-// isSchemaReference admits, that lacks ref, or returns "" for any other
-// element.
-func missingReferenceMessage(element string) string {
-	switch element {
-	case vocab.XSDElemElement:
-		return "element use missing ref"
-	case vocab.XSDElemAttribute:
-		return "attribute use missing ref"
-	case vocab.XSDElemGroup:
-		return "group use missing ref"
-	case vocab.XSDElemAttributeGroup:
-		return "attributeGroup use missing ref"
-	}
-	return ""
-}
-
-// missingContentDerivationBaseMessage describes a derivation named element
-// inside container that lacks base, or returns "" for any other pair.
-func missingContentDerivationBaseMessage(container, element string) string {
-	switch {
-	case container == vocab.XSDElemSimpleContent && element == vocab.XSDElemRestriction:
-		return "simpleContent restriction missing base"
-	case container == vocab.XSDElemSimpleContent && element == vocab.XSDElemExtension:
-		return "simpleContent extension missing base"
-	case container == vocab.XSDElemComplexContent && element == vocab.XSDElemRestriction:
-		return "complexContent restriction missing base"
-	case container == vocab.XSDElemComplexContent && element == vocab.XSDElemExtension:
-		return "complexContent extension missing base"
 	}
 	return ""
 }

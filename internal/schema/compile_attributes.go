@@ -57,11 +57,11 @@ func (c *compiler) compileAttributeDecl(ctx *schemaSetDocument, n *schemaNode, q
 	if err != nil {
 		return attributeDecl{}, err
 	}
-	decl := attributeDecl{Name: q, Type: typ, ValueConstraint: constraint}
-	if err = c.validateAttributeValueConstraint(&decl.ValueConstraint, q, typ, n, valueConstraintOwnerAttributeDeclaration); err != nil {
+	validated, err := c.validateAttributeValueConstraint(constraint, q, typ, n, valueConstraintOwnerAttributeDeclaration)
+	if err != nil {
 		return attributeDecl{}, withSchemaCompileLocation(n, err)
 	}
-	return decl, nil
+	return attributeDecl{Name: q, Type: typ, ValueConstraint: validated}, nil
 }
 
 func (c *compiler) compileAttributeDeclType(ctx *schemaSetDocument, n *schemaNode) (SimpleTypeID, error) {
@@ -89,35 +89,29 @@ func (c *compiler) compileAttributeDeclType(ctx *schemaSetDocument, n *schemaNod
 	return valuepkg.AnySimpleTypeID, nil
 }
 
-// validateAttributeValueConstraint replaces *constraint, which owner carries
-// for the attribute named name, with its validation against typ, or with nil
-// when typ is unavailable.
+// validateAttributeValueConstraint returns constraint, which owner carries
+// for the attribute named name, validated against typ, or nil when constraint
+// is nil or typ is unavailable.
 func (c *compiler) validateAttributeValueConstraint(
-	constraint **valueConstraint,
+	constraint *valueConstraint,
 	name QName,
 	typ SimpleTypeID,
 	n *schemaNode,
 	owner valueConstraintOwner,
-) error {
+) (*valueConstraint, error) {
 	if !validSimpleTypeID(typ, len(c.rt.simpleTypeUnavailable)) {
-		return xsderrors.InternalInvariant("attribute value constraint references invalid simple type")
+		return nil, xsderrors.InternalInvariant("attribute value constraint references invalid simple type")
 	}
 	if c.rt.simpleTypeUnavailable[typ] {
-		*constraint = nil
-		return nil
+		return nil, nil //nolint:nilnil // A nil constraint is the absent {value constraint}; see valueConstraint.
 	}
-	if err := validateValueConstraintIdentity(&c.rt, typ, *constraint, owner); err != nil {
-		return invalidAttributeError(err)
+	if err := validateValueConstraintIdentity(&c.rt, typ, constraint, owner); err != nil {
+		return nil, invalidAttributeError(err)
 	}
-	if *constraint == nil {
-		return nil
+	if constraint == nil {
+		return nil, nil //nolint:nilnil // A nil constraint is the absent {value constraint}; see valueConstraint.
 	}
-	validated, err := c.validateValueConstraint(typ, *constraint, schemaQNameResolver(n), n.namespace.Lookup, name, "attribute")
-	if err != nil {
-		return err
-	}
-	*constraint = validated
-	return nil
+	return c.validateValueConstraint(typ, constraint, schemaQNameResolver(n), n.namespace.Lookup, name, "attribute")
 }
 
 // validateValueConstraint validates constraint, which the component kind
@@ -511,12 +505,13 @@ func (c *compiler) validateAttributeUseOverrides(n *schemaNode, use *attributeUs
 	if err != nil || local == nil {
 		return err
 	}
-	if err := c.validateAttributeValueConstraint(&local, use.Name, use.Type, n, valueConstraintOwnerAttributeUse); err != nil {
+	validated, err := c.validateAttributeValueConstraint(local, use.Name, use.Type, n, valueConstraintOwnerAttributeUse)
+	if err != nil {
 		return withSchemaCompileLocation(n, err)
 	}
 	// The local constraint replaces the declaration's rather than joining it
 	// (Structures §3.2.2 attribute use mapping).
-	use.ValueConstraint = local
+	use.ValueConstraint = validated
 	return nil
 }
 
