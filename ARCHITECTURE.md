@@ -250,19 +250,27 @@ compile-tier violation is reported only when no document has a parse-tier
 violation. A rule is compile tier when one start or end tag cannot decide it:
 reference resolution and import authorization; duplicate components and
 attribute uses; cycles, derivation and `final`; whether the base type admits a
-facet, and facet values; a value constraint against its type; a group
-reference that resolves to `xs:all`; and the content model rules (Unique
-Particle Attribution, Element Declarations Consistent, restriction).
-Compilation also owns these rules, which one tag states but which constrain
-the component the tag describes or relate two of its attributes, so they have
-no position among the attributes of the tag: `default` together with `fixed`,
-and `default` on an attribute use that is not optional; `minOccurs` above
-`maxOccurs`, the occurrence range of an `xs:all` particle, and an occurrence
-count above the occurrence limits; an attribute named `xmlns`; and the path
-grammar of `xs:selector` and `xs:field`, of which stage 5 rejects only an
-empty `xpath`.
+facet, and a facet's value, whose type the facet and the base type give
+together; a value constraint against its type; a group reference that resolves
+to `xs:all`; and the content model rules (Unique Particle Attribution, Element
+Declarations Consistent, restriction).
 
-Each of these rules has one owner. The child orders (`childOrderFor`) own
+Compilation also owns the rules below. One start tag states each of them, but
+none is the presence or the form of one attribute, which is all that stages 5
+and 6 decide: they relate two attributes, or constrain the component the tag
+describes.
+
+- `default` together with `fixed`, and `default` on an attribute use that is
+  not optional.
+- `minOccurs` above `maxOccurs`, the occurrence range of an `xs:all` particle,
+  and an occurrence count above the occurrence limits.
+- An attribute declaration named `xmlns`.
+
+The path grammar of `xs:selector` and `xs:field` is the form of one attribute
+and is compile tier all the same: the identity constraint compiler owns the
+grammar, and stage 5 rejects only an empty `xpath`.
+
+Each parse-tier rule has one owner. The child orders (`childOrderFor`) own
 where an element may appear; the placement of a component
 (`schemaElementPlacementOf`) selects its attribute rules and says nothing
 about whether its parent admits it. `schemaElementAttributeAllowed` and
