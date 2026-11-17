@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:element name="r"><xs:complexType><xs:attribute name="a"/></xs:complexType>
+<xs:keyref name="kr"><xs:selector xpath="."/><xs:field xpath="@a"/></xs:keyref>
+</xs:element>
+<xs:element name="z" foo="1"/>
+</xs:schema>
