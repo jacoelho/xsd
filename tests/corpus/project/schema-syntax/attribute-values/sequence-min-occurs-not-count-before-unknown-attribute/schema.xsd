@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:complexType name="C"><xs:sequence minOccurs="1.0"><xs:element name="e"/></xs:sequence></xs:complexType>
+<xs:element name="z" foo="1"/>
+</xs:schema>

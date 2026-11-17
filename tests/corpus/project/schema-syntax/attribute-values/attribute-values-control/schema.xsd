@@ -1,0 +1,18 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:t" xmlns="urn:t" elementFormDefault="unqualified" attributeFormDefault="unqualified" blockDefault="" finalDefault="extension list">
+<xs:element name="h" abstract="true" nillable="0" block="substitution extension" final="" id="h"/>
+<xs:element name="m" substitutionGroup="h" nillable="1" abstract="false" block="#all" final="extension restriction" id="m"/>
+<xs:simpleType name="S" final="list union"><xs:restriction base="xs:string"><xs:maxLength value="4" fixed="1"/><xs:whiteSpace value="preserve" fixed="false"/></xs:restriction></xs:simpleType>
+<xs:complexType name="B" abstract="0" mixed="false" block="" final="restriction"><xs:sequence/></xs:complexType>
+<xs:complexType name="F" abstract="true" mixed="1" block="#all" final="#all"/>
+<xs:complexType name="C" mixed="false">
+<xs:complexContent mixed="0"><xs:extension base="B">
+<xs:sequence minOccurs="1" maxOccurs="unbounded">
+<xs:element name="v" type="S" minOccurs="1" maxOccurs="1" form="qualified" nillable="true"/>
+<xs:any namespace="##local urn:other" processContents="lax" minOccurs="0" maxOccurs="2"/>
+</xs:sequence>
+<xs:attribute name="a" use="required" form="unqualified"/>
+<xs:anyAttribute namespace="##targetNamespace ##local" processContents="skip"/>
+</xs:extension></xs:complexContent>
+</xs:complexType>
+<xs:element name="r" type="C"/>
+</xs:schema>

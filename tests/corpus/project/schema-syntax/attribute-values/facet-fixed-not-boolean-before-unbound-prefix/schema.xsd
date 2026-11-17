@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:simpleType name="S"><xs:restriction base="xs:string"><xs:maxLength value="1" fixed="yes"/></xs:restriction></xs:simpleType>
+<xs:element name="z" type="p:T"/>
+</xs:schema>
