@@ -212,9 +212,9 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
 		},
 		{
 			name:     "facet child grammar before unsupported child",
-			body:     facetBody(`<xs:assert test="1"/>`),
+			body:     facetBody(`<xs:redefine schemaLocation="other.xsd"/>`),
 			wantLine: 4, wantCol: 28, wantCode: xsderrors.CodeSchemaContentModel,
-			wantMsg: annotationOnly("length", "assert"),
+			wantMsg: annotationOnly("length", "redefine"),
 		},
 		{
 			name:     "facet child grammar before child attributes",

@@ -1,4 +1,4 @@
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 <xs:element name="r"><xs:complexType><xs:attribute name="a"/></xs:complexType><xs:key name="k"><xs:selector xpath="."/><xs:field xpath="@a"/></xs:key></xs:element>
-<xs:element name="s"><xs:complexType><xs:attribute name="a"/></xs:complexType><xs:key ref="k"><xs:selector xpath="."/><xs:field xpath="@a"/></xs:key></xs:element>
+<xs:element name="s"><xs:complexType><xs:attribute name="a"/></xs:complexType><xs:unique ref="k"/></xs:element>
 </xs:schema>

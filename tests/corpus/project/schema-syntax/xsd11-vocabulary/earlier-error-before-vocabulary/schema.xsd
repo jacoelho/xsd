@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:element name="r" foo="1"/>
+<xs:complexType name="T"><xs:assert test="true()"/></xs:complexType>
+</xs:schema>

@@ -68,22 +68,18 @@ const (
 	// schemaAttributeLocalOnly is an XSD 1.0 attribute that a top-level
 	// declaration or definition cannot carry.
 	schemaAttributeLocalOnly
-	// schemaAttributeXSD11 is an attribute XSD 1.1 adds to the element; its
-	// placement decides whether it is unsupported or invalid.
-	schemaAttributeXSD11
 )
 
-// schemaAttributeVocabularyOf is the single owner of which unqualified
-// attributes each XSD element admits. Elements outside the XSD 1.0 vocabulary
-// admit every attribute; compilation rejects them.
+// schemaAttributeVocabularyOf is the single owner of which unqualified XSD 1.0
+// attributes each XSD element admits. XSD 1.1 attributes never reach it; see
+// rejectXSD11Vocabulary. Elements outside the XSD 1.0 vocabulary admit every
+// attribute; compilation rejects them.
 func schemaAttributeVocabularyOf(element, attr string, topLevel bool) schemaAttributeVocabulary {
 	switch {
 	case topLevel && topLevelAttributeForbidden(element, attr):
 		return schemaAttributeLocalOnly
 	case schemaElementAttributeAllowed(element, attr):
 		return schemaAttributeXSD10
-	case isXSD11Attribute(element, attr):
-		return schemaAttributeXSD11
 	default:
 		return schemaAttributeUnknown
 	}

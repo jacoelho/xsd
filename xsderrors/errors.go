@@ -61,9 +61,14 @@ const (
 	// CodeUnsupportedXMLVersion reports an XML declaration whose well-formed
 	// version is not "1.0". A malformed version is an XML well-formedness error.
 	CodeUnsupportedXMLVersion Code = "unsupported.xml_version"
-	// CodeUnsupportedXSD11 reports an XSD 1.1 element or attribute of the
-	// XSD namespace at a position XSD 1.1 permits it. A use that XSD 1.1
-	// also rejects keeps its XSD 1.0 schema diagnostic.
+	// CodeUnsupportedXSD11 reports that a schema document uses XSD 1.1
+	// syntax: an XSD-namespace element, or an unqualified attribute of an
+	// XSD-namespace element, that the XSD 1.1 schema for schemas adds over
+	// XSD 1.0. It is reported wherever the name appears and whatever its value,
+	// so it does not mean the use is valid XSD 1.1. Content of xs:appinfo and
+	// xs:documentation is never inspected. XSD 1.1 relaxations of XSD 1.0
+	// constraints and references to XSD 1.1 built-in types keep their XSD 1.0
+	// schema diagnostics.
 	CodeUnsupportedXSD11 Code = "unsupported.xsd_1_1"
 	CodeValidationXML    Code = "validation.xml"
 	// CodeValidationRead reports that the caller's instance reader returned an
