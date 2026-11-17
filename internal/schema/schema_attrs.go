@@ -149,27 +149,8 @@ func misplacedSchemaAttributeError(n *schemaSyntaxNode, attr string, placement s
 // violation.
 func checkRequiredSchemaAttributes(n *schemaSyntaxNode, parent xml.Name, placement schemaElementPlacement) error {
 	element := n.Name.Local
-	var required string
-	switch placement {
-	case schemaPlacementOther:
-		if element == vocab.XSDElemSelector || element == vocab.XSDElemField {
-			required = vocab.XSDAttrXPath
-		}
-	case schemaPlacementNamedGroupModel:
-	case schemaPlacementTopLevel:
-		switch element {
-		case vocab.XSDElemSimpleType, vocab.XSDElemComplexType, vocab.XSDElemAttributeGroup, vocab.XSDElemGroup, vocab.XSDElemAttribute, vocab.XSDElemElement:
-			required = vocab.XSDAttrName
-		}
-	case schemaPlacementLocal:
-		if element == vocab.XSDElemElement || element == vocab.XSDElemAttribute {
-			required = vocab.XSDAttrName
-		}
-	case schemaPlacementReference:
-		required = vocab.XSDAttrRef
-	case schemaPlacementContentDerivation:
-		required = vocab.XSDAttrBase
-	default:
+	required, known := requiredSchemaAttribute(element, placement)
+	if !known {
 		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("schema element placement is unknown"))
 	}
 	if required == "" {
@@ -187,6 +168,35 @@ func checkRequiredSchemaAttributes(n *schemaSyntaxNode, parent xml.Name, placeme
 		code = xsderrors.CodeSchemaIdentity
 	}
 	return schemaCompileAt(n, code, message)
+}
+
+// requiredSchemaAttribute returns the attribute an XSD element named element
+// requires in placement, or "" when it requires none, and whether placement
+// is known.
+func requiredSchemaAttribute(element string, placement schemaElementPlacement) (string, bool) {
+	switch placement {
+	case schemaPlacementOther:
+		if element == vocab.XSDElemSelector || element == vocab.XSDElemField {
+			return vocab.XSDAttrXPath, true
+		}
+	case schemaPlacementNamedGroupModel:
+	case schemaPlacementTopLevel:
+		switch element {
+		case vocab.XSDElemSimpleType, vocab.XSDElemComplexType, vocab.XSDElemAttributeGroup, vocab.XSDElemGroup, vocab.XSDElemAttribute, vocab.XSDElemElement:
+			return vocab.XSDAttrName, true
+		}
+	case schemaPlacementLocal:
+		if element == vocab.XSDElemElement || element == vocab.XSDElemAttribute {
+			return vocab.XSDAttrName, true
+		}
+	case schemaPlacementReference:
+		return vocab.XSDAttrRef, true
+	case schemaPlacementContentDerivation:
+		return vocab.XSDAttrBase, true
+	default:
+		return "", false
+	}
+	return "", true
 }
 
 // missingSchemaAttributeMessage describes an XSD element named element in
