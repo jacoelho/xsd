@@ -64,7 +64,7 @@ func TestElementCompilationFailureKeepsReservedPlaceholder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	schema := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test"><xs:element name="bad" nillable="invalid"/></xs:schema>`)
+	schema := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test"><xs:element name="bad" default="a" fixed="b"/></xs:schema>`)
 	err = c.loadOwned([]source.Source{source.Bytes("bad.xsd", schema)})
 	if err != nil {
 		t.Fatal(err)

@@ -13,12 +13,23 @@ type derivationAttrRule struct {
 }
 
 const (
+	schemaBlockDefaultLabel = "schema blockDefault"
+	schemaFinalDefaultLabel = "schema finalDefault"
+
 	complexTypeBlockLabel = "complexType block"
 	complexTypeFinalLabel = "complexType final"
 	simpleTypeFinalLabel  = "simpleType final"
 	elementBlockLabel     = "element block"
 	elementFinalLabel     = "element final"
 )
+
+func schemaBlockDefaultDerivation() derivationAttrRule {
+	return derivationAttrRule{Name: vocab.XSDAttrBlockDefault, Label: schemaBlockDefaultLabel, Allowed: derivationBlockDefaultMask}
+}
+
+func schemaFinalDefaultDerivation() derivationAttrRule {
+	return derivationAttrRule{Name: vocab.XSDAttrFinalDefault, Label: schemaFinalDefaultLabel, Allowed: derivationFinalDefaultMask}
+}
 
 func complexTypeBlockDerivation() derivationAttrRule {
 	return derivationAttrRule{Name: vocab.XSDAttrBlock, Label: complexTypeBlockLabel, Allowed: derivationComplexMask}
@@ -38,6 +49,39 @@ func elementBlockDerivation() derivationAttrRule {
 
 func elementFinalDerivation() derivationAttrRule {
 	return derivationAttrRule{Name: vocab.XSDAttrFinal, Label: elementFinalLabel, Allowed: derivationComplexMask}
+}
+
+// derivationAttrRuleOf returns the rule of attr, a derivation-set attribute of
+// the XSD element named element, and reports whether attr is one.
+func derivationAttrRuleOf(element, attr string) (derivationAttrRule, bool) {
+	switch element {
+	case vocab.XSDElemSchema:
+		switch attr {
+		case vocab.XSDAttrBlockDefault:
+			return schemaBlockDefaultDerivation(), true
+		case vocab.XSDAttrFinalDefault:
+			return schemaFinalDefaultDerivation(), true
+		}
+	case vocab.XSDElemElement:
+		switch attr {
+		case vocab.XSDAttrBlock:
+			return elementBlockDerivation(), true
+		case vocab.XSDAttrFinal:
+			return elementFinalDerivation(), true
+		}
+	case vocab.XSDElemComplexType:
+		switch attr {
+		case vocab.XSDAttrBlock:
+			return complexTypeBlockDerivation(), true
+		case vocab.XSDAttrFinal:
+			return complexTypeFinalDerivation(), true
+		}
+	case vocab.XSDElemSimpleType:
+		if attr == vocab.XSDAttrFinal {
+			return simpleTypeFinalDerivation(), true
+		}
+	}
+	return derivationAttrRule{}, false
 }
 
 // parseDerivationAttrWithDefault parses a derivation-set attribute or applies

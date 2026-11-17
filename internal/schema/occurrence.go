@@ -52,13 +52,43 @@ func (m maxOccurrence) withMinimum(minOccurs uint32) (occurrence, error) {
 	return occurrence{Min: minOccurs, Max: m.value}, nil
 }
 
+// parseMinOccursLexical parses the lexical form of minOccurs. The result is
+// exact through uint32; see parseSchemaNonNegativeInteger.
+func parseMinOccursLexical(value string) (uint64, error) {
+	number, err := parseSchemaNonNegativeInteger(lex.TrimXMLWhitespaceString(value))
+	if err != nil {
+		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, "invalid minOccurs "+diagnostictext.Quote(value))
+	}
+	return number, nil
+}
+
+// maxOccursLexical is a maxOccurs value as written: unbounded, or a count
+// that is exact through uint32.
+type maxOccursLexical struct {
+	count     uint64
+	unbounded bool
+}
+
+// parseMaxOccursLexical parses the lexical form of maxOccurs.
+func parseMaxOccursLexical(value string) (maxOccursLexical, error) {
+	trimmed := lex.TrimXMLWhitespaceString(value)
+	if trimmed == occurrenceUnboundedLexical {
+		return maxOccursLexical{unbounded: true}, nil
+	}
+	count, err := parseSchemaNonNegativeInteger(trimmed)
+	if err != nil {
+		return maxOccursLexical{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, "invalid maxOccurs "+diagnostictext.Quote(value))
+	}
+	return maxOccursLexical{count: count}, nil
+}
+
 func parseMinOccurrence(attrs rawOccurrence) (uint32, error) {
 	if !attrs.HasMinOccurs {
 		return 1, nil
 	}
-	number, err := parseSchemaNonNegativeInteger(lex.TrimXMLWhitespaceString(attrs.MinOccurs))
+	number, err := parseMinOccursLexical(attrs.MinOccurs)
 	if err != nil {
-		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, "invalid minOccurs "+diagnostictext.Quote(attrs.MinOccurs))
+		return 0, err
 	}
 	if number > maxUint32Value {
 		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "minOccurs exceeds uint32 limit")
@@ -83,13 +113,14 @@ func parseMaxOccurrence(attrs rawOccurrence, limit uint64) (maxOccurrence, error
 	if !attrs.HasMaxOccurs {
 		return maxOccurrence{value: 1, kind: maxOccurrenceFinite}, nil
 	}
-	if lex.TrimXMLWhitespaceString(attrs.MaxOccurs) == occurrenceUnboundedLexical {
+	lexical, err := parseMaxOccursLexical(attrs.MaxOccurs)
+	if err != nil {
+		return maxOccurrence{}, err
+	}
+	if lexical.unbounded {
 		return maxOccurrence{kind: maxOccurrenceUnbounded}, nil
 	}
-	number, err := parseSchemaNonNegativeInteger(lex.TrimXMLWhitespaceString(attrs.MaxOccurs))
-	if err != nil {
-		return maxOccurrence{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, "invalid maxOccurs "+diagnostictext.Quote(attrs.MaxOccurs))
-	}
+	number := lexical.count
 	if maxOccursLimitExceeded(number, limit) {
 		return maxOccurrence{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, maxOccursLimitMessage(limit))
 	}

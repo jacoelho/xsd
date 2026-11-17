@@ -73,6 +73,21 @@ func parseWildcardNamespace(names nameInterner, attrs wildcardAttrs) (wildcardRu
 	}
 }
 
+// checkWildcardNamespaceSyntax checks the lexical form of a wildcard
+// namespace attribute: ##any or ##other alone, or a list of namespace names,
+// ##local and ##targetNamespace.
+func checkWildcardNamespaceSyntax(nsSpec string) error {
+	if nsSpec == wildcardNamespaceAny || nsSpec == wildcardNamespaceOther {
+		return nil
+	}
+	for part := range lex.XMLFieldsSeq(nsSpec) {
+		if _, err := wildcardNamespaceURI(part, ""); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func parseWildcardNamespaceList(names nameInterner, targetNS, nsSpec string) ([]namespaceID, error) {
 	var namespaces []namespaceID
 	for part := range lex.XMLFieldsSeq(nsSpec) {

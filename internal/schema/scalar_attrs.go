@@ -59,11 +59,12 @@ func parseSchemaDefaults(attrs schemaDocumentSource) (schemaDefaults, error) {
 	if err := validateSchemaTargetNamespace(attrs.TargetNamespace); err != nil {
 		return schemaDefaults{}, err
 	}
-	blockDefault, err := parseDerivationSet(attrs.BlockDefault.Value, "schema blockDefault", derivationBlockDefaultMask)
+	blockRule, finalRule := schemaBlockDefaultDerivation(), schemaFinalDefaultDerivation()
+	blockDefault, err := parseDerivationSet(attrs.BlockDefault.Value, blockRule.Label, blockRule.Allowed)
 	if err != nil {
 		return schemaDefaults{}, err
 	}
-	finalDefault, err := parseDerivationSet(attrs.FinalDefault.Value, "schema finalDefault", derivationFinalDefaultMask)
+	finalDefault, err := parseDerivationSet(attrs.FinalDefault.Value, finalRule.Label, finalRule.Allowed)
 	if err != nil {
 		return schemaDefaults{}, err
 	}

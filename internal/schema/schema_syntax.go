@@ -15,6 +15,15 @@ func validateSchemaTargetNamespace(target lexicalAttribute) error {
 	return nil
 }
 
+// validateSchemaImportNamespace validates the raw xs:import namespace
+// attribute value.
+func validateSchemaImportNamespace(namespace lexicalAttribute) error {
+	if namespace.Present && namespace.Value == "" {
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "import namespace cannot be empty")
+	}
+	return nil
+}
+
 // validateSchemaNameAttribute validates the NCName syntax of an unqualified
 // id or name attribute; any other attribute passes.
 func validateSchemaNameAttribute(attr, value string) error {

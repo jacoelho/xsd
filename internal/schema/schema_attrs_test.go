@@ -7,10 +7,27 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+// testRawNodeWithLocalAttrs returns an XSD element whose unqualified
+// attributes each carry a value of the lexical form the attribute requires.
 func testRawNodeWithLocalAttrs(local string, attrs []string) *schemaSyntaxNode {
 	rawAttrs := make([]xmlstream.Attr, len(attrs))
 	for i, attr := range attrs {
-		rawAttrs[i] = testRawAttr("", attr, "v")
+		value := "v"
+		switch attr {
+		case "nillable", "abstract", "mixed", "fixed":
+			value = "true"
+		case "minOccurs", "maxOccurs":
+			value = "1"
+		case "form", "elementFormDefault", "attributeFormDefault":
+			value = "qualified"
+		case "use":
+			value = "optional"
+		case "processContents":
+			value = "lax"
+		case "block", "final", "blockDefault", "finalDefault":
+			value = "#all"
+		}
+		rawAttrs[i] = testRawAttr("", attr, value)
 	}
 	return testXSDRawNode(local, rawAttrs)
 }

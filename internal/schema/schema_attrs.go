@@ -428,6 +428,68 @@ func schemaElementAttributeAllowed(element, attr string) bool {
 	}
 }
 
+// checkSchemaAttributeValueSyntax checks the value of attr, an unqualified
+// attribute of the XSD element named element, against the lexical form the
+// element gives it: a boolean, an occurrence count, a form, an attribute use,
+// a derivation set, a wildcard namespace list, a processContents mode, or a
+// namespace name that cannot be empty. An attribute with none of these forms
+// passes. Start-tag admission decides these violations; compilation parses the
+// admitted value with the same parsers.
+func checkSchemaAttributeValueSyntax(element, attr, value string) error {
+	if rule, ok := derivationAttrRuleOf(element, attr); ok {
+		_, err := parseDerivationSet(value, rule.Label, rule.Allowed)
+		return err
+	}
+	var err error
+	switch attr {
+	case vocab.XSDAttrNillable, vocab.XSDAttrAbstract, vocab.XSDAttrMixed:
+		_, err = parseBooleanAttr(booleanAttr{Name: attr, Value: value, HasValue: true})
+	case vocab.XSDAttrFixed:
+		if isFacetLocal(element) {
+			_, err = parseBooleanAttr(booleanAttr{Name: attr, Value: value, HasValue: true})
+		}
+	case vocab.XSDAttrMinOccurs:
+		_, err = parseMinOccursLexical(value)
+	case vocab.XSDAttrMaxOccurs:
+		_, err = parseMaxOccursLexical(value)
+	case vocab.XSDAttrForm:
+		err = checkFormSyntax(element, value)
+	case vocab.XSDAttrElementFormDefault, vocab.XSDAttrAttributeFormDefault:
+		_, err = parseFormDefaultAttr(formAttr{Name: attr, Value: value, HasValue: true})
+	case vocab.XSDAttrUse:
+		_, err = parseAttributeUseMode(value)
+		err = invalidAttributeError(err)
+	case vocab.XSDAttrProcessContents:
+		_, err = parseWildcardProcessContents(wildcardAttrs{ProcessContents: value, HasProcessContents: true})
+	case vocab.XSDAttrNamespace:
+		err = checkNamespaceAttributeSyntax(element, value)
+	case vocab.XSDAttrTargetNamespace:
+		err = validateSchemaTargetNamespace(lexicalAttribute{Value: value, Present: true})
+	}
+	return err
+}
+
+func checkFormSyntax(element, value string) error {
+	var err error
+	switch element {
+	case vocab.XSDElemElement:
+		_, err = parseElementFormAttr(formAttr{Value: value, HasValue: true})
+	case vocab.XSDElemAttribute:
+		_, err = parseAttributeFormAttr(formAttr{Value: value, HasValue: true})
+	}
+	return err
+}
+
+func checkNamespaceAttributeSyntax(element, value string) error {
+	switch element {
+	case vocab.XSDElemAny, vocab.XSDElemAnyAttribute:
+		return checkWildcardNamespaceSyntax(value)
+	case vocab.XSDElemImport:
+		return validateSchemaImportNamespace(lexicalAttribute{Value: value, Present: true})
+	}
+	return nil
+}
+
 func schemaAnyURIAttribute(element, attr string) bool {
 	switch element {
 	case vocab.XSDElemSchema:

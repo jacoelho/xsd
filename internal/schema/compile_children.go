@@ -18,15 +18,15 @@ func schemaLexicalAttributeSyntax(n *schemaSyntaxNode, name string) lexicalAttri
 // start-tag order, so the first violating attribute is the one reported. Each
 // unqualified attribute is checked against the XSD 1.0 vocabulary of its
 // element in its placement before its value: a forbidden attribute is rejected
-// whatever its value. QName-valued attributes are resolved into qnames; see
-// admitSchemaQNameAttribute.
-func checkSchemaAttributesSyntax(n *schemaSyntaxNode, placement schemaElementPlacement, qnames *semanticQNameProjection) error {
+// whatever its value. QName-valued attributes are resolved into the QName
+// projection of admitted; see admitSchemaQNameAttribute.
+func checkSchemaAttributesSyntax(n *schemaSyntaxNode, placement schemaElementPlacement, admitted startTagAttributes) error {
 	for _, attr := range n.Attrs {
 		var err error
 		switch {
 		case xmlstream.IsExpandedNamespaceName(attr.Name):
 		case attr.Name.Space == "":
-			err = checkSchemaAttributeSyntax(n, attr, placement, qnames)
+			err = checkSchemaAttributeSyntax(n, attr, placement, admitted)
 		case attr.Name.Space == vocab.XSDNamespaceURI:
 			err = schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "schema namespace attribute "+diagnostictext.Quote(attr.Name.Local)+" is not allowed")
 		case attr.Name.Space == vocab.XMLNamespaceURI:
@@ -53,22 +53,38 @@ func checkXMLAttributeSyntax(n *schemaSyntaxNode, attr schemaAttribute) error {
 	return nil
 }
 
-func checkSchemaAttributeSyntax(n *schemaSyntaxNode, attr schemaAttribute, placement schemaElementPlacement, qnames *semanticQNameProjection) error {
+func checkSchemaAttributeSyntax(n *schemaSyntaxNode, attr schemaAttribute, placement schemaElementPlacement, admitted startTagAttributes) error {
 	if !schemaElementAttributeAllowed(n.Name.Local, attr.Name.Local) {
 		return schemaAttributeNotAllowed(n, attr.Name.Local)
 	}
 	if err := misplacedSchemaAttributeError(n, attr.Name.Local, placement); err != nil {
 		return err
 	}
+	return admitSchemaAttributeValue(n, attr, admitted)
+}
+
+// admitSchemaAttributeValue checks the value of attr, an unqualified attribute
+// n may have in its placement, and admits it into admitted.
+func admitSchemaAttributeValue(n *schemaSyntaxNode, attr schemaAttribute, admitted startTagAttributes) error {
 	if err := withSchemaCompileLocation(n, validateSchemaNameAttribute(attr.Name.Local, attr.Value)); err != nil {
 		return err
+	}
+	if attr.Name.Local == vocab.XSDAttrID && !admitted.ids.declare(attr.Value) {
+		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "duplicate schema id "+diagnostictext.Quote(attr.Value))
 	}
 	if attr.Name.Local == vocab.XSDAttrXPath && lex.TrimXMLWhitespaceString(attr.Value) == "" {
 		return schemaCompileAt(n, xsderrors.CodeSchemaIdentity, diagnostictext.Quote(n.Name.Local)+" xpath is empty")
 	}
-	if schemaNodeHasQNameAttr(n, attr.Name.Local) {
-		return admitSchemaQNameAttribute(n, attr, qnames)
+	if err := withSchemaCompileLocation(n, checkSchemaAttributeValueSyntax(n.Name.Local, attr.Name.Local, attr.Value)); err != nil {
+		return err
 	}
+	if schemaNodeHasQNameAttr(n, attr.Name.Local) {
+		return admitSchemaQNameAttribute(n, attr, admitted.qnames)
+	}
+	return checkSchemaAnyURIAttribute(n, attr)
+}
+
+func checkSchemaAnyURIAttribute(n *schemaSyntaxNode, attr schemaAttribute) error {
 	if !schemaAnyURIAttribute(n.Name.Local, attr.Name.Local) {
 		return nil
 	}

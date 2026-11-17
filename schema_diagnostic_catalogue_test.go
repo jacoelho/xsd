@@ -7,63 +7,9 @@ import "github.com/jacoelho/xsd/xsderrors"
 // ARCHITECTURE.md (internal/schema), never from compiler output; its code and
 // message fragment only identify which violation the compiler reported.
 
-// The reasons a known gap stays open.
-const (
-	gapValueSyntax    = "the value syntax of this attribute is checked when its component compiles"
-	gapSchemaDefaults = "the defaults of xs:schema are checked after the document is parsed"
-	gapEmptyNamespace = "an empty namespace name is rejected after the document is parsed"
-	gapDuplicateID    = "ids are compared after the document is parsed"
-)
-
 // knownSchemaDiagnosticOrderGaps names the catalogue entries the compiler
 // decides later than the contract declares, with the reason each stays open.
-var knownSchemaDiagnosticOrderGaps = map[string]string{
-	"anonymous complex type/mixed of type is no boolean":               gapValueSyntax,
-	"attribute reference/use is no use":                                gapValueSyntax,
-	"content derivation/mixed of content is no boolean":                gapValueSyntax,
-	"content derivation/use is no use":                                 gapValueSyntax,
-	"element reference/maxOccurs of reference is no occurrence count":  gapValueSyntax,
-	"element reference/minOccurs of reference is no occurrence count":  gapValueSyntax,
-	"facet/final of type is no derivation set":                         gapValueSyntax,
-	"facet/fixed of facet is no boolean":                               gapValueSyntax,
-	"group reference/maxOccurs of reference is no occurrence count":    gapValueSyntax,
-	"group reference/minOccurs of reference is no occurrence count":    gapValueSyntax,
-	"identity constraint/nillable of declaration is no boolean":        gapValueSyntax,
-	"import/namespace is empty":                                        gapEmptyNamespace,
-	"local attribute/abstract of type is no boolean":                   gapValueSyntax,
-	"local attribute/block of type is no derivation set":               gapValueSyntax,
-	"local attribute/final of type is no derivation set":               gapValueSyntax,
-	"local attribute/form is no form":                                  gapValueSyntax,
-	"local attribute/mixed of type is no boolean":                      gapValueSyntax,
-	"local attribute/use is no use":                                    gapValueSyntax,
-	"local element/block is no derivation set":                         gapValueSyntax,
-	"local element/form is no form":                                    gapValueSyntax,
-	"local element/maxOccurs of declaration is no occurrence count":    gapValueSyntax,
-	"local element/maxOccurs of group is no occurrence count":          gapValueSyntax,
-	"local element/minOccurs of declaration is no occurrence count":    gapValueSyntax,
-	"local element/minOccurs of group is no occurrence count":          gapValueSyntax,
-	"local element/minOccurs of group is unbounded":                    gapValueSyntax,
-	"local element/nillable of declaration is no boolean":              gapValueSyntax,
-	"schema root/attributeFormDefault is no form":                      gapSchemaDefaults,
-	"schema root/blockDefault is no derivation set":                    gapSchemaDefaults,
-	"schema root/elementFormDefault is no form":                        gapSchemaDefaults,
-	"schema root/finalDefault is no derivation set":                    gapSchemaDefaults,
-	"schema root/targetNamespace is empty":                             gapEmptyNamespace,
-	"simple content/fixed of facet is no boolean":                      gapValueSyntax,
-	"standalone/id used twice":                                         gapDuplicateID,
-	"top-level element/abstract of declaration is no boolean":          gapValueSyntax,
-	"top-level element/block is no derivation set":                     gapValueSyntax,
-	"top-level element/block names a derivation elements cannot block": gapValueSyntax,
-	"top-level element/final combines #all with a derivation":          gapValueSyntax,
-	"top-level element/final is no derivation set":                     gapValueSyntax,
-	"top-level element/nillable of declaration is no boolean":          gapValueSyntax,
-	"wildcard/maxOccurs of any is no occurrence count":                 gapValueSyntax,
-	"wildcard/minOccurs of any is no occurrence count":                 gapValueSyntax,
-	"wildcard/namespace of any is no namespace list":                   gapValueSyntax,
-	"wildcard/namespace of anyAttribute is no namespace list":          gapValueSyntax,
-	"wildcard/processContents of any is no mode":                       gapValueSyntax,
-	"wildcard/processContents of anyAttribute is no mode":              gapValueSyntax,
-}
+var knownSchemaDiagnosticOrderGaps = map[string]string{}
 
 // sameStartTagFixtures are the fixtures that must generate pairs of
 // violations on one start tag.
