@@ -969,6 +969,17 @@ graph preserves these ownership rules:
 - Inferring empty complex content from an empty normalized child model was
   rejected because element-only particles can accept no children while still
   permitting whitespace.
+- For the name index Element Declarations Consistent collects each content
+  model with, a fresh map per model was rejected: on
+  `CompileReachableContentModels/models_5000` it costs 235,952 allocs/op and
+  33.75 MB/op, against 225,951 allocs/op and 34.12 MB/op when the map itself was
+  the cached result. One index per nesting depth, emptied by deleting the names
+  its model added, costs 215,965 allocs/op and 32.16 MB/op
+  (`elementDeclarationConsistencyChecker.scratch`). A pool of cleared indexes
+  measured the same 215,965 allocs/op and 32.16 MB/op and was rejected: `clear`
+  costs a map its buckets rather than its entries, so the pool needed a cap on
+  the size of a reused index, and a second cap on how many it kept, to stay
+  bounded.
 
 ### Values
 
