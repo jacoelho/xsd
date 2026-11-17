@@ -103,7 +103,7 @@ func (c *compiler) validateIdentityReferences() error {
 
 func (c *compiler) compileIdentityConstraint(ctx *schemaSetDocument, n *schemaNode, name QName) (identityConstraintSpec, error) {
 	empty := identityConstraintSpec{Refer: NoIdentityConstraint}
-	syntax, err := checkIdentityConstraintChildren(n)
+	syntax, err := identityConstraintChildren(n)
 	if err != nil {
 		return empty, err
 	}

@@ -602,12 +602,9 @@ func (c *compiler) compileAnonymousSimple(ctx *schemaSetDocument, n *schemaNode)
 }
 
 func (c *compiler) compileSimpleType(ctx *schemaSetDocument, n *schemaNode, name QName) (simpleType, error) {
-	if err := validateSimpleTypeChildren(n); err != nil {
-		return simpleType{}, err
-	}
 	child := simpleTypeDerivationChild(n)
 	if child == nil {
-		return simpleType{}, xsderrors.InternalInvariant("simpleType child validator admitted invalid derivation count")
+		return simpleType{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("simpleType child order admitted no derivation"))
 	}
 	switch child.local {
 	case vocab.XSDElemRestriction:
@@ -629,16 +626,6 @@ func simpleTypeDerivationChild(n *schemaNode) *schemaNode {
 		return child
 	}
 	return nil
-}
-
-func validateSimpleTypeChildren(n *schemaNode) error {
-	for child := range n.xsdChildren() {
-		switch child.local {
-		case restrictionChild, listChild, unionChild:
-			return nil
-		}
-	}
-	return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "simpleType must contain one restriction, list, or union")
 }
 
 func (c *compiler) compileRestriction(ctx *schemaSetDocument, n *schemaNode, name QName) (simpleType, error) {
@@ -688,7 +675,7 @@ func (c *compiler) compileRestrictionBase(ctx *schemaSetDocument, n *schemaNode)
 	if len(children) == 1 {
 		return c.compileAnonymousSimple(ctx, children[0])
 	}
-	return NoSimpleType, nil
+	return NoSimpleType, withSchemaCompileLocation(n, xsderrors.InternalInvariant("restriction child order admitted no base type"))
 }
 
 func (c *compiler) compileList(ctx *schemaSetDocument, n *schemaNode, name QName) (simpleType, error) {
@@ -785,9 +772,6 @@ func (c *compiler) compileUnion(ctx *schemaSetDocument, n *schemaNode, name QNam
 		return simpleType{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("union node has no typed derivation source"))
 	}
 	memberTypes := memberTypesSource.Names
-	if err := validateUnionMemberSource(n, len(memberTypes), len(simpleTypeChildren)); err != nil {
-		return simpleType{}, err
-	}
 	for _, member := range memberTypes {
 		if err := compilation.addNamedQName(n, member); err != nil {
 			return simpleType{}, err
@@ -802,14 +786,6 @@ func (c *compiler) compileUnion(ctx *schemaSetDocument, n *schemaNode, name QNam
 		return simpleType{}, xsderrors.InternalInvariant("union source validator admitted missing member types")
 	}
 	return compilation.typeDef, nil
-}
-
-func validateUnionMemberSource(n *schemaNode, memberCount, simpleTypeChildCount int) error {
-	if memberCount == 0 && simpleTypeChildCount == 0 {
-		return withSchemaCompileLocation(n,
-			xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "union missing member types"))
-	}
-	return nil
 }
 
 type simpleUnionCompilation struct {

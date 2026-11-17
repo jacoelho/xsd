@@ -493,11 +493,23 @@ func (s *typedSchemaParseState) end(line, col int) error {
 	return completeTypedNode(frame)
 }
 
+// completeTypedNode checks what the end tag of frame decides: text in the
+// element precedes its end tag, so a text violation wins over a missing
+// required child.
 func completeTypedNode(frame *typedSchemaParseFrame) error {
 	if !schemaNodeNeedsDeferredQNameContext(frame.node, frame.syntax.Attrs) {
 		frame.node.namespace = xmlstream.Context{}
 	}
-	return rejectInvalidSchemaTextTyped(frame.node)
+	if err := rejectInvalidSchemaTextTyped(frame.node); err != nil {
+		return err
+	}
+	if frame.order == nil {
+		return nil
+	}
+	if rule := frame.orders.missingChild(frame.order, frame.node); rule != nil {
+		return schemaCompileAt(frame.node, rule.MissingCode, rule.MissingMsg)
+	}
+	return nil
 }
 
 // schemaNodeNeedsDeferredQNameContext identifies source values whose QName

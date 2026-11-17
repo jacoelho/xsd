@@ -33,9 +33,6 @@ func validateSimpleRestrictionTypeSource(source simpleRestrictionTypeSource) err
 	if source.Base.Present && source.HasSimpleTypeChild {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "restriction cannot have both base and simpleType")
 	}
-	if !source.Base.Present && !source.HasSimpleTypeChild {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "simple restriction missing base")
-	}
 	return nil
 }
 
@@ -51,9 +48,6 @@ type simpleListItemTypeSource struct {
 func validateSimpleListItemTypeSource(source simpleListItemTypeSource) error {
 	if source.ItemType.Present && source.HasSimpleTypeChild {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "list cannot have both itemType and simpleType")
-	}
-	if !source.ItemType.Present && !source.HasSimpleTypeChild {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "list missing item type")
 	}
 	return nil
 }

@@ -79,7 +79,7 @@ func TestCheckTopLevelSchemaChild(t *testing.T) {
 		{name: "annotation", body: `  <xs:annotation/>`},
 		{name: "include", body: `  <xs:include schemaLocation="other.xsd"/>`},
 		{name: "notation", body: `  <xs:notation name="N" public=""/>`},
-		{name: "simple type named", body: `  <xs:simpleType name="T"/>`},
+		{name: "simple type named", body: `  <xs:simpleType name="T"><xs:restriction base="xs:string"/></xs:simpleType>`},
 		{name: "complex type named", body: `  <xs:complexType name="T"/>`},
 		{name: "attributeGroup named", body: `  <xs:attributeGroup name="Attrs"/>`},
 		{name: "unknown child", body: `  <xs:selector xpath="."/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaContentModel, wantMsg: "identity constraint must be inside element", wantLine: 2, wantCol: 3},

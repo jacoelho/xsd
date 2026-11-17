@@ -55,7 +55,6 @@ func TestValidateSimpleRestrictionTypeSource(t *testing.T) {
 		wantCode    xsderrors.Code
 		wantMessage string
 	}{
-		{name: "neither", wantCode: xsderrors.CodeSchemaReference, wantMessage: "simple restriction missing base"},
 		{name: "base attr", hasAttr: true},
 		{name: "simple child", hasChild: true},
 		{name: "both", hasAttr: true, hasChild: true, wantCode: xsderrors.CodeSchemaContentModel, wantMessage: "restriction cannot have both base and simpleType"},
@@ -89,7 +88,6 @@ func TestValidateSimpleListItemTypeSource(t *testing.T) {
 		wantCode    xsderrors.Code
 		wantMessage string
 	}{
-		{name: "neither", wantCode: xsderrors.CodeSchemaReference, wantMessage: "list missing item type"},
 		{name: "itemType attr", hasAttr: true},
 		{name: "simple child", hasChild: true},
 		{name: "both", hasAttr: true, hasChild: true, wantCode: xsderrors.CodeSchemaContentModel, wantMessage: "list cannot have both itemType and simpleType"},
@@ -123,12 +121,7 @@ func TestUnionMemberSourceAdmission(t *testing.T) {
 		hasSimpleTypeChild bool
 		wantValue          string
 		wantNames          []xml.Name
-		wantMessage        string
 	}{
-		{
-			name:        "missing",
-			wantMessage: "union missing member types",
-		},
 		{
 			name:               "anonymous child",
 			hasSimpleTypeChild: true,
@@ -180,23 +173,6 @@ func TestUnionMemberSourceAdmission(t *testing.T) {
 			}
 			if members.Lexical.Present != tt.hasMemberTypes || members.Lexical.Value != tt.wantValue || !slices.Equal(members.Names, tt.wantNames) {
 				t.Fatalf("admitted members = %+v, want present %v value %q names %#v", members, tt.hasMemberTypes, tt.wantValue, tt.wantNames)
-			}
-			err = validateUnionMemberSource(union, len(members.Names), len(schemaSimpleTypeChildren(union)))
-			if tt.wantMessage != "" {
-				diagnostic, ok := errors.AsType[*xsderrors.Error](err)
-				if !ok {
-					t.Fatalf("validateUnionMemberSource() error = %T %[1]v, want xsderrors.Error", err)
-				}
-				if diagnostic.Category() != xsderrors.CategorySchemaCompile || diagnostic.Code() != xsderrors.CodeSchemaReference || diagnostic.Message() != tt.wantMessage {
-					t.Fatalf("diagnostic = (%s, %s, %q), want (schema_compile, schema_reference, %q)", diagnostic.Category(), diagnostic.Code(), diagnostic.Message(), tt.wantMessage)
-				}
-				if diagnostic.Path() != "union.xsd" || diagnostic.Line() != 3 || diagnostic.Column() != 5 {
-					t.Fatalf("location = {%q %d %d}, want {union.xsd 3 5}", diagnostic.Path(), diagnostic.Line(), diagnostic.Column())
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("validateUnionMemberSource() error = %v", err)
 			}
 		})
 	}

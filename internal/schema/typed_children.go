@@ -14,8 +14,8 @@ type contentDerivationSource struct {
 }
 
 // contentDerivationOf selects the extension or restriction child of n, an
-// xs:simpleContent or xs:complexContent named container. childOrderFor admits
-// at most one; a missing one is reported here.
+// xs:simpleContent or xs:complexContent named container, whose child order
+// admitted exactly one.
 func contentDerivationOf(n *schemaNode, container string) (contentDerivationSource, error) {
 	for child := range n.xsdChildren() {
 		switch child.local {
@@ -25,11 +25,11 @@ func contentDerivationOf(n *schemaNode, container string) (contentDerivationSour
 			return contentDerivationSource{node: child, kind: contentDerivationRestriction}, nil
 		}
 	}
-	return contentDerivationSource{}, schemaCompileAt(n, xsderrors.CodeSchemaContentModel, container+" missing extension or restriction")
+	return contentDerivationSource{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant(container+" child order admitted no derivation"))
 }
 
-// topLevelGroupModel selects the model group of n, a top-level xs:group.
-// childOrderFor admits at most one; a missing one is reported here.
+// topLevelGroupModel selects the model group of n, a top-level xs:group,
+// whose child order admitted exactly one.
 func topLevelGroupModel(n *schemaNode) (*schemaNode, error) {
 	for child := range n.xsdChildren() {
 		switch child.local {
@@ -37,7 +37,7 @@ func topLevelGroupModel(n *schemaNode) (*schemaNode, error) {
 			return child, nil
 		}
 	}
-	return nil, schemaCompileAt(n, xsderrors.CodeSchemaContentModel, topLevelGroupModelGroupCount)
+	return nil, withSchemaCompileLocation(n, xsderrors.InternalInvariant("top-level group child order admitted no model group"))
 }
 
 func checkNotationDeclaration(n *schemaNode) error {

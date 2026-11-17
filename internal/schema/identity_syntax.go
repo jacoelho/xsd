@@ -10,10 +10,10 @@ const (
 	fieldChild    = vocab.XSDElemField
 )
 
-// checkIdentityConstraintChildren selects the selector and fields of n, an
-// identity constraint whose child order was admitted as each child started,
-// and checks what is required of them.
-func checkIdentityConstraintChildren(n *schemaNode) (identityConstraintSyntax, error) {
+// identityConstraintChildren selects the selector and fields of n, an
+// identity constraint whose child order admitted one selector and at least one
+// field.
+func identityConstraintChildren(n *schemaNode) (identityConstraintSyntax, error) {
 	var syntax identityConstraintSyntax
 	for child := range n.xsdChildren() {
 		switch child.local {
@@ -23,11 +23,8 @@ func checkIdentityConstraintChildren(n *schemaNode) (identityConstraintSyntax, e
 			syntax.fields = append(syntax.fields, child)
 		}
 	}
-	if syntax.selector == nil {
-		return identityConstraintSyntax{}, schemaCompileAt(n, xsderrors.CodeSchemaIdentity, "identity constraint missing selector")
-	}
-	if len(syntax.fields) == 0 {
-		return identityConstraintSyntax{}, schemaCompileAt(n, xsderrors.CodeSchemaIdentity, "identity constraint missing fields")
+	if syntax.selector == nil || len(syntax.fields) == 0 {
+		return identityConstraintSyntax{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("identity constraint child order admitted no selector or field"))
 	}
 	return syntax, nil
 }

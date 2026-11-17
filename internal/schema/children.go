@@ -7,6 +7,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/vocab"
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 const (
@@ -51,13 +52,19 @@ const (
 // childRule classifies one child element kind inside a schema component.
 // Children of one rule may repeat unless MaxOne is set; a child whose rule
 // has a lower Level than an earlier child's is out of order. PrecedingMsg
-// reports a child that no child of a lower level precedes.
+// reports a child that no child of a lower level precedes. A rule with a
+// MissingMsg requires a child: a parent that ends without one is reported
+// with MissingCode, unless Supplied reports that the parent's attributes
+// supply what the child would.
 type childRule struct {
 	Match        func(local string) bool
+	Supplied     func(parent *schemaNode) bool
 	ForbiddenMsg string
 	OrderMsg     string
 	DupMsg       string
 	PrecedingMsg string
+	MissingMsg   string
+	MissingCode  xsderrors.Code
 	Level        int
 	MaxOne       bool
 	Terminal     bool
@@ -68,8 +75,8 @@ type childRule struct {
 // childContentViolation owns: ordered sections of rules. childContentFor
 // selects it when the element starts, and childOrderState admits each child as it
 // starts, so a misplaced, repeated or unknown child is the violation at its
-// own start tag. Which children are required is checked when the component
-// compiles.
+// own start tag. A missing required child is the violation at the parent's
+// end tag, the earliest point it is known; see childOrderState.missingChild.
 type childOrder struct {
 	// Label names the parent in the diagnostic of a child no rule matches.
 	Label string
@@ -107,9 +114,11 @@ const (
 var simpleTypeChildOrder = checkedChildOrder(childOrder{
 	Rules: []childRule{
 		{
-			Match:  matchChildLocal(restrictionChild, listChild, unionChild),
-			MaxOne: true,
-			DupMsg: "simpleType can contain one restriction, list, or union",
+			Match:       matchChildLocal(restrictionChild, listChild, unionChild),
+			MaxOne:      true,
+			DupMsg:      "simpleType can contain one restriction, list, or union",
+			MissingMsg:  "simpleType must contain one restriction, list, or union",
+			MissingCode: xsderrors.CodeSchemaContentModel,
 		},
 	},
 	Label: "simpleType",
@@ -236,9 +245,11 @@ var (
 var topLevelGroupChildOrder = checkedChildOrder(childOrder{
 	Rules: []childRule{
 		{
-			Match:  matchChildLocal(sequenceChild, choiceChild, allChild),
-			MaxOne: true,
-			DupMsg: topLevelGroupModelGroupCount,
+			Match:       matchChildLocal(sequenceChild, choiceChild, allChild),
+			MaxOne:      true,
+			DupMsg:      topLevelGroupModelGroupCount,
+			MissingMsg:  topLevelGroupModelGroupCount,
+			MissingCode: xsderrors.CodeSchemaContentModel,
 		},
 		{
 			Match:        matchChildLocal(groupChild),
@@ -251,16 +262,20 @@ var topLevelGroupChildOrder = checkedChildOrder(childOrder{
 var identityConstraintChildOrder = checkedChildOrder(childOrder{
 	Rules: []childRule{
 		{
-			Match:    matchChildLocal(selectorChild),
-			Level:    0,
-			MaxOne:   true,
-			OrderMsg: identityConstraintOneSelector,
-			DupMsg:   identityConstraintOneSelector,
+			Match:       matchChildLocal(selectorChild),
+			Level:       0,
+			MaxOne:      true,
+			OrderMsg:    identityConstraintOneSelector,
+			DupMsg:      identityConstraintOneSelector,
+			MissingMsg:  "identity constraint missing selector",
+			MissingCode: xsderrors.CodeSchemaIdentity,
 		},
 		{
 			Match:        matchChildLocal(fieldChild),
 			Level:        1,
 			PrecedingMsg: "identity constraint field requires selector",
+			MissingMsg:   "identity constraint missing fields",
+			MissingCode:  xsderrors.CodeSchemaIdentity,
 		},
 	},
 	Label: "identity constraint",
@@ -385,6 +400,23 @@ func (s *childOrderState) accept(child string, order *childOrder) string {
 	return ""
 }
 
+// missingChild returns the first rule of order, in rule order, that requires
+// a child parent ended without, or nil when parent has every child order
+// requires.
+func (s *childOrderState) missingChild(order *childOrder, parent *schemaNode) *childRule {
+	for i := range order.Rules {
+		rule := &order.Rules[i]
+		if rule.MissingMsg == "" || s.seen&(uint64(1)<<i) != 0 {
+			continue
+		}
+		if rule.Supplied != nil && rule.Supplied(parent) {
+			continue
+		}
+		return rule
+	}
+	return nil
+}
+
 func (s *childOrderState) seenBelow(level int, rules []childRule) bool {
 	for i := range rules {
 		if rules[i].Level < level && s.seen&(uint64(1)<<i) != 0 {
@@ -407,16 +439,24 @@ func simpleDerivationOrder(kind simpleDerivationKind) childOrder {
 	var derivation string
 	var singleChild bool
 	var allowFacets bool
+	var supplied func(*schemaNode) bool
+	var missing string
 	switch kind {
 	case simpleDerivationRestriction:
 		derivation = restrictionChild
 		singleChild = true
 		allowFacets = true
+		supplied = restrictionBaseSupplied
+		missing = "simple restriction missing base"
 	case simpleDerivationList:
 		derivation = listChild
 		singleChild = true
+		supplied = listItemTypeSupplied
+		missing = "list missing item type"
 	case simpleDerivationUnion:
 		derivation = unionChild
+		supplied = unionMemberTypesSupplied
+		missing = "union missing member types"
 	case simpleDerivationInvalid:
 		panic("invalid simple derivation kind")
 	default:
@@ -424,11 +464,14 @@ func simpleDerivationOrder(kind simpleDerivationKind) childOrder {
 	}
 	rules := []childRule{
 		{
-			Match:    matchChildLocal(simpleTypeChild),
-			Level:    0,
-			MaxOne:   singleChild,
-			OrderMsg: derivation + " simpleType must precede facets",
-			DupMsg:   derivation + " can contain one simpleType",
+			Match:       matchChildLocal(simpleTypeChild),
+			Level:       0,
+			MaxOne:      singleChild,
+			OrderMsg:    derivation + " simpleType must precede facets",
+			DupMsg:      derivation + " can contain one simpleType",
+			Supplied:    supplied,
+			MissingMsg:  missing,
+			MissingCode: xsderrors.CodeSchemaReference,
 		},
 	}
 	if allowFacets {
@@ -443,13 +486,35 @@ func simpleDerivationOrder(kind simpleDerivationKind) childOrder {
 	})
 }
 
+// restrictionBaseSupplied reports whether n, a simple xs:restriction, names
+// its base type in base (src-simple-type.2).
+func restrictionBaseSupplied(n *schemaNode) bool {
+	base, _ := n.semantic.derivationBase()
+	return base.Lexical.Present
+}
+
+// listItemTypeSupplied reports whether n, an xs:list, names its item type in
+// itemType (src-simple-type.3).
+func listItemTypeSupplied(n *schemaNode) bool {
+	return n.semantic.derivationItemType().Lexical.Present
+}
+
+// unionMemberTypesSupplied reports whether n, an xs:union, names at least one
+// member type in memberTypes (src-simple-type.4).
+func unionMemberTypesSupplied(n *schemaNode) bool {
+	members, _ := n.semantic.derivationMemberTypes()
+	return len(members.Names) != 0
+}
+
 func derivationContainerOrder(label string) childOrder {
 	return checkedChildOrder(childOrder{
 		Rules: []childRule{
 			{
-				Match:  matchChildLocal(extensionChild, restrictionChild),
-				MaxOne: true,
-				DupMsg: label + " can contain one derivation",
+				Match:       matchChildLocal(extensionChild, restrictionChild),
+				MaxOne:      true,
+				DupMsg:      label + " can contain one derivation",
+				MissingMsg:  label + " missing extension or restriction",
+				MissingCode: xsderrors.CodeSchemaContentModel,
 			},
 		},
 		Label: label,
