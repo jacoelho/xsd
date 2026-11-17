@@ -21,13 +21,8 @@ type schemaNode struct {
 	local    string
 	// namespace is retained only for deferred QName-valued literals and
 	// identity XPath names; schema QName attributes are resolved at admission.
-	namespace xmlstream.Context
-	children  []schemaNodeID
-	// attributeMask records the admitted unqualified XSD attributes. The
-	// parser rejects unknown attributes before publishing the node; retaining
-	// this presence projection lets compiler checks inspect only attributes that
-	// were actually present.
-	attributeMask        uint64
+	namespace            xmlstream.Context
+	children             []schemaNodeID
 	line                 int
 	column               int
 	id                   schemaNodeID
@@ -355,46 +350,6 @@ func (s *schemaSemanticSource) particle() *schemaParticleSource {
 	default:
 		return nil
 	}
-}
-
-// typedAttributeNames is the admitted XSD attribute vocabulary. The parser
-// rejects unknown attributes before semantic nodes are published; retaining
-// this list here lets compiler admission checks inspect presence without a
-// generic attribute map.
-var typedAttributeNames = [...]string{
-	vocab.XSDAttrID,
-	vocab.XSDAttrName,
-	vocab.XSDAttrRef,
-	vocab.XSDAttrType,
-	vocab.XSDAttrBase,
-	vocab.XSDAttrItemType,
-	vocab.XSDAttrMemberTypes,
-	vocab.XSDAttrRefer,
-	vocab.XSDAttrSubstitutionGroup,
-	vocab.XSDAttrDefault,
-	vocab.XSDAttrFixed,
-	vocab.XSDAttrForm,
-	vocab.XSDAttrNillable,
-	vocab.XSDAttrAbstract,
-	vocab.XSDAttrBlock,
-	vocab.XSDAttrFinal,
-	vocab.XSDAttrMixed,
-	vocab.XSDAttrUse,
-	vocab.XSDAttrMinOccurs,
-	vocab.XSDAttrMaxOccurs,
-	vocab.XSDAttrNamespace,
-	vocab.XSDAttrProcessContents,
-	vocab.XSDAttrXPath,
-	vocab.XSDAttrValue,
-	vocab.XSDAttrTargetNamespace,
-	vocab.XSDAttrVersion,
-	vocab.XSDAttrFinalDefault,
-	vocab.XSDAttrBlockDefault,
-	vocab.XSDAttrElementFormDefault,
-	vocab.XSDAttrAttributeFormDefault,
-	vocab.XSDAttrSchemaLocation,
-	vocab.XSDAttrPublic,
-	vocab.XSDAttrSystem,
 }
 
 func schemaModelKind(n *schemaNode) (modelKind, bool) {

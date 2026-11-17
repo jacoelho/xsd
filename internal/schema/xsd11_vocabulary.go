@@ -10,11 +10,14 @@ import (
 // Whether a name is vocabulary depends only on the carrying element's local
 // name, never on its ancestors, siblings or attribute values.
 //
-// rejectXSD11Vocabulary is the first schema check of every admitted
+// The root element must be xs:schema before its vocabulary is judged, so a
+// root of any other name is a schema.root error whatever it carries.
+// Otherwise rejectXSD11Vocabulary is the first schema check of every admitted
 // XSD-namespace start tag, so the first XSD 1.1 vocabulary in document order
 // wins over the parent's content model and the element's own XSD 1.0 checks,
 // and loses only to an XSD 1.0 error already reported at an earlier start or
-// end tag. Text is judged when its parent ends or rejects a child, so text
+// end tag. Content of xs:appinfo and xs:documentation is never schema
+// grammar, so nothing in it is vocabulary. Text is judged when its parent ends or rejects a child, so text
 // before XSD 1.1 vocabulary does not win over it. The abstract
 // substitution-group head xs:facet, which the XSD 1.1 schema for schemas also
 // declares, is not vocabulary: no XSD 1.1 schema document can contain it.

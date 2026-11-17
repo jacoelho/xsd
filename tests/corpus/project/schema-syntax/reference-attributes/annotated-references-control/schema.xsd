@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:element name="a"/>
+<xs:attribute name="b"/>
+<xs:group name="g"><xs:sequence/></xs:group>
+<xs:complexType name="T"><xs:sequence><xs:element id="e1" ref="a" minOccurs="0" maxOccurs="2"><xs:annotation/></xs:element><xs:group id="g1" ref="g" minOccurs="0"><xs:annotation/></xs:group></xs:sequence><xs:attribute id="b1" ref="b" use="optional" default="x"><xs:annotation/></xs:attribute></xs:complexType>
+</xs:schema>

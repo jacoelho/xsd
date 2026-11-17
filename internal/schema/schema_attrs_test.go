@@ -16,14 +16,10 @@ func testRawNodeWithLocalAttrs(local string, attrs []string) *schemaSyntaxNode {
 	return testXSDRawNode(local, rawAttrs)
 }
 
-func canonicalAttributeFixture(local string, semantic schemaSemanticKind, attrs []string) *schemaNode {
-	var mask uint64
-	for _, attr := range attrs {
-		mask |= typedAttributeMaskFor(attr)
-	}
+func canonicalAttributeFixture(local string, semantic schemaSemanticKind) *schemaNode {
 	return &schemaNode{
 		doc: &schemaDocument{name: "attributes.xsd"}, local: local,
-		semantic: schemaSemanticSource{kind: semantic}, attributeMask: mask, line: 13, column: 5,
+		semantic: schemaSemanticSource{kind: semantic}, line: 13, column: 5,
 	}
 }
 
@@ -47,128 +43,81 @@ func assertCanonicalAttributeDiagnostic(t *testing.T, err error, want string) {
 	}
 }
 
-func TestCheckReferenceAttributes(t *testing.T) {
+func TestReferenceAttributesRejectedAtStartInDocumentOrder(t *testing.T) {
 	t.Parallel()
-	reference := schemaQNameAttribute{Lexical: lexicalAttribute{Value: "Target", Present: true}}
-	for _, fixture := range []struct {
-		name        string
-		check       func(*schemaNode) error
-		local       string
-		source      schemaSemanticKind
-		attrs       []string
-		wantMessage string
-	}{
-		{
-			name: "element ref accepts occurrence attrs", check: checkElementRefAttributes, local: elementChild,
-			source: &schemaElementSource{Ref: reference, MinOccurs: lexicalAttribute{Present: true}, MaxOccurs: lexicalAttribute{Present: true}},
-			attrs:  []string{"id", "ref", "minOccurs", "maxOccurs"},
-		},
-		{
-			name: "element ref rejects type", check: checkElementRefAttributes, local: elementChild,
-			source: &schemaElementSource{Ref: reference, Type: schemaQNameAttribute{Lexical: lexicalAttribute{Value: "xs:string", Present: true}}},
-			attrs:  []string{"ref", "type"}, wantMessage: "element ref cannot have attribute \"type\"",
-		},
-		{
-			name: "attribute ref accepts value constraint attrs", check: checkAttributeRefSource, local: attributeChild,
-			source: &schemaAttributeSource{Ref: reference, Use: lexicalAttribute{Present: true}, Default: lexicalAttribute{Present: true}, Fixed: lexicalAttribute{Present: true}},
-			attrs:  []string{"id", "ref", "use", "default", "fixed"},
-		},
-		{
-			name: "attribute ref rejects form", check: checkAttributeRefSource, local: attributeChild,
-			source: &schemaAttributeSource{Ref: reference, Form: lexicalAttribute{Present: true}},
-			attrs:  []string{"ref", "form"}, wantMessage: "attribute ref cannot have attribute \"form\"",
-		},
-		{
-			name: "group occurrence accepts occurrence attrs", check: checkGroupOccurrenceAttributes, local: groupChild,
-			source: &schemaGroupSource{Ref: reference, MinOccurs: lexicalAttribute{Present: true}, MaxOccurs: lexicalAttribute{Present: true}},
-			attrs:  []string{"id", "ref", "minOccurs", "maxOccurs"},
-		},
-		{
-			name: "group occurrence rejects name", check: checkGroupOccurrenceAttributes, local: groupChild,
-			source: &schemaGroupSource{Global: schemaGlobalSource{Name: lexicalAttribute{Present: true}}, Ref: reference},
-			attrs:  []string{"ref", "name"}, wantMessage: "group cannot have attribute \"name\"",
-		},
-	} {
-		t.Run(fixture.name, func(t *testing.T) {
-			t.Parallel()
-			node := canonicalAttributeFixture(fixture.local, fixture.source, fixture.attrs)
-			assertCanonicalAttributeDiagnostic(t, fixture.check(node), fixture.wantMessage)
-		})
+	invalid := func(name, body, msg string, line, col int) schemaStartFixture {
+		return schemaStartFixture{name: name, body: body, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: msg, wantLine: line, wantCol: col}
 	}
-}
-
-func TestReferenceAttributeDiagnosticPriority(t *testing.T) {
-	t.Parallel()
-	for _, fixture := range []struct {
-		start schemaStartFixture
-		path  []string
-		check func(*schemaNode) error
-	}{
-		{
-			start: schemaStartFixture{name: "element type wins reverse XML order", body: `  <xs:complexType name="T">
+	for _, fixture := range []schemaStartFixture{
+		{name: "element ref accepts occurrence attrs", body: `  <xs:complexType name="T">
+    <xs:sequence>
+      <xs:element id="i" ref="Target" minOccurs="0" maxOccurs="2"/>
+    </xs:sequence>
+  </xs:complexType>`},
+		{name: "attribute ref accepts value constraint attrs", body: `  <xs:complexType name="T">
+    <xs:attribute id="i" ref="Target" use="optional" default="x"/>
+  </xs:complexType>`},
+		{name: "group ref accepts occurrence attrs", body: `  <xs:complexType name="T">
+    <xs:sequence>
+      <xs:group id="i" ref="Target" minOccurs="0" maxOccurs="2"/>
+    </xs:sequence>
+  </xs:complexType>`},
+		{name: "foreign attributes are not reference attributes", body: `  <xs:complexType name="T">
+    <xs:sequence>
+      <xs:element ref="Target" f:type="xs:string" f:form=""/>
+    </xs:sequence>
+  </xs:complexType>`},
+		invalid("element ref type", `  <xs:complexType name="T">
+    <xs:sequence>
+      <xs:element ref="Target" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>`, `element ref cannot have attribute "type"`, 4, 7),
+		invalid("element ref first forbidden attribute wins", `  <xs:complexType name="T">
     <xs:sequence>
       <xs:element ref="Target" form="" type="xs:string"/>
     </xs:sequence>
-  </xs:complexType>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "element ref cannot have attribute \"type\"", wantLine: 4, wantCol: 7},
-			path: []string{complexTypeChild, sequenceChild, elementChild}, check: checkElementRefAttributes,
-		},
-		{
-			start: schemaStartFixture{name: "element type wins matching XML order", body: `  <xs:complexType name="T">
+  </xs:complexType>`, `element ref cannot have attribute "form"`, 4, 7),
+		invalid("element ref unknown attribute before forbidden one", `  <xs:complexType name="T">
     <xs:sequence>
-      <xs:element ref="Target" type="xs:string" form=""/>
+      <xs:element foo="1" ref="Target" type="xs:string"/>
     </xs:sequence>
-  </xs:complexType>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "element ref cannot have attribute \"type\"", wantLine: 4, wantCol: 7},
-			path: []string{complexTypeChild, sequenceChild, elementChild}, check: checkElementRefAttributes,
-		},
-		{
-			start: schemaStartFixture{name: "attribute name wins reverse XML order", body: `  <xs:complexType name="T">
-    <xs:attribute ref="Target" form="" name="Local"/>
-  </xs:complexType>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "attribute ref cannot have attribute \"name\"", wantLine: 3, wantCol: 5},
-			path: []string{complexTypeChild, attributeChild}, check: checkAttributeRefSource,
-		},
-		{
-			start: schemaStartFixture{name: "attribute name wins matching XML order", body: `  <xs:complexType name="T">
+  </xs:complexType>`, `"element" cannot have attribute "foo"`, 4, 7),
+		invalid("element ref attribute before invalid child", `  <xs:complexType name="T">
+    <xs:sequence>
+      <xs:element ref="Target" nillable="true">
+        <xs:complexType/>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>`, `element ref cannot have attribute "nillable"`, 4, 7),
+		invalid("attribute ref name before form", `  <xs:complexType name="T">
     <xs:attribute ref="Target" name="Local" form=""/>
-  </xs:complexType>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "attribute ref cannot have attribute \"name\"", wantLine: 3, wantCol: 5},
-			path: []string{complexTypeChild, attributeChild}, check: checkAttributeRefSource,
-		},
+  </xs:complexType>`, `attribute ref cannot have attribute "name"`, 3, 5),
+		invalid("attribute ref form before name", `  <xs:complexType name="T">
+    <xs:attribute ref="Target" form="" name="Local"/>
+  </xs:complexType>`, `attribute ref cannot have attribute "form"`, 3, 5),
+		invalid("attribute ref attribute before invalid child", `  <xs:complexType name="T">
+    <xs:attribute ref="Target" type="xs:string">
+      <xs:simpleType/>
+    </xs:attribute>
+  </xs:complexType>`, `attribute ref cannot have attribute "type"`, 3, 5),
+		invalid("nested group name before invalid child", `  <xs:complexType name="T">
+    <xs:sequence>
+      <xs:group ref="Target" name="g">
+        <xs:sequence/>
+      </xs:group>
+    </xs:sequence>
+  </xs:complexType>`, `group cannot have attribute "name"`, 4, 7),
+		invalid("attributeGroup use name before invalid child", `  <xs:complexType name="T">
+    <xs:attributeGroup ref="Target" name="g">
+      <xs:attribute name="a"/>
+    </xs:attributeGroup>
+  </xs:complexType>`, `attributeGroup use cannot have attribute "name"`, 3, 5),
 	} {
-		t.Run(fixture.start.name, func(t *testing.T) {
+		t.Run(fixture.name, func(t *testing.T) {
 			t.Parallel()
-			doc, err := parseSchemaStartFixture(t, fixture.start)
-			if err != nil {
-				t.Fatal(err)
-			}
-			node := doc.root
-			for _, local := range fixture.path {
-				node = node.firstXS(local)
-			}
-			if node == nil {
-				t.Fatal("missing reference node")
-			}
-			assertSchemaStartFixture(t, fixture.check(node), fixture.start)
+			_, err := parseSchemaStartFixture(t, fixture)
+			assertSchemaStartFixture(t, err, fixture)
 		})
-	}
-}
-
-func TestReferenceAdmissionFiltersForeignAttributes(t *testing.T) {
-	t.Parallel()
-	doc, err := parseSchemaStartFixture(t, schemaStartFixture{body: `  <xs:element name="Root">
-    <xs:complexType>
-      <xs:sequence>
-        <xs:element ref="Target" f:type="xs:string" f:form=""/>
-      </xs:sequence>
-    </xs:complexType>
-  </xs:element>`})
-	if err != nil {
-		t.Fatal(err)
-	}
-	node := doc.root.firstXS(elementChild).firstXS(complexTypeChild).firstXS(sequenceChild).firstXS(elementChild)
-	if node == nil {
-		t.Fatal("missing reference element")
-	}
-	if err := checkElementRefAttributes(node); err != nil {
-		t.Fatalf("foreign attributes changed reference admission: %v", err)
 	}
 }
 
@@ -266,7 +215,7 @@ func TestCheckLocalElementAttributes(t *testing.T) {
 	} {
 		t.Run(fixture.name, func(t *testing.T) {
 			t.Parallel()
-			node := canonicalAttributeFixture(elementChild, fixture.source, fixture.attrs)
+			node := canonicalAttributeFixture(elementChild, fixture.source)
 			assertCanonicalAttributeDiagnostic(t, checkLocalElementAttributes(node), fixture.wantMessage)
 		})
 	}
@@ -294,7 +243,7 @@ func TestCheckLocalTypeAttributes(t *testing.T) {
 	} {
 		t.Run(fixture.name, func(t *testing.T) {
 			t.Parallel()
-			node := canonicalAttributeFixture(fixture.local, fixture.source, fixture.attrs)
+			node := canonicalAttributeFixture(fixture.local, fixture.source)
 			assertCanonicalAttributeDiagnostic(t, fixture.check(node), fixture.wantMessage)
 		})
 	}

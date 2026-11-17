@@ -40,28 +40,6 @@ func TestCheckIdentityConstraintChildren(t *testing.T) {
 			wantSelector: 1, wantFields: []int{2, 3},
 		},
 		{
-			name: "duplicate annotation",
-			children: []identityChildFixture{
-				{local: annotationChild},
-				{local: annotationChild},
-			},
-			wantChild:   1,
-			wantNested:  -1,
-			wantCode:    xsderrors.CodeSchemaContentModel,
-			wantMessage: "identity constraint can contain at most one annotation",
-		},
-		{
-			name: "annotation after selector",
-			children: []identityChildFixture{
-				{local: selectorChild, xpath: lexicalAttribute{Value: "row", Present: true}},
-				{local: annotationChild},
-			},
-			wantChild:   1,
-			wantNested:  -1,
-			wantCode:    xsderrors.CodeSchemaContentModel,
-			wantMessage: "identity constraint annotation must be first",
-		},
-		{
 			name: "duplicate selector",
 			children: []identityChildFixture{
 				{local: selectorChild, xpath: lexicalAttribute{Value: "row", Present: true}},

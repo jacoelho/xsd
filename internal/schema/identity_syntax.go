@@ -15,17 +15,9 @@ const (
 //nolint:gocognit // One ordered traversal preserves child-error precedence and selects the validated source nodes.
 func checkIdentityConstraintChildren(n *schemaNode) (identityConstraintSyntax, error) {
 	var syntax identityConstraintSyntax
-	seenAnnotation := false
 	for child := range n.xsdChildren() {
 		switch child.local {
 		case annotationChild:
-			if seenAnnotation {
-				return identityConstraintSyntax{}, schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "identity constraint can contain at most one annotation")
-			}
-			if syntax.selector != nil || len(syntax.fields) != 0 {
-				return identityConstraintSyntax{}, schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "identity constraint annotation must be first")
-			}
-			seenAnnotation = true
 		case selectorChild:
 			if syntax.selector != nil {
 				return identityConstraintSyntax{}, schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "identity constraint can contain at most one selector")

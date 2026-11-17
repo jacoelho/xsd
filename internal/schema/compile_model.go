@@ -296,11 +296,6 @@ func modelChildAdmissionForNode(n *schemaNode) (modelChildAdmission, error) {
 }
 
 func validateModelOccurrence(n *schemaNode, limits Limits) error {
-	if n.local == vocab.XSDElemGroup {
-		if err := checkGroupOccurrenceAttributes(n); err != nil {
-			return err
-		}
-	}
 	occurs, err := parseOccurs(n, limits)
 	if err != nil {
 		return err

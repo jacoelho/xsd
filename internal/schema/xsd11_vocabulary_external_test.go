@@ -198,9 +198,29 @@ func TestXSD11VocabularyPrecedence(t *testing.T) {
 			code:   xsderrors.CodeUnsupportedXSD11, message: "XSD 1.1 feature override is not supported", line: 2, column: 1,
 		},
 		{
-			name:   "XSD 1.1 root element is vocabulary before the root check",
+			name:   "root check wins over an XSD 1.1 root element",
 			schema: `<xs:override xmlns:xs="http://www.w3.org/2001/XMLSchema" schemaLocation="absent.xsd"/>`,
-			code:   xsderrors.CodeUnsupportedXSD11, message: "XSD 1.1 feature override is not supported", line: 1, column: 1,
+			code:   xsderrors.CodeSchemaRoot, message: "root element must be xs:schema", line: 1, column: 1,
+		},
+		{
+			name:   "root check wins over an XSD 1.1 attribute of a non-schema root",
+			schema: `<xs:element xmlns:xs="http://www.w3.org/2001/XMLSchema" name="e" targetNamespace="urn:x"/>`,
+			code:   xsderrors.CodeSchemaRoot, message: "root element must be xs:schema", line: 1, column: 1,
+		},
+		{
+			name:   "XSD 1.1 attribute of the schema root is vocabulary",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" foo="" defaultAttributes="G"/>`,
+			code:   xsderrors.CodeUnsupportedXSD11, message: "XSD 1.1 attribute defaultAttributes on xs:schema is not supported", line: 1, column: 1,
+		},
+		{
+			name:   "misplaced appinfo content is not vocabulary",
+			schema: xsd11TestSchemaStart + "\n<xs:complexType name=\"T\"><xs:appinfo><xs:assert/></xs:appinfo></xs:complexType>\n</xs:schema>",
+			code:   xsderrors.CodeSchemaContentModel, message: `xs:"appinfo" can appear only in xs:annotation`, line: 2, column: 26,
+		},
+		{
+			name:   "misplaced documentation content is not vocabulary",
+			schema: xsd11TestSchemaStart + "\n<xs:documentation><xs:override/></xs:documentation>\n</xs:schema>",
+			code:   xsderrors.CodeSchemaContentModel, message: `xs:"documentation" can appear only in xs:annotation`, line: 2, column: 1,
 		},
 		{
 			name:   "nested schema attribute is vocabulary",

@@ -27,27 +27,29 @@ func checkXMLBaseAttributeSyntax(n *schemaSyntaxNode) error {
 	return nil
 }
 
-// checkSchemaAttributesSyntax checks the unqualified attributes of one start
-// against the XSD 1.0 vocabulary of its element. topLevel reports a child of
-// xs:schema, which cannot carry local-only attributes.
-func checkSchemaAttributesSyntax(n *schemaSyntaxNode, topLevel bool) error {
+// checkSchemaAttributesSyntax checks the unqualified attributes of one start,
+// in start-tag order, against the XSD 1.0 vocabulary of its element in its
+// placement.
+func checkSchemaAttributesSyntax(n *schemaSyntaxNode, placement schemaElementPlacement) error {
 	for _, attr := range n.Attrs {
 		if xmlstream.IsExpandedNamespaceName(attr.Name) || attr.Name.Space != "" {
 			continue
 		}
-		if err := checkSchemaAttributeSyntax(n, attr, topLevel); err != nil {
+		if err := checkSchemaAttributeSyntax(n, attr, placement); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func checkSchemaAttributeSyntax(n *schemaSyntaxNode, attr schemaAttribute, topLevel bool) error {
-	switch schemaAttributeVocabularyOf(n.Name.Local, attr.Name.Local, topLevel) {
+func checkSchemaAttributeSyntax(n *schemaSyntaxNode, attr schemaAttribute, placement schemaElementPlacement) error {
+	switch schemaAttributeVocabularyOf(n.Name.Local, attr.Name.Local, placement) {
 	case schemaAttributeUnknown:
 		return schemaAttributeNotAllowed(n, attr.Name.Local)
 	case schemaAttributeLocalOnly:
 		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "top-level "+diagnostictext.Quote(n.Name.Local)+" cannot have "+diagnostictext.Quote(attr.Name.Local))
+	case schemaAttributeDeclarationOnly:
+		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, schemaReferenceLabel(n.Name.Local)+" cannot have attribute "+diagnostictext.Quote(attr.Name.Local))
 	case schemaAttributeXSD10:
 	}
 	if !schemaAnyURIAttribute(n.Name.Local, attr.Name.Local) {
@@ -88,24 +90,14 @@ func checkUnsupportedXSDNodeSyntax(n *schemaSyntaxNode, parent xml.Name) error {
 	return nil
 }
 
-func checkSchemaNodeNamesSyntax(n, parent *schemaSyntaxNode) error {
-	var parentLocal string
-	var parentXSD bool
-	if parent != nil {
-		parentLocal = parent.Name.Local
-		parentXSD = parent.Name.Space == vocab.XSDNamespaceURI
-	}
+func checkSchemaNodeNamesSyntax(n *schemaSyntaxNode) error {
 	id, hasID := n.attr(vocab.XSDAttrID)
 	name, hasName := n.attr(vocab.XSDAttrName)
 	return withSchemaCompileLocation(n, validateSchemaNodeNames(schemaNodeNames{
-		Local:       n.Name.Local,
-		ParentLocal: parentLocal,
-		ID:          id,
-		Name:        name,
-		XSD:         n.Name.Space == vocab.XSDNamespaceURI,
-		ParentXSD:   parentXSD,
-		HasID:       hasID,
-		HasName:     hasName,
+		ID:      id,
+		Name:    name,
+		HasID:   hasID,
+		HasName: hasName,
 	}))
 }
 

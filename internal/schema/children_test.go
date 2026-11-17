@@ -12,8 +12,6 @@ func TestCheckOrderedXSDChildren(t *testing.T) {
 	t.Parallel()
 
 	order := childOrder{
-		AnnotationFirstMsg: "annotation must be first",
-		SingleAnnotation:   true,
 		Rules: []childRule{
 			{
 				Match:    matchTestChildren("head"),
@@ -45,8 +43,6 @@ func TestCheckOrderedXSDChildren(t *testing.T) {
 		wantMsg  string
 	}{
 		{name: "valid", children: []string{"annotation", "head", "body"}},
-		{name: "second annotation", children: []string{"annotation", "annotation"}, wantMsg: "annotation must be first", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 6, wantCol: 5},
-		{name: "annotation after child", children: []string{"head", "annotation"}, wantMsg: "annotation must be first", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 6, wantCol: 5},
 		{name: "unknown child", children: []string{"bogus"}, wantMsg: "invalid \"bogus\"", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 4, wantCol: 5},
 		{name: "out of order", children: []string{"body", "head"}, wantMsg: "head must precede body", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 6, wantCol: 5},
 		{name: "duplicate max one", children: []string{"head", "head"}, wantMsg: "head duplicates", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 6, wantCol: 5},
@@ -81,7 +77,6 @@ func TestValidateSimpleTypeChildren(t *testing.T) {
 		{name: "missing derivation", wantMsg: "simpleType must contain one restriction, list, or union", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 2, wantCol: 3},
 		{name: "only annotation", children: []string{"annotation"}, wantMsg: "simpleType must contain one restriction, list, or union", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 2, wantCol: 3},
 		{name: "duplicate derivation", children: []string{"restriction", "list"}, wantMsg: "simpleType can contain one restriction, list, or union", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 6, wantCol: 5},
-		{name: "annotation after derivation", children: []string{"restriction", "annotation"}, wantMsg: "simpleType annotation must be first", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 6, wantCol: 5},
 		{name: "unsupported child", children: []string{"sequence"}, wantMsg: "unsupported simpleType child \"sequence\"", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 4, wantCol: 5},
 	}
 	for _, tt := range tests {
@@ -162,15 +157,6 @@ func TestValidateSimpleDerivationChildren(t *testing.T) {
 			wantLine: 4,
 			wantCol:  5,
 		},
-		{
-			name:     "union annotation after content",
-			order:    simpleUnionChildOrder,
-			children: []string{"simpleType", "annotation"},
-			wantMsg:  "union annotation must be first",
-			wantCode: xsderrors.CodeSchemaContentModel,
-			wantLine: 6,
-			wantCol:  5,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -197,7 +183,6 @@ func TestValidateComplexTypeChildren(t *testing.T) {
 		{name: "empty"},
 		{name: "model attributes and wildcard", children: []string{"annotation", "sequence", "attribute", "attributeGroup", "anyAttribute"}},
 		{name: "simple content only", children: []string{"annotation", "simpleContent"}},
-		{name: "annotation after model", children: []string{"sequence", "annotation"}, wantMsg: "complexType annotation must be first", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 6, wantCol: 5},
 		{name: "model after attribute", children: []string{"attribute", "sequence"}, wantMsg: "complexType model group is out of order", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 6, wantCol: 5},
 		{name: "duplicate model group", children: []string{"sequence", "choice"}, wantMsg: "complexType model group is out of order", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 6, wantCol: 5},
 		{name: "attribute after wildcard", children: []string{"anyAttribute", "attribute"}, wantMsg: "complexType attribute is out of order", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 6, wantCol: 5},
@@ -234,7 +219,6 @@ func TestValidateDerivationContainerChildren(t *testing.T) {
 		{name: "complexContent missing derivation", validate: checkComplexContentSyntax, wantMsg: "complexContent missing extension or restriction", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 2, wantCol: 3},
 		{name: "simpleContent only annotation", validate: checkSimpleContentSyntax, children: []string{"annotation"}, wantMsg: "simpleContent missing extension or restriction", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 2, wantCol: 3},
 		{name: "complexContent duplicate derivation", validate: checkComplexContentSyntax, children: []string{"extension", "restriction"}, wantMsg: "complexContent can contain one derivation", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 6, wantCol: 5},
-		{name: "simpleContent annotation after derivation", validate: checkSimpleContentSyntax, children: []string{"restriction", "annotation"}, wantMsg: "simpleContent annotation must be first", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 6, wantCol: 5},
 		{name: "simpleContent invalid child", validate: checkSimpleContentSyntax, children: []string{"sequence"}, wantMsg: "invalid simpleContent child \"sequence\"", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 4, wantCol: 5},
 	}
 	for _, tt := range tests {
@@ -438,20 +422,6 @@ func TestCheckTopLevelGroupChildren(t *testing.T) {
 			wantModel: 1,
 		},
 		{
-			name:      "duplicate annotation",
-			children:  []groupChildFixture{{local: annotationChild}, {local: annotationChild}},
-			wantIndex: 1,
-			wantCode:  xsderrors.CodeSchemaContentModel,
-			wantMsg:   "top-level group can contain at most one annotation",
-		},
-		{
-			name:      "annotation after model",
-			children:  []groupChildFixture{{local: sequenceChild}, {local: annotationChild}},
-			wantIndex: 1,
-			wantCode:  xsderrors.CodeSchemaContentModel,
-			wantMsg:   "top-level group annotation must be first",
-		},
-		{
 			name:      "duplicate model",
 			children:  []groupChildFixture{{local: sequenceChild}, {local: choiceChild}},
 			wantIndex: 1,
@@ -593,7 +563,6 @@ func TestValidateModelGroupChildren(t *testing.T) {
 	}{
 		{name: "empty sequence", parent: sequenceChild},
 		{name: "annotation then particles", parent: sequenceChild, children: []string{annotationChild, elementChild, choiceChild, anyChild}},
-		{name: "choice annotation after particle", parent: choiceChild, children: []string{elementChild, annotationChild}, wantMsg: "choice annotation must be first", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 6, wantCol: 5},
 		{name: "all invalid child", parent: allChild, children: []string{attributeChild}, wantMsg: "invalid model group child \"attribute\"", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 4, wantCol: 5},
 	}
 	for _, tt := range tests {
@@ -621,7 +590,6 @@ func TestValidateAttributeDeclarationChildren(t *testing.T) {
 		{name: "empty"},
 		{name: "annotation only", children: []string{"annotation"}},
 		{name: "simple type after annotation", children: []string{"annotation", "simpleType"}},
-		{name: "annotation after simple type", children: []string{"simpleType", "annotation"}, wantMsg: "attribute annotation must precede simpleType", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 6, wantCol: 5},
 		{name: "duplicate simple type", children: []string{"simpleType", "simpleType"}, wantMsg: "attribute can contain at most one simpleType", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 6, wantCol: 5},
 		{name: "unsupported child", children: []string{"complexType"}, wantMsg: "invalid attribute child \"complexType\"", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 4, wantCol: 5},
 	}
@@ -649,7 +617,6 @@ func TestValidateAttributeGroupDeclarationChildren(t *testing.T) {
 	}{
 		{name: "empty"},
 		{name: "attribute uses", children: []string{annotationChild, attributeChild, attributeGroup, anyAttribute}},
-		{name: "annotation after attribute", children: []string{attributeChild, annotationChild}, wantMsg: "attributeGroup annotation must be first", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 6, wantCol: 5},
 		{name: "attribute after wildcard", children: []string{anyAttribute, attributeChild}, wantMsg: "attributeGroup attribute is out of order", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 6, wantCol: 5},
 		{name: "duplicate wildcard", children: []string{anyAttribute, anyAttribute}, wantMsg: "attributeGroup can contain at most one anyAttribute", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 6, wantCol: 5},
 		{name: "invalid child", children: []string{elementChild}, wantMsg: "invalid attribute use child \"element\"", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 4, wantCol: 5},
@@ -680,7 +647,6 @@ func TestValidateElementDeclarationChildren(t *testing.T) {
 		{name: "empty"},
 		{name: "annotation anonymous type identities", children: []string{"annotation", "complexType", "unique", "key", "keyref"}},
 		{name: "type attribute with identities", children: []string{"key"}, hasTypeAttr: true},
-		{name: "annotation after identity", children: []string{"key", "annotation"}, wantMsg: "element annotation must be first", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 6, wantCol: 5},
 		{name: "duplicate anonymous type", children: []string{"simpleType", "complexType"}, wantMsg: "element can contain at most one anonymous type", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 6, wantCol: 5},
 		{name: "anonymous type after identity", children: []string{"unique", "simpleType"}, wantMsg: "element anonymous type must precede identity constraints", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 6, wantCol: 5},
 		{name: "unsupported child", children: []string{"sequence"}, wantMsg: "invalid element child \"sequence\"", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 4, wantCol: 5},

@@ -218,51 +218,15 @@ func TestValidateSchemaNodeNames(t *testing.T) {
 		node    schemaNodeNames
 		wantMsg string
 	}{
-		{name: "non schema node", node: schemaNodeNames{Local: elementChild, HasName: true, Name: "0"}},
-		{name: "valid schema names", node: schemaNodeNames{Local: elementChild, XSD: true, HasID: true, ID: "id1", HasName: true, Name: "root"}},
+		{name: "valid schema names", node: schemaNodeNames{HasID: true, ID: "id1", HasName: true, Name: "root"}},
 		{
 			name:    "invalid id",
-			node:    schemaNodeNames{Local: elementChild, XSD: true, HasID: true, ID: ":bad"},
+			node:    schemaNodeNames{HasID: true, ID: ":bad"},
 			wantMsg: "schema id must be NCName",
 		},
 		{
 			name:    "invalid name",
-			node:    schemaNodeNames{Local: elementChild, XSD: true, HasName: true, Name: "0"},
-			wantMsg: "schema component name must be NCName",
-		},
-		{
-			name: "top-level attribute group name",
-			node: schemaNodeNames{
-				Local:       attributeGroup,
-				ParentLocal: vocab.XSDElemSchema,
-				Name:        "attrs",
-				XSD:         true,
-				ParentXSD:   true,
-				HasName:     true,
-			},
-		},
-		{
-			name: "nested attribute group name",
-			node: schemaNodeNames{
-				Local:       attributeGroup,
-				ParentLocal: complexTypeChild,
-				Name:        "attrs",
-				XSD:         true,
-				ParentXSD:   true,
-				HasName:     true,
-			},
-			wantMsg: "attributeGroup use cannot have name",
-		},
-		{
-			name: "invalid nested attribute group name wins",
-			node: schemaNodeNames{
-				Local:       attributeGroup,
-				ParentLocal: complexTypeChild,
-				Name:        "0",
-				XSD:         true,
-				ParentXSD:   true,
-				HasName:     true,
-			},
+			node:    schemaNodeNames{HasName: true, Name: "0"},
 			wantMsg: "schema component name must be NCName",
 		},
 	}
@@ -282,80 +246,8 @@ func TestValidateSchemaNodeNames(t *testing.T) {
 	}
 }
 
-func TestCheckSchemaAnnotationNode(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name     string
-		local    string
-		children []annotationChildFixture
-		wantLine int
-		wantMsg  string
-	}{
-		{
-			name: "schema allows multiple top-level annotations", local: vocab.XSDElemSchema,
-			children: []annotationChildFixture{{local: annotationChild}, {local: annotationChild}},
-		},
-		{
-			name: "component rejects duplicate annotation", local: elementChild,
-			children: []annotationChildFixture{{local: annotationChild}, {local: annotationChild}},
-			wantLine: 101, wantMsg: "schema component cannot contain multiple annotations",
-		},
-		{
-			name: "component rejects late annotation", local: complexTypeChild,
-			children: []annotationChildFixture{{local: attributeChild}, {local: annotationChild}},
-			wantLine: 101, wantMsg: "\"complexType\" annotation must be first",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			parent := annotationGrammarFixture(t, tt.local, tt.children)
-			err := checkSchemaAnnotationNode(parent)
-			if tt.wantMsg == "" {
-				if err != nil {
-					t.Fatalf("checkSchemaAnnotationNode() error = %v", err)
-				}
-				return
-			}
-			issue, ok := errors.AsType[*xsderrors.Error](err)
-			if !ok {
-				t.Fatalf("checkSchemaAnnotationNode() error = %T %[1]v, want structured diagnostic", err)
-			}
-			if issue.Category() != xsderrors.CategorySchemaCompile || issue.Code() != xsderrors.CodeSchemaContentModel || issue.Message() != tt.wantMsg {
-				t.Fatalf("diagnostic = {%s %s %q}, want {%s %s %q}", issue.Category(), issue.Code(), issue.Message(), xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel, tt.wantMsg)
-			}
-			if issue.Path() != "annotation.xsd" || issue.Line() != tt.wantLine || issue.Column() != 7 {
-				t.Fatalf("location = {%q %d %d}, want {%q %d %d}", issue.Path(), issue.Line(), issue.Column(), "annotation.xsd", tt.wantLine, 7)
-			}
-		})
-	}
-}
-
-type annotationChildFixture struct {
-	local string
-}
-
-func annotationGrammarFixture(t *testing.T, local string, children []annotationChildFixture) *schemaNode {
-	t.Helper()
-	doc := &schemaDocument{name: "annotation.xsd"}
-	parent := &schemaNode{doc: doc, local: local, line: 1, column: 3}
-	doc.arena = append(doc.arena, parent)
-	for i, child := range children {
-		id, err := schemaNodeIDFor(len(doc.arena))
-		if err != nil {
-			t.Fatal(err)
-		}
-		node := &schemaNode{doc: doc, id: id, local: child.local, line: 100 + i, column: 7}
-		doc.arena = append(doc.arena, node)
-		parent.children = append(parent.children, node.id)
-	}
-	return parent
-}
-
 func checkElementChildAttributes(n *schemaSyntaxNode) error {
-	return checkSchemaAttributesSyntax(n, false)
+	return checkSchemaAttributesSyntax(n, schemaPlacementOther)
 }
 
 func TestSchemaAnnotationStartAttributes(t *testing.T) {

@@ -324,14 +324,20 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
   </xs:element>
 </xs:schema>`, code: xsderrors.CodeSchemaIdentity, line: 3, column: 26},
 		{name: "element reference", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:complexType name="container"><xs:sequence>
-  <xs:element type="t:T" substitutionGroup="s:H" ref="r:R"/>
+  <xs:element minOccurs="0" ref="r:R"/>
 </xs:sequence></xs:complexType></xs:schema>`, code: xsderrors.CodeSchemaReference, line: 2, column: 3, messageContains: "prefix \"r\""},
-		{name: "element substitution", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:complexType name="container"><xs:sequence>
-  <xs:element type="t:T" substitutionGroup="s:H" ref="xs:string"/>
-</xs:sequence></xs:complexType></xs:schema>`, code: xsderrors.CodeSchemaReference, line: 2, column: 3, messageContains: "prefix \"s\""},
+		{name: "element substitution", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element type="t:T" substitutionGroup="s:H" name="e"/>
+</xs:schema>`, code: xsderrors.CodeSchemaReference, line: 2, column: 3, messageContains: "prefix \"s\""},
 		{name: "attribute reference", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:complexType name="container">
-  <xs:attribute type="t:T" ref="r:R"/>
+  <xs:attribute use="optional" ref="r:R"/>
 </xs:complexType></xs:schema>`, code: xsderrors.CodeSchemaReference, line: 2, column: 3, messageContains: "prefix \"r\""},
+		{name: "element reference forbidden attribute before unbound ref prefix", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:complexType name="container"><xs:sequence>
+  <xs:element type="t:T" substitutionGroup="s:H" ref="r:R"/>
+</xs:sequence></xs:complexType></xs:schema>`, code: xsderrors.CodeSchemaInvalidAttribute, line: 2, column: 3, messageContains: `element ref cannot have attribute "type"`},
+		{name: "attribute reference forbidden attribute before unbound ref prefix", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:complexType name="container">
+  <xs:attribute type="t:T" ref="r:R"/>
+</xs:complexType></xs:schema>`, code: xsderrors.CodeSchemaInvalidAttribute, line: 2, column: 3, messageContains: `attribute ref cannot have attribute "type"`},
 		{name: "empty type", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="value" type=""/></xs:schema>`, code: xsderrors.CodeSchemaReference, line: 2, column: 3},
 		{name: "unknown-model", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:f="urn:foreign">
@@ -352,13 +358,13 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
     <f:annotation/>
   </xs:notation>
 </xs:schema>`, code: xsderrors.CodeSchemaContentModel, line: 3, column: 5},
-		{name: "nonopaque-documentation", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:f="urn:foreign">
+		{name: "misplaced-documentation", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:f="urn:foreign">
   <xs:element name="r">
     <xs:documentation>
       <f:element/>
     </xs:documentation>
   </xs:element>
-</xs:schema>`, code: xsderrors.CodeSchemaContentModel, line: 4, column: 7},
+</xs:schema>`, code: xsderrors.CodeSchemaContentModel, line: 3, column: 5},
 		{name: "simple-content-self", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:f="urn:foreign">
   <xs:complexType name="C">
     <xs:simpleContent><xs:extension base="C"/></xs:simpleContent>

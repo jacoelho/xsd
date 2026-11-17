@@ -104,7 +104,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
     <xs:annotation/>
   </xs:complexType>`,
 			wantLine: 5, wantCol: 5, wantCode: xsderrors.CodeSchemaContentModel,
-			wantMsg: "schema component cannot contain multiple annotations",
+			wantMsg: `xs:"complexType" can contain xs:annotation only as its first child`,
 		},
 		{
 			name: "component first late annotation before duplicate",
@@ -114,7 +114,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
     <xs:annotation/>
   </xs:complexType>`,
 			wantLine: 4, wantCol: 5, wantCode: xsderrors.CodeSchemaContentModel,
-			wantMsg: "\"complexType\" annotation must be first",
+			wantMsg: `xs:"complexType" can contain xs:annotation only as its first child`,
 		},
 		{
 			name: "include duplicate annotation before invalid child",
@@ -124,7 +124,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
     <xs:attribute/>
   </xs:include>`,
 			wantLine: 4, wantCol: 5, wantCode: xsderrors.CodeSchemaContentModel,
-			wantMsg: "xs:\"include\" can contain at most one xs:annotation",
+			wantMsg: "xs:\"include\" can contain xs:annotation only as its first child",
 		},
 		{
 			name: "import duplicate annotation before invalid child",
@@ -134,7 +134,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
     <xs:attribute/>
   </xs:import>`,
 			wantLine: 4, wantCol: 5, wantCode: xsderrors.CodeSchemaContentModel,
-			wantMsg: "xs:\"import\" can contain at most one xs:annotation",
+			wantMsg: "xs:\"import\" can contain xs:annotation only as its first child",
 		},
 		{
 			name: "nested annotation source position",
@@ -244,7 +244,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
 			name:     "facet duplicate annotation",
 			body:     facetBody(`<xs:annotation/><xs:annotation/>`),
 			wantLine: 4, wantCol: 44, wantCode: xsderrors.CodeSchemaContentModel,
-			wantMsg: "xs:\"length\" can contain at most one xs:annotation",
+			wantMsg: "xs:\"length\" can contain xs:annotation only as its first child",
 		},
 		{
 			name: "facet in simpleContent restriction",
@@ -305,7 +305,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
     </xs:key>
   </xs:element>`,
 			wantLine: 5, wantCol: 44, wantCode: xsderrors.CodeSchemaContentModel,
-			wantMsg: "xs:\"field\" can contain at most one xs:annotation",
+			wantMsg: "xs:\"field\" can contain xs:annotation only as its first child",
 		},
 		{
 			name: "wildcard forbidden child",
@@ -355,7 +355,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
     <xs:element ref="e"><xs:annotation/><xs:annotation/></xs:element>
   </xs:sequence></xs:group>`,
 			wantLine: 4, wantCol: 41, wantCode: xsderrors.CodeSchemaContentModel,
-			wantMsg: `xs:"element" can contain at most one xs:annotation`,
+			wantMsg: `xs:"element" can contain xs:annotation only as its first child`,
 		},
 		{
 			name: "attribute reference forbidden child",
@@ -401,14 +401,14 @@ func TestDocumentationLanguageOutsideAnnotation(t *testing.T) {
 		wantMsg  string
 	}{
 		{
-			name: "invalid language before complexType child grammar", lang: " ",
-			wantCode: xsderrors.CodeSchemaInvalidAttribute,
-			wantMsg:  "invalid xml:lang on xs:documentation",
+			name: "placement wins over an invalid language", lang: " ",
+			wantCode: xsderrors.CodeSchemaContentModel,
+			wantMsg:  `xs:"documentation" can appear only in xs:annotation`,
 		},
 		{
-			name: "valid language reaches complexType child grammar", lang: "en-US",
+			name: "placement is reported with a valid language", lang: "en-US",
 			wantCode: xsderrors.CodeSchemaContentModel,
-			wantMsg:  "invalid complexType child \"documentation\"",
+			wantMsg:  `xs:"documentation" can appear only in xs:annotation`,
 		},
 	}
 	for _, tt := range tests {
@@ -449,4 +449,73 @@ func facetBody(children string) string {
       <xs:length value="1">` + children + `</xs:length>
     </xs:restriction>
   </xs:simpleType>`
+}
+
+func TestAnnotationOnlyAsFirstChildReportedWhenItStarts(t *testing.T) {
+	t.Parallel()
+	late := func(parent string) string {
+		return `xs:"` + parent + `" can contain xs:annotation only as its first child`
+	}
+	tests := []struct {
+		name     string
+		body     string
+		wantLine int
+		wantCol  int
+		wantMsg  string
+	}{
+		{name: "schema admits annotations anywhere", body: `  <xs:annotation/>
+  <xs:element name="e"/>
+  <xs:annotation/>`},
+		{name: "leading annotation", body: `  <xs:complexType name="T">
+    <xs:annotation/>
+    <xs:sequence/>
+  </xs:complexType>`},
+		{name: "complexType annotation after model group", body: `  <xs:complexType name="T">
+    <xs:sequence/>
+    <xs:annotation/>
+  </xs:complexType>`, wantLine: 4, wantCol: 5, wantMsg: late("complexType")},
+		{name: "simpleType second annotation", body: `  <xs:simpleType name="S">
+    <xs:annotation/>
+    <xs:annotation/>
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>`, wantLine: 4, wantCol: 5, wantMsg: late("simpleType")},
+		{name: "union annotation after member", body: `  <xs:simpleType name="S">
+    <xs:union><xs:simpleType><xs:restriction base="xs:string"/></xs:simpleType><xs:annotation/></xs:union>
+  </xs:simpleType>`, wantLine: 3, wantCol: 80, wantMsg: late("union")},
+		{name: "top-level group annotation after model group", body: `  <xs:group name="G">
+    <xs:sequence/>
+    <xs:annotation/>
+  </xs:group>`, wantLine: 4, wantCol: 5, wantMsg: late("group")},
+		{name: "choice annotation after particle", body: `  <xs:group name="G">
+    <xs:choice><xs:element name="e"/><xs:annotation/></xs:choice>
+  </xs:group>`, wantLine: 3, wantCol: 38, wantMsg: late("choice")},
+		{name: "attribute annotation after simpleType", body: `  <xs:attribute name="a">
+    <xs:simpleType><xs:restriction base="xs:string"/></xs:simpleType>
+    <xs:annotation/>
+  </xs:attribute>`, wantLine: 4, wantCol: 5, wantMsg: late("attribute")},
+		{name: "key annotation after selector", body: `  <xs:element name="e">
+    <xs:key name="k"><xs:selector xpath="."/><xs:annotation/><xs:field xpath="."/></xs:key>
+  </xs:element>`, wantLine: 3, wantCol: 46, wantMsg: late("key")},
+		{name: "duplicate annotation before a later start-tag error", body: `  <xs:complexType name="T">
+    <xs:annotation/>
+    <xs:annotation/>
+    <xs:attribute name="a" foo="1"/>
+  </xs:complexType>`, wantLine: 4, wantCol: 5, wantMsg: late("complexType")},
+		{name: "text before late annotation", body: `  <xs:complexType name="T">
+    <xs:sequence/>
+    text
+    <xs:annotation/>
+  </xs:complexType>`, wantLine: 2, wantCol: 3, wantMsg: `xs:"complexType" cannot contain text`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			fixture := schemaStartFixture{name: tt.name, body: tt.body, wantMsg: tt.wantMsg, wantLine: tt.wantLine, wantCol: tt.wantCol}
+			if tt.wantMsg != "" {
+				fixture.wantCat, fixture.wantCode = xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel
+			}
+			_, err := parseSchemaStartFixture(t, fixture)
+			assertSchemaStartFixture(t, err, fixture)
+		})
+	}
 }

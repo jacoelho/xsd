@@ -1,20 +1,11 @@
 package schema
 
 import (
+	"encoding/xml"
+
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
-
-// typedAttributeMaskFor returns the bit assigned to one admitted unqualified
-// XSD attribute. A zero result means the name is outside that vocabulary.
-func typedAttributeMaskFor(local string) uint64 {
-	for index, candidate := range typedAttributeNames {
-		if local == candidate {
-			return uint64(1) << index
-		}
-	}
-	return 0
-}
 
 // nameReferenceSource keeps the name and reference attributes of a declaration
 // together for source admission.
@@ -58,6 +49,52 @@ func validateGroupUseSource(reference lexicalAttribute) error {
 	return nil
 }
 
+// schemaElementPlacement is where an XSD element appears, as far as the
+// unqualified attributes it admits depend on it.
+type schemaElementPlacement uint8
+
+const (
+	schemaPlacementOther schemaElementPlacement = iota
+	// schemaPlacementTopLevel is a child of xs:schema.
+	schemaPlacementTopLevel
+	// schemaPlacementReference is a reference; see isSchemaReference.
+	schemaPlacementReference
+)
+
+// schemaElementPlacementOf returns the placement of n, an XSD element whose
+// parent is named parent.
+func schemaElementPlacementOf(n *schemaSyntaxNode, parent xml.Name) schemaElementPlacement {
+	switch {
+	case isXSDName(parent, vocab.XSDElemSchema):
+		return schemaPlacementTopLevel
+	case isSchemaReference(n, parent):
+		return schemaPlacementReference
+	default:
+		return schemaPlacementOther
+	}
+}
+
+// isSchemaReference reports whether start, an XSD element whose parent is
+// named parent, is a reference rather than a declaration or definition: an
+// xs:group or xs:attributeGroup outside xs:schema, or a local xs:element or
+// xs:attribute carrying ref (src-element.2.2, src-attribute.3.2). A reference
+// has (annotation?) content and admits only the attributes
+// referenceAttributeAllowed lists.
+func isSchemaReference(start *schemaSyntaxNode, parent xml.Name) bool {
+	if isXSDName(parent, vocab.XSDElemSchema) {
+		return false
+	}
+	switch start.Name.Local {
+	case vocab.XSDElemGroup, vocab.XSDElemAttributeGroup:
+		return true
+	case vocab.XSDElemElement, vocab.XSDElemAttribute:
+		_, hasRef := start.attr(vocab.XSDAttrRef)
+		return hasRef
+	default:
+		return false
+	}
+}
+
 // schemaAttributeVocabulary classifies an unqualified attribute of an XSD
 // element.
 type schemaAttributeVocabulary uint8
@@ -68,20 +105,25 @@ const (
 	// schemaAttributeLocalOnly is an XSD 1.0 attribute that a top-level
 	// declaration or definition cannot carry.
 	schemaAttributeLocalOnly
+	// schemaAttributeDeclarationOnly is an XSD 1.0 attribute of the element
+	// that a reference cannot carry.
+	schemaAttributeDeclarationOnly
 )
 
 // schemaAttributeVocabularyOf is the single owner of which unqualified XSD 1.0
-// attributes each XSD element admits. XSD 1.1 attributes never reach it; see
-// rejectXSD11Vocabulary. Elements outside the XSD 1.0 vocabulary admit every
-// attribute; compilation rejects them.
-func schemaAttributeVocabularyOf(element, attr string, topLevel bool) schemaAttributeVocabulary {
+// attributes each XSD element admits in each placement. XSD 1.1 attributes
+// never reach it; see rejectXSD11Vocabulary. Elements outside the XSD 1.0
+// vocabulary admit every attribute; compilation rejects them.
+func schemaAttributeVocabularyOf(element, attr string, placement schemaElementPlacement) schemaAttributeVocabulary {
 	switch {
-	case topLevel && topLevelAttributeForbidden(element, attr):
+	case placement == schemaPlacementTopLevel && topLevelAttributeForbidden(element, attr):
 		return schemaAttributeLocalOnly
-	case schemaElementAttributeAllowed(element, attr):
-		return schemaAttributeXSD10
-	default:
+	case !schemaElementAttributeAllowed(element, attr):
 		return schemaAttributeUnknown
+	case placement == schemaPlacementReference && !referenceAttributeAllowed(element, attr):
+		return schemaAttributeDeclarationOnly
+	default:
+		return schemaAttributeXSD10
 	}
 }
 
@@ -97,6 +139,39 @@ func topLevelAttributeForbidden(element, attr string) bool {
 		return attr == vocab.XSDAttrRef || attr == vocab.XSDAttrForm || attr == vocab.XSDAttrMinOccurs || attr == vocab.XSDAttrMaxOccurs
 	default:
 		return false
+	}
+}
+
+func referenceAttributeAllowed(element, attr string) bool {
+	switch element {
+	case vocab.XSDElemElement, vocab.XSDElemGroup:
+		switch attr {
+		case vocab.XSDAttrID, vocab.XSDAttrRef, vocab.XSDAttrMinOccurs, vocab.XSDAttrMaxOccurs:
+			return true
+		}
+	case vocab.XSDElemAttribute:
+		switch attr {
+		case vocab.XSDAttrID, vocab.XSDAttrRef, vocab.XSDAttrUse, vocab.XSDAttrDefault, vocab.XSDAttrFixed:
+			return true
+		}
+	case vocab.XSDElemAttributeGroup:
+		return attr == vocab.XSDAttrID || attr == vocab.XSDAttrRef
+	}
+	return false
+}
+
+// schemaReferenceLabel names a reference element, one of those
+// isSchemaReference admits, in diagnostics.
+func schemaReferenceLabel(element string) string {
+	switch element {
+	case vocab.XSDElemElement:
+		return "element ref"
+	case vocab.XSDElemAttribute:
+		return "attribute ref"
+	case vocab.XSDElemAttributeGroup:
+		return "attributeGroup use"
+	default:
+		return "group"
 	}
 }
 
@@ -242,15 +317,6 @@ func isAttributeAttribute(name string) bool {
 	}
 }
 
-func isElementRefAttribute(name string) bool {
-	switch name {
-	case vocab.XSDAttrID, vocab.XSDAttrRef, vocab.XSDAttrMinOccurs, vocab.XSDAttrMaxOccurs:
-		return true
-	default:
-		return false
-	}
-}
-
 func isAnyParticleAttribute(name string) bool {
 	switch name {
 	case vocab.XSDAttrID, vocab.XSDAttrNamespace, vocab.XSDAttrProcessContents, vocab.XSDAttrMinOccurs, vocab.XSDAttrMaxOccurs:
@@ -299,24 +365,6 @@ func isIdentityXPathAttribute(name string) bool {
 func isNotationAttribute(name string) bool {
 	switch name {
 	case vocab.XSDAttrID, vocab.XSDAttrName, vocab.XSDAttrPublic, vocab.XSDAttrSystem:
-		return true
-	default:
-		return false
-	}
-}
-
-func isAttributeRefAttribute(name string) bool {
-	switch name {
-	case vocab.XSDAttrID, vocab.XSDAttrRef, vocab.XSDAttrUse, vocab.XSDAttrDefault, vocab.XSDAttrFixed:
-		return true
-	default:
-		return false
-	}
-}
-
-func isGroupOccurrenceAttribute(name string) bool {
-	switch name {
-	case vocab.XSDAttrID, vocab.XSDAttrMinOccurs, vocab.XSDAttrMaxOccurs, vocab.XSDAttrRef:
 		return true
 	default:
 		return false

@@ -39,7 +39,6 @@ const (
 
 const (
 	nilErrorString                                = "<nil>"
-	annotationMustBeFirstSuffix                   = " annotation must be first"
 	attributeOutOfOrderSuffix                     = " attribute is out of order"
 	modelGroupOutOfOrderSuffix                    = " model group is out of order"
 	oneAnyAttributeSuffix                         = " can contain at most one anyAttribute"
@@ -60,15 +59,14 @@ type childRule struct {
 	Terminal     bool
 }
 
-// childOrder describes the permitted children of one schema component:
-// optional leading annotations followed by ordered sections of rules.
+// childOrder describes the permitted children of one schema component after
+// its leading annotation, whose placement admitChildContent owns: ordered
+// sections of rules.
 type childOrder struct {
 	// InvalidMsg receives the offending child name already quoted by
 	// diagnostictext.
-	InvalidMsg         func(local string) string
-	AnnotationFirstMsg string
-	Rules              []childRule
-	SingleAnnotation   bool
+	InvalidMsg func(local string) string
+	Rules      []childRule
 }
 
 // childOrderError identifies the child index that violated an order rule.
@@ -111,8 +109,6 @@ func (k contentDerivationKind) String() string {
 }
 
 var simpleTypeChildOrder = childOrder{
-	AnnotationFirstMsg: "simpleType annotation must be first",
-	SingleAnnotation:   true,
 	Rules: []childRule{
 		{
 			Match:  matchChildLocal(restrictionChild, listChild, unionChild),
@@ -141,7 +137,6 @@ var simpleListChildOrder = simpleDerivationOrder(simpleDerivationList)
 var simpleUnionChildOrder = simpleDerivationOrder(simpleDerivationUnion)
 
 var complexTypeChildOrder = childOrder{
-	AnnotationFirstMsg: "complexType" + annotationMustBeFirstSuffix,
 	Rules: []childRule{
 		{
 			Match:    matchChildLocal(simpleContent, complexContent),
@@ -178,7 +173,6 @@ var simpleContentExtensionChildOrder = simpleContentDerivationOrder(extensionChi
 var complexContentRestrictionChildOrder = complexContentDerivationOrder(restrictionChild)
 var complexContentExtensionChildOrder = complexContentDerivationOrder(extensionChild)
 var attributeGroupDeclarationChildOrder = childOrder{
-	AnnotationFirstMsg: "attributeGroup annotation must be first",
 	Rules: []childRule{
 		{
 			Match:    matchChildLocal(attributeChild, attributeGroup),
@@ -195,7 +189,6 @@ var attributeGroupDeclarationChildOrder = childOrder{
 	InvalidMsg: func(local string) string { return "invalid attribute use child " + local },
 }
 var attributeDeclarationChildOrder = childOrder{
-	AnnotationFirstMsg: "attribute annotation must precede simpleType",
 	Rules: []childRule{
 		{
 			Match:  matchChildLocal(simpleTypeChild),
@@ -206,7 +199,6 @@ var attributeDeclarationChildOrder = childOrder{
 	InvalidMsg: func(local string) string { return "invalid attribute child " + local },
 }
 var elementDeclarationChildOrder = childOrder{
-	AnnotationFirstMsg: "element annotation must be first",
 	Rules: []childRule{
 		{
 			Match:    matchChildLocal(simpleTypeChild, complexTypeChild),
@@ -248,19 +240,16 @@ var (
 		},
 	}
 	sequenceModelGroupChildOrder = childOrder{
-		AnnotationFirstMsg: sequenceChild + annotationMustBeFirstSuffix,
-		Rules:              modelGroupChildRules,
-		InvalidMsg:         invalidModelGroupChild,
+		Rules:      modelGroupChildRules,
+		InvalidMsg: invalidModelGroupChild,
 	}
 	choiceModelGroupChildOrder = childOrder{
-		AnnotationFirstMsg: choiceChild + annotationMustBeFirstSuffix,
-		Rules:              modelGroupChildRules,
-		InvalidMsg:         invalidModelGroupChild,
+		Rules:      modelGroupChildRules,
+		InvalidMsg: invalidModelGroupChild,
 	}
 	allModelGroupChildOrder = childOrder{
-		AnnotationFirstMsg: allChild + annotationMustBeFirstSuffix,
-		Rules:              modelGroupChildRules,
-		InvalidMsg:         invalidModelGroupChild,
+		Rules:      modelGroupChildRules,
+		InvalidMsg: invalidModelGroupChild,
 	}
 )
 
@@ -274,9 +263,8 @@ func modelGroupChildOrder(parent string) childOrder {
 		return allModelGroupChildOrder
 	default:
 		return childOrder{
-			AnnotationFirstMsg: parent + annotationMustBeFirstSuffix,
-			Rules:              modelGroupChildRules,
-			InvalidMsg:         invalidModelGroupChild,
+			Rules:      modelGroupChildRules,
+			InvalidMsg: invalidModelGroupChild,
 		}
 	}
 }
@@ -284,11 +272,9 @@ func modelGroupChildOrder(parent string) childOrder {
 func invalidModelGroupChild(local string) string { return "invalid model group child " + local }
 
 type childOrderState struct {
-	seen              uint64
-	annotationSeen    bool
-	nonAnnotationSeen bool
-	terminalSeen      bool
-	maxLevelSeen      int
+	seen         uint64
+	terminalSeen bool
+	maxLevelSeen int
 }
 
 func (s *childOrderState) accept(index int, child string, order childOrder) error {
@@ -296,17 +282,9 @@ func (s *childOrderState) accept(index int, child string, order childOrder) erro
 		return newChildOrderError(index, order.InvalidMsg(diagnostictext.Quote(child)))
 	}
 	if child == annotationChild {
-		return s.acceptAnnotation(index, order)
+		return nil
 	}
 	return s.acceptRule(index, child, order)
-}
-
-func (s *childOrderState) acceptAnnotation(index int, order childOrder) error {
-	if s.nonAnnotationSeen || order.SingleAnnotation && s.annotationSeen {
-		return newChildOrderError(index, order.AnnotationFirstMsg)
-	}
-	s.annotationSeen = true
-	return nil
 }
 
 func (s *childOrderState) acceptRule(index int, child string, order childOrder) error {
@@ -318,7 +296,6 @@ func (s *childOrderState) acceptRule(index int, child string, order childOrder) 
 	if rule.ForbiddenMsg != "" {
 		return newChildOrderError(index, rule.ForbiddenMsg)
 	}
-	s.nonAnnotationSeen = true
 	if s.maxLevelSeen > rule.Level {
 		return newChildOrderError(index, rule.OrderMsg)
 	}
@@ -390,16 +367,13 @@ func simpleDerivationOrder(kind simpleDerivationKind) childOrder {
 		})
 	}
 	return childOrder{
-		AnnotationFirstMsg: derivation + annotationMustBeFirstSuffix,
-		SingleAnnotation:   true,
-		Rules:              rules,
-		InvalidMsg:         func(local string) string { return "invalid " + derivation + " child " + local },
+		Rules:      rules,
+		InvalidMsg: func(local string) string { return "invalid " + derivation + " child " + local },
 	}
 }
 
 func derivationContainerOrder(label string) childOrder {
 	return childOrder{
-		AnnotationFirstMsg: label + annotationMustBeFirstSuffix,
 		Rules: []childRule{
 			{
 				Match:  matchChildLocal(extensionChild, restrictionChild),
@@ -442,8 +416,7 @@ func simpleContentDerivationOrder(derivation string) childOrder {
 		rules[0].ForbiddenMsg = simpleContentExtensionCannotContainSimpleType
 	}
 	return childOrder{
-		AnnotationFirstMsg: derivation + annotationMustBeFirstSuffix,
-		Rules:              rules,
+		Rules: rules,
 		InvalidMsg: func(local string) string {
 			return "invalid simpleContent " + derivation + " child " + local
 		},
@@ -452,7 +425,6 @@ func simpleContentDerivationOrder(derivation string) childOrder {
 
 func complexContentDerivationOrder(derivation string) childOrder {
 	return childOrder{
-		AnnotationFirstMsg: derivation + annotationMustBeFirstSuffix,
 		Rules: []childRule{
 			{
 				Match:    matchChildLocal(sequenceChild, choiceChild, allChild, groupChild),

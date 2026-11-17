@@ -30,9 +30,6 @@ func (c *compiler) compileElementParticleDeclaration(ctx *schemaSetDocument, n *
 	if source == nil || !source.Ref.Lexical.Present {
 		return c.compileLocalElement(ctx, n)
 	}
-	if err := checkElementRefAttributes(n); err != nil {
-		return 0, err
-	}
 	q, err := c.referenceQName(ctx, n, source.Ref.Name)
 	if err != nil {
 		return 0, err

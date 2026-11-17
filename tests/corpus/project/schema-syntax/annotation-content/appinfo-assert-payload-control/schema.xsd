@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:complexType name="T"><xs:annotation><xs:appinfo><xs:assert test="true()"/></xs:appinfo><xs:documentation><xs:override/></xs:documentation></xs:annotation></xs:complexType>
+</xs:schema>

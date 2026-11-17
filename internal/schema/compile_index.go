@@ -152,9 +152,6 @@ func validateModelGroupChild(child *schemaNode, parent modelKind, limits Limits)
 }
 
 func validateModelGroupReference(child *schemaNode) error {
-	if err := checkGroupOccurrenceAttributes(child); err != nil {
-		return err
-	}
 	if err := validateGroupUseSource(semanticSource[*schemaGroupSource](&child.semantic).Ref.Lexical); err != nil {
 		return withSchemaCompileLocation(child, err)
 	}

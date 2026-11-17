@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16763,
-    "schemaCases": 16713,
+    "cases": 16777,
+    "schemaCases": 16727,
     "instanceRuns": 35537,
     "w3cCases": 14414,
-    "internalRuns": 2336,
+    "internalRuns": 2350,
     "xercesJCases": 13
   },
   "cases": [
@@ -889808,6 +889808,760 @@
       "files": [
         {
           "file": "corpus/project/schema-syntax/xsd11-vocabulary/earlier-error-before-vocabulary/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/reference-attributes/element-ref-type-before-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/reference-attributes/element-ref-type-before-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "A local xs:element reference carries type and holds an xs:complexType child. The reference may carry neither, and the attribute on its start tag precedes the child in document order, so the schema is rejected with schema.invalid_attribute."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/reference-attributes/element-ref-type-before-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:76: s4s-att-not-allowed: Attribute 'type' cannot appear in element 'element'. The project expectation follows the schema for schemas, whose element, attribute and group references admit only id, ref and their occurrence or use attributes, with (annotation?) content (src-element.2.2, src-attribute.3.2); the first violation in document order is the forbidden attribute on the start tag, before the forbidden child; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:40: If ref is present, all of <complexType>, <simpleType>, <key>, <keyref>, <unique>, nillable, default, fixed, form, block, and type must be absent. The project expectation follows the schema for schemas, whose element, attribute and group references admit only id, ref and their occurrence or use attributes, with (annotation?) content (src-element.2.2, src-attribute.3.2); the first violation in document order is the forbidden attribute on the start tag, before the forbidden child; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. a reference component cannot have child definitions/declarations: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" ref=\"a\" type=\"xs:string\"><xs:complexType /></xs:element> Path: /xs:schema/xs:complexType/xs:sequence/xs:element Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose element, attribute and group references admit only id, ref and their occurrence or use attributes, with (annotation?) content (src-element.2.2, src-attribute.3.2); the first violation in document order is the forbidden attribute on the start tag, before the forbidden child; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'type': Only the attributes 'minOccurs', 'maxOccurs' and 'id' are allowed in addition to 'ref'. The project expectation follows the schema for schemas, whose element, attribute and group references admit only id, ref and their occurrence or use attributes, with (annotation?) content (src-element.2.2, src-attribute.3.2); the first violation in document order is the forbidden attribute on the start tag, before the forbidden child; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/reference-attributes/element-ref-type-before-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/reference-attributes/attribute-ref-type-before-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/reference-attributes/attribute-ref-type-before-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "A local xs:attribute reference carries type and holds an xs:simpleType child. The reference may carry neither, and the attribute on its start tag precedes the child in document order, so the schema is rejected with schema.invalid_attribute."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/reference-attributes/attribute-ref-type-before-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:65: s4s-att-not-allowed: Attribute 'type' cannot appear in element 'attribute'. The project expectation follows the schema for schemas, whose element, attribute and group references admit only id, ref and their occurrence or use attributes, with (annotation?) content (src-element.2.2, src-attribute.3.2); the first violation in document order is the forbidden attribute on the start tag, before the forbidden child; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:27: If ref is present, all of 'simpleType', 'form', 'type', and 'use' must be absent. The project expectation follows the schema for schemas, whose element, attribute and group references admit only id, ref and their occurrence or use attributes, with (annotation?) content (src-element.2.2, src-attribute.3.2); the first violation in document order is the forbidden attribute on the start tag, before the forbidden child; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. a reference component cannot have child definitions/declarations: Schema component: <xs:attribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" ref=\"a\" type=\"xs:string\"><xs:simpleType><xs:restriction base=\"xs:string\" /></xs:simpleType></xs:attribute> Path: /xs:schema/xs:complexType/xs:attribute Schema The project expectation follows the schema for schemas, whose element, attribute and group references admit only id, ref and their occurrence or use attributes, with (annotation?) content (src-element.2.2, src-attribute.3.2); the first violation in document order is the forbidden attribute on the start tag, before the forbidden child; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element attribute: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}attribute': The attribute 'type' is not allowed. The project expectation follows the schema for schemas, whose element, attribute and group references admit only id, ref and their occurrence or use attributes, with (annotation?) content (src-element.2.2, src-attribute.3.2); the first violation in document order is the forbidden attribute on the start tag, before the forbidden child; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/reference-attributes/attribute-ref-type-before-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/reference-attributes/group-ref-name-before-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/reference-attributes/group-ref-name-before-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "A nested xs:group reference carries name and holds an xs:sequence child. The reference may carry neither, and the attribute on its start tag precedes the child in document order, so the schema is rejected with schema.invalid_attribute."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/reference-attributes/group-ref-name-before-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:66: s4s-att-not-allowed: Attribute 'name' cannot appear in element 'group'. The project expectation follows the schema for schemas, whose element, attribute and group references admit only id, ref and their occurrence or use attributes, with (annotation?) content (src-element.2.2, src-attribute.3.2); the first violation in document order is the forbidden attribute on the start tag, before the forbidden child; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:57: The 'name' attribute is not supported in this context. The project expectation follows the schema for schemas, whose element, attribute and group references admit only id, ref and their occurrence or use attributes, with (annotation?) content (src-element.2.2, src-attribute.3.2); the first violation in document order is the forbidden attribute on the start tag, before the forbidden child; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. use of attribute 'name' is prohibited: Schema component: <xs:group xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" ref=\"g\" name=\"x\"><xs:sequence /></xs:group> Path: /xs:schema/xs:complexType/xs:sequence/xs:group Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose element, attribute and group references admit only id, ref and their occurrence or use attributes, with (annotation?) content (src-element.2.2, src-attribute.3.2); the first violation in document order is the forbidden attribute on the start tag, before the forbidden child; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element group: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}group': The attribute 'name' is not allowed. The project expectation follows the schema for schemas, whose element, attribute and group references admit only id, ref and their occurrence or use attributes, with (annotation?) content (src-element.2.2, src-attribute.3.2); the first violation in document order is the forbidden attribute on the start tag, before the forbidden child; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-group"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/reference-attributes/group-ref-name-before-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/reference-attributes/element-ref-nillable-before-annotations",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/reference-attributes/element-ref-nillable-before-annotations",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "A local xs:element reference carries nillable and holds two annotations. The attribute on its start tag precedes the second annotation in document order, so the schema is rejected with schema.invalid_attribute."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/reference-attributes/element-ref-nillable-before-annotations/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:75: s4s-att-not-allowed: Attribute 'nillable' cannot appear in element 'element'. The project expectation follows the schema for schemas, whose element, attribute and group references admit only id, ref and their occurrence or use attributes, with (annotation?) content (src-element.2.2, src-attribute.3.2); the first violation in document order is the forbidden attribute on the start tag, before the forbidden child; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:92: The 'annotation' element cannot appear at this location. The project expectation follows the schema for schemas, whose element, attribute and group references admit only id, ref and their occurrence or use attributes, with (annotation?) content (src-element.2.2, src-attribute.3.2); the first violation in document order is the forbidden attribute on the start tag, before the forbidden child; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:annotation' at position 2: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" ref=\"a\" nillable=\"true\"><xs:annotation /><xs:annotation /></xs:element> Path: /xs:schema/xs:complexType/xs:sequence/xs:element Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose element, attribute and group references admit only id, ref and their occurrence or use attributes, with (annotation?) content (src-element.2.2, src-attribute.3.2); the first violation in document order is the forbidden attribute on the start tag, before the forbidden child; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'nillable': Only the attributes 'minOccurs', 'maxOccurs' and 'id' are allowed in addition to 'ref'. The project expectation follows the schema for schemas, whose element, attribute and group references admit only id, ref and their occurrence or use attributes, with (annotation?) content (src-element.2.2, src-attribute.3.2); the first violation in document order is the forbidden attribute on the start tag, before the forbidden child; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/reference-attributes/element-ref-nillable-before-annotations/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/reference-attributes/annotated-references-control",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/reference-attributes/annotated-references-control",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "Element, group and attribute references carrying only id, ref and their occurrence or use and default attributes, each with one annotation, are accepted."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/reference-attributes/annotated-references-control/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, whose element, attribute and group references admit only id, ref and their occurrence or use attributes, with (annotation?) content (src-element.2.2, src-attribute.3.2); the first violation in document order is the forbidden attribute on the start tag, before the forbidden child; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, whose element, attribute and group references admit only id, ref and their occurrence or use attributes, with (annotation?) content (src-element.2.2, src-attribute.3.2); the first violation in document order is the forbidden attribute on the start tag, before the forbidden child; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, whose element, attribute and group references admit only id, ref and their occurrence or use attributes, with (annotation?) content (src-element.2.2, src-attribute.3.2); the first violation in document order is the forbidden attribute on the start tag, before the forbidden child; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, whose element, attribute and group references admit only id, ref and their occurrence or use attributes, with (annotation?) content (src-element.2.2, src-attribute.3.2); the first violation in document order is the forbidden attribute on the start tag, before the forbidden child; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/reference-attributes/annotated-references-control/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/annotation-content/misplaced-appinfo-assert",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/annotation-content/misplaced-appinfo-assert",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+        ],
+        "conditions": [
+          "An xs:appinfo is a direct child of xs:complexType and contains xs:assert. The misplaced xs:appinfo is rejected as schema.content_model; its content is not schema grammar, so the XSD 1.1 xs:assert inside it is not reported."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/annotation-content/misplaced-appinfo-assert/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:38: s4s-elt-invalid-content.1: The content of 'T' is invalid. Element 'appinfo' is invalid, misplaced, or occurs too often. The project expectation follows the schema for schemas, which admits xs:appinfo and xs:documentation only as children of xs:annotation; their content is never schema grammar, so XSD 1.1 vocabulary inside it is not reported; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:27: The 'http://www.w3.org/2001/XMLSchema:appinfo' element is not supported in this context. The project expectation follows the schema for schemas, which admits xs:appinfo and xs:documentation only as children of xs:annotation; their content is never schema grammar, so XSD 1.1 vocabulary inside it is not reported; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:appinfo' at position 1: Schema component: <xs:complexType xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"T\"><xs:appinfo><xs:assert test=\"true()\" /></xs:appinfo></xs:complexType> Path: /xs:schema/xs:complexType Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, which admits xs:appinfo and xs:documentation only as children of xs:annotation; their content is never schema grammar, so XSD 1.1 vocabulary inside it is not reported; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element appinfo: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}complexType': The content is not valid. Expected is (annotation?, (simpleContent | complexContent | ((group | all | choice | sequence)?, ((attribute | attributeGroup)*, anyAttribute?)))). The project expectation follows the schema for schemas, which admits xs:appinfo and xs:documentation only as children of xs:annotation; their content is never schema grammar, so XSD 1.1 vocabulary inside it is not reported; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/annotation-content/misplaced-appinfo-assert/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/annotation-content/misplaced-top-level-documentation-override",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/annotation-content/misplaced-top-level-documentation-override",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+        ],
+        "conditions": [
+          "An xs:documentation is a direct child of xs:schema and contains xs:override. The misplaced xs:documentation is rejected as schema.content_model; its content is not schema grammar, so the XSD 1.1 xs:override inside it is not reported."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/annotation-content/misplaced-top-level-documentation-override/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:19: s4s-elt-invalid-content.1: The content of 'schema' is invalid. Element 'documentation' is invalid, misplaced, or occurs too often. The project expectation follows the schema for schemas, which admits xs:appinfo and xs:documentation only as children of xs:annotation; their content is never schema grammar, so XSD 1.1 vocabulary inside it is not reported; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:2: The 'http://www.w3.org/2001/XMLSchema:documentation' element is not supported in this context. The project expectation follows the schema for schemas, which admits xs:appinfo and xs:documentation only as children of xs:annotation; their content is never schema grammar, so XSD 1.1 vocabulary inside it is not reported; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Unexpected child with tag 'xs:documentation' at position 1: Schema component: <xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"> <xs:documentation><xs:override schemaLocation=\"absent.xsd\" /></xs:documentation> <xs:element name=\"r\" /> </xs:schema> Path: /xs:schema Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, which admits xs:appinfo and xs:documentation only as children of xs:annotation; their content is never schema grammar, so XSD 1.1 vocabulary inside it is not reported; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element documentation: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}schema': The content is not valid. Expected is ((include | import | redefine | annotation)*, (((simpleType | complexType | group | attributeGroup) | element | attribute | notation), annotation*)*). The project expectation follows the schema for schemas, which admits xs:appinfo and xs:documentation only as children of xs:annotation; their content is never schema grammar, so XSD 1.1 vocabulary inside it is not reported; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/annotation-content/misplaced-top-level-documentation-override/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/annotation-content/appinfo-assert-payload-control",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/annotation-content/appinfo-assert-payload-control",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-annotation"
+        ],
+        "conditions": [
+          "An xs:annotation of xs:complexType holds xs:appinfo containing xs:assert and xs:documentation containing xs:override. Their content is not schema grammar, so the schema is accepted."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/annotation-content/appinfo-assert-payload-control/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, which admits xs:appinfo and xs:documentation only as children of xs:annotation; their content is never schema grammar, so XSD 1.1 vocabulary inside it is not reported; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, which admits xs:appinfo and xs:documentation only as children of xs:annotation; their content is never schema grammar, so XSD 1.1 vocabulary inside it is not reported; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, which admits xs:appinfo and xs:documentation only as children of xs:annotation; their content is never schema grammar, so XSD 1.1 vocabulary inside it is not reported; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, which admits xs:appinfo and xs:documentation only as children of xs:annotation; their content is never schema grammar, so XSD 1.1 vocabulary inside it is not reported; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/annotation-content/appinfo-assert-payload-control/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/root-element-target-namespace",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/root-element-target-namespace",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "The document element is xs:element carrying targetNamespace, an XSD 1.1 attribute of xs:element. The document element is not xs:schema, so the document is rejected as schema.root rather than unsupported.xsd_1_1."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/root-element-target-namespace/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.root",
+        "oracle": {
+          "xerces": {
+            "status": "unassessed",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: error. java.lang.NullPointerException: Cannot invoke \"org.apache.xerces.impl.xs.util.XInt.intValue()\" because \"this.fSchemaAttrs[org.apache.xerces.impl.xs.traversers.XSAttributeChecker.ATTIDX_AFORMDEFAULT]\" is null"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:1:2: The root element of a W3C XML Schema should be <schema> and its namespace should be 'http://www.w3.org/2001/XMLSchema'. The project expectation follows the schema for schemas, whose schema documents have xs:schema as document element; a root of any other name is rejected as schema.root before its attributes or name are judged as XSD 1.1 vocabulary; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-schema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'targetNamespace' not allowed: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"e\" targetNamespace=\"urn:x\" /> Path: /xs:element Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose schema documents have xs:schema as document element; a root of any other name is rejected as schema.root before its attributes or name are judged as XSD 1.1 vocabulary; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-schema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. Schemas parser error : The XML document 'schema.xsd' is not a schema document. The project expectation follows the schema for schemas, whose schema documents have xs:schema as document element; a root of any other name is rejected as schema.root before its attributes or name are judged as XSD 1.1 vocabulary; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-schema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/root-element-target-namespace/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xsd11-vocabulary/root-assert",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xsd11-vocabulary/root-assert",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ],
+        "conditions": [
+          "The document element is xs:assert, an XSD 1.1 element. The document element is not xs:schema, so the document is rejected as schema.root rather than unsupported.xsd_1_1."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xsd11-vocabulary/root-assert/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.root",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:1:71: s4s-elt-invalid: Element 'assert' is not a valid element in a schema document. The project expectation follows the schema for schemas, whose schema documents have xs:schema as document element; a root of any other name is rejected as schema.root before its attributes or name are judged as XSD 1.1 vocabulary; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-schema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:1:2: The root element of a W3C XML Schema should be <schema> and its namespace should be 'http://www.w3.org/2001/XMLSchema'. The project expectation follows the schema for schemas, whose schema documents have xs:schema as document element; a root of any other name is rejected as schema.root before its attributes or name are judged as XSD 1.1 vocabulary; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-schema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. '{http://www.w3.org/2001/XMLSchema}assert' is not an element of the schema: Schema component: <xs:assert xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" test=\"true()\" /> Path: /xs:assert Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose schema documents have xs:schema as document element; a root of any other name is rejected as schema.root before its attributes or name are judged as XSD 1.1 vocabulary; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-schema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. Schemas parser error : The XML document 'schema.xsd' is not a schema document. The project expectation follows the schema for schemas, whose schema documents have xs:schema as document element; a root of any other name is rejected as schema.root before its attributes or name are judged as XSD 1.1 vocabulary; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-schema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xsd11-vocabulary/root-assert/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/annotation-content/second-annotation-before-attribute-error",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/annotation-content/second-annotation-before-attribute-error",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType"
+        ],
+        "conditions": [
+          "An xs:complexType holds two annotations followed by an xs:attribute with the unknown attribute foo. The second annotation precedes the attribute error in document order, so the schema is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/annotation-content/second-annotation-before-attribute-error/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:58: s4s-elt-invalid-content.1: The content of 'T' is invalid. Element 'annotation' is invalid, misplaced, or occurs too often. The project expectation follows the schema for schemas, in which every component other than xs:schema has (annotation?) as the first item of its content; the second or late annotation precedes later violations in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:43: The 'annotation' element cannot appear at this location. The project expectation follows the schema for schemas, in which every component other than xs:schema has (annotation?) as the first item of its content; the second or late annotation precedes later violations in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'foo' not allowed: Schema component: <xs:attribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"a\" foo=\"1\" /> Path: /xs:schema/xs:complexType/xs:attribute Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, in which every component other than xs:schema has (annotation?) as the first item of its content; the second or late annotation precedes later violations in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element annotation: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}complexType': The content is not valid. Expected is (annotation?, (simpleContent | complexContent | ((group | all | choice | sequence)?, ((attribute | attributeGroup)*, anyAttribute?)))). The project expectation follows the schema for schemas, in which every component other than xs:schema has (annotation?) as the first item of its content; the second or late annotation precedes later violations in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/annotation-content/second-annotation-before-attribute-error/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/annotation-content/late-annotation-before-attribute-error",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/annotation-content/late-annotation-before-attribute-error",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-complexType"
+        ],
+        "conditions": [
+          "An xs:complexType holds an annotation after its model group, followed by an xs:attribute with the unknown attribute foo. The late annotation precedes the attribute error in document order, so the schema is rejected with schema.content_model."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/annotation-content/late-annotation-before-attribute-error/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.content_model",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:56: s4s-elt-invalid-content.1: The content of 'T' is invalid. Element 'annotation' is invalid, misplaced, or occurs too often. The project expectation follows the schema for schemas, in which every component other than xs:schema has (annotation?) as the first item of its content; the second or late annotation precedes later violations in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:41: The 'annotation' element cannot appear at this location. The project expectation follows the schema for schemas, in which every component other than xs:schema has (annotation?) as the first item of its content; the second or late annotation precedes later violations in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute 'foo' not allowed: Schema component: <xs:attribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"a\" foo=\"1\" /> Path: /xs:schema/xs:complexType/xs:attribute Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, in which every component other than xs:schema has (annotation?) as the first item of its content; the second or late annotation precedes later violations in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element annotation: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}complexType': The content is not valid. Expected is (annotation?, (simpleContent | complexContent | ((group | all | choice | sequence)?, ((attribute | attributeGroup)*, anyAttribute?)))). The project expectation follows the schema for schemas, in which every component other than xs:schema has (annotation?) as the first item of its content; the second or late annotation precedes later violations in document order; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/annotation-content/late-annotation-before-attribute-error/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/reference-attributes/element-ref-type-before-unbound-ref-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/reference-attributes/element-ref-type-before-unbound-ref-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+        ],
+        "conditions": [
+          "A local xs:element reference carries type, which a reference may not carry, and its ref uses the undeclared prefix r. The forbidden attribute is reported first, with schema.invalid_attribute, rather than the unresolved reference."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/reference-attributes/element-ref-type-before-unbound-ref-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:79: s4s-att-not-allowed: Attribute 'type' cannot appear in element 'element'. The project expectation follows the schema for schemas, whose element and attribute references admit only id, ref and their occurrence or use attributes (src-element.2.2, src-attribute.3.2); the forbidden attribute is a property of the start tag, judged before any QName on it is resolved; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:68: 'r:R' is an invalid value for the 'ref' attribute. The project expectation follows the schema for schemas, whose element and attribute references admit only id, ref and their occurrence or use attributes (src-element.2.2, src-attribute.3.2); the forbidden attribute is a property of the start tag, judged before any QName on it is resolved; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. prefix 'r' not found in namespace map: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" type=\"xs:string\" ref=\"r:R\" /> Path: /xs:schema/xs:complexType/xs:sequence/xs:element Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose element and attribute references admit only id, ref and their occurrence or use attributes (src-element.2.2, src-attribute.3.2); the forbidden attribute is a property of the start tag, judged before any QName on it is resolved; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'ref': The value 'r:R' of simple type 'xs:QName' has no corresponding namespace declaration in scope. The project expectation follows the schema for schemas, whose element and attribute references admit only id, ref and their occurrence or use attributes (src-element.2.2, src-attribute.3.2); the forbidden attribute is a property of the start tag, judged before any QName on it is resolved; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/reference-attributes/element-ref-type-before-unbound-ref-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/reference-attributes/attribute-ref-type-before-unbound-ref-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/reference-attributes/attribute-ref-type-before-unbound-ref-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+        ],
+        "conditions": [
+          "A local xs:attribute reference carries type, which a reference may not carry, and its ref uses the undeclared prefix r. The forbidden attribute is reported first, with schema.invalid_attribute, rather than the unresolved reference."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/reference-attributes/attribute-ref-type-before-unbound-ref-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:68: s4s-att-not-allowed: Attribute 'type' cannot appear in element 'attribute'. The project expectation follows the schema for schemas, whose element and attribute references admit only id, ref and their occurrence or use attributes (src-element.2.2, src-attribute.3.2); the forbidden attribute is a property of the start tag, judged before any QName on it is resolved; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:57: 'r:R' is an invalid value for the 'ref' attribute. The project expectation follows the schema for schemas, whose element and attribute references admit only id, ref and their occurrence or use attributes (src-element.2.2, src-attribute.3.2); the forbidden attribute is a property of the start tag, judged before any QName on it is resolved; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. prefix 'r' not found in namespace map: Schema component: <xs:attribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" type=\"xs:string\" ref=\"r:R\" /> Path: /xs:schema/xs:complexType/xs:attribute Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, whose element and attribute references admit only id, ref and their occurrence or use attributes (src-element.2.2, src-attribute.3.2); the forbidden attribute is a property of the start tag, judged before any QName on it is resolved; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element attribute: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}attribute', attribute 'ref': The value 'r:R' of simple type 'xs:QName' has no corresponding namespace declaration in scope. The project expectation follows the schema for schemas, whose element and attribute references admit only id, ref and their occurrence or use attributes (src-element.2.2, src-attribute.3.2); the forbidden attribute is a property of the start tag, judged before any QName on it is resolved; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/reference-attributes/attribute-ref-type-before-unbound-ref-prefix/schema.xsd",
           "role": "principal"
         }
       ]

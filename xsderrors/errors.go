@@ -66,7 +66,8 @@ const (
 	// XSD-namespace element, that the XSD 1.1 schema for schemas adds over
 	// XSD 1.0. It is reported wherever the name appears and whatever its value,
 	// so it does not mean the use is valid XSD 1.1. Content of xs:appinfo and
-	// xs:documentation is never inspected. XSD 1.1 relaxations of XSD 1.0
+	// xs:documentation is never inspected, and a root element other than
+	// xs:schema is CodeSchemaRoot whatever it carries. XSD 1.1 relaxations of XSD 1.0
 	// constraints and references to XSD 1.1 built-in types keep their XSD 1.0
 	// schema diagnostics.
 	CodeUnsupportedXSD11 Code = "unsupported.xsd_1_1"

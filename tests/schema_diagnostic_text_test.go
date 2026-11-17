@@ -136,6 +136,7 @@ func f(n node) error { q := diagnostictext.Quote(n.name); return wrap("bad " + q
 var schemaDiagnosticLabelFuncs = map[string]bool{
 	"formatName": true, "label": true, "Label": true,
 	"cycleLabel": true, "missingLabel": true, "facetLabel": true,
+	"schemaReferenceLabel": true,
 }
 
 // schemaDiagnosticFields are struct fields populated from vocabulary constants

@@ -6,7 +6,6 @@ package schema
 
 import (
 	"errors"
-	"math/bits"
 
 	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/xsderrors"
@@ -80,31 +79,6 @@ func checkComplexContentExtensionChildren(n *schemaNode) error {
 	return checkOrderedXSDChildren(n, complexContentExtensionChildOrder)
 }
 
-func checkElementRefAttributes(n *schemaNode) error {
-	return checkAllowedTypedAttributes(n, "element ref", isElementRefAttribute)
-}
-
-func checkAttributeRefSource(n *schemaNode) error {
-	return checkAllowedTypedAttributes(n, "attribute ref", isAttributeRefAttribute)
-}
-
-func checkGroupOccurrenceAttributes(n *schemaNode) error {
-	return checkAllowedTypedAttributes(n, "group", isGroupOccurrenceAttribute)
-}
-
-func checkAllowedTypedAttributes(n *schemaNode, label string, allowed func(string) bool) error {
-	mask := n.attributeMask
-	for mask != 0 {
-		index := bits.TrailingZeros64(mask)
-		local := typedAttributeNames[index]
-		if !allowed(local) {
-			return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, label+" cannot have attribute "+diagnostictext.Quote(local))
-		}
-		mask &^= uint64(1) << index
-	}
-	return nil
-}
-
 func checkLocalElementAttributes(n *schemaNode) error {
 	source := semanticSource[*schemaElementSource](&n.semantic)
 	if source.Abstract.Present {
@@ -164,20 +138,11 @@ func checkAttributeGroupDeclarationChildren(n *schemaNode) error {
 	return checkOrderedXSDChildren(n, attributeGroupDeclarationChildOrder)
 }
 
-//nolint:gocognit // Child grammar must complete before occurrence checks, with each failure attached to its source node.
 func checkTopLevelGroupChildren(n *schemaNode) (*schemaNode, error) {
 	var model *schemaNode
-	seenAnnotation := false
 	for child := range n.xsdChildren() {
 		switch child.local {
 		case annotationChild:
-			if seenAnnotation {
-				return nil, schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "top-level group can contain at most one annotation")
-			}
-			if model != nil {
-				return nil, schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "top-level group annotation must be first")
-			}
-			seenAnnotation = true
 		case sequenceChild, choiceChild, allChild:
 			if model != nil {
 				return nil, schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "top-level group must contain exactly one model group")

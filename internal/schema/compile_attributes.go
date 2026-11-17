@@ -550,9 +550,6 @@ func (c *compiler) compileAttributeUseBase(ctx *schemaSetDocument, n *schemaNode
 }
 
 func (c *compiler) compileAttributeRefUse(ctx *schemaSetDocument, n *schemaNode, ref xml.Name) (attributeUseBase, error) {
-	if err := checkAttributeRefSource(n); err != nil {
-		return attributeUseBase{}, err
-	}
 	q, err := c.referenceQName(ctx, n, ref)
 	if err != nil {
 		return attributeUseBase{}, err
@@ -613,9 +610,6 @@ func (c *compiler) localAttributeUseName(ctx *schemaSetDocument, n *schemaNode) 
 func (c *compiler) admitAttributeProhibition(ctx *schemaSetDocument, n *schemaNode) (result QName, err error) {
 	source := semanticSource[*schemaAttributeSource](&n.semantic)
 	if source.Ref.Lexical.Present {
-		if err = checkAttributeRefSource(n); err != nil {
-			return QName{}, err
-		}
 		if err = c.spendComponentDependency(n); err != nil {
 			return QName{}, err
 		}
