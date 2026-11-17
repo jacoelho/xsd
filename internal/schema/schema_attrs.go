@@ -20,7 +20,8 @@ const (
 	schemaPlacementReference
 	// schemaPlacementLocal is an xs:element or xs:attribute declaration, or
 	// an xs:complexType or xs:simpleType definition, that is neither
-	// top-level nor a reference.
+	// top-level nor a reference. Whether its parent admits it there is the
+	// parent's content model; see schemaElementPlacementOf.
 	schemaPlacementLocal
 	// schemaPlacementNamedGroupModel is the model group of a top-level
 	// xs:group. A nested xs:group is a reference, whose model group child
@@ -34,8 +35,11 @@ const (
 // schemaElementPlacementOf returns the placement of n, an XSD element whose
 // parent is named parent. It classifies each start tag once; its content
 // (childContentFor) and its attributes (admitXSDChildStart) both read the
-// result. xs:redefine is rejected at its own start, so no child of it is
-// classified.
+// result. The placement says nothing about whether parent admits n:
+// admitChildContent rejects a misplaced element before its attributes are
+// read, so the content model of each parent stays the single owner of where a
+// component may appear. xs:redefine is rejected at its own start, so no child
+// of it is classified.
 func schemaElementPlacementOf(n *schemaSyntaxNode, parent xml.Name) schemaElementPlacement {
 	switch {
 	case isXSDName(parent, vocab.XSDElemSchema):
@@ -45,9 +49,7 @@ func schemaElementPlacementOf(n *schemaSyntaxNode, parent xml.Name) schemaElemen
 	}
 	switch n.Name.Local {
 	case vocab.XSDElemElement, vocab.XSDElemAttribute, vocab.XSDElemComplexType, vocab.XSDElemSimpleType:
-		if localComponentParent(n.Name.Local, parent) {
-			return schemaPlacementLocal
-		}
+		return schemaPlacementLocal
 	case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll:
 		if isXSDName(parent, vocab.XSDElemGroup) {
 			return schemaPlacementNamedGroupModel
@@ -58,35 +60,6 @@ func schemaElementPlacementOf(n *schemaSyntaxNode, parent xml.Name) schemaElemen
 		}
 	}
 	return schemaPlacementOther
-}
-
-// localComponentParent reports whether the schema for schemas admits a local
-// declaration or definition named local under parent. A component under any
-// other parent is misplaced, and its parent's content model reports it.
-func localComponentParent(local string, parent xml.Name) bool {
-	if parent.Space != vocab.XSDNamespaceURI {
-		return false
-	}
-	switch local {
-	case vocab.XSDElemElement:
-		switch parent.Local {
-		case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll:
-			return true
-		}
-	case vocab.XSDElemAttribute:
-		switch parent.Local {
-		case vocab.XSDElemComplexType, vocab.XSDElemRestriction, vocab.XSDElemExtension, vocab.XSDElemAttributeGroup:
-			return true
-		}
-	case vocab.XSDElemComplexType:
-		return parent.Local == vocab.XSDElemElement
-	case vocab.XSDElemSimpleType:
-		switch parent.Local {
-		case vocab.XSDElemElement, vocab.XSDElemAttribute, vocab.XSDElemRestriction, vocab.XSDElemList, vocab.XSDElemUnion:
-			return true
-		}
-	}
-	return false
 }
 
 // isSchemaReference reports whether start, an XSD element that is not a

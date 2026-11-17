@@ -124,6 +124,16 @@ func TestLocalForbiddenAttributeWinsOverLaterErrors(t *testing.T) {
       <xs:complexType name="T"/>
     </xs:sequence>
   </xs:complexType>`},
+		placementAttributeCase{name: "misplaced named simpleType reports its parent's content model", wantCode: xsderrors.CodeSchemaContentModel, wantMsg: `invalid model group child "simpleType"`, wantLine: 4, wantCol: 7,
+			body: inSequence(`<xs:simpleType name="T" final="#all"/>`)},
+		placementAttributeCase{name: "misplaced nameless attribute reports its parent's content model", wantCode: xsderrors.CodeSchemaContentModel, wantMsg: `invalid model group child "attribute"`, wantLine: 4, wantCol: 7,
+			body: inSequence(`<xs:attribute/>`)},
+		placementAttributeCase{name: "misplaced abstract element reports its parent's content model", wantCode: xsderrors.CodeSchemaContentModel, wantMsg: `invalid complexType child "element"`, wantLine: 3, wantCol: 5,
+			body: inComplexType(`<xs:element abstract="true" substitutionGroup="H"/>`)},
+		placementAttributeCase{name: "misplaced named complexType in an attribute reports its parent's content model", wantCode: xsderrors.CodeSchemaContentModel, wantMsg: `invalid attribute child "complexType"`, wantLine: 3, wantCol: 5,
+			body: inTopLevel("attribute", `<xs:complexType name="T" abstract="true"/>`)},
+		placementAttributeCase{name: "misplaced final simpleType in a complex type reports its parent's content model", wantCode: xsderrors.CodeSchemaContentModel, wantMsg: `invalid complexType child "simpleType"`, wantLine: 3, wantCol: 5,
+			body: inComplexType(`<xs:simpleType final="#all"/>`)},
 		placementAttributeCase{name: "local declarations and definitions accept their attributes", body: `  <xs:element name="H" abstract="true"/>
   <xs:complexType name="C">
     <xs:sequence>
