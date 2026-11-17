@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16756,
-    "schemaCases": 16706,
-    "instanceRuns": 35531,
+    "cases": 16760,
+    "schemaCases": 16710,
+    "instanceRuns": 35537,
     "w3cCases": 14414,
-    "internalRuns": 2329,
+    "internalRuns": 2333,
     "xercesJCases": 13
   },
   "cases": [
@@ -889266,6 +889266,398 @@
       "files": [
         {
           "file": "corpus/project/schema-syntax/xsd11-vocabulary/attribute-inheritable-not-boolean/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/exclusive-equal-maxExclusive-time-same-spelling",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-time-same-spelling",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#time"
+        ],
+        "conditions": [
+          "The derived maxExclusive restates the base maxExclusive 23:00:00-02:00 with the same spelling, whose UTC time falls on the next day."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-time-same-spelling/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the maxExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the maxExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the maxExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxExclusive': [facet 'maxExclusive'] The value '23:00:00-02:00' must be less than '23:00:00-02:00'. libxml2 2.9.13 rejects the same-spelling restatement as it rejects those in exclusive-equal-maxExclusive-plain and exclusive-equal-minExclusive-plain, having no equality allowance for exclusive bounds. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the maxExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "before",
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-time-same-spelling/before.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the maxExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the maxExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the maxExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            }
+          }
+        },
+        {
+          "testName": "equal",
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-time-same-spelling/equal.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. equal.xml:1:22: cvc-maxExclusive-valid: Value '23:00:00-02:00' is not facet-valid with respect to maxExclusive '01:00:00Z' for type 'D'. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the maxExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. equal.xml:1:20: The 'r' element is invalid - The value '23:00:00-02:00' is invalid according to its datatype 'D' - The MaxExclusive constraint failed. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the maxExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: value has to be lesser than Time(23, 0, 0, tzinfo=Timezone(datetime.timedelta(days=-1, seconds=79200))) (path /r) The project expectation follows the time order, which compares timezoned values as recurring times of day, and the maxExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-time-same-spelling/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-time-same-spelling/before.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-time-same-spelling/equal.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/exclusive-equal-maxExclusive-time-earlier-day",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-time-earlier-day",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#time"
+        ],
+        "conditions": [
+          "01:00:00Z equals the base maxExclusive 23:00:00-02:00 as a recurring time of day and lies a day earlier in the day-preserving derivation order, so it restates the facet and restricts the base."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-time-earlier-day/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the maxExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the maxExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the maxExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the maxExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "before",
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-time-earlier-day/before.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the maxExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the maxExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the maxExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the maxExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            }
+          }
+        },
+        {
+          "testName": "equal",
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-time-earlier-day/equal.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. equal.xml:1:22: cvc-maxExclusive-valid: Value '23:00:00-02:00' is not facet-valid with respect to maxExclusive '01:00:00Z' for type 'D'. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the maxExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. equal.xml:1:20: The 'r' element is invalid - The value '23:00:00-02:00' is invalid according to its datatype 'D' - The MaxExclusive constraint failed. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the maxExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: value has to be lesser than Time(23, 0, 0, tzinfo=Timezone(datetime.timedelta(days=-1, seconds=79200))) (path /r) The project expectation follows the time order, which compares timezoned values as recurring times of day, and the maxExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "libxml2": {
+              "expected": "invalid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance rejected. equal.xml:1: element r: Schemas validity error : Element 'r': [facet 'maxExclusive'] The value '23:00:00-02:00' must be less than '01:00:00Z'. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the maxExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-time-earlier-day/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-time-earlier-day/before.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-time-earlier-day/equal.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/exclusive-equal-minExclusive-time-later-day",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/exclusive-equal-minExclusive-time-later-day",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#time"
+        ],
+        "conditions": [
+          "23:00:00Z equals the base minExclusive 01:00:00+02:00 as a recurring time of day and lies a day later in the day-preserving derivation order, so it restates the facet and restricts the base."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/exclusive-equal-minExclusive-time-later-day/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the minExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the minExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the minExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element minExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}minExclusive': [facet 'minExclusive'] The value '23:00:00Z' must be greater than '01:00:00+02:00'. libxml2 2.9.13 accepts the control minExclusive 23:00:01Z on the same base, so it rejects only the value equal to the base facet, consistent with its missing equality allowance for exclusive bounds (exclusive-equal-maxExclusive-plain, exclusive-equal-minExclusive-plain). The project expectation follows the time order, which compares timezoned values as recurring times of day, and the minExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "after",
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-minExclusive-time-later-day/after.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the minExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the minExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the minExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+            }
+          }
+        },
+        {
+          "testName": "equal",
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-minExclusive-time-later-day/equal.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. equal.xml:1:22: cvc-minExclusive-valid: Value '01:00:00+02:00' is not facet-valid with respect to minExclusive '23:00:00Z' for type 'D'. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the minExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. equal.xml:1:20: The 'r' element is invalid - The value '01:00:00+02:00' is invalid according to its datatype 'D' - The MinExclusive constraint failed. The project expectation follows the time order, which compares timezoned values as recurring times of day, and the minExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: value has to be greater than Time(1, 0, 0, tzinfo=Timezone(datetime.timedelta(seconds=7200))) (path /r) The project expectation follows the time order, which compares timezoned values as recurring times of day, and the minExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-minExclusive-time-later-day/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-minExclusive-time-later-day/after.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-minExclusive-time-later-day/equal.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/exclusive-equal-maxExclusive-time-later-day",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-time-later-day",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#time"
+        ],
+        "conditions": [
+          "23:00:00Z equals the base maxExclusive 00:00:00+01:00 as a recurring time of day, so it is admitted as a restatement, but it lies a day later in the day-preserving derivation order and so loosens the base."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-time-later-day/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet",
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxExclusive valid-restriction constraint under the day-preserving time derivation order that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), after the restatement equals the base facet as a recurring time of day; this observation is not a majority-vote oracle. On the same base Xerces-J also accepts the control maxExclusive 22:59:59Z, which .NET and xmlschema reject, and rejects 23:00:01Z as not facet-valid with respect to maxExclusive '23:00:00Z', so it orders time bounds in derivation as recurring times of day; the W3C case is the basis for the day-preserving derivation order.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:2: It is an error if the derived 'maxExclusive' facet value is greater than the parent 'maxExclusive' facet value. The project expectation follows the maxExclusive valid-restriction constraint under the day-preserving time derivation order that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), after the restatement equals the base facet as a recurring time of day; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. invalid restriction: value has to be lesser than Time(0, 0, 0, tzinfo=Timezone(datetime.timedelta(seconds=3600))): Schema component: <xs:maxExclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"23:00:00Z\" /> Path: /xs:schema/xs:simpleType[2]/xs:restriction/xs:maxExclusive Schema URL: file://s The project expectation follows the maxExclusive valid-restriction constraint under the day-preserving time derivation order that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), after the restatement equals the base facet as a recurring time of day; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxExclusive': [facet 'maxExclusive'] The value '23:00:00Z' must be less than '00:00:00+01:00'. The project expectation follows the maxExclusive valid-restriction constraint under the day-preserving time derivation order that W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 settles (base maxInclusive 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid), after the restatement equals the base facet as a recurring time of day; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-time-later-day/schema.xsd",
           "role": "principal"
         }
       ]

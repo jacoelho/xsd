@@ -218,13 +218,15 @@ func (b *Builder) Validate(id TypeID, lexical string, resolver Resolver, needs N
 // ordered-bound facet named by facet in a restriction of base: it must be in
 // the value space of base, or a minExclusive or maxExclusive may instead equal
 // the effective same facet of base (Datatypes §4.3.8.1, §4.3.9.1). Equality
-// is the order restriction derivation uses. A restatement is still checked
-// against the patterns of base and against its bounds other than that facet,
-// with which the valid-restriction constraints compare it. Ordering against
-// inherited bounds on the same side and fixed-facet checks belong to
-// Complete. facet must be one of FacetMinInclusive, FacetMaxInclusive,
-// FacetMinExclusive or FacetMaxExclusive; any other mask returns ErrMetadata.
-// Each call charges the builder's aggregate pattern account, as Validate does.
+// is in the value space of base, the order instance values are checked
+// against, which for xs:time is the recurring time of day. A restatement is
+// still checked against the patterns of base and against its bounds other
+// than that facet, with which the valid-restriction constraints compare it.
+// Ordering against inherited bounds on the same side, day-preserving for
+// xs:time, and fixed-facet checks belong to Complete. facet must be one of
+// FacetMinInclusive, FacetMaxInclusive, FacetMinExclusive or
+// FacetMaxExclusive; any other mask returns ErrMetadata. Each call charges the
+// builder's aggregate pattern account, as Validate does.
 func (b *Builder) AdmitBoundLiteral(base TypeID, facet FacetMask, lexical string) error {
 	var side []boundValue
 	budget, err := b.literalBudget()
@@ -250,11 +252,7 @@ func (b *Builder) AdmitBoundLiteral(base TypeID, facet FacetMask, lexical string
 		return describeValueFailure(p, base, lexical, &v, err)
 	}
 	admitting := t
-	restates, err := p.restatesExclusiveBound(t, base, side, lexical, &v)
-	if err != nil {
-		return err
-	}
-	if restates {
+	if restatesExclusiveBound(side, &v) {
 		restatement := *t
 		restatement.facets = restatementFacets(&t.facets, facet)
 		admitting = &restatement
@@ -267,18 +265,14 @@ func (b *Builder) AdmitBoundLiteral(base TypeID, facet FacetMask, lexical string
 
 // restatesExclusiveBound reports whether v, the parsed lexical, equals the
 // effective exclusive bound among side, the bounds of base on the restated
-// facet's side.
-func (p *Program) restatesExclusiveBound(t *typeDef, base TypeID, side []boundValue, lexical string, v *parsedValue) (bool, error) {
+// facet's side, in the order of the value space.
+func restatesExclusiveBound(side []boundValue, v *parsedValue) bool {
 	effective, ok := findBound(side, true)
 	if !ok {
-		return false, nil
+		return false
 	}
-	bound, err := p.boundOf(t, base, lexical, v)
-	if err != nil {
-		return false, err
-	}
-	bound.exclusive = true
-	return equalDerivationBounds(bound, effective), nil
+	relation, ok := compareAtomic(&v.atom, &effective.value)
+	return ok && relation == orderedFacetEqual
 }
 
 // restatementFacets returns the facets of f that still apply to a restated
