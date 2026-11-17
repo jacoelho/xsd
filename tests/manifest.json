@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16998,
-    "schemaCases": 16948,
-    "instanceRuns": 35652,
+    "cases": 17007,
+    "schemaCases": 16957,
+    "instanceRuns": 35654,
     "w3cCases": 14414,
-    "internalRuns": 2571,
+    "internalRuns": 2580,
     "xercesJCases": 13
   },
   "cases": [
@@ -905886,6 +905886,550 @@
         {
           "file": "corpus/project/schema-syntax/attribute-values/attribute-values-control/missing-required-attribute.xml",
           "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/exclusive-attributes/element-default-with-fixed-before-unbound-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/exclusive-attributes/element-default-with-fixed-before-unbound-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+        ],
+        "conditions": [
+          "An xs:element has both default and fixed and is followed by an element whose type has an unbound prefix. The two attributes are known at its own start tag, so the schema is rejected with schema.invalid_attribute."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/exclusive-attributes/element-default-with-fixed-before-unbound-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:62: src-element.1: The properties 'default' and 'fixed' cannot both be present in element declaration 'e'. Use only one of them. The project expectation follows the schema for schemas, under which an element declaration does not have both default and fixed (src-element.1); the project reports the first violation in document order, and two attributes that exclude each other are known at its own start tag, so it precedes the unbound QName prefix (schema.reference) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:22: 'p:T' is an invalid value for the 'type' attribute. The project expectation follows the schema for schemas, under which an element declaration does not have both default and fixed (src-element.1); the project reports the first violation in document order, and two attributes that exclude each other are known at its own start tag, so it precedes the unbound QName prefix (schema.reference) of a later start tag; this observation is not a majority-vote oracle. .NET reports the later unbound prefix first; XSD 1.0 does not order diagnostics. On the isolated case project/schema-syntax/exclusive-attributes/element-default-with-fixed, which holds only this violation, it rejects the schema for the default together with fixed.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. 'default' and 'fixed' attributes are mutually exclusive: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"e\" type=\"xs:string\" default=\"a\" fixed=\"b\" /> Path: /xs:schema/xs:element[1] Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, under which an element declaration does not have both default and fixed (src-element.1); the project reports the first violation in document order, and two attributes that exclude each other are known at its own start tag, so it precedes the unbound QName prefix (schema.reference) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element': The attributes 'default' and 'fixed' are mutually exclusive. The project expectation follows the schema for schemas, under which an element declaration does not have both default and fixed (src-element.1); the project reports the first violation in document order, and two attributes that exclude each other are known at its own start tag, so it precedes the unbound QName prefix (schema.reference) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/exclusive-attributes/element-default-with-fixed-before-unbound-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/exclusive-attributes/element-default-with-fixed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/exclusive-attributes/element-default-with-fixed",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+        ],
+        "conditions": [
+          "An xs:element has both default and fixed and the schema has no other violation, so it is rejected with schema.invalid_attribute."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/exclusive-attributes/element-default-with-fixed/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:62: src-element.1: The properties 'default' and 'fixed' cannot both be present in element declaration 'e'. Use only one of them. The project expectation follows the schema for schemas, under which an element declaration does not have both default and fixed (src-element.1); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:2: The fixed and default attributes cannot both be present. The project expectation follows the schema for schemas, under which an element declaration does not have both default and fixed (src-element.1); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. 'default' and 'fixed' attributes are mutually exclusive: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"e\" type=\"xs:string\" default=\"a\" fixed=\"b\" /> Path: /xs:schema/xs:element Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, under which an element declaration does not have both default and fixed (src-element.1); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element': The attributes 'default' and 'fixed' are mutually exclusive. The project expectation follows the schema for schemas, under which an element declaration does not have both default and fixed (src-element.1); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/exclusive-attributes/element-default-with-fixed/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/exclusive-attributes/attribute-default-with-fixed-before-unbound-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/exclusive-attributes/attribute-default-with-fixed-before-unbound-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+        ],
+        "conditions": [
+          "An xs:attribute has both default and fixed and is followed by an element whose type has an unbound prefix. The two attributes are known at its own start tag, so the schema is rejected with schema.invalid_attribute."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/exclusive-attributes/attribute-default-with-fixed-before-unbound-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:64: src-attribute.1: The properties 'default' and 'fixed' cannot both be present in attribute declaration 'a'. Use only one of them. The project expectation follows the schema for schemas, under which an attribute declaration does not have both default and fixed (src-attribute.1); the project reports the first violation in document order, and two attributes that exclude each other are known at its own start tag, so it precedes the unbound QName prefix (schema.reference) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:22: 'p:T' is an invalid value for the 'type' attribute. The project expectation follows the schema for schemas, under which an attribute declaration does not have both default and fixed (src-attribute.1); the project reports the first violation in document order, and two attributes that exclude each other are known at its own start tag, so it precedes the unbound QName prefix (schema.reference) of a later start tag; this observation is not a majority-vote oracle. .NET reports the later unbound prefix first; XSD 1.0 does not order diagnostics. On the isolated case project/attributes/conformance-representation-global-default-and-fixed-unequal, which holds only this violation, it rejects the schema for the default together with fixed.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. 'default' and 'fixed' attributes are mutually exclusive: Schema component: <xs:attribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"a\" type=\"xs:string\" default=\"a\" fixed=\"b\" /> Path: /xs:schema/xs:attribute Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, under which an attribute declaration does not have both default and fixed (src-attribute.1); the project reports the first violation in document order, and two attributes that exclude each other are known at its own start tag, so it precedes the unbound QName prefix (schema.reference) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element attribute: Schemas parser error : attribute decl. 'a': The attributes 'default' and 'fixed' are mutually exclusive. The project expectation follows the schema for schemas, under which an attribute declaration does not have both default and fixed (src-attribute.1); the project reports the first violation in document order, and two attributes that exclude each other are known at its own start tag, so it precedes the unbound QName prefix (schema.reference) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/exclusive-attributes/attribute-default-with-fixed-before-unbound-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/exclusive-attributes/attribute-default-with-required-use-before-unbound-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/exclusive-attributes/attribute-default-with-required-use-before-unbound-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+        ],
+        "conditions": [
+          "A local xs:attribute has default and use=\"required\" and is followed by an element whose type has an unbound prefix. The two attributes are known at its own start tag, so the schema is rejected with schema.invalid_attribute."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/exclusive-attributes/attribute-default-with-required-use-before-unbound-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:77: src-attribute.2: : The property 'default' is present in attribute 'a', so the value of 'use' must be 'optional'. The project expectation follows the schema for schemas, under which an attribute with default has use optional (src-attribute.2); the project reports the first violation in document order, and two attributes that exclude each other are known at its own start tag, so it precedes the unbound QName prefix (schema.reference) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:22: 'p:T' is an invalid value for the 'type' attribute. The project expectation follows the schema for schemas, under which an attribute with default has use optional (src-attribute.2); the project reports the first violation in document order, and two attributes that exclude each other are known at its own start tag, so it precedes the unbound QName prefix (schema.reference) of a later start tag; this observation is not a majority-vote oracle. .NET reports the later unbound prefix first; XSD 1.0 does not order diagnostics. On the isolated case project/attributes/conformance-representation-local-default-required, which holds only this violation, it rejects the schema for the default on a required attribute.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. the attribute 'use' must be 'optional' if the attribute 'default' is present: Schema component: <xs:attribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"a\" default=\"a\" use=\"required\" /> Path: /xs:schema/xs:complexType/xs:attribute Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, under which an attribute with default has use optional (src-attribute.2); the project reports the first violation in document order, and two attributes that exclude each other are known at its own start tag, so it precedes the unbound QName prefix (schema.reference) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element attribute: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}attribute': The value of the attribute 'use' must be 'optional' if the attribute 'default' is present. The project expectation follows the schema for schemas, under which an attribute with default has use optional (src-attribute.2); the project reports the first violation in document order, and two attributes that exclude each other are known at its own start tag, so it precedes the unbound QName prefix (schema.reference) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/exclusive-attributes/attribute-default-with-required-use-before-unbound-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/exclusive-attributes/attribute-default-with-prohibited-use-before-unbound-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/exclusive-attributes/attribute-default-with-prohibited-use-before-unbound-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+        ],
+        "conditions": [
+          "A local xs:attribute has default and use=\"prohibited\" and is followed by an element whose type has an unbound prefix. The two attributes are known at its own start tag, so the schema is rejected with schema.invalid_attribute."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/exclusive-attributes/attribute-default-with-prohibited-use-before-unbound-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:79: src-attribute.2: : The property 'default' is present in attribute 'a', so the value of 'use' must be 'optional'. The project expectation follows the schema for schemas, under which an attribute with default has use optional (src-attribute.2); the project reports the first violation in document order, and two attributes that exclude each other are known at its own start tag, so it precedes the unbound QName prefix (schema.reference) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:22: 'p:T' is an invalid value for the 'type' attribute. The project expectation follows the schema for schemas, under which an attribute with default has use optional (src-attribute.2); the project reports the first violation in document order, and two attributes that exclude each other are known at its own start tag, so it precedes the unbound QName prefix (schema.reference) of a later start tag; this observation is not a majority-vote oracle. .NET reports the later unbound prefix first; XSD 1.0 does not order diagnostics. On the isolated case project/attributes/conformance-representation-local-default-prohibited, which holds only this violation, it rejects the schema for the default on a prohibited attribute.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. the attribute 'use' must be 'optional' if the attribute 'default' is present: Schema component: <xs:attribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"a\" default=\"a\" use=\"prohibited\" /> Path: /xs:schema/xs:complexType/xs:attribute Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, under which an attribute with default has use optional (src-attribute.2); the project reports the first violation in document order, and two attributes that exclude each other are known at its own start tag, so it precedes the unbound QName prefix (schema.reference) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element attribute: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}attribute': The value of the attribute 'use' must be 'optional' if the attribute 'default' is present. The project expectation follows the schema for schemas, under which an attribute with default has use optional (src-attribute.2); the project reports the first violation in document order, and two attributes that exclude each other are known at its own start tag, so it precedes the unbound QName prefix (schema.reference) of a later start tag; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/exclusive-attributes/attribute-default-with-prohibited-use-before-unbound-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/exclusive-attributes/attribute-default-with-fixed-with-unknown-ref",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/exclusive-attributes/attribute-default-with-fixed-with-unknown-ref",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+        ],
+        "conditions": [
+          "An attribute reference names an attribute that does not exist and has both default and fixed. The two attributes are a violation of the document syntax, so the schema is rejected with schema.invalid_attribute."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/exclusive-attributes/attribute-default-with-fixed-with-unknown-ref/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:76: src-resolve: Cannot resolve the name 'absent' to a(n) 'attribute declaration' component. The project expectation follows the schema for schemas, under which an attribute does not have both default and fixed (src-attribute.1); the project reports a violation of the schema document syntax, which one start tag decides, before a violation that needs the compiled schema set, wherever the two are written; this observation is not a majority-vote oracle. Xerces-J reports the unresolved reference first; XSD 1.0 does not order diagnostics. On the isolated case project/attributes/conformance-representation-global-default-and-fixed-unequal, which holds only this violation, it rejects the schema for the default together with fixed.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:27: The 'absent' attribute is not declared. The project expectation follows the schema for schemas, under which an attribute does not have both default and fixed (src-attribute.1); the project reports a violation of the schema document syntax, which one start tag decides, before a violation that needs the compiled schema set, wherever the two are written; this observation is not a majority-vote oracle. .NET reports the unresolved reference first; XSD 1.0 does not order diagnostics. On the isolated case project/attributes/conformance-representation-global-default-and-fixed-unequal, which holds only this violation, it rejects the schema for the default together with fixed.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. unknown attribute 'absent': Schema component: <xs:attribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" ref=\"absent\" default=\"a\" fixed=\"b\" /> Path: /xs:schema/xs:complexType/xs:attribute Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, under which an attribute does not have both default and fixed (src-attribute.1); the project reports a violation of the schema document syntax, which one start tag decides, before a violation that needs the compiled schema set, wherever the two are written; this observation is not a majority-vote oracle. xmlschema reports the unresolved reference first; XSD 1.0 does not order diagnostics. On the isolated case project/attributes/conformance-representation-global-default-and-fixed-unequal, which holds only this violation, it rejects the schema for the default together with fixed.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element attribute: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}attribute': The attributes 'default' and 'fixed' are mutually exclusive. The project expectation follows the schema for schemas, under which an attribute does not have both default and fixed (src-attribute.1); the project reports a violation of the schema document syntax, which one start tag decides, before a violation that needs the compiled schema set, wherever the two are written; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/exclusive-attributes/attribute-default-with-fixed-with-unknown-ref/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/exclusive-attributes/element-min-occurs-not-count-after-default-with-fixed-on-one-start-tag",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/exclusive-attributes/element-min-occurs-not-count-after-default-with-fixed-on-one-start-tag",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+        ],
+        "conditions": [
+          "A local xs:element has default and fixed and then minOccurs=\"x\" on one start tag. The value of each attribute is decided before the attributes that exclude each other, so the schema is rejected with schema.occurrence."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/exclusive-attributes/element-min-occurs-not-count-after-default-with-fixed-on-one-start-tag/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.occurrence",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:114: s4s-att-invalid-value: Invalid attribute value for 'minOccurs' in element 'element'. Recorded reason: cvc-datatype-valid.1.2.1: 'x' is not a valid value for 'nonNegativeInteger'. The project expectation follows the schema for schemas, under which minOccurs of a local xs:element is an xs:nonNegativeInteger and an element declaration does not have both default and fixed (src-element.1); the project decides the value of every attribute of a start tag before the attributes that exclude each other; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:99: The value for the 'minOccurs' attribute must be xsd:nonNegativeInteger. The project expectation follows the schema for schemas, under which minOccurs of a local xs:element is an xs:nonNegativeInteger and an element declaration does not have both default and fixed (src-element.1); the project decides the value of every attribute of a start tag before the attributes that exclude each other; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute minOccurs='x': invalid literal for int() with base 10: 'x': Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"e\" type=\"xs:string\" default=\"a\" fixed=\"b\" minOccurs=\"x\" /> Path: /xs:schema/xs:complexType/xs:sequence/xs:element Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, under which minOccurs of a local xs:element is an xs:nonNegativeInteger and an element declaration does not have both default and fixed (src-element.1); the project decides the value of every attribute of a start tag before the attributes that exclude each other; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'minOccurs': The value 'x' is not valid. Expected is 'xs:nonNegativeInteger'. The project expectation follows the schema for schemas, under which minOccurs of a local xs:element is an xs:nonNegativeInteger and an element declaration does not have both default and fixed (src-element.1); the project decides the value of every attribute of a start tag before the attributes that exclude each other; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/exclusive-attributes/element-min-occurs-not-count-after-default-with-fixed-on-one-start-tag/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/exclusive-attributes/exclusive-attributes-control",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/exclusive-attributes/exclusive-attributes-control",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+        ],
+        "conditions": [
+          "Each element and attribute has default or fixed but not both, and each attribute with default has use optional or no use, so the schema is accepted."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/exclusive-attributes/exclusive-attributes-control/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the XML representation constraints, under which default and fixed are not both present (src-element.1, src-attribute.1) and an attribute with default has use optional (src-attribute.2); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the XML representation constraints, under which default and fixed are not both present (src-element.1, src-attribute.1) and an attribute with default has use optional (src-attribute.2); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the XML representation constraints, under which default and fixed are not both present (src-element.1, src-attribute.1) and an attribute with default has use optional (src-attribute.2); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the XML representation constraints, under which default and fixed are not both present (src-element.1, src-attribute.1) and an attribute with default has use optional (src-attribute.2); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "valid",
+          "file": "corpus/project/schema-syntax/exclusive-attributes/exclusive-attributes-control/valid.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the XML representation constraints, under which default and fixed are not both present (src-element.1, src-attribute.1) and an attribute with default has use optional (src-attribute.2); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the XML representation constraints, under which default and fixed are not both present (src-element.1, src-attribute.1) and an attribute with default has use optional (src-attribute.2); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the XML representation constraints, under which default and fixed are not both present (src-element.1, src-attribute.1) and an attribute with default has use optional (src-attribute.2); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the XML representation constraints, under which default and fixed are not both present (src-element.1, src-attribute.1) and an attribute with default has use optional (src-attribute.2); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+            }
+          }
+        },
+        {
+          "testName": "fixed-attribute-changed",
+          "file": "corpus/project/schema-syntax/exclusive-attributes/exclusive-attributes-control/fixed-attribute-changed.xml",
+          "expected": "invalid",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. fixed-attribute-changed.xml:1:17: cvc-complex-type.3.1: Value 'x' of attribute 'c' of element 'r' is not valid with respect to the corresponding attribute use. Attribute 'c' has a fixed value of 'b'. The project expectation follows the XML representation constraints, under which default and fixed are not both present (src-element.1, src-attribute.1) and an attribute with default has use optional (src-attribute.2); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. fixed-attribute-changed.xml:1:4: The value of the 'c' attribute does not equal its fixed value. The project expectation follows the XML representation constraints, under which default and fixed are not both present (src-element.1, src-attribute.1) and an attribute with default has use optional (src-attribute.2); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: attribute 'c' has a fixed value 'b' (path /r) The project expectation follows the XML representation constraints, under which default and fixed are not both present (src-element.1, src-attribute.1) and an attribute with default has use optional (src-attribute.2); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+            },
+            "libxml2": {
+              "expected": "invalid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance rejected. fixed-attribute-changed.xml:1: element r: Schemas validity error : Element 'r', attribute 'c': The value 'x' does not match the fixed value constraint 'b'. The project expectation follows the XML representation constraints, under which default and fixed are not both present (src-element.1, src-attribute.1) and an attribute with default has use optional (src-attribute.2); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-element"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/exclusive-attributes/exclusive-attributes-control/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/schema-syntax/exclusive-attributes/exclusive-attributes-control/valid.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/schema-syntax/exclusive-attributes/exclusive-attributes-control/fixed-attribute-changed.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/attribute-values/element-nillable-not-boolean-on-duplicate-element",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/attribute-values/element-nillable-not-boolean-on-duplicate-element",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#sch-props-correct"
+        ],
+        "conditions": [
+          "The second of two top-level elements with one name has nillable=\"yes\". The nillable value is a violation of the document syntax, so the schema is rejected with schema.invalid_attribute."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/attribute-values/element-nillable-not-boolean-on-duplicate-element/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:38: sch-props-correct.2: A schema cannot contain two global components with the same name; this schema contains two occurrences of ',d'. The project expectation follows the schema for schemas, under which nillable of xs:element is an xs:boolean; the project reports a violation of the schema document syntax, which one start tag decides, before a violation that needs the compiled schema set, wherever the two are written; this observation is not a majority-vote oracle. Xerces-J reports the duplicate component first; XSD 1.0 does not order diagnostics. On the isolated case project/schema-syntax/attribute-values/element-nillable-not-boolean, which holds only this violation, it rejects the schema for the nillable that is no boolean.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:22: 'yes' is an invalid value for the 'nillable' attribute. The project expectation follows the schema for schemas, under which nillable of xs:element is an xs:boolean; the project reports a violation of the schema document syntax, which one start tag decides, before a violation that needs the compiled schema set, wherever the two are written; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute nillable='yes': 'yes' is not a boolean value: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"d\" nillable=\"yes\" /> Path: /xs:schema/xs:element[2] Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, under which nillable of xs:element is an xs:boolean; the project reports a violation of the schema document syntax, which one start tag decides, before a violation that needs the compiled schema set, wherever the two are written; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'nillable': 'yes' is not a valid value of the atomic type 'xs:boolean'. The project expectation follows the schema for schemas, under which nillable of xs:element is an xs:boolean; the project reports a violation of the schema document syntax, which one start tag decides, before a violation that needs the compiled schema set, wherever the two are written; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-element"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/attribute-values/element-nillable-not-boolean-on-duplicate-element/schema.xsd",
+          "role": "principal"
         }
       ]
     }
