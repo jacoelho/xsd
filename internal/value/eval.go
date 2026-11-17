@@ -217,13 +217,14 @@ func (b *Builder) Validate(id TypeID, lexical string, resolver Resolver, needs N
 // AdmitBoundLiteral returns an error unless lexical may be the {value} of the
 // ordered-bound facet named by facet in a restriction of base: it must be in
 // the value space of base, or a minExclusive or maxExclusive may instead equal
-// the effective same facet of base (Datatypes §4.3.8.1, §4.3.9.1). Equality
-// is in the value space of base, the order instance values are checked
-// against, which for xs:time is the recurring time of day. A restatement is
-// still checked against the patterns of base and against its bounds other
-// than that facet. The literal is ordered against the bounds of base in the
-// derivation order (compareDerivationBounds), day-preserving for xs:time, so
-// membership agrees with every clause of the valid-restriction constraints.
+// the effective same facet of base (Datatypes §4.3.8.1, §4.3.9.1). The base's
+// length, digit, pattern and enumeration facets are checked first. The literal
+// is then ordered against the bounds of base in the derivation order
+// (compareDerivationBounds), day-preserving for xs:time, so membership agrees
+// with every clause of the valid-restriction constraints. Restatement equality
+// is equality in that order, so an xs:time restatement spelled on another day
+// is an ordinary literal. A restatement is checked only against the patterns
+// of base and its bounds other than the exclusive bounds of the restated side.
 // Fixed-facet checks belong to Complete. facet must be one of
 // FacetMinInclusive, FacetMaxInclusive, FacetMinExclusive or
 // FacetMaxExclusive; any other mask returns ErrMetadata. Each call charges the
@@ -246,38 +247,16 @@ func (b *Builder) AdmitBoundLiteral(base TypeID, facet FacetMask, lexical string
 	if err != nil {
 		return describeValueFailure(p, base, lexical, &v, err)
 	}
-	admitting := *t
-	admitting.facets.lower, admitting.facets.upper = nil, nil
-	lower, upper := t.facets.lower, t.facets.upper
-	switch {
-	case facet == FacetMinExclusive && restatesExclusiveBound(lower, &v):
-		admitting.facets = facetProgram{patterns: t.facets.patterns}
-		lower = inclusiveBounds(lower)
-	case facet == FacetMaxExclusive && restatesExclusiveBound(upper, &v):
-		admitting.facets = facetProgram{patterns: t.facets.patterns}
-		upper = inclusiveBounds(upper)
-	}
-	if err := p.admitDerivationBounds(t, base, lower, upper, lexical, &v); err != nil {
-		return err
-	}
-	if err := applyFacets(&admitting, &v, normalized, nil, &budget); err != nil {
-		return describeTypeValueFailure(p, base, &admitting, lexical, &v, err)
-	}
-	return nil
-}
-
-// admitDerivationBounds checks the parsed bound literal v against the lower
-// and upper bounds of base in the derivation order, and names the failed bound
-// declared nearest the type, lower bounds first.
-func (p *Program) admitDerivationBounds(t *typeDef, base TypeID, lower, upper []boundValue, lexical string, v *parsedValue) error {
-	if len(lower) == 0 && len(upper) == 0 {
-		return nil
-	}
-	offset, err := p.timeBoundDayOffset(t, base, lexical, v.atom)
+	literal, err := p.boundLiteral(t, base, lexical, v.atom)
 	if err != nil {
 		return err
 	}
-	literal := boundValue{value: v.atom, timeDayOffset: offset}
+	admitting := *t
+	var lower, upper []boundValue
+	admitting.facets, lower, upper = admittingFacets(&t.facets, facet, literal)
+	if err := applyFacets(&admitting, &v, normalized, nil, &budget); err != nil {
+		return describeTypeValueFailure(p, base, &admitting, lexical, &v, err)
+	}
 	if bound := failedDerivationBound(literal, lower, orderedFacetLowerBoundAccepts); bound != nil {
 		return &valueDiagnosticError{message: derivationBoundDiagnostic(t, lexical, minBoundPrefix, &literal, bound), cause: errLowerBoundFacet}
 	}
@@ -287,8 +266,40 @@ func (p *Program) admitDerivationBounds(t *typeDef, base TypeID, lower, upper []
 	return nil
 }
 
+// boundLiteral returns the parsed bound literal atom of lexical, a literal of
+// the type t named base, as a bound ordered in the derivation order. Its
+// xs:time day offset is computed only when t has bounds to order it against.
+func (p *Program) boundLiteral(t *typeDef, base TypeID, lexical string, atom atomicValue) (boundValue, error) {
+	if len(t.facets.lower) == 0 && len(t.facets.upper) == 0 {
+		return boundValue{value: atom}, nil
+	}
+	offset, err := p.timeBoundDayOffset(t, base, lexical, atom)
+	if err != nil {
+		return boundValue{}, err
+	}
+	return boundValue{value: atom, timeDayOffset: offset}, nil
+}
+
+// admittingFacets splits f, the facets of a base, for admitting literal as the
+// {value} of facet: it returns the non-bound facets the literal must satisfy
+// and the lower and upper bounds it is ordered against. A restatement of the
+// effective exclusive bound of facet's side keeps only the patterns and drops
+// the exclusive bounds of that side.
+func admittingFacets(f *facetProgram, facet FacetMask, literal boundValue) (nonBound facetProgram, lower, upper []boundValue) {
+	switch {
+	case facet == FacetMinExclusive && restatesExclusiveBound(f.lower, literal):
+		return facetProgram{patterns: f.patterns}, inclusiveBounds(f.lower), f.upper
+	case facet == FacetMaxExclusive && restatesExclusiveBound(f.upper, literal):
+		return facetProgram{patterns: f.patterns}, f.lower, inclusiveBounds(f.upper)
+	}
+	nonBound = *f
+	nonBound.lower, nonBound.upper = nil, nil
+	return nonBound, f.lower, f.upper
+}
+
 // failedDerivationBound returns the last of bounds that literal does not
-// satisfy in the derivation order, or nil.
+// satisfy in the derivation order, or nil. The last is the bound declared
+// nearest the type.
 func failedDerivationBound(literal boundValue, bounds []boundValue, accepts func(exclusive bool, relation orderedFacetRelation) bool) *boundValue {
 	for i := len(bounds) - 1; i >= 0; i-- {
 		relation, ok := compareDerivationBounds(literal, bounds[i])
@@ -299,15 +310,15 @@ func failedDerivationBound(literal boundValue, bounds []boundValue, accepts func
 	return nil
 }
 
-// restatesExclusiveBound reports whether v, the parsed lexical, equals the
-// effective exclusive bound among side, the bounds of base on the restated
-// facet's side, in the order of the value space.
-func restatesExclusiveBound(side []boundValue, v *parsedValue) bool {
+// restatesExclusiveBound reports whether literal equals the effective
+// exclusive bound among side, the bounds of base on the restated facet's side,
+// in the derivation order.
+func restatesExclusiveBound(side []boundValue, literal boundValue) bool {
 	effective, ok := findBound(side, true)
 	if !ok {
 		return false
 	}
-	relation, ok := compareAtomic(&v.atom, &effective.value)
+	relation, ok := compareDerivationBounds(literal, effective)
 	return ok && relation == orderedFacetEqual
 }
 

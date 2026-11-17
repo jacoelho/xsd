@@ -154,25 +154,30 @@ func TestTemporalNormalizedFractionOrdering(t *testing.T) {
 	}
 }
 
-func TestTimeExclusiveRestatementIsAdmittedByClockAndDerivedByDay(t *testing.T) {
+func TestTimeExclusiveRestatementIsAdmittedOnlyWhereItRestrictsBaseByDay(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
 		name          string
 		facet         value.FacetMask
 		base, derived string
-		admitted      bool
-		derives       bool
+		diagnosis     string
 	}{
-		{"same next-day spelling", value.FacetMaxExclusive, "23:00:00-02:00", "23:00:00-02:00", true, true},
-		{"same previous-day spelling", value.FacetMinExclusive, "01:00:00+02:00", "01:00:00+02:00", true, true},
-		{"upper same clock on earlier day", value.FacetMaxExclusive, "23:00:00-02:00", "01:00:00Z", true, true},
-		{"lower same clock on later day", value.FacetMinExclusive, "01:00:00+02:00", "23:00:00Z", true, true},
-		{"upper same clock on later day", value.FacetMaxExclusive, "01:00:00Z", "23:00:00-02:00", true, false},
-		{"upper same clock on later day from previous-day base", value.FacetMaxExclusive, "00:00:00+01:00", "23:00:00Z", true, false},
-		{"upper later clock", value.FacetMaxExclusive, "01:00:00Z", "01:00:01Z", false, false},
-		{"upper midnight restated at start of day", value.FacetMaxExclusive, "24:00:00", "00:00:00", true, true},
-		{"lower start of day restated at midnight", value.FacetMinExclusive, "00:00:00", "24:00:00", true, true},
-		{"upper start of day restated at midnight", value.FacetMaxExclusive, "00:00:00", "24:00:00", true, false},
+		{name: "same next-day spelling", facet: value.FacetMaxExclusive, base: "23:00:00-02:00", derived: "23:00:00-02:00"},
+		{name: "same previous-day spelling", facet: value.FacetMinExclusive, base: "01:00:00+02:00", derived: "01:00:00+02:00"},
+		{name: "upper same clock on earlier day", facet: value.FacetMaxExclusive, base: "23:00:00-02:00", derived: "01:00:00Z"},
+		{name: "lower same clock on later day", facet: value.FacetMinExclusive, base: "01:00:00+02:00", derived: "23:00:00Z"},
+		{name: "upper same clock on later day", facet: value.FacetMaxExclusive, base: "01:00:00Z", derived: "23:00:00-02:00",
+			diagnosis: `value "23:00:00-02:00" does not satisfy maxExclusive "01:00:00Z" on the previous day`},
+		{name: "upper same clock on later day from previous-day base", facet: value.FacetMaxExclusive, base: "00:00:00+01:00", derived: "23:00:00Z",
+			diagnosis: `value "23:00:00Z" does not satisfy maxExclusive "23:00:00Z" on the previous day`},
+		{name: "lower same clock on earlier day", facet: value.FacetMinExclusive, base: "23:00:00Z", derived: "01:00:00+02:00",
+			diagnosis: `value "01:00:00+02:00" does not satisfy minExclusive "23:00:00Z" on the next day`},
+		{name: "upper later clock", facet: value.FacetMaxExclusive, base: "01:00:00Z", derived: "01:00:01Z",
+			diagnosis: `value "01:00:01Z" does not satisfy maxExclusive "01:00:00Z"`},
+		{name: "upper midnight restated at start of day", facet: value.FacetMaxExclusive, base: "24:00:00", derived: "00:00:00"},
+		{name: "lower start of day restated at midnight", facet: value.FacetMinExclusive, base: "00:00:00", derived: "24:00:00"},
+		{name: "upper start of day restated at midnight", facet: value.FacetMaxExclusive, base: "00:00:00", derived: "24:00:00",
+			diagnosis: `value "24:00:00" does not satisfy maxExclusive "00:00:00" on the previous day`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -185,27 +190,27 @@ func TestTimeExclusiveRestatementIsAdmittedByClockAndDerivedByDay(t *testing.T) 
 				t.Fatal(err)
 			}
 			err = builder.AdmitBoundLiteral(base, tc.facet, tc.derived)
-			if !tc.admitted {
-				if !errors.Is(err, value.ErrFacet) {
-					t.Fatalf("AdmitBoundLiteral(%q) = %v, want ErrFacet", tc.derived, err)
+			id, reserveErr := builder.Reserve()
+			if reserveErr != nil {
+				t.Fatal(reserveErr)
+			}
+			spec := atomicFacetType(value.PrimitiveTime, exclusiveFacet(tc.facet, tc.derived))
+			spec.Base = base
+			completeErr := builder.Complete(id, spec)
+			if tc.diagnosis != "" {
+				if !errors.Is(err, value.ErrFacet) || err.Error() != tc.diagnosis {
+					t.Fatalf("AdmitBoundLiteral(%q) = %v, want ErrFacet %q", tc.derived, err, tc.diagnosis)
+				}
+				if !errors.Is(completeErr, value.ErrFacet) {
+					t.Fatalf("Complete(%q restricting %q) = %v, want ErrFacet", tc.derived, tc.base, completeErr)
 				}
 				return
 			}
 			if err != nil {
 				t.Fatalf("AdmitBoundLiteral(%q) = %v, want nil", tc.derived, err)
 			}
-			id, err := builder.Reserve()
-			if err != nil {
-				t.Fatal(err)
-			}
-			spec := atomicFacetType(value.PrimitiveTime, exclusiveFacet(tc.facet, tc.derived))
-			spec.Base = base
-			err = builder.Complete(id, spec)
-			if tc.derives && err != nil {
-				t.Fatalf("Complete(%q restricting %q) = %v, want nil", tc.derived, tc.base, err)
-			}
-			if !tc.derives && !errors.Is(err, value.ErrFacet) {
-				t.Fatalf("Complete(%q restricting %q) = %v, want ErrFacet", tc.derived, tc.base, err)
+			if completeErr != nil {
+				t.Fatalf("Complete(%q restricting %q) = %v, want nil", tc.derived, tc.base, completeErr)
 			}
 		})
 	}

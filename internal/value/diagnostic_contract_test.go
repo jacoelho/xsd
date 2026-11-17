@@ -224,6 +224,24 @@ func diagnosticValidate(program *value.Program, id value.TypeID, input, api stri
 	}
 }
 
+func TestBoundLiteralMeetsBaseNonBoundFacetsBeforeBaseBounds(t *testing.T) {
+	pattern, err := xsdregex.Compile(`[0-5]`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
+	base := completeCanonicalProjectionType(t, builder, atomicFacetType(value.PrimitiveDecimal, value.FacetSpec{
+		Patterns:     [][]*value.Pattern{{pattern}},
+		MaxInclusive: value.BoundFacet{Lexical: "5", Type: value.NoType, Present: true},
+		Present:      value.FacetPattern | value.FacetMaxInclusive,
+	}))
+	const want = `value "9" does not satisfy pattern groups ["[0-5]"]`
+	err = builder.AdmitBoundLiteral(base, value.FacetMaxInclusive, "9")
+	if !errors.Is(err, value.ErrFacet) || err.Error() != want {
+		t.Fatalf("AdmitBoundLiteral(%q) = %v, want ErrFacet %q", "9", err, want)
+	}
+}
+
 func TestOrderedBoundDiagnosticNamesNearestFailedBound(t *testing.T) {
 	bound := func(text string) value.BoundFacet {
 		return value.BoundFacet{Lexical: text, Type: value.NoType, Present: true}
