@@ -1008,8 +1008,8 @@ graph preserves these ownership rules:
   spelling rejects.
 - Extending the un-wrapped `xs:time` order beyond the same-side restriction
   clauses was rejected: W3C `time_maxInclusive007_119` requires it only
-  there, no W3C test requires it elsewhere, and Xerces-J orders every other
-  relation by time of day.
+  there, no W3C test requires it elsewhere, and Xerces-J, apart from its
+  distinct `24:00:00`, orders every other relation by time of day.
 - A distinct end-of-day midnight value for `24:00:00`, as in Xerces-J and
   libxml2, was rejected for three reasons. Datatypes §3.2.8.2 gives midnight
   the canonical representation `00:00:00`, and §2.3.1 makes canonical
