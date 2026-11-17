@@ -219,11 +219,11 @@ func (b *Builder) Validate(id TypeID, lexical string, resolver Resolver, needs N
 // the value space of base, or a minExclusive or maxExclusive may instead equal
 // the effective same facet of base (Datatypes §4.3.8.1, §4.3.9.1). The base's
 // length, digit, pattern and enumeration facets are checked first. The literal
-// is then ordered against the bounds of base in the derivation order
-// (compareDerivationBounds), day-preserving for xs:time, so membership agrees
-// with every clause of the valid-restriction constraints. Restatement equality
-// is equalBound, so an xs:time restatement spelled on another day, or a
-// duration equal to the base facet only in order, is an ordinary literal. A
+// is then ordered against the bounds of base as an instance value is, so
+// membership agrees with every clause of the valid-restriction constraints.
+// Restatement equality is equalBound, so an xs:time restatement spelled on
+// another day, or a duration equal to the base facet only in order, is an
+// ordinary literal. A
 // restatement is checked only against the patterns of base and its bounds
 // other than the exclusive bounds of the restated side.
 // Fixed-facet checks belong to Complete. facet must be one of
@@ -248,37 +248,18 @@ func (b *Builder) AdmitBoundLiteral(base TypeID, facet FacetMask, lexical string
 	if err != nil {
 		return describeValueFailure(p, base, lexical, &v, err)
 	}
-	literal, err := p.boundLiteral(t, base, lexical, v.atom)
-	if err != nil {
-		return err
-	}
+	literal := boundValue{value: v.atom}
 	admitting := *t
 	var lower, upper []boundValue
 	admitting.facets, lower, upper = admittingFacets(&t.facets, facet, literal)
 	if err := applyFacets(&admitting, &v, normalized, nil, &budget); err != nil {
 		return describeTypeValueFailure(p, base, &admitting, lexical, &v, err)
 	}
-	if bound := failedDerivationBound(literal, lower, orderedFacetLowerBoundAccepts); bound != nil {
-		return &valueDiagnosticError{message: derivationBoundDiagnostic(t, lexical, minBoundPrefix, &literal, bound), cause: errLowerBoundFacet}
-	}
-	if bound := failedDerivationBound(literal, upper, orderedFacetUpperBoundAccepts); bound != nil {
-		return &valueDiagnosticError{message: derivationBoundDiagnostic(t, lexical, maxBoundPrefix, &literal, bound), cause: errUpperBoundFacet}
+	if err := applyBounds(lower, upper, &v); err != nil {
+		admitting.facets = facetProgram{lower: lower, upper: upper}
+		return describeTypeValueFailure(p, base, &admitting, lexical, &v, err)
 	}
 	return nil
-}
-
-// boundLiteral returns the parsed bound literal atom of lexical, a literal of
-// the type t named base, as a bound ordered in the derivation order. Its
-// xs:time day offset is computed only when t has bounds to order it against.
-func (p *Program) boundLiteral(t *typeDef, base TypeID, lexical string, atom atomicValue) (boundValue, error) {
-	if len(t.facets.lower) == 0 && len(t.facets.upper) == 0 {
-		return boundValue{value: atom}, nil
-	}
-	offset, err := p.timeBoundDayOffset(t, base, lexical, atom)
-	if err != nil {
-		return boundValue{}, err
-	}
-	return boundValue{value: atom, timeDayOffset: offset}, nil
 }
 
 // admittingFacets splits f, the facets of a base, for admitting literal as the
@@ -296,19 +277,6 @@ func admittingFacets(f *facetProgram, facet FacetMask, literal boundValue) (nonB
 	nonBound = *f
 	nonBound.lower, nonBound.upper = nil, nil
 	return nonBound, f.lower, f.upper
-}
-
-// failedDerivationBound returns the last of bounds that literal does not
-// satisfy in the derivation order, or nil. The last is the bound declared
-// nearest the type.
-func failedDerivationBound(literal boundValue, bounds []boundValue, accepts func(exclusive bool, relation orderedFacetRelation) bool) *boundValue {
-	for i := len(bounds) - 1; i >= 0; i-- {
-		relation, ok := compareDerivationBounds(literal, bounds[i])
-		if !ok || !accepts(bounds[i].exclusive, relation) {
-			return &bounds[i]
-		}
-	}
-	return nil
 }
 
 // restatesExclusiveBound reports whether literal equals (equalBound) the
@@ -1523,13 +1491,6 @@ func nextListField[T byteText](s T, start int) (field T, next int, ok bool) {
 		next++
 	}
 	return s[start:next], next, true
-}
-
-func effectiveWhitespace(p *Program, id TypeID) WhitespaceMode {
-	if t, ok := p.typeDef(id); ok {
-		return t.whitespace
-	}
-	return WhitespacePreserve
 }
 
 func valueIdentityCanonical(v *parsedValue) string {

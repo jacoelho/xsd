@@ -41,10 +41,14 @@ type TemporalValue struct {
 
 // TimeValue is the value-space projection for xs:time values. Like
 // xsdDateTimePoint, it keeps fractional seconds as a digit string rather than
-// a fixed-precision number.
+// a fixed-precision number. second is the timezone-normalized time of day
+// and day the day it falls on relative to the lexical day (-1, 0 or 1).
+// Order places the value on that day of an arbitrary date (Datatypes §3.2.8);
+// equality and identity ignore day.
 type TimeValue struct {
 	frac   string
 	second int
+	day    int8
 	hasTZ  bool
 }
 
@@ -198,18 +202,18 @@ func ParseTimeValue(s string) (TimeValue, error) {
 	if err != nil {
 		return TimeValue{}, err
 	}
-	_, second := divModDay(tm.rawSecond())
-	return TimeValue{second: second, frac: tm.frac, hasTZ: tm.tz.present}, nil
-}
-
-// parseTimeRawValue parses s as xs:time without canonical day wrapping. It is
-// used for restriction checks where lexical timezone absence must be preserved.
-func parseTimeRawValue(s string) (TimeValue, error) {
-	tm, err := parseXSDTimeParts(s)
-	if err != nil {
-		return TimeValue{}, err
+	// A clock up to 24:00:00 and an offset within 14 hours keep the
+	// normalized time within one day of the lexical day.
+	t := TimeValue{second: tm.rawSecond(), frac: tm.frac, hasTZ: tm.tz.present}
+	switch {
+	case t.second < 0:
+		t.second += daySeconds
+		t.day = -1
+	case t.second >= daySeconds:
+		t.second -= daySeconds
+		t.day = 1
 	}
-	return TimeValue{second: tm.rawSecond(), frac: tm.frac, hasTZ: tm.tz.present}, nil
+	return t, nil
 }
 
 // CanonicalText returns the XML Schema canonical lexical form for v.
@@ -224,8 +228,12 @@ func (v TimeValue) CanonicalText() string {
 	return out
 }
 
-// compareTimeValues compares xs:time values after timezone normalization.
+// compareTimeValues orders xs:time values after timezone normalization, each
+// on its own day of one arbitrary date.
 func compareTimeValues(a, b TimeValue) int {
+	if n := cmp.Compare(a.day, b.day); n != 0 {
+		return n
+	}
 	if n := cmp.Compare(a.second, b.second); n != 0 {
 		return n
 	}
@@ -244,7 +252,7 @@ func compareTimePartial(a, b TimeValue) orderedFacetRelation {
 // equalTimeValues reports XML Schema equality for xs:time values, including
 // timezone-presence equivalence.
 func equalTimeValues(a, b TimeValue) bool {
-	return a.hasTZ == b.hasTZ && compareTimeValues(a, b) == 0
+	return a.hasTZ == b.hasTZ && a.second == b.second && a.frac == b.frac
 }
 
 type xsdDatePart struct {
@@ -600,15 +608,14 @@ func parseFraction(s string, i int) (string, int, error) {
 }
 
 func xsdTimeTemporalValue(t TimeValue) TemporalValue {
-	days, second := divModDay(t.second)
 	point := xsdDateTimePoint{
 		year:   xsdYear{digits: "2000"},
 		month:  1,
 		day:    1,
-		second: second,
+		second: t.second,
 		frac:   t.frac,
 	}
-	return TemporalValue{instant: addDays(point, days), hasTZ: t.hasTZ}
+	return TemporalValue{instant: addDays(point, int(t.day)), hasTZ: t.hasTZ}
 }
 
 func formatFraction(frac string) string {

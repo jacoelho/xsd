@@ -89,7 +89,7 @@ func TestTimeFacetDerivationAllowsContainedUnknownTimezoneBound(t *testing.T) {
 	}
 }
 
-func TestTimeFacetRuntimeComparisonUsesRecurringTimeOfDay(t *testing.T) {
+func TestTimeFacetOrdersInstanceOnItsNormalizedDay(t *testing.T) {
 	t.Parallel()
 
 	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
@@ -114,8 +114,19 @@ func TestTimeFacetRuntimeComparisonUsesRecurringTimeOfDay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := program.Validate(typeID, "00:30:00+14:00", value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil {
-		t.Fatalf("timezone-adjusted recurring time violated equal bounds: %v", err)
+	for _, tc := range []struct{ lexical, diagnosis string }{
+		{lexical: "10:30:00Z"},
+		{lexical: "12:30:00+02:00"},
+		{lexical: "00:30:00+14:00", diagnosis: `value "00:30:00+14:00" does not satisfy minInclusive "10:30:00Z" on the next day`},
+		{lexical: "20:30:00-14:00", diagnosis: `value "20:30:00-14:00" does not satisfy maxInclusive "10:30:00Z" on the previous day`},
+	} {
+		_, err := program.Validate(typeID, tc.lexical, value.Resolver{}, 0, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
+		switch {
+		case tc.diagnosis == "" && err != nil:
+			t.Errorf("Validate(%q) = %v, want nil", tc.lexical, err)
+		case tc.diagnosis != "" && (!errors.Is(err, value.ErrFacet) || err.Error() != tc.diagnosis):
+			t.Errorf("Validate(%q) = %v, want ErrFacet %q", tc.lexical, err, tc.diagnosis)
+		}
 	}
 }
 

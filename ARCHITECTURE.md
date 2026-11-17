@@ -262,14 +262,16 @@ owner, `internal/schema`, because no value-owned parser exists for them.
   against inherited bounds is repeated by, and the lower-versus-upper and
   fixed-facet checks belong to, `Builder.Complete`'s restriction derivation,
   located at the simple type.
-  Every schema-level order between bounds (a literal against the base's
-  bounds, restriction derivation, and the effective lower-versus-upper check)
-  uses the derivation order (`compareDerivationBounds`), day-preserving for
-  `xs:time` (Time midnight boundary in `docs/spec/INTERPRETATIONS.md`). Every
-  schema-level equality between bounds (an exclusive restatement and a bound
-  under a fixed base bound) is `equalBound`: equality in that order for
-  `xs:time`, value identity otherwise, so durations equal only in order are
-  distinct (Duration equality and order in `docs/spec/INTERPRETATIONS.md`). Restriction
+  One order (`compareAtomic`) relates values and bounds everywhere: an
+  instance value against a bound, a literal against the base's bounds,
+  restriction derivation, and the effective lower-versus-upper check. For
+  `xs:time` it keeps the day a timezone moves a time to (Time midnight
+  boundary in `docs/spec/INTERPRETATIONS.md`); value equality ignores that
+  day. Every schema-level equality between bounds (an exclusive restatement
+  and a bound under a fixed base bound) is `equalBound`: equality in that
+  order for `xs:time`, value identity otherwise, so durations equal only in
+  order are distinct (Duration equality and order in
+  `docs/spec/INTERPRETATIONS.md`). Restriction
   derivation returns the effective facet program, and the compiler does not
   reconstruct that merge. `FacetAllowed` is the only facet-applicability rule
   for schema admission, value construction, and diagnostics.
@@ -982,6 +984,11 @@ graph preserves these ownership rules:
   the schema compiler, and enumeration literals keep the same
   admit-then-complete shape. The cost is a second parse of each bound literal
   at compile time.
+- A second `xs:time` order for instance values, comparing recurring times of
+  day while bounds keep their day, was rejected: a bound is a value of the
+  same value space and the bound facets compare instances with it, and two
+  orders left types valid in one order with fewer instances, or none, in the
+  other (Time midnight boundary in `docs/spec/INTERPRETATIONS.md`).
 - Combining Gregorian primitive parsers was rejected because their field
   grammars and failure precedence differ.
 - Re-resolving schema-supplied QNames in instance namespaces was rejected

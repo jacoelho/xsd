@@ -553,8 +553,7 @@ func failedLowerBoundDiagnostic[T byteText](t *typeDef, lexical T, parsed *parse
 		bound := &t.facets.lower[i]
 		relation, ok := compareAtomic(&parsed.atom, &bound.value)
 		if !ok || !orderedFacetLowerBoundAccepts(bound.exclusive, relation) {
-			name := diagnosticBoundName(minBoundPrefix, bound)
-			return boundDiagnostic(t, lexical, name, bound)
+			return orderedBoundDiagnostic(t, lexical, minBoundPrefix, &parsed.atom, bound)
 		}
 	}
 	return ""
@@ -568,8 +567,7 @@ func failedOrderedBoundDiagnostic[T byteText](t *typeDef, lexical T, parsed *par
 		bound := &t.facets.upper[i]
 		relation, ok := compareAtomic(&parsed.atom, &bound.value)
 		if !ok || !orderedFacetUpperBoundAccepts(bound.exclusive, relation) {
-			name := diagnosticBoundName(maxBoundPrefix, bound)
-			return boundDiagnostic(t, lexical, name, bound)
+			return orderedBoundDiagnostic(t, lexical, maxBoundPrefix, &parsed.atom, bound)
 		}
 	}
 	return ""
@@ -579,12 +577,15 @@ func boundDiagnostic[T byteText](t *typeDef, lexical T, name string, bound *boun
 	return fmt.Sprintf("value %s does not satisfy %s %s", diagnostictext.Quote(lexical), name, diagnosticBoundValue(t.builtin, &bound.value))
 }
 
-// derivationBoundDiagnostic describes literal failing bound in the derivation
-// order. An xs:time bound renders as its recurring time of day, so a bound
-// that lies on another day of the day-preserving order names that day.
-func derivationBoundDiagnostic(t *typeDef, lexical, prefix string, literal, bound *boundValue) string {
+// orderedBoundDiagnostic describes value failing bound. An xs:time bound
+// renders as its time of day, so a bound on another day of the time order
+// than value names that day.
+func orderedBoundDiagnostic[T byteText](t *typeDef, lexical T, prefix string, value *atomicValue, bound *boundValue) string {
 	message := boundDiagnostic(t, lexical, diagnosticBoundName(prefix, bound), bound)
-	switch days := int(bound.timeDayOffset) - int(literal.timeDayOffset); {
+	if value.kind != primitiveTime {
+		return message
+	}
+	switch days := int(bound.value.time.day) - int(value.time.day); {
 	case days == -1:
 		return message + " on the previous day"
 	case days == 1:
