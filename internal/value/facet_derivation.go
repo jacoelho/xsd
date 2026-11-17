@@ -241,7 +241,9 @@ func orderedUpperRestricts(derived, base boundValue) bool {
 	return orderedFacetUpperRestricts(derived.exclusive, base.exclusive, relation)
 }
 
-// compareDerivationBounds orders a derived bound against its base. xs:time
+// compareDerivationBounds orders two bound values, or a bound literal against
+// a bound, as schema components: in restriction derivation, base value-space
+// membership of a bound literal, and lower-versus-upper consistency. xs:time
 // bounds compare as raw UTC seconds on a reference day (rawTimeProjection),
 // not as recurring time of day: a maxInclusive base of 12:00:00-10:00 makes a
 // derived 12:00:00-14:00 invalid (W3C msMeta time_maxInclusive007_119).

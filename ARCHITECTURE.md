@@ -257,12 +257,16 @@ owner, `internal/schema`, because no value-owned parser exists for them.
   `Builder.AdmitBoundLiteral`: base value-space membership, or, for a
   `minExclusive` or `maxExclusive` equal to the base's effective same facet,
   only the base's patterns and other bounds. The compiler admits it while
-  reading the facet, so the diagnostic names the literal; ordering against
-  inherited bounds and fixed-facet checks belong to `Builder.Complete`'s
-  restriction derivation, located at the simple type. Restatement equality is
-  value-space equality, the order instance values are checked against; for
-  `xs:time` that is the recurring time of day, while `Builder.Complete` orders
-  derived bounds day-preserving (`compareDerivationBounds`). Restriction
+  reading the facet, so the diagnostic names the literal; same-side ordering
+  against inherited bounds is repeated by, and the lower-versus-upper and
+  fixed-facet checks belong to, `Builder.Complete`'s restriction derivation,
+  located at the simple type.
+  Restatement equality is value-space equality, the order instance values are
+  checked against; for `xs:time` that is the recurring time of day. Every
+  schema-level relation between bounds (a literal against the base's bounds,
+  restriction derivation, and the effective lower-versus-upper check) uses the
+  derivation order (`compareDerivationBounds`), day-preserving for `xs:time`
+  (Time midnight boundary in `docs/spec/INTERPRETATIONS.md`). Restriction
   derivation returns the effective facet program, and the compiler does not
   reconstruct that merge. `FacetAllowed` is the only facet-applicability rule
   for schema admission, value construction, and diagnostics.

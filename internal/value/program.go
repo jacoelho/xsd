@@ -941,7 +941,7 @@ func validateEffectiveFacetShape(f facetProgram) error {
 }
 
 func validBoundPair(lower, upper boundValue) bool {
-	relation, ok := compareAtomic(&lower.value, &upper.value)
+	relation, ok := compareDerivationBounds(lower, upper)
 	if !ok || relation == orderedFacetGreater || relation == orderedFacetEqual && lower.exclusive != upper.exclusive {
 		return false
 	}
