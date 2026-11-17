@@ -2,20 +2,26 @@ package value_test
 
 import (
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/value"
 )
 
-var durationBoundEqualityCases = []struct {
+type durationBoundEqualityCase struct {
 	name, base, derived string
 	equal               bool
-}{
+}
+
+var durationBoundEqualityCases = []durationBoundEqualityCase{
 	{name: "years spelled as months", base: "P1Y", derived: "P12M", equal: true},
 	{name: "a day spelled as hours", base: "P1D", derived: "PT24H", equal: true},
+	{name: "trailing fraction zero", base: "PT1.5S", derived: "PT1.50S", equal: true},
+	{name: "negative zero", base: "PT0S", derived: "-PT0S", equal: true},
+	{name: "negative years spelled as months", base: "-P1Y", derived: "-P12M", equal: true},
+	{name: "negative fraction spelled in minutes", base: "-PT90.5S", derived: "-PT1M30.50S", equal: true},
 	{name: "years equal to days only in order", base: "P146097D", derived: "P400Y"},
 	{name: "days equal to years only in order", base: "P400Y", derived: "P146097D"},
-	{name: "incomparable month and days", base: "P1M", derived: "P30D"},
 }
 
 var orderedBounds = []struct {
@@ -32,7 +38,8 @@ func TestDurationExclusiveRestatementRequiresIdenticalValue(t *testing.T) {
 	t.Parallel()
 	for _, bound := range orderedBounds[2:] {
 		facet := bound.flag
-		for _, tc := range durationBoundEqualityCases {
+		incomparable := durationBoundEqualityCase{name: "incomparable month and days", base: "P1M", derived: "P30D"}
+		for _, tc := range append(slices.Clone(durationBoundEqualityCases), incomparable) {
 			t.Run(bound.name+"/"+tc.name, func(t *testing.T) {
 				t.Parallel()
 				builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
