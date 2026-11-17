@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 16854,
-    "schemaCases": 16804,
-    "instanceRuns": 35550,
+    "cases": 16872,
+    "schemaCases": 16822,
+    "instanceRuns": 35564,
     "w3cCases": 14414,
-    "internalRuns": 2427,
+    "internalRuns": 2445,
     "xercesJCases": 13
   },
   "cases": [
@@ -895118,6 +895118,1423 @@
         },
         {
           "file": "corpus/project/datatypes/bounds/fixed-minInclusive-time-same-day-other-offset/before-min.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/exclusive-equal-maxExclusive-duration-years-over-days",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-duration-years-over-days",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#duration-order"
+        ],
+        "conditions": [
+          "A derived maxExclusive P400Y agrees with the base maxExclusive P146097D at every reference dateTime but is a different value, so it is no restatement and, not less than the base, lies outside the base value space."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-duration-years-over-days/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet",
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the maxExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle. Xerces-J takes durations whose sums agree at all four reference dateTimes of §3.2.6.2 for equal values: it admits P400Y and P146097D as restating each other and as keeping each other fixed, in both directions and for every bound facet; §4.2.1 makes equality identity, and the two values differ.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the maxExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle. .NET orders durations as fixed day counts with 365-day years and 30-day months: it admits a fixed maxInclusive P400Y restated as P146000D and a derived maxInclusive P400Y under a base maxExclusive P146001D, and treats P1M as equal to P30D, so it ranks P400Y below P146097D and observes neither the §3.2.6.2 order nor duration identity.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. invalid restriction: value has to be lesser than Duration(months=0, seconds=12622780800): Schema component: <xs:maxExclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"P400Y\" /> Path: /xs:schema/xs:simpleType[2]/xs:restriction/xs:maxExclusive Schema URL: file://schema.xsd  The project expectation follows the maxExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the maxExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxExclusive': [facet 'maxExclusive'] The value 'P400Y' must be less than 'P146097D'. The project expectation follows the maxExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the maxExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle. libxml2 rejects every restated exclusive bound (see exclusive-equal-maxExclusive-fixed, where it rejects maxExclusive 10 restating a fixed 10), so its result here does not observe duration equality.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-duration-years-over-days/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/exclusive-equal-maxExclusive-duration-days-over-years",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-duration-days-over-years",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#duration-order"
+        ],
+        "conditions": [
+          "A derived maxExclusive P146097D agrees with the base maxExclusive P400Y at every reference dateTime but is a different value, so it is no restatement and, not less than the base, lies outside the base value space."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-duration-days-over-years/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet",
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the maxExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle. Xerces-J takes durations whose sums agree at all four reference dateTimes of §3.2.6.2 for equal values: it admits P400Y and P146097D as restating each other and as keeping each other fixed, in both directions and for every bound facet; §4.2.1 makes equality identity, and the two values differ.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:2: It is an error if the derived 'maxExclusive' facet value is greater than the parent 'maxExclusive' facet value. The project expectation follows the maxExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the maxExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. invalid restriction: value has to be lesser than Duration(months=4800, seconds=0): Schema component: <xs:maxExclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"P146097D\" /> Path: /xs:schema/xs:simpleType[2]/xs:restriction/xs:maxExclusive Schema URL: file://schema.xsd  The project expectation follows the maxExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the maxExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the maxExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle. libxml2 orders year and month durations against days by a day range rather than the four reference dateTimes of §3.2.6.2: it admits a derived maxInclusive P400Y under a base maxInclusive P146101D but not under P146100D, so it ranks P400Y above P146097D.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-duration-days-over-years/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/exclusive-equal-minExclusive-duration-years-over-days",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/exclusive-equal-minExclusive-duration-years-over-days",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#duration-order"
+        ],
+        "conditions": [
+          "A derived minExclusive P400Y agrees with the base minExclusive P146097D at every reference dateTime but is a different value, so it is no restatement and, not greater than the base, lies outside the base value space."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/exclusive-equal-minExclusive-duration-years-over-days/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet",
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the minExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle. Xerces-J takes durations whose sums agree at all four reference dateTimes of §3.2.6.2 for equal values: it admits P400Y and P146097D as restating each other and as keeping each other fixed, in both directions and for every bound facet; §4.2.1 makes equality identity, and the two values differ.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:2: It is an error if the derived 'minExclusive' facet value is less than the parent 'minExclusive' facet value. The project expectation follows the minExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the minExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. invalid restriction: value has to be greater than Duration(months=0, seconds=12622780800): Schema component: <xs:minExclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"P400Y\" /> Path: /xs:schema/xs:simpleType[2]/xs:restriction/xs:minExclusive Schema URL: file://schema.xsd  The project expectation follows the minExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the minExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the minExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle. libxml2 orders year and month durations against days by a day range rather than the four reference dateTimes of §3.2.6.2: it admits a derived maxInclusive P400Y under a base maxInclusive P146101D but not under P146100D, so it ranks P400Y above P146097D.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-minExclusive-duration-years-over-days/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/exclusive-equal-minExclusive-duration-days-over-years",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/exclusive-equal-minExclusive-duration-days-over-years",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#duration-order"
+        ],
+        "conditions": [
+          "A derived minExclusive P146097D agrees with the base minExclusive P400Y at every reference dateTime but is a different value, so it is no restatement and, not greater than the base, lies outside the base value space."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/exclusive-equal-minExclusive-duration-days-over-years/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet",
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the minExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle. Xerces-J takes durations whose sums agree at all four reference dateTimes of §3.2.6.2 for equal values: it admits P400Y and P146097D as restating each other and as keeping each other fixed, in both directions and for every bound facet; §4.2.1 makes equality identity, and the two values differ.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the minExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle. .NET orders durations as fixed day counts with 365-day years and 30-day months: it admits a fixed maxInclusive P400Y restated as P146000D and a derived maxInclusive P400Y under a base maxExclusive P146001D, and treats P1M as equal to P30D, so it ranks P400Y below P146097D and observes neither the §3.2.6.2 order nor duration identity.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. invalid restriction: value has to be greater than Duration(months=4800, seconds=0): Schema component: <xs:minExclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"P146097D\" /> Path: /xs:schema/xs:simpleType[2]/xs:restriction/xs:minExclusive Schema URL: file://schema.xsd  The project expectation follows the minExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the minExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element minExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}minExclusive': [facet 'minExclusive'] The value 'P146097D' must be greater than 'P400Y'. The project expectation follows the minExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the minExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle. libxml2 rejects every restated exclusive bound (see exclusive-equal-maxExclusive-fixed, where it rejects maxExclusive 10 restating a fixed 10), so its result here does not observe duration equality.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-minExclusive-duration-days-over-years/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/exclusive-equal-maxExclusive-duration-months-for-years",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-duration-months-for-years",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#duration-order"
+        ],
+        "conditions": [
+          "A derived maxExclusive P12M is the (months, seconds) value of the base maxExclusive P1Y spelled in months, so it restates the base facet."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-duration-months-for-years/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the maxExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the maxExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the maxExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxExclusive': [facet 'maxExclusive'] The value 'P12M' must be less than 'P1Y'. The project expectation follows the maxExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the maxExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed. libxml2 rejects every restated exclusive bound (see exclusive-equal-maxExclusive-fixed, where it rejects maxExclusive 10 restating a fixed 10), so its result here does not observe duration equality.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "below-max",
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-duration-months-for-years/below-max.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the maxExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the maxExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the maxExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the maxExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the maxExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the maxExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            }
+          }
+        },
+        {
+          "testName": "at-max",
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-duration-months-for-years/at-max.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. at-max.xml:1:11: cvc-maxExclusive-valid: Value 'P1Y' is not facet-valid with respect to maxExclusive 'P0Y12M0DT0H0M0S' for type 'D'. The project expectation follows the maxExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the maxExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. at-max.xml:1:9: The 'r' element is invalid - The value 'P1Y' is invalid according to its datatype 'D' - The MaxExclusive constraint failed. The project expectation follows the maxExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the maxExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: value has to be lesser than Duration(months=12, seconds=0) (path /r) The project expectation follows the maxExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the maxExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-duration-months-for-years/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-duration-months-for-years/below-max.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-duration-months-for-years/at-max.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/exclusive-equal-minExclusive-duration-hours-for-day",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/exclusive-equal-minExclusive-duration-hours-for-day",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#duration-order"
+        ],
+        "conditions": [
+          "A derived minExclusive PT24H is the (months, seconds) value of the base minExclusive P1D spelled in hours, so it restates the base facet."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/exclusive-equal-minExclusive-duration-hours-for-day/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the minExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the minExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the minExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element minExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}minExclusive': [facet 'minExclusive'] The value 'PT24H' must be greater than 'P1D'. The project expectation follows the minExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the minExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed. libxml2 rejects every restated exclusive bound (see exclusive-equal-maxExclusive-fixed, where it rejects maxExclusive 10 restating a fixed 10), so its result here does not observe duration equality.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "above-min",
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-minExclusive-duration-hours-for-day/above-min.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the minExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the minExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the minExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the minExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the minExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the minExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+            }
+          }
+        },
+        {
+          "testName": "at-min",
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-minExclusive-duration-hours-for-day/at-min.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. at-min.xml:1:11: cvc-minExclusive-valid: Value 'P1D' is not facet-valid with respect to minExclusive 'P0Y0M0DT24H0M0S' for type 'D'. The project expectation follows the minExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the minExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. at-min.xml:1:9: The 'r' element is invalid - The value 'P1D' is invalid according to its datatype 'D' - The MinExclusive constraint failed. The project expectation follows the minExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the minExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: value has to be greater than Duration(months=0, seconds=86400) (path /r) The project expectation follows the minExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the minExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-minExclusive-duration-hours-for-day/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-minExclusive-duration-hours-for-day/above-min.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-minExclusive-duration-hours-for-day/at-min.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/exclusive-equal-maxExclusive-duration-incomparable",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-duration-incomparable",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#duration-order"
+        ],
+        "conditions": [
+          "A derived maxExclusive P30D is incomparable with the base maxExclusive P1M, so it neither restates the base facet nor lies in the base value space."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-duration-incomparable/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:50: cvc-maxExclusive-valid: Value 'P30D' is not facet-valid with respect to maxExclusive 'P0Y1M0DT0H0M0S' for type 'B'. The project expectation follows the maxExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the maxExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the maxExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle. .NET orders durations as fixed day counts with 365-day years and 30-day months: it admits a fixed maxInclusive P400Y restated as P146000D and a derived maxInclusive P400Y under a base maxExclusive P146001D, and treats P1M as equal to P30D, so it ranks P400Y below P146097D and observes neither the §3.2.6.2 order nor duration identity.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the maxExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle. xmlschema checks a derived bound only for being greater than the base bound and lets an indeterminate comparison pass, against §3.2.6.3: it admits a derived maxExclusive P28D under a base maxExclusive P1M and rejects P32D.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxExclusive': [facet 'maxExclusive'] The value 'P30D' must be less than 'P1M'. The project expectation follows the maxExclusive definition, under which a literal outside the base value space is admitted only when it is equal to the maxExclusive of the base, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/exclusive-equal-maxExclusive-duration-incomparable/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/fixed-maxInclusive-duration-years-over-days",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/fixed-maxInclusive-duration-years-over-days",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxInclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#duration-order"
+        ],
+        "conditions": [
+          "A derived maxInclusive P400Y agrees with the fixed base maxInclusive P146097D at every reference dateTime but is a different value, so it changes the fixed facet."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/fixed-maxInclusive-duration-years-over-days/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet",
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxInclusive definition, under which a facet fixed in the base admits only a derived maxInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle. Xerces-J takes durations whose sums agree at all four reference dateTimes of §3.2.6.2 for equal values: it admits P400Y and P146097D as restating each other and as keeping each other fixed, in both directions and for every bound facet; §4.2.1 makes equality identity, and the two values differ.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:51: Values that are declared with fixed='true' in a base type can not be changed in a derived type. The project expectation follows the maxInclusive definition, under which a facet fixed in the base admits only a derived maxInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. 'maxInclusive' facet value is fixed to Duration(months=0, seconds=12622780800): Schema component: <xs:maxInclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"P400Y\" /> Path: /xs:schema/xs:simpleType[2]/xs:restriction/xs:maxInclusive Schema URL: file://schema.xsd  The project expectation follows the maxInclusive definition, under which a facet fixed in the base admits only a derived maxInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxInclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxInclusive': [facet 'maxInclusive'] The value 'P400Y' is greater than the maximum value allowed ('P146097D'). The project expectation follows the maxInclusive definition, under which a facet fixed in the base admits only a derived maxInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/fixed-maxInclusive-duration-years-over-days/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/fixed-minInclusive-duration-days-over-years",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/fixed-minInclusive-duration-days-over-years",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#duration-order"
+        ],
+        "conditions": [
+          "A derived minInclusive P146097D agrees with the fixed base minInclusive P400Y at every reference dateTime but is a different value, so it changes the fixed facet."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/fixed-minInclusive-duration-days-over-years/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet",
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle. Xerces-J takes durations whose sums agree at all four reference dateTimes of §3.2.6.2 for equal values: it admits P400Y and P146097D as restating each other and as keeping each other fixed, in both directions and for every bound facet; §4.2.1 makes equality identity, and the two values differ.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:51: Values that are declared with fixed='true' in a base type can not be changed in a derived type. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. 'minInclusive' facet value is fixed to Duration(months=4800, seconds=0): Schema component: <xs:minInclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"P146097D\" /> Path: /xs:schema/xs:simpleType[2]/xs:restriction/xs:minInclusive Schema URL: file://schema.xsd  The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element minInclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}minInclusive': [facet 'minInclusive'] The value 'P146097D' is less than the minimum value allowed ('P400Y'). The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/fixed-minInclusive-duration-days-over-years/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/fixed-maxExclusive-duration-days-over-years",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/fixed-maxExclusive-duration-days-over-years",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#duration-order"
+        ],
+        "conditions": [
+          "A derived maxExclusive P146097D agrees with the fixed base maxExclusive P400Y at every reference dateTime but is a different value, so it changes the fixed facet."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/fixed-maxExclusive-duration-days-over-years/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet",
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle. Xerces-J takes durations whose sums agree at all four reference dateTimes of §3.2.6.2 for equal values: it admits P400Y and P146097D as restating each other and as keeping each other fixed, in both directions and for every bound facet; §4.2.1 makes equality identity, and the two values differ.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:51: Values that are declared with fixed='true' in a base type can not be changed in a derived type. The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. invalid restriction: value has to be lesser than Duration(months=4800, seconds=0): Schema component: <xs:maxExclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"P146097D\" /> Path: /xs:schema/xs:simpleType[2]/xs:restriction/xs:maxExclusive Schema URL: file://schema.xsd  The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxExclusive: Schemas parser error : facet 'maxExclusive': The base type's facet is 'fixed', thus the value must not differ. The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle. libxml2 rejects every restated exclusive bound (see exclusive-equal-maxExclusive-fixed, where it rejects maxExclusive 10 restating a fixed 10), so its result here does not observe duration equality.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/fixed-maxExclusive-duration-days-over-years/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/fixed-minExclusive-duration-years-over-days",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/fixed-minExclusive-duration-years-over-days",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#duration-order"
+        ],
+        "conditions": [
+          "A derived minExclusive P400Y agrees with the fixed base minExclusive P146097D at every reference dateTime but is a different value, so it changes the fixed facet."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/fixed-minExclusive-duration-years-over-days/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet",
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minExclusive definition, under which a facet fixed in the base admits only a derived minExclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle. Xerces-J takes durations whose sums agree at all four reference dateTimes of §3.2.6.2 for equal values: it admits P400Y and P146097D as restating each other and as keeping each other fixed, in both directions and for every bound facet; §4.2.1 makes equality identity, and the two values differ.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:51: Values that are declared with fixed='true' in a base type can not be changed in a derived type. The project expectation follows the minExclusive definition, under which a facet fixed in the base admits only a derived minExclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. invalid restriction: value has to be greater than Duration(months=0, seconds=12622780800): Schema component: <xs:minExclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"P400Y\" /> Path: /xs:schema/xs:simpleType[2]/xs:restriction/xs:minExclusive Schema URL: file://schema.xsd  The project expectation follows the minExclusive definition, under which a facet fixed in the base admits only a derived minExclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element minExclusive: Schemas parser error : facet 'minExclusive': The base type's facet is 'fixed', thus the value must not differ. The project expectation follows the minExclusive definition, under which a facet fixed in the base admits only a derived minExclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle. libxml2 rejects every restated exclusive bound (see exclusive-equal-maxExclusive-fixed, where it rejects maxExclusive 10 restating a fixed 10), so its result here does not observe duration equality.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minExclusive"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/fixed-minExclusive-duration-years-over-days/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/fixed-maxInclusive-duration-months-for-years",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/fixed-maxInclusive-duration-months-for-years",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxInclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#duration-order"
+        ],
+        "conditions": [
+          "A derived maxInclusive P12M is the (months, seconds) value of the fixed base maxInclusive P1Y spelled in months, so it keeps the fixed facet."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/fixed-maxInclusive-duration-months-for-years/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxInclusive definition, under which a facet fixed in the base admits only a derived maxInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxInclusive definition, under which a facet fixed in the base admits only a derived maxInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxInclusive definition, under which a facet fixed in the base admits only a derived maxInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxInclusive definition, under which a facet fixed in the base admits only a derived maxInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "at-max",
+          "file": "corpus/project/datatypes/bounds/fixed-maxInclusive-duration-months-for-years/at-max.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the maxInclusive definition, under which a facet fixed in the base admits only a derived maxInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the maxInclusive definition, under which a facet fixed in the base admits only a derived maxInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the maxInclusive definition, under which a facet fixed in the base admits only a derived maxInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the maxInclusive definition, under which a facet fixed in the base admits only a derived maxInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+            }
+          }
+        },
+        {
+          "testName": "above-max",
+          "file": "corpus/project/datatypes/bounds/fixed-maxInclusive-duration-months-for-years/above-max.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. above-max.xml:1:14: cvc-maxInclusive-valid: Value 'P1YT1S' is not facet-valid with respect to maxInclusive 'P0Y12M0DT0H0M0S' for type 'D'. The project expectation follows the maxInclusive definition, under which a facet fixed in the base admits only a derived maxInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. above-max.xml:1:12: The 'r' element is invalid - The value 'P1YT1S' is invalid according to its datatype 'D' - The MaxInclusive constraint failed. The project expectation follows the maxInclusive definition, under which a facet fixed in the base admits only a derived maxInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: value has to be less than or equal than Duration(months=12, seconds=0) (path /r) The project expectation follows the maxInclusive definition, under which a facet fixed in the base admits only a derived maxInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+            },
+            "libxml2": {
+              "expected": "invalid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance rejected. above-max.xml:1: element r: Schemas validity error : Element 'r': [facet 'maxInclusive'] The value 'P1YT1S' is greater than the maximum value allowed ('P12M'). The project expectation follows the maxInclusive definition, under which a facet fixed in the base admits only a derived maxInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/fixed-maxInclusive-duration-months-for-years/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/fixed-maxInclusive-duration-months-for-years/at-max.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/fixed-maxInclusive-duration-months-for-years/above-max.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/fixed-minInclusive-duration-hours-for-day",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/fixed-minInclusive-duration-hours-for-day",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#duration-order"
+        ],
+        "conditions": [
+          "A derived minInclusive PT24H is the (months, seconds) value of the fixed base minInclusive P1D spelled in hours, so it keeps the fixed facet."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/fixed-minInclusive-duration-hours-for-day/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "at-min",
+          "file": "corpus/project/datatypes/bounds/fixed-minInclusive-duration-hours-for-day/at-min.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+            }
+          }
+        },
+        {
+          "testName": "below-min",
+          "file": "corpus/project/datatypes/bounds/fixed-minInclusive-duration-hours-for-day/below-min.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. below-min.xml:1:19: cvc-minInclusive-valid: Value 'PT23H59M59S' is not facet-valid with respect to minInclusive 'P0Y0M0DT24H0M0S' for type 'D'. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. below-min.xml:1:17: The 'r' element is invalid - The value 'PT23H59M59S' is invalid according to its datatype 'D' - The MinInclusive constraint failed. The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: value has to be greater or equal than Duration(months=0, seconds=86400) (path /r) The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+            },
+            "libxml2": {
+              "expected": "invalid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance rejected. below-min.xml:1: element r: Schemas validity error : Element 'r': [facet 'minInclusive'] The value 'PT23H59M59S' is less than the minimum value allowed ('PT24H'). The project expectation follows the minInclusive definition, under which a facet fixed in the base admits only a derived minInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-minInclusive"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/fixed-minInclusive-duration-hours-for-day/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/fixed-minInclusive-duration-hours-for-day/at-min.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/fixed-minInclusive-duration-hours-for-day/below-min.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/fixed-maxExclusive-duration-months-for-years",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/fixed-maxExclusive-duration-months-for-years",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#duration-order"
+        ],
+        "conditions": [
+          "A derived maxExclusive P12M is the (months, seconds) value of the fixed base maxExclusive P1Y spelled in months, so it restates and keeps the fixed facet."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/fixed-maxExclusive-duration-months-for-years/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxExclusive': [facet 'maxExclusive'] The value 'P12M' must be less than 'P1Y'. The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed. libxml2 rejects every restated exclusive bound (see exclusive-equal-maxExclusive-fixed, where it rejects maxExclusive 10 restating a fixed 10), so its result here does not observe duration equality.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "below-max",
+          "file": "corpus/project/datatypes/bounds/fixed-maxExclusive-duration-months-for-years/below-max.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            }
+          }
+        },
+        {
+          "testName": "at-max",
+          "file": "corpus/project/datatypes/bounds/fixed-maxExclusive-duration-months-for-years/at-max.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. at-max.xml:1:11: cvc-maxExclusive-valid: Value 'P1Y' is not facet-valid with respect to maxExclusive 'P0Y12M0DT0H0M0S' for type 'D'. The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. at-max.xml:1:9: The 'r' element is invalid - The value 'P1Y' is invalid according to its datatype 'D' - The MaxExclusive constraint failed. The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: value has to be lesser than Duration(months=12, seconds=0) (path /r) The project expectation follows the maxExclusive definition, under which a facet fixed in the base admits only a derived maxExclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/fixed-maxExclusive-duration-months-for-years/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/fixed-maxExclusive-duration-months-for-years/below-max.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/fixed-maxExclusive-duration-months-for-years/at-max.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/fixed-maxInclusive-duration-incomparable",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/fixed-maxInclusive-duration-incomparable",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxInclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#duration-order"
+        ],
+        "conditions": [
+          "A derived maxInclusive P30D is incomparable with the fixed base maxInclusive P1M, so it lies outside the base value space and changes the fixed facet."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/fixed-maxInclusive-duration-incomparable/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:50: FixedFacetValue: In the definition of D, the value 'P0Y0M30DT0H0M0S' for the facet 'maxInclusive' is invalid, because the value for 'maxInclusive' has been set to 'P0Y1M0DT0H0M0S' in one of the ancestor types, and {fixed} = true. The project expectation follows the maxInclusive definition, under which a facet fixed in the base admits only a derived maxInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxInclusive definition, under which a facet fixed in the base admits only a derived maxInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle. .NET orders durations as fixed day counts with 365-day years and 30-day months: it admits a fixed maxInclusive P400Y restated as P146000D and a derived maxInclusive P400Y under a base maxExclusive P146001D, and treats P1M as equal to P30D, so it ranks P400Y below P146097D and observes neither the §3.2.6.2 order nor duration identity.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. 'maxInclusive' facet value is fixed to Duration(months=1, seconds=0): Schema component: <xs:maxInclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"P30D\" /> Path: /xs:schema/xs:simpleType[2]/xs:restriction/xs:maxInclusive Schema URL: file://schema.xsd  The project expectation follows the maxInclusive definition, under which a facet fixed in the base admits only a derived maxInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxInclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxInclusive': [facet 'maxInclusive'] The value 'P30D' is greater than the maximum value allowed ('P1M'). The project expectation follows the maxInclusive definition, under which a facet fixed in the base admits only a derived maxInclusive equal to it, with equality taken by §4.2.1, under which equality is identity, with duration values taken as (months, seconds) pairs (XSD 1.1 §I.4, §3.3.6.1: \"two duration values are equal if and only if they are identical\"), so that P400Y and P146097D, whose sums agree at all four reference dateTimes of §3.2.6.2, are distinct values; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/fixed-maxInclusive-duration-incomparable/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/restrict-maxInclusive-duration-years-at-days",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/restrict-maxInclusive-duration-years-at-days",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxInclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#duration-order"
+        ],
+        "conditions": [
+          "A derived maxInclusive P400Y agrees with the base maxInclusive P146097D at every reference dateTime, so it is not greater than the base and lies in the base value space as an ordinary literal."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/restrict-maxInclusive-duration-years-at-days/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxInclusive valid-restriction constraint and base value-space membership, ordered by the four-reference-dateTime order of §3.2.6.2, under which durations whose sums agree at every reference dateTime are neither less nor greater, and indeterminate comparisons count as false (§3.2.6.3); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxInclusive valid-restriction constraint and base value-space membership, ordered by the four-reference-dateTime order of §3.2.6.2, under which durations whose sums agree at every reference dateTime are neither less nor greater, and indeterminate comparisons count as false (§3.2.6.3); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxInclusive valid-restriction constraint and base value-space membership, ordered by the four-reference-dateTime order of §3.2.6.2, under which durations whose sums agree at every reference dateTime are neither less nor greater, and indeterminate comparisons count as false (§3.2.6.3); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxInclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxInclusive': [facet 'maxInclusive'] The value 'P400Y' is greater than the maximum value allowed ('P146097D'). The project expectation follows the maxInclusive valid-restriction constraint and base value-space membership, ordered by the four-reference-dateTime order of §3.2.6.2, under which durations whose sums agree at every reference dateTime are neither less nor greater, and indeterminate comparisons count as false (§3.2.6.3); this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed. libxml2 orders year and month durations against days by a day range rather than the four reference dateTimes of §3.2.6.2: it admits a derived maxInclusive P400Y under a base maxInclusive P146101D but not under P146100D, so it ranks P400Y above P146097D.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "at-max-in-days",
+          "file": "corpus/project/datatypes/bounds/restrict-maxInclusive-duration-years-at-days/at-max-in-days.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the maxInclusive valid-restriction constraint and base value-space membership, ordered by the four-reference-dateTime order of §3.2.6.2, under which durations whose sums agree at every reference dateTime are neither less nor greater, and indeterminate comparisons count as false (§3.2.6.3); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. at-max-in-days.xml:1:14: The 'r' element is invalid - The value 'P146097D' is invalid according to its datatype 'D' - The MaxInclusive constraint failed. The project expectation follows the maxInclusive valid-restriction constraint and base value-space membership, ordered by the four-reference-dateTime order of §3.2.6.2, under which durations whose sums agree at every reference dateTime are neither less nor greater, and indeterminate comparisons count as false (§3.2.6.3); this observation is not a majority-vote oracle. .NET orders durations as fixed day counts with 365-day years and 30-day months: it admits a fixed maxInclusive P400Y restated as P146000D and a derived maxInclusive P400Y under a base maxExclusive P146001D, and treats P1M as equal to P30D, so it ranks P400Y below P146097D and observes neither the §3.2.6.2 order nor duration identity.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the maxInclusive valid-restriction constraint and base value-space membership, ordered by the four-reference-dateTime order of §3.2.6.2, under which durations whose sums agree at every reference dateTime are neither less nor greater, and indeterminate comparisons count as false (§3.2.6.3); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+            }
+          }
+        },
+        {
+          "testName": "above-max",
+          "file": "corpus/project/datatypes/bounds/restrict-maxInclusive-duration-years-at-days/above-max.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. above-max.xml:1:16: cvc-maxInclusive-valid: Value 'P400YT1S' is not facet-valid with respect to maxInclusive 'P400Y0M0DT0H0M0S' for type 'D'. The project expectation follows the maxInclusive valid-restriction constraint and base value-space membership, ordered by the four-reference-dateTime order of §3.2.6.2, under which durations whose sums agree at every reference dateTime are neither less nor greater, and indeterminate comparisons count as false (§3.2.6.3); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. above-max.xml:1:14: The 'r' element is invalid - The value 'P400YT1S' is invalid according to its datatype 'D' - The MaxInclusive constraint failed. The project expectation follows the maxInclusive valid-restriction constraint and base value-space membership, ordered by the four-reference-dateTime order of §3.2.6.2, under which durations whose sums agree at every reference dateTime are neither less nor greater, and indeterminate comparisons count as false (§3.2.6.3); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: value has to be less than or equal than Duration(months=0, seconds=12622780800) (path /r) The project expectation follows the maxInclusive valid-restriction constraint and base value-space membership, ordered by the four-reference-dateTime order of §3.2.6.2, under which durations whose sums agree at every reference dateTime are neither less nor greater, and indeterminate comparisons count as false (§3.2.6.3); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/restrict-maxInclusive-duration-years-at-days/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/restrict-maxInclusive-duration-years-at-days/at-max-in-days.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/restrict-maxInclusive-duration-years-at-days/above-max.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/restrict-maxInclusive-duration-years-under-exclusive-days",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/restrict-maxInclusive-duration-years-under-exclusive-days",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxInclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#duration-order"
+        ],
+        "conditions": [
+          "A derived maxInclusive P400Y agrees with the base maxExclusive P146097D at every reference dateTime, so it is not less than the base and lies outside the base value space."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/restrict-maxInclusive-duration-years-under-exclusive-days/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:50: cvc-maxExclusive-valid: Value 'P400Y' is not facet-valid with respect to maxExclusive 'P0Y0M146097DT0H0M0S' for type 'B'. The project expectation follows the maxInclusive valid-restriction constraint and base value-space membership, ordered by the four-reference-dateTime order of §3.2.6.2, under which durations whose sums agree at every reference dateTime are neither less nor greater, and indeterminate comparisons count as false (§3.2.6.3); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxInclusive valid-restriction constraint and base value-space membership, ordered by the four-reference-dateTime order of §3.2.6.2, under which durations whose sums agree at every reference dateTime are neither less nor greater, and indeterminate comparisons count as false (§3.2.6.3); this observation is not a majority-vote oracle. .NET orders durations as fixed day counts with 365-day years and 30-day months: it admits a fixed maxInclusive P400Y restated as P146000D and a derived maxInclusive P400Y under a base maxExclusive P146001D, and treats P1M as equal to P30D, so it ranks P400Y below P146097D and observes neither the §3.2.6.2 order nor duration identity.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. invalid restriction: value has to be lesser than Duration(months=0, seconds=12622780800): Schema component: <xs:maxInclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"P400Y\" /> Path: /xs:schema/xs:simpleType[2]/xs:restriction/xs:maxInclusive Schema URL: file://schema.xsd  The project expectation follows the maxInclusive valid-restriction constraint and base value-space membership, ordered by the four-reference-dateTime order of §3.2.6.2, under which durations whose sums agree at every reference dateTime are neither less nor greater, and indeterminate comparisons count as false (§3.2.6.3); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxInclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxInclusive': [facet 'maxExclusive'] The value 'P400Y' must be less than 'P146097D'. The project expectation follows the maxInclusive valid-restriction constraint and base value-space membership, ordered by the four-reference-dateTime order of §3.2.6.2, under which durations whose sums agree at every reference dateTime are neither less nor greater, and indeterminate comparisons count as false (§3.2.6.3); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/restrict-maxInclusive-duration-years-under-exclusive-days/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/instance-maxExclusive-duration-order-equal",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/instance-maxExclusive-duration-order-equal",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#equal",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#duration-order"
+        ],
+        "conditions": [
+          "An instance P400Y agrees with maxExclusive P146097D at every reference dateTime, so it is not less than the bound."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/instance-maxExclusive-duration-order-equal/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxExclusive valid-restriction constraint and base value-space membership, ordered by the four-reference-dateTime order of §3.2.6.2, under which durations whose sums agree at every reference dateTime are neither less nor greater, and indeterminate comparisons count as false (§3.2.6.3); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxExclusive valid-restriction constraint and base value-space membership, ordered by the four-reference-dateTime order of §3.2.6.2, under which durations whose sums agree at every reference dateTime are neither less nor greater, and indeterminate comparisons count as false (§3.2.6.3); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxExclusive valid-restriction constraint and base value-space membership, ordered by the four-reference-dateTime order of §3.2.6.2, under which durations whose sums agree at every reference dateTime are neither less nor greater, and indeterminate comparisons count as false (§3.2.6.3); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the maxExclusive valid-restriction constraint and base value-space membership, ordered by the four-reference-dateTime order of §3.2.6.2, under which durations whose sums agree at every reference dateTime are neither less nor greater, and indeterminate comparisons count as false (§3.2.6.3); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "below-max",
+          "file": "corpus/project/datatypes/bounds/instance-maxExclusive-duration-order-equal/below-max.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the maxExclusive valid-restriction constraint and base value-space membership, ordered by the four-reference-dateTime order of §3.2.6.2, under which durations whose sums agree at every reference dateTime are neither less nor greater, and indeterminate comparisons count as false (§3.2.6.3); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the maxExclusive valid-restriction constraint and base value-space membership, ordered by the four-reference-dateTime order of §3.2.6.2, under which durations whose sums agree at every reference dateTime are neither less nor greater, and indeterminate comparisons count as false (§3.2.6.3); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the maxExclusive valid-restriction constraint and base value-space membership, ordered by the four-reference-dateTime order of §3.2.6.2, under which durations whose sums agree at every reference dateTime are neither less nor greater, and indeterminate comparisons count as false (§3.2.6.3); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the maxExclusive valid-restriction constraint and base value-space membership, ordered by the four-reference-dateTime order of §3.2.6.2, under which durations whose sums agree at every reference dateTime are neither less nor greater, and indeterminate comparisons count as false (§3.2.6.3); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            }
+          }
+        },
+        {
+          "testName": "at-max-in-years",
+          "file": "corpus/project/datatypes/bounds/instance-maxExclusive-duration-order-equal/at-max-in-years.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. at-max-in-years.xml:1:13: cvc-maxExclusive-valid: Value 'P400Y' is not facet-valid with respect to maxExclusive 'P0Y0M146097DT0H0M0S' for type 'D'. The project expectation follows the maxExclusive valid-restriction constraint and base value-space membership, ordered by the four-reference-dateTime order of §3.2.6.2, under which durations whose sums agree at every reference dateTime are neither less nor greater, and indeterminate comparisons count as false (§3.2.6.3); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the maxExclusive valid-restriction constraint and base value-space membership, ordered by the four-reference-dateTime order of §3.2.6.2, under which durations whose sums agree at every reference dateTime are neither less nor greater, and indeterminate comparisons count as false (§3.2.6.3); this observation is not a majority-vote oracle. .NET orders durations as fixed day counts with 365-day years and 30-day months: it admits a fixed maxInclusive P400Y restated as P146000D and a derived maxInclusive P400Y under a base maxExclusive P146001D, and treats P1M as equal to P30D, so it ranks P400Y below P146097D and observes neither the §3.2.6.2 order nor duration identity.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: value has to be lesser than Duration(months=0, seconds=12622780800) (path /r) The project expectation follows the maxExclusive valid-restriction constraint and base value-space membership, ordered by the four-reference-dateTime order of §3.2.6.2, under which durations whose sums agree at every reference dateTime are neither less nor greater, and indeterminate comparisons count as false (§3.2.6.3); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            },
+            "libxml2": {
+              "expected": "invalid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance rejected. at-max-in-years.xml:1: element r: Schemas validity error : Element 'r': [facet 'maxExclusive'] The value 'P400Y' must be less than 'P146097D'. The project expectation follows the maxExclusive valid-restriction constraint and base value-space membership, ordered by the four-reference-dateTime order of §3.2.6.2, under which durations whose sums agree at every reference dateTime are neither less nor greater, and indeterminate comparisons count as false (§3.2.6.3); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxExclusive"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/instance-maxExclusive-duration-order-equal/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/instance-maxExclusive-duration-order-equal/below-max.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/bounds/instance-maxExclusive-duration-order-equal/at-max-in-years.xml",
           "role": "instance"
         }
       ]
