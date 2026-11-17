@@ -211,6 +211,68 @@ locates its dependency charge at the reference being resolved and a
 Publication consumes the
 build only on success; `*schema.Schema` exposes only immutable derived reads.
 
+Schema-document diagnostics have an order. A violation has one decision point,
+and a compilation reports the violation whose decision point comes first. Two
+tiers hold the decision points.
+
+The parse tier decides while a document is read, at a start tag (`admitStart`)
+or an end tag (`completeTypedNode`). Its violations are reported in document
+order of their decision points and, at one decision point, in this stage order.
+At a start tag:
+
+1. the root element is `xs:schema`;
+2. unsupported vocabulary (`rejectUnsupportedVocabulary`): an XSD 1.1 element
+   or attribute, or `xs:redefine`;
+3. character data earlier in the parent;
+4. the parent's content admits the child: no foreign element, the annotation
+   rules, then the parent's child order (`childOrderState.accept`);
+5. the element's own attributes in the order written. For each attribute:
+   that the element may have it in this placement (`schemaElementAttributeAllowed`,
+   `misplacedSchemaAttributeError`), then its value: the name syntax of `name`
+   and `id`, an `id` the document already declares, the lexical form
+   (`checkSchemaAttributeValueSyntax`), the lexical form and prefix binding of
+   a QName, and anyURI syntax;
+6. the attributes the placement requires (`checkRequiredSchemaAttributes`).
+
+At an end tag:
+
+7. character data in the element;
+8. the children the element requires (`childOrderState.missingChild`).
+
+Malformed XML and the parse limits are reported where the reader meets them, in
+the same document order. Documents are read one at a time, explicit sources in
+name order and then referenced documents as the loader reaches them, so the
+parse-tier violations of one document precede those of the next, and a loading
+failure is reported when the loader reaches its reference.
+
+The compile tier decides after every document of the set is read, so a
+compile-tier violation is reported only when no document has a parse-tier
+violation. A rule is compile tier when one start or end tag cannot decide it:
+reference resolution and import authorization; duplicate components and
+attribute uses; cycles, derivation and `final`; whether the base type admits a
+facet, and facet values; a value constraint against its type; a group
+reference that resolves to `xs:all`; and the content model rules (Unique
+Particle Attribution, Element Declarations Consistent, restriction).
+Compilation also owns these rules, which one tag states but which constrain
+the component the tag describes or relate two of its attributes, so they have
+no position among the attributes of the tag: `default` together with `fixed`,
+and `default` on an attribute use that is not optional; `minOccurs` above
+`maxOccurs`, the occurrence range of an `xs:all` particle, and an occurrence
+count above the occurrence limits; an attribute named `xmlns`; and the path
+grammar of `xs:selector` and `xs:field`, of which stage 5 rejects only an
+empty `xpath`.
+
+Each of these rules has one owner. The child orders (`childOrderFor`) own
+where an element may appear; the placement of a component
+(`schemaElementPlacementOf`) selects its attribute rules and says nothing
+about whether its parent admits it. `schemaElementAttributeAllowed` and
+`misplacedSchemaAttributeError` own the attributes an element may have,
+`checkRequiredSchemaAttributes` the ones it must have, and
+`checkSchemaAttributeValueSyntax` the lexical form of a value. Compilation
+parses an admitted value again with the same parser to use it, and a lexical
+failure there is an internal invariant (`admittedValueInvariant`), not a second
+schema diagnostic.
+
 `internal/schema`, `internal/value` and `internal/validate` export only
 identifiers consumed outside their package: for schema the published read
 surface plus `Compile`, `CompileMappedSources`, `NormalizeOptions`,
@@ -767,6 +829,7 @@ change-detector tests that mirror the implementation or assert their own setup.
 | `tests/phase_import_graph_test.go` | Package allowlists, dependency direction, context-free and reflection-free library code, source I/O ownership, and capability isolation |
 | `tests/phase_boundary_test.go` | Required modules, single facade execution edges, session construction ownership, and retired public paths |
 | `tests/schema_diagnostic_text_test.go` | Schema diagnostics quote schema text through `internal/diagnostictext`: an allowlist lint over `internal/schema` message operands (known gaps are listed in its doc comment); the public hostile-value table in `schema_diagnostic_bound_test.go` is the contract proof |
+| `schema_diagnostic_order_test.go` with the catalogue in `schema_diagnostic_catalogue_test.go` | The schema-document diagnostics order of `internal/schema`: a catalogue of single violations, each declaring its tier and stage from the contract and never from compiler output, and every ordered pair of them (as consecutive components, inside one component, on one start tag in both attribute orders, and across two documents) reports the violation that tier, decision point, stage and attribute order select. A rule decided later than the contract says is listed by name in `knownSchemaDiagnosticOrderGaps`, and a listed gap that holds fails as stale |
 | `tests/schema_export_surface_test.go` | The exported top-level identifiers of `internal/schema`, `internal/value` and `internal/validate` equal an explicit allowlist of the surface consumed across packages |
 | `tests/resource_limits_doc_test.go` | `docs/RESOURCE_LIMITS.md` option tables list every public option with its code-owned default |
 | `tests/root_public_shape_test.go` and `tests/external_api_smoke_test.go` | External callers use only the supported public packages and interface |
