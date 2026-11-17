@@ -890329,7 +890329,7 @@
         "oracle": {
           "xerces": {
             "status": "unassessed",
-            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: error. java.lang.NullPointerException: Cannot invoke \"org.apache.xerces.impl.xs.util.XInt.intValue()\" because \"this.fSchemaAttrs[org.apache.xerces.impl.xs.traversers.XSAttributeChecker.ATTIDX_AFORMDEFAULT]\" is null"
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: error. java.lang.NullPointerException: Cannot invoke \"org.apache.xerces.impl.xs.util.XInt.intValue()\" because \"this.fSchemaAttrs[org.apache.xerces.impl.xs.traversers.XSAttributeChecker.ATTIDX_AFORMDEFAULT]\" is null The exception is thrown inside Xerces-J, not by the adapter: XSDHandler.constructTrees builds an XSDocumentInfo for the document element, which reads the xs:schema attribute attributeFormDefault from the attributes checked for xs:element and finds none. It is the same through StreamSource, DOMSource and SAXSource roots of XMLSchemaFactory.newSchema and through XMLSchemaLoader.loadGrammar, and for document elements xs:element without attributes, xs:complexType, xs:simpleType, xs:attribute, xs:group and xs:annotation. Xerces-J reports a document element outside the XSD namespace as s4s-elt-schema-ns and an unknown XSD element such as xs:assert as s4s-elt-invalid (root-assert), so it means to reject such a document, but for this input it yields no verdict, and an exception is not taken as a validity result."
           },
           "dotnet": {
             "expected": "invalid",
