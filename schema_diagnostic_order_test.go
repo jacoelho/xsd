@@ -844,3 +844,50 @@ func TestSchemaDiagnosticOrderAcrossDocuments(t *testing.T) {
 	}
 	t.Logf("across documents: %d pairs asserted", asserted)
 }
+
+// TestSchemaDiagnosticOrderAcrossDocumentsInReadOrder pairs every parse-tier
+// entry in the first document with one parse-tier entry of each stage in the
+// later document: the first document is read first, so its violation is
+// reported.
+func TestSchemaDiagnosticOrderAcrossDocumentsInReadOrder(t *testing.T) {
+	t.Parallel()
+	entries := catalogueEntries()
+	var later []*entry
+	seen := map[int]bool{}
+	for _, e := range entries {
+		if e.tier == parseTier && !seen[e.stage] {
+			seen[e.stage] = true
+			later = append(later, e)
+		}
+	}
+	gaps := newOrderGaps()
+	asserted := 0
+	for _, first := range entries {
+		if first.tier != parseTier {
+			continue
+		}
+		for _, second := range later {
+			firstDoc, laterDoc := newSchemaDocument(), newSchemaDocument()
+			p, okFirst := firstDoc.introduce(first, firstDoc.addComponents(first.fixture, first.standalone, "a"))
+			_, okLater := laterDoc.introduce(second, laterDoc.addComponents(second.fixture, second.standalone, "b"))
+			if !okFirst || !okLater {
+				t.Fatalf("pair %q and %q cannot be rendered", first.fullName(), second.fullName())
+			}
+			documents := map[string]string{
+				firstDocumentName: renderSchemaDocument(firstDoc.root),
+				laterDocumentName: renderSchemaDocument(laterDoc.root),
+			}
+			outcome := compileSchemaDocuments(documents)
+			if gaps.excuses(p, outcome, firstDocumentName) {
+				continue
+			}
+			asserted++
+			if !outcome.reports(p, firstDocumentName) {
+				t.Errorf("read order across documents: %s=%q and %s=%q\n  got  %s\n  want %s\n%s:\n%s%s:\n%s",
+					firstDocumentName, first.fullName(), laterDocumentName, second.fullName(), outcome, p.want(firstDocumentName),
+					firstDocumentName, documents[firstDocumentName], laterDocumentName, documents[laterDocumentName])
+			}
+		}
+	}
+	t.Logf("read order across documents: %d pairs asserted, later document holds one entry of each of %d stages", asserted, len(later))
+}
