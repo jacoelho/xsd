@@ -883908,7 +883908,7 @@
           },
           "libxml2": {
             "status": "unassessed",
-            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: error. Schemas parser error : Internal error: xmlSchemaDeriveAndValidateFacets, an error occurred. Diagnosis: unresolved for this fixture. The internal error comes from the facet-derivation routine, and libxml2 2.9.13 applies no equality allowance to exclusive bounds (it rejects the same-spelling restatements in exclusive-equal-maxExclusive-plain and exclusive-equal-minExclusive-plain), but no reproduction ties the internal error to that gap."
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: error. Schemas parser error : Internal error: xmlSchemaDeriveAndValidateFacets, an error occurred. Diagnosis: libxml2 2.9.13 applies no equality allowance to exclusive bounds (it rejects the same-spelling restatements in exclusive-equal-maxExclusive-plain and exclusive-equal-minExclusive-plain), and it raises this internal error whenever a type with its own maxExclusive derives from a type whose maxExclusive it already rejected, a cascade of that missing allowance. Offline integer maxExclusive chains reproduce it: 7/7/7, 7/7/5 and 7/8/5 give the internal error; 7/7, 7/6/6 and 7/7 followed by a restriction without facets give a clean rejection of the equal restatement; 7/6/5 is accepted."
           }
         }
       },
