@@ -177,8 +177,6 @@ var simpleContentRestrictionChildOrder = simpleContentDerivationOrder(restrictio
 var simpleContentExtensionChildOrder = simpleContentDerivationOrder(extensionChild)
 var complexContentRestrictionChildOrder = complexContentDerivationOrder(restrictionChild)
 var complexContentExtensionChildOrder = complexContentDerivationOrder(extensionChild)
-var elementRefChildOrder = annotationOnlyChildOrder("element ref")
-var attributeRefChildOrder = annotationOnlyChildOrder("attribute ref")
 var attributeGroupDeclarationChildOrder = childOrder{
 	AnnotationFirstMsg: "attributeGroup annotation must be first",
 	Rules: []childRule{
@@ -476,14 +474,6 @@ func complexContentDerivationOrder(derivation string) childOrder {
 			},
 		},
 		InvalidMsg: func(local string) string { return "invalid complexContent child " + local },
-	}
-}
-
-func annotationOnlyChildOrder(label string) childOrder {
-	return childOrder{
-		AnnotationFirstMsg: label + " can contain at most one annotation",
-		SingleAnnotation:   true,
-		InvalidMsg:         func(string) string { return label + " can contain only annotation" },
 	}
 }
 

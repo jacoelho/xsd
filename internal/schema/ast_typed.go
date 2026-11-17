@@ -44,12 +44,13 @@ const (
 	childContentAnnotationPayload
 )
 
-// childContentFor classifies an element named name whose parent is parent.
-// group and attributeGroup are references, with (annotation?) content, except
-// as children of xs:schema. Element and attribute references keep their
-// declaration content model; src-element.2.2 and src-attribute.3.2 restrict
-// their children and are checked by the compiler with the ref attribute.
-func childContentFor(name, parent xml.Name) childContent {
+// childContentFor classifies the content of an element named name whose
+// parent is parent and whose start tag carries ref when isReference. group and
+// attributeGroup are references, with (annotation?) content, except as
+// children of xs:schema. Element and attribute references have (annotation?)
+// content by src-element.2.2 and src-attribute.3.2; at the top level their ref
+// is itself an attribute error reported at their start.
+func childContentFor(name, parent xml.Name, isReference bool) childContent {
 	if name.Space != vocab.XSDNamespaceURI {
 		return childContentDeferred
 	}
@@ -59,10 +60,15 @@ func childContentFor(name, parent xml.Name) childContent {
 	case includeChild, importChild, notationChild, selectorChild, fieldChild, anyChild, anyAttribute:
 		return childContentAnnotationOnly
 	case groupChild, attributeGroup:
-		if parent.Space == vocab.XSDNamespaceURI && parent.Local == vocab.XSDElemSchema {
+		if isXSDName(parent, vocab.XSDElemSchema) {
 			return childContentDeferred
 		}
 		return childContentAnnotationOnly
+	case elementChild, attributeChild:
+		if isReference {
+			return childContentAnnotationOnly
+		}
+		return childContentDeferred
 	}
 	if isFacetLocal(name.Local) {
 		return childContentAnnotationOnly
@@ -191,11 +197,12 @@ func (s *typedSchemaParseState) start(start xmlstream.StartElement, line, col in
 	if err != nil {
 		return s.abortStart(namespaceFrame, err)
 	}
+	_, isReference := syntax.attr(vocab.XSDAttrRef)
 	frame := typedSchemaParseFrame{
 		name:      start.Name,
 		namespace: namespaceFrame,
 		syntax:    syntax,
-		content:   childContentFor(start.Name, typedParentName(parent)),
+		content:   childContentFor(start.Name, typedParentName(parent), isReference),
 		opaque:    opaque,
 	}
 	if err := s.admitTypedFrame(frame, line, col); err != nil {
@@ -337,7 +344,7 @@ func typedStartOpaque(parent *typedSchemaParseFrame, name xml.Name) bool {
 	if parent.opaque {
 		return true
 	}
-	return parent.name.Space == vocab.XSDNamespaceURI && parent.name.Local == annotationChild && typedAnnotationEnvelope(name)
+	return isXSDName(parent.name, annotationChild) && typedAnnotationEnvelope(name)
 }
 
 func typedOpaqueDescendant(parent *typedSchemaParseFrame) bool {

@@ -416,36 +416,6 @@ func TestValidateComplexContentDerivationChildren(t *testing.T) {
 	}
 }
 
-func TestValidateWildcardChildren(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name     string
-		order    childOrder
-		children []string
-		wantCode xsderrors.Code
-		wantLine int
-		wantCol  int
-		wantMsg  string
-	}{
-		{name: "element ref empty", order: elementRefChildOrder},
-		{name: "element ref annotation", order: elementRefChildOrder, children: []string{"annotation"}},
-		{name: "element ref rejects child", order: elementRefChildOrder, children: []string{"simpleType"}, wantMsg: "element ref can contain only annotation", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 4, wantCol: 5},
-		{name: "attribute ref empty", order: attributeRefChildOrder},
-		{name: "attribute ref annotation", order: attributeRefChildOrder, children: []string{"annotation"}},
-		{name: "attribute ref rejects child", order: attributeRefChildOrder, children: []string{"simpleType"}, wantMsg: "attribute ref can contain only annotation", wantCode: xsderrors.CodeSchemaContentModel, wantLine: 4, wantCol: 5},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			parent := childOrderGrammarFixture(t, "component", tt.children)
-			err := checkOrderedXSDChildren(parent, tt.order)
-			assertChildOrderDiagnostic(t, err, tt.wantCode, tt.wantMsg, tt.wantLine, tt.wantCol)
-		})
-	}
-}
-
 func TestCheckTopLevelGroupChildren(t *testing.T) {
 	t.Parallel()
 

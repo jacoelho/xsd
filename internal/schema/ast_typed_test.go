@@ -339,6 +339,33 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
 			wantLine: 3, wantCol: 32, wantCode: xsderrors.CodeSchemaContentModel,
 			wantMsg: annotationOnly("attributeGroup", "attribute"),
 		},
+		{
+			name: "element reference forbidden child",
+			body: `  <xs:element name="e"/>
+  <xs:group name="G"><xs:sequence>
+    <xs:element ref="e"><xs:complexType/></xs:element>
+  </xs:sequence></xs:group>`,
+			wantLine: 4, wantCol: 25, wantCode: xsderrors.CodeSchemaContentModel,
+			wantMsg: annotationOnly("element", "complexType"),
+		},
+		{
+			name: "element reference second annotation",
+			body: `  <xs:element name="e"/>
+  <xs:group name="G"><xs:sequence>
+    <xs:element ref="e"><xs:annotation/><xs:annotation/></xs:element>
+  </xs:sequence></xs:group>`,
+			wantLine: 4, wantCol: 41, wantCode: xsderrors.CodeSchemaContentModel,
+			wantMsg: `xs:"element" can contain at most one xs:annotation`,
+		},
+		{
+			name: "attribute reference forbidden child",
+			body: `  <xs:attribute name="a"/>
+  <xs:complexType name="C">
+    <xs:attribute ref="a"><xs:simpleType/></xs:attribute>
+  </xs:complexType>`,
+			wantLine: 4, wantCol: 27, wantCode: xsderrors.CodeSchemaContentModel,
+			wantMsg: annotationOnly("attribute", "simpleType"),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

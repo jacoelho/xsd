@@ -33,9 +33,6 @@ func (c *compiler) compileElementParticleDeclaration(ctx *schemaSetDocument, n *
 	if err := checkElementRefAttributes(n); err != nil {
 		return 0, err
 	}
-	if err := checkElementRefChildren(n); err != nil {
-		return 0, err
-	}
 	q, err := c.referenceQName(ctx, n, source.Ref.Name)
 	if err != nil {
 		return 0, err

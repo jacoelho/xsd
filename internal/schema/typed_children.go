@@ -80,19 +80,12 @@ func checkComplexContentExtensionChildren(n *schemaNode) error {
 	return checkOrderedXSDChildren(n, complexContentExtensionChildOrder)
 }
 
-func checkElementRefChildren(n *schemaNode) error {
-	return checkOrderedXSDChildren(n, elementRefChildOrder)
-}
-
 func checkElementRefAttributes(n *schemaNode) error {
 	return checkAllowedTypedAttributes(n, "element ref", isElementRefAttribute)
 }
 
 func checkAttributeRefSource(n *schemaNode) error {
-	if err := checkAllowedTypedAttributes(n, "attribute ref", isAttributeRefAttribute); err != nil {
-		return err
-	}
-	return checkOrderedXSDChildren(n, attributeRefChildOrder)
+	return checkAllowedTypedAttributes(n, "attribute ref", isAttributeRefAttribute)
 }
 
 func checkGroupOccurrenceAttributes(n *schemaNode) error {
