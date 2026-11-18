@@ -308,15 +308,18 @@ restriction (content-model analysis); and the XMLSchema-instance target
 namespace of an attribute declaration (chameleon namespace).
 
 Identity-constraint names are one schema-wide symbol space per target
-namespace (Structures §3.11.1). `declareAllIdentityConstraints` is their only
-writer: it declares every constraint of every document context by expanded
-name, rejecting a duplicate name, before any component compiles, and
-compilation only looks the declarations up. A keyref `refer` therefore
-resolves against every name, whichever component holds the keyref or the
-referenced constraint. Declaration interns nothing: a constraint's name is
-interned when the element holding it compiles, or before global elements
-compile (`nameAllIdentityConstraints`), and its selector and field names when
-it compiles. Every name therefore takes its name ID in compilation order, which
+namespace (Structures §3.11.1). `declareAllIdentityConstraints` declares
+every constraint of every document context by expanded name, rejecting a
+duplicate name, before any component compiles; the compiler's declarations,
+the expanded name of each constraint ID, are the only record of the names
+until they are interned, and compilation only looks them up. A keyref `refer`
+therefore resolves against every name, whichever component holds the keyref or
+the referenced constraint. Declaration interns nothing: a constraint's name is
+interned by `nameIdentityConstraint`, the only writer of the constraint's
+interned name and of the published global identity constraints, when the
+element holding it compiles, or before global elements compile
+(`nameAllIdentityConstraints`), and its selector and field names when it
+compiles. A constraint is named once its interned name is set. Every name therefore takes its name ID in compilation order, which
 is not only a diagnostic concern: the dense DFA index depends on the
 local-name IDs of a content-model row's elements (`addDenseDFAIndexes`).
 

@@ -81,13 +81,6 @@ func (c *compiler) declareIdentityConstraint(ctx *schemaSetDocument, node *schem
 	return nil
 }
 
-// identityDeclaration is an identity constraint declared by expanded name
-// and, once nameIdentityConstraint has run for it, by interned name.
-type identityDeclaration struct {
-	name  ExpandedName
-	named bool
-}
-
 // nameAllIdentityConstraints interns the names of the identity constraints no
 // element compilation has named yet, in declaration order, before global
 // elements compile.

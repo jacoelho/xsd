@@ -147,12 +147,13 @@ type compilerBuildState struct {
 	// identityPathsByNode holds the interned paths of each compiled identity
 	// constraint node, keyed without a document context; see identityPaths.
 	identityPathsByNode map[schemaNodeKey]identityConstraintPaths
-	// identityNames and identityDeclarations hold every identity constraint
-	// declareAllIdentityConstraints declares, by expanded name and by ID, so a
-	// keyref refer resolves before the referenced constraint's name is
-	// interned (nameIdentityConstraint).
+	// identityDeclarations is the expanded name of every identity constraint
+	// declareAllIdentityConstraints declares, by ID, so a keyref refer
+	// resolves before the referenced constraint's name is interned
+	// (nameIdentityConstraint). identityNames indexes it by name; reserveIdentity
+	// writes both.
+	identityDeclarations      []ExpandedName
 	identityNames             map[ExpandedName]IdentityConstraintID
-	identityDeclarations      []identityDeclaration
 	complexDefinitions        []complexTypeDefinition
 	pendingElementConstraints []pendingElementConstraint
 	unionMemberEntries        int

@@ -216,7 +216,7 @@ func (c *compiler) reserveIdentity(name ExpandedName, source *schemaNode) (Ident
 	}
 	c.rt.Identities = append(c.rt.Identities, newDeclaredIdentityConstraint())
 	c.identitySources = append(c.identitySources, source)
-	c.identityDeclarations = append(c.identityDeclarations, identityDeclaration{name: name})
+	c.identityDeclarations = append(c.identityDeclarations, name)
 	if c.identityNames == nil {
 		c.identityNames = make(map[ExpandedName]IdentityConstraintID)
 	}
@@ -224,20 +224,19 @@ func (c *compiler) reserveIdentity(name ExpandedName, source *schemaNode) (Ident
 	return id, nil
 }
 
-// nameIdentityConstraint interns the name of the declared constraint id the
-// first time it is called and registers it as a global identity constraint.
+// nameIdentityConstraint interns the name of the declared constraint id, if
+// it is still unnamed, and registers it as a global identity constraint.
 func (c *compiler) nameIdentityConstraint(id IdentityConstraintID) error {
-	declaration := &c.identityDeclarations[id]
-	if declaration.named {
+	if c.rt.Identities[id].Name != noQName() {
 		return nil
 	}
-	q, err := c.rt.internQName(declaration.name.Namespace, declaration.name.Local)
+	name := c.identityDeclarations[id]
+	q, err := c.rt.internQName(name.Namespace, name.Local)
 	if err != nil {
 		return withSchemaCompileLocation(c.identitySources[id], err)
 	}
 	c.rt.Identities[id].Name = q
 	c.rt.GlobalIdentities[q] = id
-	declaration.named = true
 	return nil
 }
 
