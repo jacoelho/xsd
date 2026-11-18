@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 17106,
-    "schemaCases": 17056,
+    "cases": 17110,
+    "schemaCases": 17060,
     "instanceRuns": 35810,
     "w3cCases": 14414,
-    "internalRuns": 2679,
+    "internalRuns": 2683,
     "xercesJCases": 13
   },
   "cases": [
@@ -916370,6 +916370,224 @@
       "files": [
         {
           "file": "corpus/project/schema-syntax/all-occurrence/member-max-padded-one/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/identity-xpath/unbound-prefix-before-grammar",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/identity-xpath/unbound-prefix-before-grammar",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-selector-xpath",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#coss-identity-constraint"
+        ],
+        "conditions": [
+          "The selector xpath \"p:a | //\" uses the unbound prefix p in its first branch and has no valid path in its second; the project reads the branches left to right and reports the prefix."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/identity-xpath/unbound-prefix-before-grammar/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.reference",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:127: c-general-xpath-ns: A namespace prefix in XPath expression 'p:a | //' was not bound to a namespace. The project expectation follows the restricted XPath grammar of selector and field paths and the namespace bindings in scope of the xpath attribute; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-selector-xpath"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:97: 'p:a | //' is an invalid XPath for selector or field. The project expectation follows the restricted XPath grammar of selector and field paths and the namespace bindings in scope of the xpath attribute; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-selector-xpath"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. invalid XPath expression for an XsdSelector: Schema component: <xs:selector xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xpath=\"p:a | //\" /> Path: /xs:schema/xs:element/xs:key/xs:selector Schema URL: file://schema.xsd. The project expectation follows the restricted XPath grammar of selector and field paths and the namespace bindings in scope of the xpath attribute; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-selector-xpath"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element selector: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}selector', attribute 'xpath': The XPath expression 'p:a | //' could not be compiled. The project expectation follows the restricted XPath grammar of selector and field paths and the namespace bindings in scope of the xpath attribute; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-selector-xpath"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/identity-xpath/unbound-prefix-before-grammar/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/identity-xpath/grammar-before-unbound-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/identity-xpath/grammar-before-unbound-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-selector-xpath",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#coss-identity-constraint"
+        ],
+        "conditions": [
+          "The selector xpath \"// | p:a\" has no valid path in its first branch and uses the unbound prefix p in its second; the project reads the branches left to right and reports the grammar."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/identity-xpath/grammar-before-unbound-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.identity",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:127: c-general-xpath: The expression '// | p:a' is not valid with respect to the XPath subset supported by XML Schema. The project expectation follows the restricted XPath grammar of selector and field paths and the namespace bindings in scope of the xpath attribute; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-selector-xpath"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:97: '// | p:a' is an invalid XPath for selector or field. The project expectation follows the restricted XPath grammar of selector and field paths and the namespace bindings in scope of the xpath attribute; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-selector-xpath"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. invalid XPath expression for an XsdSelector: Schema component: <xs:selector xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xpath=\"// | p:a\" /> Path: /xs:schema/xs:element/xs:key/xs:selector Schema URL: file://schema.xsd. The project expectation follows the restricted XPath grammar of selector and field paths and the namespace bindings in scope of the xpath attribute; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-selector-xpath"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element selector: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}selector', attribute 'xpath': The XPath expression '// | p:a' could not be compiled. The project expectation follows the restricted XPath grammar of selector and field paths and the namespace bindings in scope of the xpath attribute; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-selector-xpath"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/identity-xpath/grammar-before-unbound-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/identity-xpath/field-attribute-step-before-element-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/identity-xpath/field-attribute-step-before-element-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-fields-xpaths"
+        ],
+        "conditions": [
+          "The field xpath \"p:a/@\" has an empty attribute name test and an element step with the unbound prefix p; the project checks the attribute step of a field branch first and reports the grammar."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/identity-xpath/field-attribute-step-before-element-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.identity",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:145: c-general-xpath-ns: A namespace prefix in XPath expression 'p:a/@' was not bound to a namespace. The project expectation follows the restricted XPath grammar of selector and field paths and the namespace bindings in scope of the xpath attribute; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-fields-xpaths"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:121: 'p:a/@' is an invalid XPath for selector or field. The project expectation follows the restricted XPath grammar of selector and field paths and the namespace bindings in scope of the xpath attribute; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-fields-xpaths"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. invalid XPath expression for an XsdFieldSelector: Schema component: <xs:field xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xpath=\"p:a/@\" /> Path: /xs:schema/xs:element/xs:key/xs:field Schema URL: file://schema.xsd. The project expectation follows the restricted XPath grammar of selector and field paths and the namespace bindings in scope of the xpath attribute; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-fields-xpaths"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element field: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}field', attribute 'xpath': The XPath expression 'p:a/@' could not be compiled. The project expectation follows the restricted XPath grammar of selector and field paths and the namespace bindings in scope of the xpath attribute; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-fields-xpaths"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/identity-xpath/field-attribute-step-before-element-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/identity-xpath/bound-prefixes",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/identity-xpath/bound-prefixes",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-selector-xpath",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#coss-identity-constraint"
+        ],
+        "conditions": [
+          "The selector xpath \"p:c | ./p:*\" uses the prefix p, which the schema element binds."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/identity-xpath/bound-prefixes/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the restricted XPath grammar of selector and field paths and the namespace bindings in scope of the xpath attribute; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-selector-xpath"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the restricted XPath grammar of selector and field paths and the namespace bindings in scope of the xpath attribute; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-selector-xpath"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the restricted XPath grammar of selector and field paths and the namespace bindings in scope of the xpath attribute; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-selector-xpath"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the restricted XPath grammar of selector and field paths and the namespace bindings in scope of the xpath attribute; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-selector-xpath"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/identity-xpath/bound-prefixes/schema.xsd",
           "role": "principal"
         }
       ]

@@ -9,14 +9,7 @@ import "github.com/jacoelho/xsd/xsderrors"
 
 // knownSchemaDiagnosticOrderGaps names the catalogue entries the compiler
 // decides later than the contract declares, with the reason each stays open.
-var knownSchemaDiagnosticOrderGaps = map[string]string{
-	"identity constraint/selector xpath is no selector path":                           "selector and field paths are parsed when the identity constraint compiles",
-	"identity constraint/unbound prefix in the selector before a later invalid branch": "selector and field paths are parsed when the identity constraint compiles",
-	"identity constraint/invalid selector branch before a later unbound prefix":        "selector and field paths are parsed when the identity constraint compiles",
-	"identity constraint/field xpath is no field path":                                 "selector and field paths are parsed when the identity constraint compiles",
-	"identity constraint/empty attribute step before an unbound element prefix":        "selector and field paths are parsed when the identity constraint compiles",
-	"identity constraint/unbound wildcard prefix in the field":                         "selector and field paths are parsed when the identity constraint compiles",
-}
+var knownSchemaDiagnosticOrderGaps = map[string]string{}
 
 // sameStartTagFixtures are the fixtures that must generate pairs of
 // violations on one start tag.

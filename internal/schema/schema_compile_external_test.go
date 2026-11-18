@@ -323,18 +323,18 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
     </xs:simpleContent>
   </xs:complexType>
 </xs:schema>`, code: xsderrors.CodeSchemaInvalidAttribute, line: 7, column: 9},
-		{name: "grammar", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+		{name: "selector grammar before an empty field", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="r">
     <xs:key name="key">
       <xs:selector xpath="["/>
       <xs:field xpath=""/>
     </xs:key>
   </xs:element>
-</xs:schema>`, code: xsderrors.CodeSchemaIdentity, line: 5, column: 7},
+</xs:schema>`, code: xsderrors.CodeSchemaIdentity, line: 4, column: 7},
 		{name: "reference", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="r">
     <xs:keyref name="reference" refer="unknown">
-      <xs:selector xpath="["/>
+      <xs:selector xpath="item"/>
       <xs:field xpath="@id"/>
     </xs:keyref>
   </xs:element>

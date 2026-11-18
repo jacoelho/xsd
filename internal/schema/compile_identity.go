@@ -111,11 +111,10 @@ func (c *compiler) validateIdentityReference(id IdentityConstraintID) (err error
 	return validateKeyrefReference(c.rt.Identities, c.rt.Identities[id])
 }
 
-// compileIdentityConstraint parses the selector and field XPaths of n. Their
-// presence and emptiness are checked on each start tag, but their syntax and
-// prefixes only here: name tests intern into the compiler's name table, so a
-// start-tag parse would be a second parse that allocates on every successful
-// compile.
+// compileIdentityConstraint parses the selector and field XPaths of n again
+// to intern their name tests into the compiler's name table. Their syntax and
+// prefixes were checked on each start tag (admitIdentityXPath), so a parse
+// failure here is an invariant.
 func (c *compiler) compileIdentityConstraint(ctx *schemaSetDocument, n *schemaNode, name QName) (identityConstraintSpec, error) {
 	empty := identityConstraintSpec{Refer: NoIdentityConstraint}
 	syntax, err := identityConstraintChildren(n)
@@ -189,42 +188,56 @@ type identityConstraintSyntax struct {
 }
 
 func (c *compiler) identitySelectorPaths(n *schemaNode, xpath string) ([]identityPath, error) {
-	paths, err := parseIdentityPaths(xpath, identityXPathResolver{compiler: c, node: n})
-	if err != nil {
-		return nil, withSchemaCompileLocation(n, err)
-	}
-	return paths, nil
+	resolver := &identityXPathResolver{compiler: c, node: n}
+	paths, err := parseIdentityPaths(xpath, resolver)
+	return paths, resolver.compileError(err)
 }
 
 func (c *compiler) identityFieldPaths(n *schemaNode, xpath string) ([]identityFieldPath, error) {
-	paths, err := parseIdentityFieldPaths(xpath, identityXPathResolver{compiler: c, node: n})
-	if err != nil {
-		return nil, withSchemaCompileLocation(n, err)
-	}
-	return paths, nil
+	resolver := &identityXPathResolver{compiler: c, node: n}
+	paths, err := parseIdentityFieldPaths(xpath, resolver)
+	return paths, resolver.compileError(err)
 }
 
+// identityXPathResolver resolves the name tests of an admitted XPath and
+// interns them. internErr keeps an interning failure, which is a compile
+// diagnostic, apart from a parse failure, which is an invariant.
 type identityXPathResolver struct {
-	compiler *compiler
-	node     *schemaNode
+	compiler  *compiler
+	node      *schemaNode
+	internErr error
 }
 
-func (r identityXPathResolver) ResolveIdentityQName(parts qNameParts) (QName, error) {
+func (r *identityXPathResolver) compileError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if r.internErr != nil {
+		return withSchemaCompileLocation(r.node, r.internErr)
+	}
+	return withSchemaCompileLocation(r.node, admittedValueInvariant(err))
+}
+
+func (r *identityXPathResolver) ResolveIdentityQName(parts qNameParts) (QName, error) {
 	ns := ""
 	if parts.Prefixed {
 		var ok bool
 		ns, ok = r.node.namespace.Lookup(parts.Prefix)
 		if !ok {
-			return QName{}, schemaCompileAt(r.node, xsderrors.CodeSchemaReference, "unbound QName prefix "+diagnostictext.Quote(parts.Prefix))
+			return QName{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "unbound QName prefix "+diagnostictext.Quote(parts.Prefix))
 		}
 	}
-	return r.compiler.rt.internQName(ns, parts.Local)
+	q, err := r.compiler.rt.internQName(ns, parts.Local)
+	r.internErr = err
+	return q, err
 }
 
-func (r identityXPathResolver) ResolveIdentityWildcardNamespace(prefix string) (namespaceID, error) {
+func (r *identityXPathResolver) ResolveIdentityWildcardNamespace(prefix string) (namespaceID, error) {
 	ns, ok := r.node.namespace.Lookup(prefix)
 	if !ok {
-		return 0, schemaCompileAt(r.node, xsderrors.CodeSchemaReference, "unbound QName prefix "+prefix)
+		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "unbound QName prefix "+prefix)
 	}
-	return newNameInterner(&r.compiler.rt.Names).InternNamespace(ns)
+	id, err := newNameInterner(&r.compiler.rt.Names).InternNamespace(ns)
+	r.internErr = err
+	return id, err
 }

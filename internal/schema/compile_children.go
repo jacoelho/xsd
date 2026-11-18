@@ -72,8 +72,10 @@ func admitSchemaAttributeValue(n *schemaSyntaxNode, attr schemaAttribute, admitt
 	if attr.Name.Local == vocab.XSDAttrID && !admitted.ids.declare(attr.Value) {
 		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "duplicate schema id "+diagnostictext.Quote(attr.Value))
 	}
-	if attr.Name.Local == vocab.XSDAttrXPath && lex.TrimXMLWhitespaceString(attr.Value) == "" {
-		return schemaCompileAt(n, xsderrors.CodeSchemaIdentity, diagnostictext.Quote(n.Name.Local)+" xpath is empty")
+	if attr.Name.Local == vocab.XSDAttrXPath {
+		if err := admitXPathAttribute(n, attr.Value); err != nil {
+			return err
+		}
 	}
 	if err := withSchemaCompileLocation(n, checkSchemaAttributeValueSyntax(n.Name.Local, attr.Name.Local, attr.Value)); err != nil {
 		return err
@@ -85,6 +87,13 @@ func admitSchemaAttributeValue(n *schemaSyntaxNode, attr schemaAttribute, admitt
 		return admitSchemaQNameAttribute(n, attr, admitted.values)
 	}
 	return checkSchemaAnyURIAttribute(n, attr)
+}
+
+func admitXPathAttribute(n *schemaSyntaxNode, value string) error {
+	if lex.TrimXMLWhitespaceString(value) == "" {
+		return schemaCompileAt(n, xsderrors.CodeSchemaIdentity, diagnostictext.Quote(n.Name.Local)+" xpath is empty")
+	}
+	return admitIdentityXPath(n, value)
 }
 
 // admitParsedAttributeValue admits attr, an attribute of the XSD element

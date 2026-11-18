@@ -316,16 +316,22 @@ and `misplacedSchemaAttributeError` own the attributes an element may have,
 `checkRequiredSchemaAttributes` the ones it must have,
 `checkValueConstraintAttributes` the ones that exclude each other, and
 `checkSchemaAttributeValueSyntax` the lexical form of a value.
-`occurrenceAdmission` stores the occurrence of a particle, `admitFacetValue`
-the size, whiteSpace mode or compiled pattern of a facet,
-`admitParsedAttributeValue` the fixed flag of a facet, and
-`admitIdentityXPath` the parsed paths of a selector or field, so compilation
-never parses those values again and has no diagnostic for them. Patterns are
-compiled through `schemaPatterns`, which the compiler owns and lends to
-start-tag admission while the set loads: each distinct pattern text is
-compiled once, at the first facet that names it in document load order, and
-charged against `MaxSchemaPatternRetainedBytes` before it is kept, so a breach
-is reported at that facet's start tag. Compilation parses the other admitted
+
+The tag stores these admitted values in the typed source record, and
+compilation reads them without parsing again: the resolved names of QName
+attributes (`admitSchemaQNameAttribute`), the occurrence of a particle
+(`occurrenceAdmission`), and from a facet's value and `fixed` its size, its
+whiteSpace mode, its compiled pattern and its fixed flag (`admitFacetValue`,
+`admitParsedAttributeValue`). Patterns are compiled through `schemaPatterns`,
+which the compiler owns and lends to start-tag admission while the set loads:
+each distinct pattern text is compiled once, at the first facet that names it
+in document load order, and charged against `MaxSchemaPatternRetainedBytes`
+before it is kept, so a breach is reported at that facet's start tag.
+A selector or field path is checked by `admitIdentityXPath` without being
+built and parsed again to intern its name tests, which keeps the selector and
+field nodes' namespace context until then; storing the parsed paths was
+measured to allocate each path twice (see Rejected Alternatives). Compilation
+parses the other admitted
 values again with the same parser to use them, and a lexical failure there is
 an internal invariant (`admittedValueInvariant`), not a second schema
 diagnostic.
@@ -1021,9 +1027,16 @@ graph preserves these ownership rules:
   each now has its own owner.
 - Checking the syntax of selector and field paths only when the identity
   constraint compiles, so that no second parse allocates on a successful
-  compile, was rejected with the tier rule above: the tag parses each path
-  once and stores the steps with namespace and local-name strings, and
-  compilation only interns them.
+  compile, was rejected with the tier rule above. The tag checks each path
+  without building it, which allocates nothing, and compilation parses it
+  again to intern its name tests. That second scan is the accepted cost of the
+  tier rule: about 5–9% of compile time on `BenchmarkCompileIdentityPrograms`,
+  whose schemas are mostly selector and field paths, and no significant change
+  on `BenchmarkCompileSourceDocuments/identity_constraints`.
+- Storing the paths the tag parses, with namespace and local-name strings,
+  for compilation to intern was rejected: it allocated the paths twice, once
+  as strings at the tag and once as interned names, raising the allocations of
+  a successful compile by about one per path.
 - Checking a pattern at its facet's start tag and compiling it again when the
   restriction compiles was rejected: the tag compiled every occurrence of a
   text that the compiler cache would have compiled once, and compiled every
