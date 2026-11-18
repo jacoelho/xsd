@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:t" targetNamespace="urn:t" elementFormDefault="qualified">
+<xs:complexType name="M" mixed=" true "><xs:sequence><xs:element name="c" minOccurs="0"/></xs:sequence></xs:complexType>
+<xs:element name="r"><xs:complexType><xs:sequence><xs:element name="n" type="xs:int" nillable=" true "/><xs:element name="m" type="t:M"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>

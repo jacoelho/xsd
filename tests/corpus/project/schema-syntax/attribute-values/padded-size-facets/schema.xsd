@@ -1,0 +1,5 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:t" targetNamespace="urn:t" elementFormDefault="qualified">
+<xs:simpleType name="L"><xs:restriction base="xs:string"><xs:maxLength value=" 2 "/></xs:restriction></xs:simpleType>
+<xs:simpleType name="N"><xs:restriction base="xs:decimal"><xs:totalDigits value=" 2 "/></xs:restriction></xs:simpleType>
+<xs:element name="r"><xs:complexType><xs:sequence><xs:element name="l" type="t:L"/><xs:element name="n" type="t:N"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>

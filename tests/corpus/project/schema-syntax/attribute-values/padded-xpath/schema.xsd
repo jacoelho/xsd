@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:t" targetNamespace="urn:t" elementFormDefault="qualified">
+<xs:element name="r"><xs:complexType><xs:sequence><xs:element name="i" maxOccurs="unbounded"><xs:complexType><xs:attribute name="k"/></xs:complexType></xs:element></xs:sequence></xs:complexType>
+<xs:key name="K"><xs:selector xpath=" t:i "/><xs:field xpath=" @k "/></xs:key></xs:element>
+</xs:schema>

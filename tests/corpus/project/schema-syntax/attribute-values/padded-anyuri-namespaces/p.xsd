@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace=" urn:p "><xs:element name="e" type="xs:int"/></xs:schema>

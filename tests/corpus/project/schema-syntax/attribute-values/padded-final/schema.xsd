@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:t" targetNamespace="urn:t" elementFormDefault="qualified">
+<xs:simpleType name="S" final=" restriction "><xs:restriction base="xs:string"/></xs:simpleType>
+<xs:simpleType name="D"><xs:restriction base="t:S"/></xs:simpleType>
+</xs:schema>
