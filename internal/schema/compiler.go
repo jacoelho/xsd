@@ -256,7 +256,6 @@ func newCompiler(limits Limits) (*compiler, error) {
 		attrGroupDone:            make(map[QName]attributeUseSetID),
 		localDone:                make(map[schemaNodeKey]ElementID),
 		identityDeclared:         make(map[schemaNodeKey]IdentityConstraintID),
-		identityNames:            make(map[ExpandedName]IdentityConstraintID),
 		compilingSimple:          make(map[QName]bool),
 		compilingAttrGrp:         make(map[QName]bool),
 		compilingModel:           make(map[schemaNodeKey]bool),
