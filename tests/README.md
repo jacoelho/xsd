@@ -176,6 +176,13 @@ or a stated unresolved boundary. Report remaining coverage limits to the user.
   only shrinks: a new case is never listed, and a change that modifies a listed
   case measures it and removes it from the list, which review checks because
   the test cannot tell a modified case from an untouched one.
+- A provider's `reason` records the observation: the provider and version, the
+  result and its first diagnostic on the current fixture. It then names the
+  specification clause or `docs/spec/INTERPRETATIONS.md` record that the
+  project expectation follows. It does not restate that rule or describe the
+  provider's behaviour beyond the observation; the interpretation record owns
+  the rule and the diagnosis of provider differences. Review enforces this
+  rule; the test cannot.
 - Each schema or instance `expected` is the effective project expectation,
   derived from the published specifications, approved corrections and
   documented qualifications. Provider agreement is diagnostic evidence, not a
