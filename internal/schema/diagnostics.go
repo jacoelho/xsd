@@ -225,17 +225,20 @@ func (p *contentExpectationProjection) spend() bool {
 
 // add inserts item in diagnostic order. When the projection is full, the
 // last alternative in that order is dropped, so the result does not depend on
-// traversal order once every alternative has been inspected.
+// traversal order once every alternative has been inspected. item.Namespaces
+// may borrow published wildcard state: add copies it only for an item it
+// keeps.
 func (p *contentExpectationProjection) add(item ContentExpectation) {
 	r := &p.result
-	for i := range r.count {
-		if !item.IsWildcard && !r.values[i].IsWildcard && item.Name == r.values[i].Name {
+	at := r.count
+	for ; at > 0; at-- {
+		order := compareContentExpectation(item, r.values[at-1])
+		if order == 0 && !item.IsWildcard {
 			return
 		}
-	}
-	at := r.count
-	for at > 0 && compareContentExpectation(item, r.values[at-1]) < 0 {
-		at--
+		if order >= 0 {
+			break
+		}
 	}
 	if r.count == len(r.values) {
 		r.More = true
@@ -245,6 +248,7 @@ func (p *contentExpectationProjection) add(item ContentExpectation) {
 		r.count--
 	}
 	copy(r.values[at+1:r.count+1], r.values[at:r.count])
+	item.Namespaces = slices.Clone(item.Namespaces)
 	r.values[at] = item
 	r.count++
 }
@@ -285,7 +289,7 @@ func (p *contentExpectationProjection) particle(particle compiledParticleRead) b
 			return false
 		}
 		count := min(len(wildcard.namespaces), diagnostictext.MaxAlternatives)
-		p.add(ContentExpectation{IsWildcard: true, WildcardMode: wildcard.mode, ExcludedNamespace: wildcard.otherThan, Namespaces: slices.Clone(wildcard.namespaces[:count]), MoreNamespaces: count < len(wildcard.namespaces)})
+		p.add(ContentExpectation{IsWildcard: true, WildcardMode: wildcard.mode, ExcludedNamespace: wildcard.otherThan, Namespaces: wildcard.namespaces[:count], MoreNamespaces: count < len(wildcard.namespaces)})
 		return true
 	case particleModel:
 		return false
