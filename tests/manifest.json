@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 17067,
-    "schemaCases": 17017,
+    "cases": 17073,
+    "schemaCases": 17023,
     "instanceRuns": 35806,
     "w3cCases": 14414,
-    "internalRuns": 2640,
+    "internalRuns": 2646,
     "xercesJCases": 13
   },
   "cases": [
@@ -914150,6 +914150,329 @@
       "files": [
         {
           "file": "corpus/project/composition/unresolved-references/keyref-refer-missing/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xmlns-attribute-name/local-padded-name",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xmlns-attribute-name/local-padded-name",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+        ],
+        "conditions": [
+          "A local attribute declaration has name=\" xmlns \", the NCName xmlns after whitespace collapse."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xmlns-attribute-name/local-padded-name/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:56: no-xmlns: The {name} of an attribute declaration must not match 'xmlns'. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:27: The value 'xmlns' cannot be used as the name of an attribute declaration. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle. xmlschema compares the name before whitespace collapse, so \" xmlns \" escapes xmlns Not Allowed; Xerces-J and .NET collapse the NCName and reject it.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle. libxml2 compares the name before whitespace collapse, so \" xmlns \" escapes xmlns Not Allowed; Xerces-J and .NET collapse the NCName and reject it.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xmlns-attribute-name/local-padded-name/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xmlns-attribute-name/attribute-group",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xmlns-attribute-name/attribute-group",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+        ],
+        "conditions": [
+          "An attribute declaration named xmlns inside a named attribute group that nothing references."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xmlns-attribute-name/attribute-group/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:57: no-xmlns: The {name} of an attribute declaration must not match 'xmlns'. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:30: The value 'xmlns' cannot be used as the name of an attribute declaration. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. an attribute name must be different from 'xmlns': Schema component: <xs:attribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"xmlns\" /> Path: /xs:schema/xs:attributeGroup/xs:attribute Schema URL: file://schema.xsd. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element attribute: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}attribute', attribute 'name': The value of the attribute must not match 'xmlns'. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xmlns-attribute-name/attribute-group/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xmlns-attribute-name/attribute-group-prohibited",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xmlns-attribute-name/attribute-group-prohibited",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+        ],
+        "conditions": [
+          "An attribute declaration named xmlns with use=\"prohibited\" inside an attribute group corresponds to no component (I-008), so xmlns Not Allowed does not apply."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xmlns-attribute-name/attribute-group-prohibited/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:74: no-xmlns: The {name} of an attribute declaration must not match 'xmlns'. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle. The provider applies xmlns Not Allowed to the XML representation whatever its use; the project follows I-008, under which a prohibited declaration corresponds to no component (see project/prohibited-no-component-xmlns-name-prohibited).",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:30: The value 'xmlns' cannot be used as the name of an attribute declaration. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle. The provider applies xmlns Not Allowed to the XML representation whatever its use; the project follows I-008, under which a prohibited declaration corresponds to no component (see project/prohibited-no-component-xmlns-name-prohibited).",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. an attribute name must be different from 'xmlns': Schema component: <xs:attribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"xmlns\" use=\"prohibited\" /> Path: /xs:schema/xs:attributeGroup/xs:attribute Schema URL: file://schema.xsd. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle. The provider applies xmlns Not Allowed to the XML representation whatever its use; the project follows I-008, under which a prohibited declaration corresponds to no component (see project/prohibited-no-component-xmlns-name-prohibited).",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element attribute: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}attribute', attribute 'name': The value of the attribute must not match 'xmlns'. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle. The provider applies xmlns Not Allowed to the XML representation whatever its use; the project follows I-008, under which a prohibited declaration corresponds to no component (see project/prohibited-no-component-xmlns-name-prohibited).",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xmlns-attribute-name/attribute-group-prohibited/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xmlns-attribute-name/local-padded-name-prohibited",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xmlns-attribute-name/local-padded-name-prohibited",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-attribute"
+        ],
+        "conditions": [
+          "name=\" xmlns \" and use=\" prohibited \" collapse to xmlns and prohibited; a prohibited declaration corresponds to no component (I-008)."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xmlns-attribute-name/local-padded-name-prohibited/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:75: no-xmlns: The {name} of an attribute declaration must not match 'xmlns'. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle. Xerces-J applies xmlns Not Allowed to the XML representation whatever its use; the project follows I-008, under which a prohibited declaration corresponds to no component.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:27: The value 'xmlns' cannot be used as the name of an attribute declaration. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle. .NET applies xmlns Not Allowed to the XML representation whatever its use; the project follows I-008, under which a prohibited declaration corresponds to no component.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element attribute: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}attribute', attribute 'use': The value ' prohibited ' is not valid. Expected is '(optional | prohibited | required)'. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle. libxml2 rejects the use value \" prohibited \" lexically, without whitespace collapse; Xerces-J and .NET collapse it.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xmlns-attribute-name/local-padded-name-prohibited/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xmlns-attribute-name/local-required",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xmlns-attribute-name/local-required",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+        ],
+        "conditions": [
+          "A local attribute declaration named xmlns with use=\"required\"."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xmlns-attribute-name/local-required/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.invalid_attribute",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:69: no-xmlns: The {name} of an attribute declaration must not match 'xmlns'. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:27: The value 'xmlns' cannot be used as the name of an attribute declaration. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. an attribute name must be different from 'xmlns': Schema component: <xs:attribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"xmlns\" use=\"required\" /> Path: /xs:schema/xs:complexType/xs:attribute Schema URL: file://schema.xsd. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element attribute: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}attribute', attribute 'name': The value of the attribute must not match 'xmlns'. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xmlns-attribute-name/local-required/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/xmlns-attribute-name/name-with-xmlns-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/xmlns-attribute-name/name-with-xmlns-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+        ],
+        "conditions": [
+          "An attribute declaration named xmlnsx; xmlns Not Allowed names only xmlns."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/xmlns-attribute-name/name-with-xmlns-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/xmlns-attribute-name/name-with-xmlns-prefix/schema.xsd",
           "role": "principal"
         }
       ]

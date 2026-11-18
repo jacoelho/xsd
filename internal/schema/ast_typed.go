@@ -476,7 +476,10 @@ func admitXSDChildStart(n *schemaSyntaxNode, parent xml.Name, placement schemaEl
 	if err := checkRequiredSchemaAttributes(n, parent, placement); err != nil {
 		return err
 	}
-	return checkValueConstraintAttributes(n)
+	if err := checkValueConstraintAttributes(n); err != nil {
+		return err
+	}
+	return checkAttributeDeclarationName(n)
 }
 
 func (s *typedSchemaParseState) end(line, col int) error {
