@@ -716,14 +716,14 @@ func testSubstitutionTable(lookup map[ElementID]map[QName]ElementID, elementCoun
 	if len(lookup) == 0 {
 		return substitutionTable{}
 	}
-	table := substitutionTable{spans: make([]substitutionSpan, elementCount)}
+	spans := make([]substitutionSpan, elementCount)
+	var entries []substitutionEntry
 	for head := range elementCount {
 		members := lookup[ElementID(head)]
-		table.spans[head] = substitutionSpan{start: len(table.entries), count: len(members)}
+		spans[head] = substitutionSpan{start: len(entries), count: len(members)}
 		for name, member := range members {
-			table.entries = append(table.entries, substitutionEntry{name: name, member: member, effective: true})
+			entries = append(entries, substitutionEntry{name: name, member: member, effective: true})
 		}
-		slices.SortFunc(table.entries[table.spans[head].start:], compareSubstitutionEntry)
 	}
-	return withStorageNameOrder(table)
+	return newSubstitutionTable(spans, entries, compareQName)
 }

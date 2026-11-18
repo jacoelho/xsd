@@ -88,11 +88,11 @@ func buildSubstitutionTable(
 		return substitutionTable{}, err
 	}
 	counts := substitutionAncestorCounts(forest.parents)
-	table, next := newSubstitutionTable(counts, forest.total)
-	populateSubstitutionTable(&table, next, elements, forest.parents, edges)
-	sortSubstitutionTable(table)
-	orderSubstitutionTableByName(&table, names)
-	return table, nil
+	spans, entries, next := allocateSubstitutionSpans(counts, forest.total)
+	populateSubstitutionEntries(entries, next, elements, forest.parents, edges)
+	return newSubstitutionTable(spans, entries, func(a, b QName) int {
+		return compareQNameText(names, a, b)
+	}), nil
 }
 
 func substitutionAncestorCounts(parents []ElementID) []int {
@@ -105,23 +105,20 @@ func substitutionAncestorCounts(parents []ElementID) []int {
 	return counts
 }
 
-func newSubstitutionTable(counts []int, total int) (substitutionTable, []int) {
-	table := substitutionTable{
-		spans:   make([]substitutionSpan, len(counts)),
-		entries: make([]substitutionEntry, total),
-	}
+func allocateSubstitutionSpans(counts []int, total int) ([]substitutionSpan, []substitutionEntry, []int) {
+	spans := make([]substitutionSpan, len(counts))
 	next := make([]int, len(counts))
 	start := 0
 	for head, count := range counts {
-		table.spans[head] = substitutionSpan{start: start, count: count}
+		spans[head] = substitutionSpan{start: start, count: count}
 		next[head] = start
 		start += count
 	}
-	return table, next
+	return spans, make([]substitutionEntry, total), next
 }
 
-func populateSubstitutionTable(
-	table *substitutionTable,
+func populateSubstitutionEntries(
+	entries []substitutionEntry,
 	next []int,
 	elements []elementDecl,
 	parents []ElementID,
@@ -135,7 +132,7 @@ func populateSubstitutionTable(
 			mask |= edges[current].mask
 			blocks |= edges[current].blocks
 			pos := next[head]
-			table.entries[pos] = substitutionEntry{
+			entries[pos] = substitutionEntry{
 				name:      memberDecl.Name,
 				member:    memberID,
 				effective: substitutionEffective(elements[head], memberDecl, mask, blocks),
@@ -145,35 +142,32 @@ func populateSubstitutionTable(
 	}
 }
 
-func sortSubstitutionTable(table substitutionTable) {
-	for _, span := range table.spans {
-		entries := table.entries[span.start : span.start+span.count]
-		slices.SortFunc(entries, compareSubstitutionEntry)
+// newSubstitutionTable is the only constructor of a non-empty table. It takes
+// ownership of entries, sorts each span of them by name ID, and records their
+// order under compareNames, the expanded-name order, in byName. Sorting is
+// bounded by MaxSubstitutionClosureEntries, which buildSubstitutionTable checks
+// before any entry exists; it is not charged to derivation work, which is
+// bounded by direct edges.
+func newSubstitutionTable(spans []substitutionSpan, entries []substitutionEntry, compareNames func(a, b QName) int) substitutionTable {
+	byName := make([]uint32, len(entries))
+	for i := range byName {
+		byName[i] = uint32(i)
 	}
-}
-
-// orderSubstitutionTableByName fills table.byName. Like populating and
-// sorting the entries, it is bounded by MaxSubstitutionClosureEntries, which
-// buildSubstitutionTable checks before any entry exists; it is not charged to
-// derivation work, which is bounded by direct edges.
-func orderSubstitutionTableByName(table *substitutionTable, names *nameTable) {
-	table.byName = make([]uint32, len(table.entries))
-	for i := range table.byName {
-		table.byName[i] = uint32(i)
-	}
-	for _, span := range table.spans {
-		slices.SortFunc(table.byName[span.start:span.start+span.count], func(a, b uint32) int {
-			x, y := table.entries[a], table.entries[b]
-			return cmp.Or(compareQNameText(names, x.name, y.name), cmp.Compare(x.member, y.member))
+	for _, span := range spans {
+		slices.SortFunc(entries[span.start:span.start+span.count], compareSubstitutionEntry)
+		slices.SortFunc(byName[span.start:span.start+span.count], func(a, b uint32) int {
+			x, y := entries[a], entries[b]
+			return cmp.Or(compareNames(x.name, y.name), cmp.Compare(x.member, y.member))
 		})
 	}
+	return substitutionTable{spans: spans, entries: entries, byName: byName}
 }
 
 // forEachEntryByName iterates head's raw transitive entries in expanded-name
 // order until fn returns false.
 func (t substitutionTable) forEachEntryByName(head ElementID, fn func(substitutionEntry) bool) {
 	span, ok := t.span(head)
-	if !ok || span.count == 0 || len(t.byName) != len(t.entries) {
+	if !ok || span.count == 0 {
 		return
 	}
 	for _, position := range t.byName[span.start : span.start+span.count] {

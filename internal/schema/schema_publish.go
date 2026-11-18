@@ -89,6 +89,9 @@ func validateSchemaBuildIDDomain(build *schemaBuild) error {
 	if len(build.CompiledModels) != len(build.Models) {
 		return xsderrors.InternalInvariant("schema compiled content-model table does not match content models")
 	}
+	if len(build.Substitutions.byName) != len(build.Substitutions.entries) {
+		return xsderrors.InternalInvariant("schema substitution table has no expanded-name order")
+	}
 	return nil
 }
 

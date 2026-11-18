@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 func TestBuildSubstitutionTableBuildsSortedRawAndEffectiveEntries(t *testing.T) {
@@ -278,10 +280,11 @@ func TestBuildSubstitutionTableDetectsDeepCycleWithoutRecursion(t *testing.T) {
 func TestNewSchemaRuntimeSharesImmutableSubstitutionTable(t *testing.T) {
 	t.Parallel()
 
-	table := withStorageNameOrder(substitutionTable{
-		spans:   []substitutionSpan{{start: 0, count: 1}, {start: 1}},
-		entries: []substitutionEntry{{name: QName{Local: 1}, member: 1, effective: true}},
-	})
+	table := newSubstitutionTable(
+		[]substitutionSpan{{start: 0, count: 1}, {start: 1}},
+		[]substitutionEntry{{name: QName{Local: 1}, member: 1, effective: true}},
+		compareQName,
+	)
 	build := schemaBuild{
 		Substitutions:  table,
 		ComplexTypes:   []complexTypeMetadata{{Derivation: derivationKindNone}},
@@ -299,10 +302,11 @@ func TestNewSchemaRuntimeSharesImmutableSubstitutionTable(t *testing.T) {
 func TestSubstitutionTableSkipsValidatedEmptySpan(t *testing.T) {
 	t.Parallel()
 
-	table := withStorageNameOrder(substitutionTable{
-		spans:   []substitutionSpan{{start: 0, count: 0}},
-		entries: []substitutionEntry{{member: 1}},
-	})
+	table := newSubstitutionTable(
+		[]substitutionSpan{{start: 0, count: 0}},
+		[]substitutionEntry{{member: 1}},
+		compareQName,
+	)
 	called := false
 	table.ForEachMember(0, func(ElementID) bool {
 		called = true
@@ -428,7 +432,8 @@ func fixtureSubstitutions(names []elementDecl, raw map[ElementID][]ElementID, ef
 	for id := range effective {
 		count = max(count, int(id)+1)
 	}
-	table := substitutionTable{spans: make([]substitutionSpan, count)}
+	spans := make([]substitutionSpan, count)
+	var all []substitutionEntry
 	for head := range count {
 		entries := make(map[ElementID]substitutionEntry)
 		for _, id := range raw[ElementID(head)] {
@@ -441,24 +446,20 @@ func fixtureSubstitutions(names []elementDecl, raw map[ElementID][]ElementID, ef
 		for name, id := range effective[ElementID(head)] {
 			entries[id] = substitutionEntry{name: name, member: id, effective: true}
 		}
-		span := substitutionSpan{start: len(table.entries), count: len(entries)}
-		ordered := make([]substitutionEntry, 0, len(entries))
+		spans[head] = substitutionSpan{start: len(all), count: len(entries)}
 		for _, entry := range entries {
-			ordered = append(ordered, entry)
+			all = append(all, entry)
 		}
-		slices.SortFunc(ordered, func(a, b substitutionEntry) int { return compareQName(a.name, b.name) })
-		table.entries = append(table.entries, ordered...)
-		table.spans[head] = span
 	}
-	return withStorageNameOrder(table)
+	return newSubstitutionTable(spans, all, compareQName)
 }
 
-// withStorageNameOrder gives a hand-built table whose name IDs have no name
-// table an expanded-name order equal to its storage order.
-func withStorageNameOrder(table substitutionTable) substitutionTable {
-	table.byName = make([]uint32, len(table.entries))
-	for i := range table.byName {
-		table.byName[i] = uint32(i)
-	}
-	return table
+func TestSchemaPublicationRejectsSubstitutionTableWithoutNameOrder(t *testing.T) {
+	t.Parallel()
+
+	build := schemaBuild{Substitutions: substitutionTable{
+		spans:   []substitutionSpan{{start: 0, count: 1}},
+		entries: []substitutionEntry{{member: 1}},
+	}}
+	expectDiagnostic(t, validateSchemaBuildIDDomain(&build), xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 }
