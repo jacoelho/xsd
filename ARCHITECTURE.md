@@ -330,8 +330,12 @@ Contracts `internal/validate` relies on:
 
 Caller-visible policy: XSD/XSI references need no import ([I-006](docs/spec/INTERPRETATIONS.md#i-006--xsdxsi-schema-references));
 XML/XLink declarations come only from supplied sources; XSI attribute
-declarations are intrinsic; a member with a missing substitution head validates
-as `anyType` ([I-023](docs/spec/INTERPRETATIONS.md#i-023--substitution-group-member-with-a-missing-head)).
+declarations are intrinsic; an unresolved `type`, `itemType` or `memberTypes`
+loads and fails assessment of the items that use it, an unresolved
+`substitutionGroup` loads and leaves the member without an affiliation, so a
+member without its own type validates as `anyType`, and other unresolved
+references are rejected
+([I-023](docs/spec/INTERPRETATIONS.md#i-023--unresolved-references)).
 
 ### `internal/value`
 
@@ -515,7 +519,8 @@ Cross-module contracts:
   element whose start fails fatally before attribute assessment gets no hint
   diagnostic. Missing roots, types, and
   wildcard declarations are ordinary assessment errors against the compiled
-  component set.
+  component set; which unresolved schema references load as missing components
+  is [I-023](docs/spec/INTERPRETATIONS.md#i-023--unresolved-references).
 - A failed selection never contains its subtree: after its diagnostic, the
   element is assessed laxly (cvc-assess-elt), as Xerces does, using its global
   declaration when one exists, otherwise anyType; an unavailable type drops the

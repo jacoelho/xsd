@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 17058,
-    "schemaCases": 17008,
-    "instanceRuns": 35802,
+    "cases": 17067,
+    "schemaCases": 17017,
+    "instanceRuns": 35805,
     "w3cCases": 14414,
-    "internalRuns": 2631,
+    "internalRuns": 2640,
     "xercesJCases": 13
   },
   "cases": [
@@ -685315,8 +685315,19 @@
         "oracle": {
           "xmlschema": {
             "expected": "invalid",
-            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 on the unchanged explicit roots and file bytes: schema assessed invalid. xmlschema diagnostic: \"unknown type 'absent':\". Disagreement area: unresolved references in unused or prohibited positions. All 2 declared instance runs were blocked by schema rejection; no instance validity is inferred. This interoperability observation does not replace the project expectation.",
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. unknown type 'absent': Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"bad\" type=\"absent\" /> Path: /xs:schema/xs:element[2] Schema URL: missing001.xsd. The expected result is the accepted W3C expectation, which I-023 in docs/spec/INTERPRETATIONS.md adopts: the unresolved reference loads as a missing component (Structures 5.3) and outranks processor behaviour under the processor tie-break; this observation is not a majority-vote oracle."
+          },
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. missing001.xsd:10:39: src-resolve: Cannot resolve the name 'absent' to a(n) 'type definition' component. The expected result is the accepted W3C expectation, which I-023 in docs/spec/INTERPRETATIONS.md adopts: the unresolved reference loads as a missing component (Structures 5.3) and outranks processor behaviour under the processor tie-break; this observation is not a majority-vote oracle."
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. missing001.xsd:10:2: Type 'absent' is not declared. The expected result is the accepted W3C expectation, which I-023 in docs/spec/INTERPRETATIONS.md adopts: the unresolved reference loads as a missing component (Structures 5.3) and outranks processor behaviour under the processor tie-break; this observation is not a majority-vote oracle."
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. missing001.xsd:10: element element: Schemas parser error : element decl. 'bad', attribute 'type': The QName value 'absent' does not resolve to a(n) type definition. The expected result is the accepted W3C expectation, which I-023 in docs/spec/INTERPRETATIONS.md adopts: the unresolved reference loads as a missing component (Structures 5.3) and outranks processor behaviour under the processor tie-break; this observation is not a majority-vote oracle."
           }
         }
       },
@@ -685370,8 +685381,19 @@
         "oracle": {
           "xmlschema": {
             "expected": "invalid",
-            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 on the unchanged explicit roots and file bytes: schema assessed invalid. xmlschema diagnostic: \"unknown substitutionGroup 'rotten':\". Disagreement area: unresolved references in unused or prohibited positions. All 2 declared instance runs were blocked by schema rejection; no instance validity is inferred. This interoperability observation does not replace the project expectation.",
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. unknown substitutionGroup 'rotten': Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"bad\" substitutionGroup=\"rotten\" /> Path: /xs:schema/xs:element[3] Schema URL: missing002.xsd. The expected result is the accepted W3C expectation, which I-023 in docs/spec/INTERPRETATIONS.md adopts: the unresolved reference loads as a missing component (Structures 5.3) and outranks processor behaviour under the processor tie-break; this observation is not a majority-vote oracle."
+          },
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. missing002.xsd:11:52: src-resolve: Cannot resolve the name 'rotten' to a(n) 'element declaration' component. The expected result is the accepted W3C expectation, which I-023 in docs/spec/INTERPRETATIONS.md adopts: the unresolved reference loads as a missing component (Structures 5.3) and outranks processor behaviour under the processor tie-break; this observation is not a majority-vote oracle."
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. missing002.xsd:11:2: Substitution group refers to 'rotten', an undeclared element. The expected result is the accepted W3C expectation, which I-023 in docs/spec/INTERPRETATIONS.md adopts: the unresolved reference loads as a missing component (Structures 5.3) and outranks processor behaviour under the processor tie-break; this observation is not a majority-vote oracle."
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. Schemas parser error : element decl. 'bad', attribute 'substitutionGroup': The QName value 'rotten' does not resolve to a(n) element declaration. The expected result is the accepted W3C expectation, which I-023 in docs/spec/INTERPRETATIONS.md adopts: the unresolved reference loads as a missing component (Structures 5.3) and outranks processor behaviour under the processor tie-break; this observation is not a majority-vote oracle."
           }
         }
       },
@@ -685425,8 +685447,19 @@
         "oracle": {
           "xmlschema": {
             "expected": "invalid",
-            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 on the unchanged explicit roots and file bytes: schema assessed invalid. xmlschema diagnostic: \"unknown type 'absent':\". Disagreement area: unresolved references in unused or prohibited positions. All 2 declared instance runs were blocked by schema rejection; no instance validity is inferred. This interoperability observation does not replace the project expectation.",
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. unknown type 'absent': Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"bad\" type=\"absent\" substitutionGroup=\"missing\" /> Path: /xs:schema/xs:element[2] Schema URL: missing003.xsd. The expected result is the accepted W3C expectation, which I-023 in docs/spec/INTERPRETATIONS.md adopts: the unresolved reference loads as a missing component (Structures 5.3) and outranks processor behaviour under the processor tie-break; this observation is not a majority-vote oracle."
+          },
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. missing003.xsd:10:67: src-resolve: Cannot resolve the name 'missing' to a(n) 'element declaration' component. The expected result is the accepted W3C expectation, which I-023 in docs/spec/INTERPRETATIONS.md adopts: the unresolved reference loads as a missing component (Structures 5.3) and outranks processor behaviour under the processor tie-break; this observation is not a majority-vote oracle."
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. missing003.xsd:10:2: Type 'absent' is not declared. The expected result is the accepted W3C expectation, which I-023 in docs/spec/INTERPRETATIONS.md adopts: the unresolved reference loads as a missing component (Structures 5.3) and outranks processor behaviour under the processor tie-break; this observation is not a majority-vote oracle."
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. missing003.xsd:10: element element: Schemas parser error : element decl. 'bad', attribute 'type': The QName value 'absent' does not resolve to a(n) type definition. The expected result is the accepted W3C expectation, which I-023 in docs/spec/INTERPRETATIONS.md adopts: the unresolved reference loads as a missing component (Structures 5.3) and outranks processor behaviour under the processor tie-break; this observation is not a majority-vote oracle."
           }
         }
       },
@@ -685476,7 +685509,25 @@
           {
             "file": "corpus/w3c/saxonData/Missing/missing004.xsd"
           }
-        ]
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. missing004.xsd:13:33: src-resolve: Cannot resolve the name 'absent' to a(n) 'type definition' component. The expected result is the accepted W3C expectation, which I-023 in docs/spec/INTERPRETATIONS.md adopts: an unresolved base is rejected; this observation is not a majority-vote oracle."
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. missing004.xsd:13:4: Type 'absent' is not declared, or is not a simple type. The expected result is the accepted W3C expectation, which I-023 in docs/spec/INTERPRETATIONS.md adopts: an unresolved base is rejected; this observation is not a majority-vote oracle."
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. unknown type 'absent': Schema component: <xs:restriction xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" base=\"absent\"> <xs:pattern value=\"123\" /> </xs:restriction> Path: /xs:schema/xs:simpleType/xs:restriction Schema URL: missing004.xsd. The expected result is the accepted W3C expectation, which I-023 in docs/spec/INTERPRETATIONS.md adopts: an unresolved base is rejected; this observation is not a majority-vote oracle."
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. missing004.xsd:12: element simpleType: Schemas parser error : simple type 'dummy', attribute 'base': The QName value 'absent' does not resolve to a(n) simple type definition. The expected result is the accepted W3C expectation, which I-023 in docs/spec/INTERPRETATIONS.md adopts: an unresolved base is rejected; this observation is not a majority-vote oracle."
+          }
+        }
       },
       "files": [
         {
@@ -685502,7 +685553,25 @@
           {
             "file": "corpus/w3c/saxonData/Missing/missing005.xsd"
           }
-        ]
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. missing005.xsd:14:36: src-resolve: Cannot resolve the name 'absent' to a(n) 'type definition' component. The expected result is the accepted W3C expectation, which I-023 in docs/spec/INTERPRETATIONS.md adopts: an unresolved base is rejected; this observation is not a majority-vote oracle."
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. missing005.xsd:14:6: Undefined complexType 'absent' is used as a base for complex type restriction. The expected result is the accepted W3C expectation, which I-023 in docs/spec/INTERPRETATIONS.md adopts: an unresolved base is rejected; this observation is not a majority-vote oracle."
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. missing base type 'absent': Schema component: <xs:restriction xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" base=\"absent\" /> Path: /xs:schema/xs:complexType/xs:complexContent/xs:restriction Schema URL: missing005.xsd. The expected result is the accepted W3C expectation, which I-023 in docs/spec/INTERPRETATIONS.md adopts: an unresolved base is rejected; this observation is not a majority-vote oracle."
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. missing005.xsd:12: element complexType: Schemas parser error : complex type 'dummy', attribute 'base': The QName value 'absent' does not resolve to a(n) simple type definition. The expected result is the accepted W3C expectation, which I-023 in docs/spec/INTERPRETATIONS.md adopts: an unresolved base is rejected; this observation is not a majority-vote oracle."
+          }
+        }
       },
       "files": [
         {
@@ -685532,8 +685601,19 @@
         "oracle": {
           "xmlschema": {
             "expected": "invalid",
-            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 on the unchanged explicit roots and file bytes: schema assessed invalid. xmlschema diagnostic: \"unknown type 'absent':\". Disagreement area: unresolved references in unused or prohibited positions. All 2 declared instance runs were blocked by schema rejection; no instance validity is inferred. This interoperability observation does not replace the project expectation.",
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. unknown type 'absent': Schema component: <xs:list xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" itemType=\"absent\" /> Path: /xs:schema/xs:simpleType/xs:list Schema URL: missing006.xsd. The expected result is the accepted W3C expectation, which I-023 in docs/spec/INTERPRETATIONS.md adopts: the unresolved reference loads as a missing component (Structures 5.3) and outranks processor behaviour under the processor tie-break; this observation is not a majority-vote oracle."
+          },
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. missing006.xsd:13:30: src-resolve: Cannot resolve the name 'absent' to a(n) 'type definition' component. The expected result is the accepted W3C expectation, which I-023 in docs/spec/INTERPRETATIONS.md adopts: the unresolved reference loads as a missing component (Structures 5.3) and outranks processor behaviour under the processor tie-break; this observation is not a majority-vote oracle."
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. missing006.xsd:13:3: Type 'absent' is not declared, or is not a simple type. The expected result is the accepted W3C expectation, which I-023 in docs/spec/INTERPRETATIONS.md adopts: the unresolved reference loads as a missing component (Structures 5.3) and outranks processor behaviour under the processor tie-break; this observation is not a majority-vote oracle."
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. missing006.xsd:12: element simpleType: Schemas parser error : list type 'list', attribute 'itemType': The QName value 'absent' does not resolve to a(n) simple type definition. The expected result is the accepted W3C expectation, which I-023 in docs/spec/INTERPRETATIONS.md adopts: the unresolved reference loads as a missing component (Structures 5.3) and outranks processor behaviour under the processor tie-break; this observation is not a majority-vote oracle."
           }
         }
       },
@@ -913528,6 +913608,533 @@
         {
           "file": "corpus/project/schema-syntax/attribute-values/preserved-enumeration/trimmed.xml",
           "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/unresolved-references/xsd-namespace-type-missing",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/unresolved-references/xsd-namespace-type-missing",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+        ],
+        "conditions": [
+          "A type QName in the XML Schema namespace names a built-in that does not exist; the built-in components are fixed, so the reference is rejected rather than tolerated as missing. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/unresolved-references/xsd-namespace-type-missing/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:41: src-resolve.4.2: Error resolving component 'xs:missing'. It was detected that 'xs:missing' is in namespace 'http://www.w3.org/2001/XMLSchema', but components from this namespace are not referenceable from schema document 'file:schema.xsd'. If this is the incorrect namespace, perhaps the prefix of 'xs:missing' needs to be changed. If this is the correct namespace, then an appropriate 'import' tag should be added to 'file:schema.xsd'. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): a name in the XML Schema namespace is never tolerated as missing; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:2: Type 'http://www.w3.org/2001/XMLSchema:missing' is not declared. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): a name in the XML Schema namespace is never tolerated as missing; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. unknown type 'xs:missing': Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"e\" type=\"xs:missing\" /> Path: /xs:schema/xs:element Schema URL: schema.xsd. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): a name in the XML Schema namespace is never tolerated as missing; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : element decl. '{urn:t}e', attribute 'type': The QName value '{http://www.w3.org/2001/XMLSchema}missing' does not resolve to a(n) type definition. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): a name in the XML Schema namespace is never tolerated as missing; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/composition/unresolved-references/xsd-namespace-type-missing/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/unresolved-references/xsd-namespace-member-missing",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/unresolved-references/xsd-namespace-member-missing",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+        ],
+        "conditions": [
+          "A union member QName in the XML Schema namespace names a built-in that does not exist, so the reference is rejected rather than tolerated as missing. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/unresolved-references/xsd-namespace-member-missing/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:68: src-resolve.4.2: Error resolving component 'xs:missing'. It was detected that 'xs:missing' is in namespace 'http://www.w3.org/2001/XMLSchema', but components from this namespace are not referenceable from schema document 'file:schema.xsd'. If this is the incorrect namespace, perhaps the prefix of 'xs:missing' needs to be changed. If this is the correct namespace, then an appropriate 'import' tag should be added to 'file:schema.xsd'. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): a name in the XML Schema namespace is never tolerated as missing; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:26: Type 'http://www.w3.org/2001/XMLSchema:missing' is not declared, or is not a simple type. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): a name in the XML Schema namespace is never tolerated as missing; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. unknown type '{http://www.w3.org/2001/XMLSchema}missing': Schema component: <xs:union xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" memberTypes=\"xs:missing xs:int\" /> Path: /xs:schema/xs:simpleType/xs:union Schema URL: schema.xsd. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): a name in the XML Schema namespace is never tolerated as missing; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element simpleType: Schemas parser error : union type 'U', attribute 'memberTypes': The QName value '{http://www.w3.org/2001/XMLSchema}missing' does not resolve to a(n) simple type definition. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): a name in the XML Schema namespace is never tolerated as missing; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/composition/unresolved-references/xsd-namespace-member-missing/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/unresolved-references/type-unimported-namespace",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/unresolved-references/type-unimported-namespace",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+        ],
+        "conditions": [
+          "A type QName in a namespace the document does not import is rejected by src-resolve clause 4 before any missing-component tolerance applies. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/unresolved-references/type-unimported-namespace/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:34: src-resolve.4.2: Error resolving component 'o:t'. It was detected that 'o:t' is in namespace 'urn:other', but components from this namespace are not referenceable from schema document 'file:schema.xsd'. If this is the incorrect namespace, perhaps the prefix of 'o:t' needs to be changed. If this is the correct namespace, then an appropriate 'import' tag should be added to 'file:schema.xsd'. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): src-resolve clause 4 rejects a reference into a namespace the document does not import; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:2: Type 'urn:other:t' is not declared. | warning: schema.xsd:2:2: Namespace 'urn:other' is not available to be referenced in this schema. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): src-resolve clause 4 rejects a reference into a namespace the document does not import; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. the QName 'o:t' is mapped to the namespace 'urn:other', but this namespace has not an xs:import statement in the schema: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"e\" type=\"o:t\" /> Path: /xs:schema/xs:element Schema URL: schema.xsd. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): src-resolve clause 4 rejects a reference into a namespace the document does not import; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'type': References from this schema to components in the namespace 'urn:other' are not allowed, since not indicated by an import statement. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): src-resolve clause 4 rejects a reference into a namespace the document does not import; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/composition/unresolved-references/type-unimported-namespace/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/unresolved-references/group-ref-zero-unimported",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/unresolved-references/group-ref-zero-unimported",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-namedModelGroup"
+        ],
+        "conditions": [
+          "An xs:group reference with minOccurs and maxOccurs 0 into a namespace the document does not import corresponds to no component (Structures 3.7.2), so it is neither resolved nor authorized, as in project/group-zero-occurrence-absent-content. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/unresolved-references/group-ref-zero-unimported/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4:50: src-resolve.4.2: Error resolving component 'o:g'. It was detected that 'o:g' is in namespace 'urn:other', but components from this namespace are not referenceable from schema document 'file:schema.xsd'. If this is the incorrect namespace, perhaps the prefix of 'o:g' needs to be changed. If this is the correct namespace, then an appropriate 'import' tag should be added to 'file:schema.xsd'. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an xs:group reference with minOccurs and maxOccurs 0 corresponds to no component at all (Structures 3.7.2), so it is neither resolved nor import-authorized; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. warning: schema.xsd:4:2: Namespace 'urn:other' is not available to be referenced in this schema. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an xs:group reference with minOccurs and maxOccurs 0 corresponds to no component at all (Structures 3.7.2), so it is neither resolved nor import-authorized; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. the QName 'o:g' is mapped to the namespace 'urn:other', but this namespace has not an xs:import statement in the schema: Schema component: <xs:group xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" ref=\"o:g\" minOccurs=\"0\" maxOccurs=\"0\" /> Path: /xs:schema/xs:element/xs:complexType/xs:sequence/xs:group Schema URL: schema.xsd. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an xs:group reference with minOccurs and maxOccurs 0 corresponds to no component at all (Structures 3.7.2), so it is neither resolved nor import-authorized; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4: element group: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}group', attribute 'ref': References from this schema to components in the namespace 'urn:other' are not allowed, since not indicated by an import statement. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an xs:group reference with minOccurs and maxOccurs 0 corresponds to no component at all (Structures 3.7.2), so it is neither resolved nor import-authorized; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "empty",
+          "file": "corpus/project/composition/unresolved-references/group-ref-zero-unimported/empty.xml",
+          "expected": "valid",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an xs:group reference with minOccurs and maxOccurs 0 corresponds to no component at all (Structures 3.7.2), so it is neither resolved nor import-authorized; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+            }
+          }
+        },
+        {
+          "testName": "sibling",
+          "file": "corpus/project/composition/unresolved-references/group-ref-zero-unimported/sibling.xml",
+          "expected": "valid",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an xs:group reference with minOccurs and maxOccurs 0 corresponds to no component at all (Structures 3.7.2), so it is neither resolved nor import-authorized; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+            }
+          }
+        },
+        {
+          "testName": "foreign-child",
+          "file": "corpus/project/composition/unresolved-references/group-ref-zero-unimported/foreign-child.xml",
+          "expected": "invalid",
+          "oracle": {
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. foreign-child.xml:1:19: The element 'r' in namespace 'urn:t' has invalid child element 'e' in namespace 'urn:other'. List of possible elements expected: 'x' in namespace 'urn:t'. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an xs:group reference with minOccurs and maxOccurs 0 corresponds to no component at all (Structures 3.7.2), so it is neither resolved nor import-authorized; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/composition/unresolved-references/group-ref-zero-unimported/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/composition/unresolved-references/group-ref-zero-unimported/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/unresolved-references/group-ref-zero-unimported/sibling.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/unresolved-references/group-ref-zero-unimported/foreign-child.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/unresolved-references/element-ref-missing",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/unresolved-references/element-ref-missing",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+        ],
+        "conditions": [
+          "An xs:element reference that occurs has a particle whose term must resolve, so a missing referenced element declaration is rejected. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/unresolved-references/element-ref-missing/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:80: src-resolve: Cannot resolve the name 't:missing' to a(n) 'element declaration' component. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an unresolved reference of this kind is rejected, as the accepted W3C expectations for msMeta elemL002, groupB008, attE002, attgC008 and idC038 decide for element, model group, attribute, attribute group and keyref refer references; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:52: The 'urn:t:missing' element is not declared. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an unresolved reference of this kind is rejected, as the accepted W3C expectations for msMeta elemL002, groupB008, attE002, attgC008 and idC038 decide for element, model group, attribute, attribute group and keyref refer references; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. unknown element '{urn:t}missing': Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" ref=\"t:missing\" /> Path: /xs:schema/xs:element/xs:complexType/xs:sequence/xs:element Schema URL: schema.xsd. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an unresolved reference of this kind is rejected, as the accepted W3C expectations for msMeta elemL002, groupB008, attE002, attgC008 and idC038 decide for element, model group, attribute, attribute group and keyref refer references; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'ref': The QName value '{urn:t}missing' does not resolve to a(n) element declaration. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an unresolved reference of this kind is rejected, as the accepted W3C expectations for msMeta elemL002, groupB008, attE002, attgC008 and idC038 decide for element, model group, attribute, attribute group and keyref refer references; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/composition/unresolved-references/element-ref-missing/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/unresolved-references/group-ref-missing",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/unresolved-references/group-ref-missing",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+        ],
+        "conditions": [
+          "An xs:group reference that occurs has a particle whose term must resolve, so a missing model group definition is rejected. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/unresolved-references/group-ref-missing/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:78: src-resolve: Cannot resolve the name 't:missing' to a(n) 'group' component. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an unresolved reference of this kind is rejected, as the accepted W3C expectations for msMeta elemL002, groupB008, attE002, attgC008 and idC038 decide for element, model group, attribute, attribute group and keyref refer references; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:52: Reference to undeclared model group 'urn:t:missing'. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an unresolved reference of this kind is rejected, as the accepted W3C expectations for msMeta elemL002, groupB008, attE002, attgC008 and idC038 decide for element, model group, attribute, attribute group and keyref refer references; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. missing group 't:missing': Schema component: <xs:group xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" ref=\"t:missing\" /> Path: /xs:schema/xs:element/xs:complexType/xs:sequence/xs:group Schema URL: schema.xsd. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an unresolved reference of this kind is rejected, as the accepted W3C expectations for msMeta elemL002, groupB008, attE002, attgC008 and idC038 decide for element, model group, attribute, attribute group and keyref refer references; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element group: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}group', attribute 'ref': The QName value '{urn:t}missing' does not resolve to a(n) model group definition. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an unresolved reference of this kind is rejected, as the accepted W3C expectations for msMeta elemL002, groupB008, attE002, attgC008 and idC038 decide for element, model group, attribute, attribute group and keyref refer references; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/composition/unresolved-references/group-ref-missing/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/unresolved-references/attribute-ref-missing",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/unresolved-references/attribute-ref-missing",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+        ],
+        "conditions": [
+          "An attribute reference with use other than prohibited maps to an attribute use whose declaration must resolve, so a missing attribute declaration is rejected. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/unresolved-references/attribute-ref-missing/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:69: src-resolve: Cannot resolve the name 't:missing' to a(n) 'attribute declaration' component. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an unresolved reference of this kind is rejected, as the accepted W3C expectations for msMeta elemL002, groupB008, attE002, attgC008 and idC038 decide for element, model group, attribute, attribute group and keyref refer references; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:39: The 'urn:t:missing' attribute is not declared. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an unresolved reference of this kind is rejected, as the accepted W3C expectations for msMeta elemL002, groupB008, attE002, attgC008 and idC038 decide for element, model group, attribute, attribute group and keyref refer references; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. unknown attribute '{urn:t}missing': Schema component: <xs:attribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" ref=\"t:missing\" /> Path: /xs:schema/xs:element/xs:complexType/xs:attribute Schema URL: schema.xsd. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an unresolved reference of this kind is rejected, as the accepted W3C expectations for msMeta elemL002, groupB008, attE002, attgC008 and idC038 decide for element, model group, attribute, attribute group and keyref refer references; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element attribute: Schemas parser error : attribute use (unknown), attribute 'ref': The QName value '{urn:t}missing' does not resolve to a(n) attribute declaration. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an unresolved reference of this kind is rejected, as the accepted W3C expectations for msMeta elemL002, groupB008, attE002, attgC008 and idC038 decide for element, model group, attribute, attribute group and keyref refer references; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/composition/unresolved-references/attribute-ref-missing/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/unresolved-references/attribute-group-ref-missing",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/unresolved-references/attribute-group-ref-missing",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+        ],
+        "conditions": [
+          "An xs:attributeGroup reference contributes the uses of the definition it names, so a missing attribute group definition is rejected. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/unresolved-references/attribute-group-ref-missing/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:74: src-resolve: Cannot resolve the name 't:missing' to a(n) 'attribute group' component. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an unresolved reference of this kind is rejected, as the accepted W3C expectations for msMeta elemL002, groupB008, attE002, attgC008 and idC038 decide for element, model group, attribute, attribute group and keyref refer references; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:39: Reference to undeclared attribute group 'urn:t:missing'. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an unresolved reference of this kind is rejected, as the accepted W3C expectations for msMeta elemL002, groupB008, attE002, attgC008 and idC038 decide for element, model group, attribute, attribute group and keyref refer references; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. unknown attribute group 't:missing': Schema component: <xs:complexType xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:attributeGroup ref=\"t:missing\" /></xs:complexType> Path: /xs:schema/xs:element/xs:complexType Schema URL: schema.xsd. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an unresolved reference of this kind is rejected, as the accepted W3C expectations for msMeta elemL002, groupB008, attE002, attgC008 and idC038 decide for element, model group, attribute, attribute group and keyref refer references; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element attributeGroup: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}attributeGroup', attribute 'ref': The QName value '{urn:t}missing' does not resolve to a(n) attribute group definition. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an unresolved reference of this kind is rejected, as the accepted W3C expectations for msMeta elemL002, groupB008, attE002, attgC008 and idC038 decide for element, model group, attribute, attribute group and keyref refer references; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/composition/unresolved-references/attribute-group-ref-missing/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/unresolved-references/keyref-refer-missing",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/unresolved-references/keyref-refer-missing",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-props-correct"
+        ],
+        "conditions": [
+          "A keyref refer must name a key or unique constraint (c-props-correct), so a missing identity-constraint definition is rejected. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/unresolved-references/keyref-refer-missing/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:117: src-resolve: Cannot resolve the name 't:missing' to a(n) 'identity constraint' component. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an unresolved reference of this kind is rejected, as the accepted W3C expectations for msMeta elemL002, groupB008, attE002, attgC008 and idC038 decide for element, model group, attribute, attribute group and keyref refer references; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:80: The 'urn:t:missing' identity constraint is not declared. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an unresolved reference of this kind is rejected, as the accepted W3C expectations for msMeta elemL002, groupB008, attE002, attgC008 and idC038 decide for element, model group, attribute, attribute group and keyref refer references; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. key/unique identity constraint '{urn:t}missing' is missing: Schema component: <xs:keyref xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"k\" refer=\"t:missing\"><xs:selector xpath=\".\" /><xs:field xpath=\"@a\" /></xs:keyref> Path: /xs:schema/xs:element/xs:keyref Schema URL: schema.xsd. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an unresolved reference of this kind is rejected, as the accepted W3C expectations for msMeta elemL002, groupB008, attE002, attgC008 and idC038 decide for element, model group, attribute, attribute group and keyref refer references; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element keyref: Schemas parser error : keyRef 'k', attribute 'refer': The QName value '{urn:t}missing' does not resolve to a(n) key identity-constraint. The project expectation follows I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an unresolved reference of this kind is rejected, as the accepted W3C expectations for msMeta elemL002, groupB008, attE002, attgC008 and idC038 decide for element, model group, attribute, attribute group and keyref refer references; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/composition/unresolved-references/keyref-refer-missing/schema.xsd",
+          "role": "principal"
         }
       ]
     }

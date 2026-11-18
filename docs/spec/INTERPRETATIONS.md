@@ -677,32 +677,53 @@ Fixtures: `project/identity/undeclared-attribute-field-unique`,
 `project/identity/undeclared-attribute-field-keyref`.
 Per-instance dissent is recorded as manifest `oracle` metadata.
 
-## I-023 — substitution-group member with a missing head
+## I-023 — unresolved references
 
 **Status:** source-qualified reading of
-[QName resolution](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve),
-[Missing Sub-components §5.3](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing)
-and the [element declaration mapping](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element),
-following the accepted W3C expectation for
-`w3c/saxonMeta/Missing.testSet/missing002` (valid).
+[QName resolution](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve)
+and [Missing Sub-components §5.3](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing),
+following the accepted W3C expectations of `w3c/saxonMeta/Missing.testSet`.
+The record orders its sources as the [processor tie-break](#processor-tie-break)
+does and defines no precedence of its own.
 
-`src-resolve` requires a `substitutionGroup` QName to resolve, while §3 and
-§5.3 handle unresolved references uniformly as absent values that modify
-assessment only of items validated against the affected component. The §3.3.2
-`{type definition}` mapping gives a declaration without its own type the type
-of the declaration its `substitutionGroup` resolves to, otherwise the ur-type;
-it does not say which branch an unresolved head takes. The library tolerates
-the missing head at schema load: `{substitution group affiliation}` (an
-optional property) is absent and, without an explicit `type` or inline type,
-the member validates with the default type `anyType`. With a resolved head, an
-omitted member type is inherited through the affiliation chain before value
-constraints are checked; it does not fall back to `anyType` while the head's
-type is still being completed.
+`src-resolve` requires every QName reference to resolve. §5.3 describes how
+"the resolution of such QNames may fail, resulting in one or more values of or
+containing absent where a component is mandated", and modifies assessment of
+an item validated against a component "any of whose properties has or contains
+such an absent value": an attribute fails as if clause 1 of Attribute Locally
+Valid had failed, an element as if clause 1 of Element Locally Valid (Element)
+had failed. The text does not say which unresolved references leave the schema
+loadable, and the accepted W3C expectations decide it per reference kind:
+`missing001` (element `type`), `missing002` (`substitutionGroup`), `missing003`
+(element `type` with `substitutionGroup`) and `missing006` (list `itemType`)
+are valid; `missing004` and `missing005` (simple and complex `base`) are
+invalid; and `w3c/msMeta` `elemL002`, `groupB008`, `attE002`, `attgC008` and
+`idC038` reject an unresolved element, model group, attribute and attribute
+group reference and keyref `refer`. Xerces-J, .NET, xmlschema and libxml2
+reject all six Missing schemas; an accepted W3C expectation outranks processor
+behaviour, so their results are manifest `oracle` metadata on those cases.
 
-An accepted W3C expectation outranks processor behaviour, so the
-[processor tie-break](#processor-tie-break) does not apply. xmlschema rejects
-missing002 under `src-resolve`; that dissent is manifest `oracle` metadata.
-Evidence: `TestSubstitutionMemberWithMissingHeadUsesDefaultType` in
+| Reference | Unresolved | Source |
+| --- | --- | --- |
+| `type` on an element declaration, list `itemType` | Loads; an item assessed against the declaration or type is invalid | W3C `missing001`, `missing003`, `missing006` |
+| `substitutionGroup` | Loads; the member has no substitution group affiliation and, without its own type, validates as `anyType` (below) | W3C `missing002`, both of whose instances are valid |
+| `type` on an attribute declaration; union `memberTypes`; `default` or `fixed` on a declaration whose type is missing | Loads; an item assessed against the declaration or union is invalid, and the value constraint is not checked. Not pinned | Coverage limit. No W3C case covers these kinds, and §5.3 does not say which unresolved references leave the schema loadable. Xerces-J, .NET, xmlschema and libxml2 reject such schemas, which the [processor tie-break](#processor-tie-break) would follow; the library tolerates them as for element `type` until a source decides |
+| `base` | Rejected | W3C `missing004`, `missing005` |
+| `ref` of an `xs:element`, `xs:group`, `xs:attribute` (use other than prohibited) or `xs:attributeGroup` that maps to a component; keyref `refer` | Rejected (`project/composition/unresolved-references/element-ref-missing`, `group-ref-missing`, `attribute-ref-missing`, `attribute-group-ref-missing`, `keyref-refer-missing`) | W3C `elemL002`, `groupB008`, `attE002`, `attgC008`, `idC038`; Xerces-J, .NET, xmlschema and libxml2 reject each project case |
+| `xs:group ref` with `minOccurs` and `maxOccurs` 0; `xs:attribute ref` with `use="prohibited"` | Not resolved and not import-authorized (`project/composition/unresolved-references/group-ref-zero-unimported`, `project/content-models/group-zero-occurrence-absent-content`, `project/prohibited-no-component-missing-imported-attribute-prohibited`) | §3.7.2: such a group reference "corresponds to no component at all", and [I-008](#i-008--prohibited-attribute-use-with-fixed), so there is no reference to resolve. The text decides it, so processor results do not; .NET accepts the group reference, Xerces-J, xmlschema and libxml2 reject it |
+| A name in the XML Schema namespace | Rejected (`project/composition/unresolved-references/xsd-namespace-type-missing`, `xsd-namespace-member-missing`) | The built-in components of that namespace are fixed, so no schema can supply the name (`typeQNameMayBeUnavailable`) |
+| A name in a namespace the document does not import | Rejected (`project/composition/unresolved-references/type-unimported-namespace`) | `src-resolve` clause 4 applies before any of the tolerances above |
+| `ref`, `type`, `default`, `fixed` and identity constraints of an `xs:element` with `minOccurs` and `maxOccurs` 0 | Compiled as for any other element: a missing `ref`, a `ref` or `type` into an unimported namespace, an invalid `default` or `fixed` value and a colliding identity-constraint name are rejected, and a missing `type` loads as for element `type` above. Not pinned | Pending a decision on the §3.3.2 mapping, under which the item "corresponds to no component at all" |
+
+A tolerated missing `substitutionGroup` head leaves `{substitution group
+affiliation}`, an optional property, absent. The §3.3.2 `{type definition}`
+mapping gives a declaration without its own type the type of its head,
+otherwise the ur-type, and does not say which branch an unresolved head takes;
+without an explicit `type` or inline type, the member validates with `anyType`.
+With a resolved head, an omitted member type is inherited through the
+affiliation chain before value constraints are checked; it does not fall back
+to `anyType` while the head's type is still being completed. Evidence:
+`TestSubstitutionMemberWithMissingHeadUsesDefaultType` in
 `internal/schema/schema_compile_external_test.go`.
 
 ## I-024 — printed primitive-type summary
