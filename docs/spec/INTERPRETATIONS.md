@@ -692,12 +692,12 @@ containing absent where a component is mandated", and modifies assessment of
 an item validated against a component "any of whose properties has or contains
 such an absent value": an attribute fails as if clause 1 of Attribute Locally
 Valid had failed, an element as if clause 1 of Element Locally Valid (Element)
-had failed. The text does not say which unresolved references leave the schema
-loadable, and the accepted W3C expectations decide it per reference kind:
-`missing001` (element `type`), `missing002` (`substitutionGroup`), `missing003`
-(element `type` with `substitutionGroup`) and `missing006` (list `itemType`)
-are valid; `missing004` and `missing005` (simple and complex `base`) are
-invalid; and `w3c/msMeta` `elemL002`, `groupB008`, `attE002`, `attgC008` and
+had failed. The schema therefore loads with the property absent, as the
+accepted W3C expectations confirm: `missing001` (element `type`), `missing002`
+(`substitutionGroup`), `missing003` (element `type` with `substitutionGroup`)
+and `missing006` (list `itemType`) are valid. They also decide the reference
+kinds the schema cannot carry absent: `missing004` and `missing005` (simple and
+complex `base`) are invalid, and `w3c/msMeta` `elemL002`, `groupB008`, `attE002`, `attgC008` and
 `idC038` reject an unresolved element, model group, attribute and attribute
 group reference and keyref `refer`. Xerces-J, .NET, xmlschema and libxml2
 reject all six Missing schemas; an accepted W3C expectation outranks processor
@@ -707,7 +707,7 @@ behaviour, so their results are manifest `oracle` metadata on those cases.
 | --- | --- | --- |
 | `type` on an element declaration, list `itemType` | Loads; an item assessed against the declaration or type is invalid | W3C `missing001`, `missing003`, `missing006` |
 | `substitutionGroup` | Loads; the member has no substitution group affiliation and, without its own type, validates as `anyType` (below) | W3C `missing002`, both of whose instances are valid |
-| `type` on an attribute declaration; union `memberTypes`; `default` or `fixed` on a declaration whose type is missing | Loads; an item assessed against the declaration or union is invalid, and the value constraint is not checked. Not pinned | Coverage limit. No W3C case covers these kinds, and §5.3 does not say which unresolved references leave the schema loadable. Xerces-J, .NET, xmlschema and libxml2 reject such schemas, which the [processor tie-break](#processor-tie-break) would follow; the library tolerates them as for element `type` until a source decides |
+| `type` on an attribute declaration; union `memberTypes`; `default` or `fixed` on a declaration whose type is missing | Loads; an item assessed against the declaration or union is invalid, and the value constraint is not checked (`project/composition/unresolved-references/attribute-type-missing`, `union-member-missing`, `element-type-missing-default`, `attribute-type-missing-value-constraint`) | §5.3: a failed resolution leaves the property “absent”, and only an item “validated with respect to a component [...] any of whose properties has or contains such an absent value” fails. The text decides it, as W3C `missing001` and `missing006` confirm for element `type` and list `itemType`, so processor results do not; Xerces-J, .NET, xmlschema and libxml2 reject each schema, which the cases record as `oracle` metadata |
 | `base` | Rejected | W3C `missing004`, `missing005` |
 | `ref` of an `xs:element`, `xs:group`, `xs:attribute` (use other than prohibited) or `xs:attributeGroup` that maps to a component; keyref `refer` | Rejected (`project/composition/unresolved-references/element-ref-missing`, `group-ref-missing`, `attribute-ref-missing`, `attribute-group-ref-missing`, `keyref-refer-missing`) | W3C `elemL002`, `groupB008`, `attE002`, `attgC008`, `idC038`; Xerces-J, .NET, xmlschema and libxml2 reject each project case |
 | `xs:group ref` with `minOccurs` and `maxOccurs` 0; `xs:attribute ref` with `use="prohibited"` | Not resolved and not import-authorized (`project/composition/unresolved-references/group-ref-zero-unimported`, `project/content-models/group-zero-occurrence-absent-content`, `project/prohibited-no-component-missing-imported-attribute-prohibited`) | §3.7.2: such a group reference "corresponds to no component at all", and [I-008](#i-008--prohibited-attribute-use-with-fixed), so there is no reference to resolve. The text decides it, so processor results do not; .NET accepts the group reference, Xerces-J, xmlschema and libxml2 reject it |

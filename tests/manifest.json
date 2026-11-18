@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 17111,
-    "schemaCases": 17061,
-    "instanceRuns": 35810,
+    "cases": 17115,
+    "schemaCases": 17065,
+    "instanceRuns": 35819,
     "w3cCases": 14414,
-    "internalRuns": 2684,
+    "internalRuns": 2688,
     "xercesJCases": 13
   },
   "cases": [
@@ -916643,6 +916643,310 @@
         {
           "file": "corpus/project/schema-syntax/facet-values/pattern-above-compile-limit/schema.xsd",
           "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/unresolved-references/union-member-missing",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/unresolved-references/union-member-missing",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-union"
+        ],
+        "conditions": [
+          "A union whose memberTypes names a missing type and xs:int loads, but the union is a missing component, so an element of that type is invalid even for 12, which the xs:int member would accept. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/unresolved-references/union-member-missing/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:67: src-resolve: Cannot resolve the name 't:missing' to a(n) 'type definition' component. The project expectation follows Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:26: Type 'urn:t:missing' is not declared, or is not a simple type. The project expectation follows Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. unknown type '{urn:t}missing': Schema component: <xs:union xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" memberTypes=\"t:missing xs:int\" /> Path: /xs:schema/xs:simpleType/xs:union Schema URL: schema.xsd. The project expectation follows Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element simpleType: Schemas parser error : union type 'U', attribute 'memberTypes': The QName value '{urn:t}missing' does not resolve to a(n) simple type definition. The project expectation follows Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "union-int-value",
+          "file": "corpus/project/composition/unresolved-references/union-member-missing/union-int-value.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "int-control",
+          "file": "corpus/project/composition/unresolved-references/union-member-missing/int-control.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/composition/unresolved-references/union-member-missing/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/composition/unresolved-references/union-member-missing/union-int-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/unresolved-references/union-member-missing/int-control.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/unresolved-references/attribute-type-missing",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/unresolved-references/attribute-type-missing",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+        ],
+        "conditions": [
+          "An attribute declaration whose type is missing loads; an element that omits the attribute is valid and one that carries it is invalid. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/unresolved-references/attribute-type-missing/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:79: src-resolve: Cannot resolve the name 't:missing' to a(n) 'type definition' component. The project expectation follows Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:39: Type 'urn:t:missing' is not declared, or is not a simple type. The project expectation follows Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. global component '{urn:t}missing' not found: Schema component: <xs:attribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"a\" type=\"t:missing\" /> Path: /xs:schema/xs:element/xs:complexType/xs:attribute Schema URL: schema.xsd. The project expectation follows Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element attribute: Schemas parser error : attribute decl. 'a', attribute 'type': The QName value '{urn:t}missing' does not resolve to a(n) simple type definition. The project expectation follows Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "attribute-absent",
+          "file": "corpus/project/composition/unresolved-references/attribute-type-missing/attribute-absent.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "attribute-present",
+          "file": "corpus/project/composition/unresolved-references/attribute-type-missing/attribute-present.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/composition/unresolved-references/attribute-type-missing/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/composition/unresolved-references/attribute-type-missing/attribute-absent.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/unresolved-references/attribute-type-missing/attribute-present.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/unresolved-references/element-type-missing-default",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/unresolved-references/element-type-missing-default",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct"
+        ],
+        "conditions": [
+          "An element declaration whose type is missing loads with a default that no type checks at schema load; the element is invalid when it occurs, and other declarations remain usable. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/unresolved-references/element-type-missing-default/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:52: src-resolve: Cannot resolve the name 't:missing' to a(n) 'type definition' component. The project expectation follows Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:2: Type 'urn:t:missing' is not declared. The project expectation follows Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. unknown type 't:missing': Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"e\" type=\"t:missing\" default=\"x\" /> Path: /xs:schema/xs:element[1] Schema URL: schema.xsd. The project expectation follows Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : element decl. '{urn:t}e', attribute 'type': The QName value '{urn:t}missing' does not resolve to a(n) type definition. The project expectation follows Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "missing-type-element",
+          "file": "corpus/project/composition/unresolved-references/element-type-missing-default/missing-type-element.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "other-element",
+          "file": "corpus/project/composition/unresolved-references/element-type-missing-default/other-element.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/composition/unresolved-references/element-type-missing-default/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/composition/unresolved-references/element-type-missing-default/missing-type-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/unresolved-references/element-type-missing-default/other-element.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/unresolved-references/attribute-type-missing-value-constraint",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/unresolved-references/attribute-type-missing-value-constraint",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#a-props-correct"
+        ],
+        "conditions": [
+          "Attribute declarations whose type is missing load with a default and a fixed value that no type checks at schema load; an attribute assessed against one is invalid, and other declarations remain usable. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/unresolved-references/attribute-type-missing-value-constraint/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:54: src-resolve: Cannot resolve the name 't:missing' to a(n) 'type definition' component. The project expectation follows Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:2: Type 'urn:t:missing' is not declared, or is not a simple type. The project expectation follows Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. global component '{urn:t}missing' not found: Schema component: <xs:attribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"d\" type=\"t:missing\" default=\"x\" /> Path: /xs:schema/xs:attribute[1] Schema URL: schema.xsd. The project expectation follows Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element attribute: Schemas parser error : attribute decl. '{urn:t}d', attribute 'type': The QName value '{urn:t}missing' does not resolve to a(n) simple type definition. The project expectation follows Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "other-element",
+          "file": "corpus/project/composition/unresolved-references/attribute-type-missing-value-constraint/other-element.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "default-attribute-present",
+          "file": "corpus/project/composition/unresolved-references/attribute-type-missing-value-constraint/default-attribute-present.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "fixed-attribute-present",
+          "file": "corpus/project/composition/unresolved-references/attribute-type-missing-value-constraint/fixed-attribute-present.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/composition/unresolved-references/attribute-type-missing-value-constraint/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/composition/unresolved-references/attribute-type-missing-value-constraint/other-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/unresolved-references/attribute-type-missing-value-constraint/default-attribute-present.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/unresolved-references/attribute-type-missing-value-constraint/fixed-attribute-present.xml",
+          "role": "instance"
         }
       ]
     }

@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:t" targetNamespace="urn:t" elementFormDefault="qualified">
+<xs:attribute name="d" type="t:missing" default="x"/>
+<xs:attribute name="f" type="t:missing" fixed="y"/>
+<xs:element name="g" type="xs:int"/>
+<xs:element name="r"><xs:complexType><xs:attribute ref="t:d"/><xs:attribute ref="t:f"/></xs:complexType></xs:element>
+</xs:schema>
