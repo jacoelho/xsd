@@ -2,6 +2,7 @@ package schema
 
 import (
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/source"
@@ -210,4 +211,94 @@ func TestDeclaringAnIdentityConstraintTwiceInOneContextIsAnInternalInvariant(t *
 		t.Fatalf("first declaration: %v", err)
 	}
 	expectDiagnostic(t, c.declareAllIdentityConstraints(), xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+}
+
+func TestAChameleonIdentityConstraintCompiledInTwoNamespacesSharesItsStoredPaths(t *testing.T) {
+	t.Parallel()
+
+	common := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:p">
+  <xs:element name="list">
+    <xs:key name="k">
+      <xs:selector xpath="item | p:item"/>
+      <xs:field xpath="@id | p:code/@p:id"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`)
+	resolver := source.Resolver(func(_, location string) (source.Source, error) {
+		if location == "common.xsd" {
+			return source.Bytes("common.xsd", common), nil
+		}
+		return source.Source{}, xsderrors.ErrSchemaNotFound
+	})
+	root := func(name, target string) source.Source {
+		data := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="` + target + `"><xs:include schemaLocation="common.xsd"/></xs:schema>`)
+		return source.Bytes(name, data).WithResolver(resolver)
+	}
+	limits, err := NormalizeOptions(Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := newCompiler(limits)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.loadOwned([]source.Source{root("a.xsd", "urn:a"), root("b.xsd", "urn:b")}); err != nil {
+		t.Fatalf("load error = %v", err)
+	}
+	if err := c.index(); err != nil {
+		t.Fatalf("index() error = %v", err)
+	}
+	if err := c.compileGlobals(); err != nil {
+		t.Fatalf("compileGlobals() error = %v", err)
+	}
+
+	names := &c.rt.Names
+	qname := func(ns, local string) QName {
+		q, ok := names.LookupQName(ns, local)
+		if !ok {
+			t.Fatalf("name {%s}%s was not interned", ns, local)
+		}
+		return q
+	}
+	wantSelector := []identityPath{
+		{Steps: []IdentityStep{{Name: qname("", "item")}}},
+		{Steps: []IdentityStep{{Name: qname("urn:p", "item")}}},
+	}
+	wantFields := []identityFieldPath{
+		{Attr: true, Attribute: qname("", "id")},
+		{Attr: true, Attribute: qname("urn:p", "id"), Steps: []IdentityStep{{Name: qname("urn:p", "code")}}},
+	}
+	sameSelector := func(a, b identityPath) bool {
+		return a.Descendant == b.Descendant && slices.Equal(a.Steps, b.Steps)
+	}
+	sameField := func(a, b identityFieldPath) bool {
+		return a.Attr == b.Attr && a.Attribute == b.Attribute && a.AttrNamespace == b.AttrNamespace &&
+			a.AttrWildcard == b.AttrWildcard && a.AttrNamespaceSet == b.AttrNamespaceSet &&
+			a.Descendant == b.Descendant && slices.Equal(a.Steps, b.Steps)
+	}
+
+	var compiled []identityConstraintSpec
+	var node *schemaNode
+	for _, target := range []string{"urn:a", "urn:b"} {
+		id, ok := c.rt.GlobalIdentities[qname(target, "k")]
+		if !ok {
+			t.Fatalf("identity constraint {%s}k was not declared", target)
+		}
+		ic := c.rt.Identities[id]
+		if !slices.EqualFunc(ic.Selector, wantSelector, sameSelector) {
+			t.Fatalf("{%s}k selector = %+v, want %+v", target, ic.Selector, wantSelector)
+		}
+		if len(ic.Fields) != 1 || !slices.EqualFunc(ic.Fields[0].Paths, wantFields, sameField) {
+			t.Fatalf("{%s}k fields = %+v, want one field with paths %+v", target, ic.Fields, wantFields)
+		}
+		compiled = append(compiled, ic)
+		node = c.identitySources[id]
+	}
+	selector := semanticSource[*schemaIdentitySelectorSource](&node.firstXS(vocab.XSDElemSelector).semantic)
+	field := semanticSource[*schemaIdentityFieldSource](&node.firstXS(vocab.XSDElemField).semantic)
+	for _, ic := range compiled {
+		if &ic.Selector[0] != &selector.Paths[0] || &ic.Fields[0].Paths[0] != &field.Paths[0] {
+			t.Fatal("a compiled constraint does not share the paths stored at its selector and field")
+		}
+	}
 }
