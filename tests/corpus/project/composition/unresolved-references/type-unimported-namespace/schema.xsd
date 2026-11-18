@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:t" xmlns:o="urn:other" targetNamespace="urn:t">
+<xs:element name="e" type="o:t"/>
+</xs:schema>

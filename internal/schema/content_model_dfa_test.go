@@ -37,14 +37,11 @@ func TestCompileContentModelsBuildsWideDFA(t *testing.T) {
 	names, rt := compiledModelRuntimeFixture(t, modelChoice)
 	work := newWorkBudget(contentModelWorkBudget, 1_000_000)
 	analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-	models, err := compileContentModels(&names, rt.build(), 1, 32, &work, analysis)
+	cc := newContentModelCompiler(&names, rt.build(), 32, &work, analysis)
+	model, err := cc.compileRootContentModel(0)
 	if err != nil {
-		t.Fatalf("CompileContentModels() error = %v", err)
+		t.Fatalf("compileRootContentModel() error = %v", err)
 	}
-	if len(models) != 1 {
-		t.Fatalf("compiled model count = %d, want 1", len(models))
-	}
-	model := models[0]
 	if model.Kind != compiledModelDFA {
 		t.Fatalf("compiled model kind = %d, want DFA", model.Kind)
 	}
@@ -83,7 +80,7 @@ func TestCheckContentModelsUPARejectsChoiceOverlap(t *testing.T) {
 	}
 	work := newWorkBudget(contentModelWorkBudget, 1_000_000)
 	analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-	err = checkContentModelsUPA(&names, rt.build(), 1, &work, analysis)
+	err = newContentModelUPACheck(&names, rt.build(), 1, &work, analysis).checkModel(0)
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel)
 }
 

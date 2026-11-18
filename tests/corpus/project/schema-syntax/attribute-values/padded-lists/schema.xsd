@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:t" targetNamespace="urn:t" elementFormDefault="qualified">
+<xs:complexType name="B"><xs:sequence><xs:any namespace=" urn:x   urn:y " processContents="skip" minOccurs="0"/></xs:sequence></xs:complexType>
+<xs:complexType name="D"><xs:complexContent><xs:extension base="t:B"/></xs:complexContent></xs:complexType>
+<xs:simpleType name="U"><xs:union memberTypes="  xs:int   xs:boolean "/></xs:simpleType>
+<xs:element name="r"><xs:complexType><xs:sequence><xs:element name="e" type="t:B" block=" extension "/><xs:element name="u" type="t:U"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>

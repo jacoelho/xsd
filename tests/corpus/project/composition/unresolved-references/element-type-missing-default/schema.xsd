@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:t" targetNamespace="urn:t" elementFormDefault="qualified">
+<xs:element name="e" type="t:missing" default="x"/>
+<xs:element name="g" type="xs:int"/>
+</xs:schema>

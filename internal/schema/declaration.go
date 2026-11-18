@@ -96,6 +96,11 @@ func validateAttributeDeclRuntime(names *nameTable, decl attributeDecl, limits d
 	if err := validateAttributeName(names, decl.Name); err != nil {
 		return err
 	}
+	// Start-tag admission rejects the name (checkAttributeDeclarationName);
+	// a published declaration named xmlns is a corrupted build.
+	if names.Local(decl.Name.Local) == vocab.XMLNSPrefix {
+		return errors.New("attribute cannot be named xmlns")
+	}
 	if names.Namespace(decl.Name.Namespace) == vocab.XSINamespaceURI {
 		if _, ok := builtinXSIAttributeType(names.Local(decl.Name.Local)); !ok {
 			return errors.New("attribute target namespace cannot be XMLSchema-instance")
@@ -118,9 +123,6 @@ func validateAttributeDeclName(names *nameTable, name QName) error {
 func validateAttributeName(names *nameTable, name QName) error {
 	if names == nil || !names.ValidQName(name) {
 		return errors.New("attribute declaration references invalid name")
-	}
-	if names.Local(name.Local) == vocab.XMLNSPrefix {
-		return errors.New("attribute cannot be named xmlns")
 	}
 	return nil
 }

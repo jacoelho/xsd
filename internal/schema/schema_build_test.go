@@ -64,7 +64,7 @@ func TestElementCompilationFailureKeepsReservedPlaceholder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	schema := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test"><xs:element name="bad"><xs:simpleType><xs:restriction base="xs:string"><xs:length value="x"/></xs:restriction></xs:simpleType></xs:element></xs:schema>`)
+	schema := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test"><xs:element name="bad"><xs:simpleType><xs:restriction base="xs:int"><xs:length value="1"/></xs:restriction></xs:simpleType></xs:element></xs:schema>`)
 	err = c.loadOwned([]source.Source{source.Bytes("bad.xsd", schema)})
 	if err != nil {
 		t.Fatal(err)
@@ -143,7 +143,7 @@ func TestSchemaBuildCompiledModelInstallationPreservesAlignment(t *testing.T) {
 	t.Parallel()
 
 	c := compiler{rt: newSchemaBuild(nameTable{}), dependencyWork: newWorkBudget(dependencyWorkBudget, math.MaxInt)}
-	if _, err := c.addModel(contentModelNode{}); err != nil {
+	if _, err := c.addModel(contentModelNode{}, &schemaNode{}); err != nil {
 		t.Fatal(err)
 	}
 	compiled := []compiledModel{{}}

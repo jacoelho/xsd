@@ -49,7 +49,7 @@ func validateSchemaBuildOwnership(build *schemaBuild) error {
 	if err := validateIdentityBuildOwnership(build); err != nil {
 		return err
 	}
-	if err := validateIdentityConstraintOwnership(build.Elements, len(build.Identities)); err != nil {
+	if err := validateIdentityConstraintOwnership(build.Elements, build.Identities); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil

@@ -23,7 +23,8 @@ the violated contract, not preserve incidental control flow.
 - `manifest.json`: source of truth for expected results and paths.
 - `unsupported.txt`: sorted allowlist of unsupported-feature skips.
 - `harness_test.go`: Go test runner for this corpus.
-- `harness_manifest_test.go`: verifies the manifest closure derived from `manifest.json`.
+- `harness_manifest_test.go`: verifies the manifest closure derived from `manifest.json` and the oracle rule of the [Corpus Contract](#corpus-contract).
+- `oracle-backlog.txt`: sorted, unique IDs of the project cases that predate the oracle rule and are not yet measured.
 - `corpus/`: all schema, XML, and auxiliary files referenced by the manifest.
 - `corpus/w3c`: copied W3C files with original relative layout preserved.
 - `corpus/xerces-j`: selected Xerces-J XSD/XML validation fixtures.
@@ -162,6 +163,26 @@ or a stated unresolved boundary. Report remaining coverage limits to the user.
   laxly. Schema rejection blocks its instance phases. Measured disagreements stay in oracle
   metadata; they never overwrite the project expectation, and blocked phases
   get no fabricated results.
+- A project case is measured when every phase is. Its schema phase is measured
+  when it has an `oracle` entry for each of `xerces`, `dotnet`, `xmlschema` and
+  `libxml2`, an `expected` result or a `blocked` or `unassessed` status. An
+  instance phase is measured when its schema phase is measured and it has an
+  entry for every provider whose schema-phase entry is `expected: "valid"`; a
+  provider that rejected or could not run the schema needs none. A case that a
+  change adds or modifies is measured. `TestProjectCasesCarryOracleMetadata`
+  enforces the rule for every project case not listed in `oracle-backlog.txt`,
+  and fails when the backlog is unsorted, lists an unknown or measured case, or
+  lists a case with a phase that every provider already measured. The backlog
+  only shrinks: a new case is never listed, and a change that modifies a listed
+  case measures it and removes it from the list, which review checks because
+  the test cannot tell a modified case from an untouched one.
+- A provider's `reason` records the observation: the provider and version, the
+  result and its first diagnostic on the current fixture. It then names the
+  specification clause or `docs/spec/INTERPRETATIONS.md` record that the
+  project expectation follows. It does not restate that rule or describe the
+  provider's behaviour beyond the observation; the interpretation record owns
+  the rule and the diagnosis of provider differences. Review enforces this
+  rule; the test cannot.
 - Each schema or instance `expected` is the effective project expectation,
   derived from the published specifications, approved corrections and
   documented qualifications. Provider agreement is diagnostic evidence, not a
@@ -216,10 +237,13 @@ an allowlisted unsupported diagnostic cannot make an internal failure pass or
 skip. Other rejection expectations retain their existing meaning, including
 malformed XML and explicit resource-limit cases.
 
-Every diagnostic of category validation or unsupported that an instance run
-produces while reading a document carries a path and a line; the Go runner
-fails the case otherwise. A nil reader and option errors have no document
-position and do not occur in the harness.
+Every diagnostic of category schema parse, schema compile or unsupported that a
+schema compilation produces, and every diagnostic of category validation or
+unsupported that an instance run produces while reading a document, carries a
+path and a line; the Go runner fails the case otherwise, with no exemptions.
+Failures about a whole explicit document (it cannot be opened or read, or
+exceeds a size limit), about the source set, a nil reader and option errors
+have no document position and do not occur in the harness.
 
 Every entry in `schema.documents` is a compilation root, in manifest order.
 Entries listed only in `files` with role `dependency` are copied dependencies

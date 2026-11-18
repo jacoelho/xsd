@@ -4,6 +4,7 @@ import (
 	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/lex"
 	valuepkg "github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/xsdregex"
 
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
@@ -35,6 +36,39 @@ func validateFacetSource(source facetSource) (valuepkg.FacetMask, error) {
 		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "facet "+facetLabel(source.Local)+" is not allowed")
 	}
 	return mask, nil
+}
+
+// facetValue is what the start tag of a facet admits from its value and
+// fixed attributes: the size of a size facet, the mode of xs:whiteSpace, the
+// compiled pattern of xs:pattern, and fixed. The facet's typed source record
+// stores it and compilation reads it.
+type facetValue struct {
+	pattern    *xsdregex.Pattern
+	size       uint32
+	whitespace valuepkg.WhitespaceMode
+	fixed      bool
+}
+
+// admitFacetValue parses value, the value attribute of the facet element
+// named element, when the element is a size facet, xs:whiteSpace or
+// xs:pattern, and is the only owner of their value syntax and limits. A value
+// it rejects is a violation of the facet's start tag, whatever the base type
+// of the restriction. Every other facet value depends on the base type and is
+// compiled with it. A pattern is admitted through patterns, which compiles
+// each distinct text once and charges MaxSchemaPatternRetainedBytes.
+func admitFacetValue(element, value string, patterns *schemaPatterns) (facetValue, error) {
+	switch element {
+	case vocab.XSDFacetPattern:
+		pattern, err := patterns.admit(value)
+		return facetValue{pattern: pattern}, err
+	case vocab.XSDFacetLength, vocab.XSDFacetMinLength, vocab.XSDFacetMaxLength, vocab.XSDFacetTotalDigits, vocab.XSDFacetFractionDigits:
+		size, err := parseSizeFacetValue(element, value)
+		return facetValue{size: size}, err
+	case vocab.XSDFacetWhiteSpace:
+		mode, err := parseWhitespaceFacetValue(value)
+		return facetValue{whitespace: mode}, err
+	}
+	return facetValue{}, nil
 }
 
 // parseWhitespaceFacetValue parses an xs:whiteSpace facet value. Loosening the

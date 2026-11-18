@@ -92,27 +92,30 @@ func (ids *schemaIDs) declare(value string) bool {
 }
 
 // startTagAttributes is what the attributes of one start tag are admitted
-// into: the QName projection of its element and the ids of its document.
+// into: the values admitted from its attributes, the ids of its document, and
+// the pattern admission of its schema set.
 type startTagAttributes struct {
-	qnames *semanticQNameProjection
-	ids    *schemaIDs
+	values   *admittedValues
+	ids      *schemaIDs
+	patterns *schemaPatterns
 }
 
 type typedSchemaParseState struct {
-	parser *xmlstream.Reader
-	doc    *schemaDocument
-	root   *schemaNode
-	ids    schemaIDs
-	stack  []typedSchemaParseFrame
-	limits Limits
-	nodes  int
+	parser   *xmlstream.Reader
+	doc      *schemaDocument
+	root     *schemaNode
+	patterns *schemaPatterns
+	ids      schemaIDs
+	stack    []typedSchemaParseFrame
+	limits   Limits
+	nodes    int
 }
 
 // parseTypedSchemaSourceDocument admits XML directly into compact semantic
 // source records. Syntax nodes are used only as transient admission facts for
 // the active element and its direct children. The caller owns parser and may
 // reuse it sequentially; this function detaches it before returning.
-func parseTypedSchemaSourceDocument(name, key string, input io.Reader, limits Limits, parser *xmlstream.Reader) (*schemaDocument, error) {
+func parseTypedSchemaSourceDocument(name, key string, input io.Reader, limits Limits, parser *xmlstream.Reader, patterns *schemaPatterns) (*schemaDocument, error) {
 	if parser == nil {
 		return nil, xsderrors.InternalInvariant("schema parser reader is nil")
 	}
@@ -129,13 +132,14 @@ func parseTypedSchemaSourceDocument(name, key string, input io.Reader, limits Li
 		return nil, xsderrors.WithLocation(name, 0, 0, schemaReaderError(err, limits))
 	}
 	defer parser.Detach()
-	state := typedSchemaParseState{parser: parser, doc: doc, limits: limits}
+	state := typedSchemaParseState{parser: parser, doc: doc, limits: limits, patterns: patterns}
 	if err := state.parse(); err != nil {
 		return nil, xsderrors.WithLocation(name, 0, 0, err)
 	}
 	if state.root == nil {
+		line, col := parser.Pos()
 		return nil, xsderrors.WithLocation(name, 0, 0,
-			schemaParseAt(0, 0, xsderrors.CodeSchemaRoot, "empty schema document", nil))
+			schemaParseAt(line, col, xsderrors.CodeSchemaRoot, "empty schema document", nil))
 	}
 	doc.root = state.root
 	doc.nodes = state.nodes
@@ -157,7 +161,8 @@ func (s *typedSchemaParseState) parse() error {
 		}
 	}
 	if len(s.stack) != 0 {
-		return schemaParseAt(0, 0, xsderrors.CodeSchemaXML, "unclosed schema element", nil)
+		line, col := s.parser.Pos()
+		return schemaParseAt(line, col, xsderrors.CodeSchemaXML, "unclosed schema element", nil)
 	}
 	return nil
 }
@@ -241,8 +246,8 @@ func (s *typedSchemaParseState) admitTypedFrame(initial typedSchemaParseFrame, l
 	if parentIndex >= 0 {
 		parent = &s.stack[parentIndex]
 	}
-	var qnames semanticQNameProjection
-	if err := admitTypedStart(&frame.syntax, frame.placement, parent, startTagAttributes{qnames: &qnames, ids: &s.ids}); err != nil {
+	values := admittedValues{occurrence: newOccurrenceAdmission(frame.name, typedParentName(parent), s.limits.MaxFiniteOccurs)}
+	if err := admitTypedStart(&frame.syntax, frame.placement, parent, startTagAttributes{values: &values, ids: &s.ids, patterns: s.patterns}); err != nil {
 		s.stack = s.stack[:len(s.stack)-1]
 		return err
 	}
@@ -257,7 +262,7 @@ func (s *typedSchemaParseState) admitTypedFrame(initial typedSchemaParseFrame, l
 	}
 	frame.node = node
 	if node != nil {
-		frame.syntax.buildSemanticSource(node, &qnames)
+		frame.syntax.buildSemanticSource(node, &values)
 	}
 	return nil
 }
@@ -465,8 +470,10 @@ func admitAnnotationEnvelopeStart(n *schemaSyntaxNode, attrs startTagAttributes)
 // parent's content forbids report that violation rather than the child's own.
 // The syntax facts it reads are transient; compilation never treats them as a
 // generic XML tree. Which unqualified attributes an element admits and
-// requires in its placement, and which of them exclude each other, is decided
-// here, so those violations precede every later child in document order.
+// requires in its placement, which of them exclude each other, whether
+// minOccurs exceeds maxOccurs and whether an attribute declaration is named
+// xmlns, is decided here, so those violations precede every later child in
+// document order.
 func admitXSDChildStart(n *schemaSyntaxNode, parent xml.Name, placement schemaElementPlacement, attrs startTagAttributes) error {
 	if err := checkSchemaAttributesSyntax(n, placement, attrs); err != nil {
 		return err
@@ -474,7 +481,15 @@ func admitXSDChildStart(n *schemaSyntaxNode, parent xml.Name, placement schemaEl
 	if err := checkRequiredSchemaAttributes(n, parent, placement); err != nil {
 		return err
 	}
-	return checkValueConstraintAttributes(n)
+	if err := checkValueConstraintAttributes(n); err != nil {
+		return err
+	}
+	occurs, err := attrs.values.occurrence.complete()
+	if err != nil {
+		return withSchemaCompileLocation(n, err)
+	}
+	attrs.values.occurs = occurs
+	return checkAttributeDeclarationName(n)
 }
 
 func (s *typedSchemaParseState) end(line, col int) error {

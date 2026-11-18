@@ -27,6 +27,11 @@ func testRawNodeWithLocalAttrs(local string, attrs []string) *schemaSyntaxNode {
 			value = "lax"
 		case "block", "final", "blockDefault", "finalDefault":
 			value = "#all"
+		case "value":
+			value = "1"
+			if local == "whiteSpace" {
+				value = "collapse"
+			}
 		}
 		rawAttrs[i] = testRawAttr("", attr, value)
 	}
@@ -187,7 +192,6 @@ func TestSchemaAttributeValueSyntax(t *testing.T) {
 
 	const (
 		invalidAttribute = xsderrors.CodeSchemaInvalidAttribute
-		occurrence       = xsderrors.CodeSchemaOccurrence
 	)
 	tests := []struct {
 		element  string
@@ -204,19 +208,8 @@ func TestSchemaAttributeValueSyntax(t *testing.T) {
 		{element: "complexType", attr: "mixed", value: "1"},
 		{element: "complexType", attr: "mixed", value: "2", wantCode: invalidAttribute, wantMsg: `invalid boolean attribute "mixed"`},
 		{element: "complexContent", attr: "mixed", value: "no", wantCode: invalidAttribute, wantMsg: `invalid boolean attribute "mixed"`},
-		{element: "maxLength", attr: "fixed", value: "false"},
-		{element: "maxLength", attr: "fixed", value: "x", wantCode: invalidAttribute, wantMsg: `invalid boolean attribute "fixed"`},
-		{element: "whiteSpace", attr: "fixed", value: "x", wantCode: invalidAttribute, wantMsg: `invalid boolean attribute "fixed"`},
 		{element: "element", attr: "fixed", value: "x"},
 		{element: "attribute", attr: "fixed", value: "x"},
-		{element: "element", attr: "minOccurs", value: "0"},
-		{element: "element", attr: "minOccurs", value: "unbounded", wantCode: occurrence, wantMsg: `invalid minOccurs "unbounded"`},
-		{element: "element", attr: "minOccurs", value: "99999999999"},
-		{element: "sequence", attr: "minOccurs", value: "-1", wantCode: occurrence, wantMsg: `invalid minOccurs "-1"`},
-		{element: "group", attr: "maxOccurs", value: "unbounded"},
-		{element: "choice", attr: "maxOccurs", value: "many", wantCode: occurrence, wantMsg: `invalid maxOccurs "many"`},
-		{element: "all", attr: "maxOccurs", value: "1.0", wantCode: occurrence, wantMsg: `invalid maxOccurs "1.0"`},
-		{element: "any", attr: "maxOccurs", value: "", wantCode: occurrence, wantMsg: `invalid maxOccurs ""`},
 		{element: "element", attr: "form", value: "qualified"},
 		{element: "element", attr: "form", value: "local", wantCode: invalidAttribute, wantMsg: `invalid element form value "local"`},
 		{element: "attribute", attr: "form", value: "unqualified"},
@@ -301,14 +294,6 @@ func TestCompilationReportsAdmittedValueSyntaxAsInvariant(t *testing.T) {
 		},
 		"derivation set": func() error {
 			_, err := parseDerivationAttrWithDefault(present("list"), 0, complexTypeBlockDerivation())
-			return err
-		},
-		"minOccurs": func() error {
-			_, err := parseOccurrence(rawOccurrence{MinOccurs: "x", HasMinOccurs: true}, Limits{})
-			return err
-		},
-		"maxOccurs": func() error {
-			_, err := parseOccurrence(rawOccurrence{MaxOccurs: "x", HasMaxOccurs: true}, Limits{})
 			return err
 		},
 		"wildcard namespace": func() error {

@@ -91,6 +91,50 @@ func TestCompileOptionsFacadeForwardsEveryField(t *testing.T) {
 	}
 }
 
+func TestConfiguredMaxFiniteOccursIsDecidedAtTheParticleStartTag(t *testing.T) {
+	t.Parallel()
+
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="first" type="missing"/>
+  <xs:group name="unused">
+    <xs:sequence>
+      <xs:element name="item" maxOccurs="11"/>
+    </xs:sequence>
+  </xs:group>
+</xs:schema>`
+	if _, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxFiniteOccurs: 11}, xsd.Bytes("schema.xsd", []byte(strings.Replace(schema, `type="missing"`, `type="xs:int"`, 1)))); err != nil {
+		t.Fatalf("CompileWithOptions(MaxFiniteOccurs: 11) error = %v, want maxOccurs 11 admitted", err)
+	}
+	_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxFiniteOccurs: 10}, xsd.Bytes("schema.xsd", []byte(schema)))
+	d, ok := errors.AsType[*xsderrors.Error](err)
+	if !ok || d.Code() != xsderrors.CodeSchemaLimit || d.Message() != "maxOccurs exceeds configured limit" || d.Line() != 5 || d.Column() != 7 {
+		t.Fatalf("CompileWithOptions(MaxFiniteOccurs: 10) error = %v, want schema.limit %q at 5:7 before the unresolved type at 2:3", err, "maxOccurs exceeds configured limit")
+	}
+}
+
+func TestNameLimitWhileInterningIdentityXPathIsASchemaLimit(t *testing.T) {
+	t.Parallel()
+
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:only-in-xpath">
+  <xs:element name="r">
+    <xs:key name="k">
+      <xs:selector xpath=".//onlyInSelector | p:*"/>
+      <xs:field xpath="@onlyInField | @p:onlyInFieldToo"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`
+	for limit := 1; ; limit++ {
+		_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaNames: limit}, xsd.Bytes("schema.xsd", []byte(schema)))
+		if err == nil {
+			return
+		}
+		expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
+		if limit > 10_000 {
+			t.Fatalf("CompileWithOptions(MaxSchemaNames: %d) error = %v, want success below 10000 names", limit, err)
+		}
+	}
+}
+
 func TestCompileMatchesZeroOptionCompileWithOptions(t *testing.T) {
 	t.Parallel()
 

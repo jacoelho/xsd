@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:complexType name="B"><xs:simpleContent><xs:extension base="xs:string"/></xs:simpleContent></xs:complexType>
+<xs:complexType name="T"><xs:simpleContent><xs:restriction base="B"><xs:maxLength value="2"/><xs:maxLength value="3"/></xs:restriction></xs:simpleContent></xs:complexType>
+</xs:schema>

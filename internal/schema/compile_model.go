@@ -23,11 +23,11 @@ func (c *compiler) compileModel(ctx *schemaSetDocument, n *schemaNode) (contentM
 	if id, done, err := c.existingModel(ctx, n); done || err != nil {
 		return id, err
 	}
-	occurs, err := parseOccurs(n, c.limits)
+	occurs, err := particleOccurrence(n)
 	if err != nil {
 		return noContentModel, err
 	}
-	if (n.local == vocab.XSDElemSequence || n.local == vocab.XSDElemChoice) && occurs.Max == 0 && !occurs.Unbounded {
+	if (n.local == vocab.XSDElemSequence || n.local == vocab.XSDElemChoice) && occurs.IsAbsent() {
 		if err := c.spendComponentDependency(n); err != nil {
 			return noContentModel, err
 		}
@@ -44,12 +44,12 @@ func (c *compiler) compileModelComponent(ctx *schemaSetDocument, n *schemaNode, 
 	if dependencyErr := c.spendComponentDependency(n); dependencyErr != nil {
 		return noContentModel, dependencyErr
 	}
-	leave, err := c.enterComponent(n)
+	scope, err := c.enterComponent(n)
 	if err != nil {
 		return noContentModel, err
 	}
-	defer leave(&err)
-	id, err := c.addModelAt(contentModelNode{}, n)
+	defer scope.leave(&err)
+	id, err := c.addModel(contentModelNode{}, n)
 	if err != nil {
 		return noContentModel, err
 	}
@@ -81,11 +81,6 @@ func (c *compiler) compileModelValue(ctx *schemaSetDocument, n *schemaNode, occu
 	if err != nil {
 		return contentModelNode{}, err
 	}
-	if kind == modelAll {
-		if err := validateAllModelOccurrence(occurs); err != nil {
-			return contentModelNode{}, withSchemaCompileLocation(n, err)
-		}
-	}
 	m := contentModelNode{Kind: kind, Occurs: occurs}
 	if err := c.compileModelChildren(ctx, n, &m); err != nil {
 		return contentModelNode{}, err
@@ -98,12 +93,12 @@ func (c *compiler) compileModelValue(ctx *schemaSetDocument, n *schemaNode, occu
 // group's kind is admitted there before the group compiles, so a misplaced
 // reference is reported at its use rather than a defect inside the group.
 func (c *compiler) compileModelGroupRef(ctx *schemaSetDocument, n *schemaNode, ref xml.Name, parent *modelKind) (contentModelID, error) {
-	occurs, err := parseOccurs(n, c.limits)
+	occurs, err := particleOccurrence(n)
 	if err != nil {
 		return noContentModel, err
 	}
 	// A zero-occurrence reference has no particle and therefore no term to resolve.
-	if occurs.Max == 0 && !occurs.Unbounded {
+	if occurs.IsAbsent() {
 		return noContentModel, nil
 	}
 	source, err := c.resolveModelGroupRef(ctx, n, ref)
@@ -176,7 +171,7 @@ func (c *compiler) applyModelGroupOccurrence(n *schemaNode, id contentModelID, o
 		}
 	}
 	model.Occurs = occurs
-	return c.addModelAt(model, n)
+	return c.addModel(model, n)
 }
 
 func modelKindForNode(n *schemaNode) (modelKind, error) {
@@ -201,8 +196,8 @@ func (c *compiler) compileModelChildren(ctx *schemaSetDocument, n *schemaNode, m
 func (c *compiler) appendModelChild(ctx *schemaSetDocument, m *contentModelNode, child *schemaNode) error {
 	switch child.local {
 	case vocab.XSDElemElement:
-		p, err := c.compileElementParticle(ctx, child)
-		if err != nil {
+		p, ok, err := c.compileElementParticle(ctx, child)
+		if err != nil || !ok {
 			return err
 		}
 		return withSchemaCompileLocation(child, appendParticle(&c.dependencyWork, m, p))
@@ -282,7 +277,7 @@ func (c *compiler) compileDeferredModelChildren(source schemaComponent) error {
 		case vocab.XSDElemAnnotation:
 			continue
 		case vocab.XSDElemElement:
-			_, err = c.compileElementParticle(source.ctx, child)
+			_, _, err = c.compileElementParticle(source.ctx, child)
 		case vocab.XSDElemAny:
 			_, err = c.compileWildcardParticle(source.ctx, child)
 		case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll, vocab.XSDElemGroup:
@@ -301,26 +296,13 @@ func validateModelGroupChildAtNode(n *schemaNode, parent modelKind, child modelC
 	return withSchemaCompileLocation(n, validateModelGroupChildAdmission(parent, child))
 }
 
-func validateModelOccurrence(n *schemaNode, limits Limits) error {
-	occurs, err := parseOccurs(n, limits)
-	if err != nil {
-		return err
-	}
-	if n.local == vocab.XSDElemAll {
-		if err := validateAllModelOccurrence(occurs); err != nil {
-			return withSchemaCompileLocation(n, err)
-		}
-	}
-	return validateModelGroupSyntax(n, limits)
-}
-
 func (c *compiler) modelParticle(id contentModelID) (contentParticle, bool, error) {
 	model, err := c.contentModel(id, "model particle references missing content model")
 	if err != nil {
 		return contentParticle{}, false, err
 	}
 	occurs := model.Occurs
-	if occurs.Max == 0 && !occurs.Unbounded {
+	if occurs.IsAbsent() {
 		return contentParticle{}, false, nil
 	}
 	modelID := id
@@ -328,7 +310,7 @@ func (c *compiler) modelParticle(id contentModelID) (contentParticle, bool, erro
 		normalized := model
 		normalized.Occurs = occurrence{Min: 1, Max: 1}
 		var err error
-		modelID, err = c.addModelAt(normalized, c.modelSources[id])
+		modelID, err = c.addModel(normalized, c.modelSources[id])
 		if err != nil {
 			return contentParticle{}, false, err
 		}
@@ -346,43 +328,83 @@ func (c *compiler) validateComplexExtensionModelAdmission(baseID ComplexTypeID, 
 	})
 }
 
-func parseOccurs(n *schemaNode, limits Limits) (occurrence, error) {
-	attrs, err := occurrenceAttrs(n)
-	if err != nil {
-		return occurrence{}, withSchemaCompileLocation(n, err)
-	}
-	occurs, err := parseOccurrence(attrs, limits)
-	if err != nil {
-		return occurrence{}, withSchemaCompileLocation(n, err)
-	}
-	return occurs, nil
-}
-
-func occurrenceAttrs(n *schemaNode) (rawOccurrence, error) {
+// particleOccurrence returns the occurrence the start tag of the particle n
+// admitted.
+func particleOccurrence(n *schemaNode) (occurrence, error) {
 	source := n.semantic.particle()
 	if source == nil {
-		return rawOccurrence{}, xsderrors.InternalInvariant("particle node has no typed particle source")
+		return occurrence{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("particle node has no typed particle source"))
 	}
-	return rawOccurrence{
-		MinOccurs:    source.MinOccurs.Value,
-		MaxOccurs:    source.MaxOccurs.Value,
-		HasMinOccurs: source.MinOccurs.Present,
-		HasMaxOccurs: source.MaxOccurs.Present,
-	}, nil
+	return source.Occurs, nil
 }
 
+// enterContentModel opens the scope of the component that owns model id. The
+// builtin anyType model has no source; its checks are set-wide.
+func (c *compiler) enterContentModel(id contentModelID) (componentScope, error) {
+	return c.enterComponent(c.modelSources[id])
+}
+
+// compileContentModels compiles every model in the scope of its owner, then
+// indexes the table. Indexing is set-wide: it only spends budget, and
+// locateSetWideLimit locates its limit failure.
 func (c *compiler) compileContentModels() error {
-	models, err := c.compileContentModelsBuild()
+	cc := newContentModelCompiler(&c.rt.Names, &c.rt, c.limits.MaxContentModelStates, &c.contentWork, c.contentAnalysis)
+	compiled := make([]compiledModel, len(c.rt.Models))
+	for id := range compiled {
+		if err := c.compileContentModel(&cc, compiled, contentModelID(id)); err != nil {
+			return err
+		}
+	}
+	if err := indexCompiledModelsRows(&c.rt, compiled, c.contentWork.spend); err != nil {
+		return contentRestrictionCompileError(err)
+	}
+	return c.installCompiledModels(compiled)
+}
+
+func (c *compiler) compileContentModel(cc *contentModelCompiler, compiled []compiledModel, id contentModelID) (err error) {
+	scope, err := c.enterContentModel(id)
 	if err != nil {
 		return err
 	}
-	return c.installCompiledModels(models)
+	defer scope.leave(&err)
+	compiled[id], err = cc.compileRootContentModel(id)
+	return err
 }
 
 func (c *compiler) checkCompiledModelsUPA() error {
-	return c.checkContentModelsUPABuild()
+	upa := newContentModelUPACheck(&c.rt.Names, &c.rt, len(c.rt.Models), &c.contentWork, c.contentAnalysis)
+	for id := range c.rt.Models {
+		if err := c.checkModelUPA(upa, contentModelID(id)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *compiler) checkModelUPA(upa *contentModelUPACheck, id contentModelID) (err error) {
+	scope, err := c.enterContentModel(id)
+	if err != nil {
+		return err
+	}
+	defer scope.leave(&err)
+	return upa.checkModel(id)
 }
 
 func (c *compiler) checkCompiledElementDeclarationsConsistent() error {
-	return c.checkContentModelElementDeclarationsConsistentBuild()
+	checker := newElementDeclarationConsistencyChecker(&c.rt, c.contentWork.spend)
+	for id := range c.rt.Models {
+		if err := c.checkModelElementDeclarationsConsistent(checker, contentModelID(id)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *compiler) checkModelElementDeclarationsConsistent(checker *elementDeclarationConsistencyChecker, id contentModelID) (err error) {
+	scope, err := c.enterContentModel(id)
+	if err != nil {
+		return err
+	}
+	defer scope.leave(&err)
+	return checker.checkModel(id)
 }

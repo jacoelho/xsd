@@ -226,6 +226,11 @@ func TestPublishSchemaRejectsInvalidIdentityOwnershipAndAllowsRetry(t *testing.T
 			root := build.GlobalElements[mustQName(t, &build.Names, "root")]
 			build.Elements[root].Identity = nil
 		}},
+		{name: "detached but owned", mutate: func(t *testing.T, build *xsdSchema.SchemaBuild) {
+			t.Helper()
+			root := build.GlobalElements[mustQName(t, &build.Names, "root")]
+			build.Identities[build.Elements[root].Identity[0]].Detached = true
+		}},
 		{name: "duplicate on owner", mutate: func(t *testing.T, build *xsdSchema.SchemaBuild) {
 			t.Helper()
 			root := build.GlobalElements[mustQName(t, &build.Names, "root")]
@@ -263,6 +268,31 @@ func TestPublishSchemaRejectsInvalidIdentityOwnershipAndAllowsRetry(t *testing.T
 				t.Fatalf("PublishSchema() retry error = %v", err)
 			}
 		})
+	}
+}
+
+func TestPublishSchemaAdmitsIdentityConstraintOfZeroCountElementWithoutOwner(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType><xs:sequence>
+      <xs:element name="absent" minOccurs="0" maxOccurs="0">
+        <xs:complexType><xs:attribute name="id"/></xs:complexType>
+        <xs:key name="k"><xs:selector xpath="."/><xs:field xpath="@id"/></xs:key>
+      </xs:element>
+    </xs:sequence></xs:complexType>
+  </xs:element>
+</xs:schema>`
+	build := mutableSchemaBuild(t, schema)
+	if len(build.Identities) != 1 || !build.Identities[0].Detached {
+		t.Fatalf("identities = %+v, want one detached constraint", build.Identities)
+	}
+	for _, element := range build.Elements {
+		if len(element.Identity) != 0 {
+			t.Fatalf("element %v owns identity constraints %v, want none", element.Name, element.Identity)
+		}
+	}
+	if _, err := publishSchema(build); err != nil {
+		t.Fatalf("PublishSchema() error = %v", err)
 	}
 }
 

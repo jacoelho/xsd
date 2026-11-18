@@ -197,23 +197,56 @@ particles already charged; `addAttributeUseSet` charges `len(Uses)` and
 `appendWildcard` charges `len(Namespaces)`. Admitted models are immutable and
 `contentModelByID` shares them on read. A new retained table must charge in its
 admission function. Admission functions return unlocated budget errors.
-`enterComponent`'s leave fills the missing location of any diagnostic leaving a
-component from that component's node, so a failure is located at the innermost
-component being compiled, not at the referring site; a charge made at a
-reference before the scope opens keeps the reference location. A `schema.limit`
-failure raised after loading and outside every component scope is set-wide:
-target-context planning locates it at the document being added or whose
-references it is walking, and `compileMappedSources` locates the rest (name
-indexing, substitution closure, consistency checks, publication audit) at the
-first explicit root document in plan order, which is by document name. Loading
-locates its dependency charge at the reference being resolved and a
-`MaxSchemaReferences` failure at the document whose references exceed it.
-Publication consumes the
+
+Every diagnostic about schema document content carries the document path, line
+and column. Two other kinds carry less: a failure to obtain an explicit
+document (it cannot be opened or read, or exceeds `MaxSchemaSourceBytes`)
+carries its path only, and a failure about the source set (no sources, more
+than `MaxSchemaSources`, a source without a name) carries none; a referenced
+document that cannot be obtained is located at its reference. The component
+scope (`componentScope`, opened by `enterComponent`) is the compiler's locator:
+its leave fills the missing location of any diagnostic leaving a component from
+that component's node, so a failure is located at the innermost component being
+compiled, not at the referring site; a charge made at a reference before the
+scope opens keeps the reference location. The scope is opened to compile each
+component and again, by a compiler loop, for each check made on it after
+compilation: Element Declarations Consistent, Unique Particle Attribution and
+automaton construction at the source of the content model (`addModel` admits
+no model without one; only the builtin anyType model has none), restriction at
+the derived type's definition, keyref references at the keyref. Particles
+carry no source, so a content-model violation inside a referenced group is
+located at the first model in compilation order whose check reaches it (see
+Rejected Alternatives). A `schema.limit` failure raised after loading and
+outside every component scope is set-wide: target-context planning locates it
+at the document being added or whose references it is walking, and
+`compileMappedSources` locates the rest (name indexing, substitution closure,
+the checks of the builtin anyType model, content-model row indexing,
+publication audit) at the first explicit root document in plan order, which is
+by document name. Loading locates its dependency charge at the reference being
+resolved and a `MaxSchemaReferences` failure at the document whose references
+exceed it. Publication consumes the
 build only on success; `*schema.Schema` exposes only immutable derived reads.
 
 Schema-document diagnostics have an order. A violation has one decision point,
 and a compilation reports the violation whose decision point comes first. Two
-tiers hold the decision points.
+tiers hold the decision points, and one criterion assigns every rule to one of
+them.
+
+A rule of any kind (Schema Representation Constraint, schema for schemas, or
+Schema Component Constraint) is parse tier when every input it reads is on the
+tag or in earlier content of the same document. A Schema Component Constraint
+is parse tier only when, in addition, every value of the constrained property
+that can violate it is written by one tag and never produced by resolution,
+derivation or the including context; a value the processor synthesizes as a
+constant (the 1..1 particle of an extension, a builtin component) cannot
+violate it. Occurrence bounds, attribute declaration names and selector and
+field paths qualify. All Group Limited through a group reference does not, and
+neither does the XMLSchema-instance target namespace of an attribute
+declaration, whose chameleon form takes the namespace of the including
+document. A rule is classified once: when any form of it needs resolution or
+set-wide context, the whole rule is compile tier, unless the specification
+states the forms as separate constraints, as it does for the occurrence ranges
+the schema for schemas gives `xs:all` and its elements and All Group Limited.
 
 The parse tier decides while a document is read, at a start tag (`admitStart`)
 or an end tag (`completeTypedNode`). Its violations are reported in document
@@ -225,17 +258,31 @@ At a start tag:
    or attribute, or `xs:redefine`;
 3. character data earlier in the parent;
 4. the parent's content admits the child: no foreign element, the annotation
-   rules, then the parent's child order (`childOrderState.accept`);
+   rules, then the parent's child order (`childOrderState.accept`), which also
+   rejects a facet the restriction already holds (src-single-facet-value;
+   `xs:pattern` and `xs:enumeration` may repeat);
 5. the element's own attributes in the order written. For each attribute:
    that the element may have it in this placement (`schemaElementAttributeAllowed`,
    `misplacedSchemaAttributeError`), then its value: the name syntax of `name`
    and `id`, an `id` the document already declares, the lexical form
-   (`checkSchemaAttributeValueSyntax`), the lexical form and prefix binding of
-   a QName, and anyURI syntax;
+   (`checkSchemaAttributeValueSyntax`); for `minOccurs` and `maxOccurs` the
+   lexical form, the count against uint32 and `MaxFiniteOccurs` and then the
+   range the schema for schemas gives `xs:all` and an element directly in it
+   (`occurrenceAdmission`); for the `value` of a size facet, `xs:whiteSpace`
+   and `xs:pattern` its integer and uint32 cap, its mode, and its regular
+   expression with the `MaxSchemaPatternRetainedBytes` charge
+   (`admitFacetValue`); for the `fixed` of a facet its boolean form
+   (`admitParsedAttributeValue`); for `xpath` the path grammar and the
+   prefix bindings of its name tests, branch by branch from the left
+   (`admitIdentityXPath`); the lexical form and prefix binding of a QName; and
+   anyURI syntax;
 6. the attributes the placement requires (`checkRequiredSchemaAttributes`),
    then the attributes that exclude each other
    (`checkValueConstraintAttributes`): `default` with `fixed`, and `default`
-   with a `use` other than optional.
+   with a `use` other than optional; then `minOccurs` not greater than
+   `maxOccurs`, each written or by default (`occurrenceAdmission`); then an
+   attribute declaration named `xmlns` whose `use` is not prohibited
+   (`checkAttributeDeclarationName`).
 
 At an end tag:
 
@@ -250,44 +297,47 @@ failure is reported when the loader reaches its reference.
 
 The compile tier decides after every document of the set is read, so a
 compile-tier violation is reported only when no document has a parse-tier
-violation. A rule is compile tier when one start or end tag cannot decide it:
-reference resolution and import authorization; duplicate components and
-attribute uses; cycles, derivation and `final`; whether the base type admits a
-facet, and a facet's value, whose type the facet and the base type give
-together; a value constraint against its type; a group reference that resolves
-to `xs:all`; and the content model rules (Unique Particle Attribution, Element
-Declarations Consistent, restriction).
+violation. Each compile-tier rule has a reason the criterion names: reference
+resolution and import authorization (resolution); duplicate components and
+attribute uses (set-wide uniqueness); cycles, derivation and `final`
+(resolution); whether the base type admits a facet, a facet's value against
+the base type, and a value constraint against its type (type-dependent value);
+All Group Limited through a group reference (resolution); the content model
+rules: Unique Particle Attribution, Element Declarations Consistent and
+restriction (content-model analysis); and the XMLSchema-instance target
+namespace of an attribute declaration (chameleon namespace).
 
-Compilation also owns rules that one start tag states. They are Schema
-Component Constraints, and the compiler checks each where it builds the
-component:
-
-- `minOccurs` above `maxOccurs` (Particle Correct), and an occurrence count
-  above the occurrence limits.
-- The occurrence range of `xs:all` (`validateAllModelOccurrence`) and of its
-  particles (`appendParticle`). The XML representation of `xs:all` states the
-  same ranges; they are compile tier so that All Group Limited, which also
-  rejects an `xs:all` that a group reference brings into a model group, has
-  one owner.
-- An attribute declaration named `xmlns` (xmlns Not Allowed).
-
-The path of `xs:selector` and `xs:field` is the form of one attribute and is
-compile tier all the same: the identity constraint compiler owns the grammar,
-and stage 5 rejects only an empty `xpath`. A facet repeated in one restriction,
-which the start tag of the second could decide, is compile tier with the other
-facet rules.
-
-Each parse-tier rule has one owner. The child orders (`childOrderFor`) own
-where an element may appear; the placement of a component
-(`schemaElementPlacementOf`) selects its attribute rules and says nothing
-about whether its parent admits it. `schemaElementAttributeAllowed` and
-`misplacedSchemaAttributeError` own the attributes an element may have,
+Each rule has one owner: one function, called at the tag that decides it,
+whose product the tag's typed source record stores and compilation reads. The
+child orders (`childOrderFor`) own where an element may appear; the placement
+of a component (`schemaElementPlacementOf`) selects its attribute rules and
+says nothing about whether its parent admits it. `schemaElementAttributeAllowed`
+and `misplacedSchemaAttributeError` own the attributes an element may have,
 `checkRequiredSchemaAttributes` the ones it must have,
 `checkValueConstraintAttributes` the ones that exclude each other, and
-`checkSchemaAttributeValueSyntax` the lexical form of a value. Compilation
-parses an admitted value again with the same parser to use it, and a lexical
-failure there is an internal invariant (`admittedValueInvariant`), not a second
-schema diagnostic.
+`checkSchemaAttributeValueSyntax` the lexical form of a value other than the
+ones below.
+
+The tag stores these admitted values in the typed source record, and
+compilation reads them without parsing again: the resolved names of QName
+attributes (`admitSchemaQNameAttribute`), the occurrence of a particle
+(`occurrenceAdmission`), and from a facet's value and `fixed` its size, its
+whiteSpace mode, its compiled pattern and its fixed flag (`admitFacetValue`,
+`admitParsedAttributeValue`). Patterns are compiled through `schemaPatterns`,
+which the compiler owns and lends to start-tag admission while the set loads:
+each distinct pattern text is compiled once, at the first facet that names it
+in document load order, and charged against `MaxSchemaPatternRetainedBytes`
+before it is kept, so a breach is reported at that facet's start tag.
+Compilation parses two kinds of admitted value again, and a failure there is
+an internal invariant (`admittedValueInvariant`), not a second schema
+diagnostic. A selector or field path is checked by `admitIdentityXPath`
+without being built and parsed again to intern its name tests, which keeps the
+selector and field nodes' namespace context until then; storing the parsed
+paths was measured to allocate each path twice (see Rejected Alternatives).
+The other attribute values that are single keywords or short lists (booleans,
+`form`, `use`, derivation sets, `processContents`, wildcard namespaces,
+`targetNamespace`) stay lexical in the record and are parsed again with the
+same allocation-free parser where compilation uses them.
 
 `internal/schema`, `internal/value` and `internal/validate` export only
 identifiers consumed outside their package: for schema the published read
@@ -314,8 +364,12 @@ Contracts `internal/validate` relies on:
 
 Caller-visible policy: XSD/XSI references need no import ([I-006](docs/spec/INTERPRETATIONS.md#i-006--xsdxsi-schema-references));
 XML/XLink declarations come only from supplied sources; XSI attribute
-declarations are intrinsic; a member with a missing substitution head validates
-as `anyType` ([I-023](docs/spec/INTERPRETATIONS.md#i-023--substitution-group-member-with-a-missing-head)).
+declarations are intrinsic; an unresolved `type`, `itemType` or `memberTypes`
+loads and fails assessment of the items that use it, an unresolved
+`substitutionGroup` loads and leaves the member without an affiliation, so a
+member without its own type validates as `anyType`, and other unresolved
+references are rejected
+([I-023](docs/spec/INTERPRETATIONS.md#i-023--unresolved-references)).
 
 ### `internal/value`
 
@@ -441,8 +495,9 @@ owner, `internal/schema`, because no value-owned parser exists for them.
   within one restriction step, and every inherited step applies) and the
   per-value pattern budget described under **Pattern work**. The aggregate
   `MaxSchemaPatternRetainedBytes` budget and the per-compilation pattern cache
-  keyed by pattern text belong to `internal/schema`; identical text is
-  compiled and charged once.
+  keyed by pattern text belong to `internal/schema` (`schemaPatterns`), which
+  admits each pattern at its facet's start tag in document load order;
+  identical text is compiled and charged once.
 
 ### `internal/xsdregex`
 
@@ -499,7 +554,8 @@ Cross-module contracts:
   element whose start fails fatally before attribute assessment gets no hint
   diagnostic. Missing roots, types, and
   wildcard declarations are ordinary assessment errors against the compiled
-  component set.
+  component set; which unresolved schema references load as missing components
+  is [I-023](docs/spec/INTERPRETATIONS.md#i-023--unresolved-references).
 - A failed selection never contains its subtree: after its diagnostic, the
   element is assessed laxly (cvc-assess-elt), as Xerces does, using its global
   declaration when one exists, otherwise anyType; an unavailable type drops the
@@ -854,6 +910,8 @@ change-detector tests that mirror the implementation or assert their own setup.
 | `tests/schema_diagnostic_text_test.go` | Schema diagnostics quote schema text through `internal/diagnostictext`: an allowlist lint over `internal/schema` message operands (known gaps are listed in its doc comment); the public hostile-value table in `schema_diagnostic_bound_test.go` is the contract proof |
 | `internal/value/value_laws_contract_test.go` | For every primitive, one order and one equality: equality decides identity keys and enumeration membership, the bound facets agree on one order that never separates equal values and separates unequal ones outside the declared duration exception, and canonical text denotes its value; checked on declared pairs and on a generated grid of lexical forms |
 | `schema_diagnostic_order_test.go` with the catalogue in `schema_diagnostic_catalogue_test.go` | The schema-document diagnostics order of `internal/schema`: a catalogue of single violations, each declaring its tier and stage from the contract and never from compiler output, and every ordered pair of them (as consecutive components, inside one component, on one start tag in both attribute orders, and across two documents) reports the violation that tier, decision point, stage and attribute order select. A rule decided later than the contract says is listed by name in `knownSchemaDiagnosticOrderGaps`, and a listed gap that holds fails as stale |
+| `tests/harness_test.go` (`checkDiagnosticLocations`) | Every compile diagnostic of a corpus case, and every validation or unsupported diagnostic of an instance run, carries a path and a line; a compile pass that reports outside a component scope fails the corpus |
+| `tests/harness_manifest_test.go` with `tests/oracle-backlog.txt` | Every project corpus case carries cross-validator oracle metadata for every provider and phase, as the `tests/README.md` Corpus Contract defines measured; only cases listed in the backlog are exempt, and a listed case that is unknown, measured, or has a phase every provider measured fails as stale |
 | `tests/schema_export_surface_test.go` | The exported top-level identifiers of `internal/schema`, `internal/value` and `internal/validate` equal an explicit allowlist of the surface consumed across packages |
 | `tests/resource_limits_doc_test.go` | `docs/RESOURCE_LIMITS.md` option tables list every public option with its code-owned default |
 | `tests/root_public_shape_test.go` and `tests/external_api_smoke_test.go` | External callers use only the supported public packages and interface |
@@ -960,6 +1018,35 @@ graph preserves these ownership rules:
   context instead.
 - Reimplementing content matching in the diagnostic layer was rejected because
   it would duplicate occurrence, wildcard and substitution rules.
+- Deciding tag-decidable Schema Component Constraints when their component
+  compiles (minOccurs above maxOccurs, the occurrence limits, the `xs:all`
+  ranges, an attribute named `xmlns`, selector and field paths) and a repeated
+  facet with the other facet rules was rejected: each then lost to a parse-tier
+  violation later in the same document, so the reported violation depended on
+  which tier owned a rule rather than on document order. The reason given for
+  the `xs:all` ranges, one owner for All Group Limited, does not hold: the
+  schema for schemas states the ranges of `xs:all` and its elements as a
+  separate constraint from All Group Limited through a group reference, and
+  each now has its own owner.
+- Checking the syntax of selector and field paths only when the identity
+  constraint compiles, so that no second parse allocates on a successful
+  compile, was rejected with the tier rule above. The tag checks each path
+  without building it, which allocates nothing, and compilation parses it
+  again to intern its name tests. That second scan is the accepted cost of the
+  tier rule: about 5–9% of compile time on `BenchmarkCompileIdentityPrograms`,
+  whose schemas are mostly selector and field paths, and no significant change
+  on `BenchmarkCompileSourceDocuments/identity_constraints`.
+- Storing the paths the tag parses, with namespace and local-name strings,
+  for compilation to intern was rejected: it allocated the paths twice, once
+  as strings at the tag and once as interned names, raising the allocations of
+  a successful compile by about one per path.
+- Checking a pattern at its facet's start tag and compiling it again when the
+  restriction compiles was rejected: the tag compiled every occurrence of a
+  text that the compiler cache would have compiled once, and compiled every
+  distinct text before any `MaxSchemaPatternRetainedBytes` charge, so 200
+  copies of one large pattern cost gigabytes instead of one compile. A
+  syntax-only `xsdregex` check was rejected as well: the NFA state limit is
+  raised while the program is built, and parsing is most of the compile cost.
 
 - Bounding segments inside an incremental path-text cache was rejected: escaped
   lengths need a per-element name scan on the element-start hot path, and every
@@ -1021,7 +1108,20 @@ graph preserves these ownership rules:
   is uncharged work proportional to references times group size.
 - Skipping all validation below a zero-count compositor was rejected because
   the mapping removes only that compositor's component (see
-  `compileDeferredModelChildren`).
+  `compileDeferredModelChildren`): each child particle keeps its own mapping,
+  decided by its own occurrence. A child `xs:element` with minOccurs and
+  maxOccurs 0 is itself absent (`occurrence.IsAbsent`, Structures §3.3.2), so
+  its own `ref`, `type` and value constraint are not resolved, authorized or
+  checked. The parse tier still decides at its start tag and at every start
+  tag inside it (the occurrence relation and the `xs:all` range, XPath,
+  pattern, a repeated facet, size and `xs:whiteSpace` values, namespace
+  declaration names), and the definitions nested in it keep their own
+  mapping: its inline type definition, as for a prohibited attribute
+  ([I-008](docs/spec/INTERPRETATIONS.md#i-008--prohibited-attribute-use-with-fixed)),
+  and its identity constraints (§3.11.2), which the build marks
+  `Detached`: no element declaration owns them, publication rejects any other
+  unowned constraint, and no instance element evaluates them. Treating the whole subtree as absent was
+  rejected: §3.11.2 maps every identity constraint regardless of its parent.
 - Deferring complex types only when their immediate base is active was
   rejected: intermediate bases still produce false cycles and renaming types
   changes acceptance (see `complexTypeCompletion`).
@@ -1044,6 +1144,13 @@ graph preserves these ownership rules:
   work bound. Retryability preserves build data, not spent resources.
 - Sharing UPA results across roots and eager DFA follow interning were
   rejected because each changes work accounting or limit-failure order.
+- Locating content-model diagnostics at the particle was rejected: particles
+  carry no source node, and one per particle adds a pointer to every retained
+  particle. The precision limit is that a violation inside a referenced group
+  is located at the first model, in compilation order, whose check reaches it;
+  types compile before groups, so a referring type in another document than
+  the group can be named
+  (`TestUPAInsideReferencedGroupNamesTheLowestEnclosingModel`).
 - Publishing unentered content models through a sparse table was rejected (a
   zero `CompiledModel` reads as Empty and a remap adds a lookup per read);
   skipping their compilation was rejected because their errors and work

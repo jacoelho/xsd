@@ -14,13 +14,13 @@ func TestCanonicalComplexContentModelReusesValidEmptyRow(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := &schemaNode{}
-	id, err := c.addModelAt(contentModelNode{Kind: modelEmpty}, source)
+	id, err := c.addModel(contentModelNode{Kind: modelEmpty}, source)
 	if err != nil {
 		t.Fatal(err)
 	}
 	before := len(c.rt.Models)
 
-	got, err := c.canonicalComplexContentModel(id, contentEmpty)
+	got, err := c.canonicalComplexContentModel(id, contentEmpty, &schemaNode{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,12 +81,12 @@ func TestCanonicalComplexContentModelAllocatesEmptyRowForNonCanonicalInput(t *te
 			}
 			baseSource := &schemaNode{}
 
-			id, err := c.addModelAt(tt.model, baseSource)
+			id, err := c.addModel(tt.model, baseSource)
 			if err != nil {
 				t.Fatal(err)
 			}
 			before := len(c.rt.Models)
-			got, err := c.canonicalComplexContentModel(id, contentEmpty)
+			got, err := c.canonicalComplexContentModel(id, contentEmpty, &schemaNode{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -122,7 +122,8 @@ func TestCanonicalComplexContentModelAllocatesEmptyRowForNoModel(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := len(c.rt.Models)
-	got, err := c.canonicalComplexContentModel(noContentModel, contentEmpty)
+	owner := &schemaNode{}
+	got, err := c.canonicalComplexContentModel(noContentModel, contentEmpty, owner)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,6 +139,56 @@ func TestCanonicalComplexContentModelAllocatesEmptyRowForNoModel(t *testing.T) {
 	}
 	if model.Kind != modelEmpty || model.Mixed {
 		t.Fatalf("canonical empty model = %#v, want inactive non-mixed ModelEmpty", model)
+	}
+	if c.modelSources[got] != owner {
+		t.Fatalf("canonical empty model source = %p, want owner %p", c.modelSources[got], owner)
+	}
+}
+
+func TestCanonicalComplexContentModelLocatesBuiltinCopiesAtOwner(t *testing.T) {
+	t.Parallel()
+
+	for _, kind := range []complexContentVariety{contentEmpty, contentElementOnly} {
+		limits, err := NormalizeOptions(Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		c, err := newCompiler(limits)
+		if err != nil {
+			t.Fatal(err)
+		}
+		anyTypeModel := c.rt.complexType(c.rt.AnyType).Content
+		owner := &schemaNode{}
+		got, err := c.canonicalComplexContentModel(anyTypeModel, kind, owner)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got == anyTypeModel {
+			t.Fatalf("variety %v reused the builtin anyType model", kind)
+		}
+		if c.modelSources[got] != owner {
+			t.Fatalf("variety %v: copy source = %p, want owner %p", kind, c.modelSources[got], owner)
+		}
+	}
+}
+
+func TestAddModelRejectsModelWithoutSource(t *testing.T) {
+	t.Parallel()
+
+	limits, err := NormalizeOptions(Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := newCompiler(limits)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := len(c.rt.Models)
+	if _, err := c.addModel(contentModelNode{Kind: modelEmpty}, nil); err == nil {
+		t.Fatal("addModel admitted a model without a source")
+	}
+	if len(c.rt.Models) != before {
+		t.Fatalf("rejected model changed model count from %d to %d", before, len(c.rt.Models))
 	}
 }
 
@@ -155,7 +206,7 @@ func TestCanonicalComplexContentModelRejectsInvalidModelID(t *testing.T) {
 	before := len(c.rt.Models)
 	invalid := noContentModel - 1
 
-	if _, err := c.canonicalComplexContentModel(invalid, contentEmpty); err == nil {
+	if _, err := c.canonicalComplexContentModel(invalid, contentEmpty, &schemaNode{}); err == nil {
 		t.Fatal("canonical empty model accepted invalid model ID")
 	}
 	if len(c.rt.Models) != before {

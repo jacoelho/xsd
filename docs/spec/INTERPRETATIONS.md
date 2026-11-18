@@ -234,6 +234,14 @@ original valid result in `instance.oracle.w3c`, with its reason and source.
 The upstream result is interoperability evidence, not replacement normative
 text. An absent attribute remains a distinct valid witness.
 
+The element and model group reference mappings (§3.3.2, §3.7.2) give an
+`xs:element` or `xs:group` with `minOccurs` and `maxOccurs` 0 no component in
+the same words, and the library reads them the same way: the item's own
+references and value constraints are not resolved or checked, while its source
+syntax, the rules decided at its start tag, and the definitions nested in it
+(an inline type definition, identity constraints) keep their own mapping.
+[I-023](#i-023--unresolved-references) lists the cases.
+
 ## I-009 — fixed attribute-use values
 
 **Status:** adopt typed-value equality from the later
@@ -677,32 +685,53 @@ Fixtures: `project/identity/undeclared-attribute-field-unique`,
 `project/identity/undeclared-attribute-field-keyref`.
 Per-instance dissent is recorded as manifest `oracle` metadata.
 
-## I-023 — substitution-group member with a missing head
+## I-023 — unresolved references
 
 **Status:** source-qualified reading of
-[QName resolution](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve),
-[Missing Sub-components §5.3](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing)
-and the [element declaration mapping](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element),
-following the accepted W3C expectation for
-`w3c/saxonMeta/Missing.testSet/missing002` (valid).
+[QName resolution](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve)
+and [Missing Sub-components §5.3](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing),
+following the accepted W3C expectations of `w3c/saxonMeta/Missing.testSet`.
+The record orders its sources as the [processor tie-break](#processor-tie-break)
+does and defines no precedence of its own.
 
-`src-resolve` requires a `substitutionGroup` QName to resolve, while §3 and
-§5.3 handle unresolved references uniformly as absent values that modify
-assessment only of items validated against the affected component. The §3.3.2
-`{type definition}` mapping gives a declaration without its own type the type
-of the declaration its `substitutionGroup` resolves to, otherwise the ur-type;
-it does not say which branch an unresolved head takes. The library tolerates
-the missing head at schema load: `{substitution group affiliation}` (an
-optional property) is absent and, without an explicit `type` or inline type,
-the member validates with the default type `anyType`. With a resolved head, an
-omitted member type is inherited through the affiliation chain before value
-constraints are checked; it does not fall back to `anyType` while the head's
-type is still being completed.
+`src-resolve` requires every QName reference to resolve. §5.3 describes how
+"the resolution of such QNames may fail, resulting in one or more values of or
+containing absent where a component is mandated", and modifies assessment of
+an item validated against a component "any of whose properties has or contains
+such an absent value": an attribute fails as if clause 1 of Attribute Locally
+Valid had failed, an element as if clause 1 of Element Locally Valid (Element)
+had failed. The schema therefore loads with the property absent, as the
+accepted W3C expectations confirm: `missing001` (element `type`), `missing002`
+(`substitutionGroup`), `missing003` (element `type` with `substitutionGroup`)
+and `missing006` (list `itemType`) are valid. They also decide the reference
+kinds the schema cannot carry absent: `missing004` and `missing005` (simple and
+complex `base`) are invalid, and `w3c/msMeta` `elemL002`, `groupB008`, `attE002`, `attgC008` and
+`idC038` reject an unresolved element, model group, attribute and attribute
+group reference and keyref `refer`. Xerces-J, .NET, xmlschema and libxml2
+reject all six Missing schemas; an accepted W3C expectation outranks processor
+behaviour, so their results are manifest `oracle` metadata on those cases.
 
-An accepted W3C expectation outranks processor behaviour, so the
-[processor tie-break](#processor-tie-break) does not apply. xmlschema rejects
-missing002 under `src-resolve`; that dissent is manifest `oracle` metadata.
-Evidence: `TestSubstitutionMemberWithMissingHeadUsesDefaultType` in
+| Reference | Unresolved | Source |
+| --- | --- | --- |
+| `type` on an element declaration, list `itemType` | Loads; an item assessed against the declaration or type is invalid | W3C `missing001`, `missing003`, `missing006` |
+| `substitutionGroup` | Loads; the member has no substitution group affiliation and, without its own type, validates as `anyType` (below) | W3C `missing002`, both of whose instances are valid |
+| `type` on an attribute declaration; union `memberTypes`; `default` or `fixed` on a declaration whose type is missing | Loads; an item assessed against the declaration or union is invalid, and the value constraint is not checked (`project/composition/unresolved-references/attribute-type-missing`, `union-member-missing`, `element-type-missing-default`, `attribute-type-missing-value-constraint`) | §5.3: a failed resolution leaves the property “absent”, and only an item “validated with respect to a component [...] any of whose properties has or contains such an absent value” fails. The text decides it, as W3C `missing001` and `missing006` confirm for element `type` and list `itemType`, so processor results do not; Xerces-J, .NET, xmlschema and libxml2 reject each schema, which the cases record as `oracle` metadata |
+| `base` | Rejected | W3C `missing004`, `missing005` |
+| `ref` of an `xs:element`, `xs:group`, `xs:attribute` (use other than prohibited) or `xs:attributeGroup` that maps to a component; keyref `refer` | Rejected (`project/composition/unresolved-references/element-ref-missing`, `group-ref-missing`, `attribute-ref-missing`, `attribute-group-ref-missing`, `keyref-refer-missing`) | W3C `elemL002`, `groupB008`, `attE002`, `attgC008`, `idC038`; Xerces-J, .NET, xmlschema and libxml2 reject each project case |
+| `xs:group ref` with `minOccurs` and `maxOccurs` 0; `xs:attribute ref` with `use="prohibited"` | Not resolved and not import-authorized (`project/composition/unresolved-references/group-ref-zero-unimported`, `project/content-models/group-zero-occurrence-absent-content`, `project/prohibited-no-component-missing-imported-attribute-prohibited`) | §3.7.2: such a group reference "corresponds to no component at all", and [I-008](#i-008--prohibited-attribute-use-with-fixed), so there is no reference to resolve. The text decides it, so processor results do not; .NET accepts the group reference, Xerces-J, xmlschema and libxml2 reject it |
+| A name in the XML Schema namespace | Rejected (`project/composition/unresolved-references/xsd-namespace-type-missing`, `xsd-namespace-member-missing`) | The built-in components of that namespace are fixed, so no schema can supply the name (`typeQNameMayBeUnavailable`) |
+| A name in a namespace the document does not import | Rejected (`project/composition/unresolved-references/type-unimported-namespace`) | `src-resolve` clause 4 applies before any of the tolerances above |
+| `ref`, `type`, `default` and `fixed` of an `xs:element` with `minOccurs` and `maxOccurs` 0 | Not resolved, not import-authorized and not checked. The rules decided at its start tag and at every start tag inside it still apply: its QName syntax and prefix bindings, the occurrence relation and the `xs:all` range, XPath, pattern, a repeated facet, size and `xs:whiteSpace` values, and namespace declaration names. The definitions nested in it keep their own mapping and checks: its inline type definition, as for a prohibited attribute, and its identity constraints, which map to identity-constraint definitions and take part in name uniqueness, are evaluated for no instance element, and resolve a keyref `refer` that names them as any other identity constraint does; a keyref value never matches one. As no particle, it takes part in no Element Declarations Consistent, Unique Particle Attribution or particle restriction check (`project/content-models/element-zero-occurrence/*`) | §3.3.2 maps the item to “no component at all”, as §3.7.2 does for the group reference above, and §3.11.2 maps every `xs:key`, `xs:unique` and `xs:keyref` to an identity-constraint definition. The text decides it, so processor results do not. Of the schemas that a skipped `ref`, `type`, `default` or `fixed` would otherwise make invalid, Xerces-J rejects every one, .NET accepts all, xmlschema only the NOTATION type, and libxml2 only the missing reference and the NOTATION type. All four agree on the identity-constraint schemas; on the keyref instances .NET rejects the absent value and xmlschema fails with an internal error. On the particle checks Xerces-J rejects the zero-count restriction particle, xmlschema the Element Declarations Consistent case and libxml2 the wildcard case, and libxml2 accepts the base whose only particle is zero-count |
+
+A tolerated missing `substitutionGroup` head leaves `{substitution group
+affiliation}`, an optional property, absent. The §3.3.2 `{type definition}`
+mapping gives a declaration without its own type the type of its head,
+otherwise the ur-type, and does not say which branch an unresolved head takes;
+without an explicit `type` or inline type, the member validates with `anyType`.
+With a resolved head, an omitted member type is inherited through the
+affiliation chain before value constraints are checked; it does not fall back
+to `anyType` while the head's type is still being completed. Evidence:
+`TestSubstitutionMemberWithMissingHeadUsesDefaultType` in
 `internal/schema/schema_compile_external_test.go`.
 
 ## I-024 — printed primitive-type summary

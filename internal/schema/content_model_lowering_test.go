@@ -16,7 +16,6 @@ func TestAppendParticle(t *testing.T) {
 	one := occurrence{Min: 1, Max: 1}
 	zero := occurrence{}
 	repeated := occurrence{Min: 1, Max: 2}
-	unbounded := occurrence{Min: 0, Unbounded: true}
 
 	tests := []struct {
 		name      string
@@ -29,8 +28,6 @@ func TestAppendParticle(t *testing.T) {
 		{name: "omits zero count", modelKind: modelSequence, occurs: zero},
 		{name: "sequence accepts repeating particle", modelKind: modelSequence, occurs: repeated, wantLen: 1},
 		{name: "all accepts non-repeating particle", modelKind: modelAll, occurs: one, wantLen: 1},
-		{name: "all rejects finite repeated particle", modelKind: modelAll, occurs: repeated, wantCode: xsderrors.CodeSchemaOccurrence},
-		{name: "all rejects unbounded particle", modelKind: modelAll, occurs: unbounded, wantCode: xsderrors.CodeSchemaOccurrence},
 		{
 			name:      "all rejects wildcard particle",
 			modelKind: modelAll,

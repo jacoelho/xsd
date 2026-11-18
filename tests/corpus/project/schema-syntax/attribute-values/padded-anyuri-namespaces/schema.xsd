@@ -1,0 +1,5 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:t" xmlns:o="urn:o" xmlns:p="urn:p" targetNamespace=" urn:t " elementFormDefault="qualified">
+<xs:import namespace=" urn:o " schemaLocation="o.xsd"/>
+<xs:import namespace="urn:p" schemaLocation="p.xsd"/>
+<xs:element name="r"><xs:complexType><xs:sequence><xs:element ref="o:e"/><xs:element ref="p:e"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>

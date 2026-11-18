@@ -319,6 +319,9 @@ func runCase(t *testing.T, dir string, unsupported unsupportedAllowlist, tc mani
 	}
 	run.schemaCases++
 	engine, err := xsd.Compile(schemaSources(dir, tc)...)
+	if locErr := checkDiagnosticLocations(err, compileLocatedCategories); locErr != nil {
+		t.Fatalf("case %s schema: %v", tc.ID, locErr)
+	}
 	switch tc.Schema.Expected {
 	case "valid":
 		if err != nil {
@@ -367,7 +370,7 @@ func validateInstance(t *testing.T, dir string, engine *xsd.Engine, unsupported 
 	if closeErr != nil {
 		t.Fatalf("Close() error = %v", closeErr)
 	}
-	if locErr := checkDiagnosticLocations(err); locErr != nil {
+	if locErr := checkDiagnosticLocations(err, instanceLocatedCategories); locErr != nil {
 		t.Fatalf("case %s instance %s: %v", tc.ID, inst.File, locErr)
 	}
 	switch inst.Expected {
@@ -388,15 +391,30 @@ func validateInstance(t *testing.T, dir string, engine *xsd.Engine, unsupported 
 	}
 }
 
-// checkDiagnosticLocations enforces that every validation or unsupported
-// diagnostic produced while reading an instance carries a path and a line.
-func checkDiagnosticLocations(err error) error {
+// compileLocatedCategories are the categories of every compile diagnostic the
+// harness can produce: each is about schema document content.
+var compileLocatedCategories = []xsderrors.Category{
+	xsderrors.CategorySchemaParse,
+	xsderrors.CategorySchemaCompile,
+	xsderrors.CategoryUnsupported,
+}
+
+// instanceLocatedCategories are the categories of the diagnostics an instance
+// run produces while reading a document.
+var instanceLocatedCategories = []xsderrors.Category{
+	xsderrors.CategoryValidation,
+	xsderrors.CategoryUnsupported,
+}
+
+// checkDiagnosticLocations enforces that every diagnostic of one of
+// categories in err carries a path and a line.
+func checkDiagnosticLocations(err error, categories []xsderrors.Category) error {
 	for _, leaf := range xsderrors.Flatten(err) {
 		diagnostic, ok := errors.AsType[*xsderrors.Error](leaf)
 		if !ok {
 			continue
 		}
-		if c := diagnostic.Category(); c != xsderrors.CategoryValidation && c != xsderrors.CategoryUnsupported {
+		if !slices.Contains(categories, diagnostic.Category()) {
 			continue
 		}
 		if diagnostic.Path() == "" || diagnostic.Line() <= 0 {

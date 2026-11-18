@@ -1,20 +1,46 @@
 package schema
 
 import (
+	"encoding/xml"
 	"errors"
 	"strings"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/diagnostictext"
+	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-func TestParseOccurrence(t *testing.T) {
+// occurrenceTag is the minOccurs and maxOccurs of one start tag, written in
+// that order.
+type occurrenceTag struct {
+	MinOccurs    string
+	MaxOccurs    string
+	HasMinOccurs bool
+	HasMaxOccurs bool
+}
+
+func admitOccurrenceTag(element, parent string, tag occurrenceTag, limits Limits) (occurrence, error) {
+	admission := newOccurrenceAdmission(xml.Name{Space: vocab.XSDNamespaceURI, Local: element}, xml.Name{Space: vocab.XSDNamespaceURI, Local: parent}, limits.MaxFiniteOccurs)
+	if tag.HasMinOccurs {
+		if err := admission.admitAttribute(vocab.XSDAttrMinOccurs, tag.MinOccurs); err != nil {
+			return occurrence{}, err
+		}
+	}
+	if tag.HasMaxOccurs {
+		if err := admission.admitAttribute(vocab.XSDAttrMaxOccurs, tag.MaxOccurs); err != nil {
+			return occurrence{}, err
+		}
+	}
+	return admission.complete()
+}
+
+func TestOccurrenceAdmissionOfParticle(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name     string
-		attrs    rawOccurrence
+		attrs    occurrenceTag
 		limits   Limits
 		want     occurrence
 		wantCode xsderrors.Code
@@ -26,83 +52,134 @@ func TestParseOccurrence(t *testing.T) {
 		},
 		{
 			name:  "trims XML whitespace and plus",
-			attrs: rawOccurrence{MinOccurs: "\t+0002\n", MaxOccurs: "\r0003 ", HasMinOccurs: true, HasMaxOccurs: true},
+			attrs: occurrenceTag{MinOccurs: "\t+0002\n", MaxOccurs: "\r0003 ", HasMinOccurs: true, HasMaxOccurs: true},
 			want:  occurrence{Min: 2, Max: 3},
 		},
 		{
 			name:  "zero",
-			attrs: rawOccurrence{MinOccurs: "0", MaxOccurs: "0", HasMinOccurs: true, HasMaxOccurs: true},
+			attrs: occurrenceTag{MinOccurs: "0", MaxOccurs: "0", HasMinOccurs: true, HasMaxOccurs: true},
 			want:  occurrence{},
 		},
 		{
 			name:  "unbounded",
-			attrs: rawOccurrence{MinOccurs: "2", MaxOccurs: " unbounded\t", HasMinOccurs: true, HasMaxOccurs: true},
+			attrs: occurrenceTag{MinOccurs: "2", MaxOccurs: " unbounded\t", HasMinOccurs: true, HasMaxOccurs: true},
 			want:  occurrence{Min: 2, Unbounded: true},
 		},
 		{
 			name:     "max less than min",
-			attrs:    rawOccurrence{MinOccurs: "2", MaxOccurs: "1", HasMinOccurs: true, HasMaxOccurs: true},
+			attrs:    occurrenceTag{MinOccurs: "2", MaxOccurs: "1", HasMinOccurs: true, HasMaxOccurs: true},
 			wantCode: xsderrors.CodeSchemaOccurrence,
 			wantText: "maxOccurs is less than minOccurs",
 		},
 		{
 			name:     "min over uint32",
-			attrs:    rawOccurrence{MinOccurs: "4294967296", HasMinOccurs: true},
+			attrs:    occurrenceTag{MinOccurs: "4294967296", HasMinOccurs: true},
 			wantCode: xsderrors.CodeSchemaLimit,
 			wantText: "minOccurs exceeds uint32 limit",
 		},
 		{
 			name:     "max over uint32",
-			attrs:    rawOccurrence{MaxOccurs: "4294967296", HasMaxOccurs: true},
+			attrs:    occurrenceTag{MaxOccurs: "4294967296", HasMaxOccurs: true},
 			wantCode: xsderrors.CodeSchemaLimit,
 			wantText: "maxOccurs exceeds uint32 limit",
 		},
 		{
 			name:     "max over configured limit",
-			attrs:    rawOccurrence{MaxOccurs: "11", HasMaxOccurs: true},
+			attrs:    occurrenceTag{MaxOccurs: "11", HasMaxOccurs: true},
 			limits:   Limits{MaxFiniteOccurs: 10},
 			wantCode: xsderrors.CodeSchemaLimit,
 			wantText: "maxOccurs exceeds configured limit",
 		},
 		{
 			name:   "max equals configured limit",
-			attrs:  rawOccurrence{MaxOccurs: "10", HasMaxOccurs: true},
+			attrs:  occurrenceTag{MaxOccurs: "10", HasMaxOccurs: true},
 			limits: Limits{MaxFiniteOccurs: 10},
 			want:   occurrence{Min: 1, Max: 10},
 		},
 		{
 			name:  "max uint32 accepted",
-			attrs: rawOccurrence{MaxOccurs: "4294967295", HasMaxOccurs: true},
+			attrs: occurrenceTag{MaxOccurs: "4294967295", HasMaxOccurs: true},
 			want:  occurrence{Min: 1, Max: ^uint32(0)},
 		},
-		{name: "long zero prefixes", attrs: rawOccurrence{MinOccurs: strings.Repeat("0", 1024) + "2", MaxOccurs: strings.Repeat("0", 1024) + "3", HasMinOccurs: true, HasMaxOccurs: true}, want: occurrence{Min: 2, Max: 3}},
-		{name: "long all zero", attrs: rawOccurrence{MinOccurs: strings.Repeat("0", 1024), MaxOccurs: strings.Repeat("0", 1024), HasMinOccurs: true, HasMaxOccurs: true}},
-		{name: "negative zero min", attrs: rawOccurrence{MinOccurs: "-0", HasMinOccurs: true}, want: occurrence{Max: 1}},
-		{name: "negative zero max below default min", attrs: rawOccurrence{MaxOccurs: "-0", HasMaxOccurs: true}, wantCode: xsderrors.CodeSchemaOccurrence, wantText: "maxOccurs is less than minOccurs"},
-		{name: "negative zero bounds", attrs: rawOccurrence{MinOccurs: "-0", MaxOccurs: "-0", HasMinOccurs: true, HasMaxOccurs: true}},
-		{name: "long negative zero with whitespace", attrs: rawOccurrence{MinOccurs: "\t-" + strings.Repeat("0", 1024) + "\n", MaxOccurs: "\r-" + strings.Repeat("0", 1024) + " ", HasMinOccurs: true, HasMaxOccurs: true}},
-		{name: "huge magnitude", attrs: rawOccurrence{MaxOccurs: strings.Repeat("9", 256), HasMaxOccurs: true}, wantCode: xsderrors.CodeSchemaLimit, wantText: "maxOccurs exceeds uint32 limit"},
-		{name: "minimum limit error first", attrs: rawOccurrence{MinOccurs: "4294967296", MaxOccurs: "4294967297", HasMinOccurs: true, HasMaxOccurs: true}, wantCode: xsderrors.CodeSchemaLimit, wantText: "minOccurs exceeds uint32 limit"},
-		{name: "configured cap before ordering", attrs: rawOccurrence{MinOccurs: "12", MaxOccurs: "11", HasMinOccurs: true, HasMaxOccurs: true}, limits: Limits{MaxFiniteOccurs: 10}, wantCode: xsderrors.CodeSchemaLimit, wantText: "maxOccurs exceeds configured limit"},
-		{name: "uint32 cap with large configured cap", attrs: rawOccurrence{MaxOccurs: "4294967296", HasMaxOccurs: true}, limits: Limits{MaxFiniteOccurs: ^uint64(0)}, wantCode: xsderrors.CodeSchemaLimit, wantText: "maxOccurs exceeds uint32 limit"},
+		{name: "long zero prefixes", attrs: occurrenceTag{MinOccurs: strings.Repeat("0", 1024) + "2", MaxOccurs: strings.Repeat("0", 1024) + "3", HasMinOccurs: true, HasMaxOccurs: true}, want: occurrence{Min: 2, Max: 3}},
+		{name: "long all zero", attrs: occurrenceTag{MinOccurs: strings.Repeat("0", 1024), MaxOccurs: strings.Repeat("0", 1024), HasMinOccurs: true, HasMaxOccurs: true}},
+		{name: "negative zero min", attrs: occurrenceTag{MinOccurs: "-0", HasMinOccurs: true}, want: occurrence{Max: 1}},
+		{name: "negative zero max below default min", attrs: occurrenceTag{MaxOccurs: "-0", HasMaxOccurs: true}, wantCode: xsderrors.CodeSchemaOccurrence, wantText: "maxOccurs is less than minOccurs"},
+		{name: "negative zero bounds", attrs: occurrenceTag{MinOccurs: "-0", MaxOccurs: "-0", HasMinOccurs: true, HasMaxOccurs: true}},
+		{name: "long negative zero with whitespace", attrs: occurrenceTag{MinOccurs: "\t-" + strings.Repeat("0", 1024) + "\n", MaxOccurs: "\r-" + strings.Repeat("0", 1024) + " ", HasMinOccurs: true, HasMaxOccurs: true}},
+		{name: "huge magnitude", attrs: occurrenceTag{MaxOccurs: strings.Repeat("9", 256), HasMaxOccurs: true}, wantCode: xsderrors.CodeSchemaLimit, wantText: "maxOccurs exceeds uint32 limit"},
+		{name: "minimum limit error first", attrs: occurrenceTag{MinOccurs: "4294967296", MaxOccurs: "4294967297", HasMinOccurs: true, HasMaxOccurs: true}, wantCode: xsderrors.CodeSchemaLimit, wantText: "minOccurs exceeds uint32 limit"},
+		{name: "configured cap before ordering", attrs: occurrenceTag{MinOccurs: "12", MaxOccurs: "11", HasMinOccurs: true, HasMaxOccurs: true}, limits: Limits{MaxFiniteOccurs: 10}, wantCode: xsderrors.CodeSchemaLimit, wantText: "maxOccurs exceeds configured limit"},
+		{name: "uint32 cap with large configured cap", attrs: occurrenceTag{MaxOccurs: "4294967296", HasMaxOccurs: true}, limits: Limits{MaxFiniteOccurs: ^uint64(0)}, wantCode: xsderrors.CodeSchemaLimit, wantText: "maxOccurs exceeds uint32 limit"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := parseOccurrence(tt.attrs, tt.limits)
+			got, err := admitOccurrenceTag(vocab.XSDElemElement, vocab.XSDElemSequence, tt.attrs, tt.limits)
 			if tt.wantCode != "" {
 				expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, tt.wantCode)
 				if !strings.Contains(err.Error(), tt.wantText) {
-					t.Fatalf("ParseOccurrence() error = %v, want text %q", err, tt.wantText)
+					t.Fatalf("occurrence admission error = %v, want text %q", err, tt.wantText)
 				}
 				return
 			}
 			if err != nil {
-				t.Fatalf("ParseOccurrence() error = %v", err)
+				t.Fatalf("occurrence admission error = %v", err)
 			}
 			if got != tt.want {
-				t.Fatalf("ParseOccurrence() = %+v, want %+v", got, tt.want)
+				t.Fatalf("occurrence admission = %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestOccurrenceAdmissionOfAllGroupAndMember(t *testing.T) {
+	t.Parallel()
+
+	const (
+		groupText  = "xs:all occurrence must be zero or one"
+		memberText = "xs:all particles cannot repeat"
+	)
+	tests := []struct {
+		name     string
+		element  string
+		parent   string
+		attrs    occurrenceTag
+		limits   Limits
+		want     occurrence
+		wantCode xsderrors.Code
+		wantText string
+	}{
+		{name: "all defaults", element: "all", parent: "complexType", want: occurrence{Min: 1, Max: 1}},
+		{name: "all optional", element: "all", parent: "complexType", attrs: occurrenceTag{MinOccurs: "0", HasMinOccurs: true}, want: occurrence{Max: 1}},
+		{name: "all minOccurs two", element: "all", parent: "complexType", attrs: occurrenceTag{MinOccurs: "2", HasMinOccurs: true}, wantCode: xsderrors.CodeSchemaOccurrence, wantText: groupText},
+		{name: "all maxOccurs zero", element: "all", parent: "complexType", attrs: occurrenceTag{MinOccurs: "0", MaxOccurs: "0", HasMinOccurs: true, HasMaxOccurs: true}, wantCode: xsderrors.CodeSchemaOccurrence, wantText: groupText},
+		{name: "all maxOccurs unbounded", element: "all", parent: "complexType", attrs: occurrenceTag{MaxOccurs: "unbounded", HasMaxOccurs: true}, wantCode: xsderrors.CodeSchemaOccurrence, wantText: groupText},
+		{name: "all minOccurs above uint32 is a limit", element: "all", parent: "complexType", attrs: occurrenceTag{MinOccurs: "4294967296", HasMinOccurs: true}, wantCode: xsderrors.CodeSchemaLimit, wantText: "minOccurs exceeds uint32 limit"},
+		{name: "all maxOccurs above configured limit is a limit", element: "all", parent: "complexType", attrs: occurrenceTag{MaxOccurs: "3", HasMaxOccurs: true}, limits: Limits{MaxFiniteOccurs: 2}, wantCode: xsderrors.CodeSchemaLimit, wantText: "maxOccurs exceeds configured limit"},
+		{name: "all minOccurs range before maxOccurs limit", element: "all", parent: "complexType", attrs: occurrenceTag{MinOccurs: "2", MaxOccurs: "4294967296", HasMinOccurs: true, HasMaxOccurs: true}, wantCode: xsderrors.CodeSchemaOccurrence, wantText: groupText},
+		{name: "member optional", element: "element", parent: "all", attrs: occurrenceTag{MinOccurs: "0", MaxOccurs: "1", HasMinOccurs: true, HasMaxOccurs: true}, want: occurrence{Max: 1}},
+		{name: "member absent", element: "element", parent: "all", attrs: occurrenceTag{MinOccurs: "0", MaxOccurs: "0", HasMinOccurs: true, HasMaxOccurs: true}, want: occurrence{}},
+		{name: "member maxOccurs two", element: "element", parent: "all", attrs: occurrenceTag{MaxOccurs: "2", HasMaxOccurs: true}, wantCode: xsderrors.CodeSchemaOccurrence, wantText: memberText},
+		{name: "member maxOccurs unbounded", element: "element", parent: "all", attrs: occurrenceTag{MaxOccurs: "unbounded", HasMaxOccurs: true}, wantCode: xsderrors.CodeSchemaOccurrence, wantText: memberText},
+		{name: "member minOccurs two is a relation", element: "element", parent: "all", attrs: occurrenceTag{MinOccurs: "2", HasMinOccurs: true}, wantCode: xsderrors.CodeSchemaOccurrence, wantText: "maxOccurs is less than minOccurs"},
+		{name: "element of a sequence repeats", element: "element", parent: "sequence", attrs: occurrenceTag{MaxOccurs: "2", HasMaxOccurs: true}, want: occurrence{Min: 1, Max: 2}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := admitOccurrenceTag(tt.element, tt.parent, tt.attrs, tt.limits)
+			if tt.wantCode != "" {
+				expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, tt.wantCode)
+				if !strings.Contains(err.Error(), tt.wantText) {
+					t.Fatalf("occurrence admission error = %v, want text %q", err, tt.wantText)
+				}
+				return
+			}
+			if err != nil || got != tt.want {
+				t.Fatalf("occurrence admission = %+v, %v, want %+v", got, err, tt.want)
 			}
 		})
 	}
@@ -281,16 +358,16 @@ func BenchmarkOccurrenceAdmission(b *testing.B) {
 	}
 	for _, c := range cases {
 		b.Run(c.name, func(b *testing.B) {
-			attrs := rawOccurrence{MinOccurs: c.min, MaxOccurs: c.max, HasMinOccurs: true, HasMaxOccurs: true}
+			attrs := occurrenceTag{MinOccurs: c.min, MaxOccurs: c.max, HasMinOccurs: true, HasMaxOccurs: true}
 			var last occurrence
-			pre, err := parseOccurrence(attrs, Limits{})
+			pre, err := admitOccurrenceTag(vocab.XSDElemElement, vocab.XSDElemSequence, attrs, Limits{})
 			if err != nil || pre != c.want {
 				b.Fatalf("preflight %v %v", pre, err)
 			}
 			b.ReportAllocs()
 			for b.Loop() {
 				var err error
-				last, err = parseOccurrence(attrs, Limits{})
+				last, err = admitOccurrenceTag(vocab.XSDElemElement, vocab.XSDElemSequence, attrs, Limits{})
 				if err != nil {
 					b.Fatal(err)
 				}

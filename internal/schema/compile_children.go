@@ -72,16 +72,53 @@ func admitSchemaAttributeValue(n *schemaSyntaxNode, attr schemaAttribute, admitt
 	if attr.Name.Local == vocab.XSDAttrID && !admitted.ids.declare(attr.Value) {
 		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "duplicate schema id "+diagnostictext.Quote(attr.Value))
 	}
-	if attr.Name.Local == vocab.XSDAttrXPath && lex.TrimXMLWhitespaceString(attr.Value) == "" {
-		return schemaCompileAt(n, xsderrors.CodeSchemaIdentity, diagnostictext.Quote(n.Name.Local)+" xpath is empty")
+	if attr.Name.Local == vocab.XSDAttrXPath {
+		if err := admitXPathAttribute(n, attr.Value); err != nil {
+			return err
+		}
 	}
 	if err := withSchemaCompileLocation(n, checkSchemaAttributeValueSyntax(n.Name.Local, attr.Name.Local, attr.Value)); err != nil {
 		return err
 	}
+	if err := withSchemaCompileLocation(n, admitParsedAttributeValue(n.Name.Local, attr, admitted)); err != nil {
+		return err
+	}
 	if schemaNodeHasQNameAttr(n, attr.Name.Local) {
-		return admitSchemaQNameAttribute(n, attr, admitted.qnames)
+		return admitSchemaQNameAttribute(n, attr, admitted.values)
 	}
 	return checkSchemaAnyURIAttribute(n, attr)
+}
+
+func admitXPathAttribute(n *schemaSyntaxNode, value string) error {
+	if lex.TrimXMLWhitespaceString(value) == "" {
+		return schemaCompileAt(n, xsderrors.CodeSchemaIdentity, diagnostictext.Quote(n.Name.Local)+" xpath is empty")
+	}
+	return admitIdentityXPath(n, value)
+}
+
+// admitParsedAttributeValue admits attr, an attribute of the XSD element
+// named element, into admitted when its value is parsed at the tag: an
+// occurrence bound, a facet value, or the fixed of a facet, which may precede
+// or follow the facet's value.
+func admitParsedAttributeValue(element string, attr schemaAttribute, admitted startTagAttributes) error {
+	values := admitted.values
+	switch attr.Name.Local {
+	case vocab.XSDAttrMinOccurs, vocab.XSDAttrMaxOccurs:
+		return values.occurrence.admitAttribute(attr.Name.Local, attr.Value)
+	case vocab.XSDAttrValue:
+		facet, err := admitFacetValue(element, attr.Value, admitted.patterns)
+		facet.fixed = values.facet.fixed
+		values.facet = facet
+		return err
+	case vocab.XSDAttrFixed:
+		if !isFacetLocal(element) {
+			return nil
+		}
+		fixed, err := parseBooleanAttr(booleanAttr{Name: attr.Name.Local, Value: attr.Value, HasValue: true})
+		values.facet.fixed = fixed
+		return err
+	}
+	return nil
 }
 
 func checkSchemaAnyURIAttribute(n *schemaSyntaxNode, attr schemaAttribute) error {

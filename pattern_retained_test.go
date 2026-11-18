@@ -1,6 +1,7 @@
 package xsd_test
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -111,6 +112,21 @@ func TestPatternRetainedBytesChargeIdenticalTextOnce(t *testing.T) {
 		}
 		requireRetainedLimit(t, compileRetained(s1+s2-1, distinct), s1+s2-1)
 	})
+}
+
+func TestPatternRetainedBreachIsReportedAtTheFacetStartTag(t *testing.T) {
+	const p1, p2 = "(ab|c){1,200}", "(ab|d){1,200}"
+	s1 := retainedThreshold(t, xsd.Bytes("p.xsd", patternsSchema(p1)))
+	schema := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:element name="first" type="missing"/>
+<xs:simpleType name="A"><xs:restriction base="xs:string"><xs:pattern value="` + p1 + `"/></xs:restriction></xs:simpleType>
+<xs:simpleType name="B"><xs:restriction base="xs:string"><xs:pattern value="` + p2 + `"/></xs:restriction></xs:simpleType>
+</xs:schema>`)
+	err := compileRetained(s1, xsd.Bytes("p.xsd", schema))
+	requireRetainedLimit(t, err, s1)
+	if d, ok := errors.AsType[*xsderrors.Error](err); !ok || d.Line() != 4 || d.Column() != 58 {
+		t.Fatalf("error = %v, want the second pattern's start tag at 4:58, before the unresolved type at 2:1", err)
+	}
 }
 
 func TestInheritedPatternsAreNotRecharged(t *testing.T) {

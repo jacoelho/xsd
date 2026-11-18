@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 
 	"github.com/jacoelho/xsd/internal/diagnostictext"
+	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
@@ -156,6 +157,32 @@ func checkValueConstraintAttributes(n *schemaSyntaxNode) error {
 		return withSchemaCompileLocation(n, admittedValueInvariant(err))
 	}
 	return withSchemaCompileLocation(n, invalidAttributeError(checkAttributeUseDefault(mode)))
+}
+
+// checkAttributeDeclarationName returns the error for n when it is an
+// attribute declaration named xmlns (xmlns Not Allowed) whose use is not
+// prohibited. A prohibited declaration corresponds to no component (I-008),
+// so its name constrains nothing. The name is compared after whitespace
+// collapse, as its NCName value. It is the only owner of the rule; n has
+// passed checkSchemaAttributesSyntax, so its use is one of the three modes.
+func checkAttributeDeclarationName(n *schemaSyntaxNode) error {
+	if n.Name.Local != vocab.XSDElemAttribute {
+		return nil
+	}
+	name, ok := n.attr(vocab.XSDAttrName)
+	if !ok || lex.CollapseXMLWhitespace(name) != vocab.XMLNSPrefix {
+		return nil
+	}
+	if use, ok := n.attr(vocab.XSDAttrUse); ok {
+		mode, err := parseAttributeUseMode(use)
+		if err != nil {
+			return withSchemaCompileLocation(n, admittedValueInvariant(err))
+		}
+		if mode == attributeUseProhibited {
+			return nil
+		}
+	}
+	return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "attribute cannot be named xmlns")
 }
 
 func checkPlacementRequiredAttribute(n *schemaSyntaxNode, parent xml.Name, placement schemaElementPlacement) error {
@@ -461,7 +488,7 @@ func schemaElementAttributeAllowed(element, attr string) bool {
 
 // checkSchemaAttributeValueSyntax checks the value of attr, an unqualified
 // attribute of the XSD element named element, against the lexical form the
-// element gives it: a boolean, an occurrence count, a form, an attribute use,
+// element gives it: a boolean, a form, an attribute use,
 // a derivation set, a wildcard namespace list, a processContents mode, or a
 // namespace name that cannot be empty. An attribute with none of these forms
 // passes. Start-tag admission decides these violations; compilation parses the
@@ -475,14 +502,6 @@ func checkSchemaAttributeValueSyntax(element, attr, value string) error {
 	switch attr {
 	case vocab.XSDAttrNillable, vocab.XSDAttrAbstract, vocab.XSDAttrMixed:
 		_, err = parseBooleanAttr(booleanAttr{Name: attr, Value: value, HasValue: true})
-	case vocab.XSDAttrFixed:
-		if isFacetLocal(element) {
-			_, err = parseBooleanAttr(booleanAttr{Name: attr, Value: value, HasValue: true})
-		}
-	case vocab.XSDAttrMinOccurs:
-		_, err = parseMinOccursLexical(value)
-	case vocab.XSDAttrMaxOccurs:
-		_, err = parseMaxOccursLexical(value)
 	case vocab.XSDAttrForm:
 		err = checkFormSyntax(element, value)
 	case vocab.XSDAttrElementFormDefault, vocab.XSDAttrAttributeFormDefault:

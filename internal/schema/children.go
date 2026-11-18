@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/jacoelho/xsd/internal/diagnostictext"
+	valuepkg "github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
@@ -371,8 +372,11 @@ func childOrderFor(local string, parent xml.Name) *childOrder {
 // childOrderState is the progress of one parent through its childOrder. Its
 // zero value has seen no child.
 type childOrderState struct {
-	seen         uint64
-	levelSeen    int
+	seen      uint64
+	levelSeen int
+	// facets records the facets a restriction has specified, so a second one
+	// of a kind is rejected at its own start tag (src-single-facet-value).
+	facets       valuepkg.FacetMask
 	terminalSeen bool
 }
 
@@ -407,9 +411,28 @@ func (s *childOrderState) accept(n *schemaSyntaxNode, order *childOrder, parent 
 	if rule.ConflictMsg != "" && rule.Supplied(parent) {
 		return schemaCompileAt(n, rule.ConflictCode, rule.ConflictMsg)
 	}
+	if err := s.acceptFacet(n); err != nil {
+		return err
+	}
 	s.seen |= bit
 	s.levelSeen = max(s.levelSeen, rule.Level)
 	s.terminalSeen = rule.Terminal
+	return nil
+}
+
+// acceptFacet records n when it is a facet and rejects a facet the parent
+// already specifies. A restriction step specifies each facet at most once,
+// except pattern and enumeration, whose repetitions form one facet value
+// (src-single-facet-value).
+func (s *childOrderState) acceptFacet(n *schemaSyntaxNode) error {
+	mask, ok := facetMaskForLocal(n.Name.Local)
+	if !ok || mask == valuepkg.FacetPattern || mask == valuepkg.FacetEnumeration {
+		return nil
+	}
+	if s.facets&mask != 0 {
+		return schemaCompileAt(n, xsderrors.CodeSchemaFacet, "duplicate "+facetLabel(n.Name.Local)+" facet")
+	}
+	s.facets |= mask
 	return nil
 }
 

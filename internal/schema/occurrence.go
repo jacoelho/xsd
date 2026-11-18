@@ -1,9 +1,11 @@
 package schema
 
 import (
+	"encoding/xml"
+
 	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/lex"
-
+	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -13,27 +15,114 @@ const (
 	occurrenceUnboundedLexical = "unbounded"
 )
 
-// rawOccurrence is the raw occurrence attribute projection from a model
-// group or particle node.
-type rawOccurrence struct {
-	MinOccurs    string
-	MaxOccurs    string
-	HasMinOccurs bool
-	HasMaxOccurs bool
+// occurrenceScope is what the parent of a particle adds to the occurrence
+// range of that particle's start tag (cos-all-limited).
+type occurrenceScope uint8
+
+const (
+	occurrenceScopeParticle occurrenceScope = iota
+	// occurrenceScopeAllGroup is an xs:all model group.
+	occurrenceScopeAllGroup
+	// occurrenceScopeAllMember is a particle of an xs:all model group.
+	occurrenceScopeAllMember
+)
+
+const (
+	allGroupOccurrenceMessage  = "xs:all occurrence must be zero or one"
+	allMemberOccurrenceMessage = "xs:all particles cannot repeat"
+)
+
+// occurrenceAdmission is the only owner of the minOccurs and maxOccurs of one
+// particle start tag. admitAttribute decides what one attribute decides alone,
+// where it is written: its lexical form, the uint32 and MaxFiniteOccurs caps,
+// and the xs:all range of its scope. complete decides what needs both
+// attributes once every attribute is admitted: the defaults and minOccurs not
+// above maxOccurs. The zero value admits a particle outside xs:all under the
+// uint32 cap alone.
+type occurrenceAdmission struct {
+	limit  uint64
+	max    maxOccurrence
+	min    uint32
+	scope  occurrenceScope
+	hasMin bool
+	hasMax bool
 }
 
-// parseOccurrence parses admitted minOccurs and maxOccurs values, applies the
-// compile-time finite occurrence limits and orders the two bounds.
-func parseOccurrence(attrs rawOccurrence, limits Limits) (occurrence, error) {
-	minOccurs, err := parseMinOccurrence(attrs)
-	if err != nil {
-		return occurrence{}, err
+// newOccurrenceAdmission returns the admission of the start tag of element,
+// a child of parent, whose finite maxOccurs is capped by limit; a zero limit
+// caps it at uint32 alone.
+func newOccurrenceAdmission(element, parent xml.Name, limit uint64) occurrenceAdmission {
+	scope := occurrenceScopeParticle
+	switch {
+	case isXSDName(element, vocab.XSDElemAll):
+		scope = occurrenceScopeAllGroup
+	case isXSDName(parent, vocab.XSDElemAll):
+		scope = occurrenceScopeAllMember
 	}
-	maximum, err := parseMaxOccurrence(attrs, limits.MaxFiniteOccurs)
-	if err != nil {
-		return occurrence{}, err
+	return occurrenceAdmission{limit: limit, scope: scope}
+}
+
+// admitAttribute admits value, the value of attr, minOccurs or maxOccurs.
+func (a *occurrenceAdmission) admitAttribute(attr, value string) error {
+	switch attr {
+	case vocab.XSDAttrMinOccurs:
+		return a.admitMin(value)
+	case vocab.XSDAttrMaxOccurs:
+		return a.admitMax(value)
 	}
-	return maximum.withMinimum(minOccurs)
+	return xsderrors.InternalInvariant("occurrence admission of attribute " + diagnostictext.Quote(attr))
+}
+
+func (a *occurrenceAdmission) admitMin(value string) error {
+	number, err := parseMinOccursLexical(value)
+	if err != nil {
+		return err
+	}
+	if number > maxUint32Value {
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "minOccurs exceeds uint32 limit")
+	}
+	minimum := uint32(number) // #nosec G115 -- checked against the uint32 cap above.
+	if a.scope == occurrenceScopeAllGroup && !allGroupMinAdmitted(minimum) {
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, allGroupOccurrenceMessage)
+	}
+	a.min, a.hasMin = minimum, true
+	return nil
+}
+
+func (a *occurrenceAdmission) admitMax(value string) error {
+	lexical, err := parseMaxOccursLexical(value)
+	if err != nil {
+		return err
+	}
+	maximum := maxOccurrence{kind: maxOccurrenceUnbounded}
+	if !lexical.unbounded {
+		if maxOccursLimitExceeded(lexical.count, a.limit) {
+			return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, maxOccursLimitMessage(a.limit))
+		}
+		maximum = maxOccurrence{value: uint32(lexical.count), kind: maxOccurrenceFinite} // #nosec G115 -- maxOccursLimitExceeded enforces the uint32 cap.
+	}
+	switch {
+	case a.scope == occurrenceScopeAllGroup && !allGroupMaxAdmitted(maximum):
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, allGroupOccurrenceMessage)
+	case a.scope == occurrenceScopeAllMember && maximum.repeats():
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, allMemberOccurrenceMessage)
+	}
+	a.max, a.hasMax = maximum, true
+	return nil
+}
+
+// complete returns the admitted occurrence, with minOccurs and maxOccurs
+// defaulting to one.
+func (a *occurrenceAdmission) complete() (occurrence, error) {
+	minimum := uint32(1)
+	if a.hasMin {
+		minimum = a.min
+	}
+	maximum := maxOccurrence{value: 1, kind: maxOccurrenceFinite}
+	if a.hasMax {
+		maximum = a.max
+	}
+	return maximum.withMinimum(minimum)
 }
 
 func (m maxOccurrence) withMinimum(minOccurs uint32) (occurrence, error) {
@@ -82,20 +171,6 @@ func parseMaxOccursLexical(value string) (maxOccursLexical, error) {
 	return maxOccursLexical{count: count}, nil
 }
 
-func parseMinOccurrence(attrs rawOccurrence) (uint32, error) {
-	if !attrs.HasMinOccurs {
-		return 1, nil
-	}
-	number, err := parseMinOccursLexical(attrs.MinOccurs)
-	if err != nil {
-		return 0, admittedValueInvariant(err)
-	}
-	if number > maxUint32Value {
-		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "minOccurs exceeds uint32 limit")
-	}
-	return uint32(number), nil
-}
-
 type maxOccurrence struct {
 	value uint32
 	kind  maxOccurrenceKind
@@ -109,28 +184,27 @@ const (
 	maxOccurrenceUnbounded
 )
 
-func parseMaxOccurrence(attrs rawOccurrence, limit uint64) (maxOccurrence, error) {
-	if !attrs.HasMaxOccurs {
-		return maxOccurrence{value: 1, kind: maxOccurrenceFinite}, nil
-	}
-	lexical, err := parseMaxOccursLexical(attrs.MaxOccurs)
-	if err != nil {
-		return maxOccurrence{}, admittedValueInvariant(err)
-	}
-	if lexical.unbounded {
-		return maxOccurrence{kind: maxOccurrenceUnbounded}, nil
-	}
-	number := lexical.count
-	if maxOccursLimitExceeded(number, limit) {
-		return maxOccurrence{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, maxOccursLimitMessage(limit))
-	}
-	return maxOccurrence{value: uint32(number), kind: maxOccurrenceFinite}, nil // #nosec G115 -- maxOccursLimitExceeded enforces the uint32 cap.
+func (m maxOccurrence) repeats() bool {
+	return m.kind == maxOccurrenceUnbounded || m.value > 1
 }
 
-// validateAllModelOccurrence validates xs:all model group occurrence admission.
+func allGroupMinAdmitted(minimum uint32) bool {
+	return minimum <= 1
+}
+
+func allGroupMaxAdmitted(maximum maxOccurrence) bool {
+	return maximum.kind == maxOccurrenceFinite && maximum.value == 1
+}
+
+// validateAllModelOccurrence checks occurs, the occurrence a model group
+// reference gives an xs:all group, against the range of an xs:all.
 func validateAllModelOccurrence(occurs occurrence) error {
-	if occurs.Unbounded || occurs.Min > 1 || occurs.Max != 1 {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, "xs:all occurrence must be zero or one")
+	maximum := maxOccurrence{value: occurs.Max, kind: maxOccurrenceFinite}
+	if occurs.Unbounded {
+		maximum = maxOccurrence{kind: maxOccurrenceUnbounded}
+	}
+	if !allGroupMinAdmitted(occurs.Min) || !allGroupMaxAdmitted(maximum) {
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, allGroupOccurrenceMessage)
 	}
 	return nil
 }

@@ -129,11 +129,18 @@ func (s *substitutionCompilation) cycleError(member ElementID) error {
 		return err
 	}
 	name := s.elements[cycle].Name
-	diagnostic := xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "cyclic substitution group "+s.compiler.rt.formatName(name))
-	if raw, exists := s.compiler.elementComponents[name]; exists {
-		return withSchemaCompileLocation(raw.sourceNode(), diagnostic)
+	return s.compiler.atGlobalElement(name, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "cyclic substitution group "+s.compiler.rt.formatName(name)))
+}
+
+// atGlobalElement locates diagnostic at the declaration of the global element
+// name. Substitution group members and heads are global declarations, so a
+// name without one is an internal invariant.
+func (c *compiler) atGlobalElement(name QName, diagnostic error) error {
+	raw, exists := c.elementComponents[name]
+	if !exists {
+		return xsderrors.InternalInvariant("substitution group element " + c.rt.formatName(name) + " has no global declaration")
 	}
-	return diagnostic
+	return withSchemaCompileLocation(raw.sourceNode(), diagnostic)
 }
 
 func (s *substitutionCompilation) finalizeElementConstraints() error {
@@ -165,7 +172,7 @@ func (c *compiler) substitutionTableError(err error, elements []elementDecl) err
 	if cycle, ok := errors.AsType[substitutionCycleError](err); ok {
 		name, nameOK := c.rt.ElementName(cycle.Element)
 		if nameOK {
-			return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "cyclic substitution group "+c.rt.formatName(name))
+			return c.atGlobalElement(name, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "cyclic substitution group "+c.rt.formatName(name)))
 		}
 	}
 	if limitErr, ok := errors.AsType[substitutionClosureLimitError](err); ok {
@@ -181,10 +188,7 @@ func (c *compiler) substitutionTableError(err error, elements []elementDecl) err
 			HeadName:   c.rt.formatName(head.Name),
 			HeadType:   c.rt.TypeLabel(head.Type),
 		})
-		if raw, exists := c.elementComponents[member.Name]; exists {
-			return withSchemaCompileLocation(raw.sourceNode(), diagnostic)
-		}
-		return diagnostic
+		return c.atGlobalElement(member.Name, diagnostic)
 	}
 	if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
 		return err

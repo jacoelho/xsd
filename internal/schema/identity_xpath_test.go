@@ -319,3 +319,36 @@ func (s identityNameResolverStub) ResolveIdentityWildcardNamespace(prefix string
 	}
 	return ns, nil
 }
+
+func TestIdentityXPathCheckMatchesBuildWithoutPaths(t *testing.T) {
+	resolver := identityNameResolverStub{
+		namespaces: map[string]namespaceID{"p": 2},
+		qnames:     map[string]QName{":a": {Local: 1}, "p:a": {Namespace: 2, Local: 1}},
+	}
+	for _, xpath := range []string{"a | .//p:a", "p:* | a/./a", "a | //", "// | a", "q:a", "a | q:*", "child::", "@a", "a[1]"} {
+		built, buildErr := parseIdentityPaths(xpath, resolver)
+		checked, checkErr := identityXPathParser{resolver: resolver}.selectorPaths(xpath)
+		if checked != nil || identityErrorText(checkErr) != identityErrorText(buildErr) {
+			t.Fatalf("selector %q check = %v, %v, want no paths and build error %v (built %v)", xpath, checked, checkErr, buildErr, built)
+		}
+		builtFields, buildErr := parseIdentityFieldPaths(xpath, resolver)
+		checkedFields, checkErr := identityXPathParser{resolver: resolver}.fieldPaths(xpath)
+		if checkedFields != nil || identityErrorText(checkErr) != identityErrorText(buildErr) {
+			t.Fatalf("field %q check = %v, %v, want no paths and build error %v (built %v)", xpath, checkedFields, checkErr, buildErr, builtFields)
+		}
+	}
+	if allocs := testing.AllocsPerRun(10, func() {
+		if _, err := (identityXPathParser{resolver: &resolver}).fieldPaths(".//a/p:a/@p:a | a/attribute::p:*"); err != nil {
+			t.Fatal(err)
+		}
+	}); allocs != 0 {
+		t.Fatalf("checking a valid field XPath allocated %v times, want 0", allocs)
+	}
+}
+
+func identityErrorText(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}

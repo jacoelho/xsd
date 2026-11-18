@@ -40,6 +40,16 @@ type occurrence struct {
 	Unbounded bool
 }
 
+// IsAbsent reports whether a particle with this occurrence range corresponds
+// to no component. The XML representations of xs:element (Structures
+// §3.3.2), xs:group (§3.7.2), xs:sequence and xs:choice (§3.8.2) map an item
+// with minOccurs and maxOccurs 0 to no component at all, so the item's own
+// references are neither resolved nor import-authorized. Every decision that
+// drops a particle source item, or the particle it lowers to, uses it.
+func (o occurrence) IsAbsent() bool {
+	return o.Max == 0 && !o.Unbounded
+}
+
 // IsExactlyOne reports whether the occurrence range is exactly 1..1.
 func (o occurrence) IsExactlyOne() bool {
 	return o.Min == 1 && o.Max == 1 && !o.Unbounded

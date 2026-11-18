@@ -31,9 +31,11 @@ const (
 	compileTier
 )
 
-// The stages of one decision point. Stages up to stageExcludedAttributes are
-// decided at a start tag, the others at an end tag. Contract stage 6 decides
-// the attributes a tag requires and then the ones that exclude each other.
+// The stages of one decision point. Stages up to stageXmlnsName are decided
+// at a start tag, the others at an end tag. Contract stage 6 decides, in this
+// order, the attributes a tag requires, the ones that exclude each other, the
+// occurrence bounds against each other, and an attribute declaration's name
+// against its use.
 const (
 	stageRoot = iota + 1
 	stageVocabulary
@@ -42,6 +44,8 @@ const (
 	stageAttribute
 	stageRequiredAttribute
 	stageExcludedAttributes
+	stageOccurrenceRelation
+	stageXmlnsName
 	stageText
 	stageRequiredChild
 )
@@ -54,6 +58,8 @@ var stageNames = map[int]string{
 	stageAttribute:          "5 attribute",
 	stageRequiredAttribute:  "6 required attribute",
 	stageExcludedAttributes: "6 excluded attributes",
+	stageOccurrenceRelation: "6 occurrence relation",
+	stageXmlnsName:          "6 xmlns name",
 	stageText:               "7 character data",
 	stageRequiredChild:      "8 required child",
 }
@@ -229,8 +235,6 @@ type violation struct {
 	tier      diagnosticTier
 	leadText  bool
 	tailText  bool
-	// nowhere marks a diagnostic the compiler reports without a location.
-	nowhere bool
 }
 
 func parseViolation(stage int, name string, code xsderrors.Code, message string) violation {
@@ -276,11 +280,6 @@ func (v violation) without(keys ...string) violation {
 	return v
 }
 
-func (v violation) unlocated() violation {
-	v.nowhere = true
-	return v
-}
-
 func (v violation) alone(build func(n string) []*node) violation {
 	v.standalone = build
 	return v
@@ -294,7 +293,7 @@ func (v violation) editedKey() string {
 }
 
 func (v violation) decidedAtStart() bool {
-	return v.stage <= stageExcludedAttributes
+	return v.stage <= stageXmlnsName
 }
 
 // entry is one violation of one fixture.
@@ -553,16 +552,10 @@ func (o compileOutcome) reports(p placed, path string) bool {
 	if !o.identifies(p.entry) {
 		return false
 	}
-	if p.entry.nowhere {
-		return d.Path() == "" && d.Line() == 0 && d.Column() == 0
-	}
 	return d.Path() == path && d.Line() == p.named.line && d.Column() == p.named.column
 }
 
 func (p placed) want(path string) string {
-	if p.entry.nowhere {
-		return fmt.Sprintf("(%s, %q) without a location, from %s", p.entry.code, p.entry.message, p.entry.describe())
-	}
 	return fmt.Sprintf("(%s, %q) at %s:%d:%d, from %s", p.entry.code, p.entry.message, path, p.named.line, p.named.column, p.entry.describe())
 }
 

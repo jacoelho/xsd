@@ -154,8 +154,8 @@ func (n *schemaSyntaxNode) schemaLocation() (path string, line int, column int) 
 
 // parseSchemaDocument parses one source with the caller-owned parser. The
 // parser is detached before this function returns and may be reused.
-func parseSchemaDocument(name, key string, input io.Reader, limits Limits, parser *xmlstream.Reader) (*schemaDocument, error) {
-	doc, err := parseTypedSchemaSourceDocument(name, key, input, limits, parser)
+func parseSchemaDocument(name, key string, input io.Reader, limits Limits, parser *xmlstream.Reader, patterns *schemaPatterns) (*schemaDocument, error) {
+	doc, err := parseTypedSchemaSourceDocument(name, key, input, limits, parser, patterns)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +188,7 @@ func schemaStreamError(line, col int, err error, limits Limits) error {
 		line, col = boundary.Line, boundary.Column
 	}
 	if feature, ok := xmlstream.UnsupportedFeatureOf(err); ok {
-		return unsupportedSchemaFeature(feature, err)
+		return xsderrors.WithLocation("", line, col, unsupportedSchemaFeature(feature, err))
 	}
 	if limit, ok := xmlstream.LimitOf(err); ok {
 		return schemaReaderLimitError(limit, line, col, err, limits)

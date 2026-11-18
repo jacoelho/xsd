@@ -158,41 +158,6 @@ func (c *compiler) resolveIdentityConstraintRefer(q QName) (IdentityConstraintID
 	return resolveIdentityConstraintRefer(c.rt.GlobalIdentities, q, c.rt.Names.Format(q))
 }
 
-func (c *compiler) validateIdentityReferencesBuild() error {
-	return validateIdentityReferences(c.rt.Identities)
-}
-
-func (c *compiler) compileContentModelsBuild() ([]compiledModel, error) {
-	return compileContentModels(
-		&c.rt.Names,
-		&c.rt,
-		len(c.rt.Models),
-		c.limits.MaxContentModelStates,
-		&c.contentWork,
-		c.contentAnalysis,
-	)
-}
-
-func (c *compiler) checkContentModelsUPABuild() error {
-	return checkContentModelsUPA(&c.rt.Names, &c.rt, len(c.rt.Models), &c.contentWork, c.contentAnalysis)
-}
-
-func (c *compiler) checkContentModelElementDeclarationsConsistentBuild() error {
-	if len(c.modelSources) != len(c.rt.Models) {
-		return xsderrors.InternalInvariant("content model provenance count does not match model count")
-	}
-	checker := newElementDeclarationConsistencyChecker(&c.rt, c.contentWork.spend)
-	for id := range c.rt.Models {
-		if err := checker.checkModel(contentModelID(id)); err != nil {
-			if c.modelSources[id] != nil {
-				return withSchemaCompileLocation(c.modelSources[id], err)
-			}
-			return err
-		}
-	}
-	return nil
-}
-
 func (c *compiler) validateAttributeDeclNameBuild(q QName) error {
 	return validateAttributeDeclName(&c.rt.Names, q)
 }
@@ -249,12 +214,15 @@ func (c *compiler) registerGlobalSimpleType(q QName, typ simpleType) (SimpleType
 	return id, nil
 }
 
-func (c *compiler) registerGlobalIdentity(q QName, identity identityConstraintSpec) (IdentityConstraintID, error) {
+// registerGlobalIdentity admits the identity constraint declared at source,
+// whose node locates its compile checks.
+func (c *compiler) registerGlobalIdentity(q QName, identity identityConstraintSpec, source *schemaNode) (IdentityConstraintID, error) {
 	id, err := nextIdentityConstraintID(len(c.rt.Identities))
 	if err != nil {
 		return NoIdentityConstraint, err
 	}
 	c.rt.Identities = append(c.rt.Identities, identity)
+	c.identitySources = append(c.identitySources, source)
 	c.rt.GlobalIdentities[q] = id
 	return id, nil
 }
@@ -348,7 +316,7 @@ func (c *compiler) completeIdentity(id IdentityConstraintID, identity identityCo
 // an attribute-use set len(Uses) and a wildcard len(Namespaces). An admitted
 // model is immutable and reads share it. A new retained table must charge in
 // its admission function.
-// These functions return unlocated budget errors; enterComponent's leave locates
+// These functions return unlocated budget errors; componentScope.leave locates
 // them at the component being compiled.
 func (c *compiler) appendWildcard(wildcard wildcardRuntime) (WildcardID, error) {
 	id, err := nextWildcardID(len(c.rt.Wildcards))
@@ -374,7 +342,23 @@ func (c *compiler) addAttributeUseSet(set attributeUseSet) (attributeUseSetID, e
 	return id, nil
 }
 
-func (c *compiler) addModel(model contentModelNode) (contentModelID, error) {
+// addModel admits a content model compiled from source, the node whose
+// component owns it; the component scopes of the content model checks locate
+// their diagnostics at it.
+func (c *compiler) addModel(model contentModelNode, source *schemaNode) (contentModelID, error) {
+	if source == nil {
+		return noContentModel, xsderrors.InternalInvariant("content model has no source")
+	}
+	return c.appendModel(model, source)
+}
+
+// addBuiltinModel admits the content model of a builtin type. It has no
+// source, so its checks are set-wide.
+func (c *compiler) addBuiltinModel(model contentModelNode) (contentModelID, error) {
+	return c.appendModel(model, nil)
+}
+
+func (c *compiler) appendModel(model contentModelNode, source *schemaNode) (contentModelID, error) {
 	id, err := nextContentModelID(len(c.rt.Models))
 	if err != nil {
 		return noContentModel, err
@@ -384,20 +368,12 @@ func (c *compiler) addModel(model contentModelNode) (contentModelID, error) {
 	}
 	model.Particles = slices.Clip(model.Particles)
 	c.rt.Models = append(c.rt.Models, model)
-	c.modelSources = append(c.modelSources, nil)
+	c.modelSources = append(c.modelSources, source)
 	return id, nil
 }
 
-func (c *compiler) addModelAt(model contentModelNode, source *schemaNode) (contentModelID, error) {
-	id, err := c.addModel(model)
-	if err == nil {
-		c.modelSources[id] = source
-	}
-	return id, err
-}
-
 // completeModel installs particles that appendModelParticles already charged;
-// with addModel it is the only writer of the model table.
+// with appendModel it is the only writer of the model table.
 func (c *compiler) completeModel(id contentModelID, model contentModelNode) {
 	model.Particles = slices.Clip(model.Particles)
 	c.rt.Models[id] = model

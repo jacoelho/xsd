@@ -61,6 +61,7 @@ type schemaSetLoader struct {
 	byKey             map[string]loadedSchemaDocument
 	pendingReferences map[string][]*schemaReference
 	dependencyWork    *workBudget
+	patterns          *schemaPatterns
 	documents         []schemaSetDocument
 	parser            xmlstream.Reader
 	limits            Limits
@@ -242,6 +243,7 @@ func loadSchemaGraphOwned(
 	sources []source.Source,
 	limits Limits,
 	dependencyWork *workBudget,
+	patterns *schemaPatterns,
 ) (loadedSchemaGraph, error) {
 	if dependencyWork == nil {
 		return loadedSchemaGraph{}, xsderrors.InternalInvariant("schema dependency work budget is nil")
@@ -250,6 +252,7 @@ func loadSchemaGraphOwned(
 		limits:         limits,
 		byKey:          make(map[string]loadedSchemaDocument),
 		dependencyWork: dependencyWork,
+		patterns:       patterns,
 	}
 	if err := l.loadOwned(sources); err != nil {
 		return loadedSchemaGraph{}, err
@@ -283,8 +286,8 @@ func (g *loadedSchemaGraph) plan() (schemaPlan, error) {
 	return schemaPlan{documents: g.documents}, nil
 }
 
-func loadSchemaPlanOwned(sources []source.Source, limits Limits, dependencyWork *workBudget) (schemaPlan, error) {
-	graph, err := loadSchemaGraphOwned(sources, limits, dependencyWork)
+func loadSchemaPlanOwned(sources []source.Source, limits Limits, dependencyWork *workBudget, patterns *schemaPatterns) (schemaPlan, error) {
+	graph, err := loadSchemaGraphOwned(sources, limits, dependencyWork, patterns)
 	if err != nil {
 		return schemaPlan{}, err
 	}
@@ -292,7 +295,7 @@ func loadSchemaPlanOwned(sources []source.Source, limits Limits, dependencyWork 
 }
 
 func (c *compiler) loadOwned(sources []source.Source) error {
-	plan, err := loadSchemaPlanOwned(sources, c.limits, &c.dependencyWork)
+	plan, err := loadSchemaPlanOwned(sources, c.limits, &c.dependencyWork, &c.patterns)
 	if err != nil {
 		return err
 	}
@@ -395,7 +398,7 @@ func (l *schemaSetLoader) parseNewSource(item schemaLoadRequest, key string) (*s
 	if input != nil {
 		parseLimits := l.limits
 		parseLimits.MaxSchemaInstantiatedNodes -= l.parsedNodes
-		doc, parseErr = parseSchemaDocument(src.Name(), key, input, parseLimits, &l.parser)
+		doc, parseErr = parseSchemaDocument(src.Name(), key, input, parseLimits, &l.parser, l.patterns)
 		result = input.Finish()
 	}
 	missing, err := l.admitSourceResult(item, result, readLimit, remaining)
