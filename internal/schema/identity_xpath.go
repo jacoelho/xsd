@@ -61,7 +61,7 @@ func (r tagIdentityNameResolver) ResolveIdentityQName(parts qNameParts) (QName, 
 func (r tagIdentityNameResolver) ResolveIdentityWildcardNamespace(prefix string) (namespaceID, error) {
 	ns, ok := r.node.NS.Lookup(prefix)
 	if !ok {
-		return 0, schemaCompileAt(r.node, xsderrors.CodeSchemaReference, "unbound QName prefix "+prefix)
+		return 0, schemaCompileAt(r.node, xsderrors.CodeSchemaReference, "unbound QName prefix "+diagnostictext.Quote(prefix))
 	}
 	return newNameInterner(r.names).InternNamespace(ns)
 }

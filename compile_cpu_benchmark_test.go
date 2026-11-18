@@ -541,7 +541,7 @@ func checkCompileOwnerNamespace(tb testing.TB, engine *xsd.Engine) {
 		tb.Fatalf("unbound identity wildcard: engine=%v err=%v", failed, err)
 	}
 	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
-	if !ok || diagnostic.Category() != xsderrors.CategorySchemaCompile || diagnostic.Code() != xsderrors.CodeSchemaReference || diagnostic.Message() != "unbound QName prefix missing" {
+	if !ok || diagnostic.Category() != xsderrors.CategorySchemaCompile || diagnostic.Code() != xsderrors.CodeSchemaReference || diagnostic.Message() != `unbound QName prefix "missing"` {
 		tb.Fatalf("unbound identity wildcard diagnostic: %v", err)
 	}
 }

@@ -388,25 +388,31 @@ func TestSelectorAndFieldStoreThePathsBuiltAtTheirStartTag(t *testing.T) {
 func TestUnboundXPathPrefixIsReportedAtItsStartTag(t *testing.T) {
 	t.Parallel()
 
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	for _, xpath := range []string{"@p:a | @q:a", "@p:a | @q:*"} {
+		t.Run(xpath, func(t *testing.T) {
+			t.Parallel()
+
+			schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">
     <xs:key name="k">
       <xs:selector xpath="."/>
-      <xs:field xmlns:p="urn:bound" xpath="@p:a | @q:a"/>
+      <xs:field xmlns:p="urn:bound" xpath="` + xpath + `"/>
     </xs:key>
   </xs:element>
 </xs:schema>`
-	limits, err := NormalizeOptions(Options{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = parseSchemaDocument("schema.xsd", "schema.xsd", strings.NewReader(schema), limits, new(xmlstream.Reader), testSchemaAdmission(limits))
-	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
-	if !ok || diagnostic.Code() != xsderrors.CodeSchemaReference || !strings.Contains(diagnostic.Message(), `unbound QName prefix "q"`) {
-		t.Fatalf("parseSchemaDocument() error = %v, want schema.reference for unbound prefix q", err)
-	}
-	if diagnostic.Line() != 5 || diagnostic.Column() != 7 {
-		t.Fatalf("parseSchemaDocument() location = %d:%d, want the xs:field start tag at 5:7", diagnostic.Line(), diagnostic.Column())
+			limits, err := NormalizeOptions(Options{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = parseSchemaDocument("schema.xsd", "schema.xsd", strings.NewReader(schema), limits, new(xmlstream.Reader), testSchemaAdmission(limits))
+			diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+			if !ok || diagnostic.Code() != xsderrors.CodeSchemaReference || diagnostic.Message() != `unbound QName prefix "q"` {
+				t.Fatalf("parseSchemaDocument() error = %v, want schema.reference: unbound QName prefix \"q\"", err)
+			}
+			if diagnostic.Line() != 5 || diagnostic.Column() != 7 {
+				t.Fatalf("parseSchemaDocument() location = %d:%d, want the xs:field start tag at 5:7", diagnostic.Line(), diagnostic.Column())
+			}
+		})
 	}
 }
 

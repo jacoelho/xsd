@@ -653,7 +653,7 @@ func identityConstraintFixture() fixture {
 			requiredAttribute("field has no xpath", identity, `"field" missing xpath`).at(field).dropping("xpath"),
 			attributeViolation("field xpath is no field path", identity, `invalid identity XPath "a/@b/c"`).at(field).setting(`xpath="a/@b/c"`),
 			attributeViolation("empty attribute step before an unbound element prefix", identity, `invalid identity field XPath "p:a/@"`).at(field).setting(`xpath="p:a/@"`),
-			attributeViolation("unbound wildcard prefix in the field", reference, "unbound QName prefix p").at(field).setting(`xpath="@p:*"`),
+			attributeViolation("unbound wildcard prefix in the field", reference, `unbound QName prefix "p"`).at(field).setting(`xpath="@p:*"`),
 		},
 	}
 }
