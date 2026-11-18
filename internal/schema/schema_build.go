@@ -225,7 +225,7 @@ func (c *compiler) reserveIdentity(name ExpandedName, source *schemaNode) (Ident
 	if err != nil {
 		return NoIdentityConstraint, err
 	}
-	c.rt.Identities = append(c.rt.Identities, newDeclaredIdentityConstraint(noQName()))
+	c.rt.Identities = append(c.rt.Identities, newDeclaredIdentityConstraint())
 	c.identitySources = append(c.identitySources, source)
 	c.identityDeclarations = append(c.identityDeclarations, identityDeclaration{name: name})
 	if c.identityNames == nil {

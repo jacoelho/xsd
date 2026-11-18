@@ -21,6 +21,30 @@ func identityConstraintKindForLocal(local string) (IdentityKind, error) {
 	}
 }
 
+// newDeclaredIdentityConstraint returns the placeholder of a declared
+// identity constraint: unnamed until nameIdentityConstraint interns its name,
+// and without paths until it compiles.
+func newDeclaredIdentityConstraint() identityConstraintSpec {
+	return identityConstraintSpec{Name: noQName(), Refer: NoIdentityConstraint}
+}
+
+// newIdentityConstraint builds an identity constraint over selector and
+// fields without copying them, so the constraints compiled from one node in
+// several document contexts share the paths compiler.identityPaths keeps for
+// that node.
+func newIdentityConstraint(kind IdentityKind, name QName, refer IdentityConstraintID, selector []identityPath, fields []identityField) identityConstraintSpec {
+	if kind != IdentityKeyRef {
+		refer = NoIdentityConstraint
+	}
+	return identityConstraintSpec{
+		Selector: selector,
+		Fields:   fields,
+		Name:     name,
+		Refer:    refer,
+		Kind:     kind,
+	}
+}
+
 // checkIdentityConstraintNameAvailable rejects duplicate global identity
 // constraint names.
 func checkIdentityConstraintNameAvailable[K comparable](
