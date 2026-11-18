@@ -41,11 +41,12 @@ type nameTable struct {
 // nameArenaChunk is the size of a full nameArena chunk. A name longer than a
 // quarter chunk gets its own allocation, so at most a quarter chunk is left
 // unused when a chunk is replaced. The first chunk is nameArenaFirstChunk
-// bytes and each next chunk doubles up to a full one, so a schema with few
-// names does not pay for a full chunk.
+// bytes, which holds the names every runtime name table is seeded with
+// (newRuntimeNameTable), and each next chunk doubles up to a full one, so a
+// schema with few names does not pay for a full chunk.
 const (
 	nameArenaChunk      = 4096
-	nameArenaFirstChunk = 256
+	nameArenaFirstChunk = 512
 )
 
 // nameArena stores the bytes of copied names in chunks, one allocation per
@@ -165,19 +166,19 @@ func newBoundedNameTable(maxNames int, requiredNamespaces []string, requiredName
 		maxNames:   maxNames,
 	}
 	interner := newNameInterner(&n)
-	if _, err := interner.internNamespaceWith(vocab.EmptyNamespaceURI, nameConstant); err != nil {
+	if _, err := interner.InternNamespace(vocab.EmptyNamespaceURI); err != nil {
 		return nameTable{}, err
 	}
 	for _, uri := range requiredNamespaces {
 		if uri == vocab.EmptyNamespaceURI {
 			continue
 		}
-		if _, err := interner.internNamespaceWith(uri, nameConstant); err != nil {
+		if _, err := interner.InternNamespace(uri); err != nil {
 			return nameTable{}, err
 		}
 	}
 	for _, name := range requiredNames {
-		if _, err := interner.internQNameWith(name.Namespace, name.Local, nameConstant); err != nil {
+		if _, err := interner.InternQName(name.Namespace, name.Local); err != nil {
 			return nameTable{}, err
 		}
 	}
@@ -366,39 +367,16 @@ func newNameInterner(table *nameTable) nameInterner {
 	return nameInterner{table: table}
 }
 
-// InternNamespace interns uri and returns its namespace ID.
-func (n nameInterner) InternNamespace(uri string) (namespaceID, error) {
-	return n.internNamespaceWith(uri, nameFromSource)
-}
-
-// InternQName interns ns and local and returns the corresponding QName.
-func (n nameInterner) InternQName(ns, local string) (QName, error) {
-	return n.internQNameWith(ns, local, nameFromSource)
-}
-
-// nameOrigin says whether a name may be part of a longer source string.
-type nameOrigin uint8
-
-const (
-	// nameFromSource is a name read from a schema source, possibly a
-	// substring of a longer value.
-	nameFromSource nameOrigin = iota
-	// nameConstant is a string constant of this program; it pins no source.
-	nameConstant
-)
-
 // own returns the string the table stores for a name it does not hold yet.
-func (n nameInterner) own(name string, origin nameOrigin) string {
-	if origin == nameConstant {
-		return name
-	}
+func (n nameInterner) own(name string) string {
 	if n.table.arena == nil {
 		n.table.arena = newNameArena()
 	}
 	return n.table.arena.store(name)
 }
 
-func (n nameInterner) internNamespaceWith(uri string, origin nameOrigin) (namespaceID, error) {
+// InternNamespace interns uri and returns its namespace ID.
+func (n nameInterner) InternNamespace(uri string) (namespaceID, error) {
 	table := n.table
 	if id, ok := table.nsIndex[uri]; ok {
 		return id, nil
@@ -410,13 +388,14 @@ func (n nameInterner) internNamespaceWith(uri string, origin nameOrigin) (namesp
 	if err != nil {
 		return 0, err
 	}
-	uri = n.own(uri, origin)
+	uri = n.own(uri)
 	table.namespaces = append(table.namespaces, uri)
 	table.nsIndex[uri] = id
 	return id, nil
 }
 
-func (n nameInterner) internQNameWith(ns, local string, origin nameOrigin) (QName, error) {
+// InternQName interns ns and local and returns the corresponding QName.
+func (n nameInterner) InternQName(ns, local string) (QName, error) {
 	table := n.table
 	nsID, nsOK := table.nsIndex[ns]
 	localID, localOK := table.localIndex[local]
@@ -436,7 +415,7 @@ func (n nameInterner) internQNameWith(ns, local string, origin nameOrigin) (QNam
 			return QName{}, err
 		}
 		nsID = next
-		ns = n.own(ns, origin)
+		ns = n.own(ns)
 		table.namespaces = append(table.namespaces, ns)
 		table.nsIndex[ns] = nsID
 	}
@@ -446,7 +425,7 @@ func (n nameInterner) internQNameWith(ns, local string, origin nameOrigin) (QNam
 			return QName{}, err
 		}
 		localID = next
-		local = n.own(local, origin)
+		local = n.own(local)
 		table.locals = append(table.locals, local)
 		table.localIndex[local] = localID
 	}

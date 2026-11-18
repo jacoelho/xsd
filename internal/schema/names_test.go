@@ -298,3 +298,13 @@ func TestNamespaceURISortFollowsTheExpandedNameNamespaceOrder(t *testing.T) {
 		t.Fatalf("sortNamespaceURIs() = %q, not in compareNamespaceURI order", uris)
 	}
 }
+
+func TestTheRuntimeNameSeedFitsTheFirstArenaChunk(t *testing.T) {
+	names, err := newRuntimeNameTable(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := names.arena.chunk.Cap(); got != nameArenaFirstChunk {
+		t.Fatalf("seeded name arena chunk capacity = %d, want the first chunk, %d bytes", got, nameArenaFirstChunk)
+	}
+}
