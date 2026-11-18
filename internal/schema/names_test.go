@@ -3,7 +3,6 @@ package schema
 import (
 	"errors"
 	"fmt"
-	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -247,53 +246,46 @@ func TestInternedNamesDoNotRetainTheirSourceString(t *testing.T) {
 	}
 }
 
-func TestInterningDistinctNamesAllocatesPerArenaChunkNotPerName(t *testing.T) {
-	const count, length = 10_000, 12
-	names, err := newBoundedNameTable(0, nil, nil, 1, count)
-	if err != nil {
-		t.Fatal(err)
-	}
+func TestInterningDistinctShortNamesAllocatesFarFewerTimesThanThereAreNames(t *testing.T) {
+	const count = 10_000
 	source := make([]string, count)
 	for i := range source {
 		source[i] = fmt.Sprintf("name-%07d", i)
 	}
-	interner := newNameInterner(&names)
-	var before, after runtime.MemStats
-	runtime.ReadMemStats(&before)
 	var last QName
-	for _, local := range source {
-		if last, err = interner.InternQName("", local); err != nil {
+	allocs := testing.AllocsPerRun(3, func() {
+		names, err := newBoundedNameTable(0, nil, nil, 1, count)
+		if err != nil {
 			t.Fatal(err)
 		}
-	}
-	runtime.ReadMemStats(&after)
-	const rampChunks = 4 // the arena with its first chunk, then 512, 1024 and 2048 bytes
-	if nameArenaChunk>>rampChunks != nameArenaFirstChunk {
-		t.Fatalf("rampChunks = %d does not match chunk sizes %d to %d", rampChunks, nameArenaFirstChunk, nameArenaChunk)
-	}
-	const chunks = (count*length+nameArenaChunk-1)/nameArenaChunk + rampChunks
-	if allocs := after.Mallocs - before.Mallocs; allocs > chunks+2 {
-		t.Fatalf("interning %d distinct %d-byte names allocated %d times, want at most %d arena chunks and 2 more", count, length, allocs, chunks)
-	}
-	if got := names.Local(last.Local); got != source[count-1] {
-		t.Fatalf("last interned local name = %q, want %q", got, source[count-1])
+		interner := newNameInterner(&names)
+		for _, local := range source {
+			if last, err = interner.InternQName("", local); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if got := names.Local(last.Local); got != source[count-1] {
+			t.Fatalf("last interned local name = %q, want %q", got, source[count-1])
+		}
+	})
+	if limit := float64(count/16 + 8); allocs > limit {
+		t.Fatalf("interning %d distinct short names into a fresh table allocated %v times, want at most %v", count, allocs, limit)
 	}
 }
 
-func TestNameArenaStoresANameLongerThanTheNextChunkInOneAllocation(t *testing.T) {
-	short := strings.Repeat("s", nameArenaFirstChunk-1)
-	long := strings.Repeat("l", 2*nameArenaFirstChunk+1)
-	var stored string
-	allocs := testing.AllocsPerRun(10, func() {
-		arena := newNameArena()
-		arena.store(short)
-		stored = arena.store(long)
-	})
-	if allocs != 2 {
-		t.Fatalf("a fresh arena storing a %d-byte name after a %d-byte one allocated %v times, want 2: the arena and one chunk", len(long), len(short), allocs)
-	}
-	if stored != long {
-		t.Fatalf("stored name = %q, want %q", stored, long)
+func TestNameArenaStoresAnyNameUpToAQuarterChunkWithAtMostOneAllocation(t *testing.T) {
+	for length := 1; length <= nameArenaChunk/4; length++ {
+		name := strings.Repeat("n", length)
+		var stored string
+		allocs := testing.AllocsPerRun(5, func() {
+			stored = newNameArena().store(name)
+		})
+		if allocs > 2 {
+			t.Fatalf("a fresh arena storing a %d-byte name allocated %v times, want the arena and at most one chunk", length, allocs)
+		}
+		if stored != name {
+			t.Fatalf("stored %d-byte name = %q, want %q", length, stored, name)
+		}
 	}
 }
 

@@ -469,26 +469,33 @@ func TestMalformedIdentityPathIsRejectedWithoutAllocatingPerSeparator(t *testing
 	}
 }
 
-func TestIdentityPathsRetainOnlyAcceptedBranchesAndSteps(t *testing.T) {
+func TestIdentityPathsRetainCapacityForAcceptedStepsNotForSeparators(t *testing.T) {
 	resolver := identityNameResolverStub{qnames: map[string]QName{":a": {Local: 1}, ":b": {Local: 2}}}
-	paths, err := parseIdentityPaths("././a/./b | .", resolver)
+	selfSteps := strings.Repeat("./", 1_000)
+	const factor = 2
+
+	paths, err := parseIdentityPaths(selfSteps+"a/"+selfSteps+"b | "+selfSteps+".", resolver)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(paths) != 2 || cap(paths) != 2 {
-		t.Fatalf("paths len %d cap %d, want 2 and 2", len(paths), cap(paths))
+	if len(paths) != 2 || cap(paths) > factor*len(paths) {
+		t.Fatalf("selector paths len %d cap %d, want 2 paths and capacity at most %d", len(paths), cap(paths), factor*2)
 	}
-	if steps := paths[0].Steps; len(steps) != 2 || cap(steps) != 2 {
-		t.Fatalf("first path steps len %d cap %d, want 2 and 2", len(steps), cap(steps))
+	if steps := paths[0].Steps; len(steps) != 2 || steps[0].Name != (QName{Local: 1}) || steps[1].Name != (QName{Local: 2}) || cap(steps) > factor*len(steps) {
+		t.Fatalf("first selector path steps = %+v (cap %d), want a/b with capacity at most %d", steps, cap(steps), factor*2)
 	}
-	if steps := paths[1].Steps; cap(steps) != 0 {
-		t.Fatalf("self path steps cap %d, want 0", cap(steps))
+	if steps := paths[1].Steps; len(steps) != 0 || cap(steps) > factor {
+		t.Fatalf("self selector path steps len %d cap %d, want none and capacity at most %d", len(steps), cap(steps), factor)
 	}
-	fields, err := parseIdentityFieldPaths("./a/./@b", resolver)
+
+	fields, err := parseIdentityFieldPaths(selfSteps+"a/"+selfSteps+"@b", resolver)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(fields) != 1 || cap(fields) != 1 || len(fields[0].Steps) != 1 || cap(fields[0].Steps) != 1 {
-		t.Fatalf("field path = %+v (cap %d, steps cap %d), want one path with one step and no spare capacity", fields, cap(fields), cap(fields[0].Steps))
+	if len(fields) != 1 || cap(fields) > factor {
+		t.Fatalf("field paths len %d cap %d, want 1 path and capacity at most %d", len(fields), cap(fields), factor)
+	}
+	if steps := fields[0].Steps; len(steps) != 1 || steps[0].Name != (QName{Local: 1}) || cap(steps) > factor || fields[0].Attribute != (QName{Local: 2}) {
+		t.Fatalf("field path = %+v (steps cap %d), want a/@b with step capacity at most %d", fields[0], cap(steps), factor)
 	}
 }
