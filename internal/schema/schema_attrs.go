@@ -488,7 +488,7 @@ func schemaElementAttributeAllowed(element, attr string) bool {
 
 // checkSchemaAttributeValueSyntax checks the value of attr, an unqualified
 // attribute of the XSD element named element, against the lexical form the
-// element gives it: a boolean, an occurrence count, a form, an attribute use,
+// element gives it: a boolean, a form, an attribute use,
 // a derivation set, a wildcard namespace list, a processContents mode, or a
 // namespace name that cannot be empty. An attribute with none of these forms
 // passes. Start-tag admission decides these violations; compilation parses the
@@ -502,10 +502,6 @@ func checkSchemaAttributeValueSyntax(element, attr, value string) error {
 	switch attr {
 	case vocab.XSDAttrNillable, vocab.XSDAttrAbstract, vocab.XSDAttrMixed:
 		_, err = parseBooleanAttr(booleanAttr{Name: attr, Value: value, HasValue: true})
-	case vocab.XSDAttrMinOccurs:
-		_, err = parseMinOccursLexical(value)
-	case vocab.XSDAttrMaxOccurs:
-		_, err = parseMaxOccursLexical(value)
 	case vocab.XSDAttrForm:
 		err = checkFormSyntax(element, value)
 	case vocab.XSDAttrElementFormDefault, vocab.XSDAttrAttributeFormDefault:

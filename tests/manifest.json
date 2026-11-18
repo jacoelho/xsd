@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 17084,
-    "schemaCases": 17034,
+    "cases": 17106,
+    "schemaCases": 17056,
     "instanceRuns": 35810,
     "w3cCases": 14414,
-    "internalRuns": 2657,
+    "internalRuns": 2679,
     "xercesJCases": 13
   },
   "cases": [
@@ -915190,6 +915190,1186 @@
       "files": [
         {
           "file": "corpus/project/schema-syntax/facet-values/pattern-unclosed-class/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/occurrence-values/min-greater-than-max",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/occurrence-values/min-greater-than-max",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+        ],
+        "conditions": [
+          "A local element has minOccurs=\"2\" and maxOccurs=\"1\"; Particle Correct 2.1 requires {min occurs} not greater than {max occurs}."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/occurrence-values/min-greater-than-max/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.occurrence",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:89: p-props-correct.2.1: In the declaration of 'element', the value of 'minOccurs' is '2', but it must not be greater than the value of 'maxOccurs', which is '1'. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:40: minOccurs value cannot be greater than maxOccurs value. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. maxOccurs must be 'unbounded' or greater than minOccurs: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"e\" minOccurs=\"2\" maxOccurs=\"1\" /> Path: /xs:schema/xs:complexType/xs:sequence/xs:element Schema URL: file://schema.xsd. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'minOccurs': The value must not be greater than the value of 'maxOccurs'. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/occurrence-values/min-greater-than-max/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/occurrence-values/max-zero-default-min",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/occurrence-values/max-zero-default-min",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+        ],
+        "conditions": [
+          "A local element has maxOccurs=\"0\" and no minOccurs, whose default is 1, so {min occurs} is greater than {max occurs}."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/occurrence-values/max-zero-default-min/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.occurrence",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:75: p-props-correct.2.1: In the declaration of 'element', the value of 'minOccurs' is '1', but it must not be greater than the value of 'maxOccurs', which is '0'. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle. .NET accepts maxOccurs=\"0\" with the default minOccurs 1; Xerces-J, xmlschema and libxml2 reject it under Particle Correct 2.1.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. maxOccurs must be 'unbounded' or greater than minOccurs: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"e\" maxOccurs=\"0\" /> Path: /xs:schema/xs:complexType/xs:sequence/xs:element Schema URL: file://schema.xsd. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'maxOccurs': The value must be greater than or equal to 1. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/occurrence-values/max-zero-default-min/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/occurrence-values/min-two-default-max",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/occurrence-values/min-two-default-max",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+        ],
+        "conditions": [
+          "A local element has minOccurs=\"2\" and no maxOccurs, whose default is 1, so {min occurs} is greater than {max occurs}."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/occurrence-values/min-two-default-max/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.occurrence",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:75: p-props-correct.2.1: In the declaration of 'element', the value of 'minOccurs' is '2', but it must not be greater than the value of 'maxOccurs', which is '1'. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:40: minOccurs value cannot be greater than maxOccurs value. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. minOccurs must be lesser or equal than maxOccurs: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"e\" minOccurs=\"2\" /> Path: /xs:schema/xs:complexType/xs:sequence/xs:element Schema URL: file://schema.xsd. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'minOccurs': The value must not be greater than the value of 'maxOccurs'. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/occurrence-values/min-two-default-max/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/occurrence-values/min-equals-max",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/occurrence-values/min-equals-max",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+        ],
+        "conditions": [
+          "A local element has minOccurs=\"2\" and maxOccurs=\"2\"; equal bounds satisfy Particle Correct 2.1."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/occurrence-values/min-equals-max/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/occurrence-values/min-equals-max/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/occurrence-values/zero-zero",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/occurrence-values/zero-zero",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+        ],
+        "conditions": [
+          "A local element has minOccurs=\"0\" and maxOccurs=\"0\"; the bounds are equal."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/occurrence-values/zero-zero/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/occurrence-values/zero-zero/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/occurrence-values/value-equal-spellings-equal",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/occurrence-values/value-equal-spellings-equal",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+        ],
+        "conditions": [
+          "minOccurs=\" +02 \" is the nonNegativeInteger 2 after whitespace collapse, equal to maxOccurs=\"2\"; the relation compares values, not spellings."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/occurrence-values/value-equal-spellings-equal/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'minOccurs': The value ' +02 ' is not valid. Expected is 'xs:nonNegativeInteger'. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle. libxml2 rejects the minOccurs value \" +02 \" lexically; it does not collapse whitespace or accept the leading plus sign that xs:nonNegativeInteger admits, which Xerces-J, .NET and xmlschema accept.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/occurrence-values/value-equal-spellings-equal/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/occurrence-values/value-equal-spellings-greater",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/occurrence-values/value-equal-spellings-greater",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+        ],
+        "conditions": [
+          "minOccurs=\"003\" is 3 and maxOccurs=\"+2\" is 2; the relation compares values, so {min occurs} is greater than {max occurs}."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/occurrence-values/value-equal-spellings-greater/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.occurrence",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:92: p-props-correct.2.1: In the declaration of 'element', the value of 'minOccurs' is '3', but it must not be greater than the value of 'maxOccurs', which is '2'. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:40: minOccurs value cannot be greater than maxOccurs value. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. maxOccurs must be 'unbounded' or greater than minOccurs: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"e\" minOccurs=\"003\" maxOccurs=\"+2\" /> Path: /xs:schema/xs:complexType/xs:sequence/xs:element Schema URL: file://schema.xsd. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'maxOccurs': The value '+2' is not valid. Expected is '(xs:nonNegativeInteger | unbounded)'. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/occurrence-values/value-equal-spellings-greater/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/occurrence-values/min-with-unbounded-max",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/occurrence-values/min-with-unbounded-max",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+        ],
+        "conditions": [
+          "A local element has minOccurs=\"5\" and maxOccurs=\"unbounded\"; an unbounded maximum exceeds every minimum."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/occurrence-values/min-with-unbounded-max/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/occurrence-values/min-with-unbounded-max/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/occurrence-values/any-min-greater-than-max",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/occurrence-values/any-min-greater-than-max",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+        ],
+        "conditions": [
+          "An xs:any particle has minOccurs=\"3\" and maxOccurs=\"2\"."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/occurrence-values/any-min-greater-than-max/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.occurrence",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:76: p-props-correct.2.1: In the declaration of 'any', the value of 'minOccurs' is '3', but it must not be greater than the value of 'maxOccurs', which is '2'. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:40: minOccurs value cannot be greater than maxOccurs value. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. maxOccurs must be 'unbounded' or greater than minOccurs: Schema component: <xs:any xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" minOccurs=\"3\" maxOccurs=\"2\" /> Path: /xs:schema/xs:complexType/xs:sequence/xs:any Schema URL: file://schema.xsd. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element any: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}any', attribute 'minOccurs': The value must not be greater than the value of 'maxOccurs'. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/occurrence-values/any-min-greater-than-max/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/occurrence-values/group-reference-min-two-default-max",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/occurrence-values/group-reference-min-two-default-max",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+        ],
+        "conditions": [
+          "A model group reference has minOccurs=\"2\" and the default maxOccurs 1."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/occurrence-values/group-reference-min-two-default-max/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.occurrence",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:72: p-props-correct.2.1: In the declaration of 'group', the value of 'minOccurs' is '2', but it must not be greater than the value of 'maxOccurs', which is '1'. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:40: minOccurs value cannot be greater than maxOccurs value. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. minOccurs must be lesser or equal than maxOccurs: Schema component: <xs:group xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" ref=\"G\" minOccurs=\"2\" /> Path: /xs:schema/xs:complexType/xs:sequence/xs:group Schema URL: file://schema.xsd. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element group: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}group', attribute 'minOccurs': The value must not be greater than the value of 'maxOccurs'. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/occurrence-values/group-reference-min-two-default-max/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/occurrence-values/sequence-max-zero-default-min",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/occurrence-values/sequence-max-zero-default-min",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+        ],
+        "conditions": [
+          "A nested xs:sequence has maxOccurs=\"0\" and the default minOccurs 1."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/occurrence-values/sequence-max-zero-default-min/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.occurrence",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:66: p-props-correct.2.1: In the declaration of 'sequence', the value of 'minOccurs' is '1', but it must not be greater than the value of 'maxOccurs', which is '0'. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle. .NET accepts maxOccurs=\"0\" with the default minOccurs 1; Xerces-J, xmlschema and libxml2 reject it under Particle Correct 2.1.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. maxOccurs must be 'unbounded' or greater than minOccurs: Schema component: <xs:sequence xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" maxOccurs=\"0\"><xs:element name=\"e\" /></xs:sequence> Path: /xs:schema/xs:complexType/xs:sequence/xs:sequence Schema URL: file://schema.xsd. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element sequence: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}sequence', attribute 'maxOccurs': The value must be greater than or equal to 1. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/occurrence-values/sequence-max-zero-default-min/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/occurrence-values/relation-in-unreferenced-group",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/occurrence-values/relation-in-unreferenced-group",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+        ],
+        "conditions": [
+          "A named model group that nothing references holds an element with minOccurs=\"2\" and maxOccurs=\"1\"; the particle is still a component of the group definition."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/occurrence-values/relation-in-unreferenced-group/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.occurrence",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:83: p-props-correct.2.1: In the declaration of 'element', the value of 'minOccurs' is '2', but it must not be greater than the value of 'maxOccurs', which is '1'. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:34: minOccurs value cannot be greater than maxOccurs value. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. maxOccurs must be 'unbounded' or greater than minOccurs: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"e\" minOccurs=\"2\" maxOccurs=\"1\" /> Path: /xs:schema/xs:group/xs:sequence/xs:element Schema URL: file://schema.xsd. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'minOccurs': The value must not be greater than the value of 'maxOccurs'. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/occurrence-values/relation-in-unreferenced-group/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/occurrence-values/max-uint32",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/occurrence-values/max-uint32",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+        ],
+        "conditions": [
+          "maxOccurs=\"4294967295\" is the largest finite occurrence count the project admits; it is a valid nonNegativeInteger."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/occurrence-values/max-uint32/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:98: s4s-att-invalid-value: Invalid attribute value for 'maxOccurs' in element 'element'. Recorded reason: cvc-datatype-valid.1.2.1: '4294967295' is not a valid value for 'nonNegativeInteger'. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle. Xerces-J rejects 4294967295 as an xs:nonNegativeInteger attribute value, an implementation range limit below the value space; .NET and xmlschema accept it.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'maxOccurs': The value '4294967295' is not valid. Expected is '(xs:nonNegativeInteger | unbounded)'. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle. libxml2 rejects 4294967295 as a maxOccurs value, an implementation range limit below the value space; .NET and xmlschema accept it.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/occurrence-values/max-uint32/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/all-occurrence/own-optional",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/all-occurrence/own-optional",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+        ],
+        "conditions": [
+          "xs:all has minOccurs=\"0\" and maxOccurs=\"1\", the values the schema for schemas admits."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/all-occurrence/own-optional/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/all-occurrence/own-optional/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/all-occurrence/own-max-two",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/all-occurrence/own-max-two",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+        ],
+        "conditions": [
+          "xs:all has maxOccurs=\"2\"; the schema for schemas admits only 1."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/all-occurrence/own-max-two/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.occurrence",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:48: s4s-att-invalid-value: Invalid attribute value for 'maxOccurs' in element 'all'. Recorded reason: cvc-enumeration-valid: Value '2' is not facet-valid with respect to enumeration '(1)'. It must be a value from the enumeration. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:27: 'all' must have a 'maxOccurs' value of 1. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute maxOccurs='2': value must be one of [1]: Schema component: <xs:all xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" maxOccurs=\"2\"><xs:element name=\"e\" /></xs:all> Path: /xs:schema/xs:complexType/xs:all Schema URL: file://schema.xsd. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element all: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}all', attribute 'maxOccurs': The value '2' is not valid. Expected is '1'. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/all-occurrence/own-max-two/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/all-occurrence/own-min-two",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/all-occurrence/own-min-two",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+        ],
+        "conditions": [
+          "xs:all has minOccurs=\"2\"; the schema for schemas admits only 0 and 1."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/all-occurrence/own-min-two/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.occurrence",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:62: s4s-att-invalid-value: Invalid attribute value for 'minOccurs' in element 'all'. Recorded reason: cvc-enumeration-valid: Value '2' is not facet-valid with respect to enumeration '(0 | 1)'. It must be a value from the enumeration. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:27: 'all' must have 'minOccurs' value of 0 or 1. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute minOccurs='2': value must be one of [0, 1]: Schema component: <xs:all xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" minOccurs=\"2\" maxOccurs=\"1\"><xs:element name=\"e\" /></xs:all> Path: /xs:schema/xs:complexType/xs:all Schema URL: file://schema.xsd. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element all: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}all', attribute 'minOccurs': The value '2' is not valid. Expected is '(0 | 1)'. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/all-occurrence/own-min-two/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/all-occurrence/own-max-zero",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/all-occurrence/own-max-zero",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+        ],
+        "conditions": [
+          "xs:all has maxOccurs=\"0\"; the schema for schemas admits only 1."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/all-occurrence/own-max-zero/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.occurrence",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:62: s4s-att-invalid-value: Invalid attribute value for 'maxOccurs' in element 'all'. Recorded reason: cvc-enumeration-valid: Value '0' is not facet-valid with respect to enumeration '(1)'. It must be a value from the enumeration. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:27: 'all' must have a 'maxOccurs' value of 1. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute maxOccurs='0': value must be one of [1]: Schema component: <xs:all xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" minOccurs=\"0\" maxOccurs=\"0\"><xs:element name=\"e\" /></xs:all> Path: /xs:schema/xs:complexType/xs:all Schema URL: file://schema.xsd. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element all: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}all', attribute 'maxOccurs': The value '0' is not valid. Expected is '1'. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/all-occurrence/own-max-zero/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/all-occurrence/own-max-unbounded",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/all-occurrence/own-max-unbounded",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+        ],
+        "conditions": [
+          "xs:all has maxOccurs=\"unbounded\"; the schema for schemas admits only 1."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/all-occurrence/own-max-unbounded/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.occurrence",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:56: s4s-att-invalid-value: Invalid attribute value for 'maxOccurs' in element 'all'. Recorded reason: cvc-enumeration-valid: Value 'unbounded' is not facet-valid with respect to enumeration '(1)'. It must be a value from the enumeration. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:27: 'all' must have a 'maxOccurs' value of 1. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute maxOccurs='unbounded': value must be one of [1]: Schema component: <xs:all xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" maxOccurs=\"unbounded\"><xs:element name=\"e\" /></xs:all> Path: /xs:schema/xs:complexType/xs:all Schema URL: file://schema.xsd. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element all: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}all', attribute 'maxOccurs': The value 'unbounded' is not valid. Expected is '1'. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/all-occurrence/own-max-unbounded/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/all-occurrence/own-max-above-uint32",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/all-occurrence/own-max-above-uint32",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+        ],
+        "conditions": [
+          "xs:all has maxOccurs=\"4294967296\", above the project's uint32 occurrence limit; the limit is reported before the xs:all range."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/all-occurrence/own-max-above-uint32/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.limit",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:57: s4s-att-invalid-value: Invalid attribute value for 'maxOccurs' in element 'all'. Recorded reason: cvc-enumeration-valid: Value '4294967296' is not facet-valid with respect to enumeration '(1)'. It must be a value from the enumeration. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:27: 'all' must have a 'maxOccurs' value of 1. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute maxOccurs='4294967296': value must be one of [1]: Schema component: <xs:all xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" maxOccurs=\"4294967296\"><xs:element name=\"e\" /></xs:all> Path: /xs:schema/xs:complexType/xs:all Schema URL: file://schema.xsd. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element all: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}all', attribute 'maxOccurs': The value '4294967296' is not valid. Expected is '1'. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/all-occurrence/own-max-above-uint32/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/all-occurrence/member-max-zero",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/all-occurrence/member-max-zero",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+        ],
+        "conditions": [
+          "An element in xs:all has minOccurs=\"0\" and maxOccurs=\"0\"; the schema for schemas admits maxOccurs 0 and 1 there."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/all-occurrence/member-max-zero/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/all-occurrence/member-max-zero/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/all-occurrence/member-max-unbounded",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/all-occurrence/member-max-unbounded",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+        ],
+        "conditions": [
+          "An element in xs:all has maxOccurs=\"unbounded\"; the schema for schemas admits only 0 and 1."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/all-occurrence/member-max-unbounded/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.occurrence",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:34: cos-all-limited.2: The {max occurs} of an element in an 'all' model group must be 0 or 1. The value 'unbounded' for element 'e' is invalid. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:35: The 'maxOccurs' attribute of all the particles of an 'all' group must be 0 or 1. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute maxOccurs='unbounded': value must be one of [0, 1]: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"e\" maxOccurs=\"unbounded\" /> Path: /xs:schema/xs:complexType/xs:all/xs:element Schema URL: file://schema.xsd. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element': Invalid value for maxOccurs (must be 0 or 1). The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/all-occurrence/member-max-unbounded/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/all-occurrence/member-max-padded-one",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/all-occurrence/member-max-padded-one",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+        ],
+        "conditions": [
+          "An element in xs:all has maxOccurs=\" 1 \", the value 1 after whitespace collapse."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/all-occurrence/member-max-padded-one/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, under which xs:all takes minOccurs 0 or 1 and maxOccurs 1 and an element directly in xs:all takes maxOccurs 0 or 1; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-all"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/all-occurrence/member-max-padded-one/schema.xsd",
           "role": "principal"
         }
       ]

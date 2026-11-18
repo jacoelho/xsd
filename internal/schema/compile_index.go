@@ -79,11 +79,7 @@ func (c *compiler) indexType(child *schemaNode, q QName, label string, component
 }
 
 func (c *compiler) indexModelGroup(child *schemaNode, q QName, label string, component schemaComponent) error {
-	model, err := topLevelGroupModel(child)
-	if err != nil {
-		return err
-	}
-	if err := validateModelGroupSyntax(model, c.limits); err != nil {
+	if _, err := topLevelGroupModel(child); err != nil {
 		return err
 	}
 	return withSchemaCompileLocation(child, addSchemaComponent(c.groupComponents, q, component, label))
@@ -95,31 +91,4 @@ func (c *compiler) indexNotation(ctx *schemaSetDocument, n *schemaNode, name str
 		return err
 	}
 	return withSchemaCompileLocation(n, c.addNotation(q, c.rt.formatName(q)))
-}
-
-// validateModelGroupSyntax checks the occurrence attributes of the model
-// groups nested in n. Which particles n admits was decided as each started.
-func validateModelGroupSyntax(n *schemaNode, limits Limits) error {
-	for child := range n.xsdChildren() {
-		switch child.local {
-		case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll:
-			if err := validateNestedModelGroupOccurrence(child, limits); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func validateNestedModelGroupOccurrence(n *schemaNode, limits Limits) error {
-	occurs, err := parseOccurs(n, limits)
-	if err != nil {
-		return err
-	}
-	if n.local == vocab.XSDElemAll {
-		if err := validateAllModelOccurrence(occurs); err != nil {
-			return withSchemaCompileLocation(n, err)
-		}
-	}
-	return validateModelGroupSyntax(n, limits)
 }

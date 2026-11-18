@@ -92,7 +92,7 @@ func TestChildAdmissionWinsOverLaterErrors(t *testing.T) {
       <xs:group ref="G"/>
     </xs:sequence>
   </xs:complexType>
-  <xs:group name="G"><xs:all><xs:element name="a" maxOccurs="2"/></xs:all></xs:group>`, "xs:all cannot be nested in model groups", 4, 7),
+  <xs:group name="G"><xs:all><xs:element ref="missing"/></xs:all></xs:group>`, "xs:all cannot be nested in model groups", 4, 7),
 		misplaced("named group model unknown child", inTopLevel("group", `<xs:sequence><xs:future/></xs:sequence>`), `invalid model group child "future"`, 3, 5+len(`<xs:sequence>`)),
 
 		misplaced("simpleType unknown child before unbound base", inSimpleType(`<xs:future/><xs:restriction base="p:T"/>`), `invalid simpleType child "future"`, 3, 5),

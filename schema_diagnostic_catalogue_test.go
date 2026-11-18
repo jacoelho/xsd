@@ -10,20 +10,6 @@ import "github.com/jacoelho/xsd/xsderrors"
 // knownSchemaDiagnosticOrderGaps names the catalogue entries the compiler
 // decides later than the contract declares, with the reason each stays open.
 var knownSchemaDiagnosticOrderGaps = map[string]string{
-	"all group/maxOccurs of all above one":                                             "the xs:all occurrence ranges are checked when the content model compiles",
-	"all group/minOccurs of all is above uint32":                                       "the occurrence of a particle is parsed when its component compiles",
-	"all group/maxOccurs of member above one":                                          "the xs:all occurrence ranges are checked when the content model compiles",
-	"all group/maxOccurs of member unbounded":                                          "the xs:all occurrence ranges are checked when the content model compiles",
-	"all group/minOccurs of member above the default maxOccurs":                        "the occurrence of a particle is parsed when its component compiles",
-	"local element/maxOccurs below minOccurs":                                          "the occurrence of a particle is parsed when its component compiles",
-	"local element/maxOccurs zero below the default minOccurs":                         "the occurrence of a particle is parsed when its component compiles",
-	"local element/minOccurs two above the default maxOccurs":                          "the occurrence of a particle is parsed when its component compiles",
-	"local element/maxOccurs of declaration is above uint32":                           "the occurrence of a particle is parsed when its component compiles",
-	"local element/minOccurs of declaration is above uint32":                           "the occurrence of a particle is parsed when its component compiles",
-	"local element/maxOccurs of group below minOccurs":                                 "the occurrence of a particle is parsed when its component compiles",
-	"element reference/minOccurs two above the default maxOccurs":                      "the occurrence of a particle is parsed when its component compiles",
-	"group reference/maxOccurs zero below the default minOccurs":                       "the occurrence of a particle is parsed when its component compiles",
-	"wildcard/minOccurs of any above maxOccurs":                                        "the occurrence of a particle is parsed when its component compiles",
 	"identity constraint/selector xpath is no selector path":                           "selector and field paths are parsed when the identity constraint compiles",
 	"identity constraint/unbound prefix in the selector before a later invalid branch": "selector and field paths are parsed when the identity constraint compiles",
 	"identity constraint/invalid selector branch before a later unbound prefix":        "selector and field paths are parsed when the identity constraint compiles",
@@ -830,6 +816,8 @@ func allGroupFixture() fixture {
 		violations: []violation{
 			unknownAttribute(model, "all"),
 			attributeViolation("maxOccurs of all above one", occurrence, allOccurrenceMessage).at(model).setting(`maxOccurs="2"`),
+			attributeViolation("minOccurs of all above one", occurrence, allOccurrenceMessage).at(model).setting(`minOccurs="2"`),
+			attributeViolation("maxOccurs of all zero", occurrence, allOccurrenceMessage).at(model).setting(`minOccurs="0"`, `maxOccurs="0"`),
 			occurrenceLimit(model, "minOccurs"),
 			textInside(model, "all"),
 			childViolation("sequence in all", contentModel, "xs:all can contain only element particles").at(member).renamed("xs:sequence"),

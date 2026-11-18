@@ -170,7 +170,7 @@ func schemaComplexContentKind(n *schemaNode, attr lexicalAttribute, defaultKind 
 // the empty content variety: a present optional particle remains
 // element-only, and a present required empty choice remains element-only
 // even though its language is empty.
-func (c *compiler) effectiveComplexContentKind(modelNode *schemaNode, contentKind complexContentVariety) (complexContentVariety, error) {
+func (*compiler) effectiveComplexContentKind(modelNode *schemaNode, contentKind complexContentVariety) (complexContentVariety, error) {
 	if contentKind.Mixed() {
 		// XSD supplies a synthetic empty sequence particle whenever effective
 		// content is empty but effective mixed is true.
@@ -180,7 +180,7 @@ func (c *compiler) effectiveComplexContentKind(modelNode *schemaNode, contentKin
 		return contentEmpty, nil
 	}
 
-	occurs, err := parseOccurs(modelNode, c.limits)
+	occurs, err := particleOccurrence(modelNode)
 	if err != nil {
 		return contentElementOnly, err
 	}
@@ -338,9 +338,6 @@ func (c *compiler) compileDirectComplexModel(ctx *schemaSetDocument, n *schemaNo
 func (c *compiler) compileDirectComplexModelChild(ctx *schemaSetDocument, child *schemaNode) (contentModelID, bool, error) {
 	switch child.local {
 	case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll, vocab.XSDElemGroup:
-		if err := validateModelOccurrence(child, c.limits); err != nil {
-			return noContentModel, false, err
-		}
 		model, err := c.compileModel(ctx, child)
 		return model, true, err
 	default:
@@ -448,9 +445,6 @@ func complexExtensionContentKind(base complexTypeMetadata, contentKind complexCo
 }
 
 func (c *compiler) compileComplexExtensionModel(ctx *schemaSetDocument, modelNode *schemaNode, baseID ComplexTypeID, base complexTypeMetadata, contentKind complexContentVariety) (contentModelID, error) {
-	if err := validateModelOccurrence(modelNode, c.limits); err != nil {
-		return noContentModel, err
-	}
 	content, err := c.compileModel(ctx, modelNode)
 	if err != nil {
 		return noContentModel, err
@@ -517,9 +511,6 @@ func (c *compiler) compileComplexRestrictionModel(ctx *schemaSetDocument, owner,
 	modelNode := firstModelChild(child)
 	if modelNode == nil {
 		return c.addModel(contentModelNode{Kind: modelEmpty, Mixed: ct.Mixed()}, owner)
-	}
-	if err := validateModelOccurrence(modelNode, c.limits); err != nil {
-		return noContentModel, err
 	}
 	return c.compileModel(ctx, modelNode)
 }

@@ -23,7 +23,7 @@ func (c *compiler) compileModel(ctx *schemaSetDocument, n *schemaNode) (contentM
 	if id, done, err := c.existingModel(ctx, n); done || err != nil {
 		return id, err
 	}
-	occurs, err := parseOccurs(n, c.limits)
+	occurs, err := particleOccurrence(n)
 	if err != nil {
 		return noContentModel, err
 	}
@@ -81,11 +81,6 @@ func (c *compiler) compileModelValue(ctx *schemaSetDocument, n *schemaNode, occu
 	if err != nil {
 		return contentModelNode{}, err
 	}
-	if kind == modelAll {
-		if err := validateAllModelOccurrence(occurs); err != nil {
-			return contentModelNode{}, withSchemaCompileLocation(n, err)
-		}
-	}
 	m := contentModelNode{Kind: kind, Occurs: occurs}
 	if err := c.compileModelChildren(ctx, n, &m); err != nil {
 		return contentModelNode{}, err
@@ -98,7 +93,7 @@ func (c *compiler) compileModelValue(ctx *schemaSetDocument, n *schemaNode, occu
 // group's kind is admitted there before the group compiles, so a misplaced
 // reference is reported at its use rather than a defect inside the group.
 func (c *compiler) compileModelGroupRef(ctx *schemaSetDocument, n *schemaNode, ref xml.Name, parent *modelKind) (contentModelID, error) {
-	occurs, err := parseOccurs(n, c.limits)
+	occurs, err := particleOccurrence(n)
 	if err != nil {
 		return noContentModel, err
 	}
@@ -301,19 +296,6 @@ func validateModelGroupChildAtNode(n *schemaNode, parent modelKind, child modelC
 	return withSchemaCompileLocation(n, validateModelGroupChildAdmission(parent, child))
 }
 
-func validateModelOccurrence(n *schemaNode, limits Limits) error {
-	occurs, err := parseOccurs(n, limits)
-	if err != nil {
-		return err
-	}
-	if n.local == vocab.XSDElemAll {
-		if err := validateAllModelOccurrence(occurs); err != nil {
-			return withSchemaCompileLocation(n, err)
-		}
-	}
-	return validateModelGroupSyntax(n, limits)
-}
-
 func (c *compiler) modelParticle(id contentModelID) (contentParticle, bool, error) {
 	model, err := c.contentModel(id, "model particle references missing content model")
 	if err != nil {
@@ -346,29 +328,14 @@ func (c *compiler) validateComplexExtensionModelAdmission(baseID ComplexTypeID, 
 	})
 }
 
-func parseOccurs(n *schemaNode, limits Limits) (occurrence, error) {
-	attrs, err := occurrenceAttrs(n)
-	if err != nil {
-		return occurrence{}, withSchemaCompileLocation(n, err)
-	}
-	occurs, err := parseOccurrence(attrs, limits)
-	if err != nil {
-		return occurrence{}, withSchemaCompileLocation(n, err)
-	}
-	return occurs, nil
-}
-
-func occurrenceAttrs(n *schemaNode) (rawOccurrence, error) {
+// particleOccurrence returns the occurrence the start tag of the particle n
+// admitted.
+func particleOccurrence(n *schemaNode) (occurrence, error) {
 	source := n.semantic.particle()
 	if source == nil {
-		return rawOccurrence{}, xsderrors.InternalInvariant("particle node has no typed particle source")
+		return occurrence{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("particle node has no typed particle source"))
 	}
-	return rawOccurrence{
-		MinOccurs:    source.MinOccurs.Value,
-		MaxOccurs:    source.MaxOccurs.Value,
-		HasMinOccurs: source.MinOccurs.Present,
-		HasMaxOccurs: source.MaxOccurs.Present,
-	}, nil
+	return source.Occurs, nil
 }
 
 // enterContentModel opens the scope of the component that owns model id. The

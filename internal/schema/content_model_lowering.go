@@ -98,17 +98,15 @@ func appendModelParticles(work *workBudget, model *contentModelNode, particles .
 	return nil
 }
 
-// appendParticle applies compile-time particle admission rules and appends p to
-// model. Zero-count particles are omitted from the lowered model.
+// appendParticle admits p as a child of model and appends it. Zero-count
+// particles are omitted from the lowered model. The occurrence range of an
+// xs:all member was admitted at its start tag; see occurrenceAdmission.
 func appendParticle(work *workBudget, model *contentModelNode, p contentParticle) error {
 	if err := validateModelGroupChildAdmission(model.Kind, modelChildAdmission{Kind: modelParticleChildKind(p)}); err != nil {
 		return err
 	}
 	if p.Occurs.Max == 0 && !p.Occurs.Unbounded {
 		return nil
-	}
-	if model.Kind == modelAll && (p.Occurs.Unbounded || p.Occurs.Max > 1) {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, "xs:all particles cannot repeat")
 	}
 	return appendModelParticles(work, model, p)
 }

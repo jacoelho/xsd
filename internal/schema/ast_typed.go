@@ -246,7 +246,7 @@ func (s *typedSchemaParseState) admitTypedFrame(initial typedSchemaParseFrame, l
 	if parentIndex >= 0 {
 		parent = &s.stack[parentIndex]
 	}
-	var values admittedValues
+	values := admittedValues{occurrence: newOccurrenceAdmission(frame.name, typedParentName(parent), s.limits.MaxFiniteOccurs)}
 	if err := admitTypedStart(&frame.syntax, frame.placement, parent, startTagAttributes{values: &values, ids: &s.ids, patterns: s.patterns}); err != nil {
 		s.stack = s.stack[:len(s.stack)-1]
 		return err
@@ -482,6 +482,11 @@ func admitXSDChildStart(n *schemaSyntaxNode, parent xml.Name, placement schemaEl
 	if err := checkValueConstraintAttributes(n); err != nil {
 		return err
 	}
+	occurs, err := attrs.values.occurrence.complete()
+	if err != nil {
+		return withSchemaCompileLocation(n, err)
+	}
+	attrs.values.occurs = occurs
 	return checkAttributeDeclarationName(n)
 }
 

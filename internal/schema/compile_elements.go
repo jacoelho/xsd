@@ -13,7 +13,7 @@ func (c *compiler) compileElementParticle(ctx *schemaSetDocument, n *schemaNode)
 	if err != nil {
 		return contentParticle{}, err
 	}
-	occurs, err := parseOccurs(n, c.limits)
+	occurs, err := particleOccurrence(n)
 	if err != nil {
 		return contentParticle{}, err
 	}

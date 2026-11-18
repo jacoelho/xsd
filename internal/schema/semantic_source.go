@@ -129,6 +129,8 @@ type admittedValues struct {
 	refer             schemaQNameAttribute
 	substitutionGroup schemaQNameAttribute
 	typeName          schemaQNameAttribute
+	occurrence        occurrenceAdmission
+	occurs            occurrence
 }
 
 // schemaGlobalSource contains the common source contract for named global
@@ -201,10 +203,13 @@ type schemaUnionDerivationSource struct {
 // schemaParticleSource is shared by element/group/any and model-group
 // particles. It stores only particle vocabulary; declaration-specific fields
 // stay in their owning records above.
+//
+//nolint:govet // Occurs leads so that the records embedding this one first keep their pointer data contiguous.
 type schemaParticleSource struct {
-	MinOccurs lexicalAttribute
-	MaxOccurs lexicalAttribute
-	Ref       schemaQNameAttribute
+	// Occurs is the occurrence its start tag admitted; see
+	// occurrenceAdmission.
+	Occurs occurrence
+	Ref    schemaQNameAttribute
 }
 
 // schemaModelSource is the typed source record for sequence, choice, and all
@@ -521,9 +526,8 @@ func buildSemanticKind(n *schemaSyntaxNode, values *admittedValues) schemaSemant
 		//nolint:modernize // Keep the embedded particle owner explicit at construction.
 		return &schemaElementSource{
 			schemaParticleSource: schemaParticleSource{
-				MinOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMinOccurs),
-				MaxOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMaxOccurs),
-				Ref:       values.ref,
+				Occurs: values.occurs,
+				Ref:    values.ref,
 			},
 			Global:            schemaGlobalSourceFor(n),
 			Type:              values.typeName,
@@ -568,9 +572,8 @@ func buildSemanticKind(n *schemaSyntaxNode, values *admittedValues) schemaSemant
 			//nolint:modernize // Keep the embedded particle owner explicit at construction.
 			return &schemaModelSource{
 				schemaParticleSource: schemaParticleSource{
-					MinOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMinOccurs),
-					MaxOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMaxOccurs),
-					Ref:       values.ref,
+					Occurs: values.occurs,
+					Ref:    values.ref,
 				},
 				Kind: kind,
 			}
@@ -578,9 +581,8 @@ func buildSemanticKind(n *schemaSyntaxNode, values *admittedValues) schemaSemant
 		//nolint:modernize // Keep the embedded particle owner explicit at construction.
 		return &schemaGroupSource{
 			schemaParticleSource: schemaParticleSource{
-				MinOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMinOccurs),
-				MaxOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMaxOccurs),
-				Ref:       values.ref,
+				Occurs: values.occurs,
+				Ref:    values.ref,
 			},
 			Global: schemaGlobalSourceFor(n),
 		}
@@ -588,8 +590,7 @@ func buildSemanticKind(n *schemaSyntaxNode, values *admittedValues) schemaSemant
 		//nolint:modernize // Keep the embedded particle owner explicit at construction.
 		return &schemaWildcardSource{
 			schemaParticleSource: schemaParticleSource{
-				MinOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMinOccurs),
-				MaxOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMaxOccurs),
+				Occurs: values.occurs,
 			},
 			Namespace:       schemaLexicalAttributeSyntax(n, vocab.XSDAttrNamespace),
 			ProcessContents: schemaLexicalAttributeSyntax(n, vocab.XSDAttrProcessContents),
