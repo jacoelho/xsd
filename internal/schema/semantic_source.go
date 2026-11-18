@@ -19,8 +19,9 @@ type schemaNode struct {
 	semantic schemaSemanticSource
 	doc      *schemaDocument
 	local    string
-	// namespace is retained only for deferred QName-valued literals and
-	// identity XPath names; schema QName attributes are resolved at admission.
+	// namespace is retained only for deferred QName-valued literals (default,
+	// fixed and enumeration values); schema QName attributes and identity XPath
+	// names are resolved at admission.
 	namespace            xmlstream.Context
 	children             []schemaNodeID
 	line                 int
