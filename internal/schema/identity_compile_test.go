@@ -213,7 +213,7 @@ func TestDeclaringAnIdentityConstraintTwiceInOneContextIsAnInternalInvariant(t *
 	expectDiagnostic(t, c.declareAllIdentityConstraints(), xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 }
 
-func TestAChameleonIdentityConstraintCompiledInTwoNamespacesSharesItsStoredPaths(t *testing.T) {
+func TestAChameleonIdentityConstraintPublishesTheSamePathsInEveryNamespaceItCompilesIn(t *testing.T) {
 	t.Parallel()
 
 	common := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:p">
@@ -242,13 +242,13 @@ func TestAChameleonIdentityConstraintCompiledInTwoNamespacesSharesItsStoredPaths
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := c.loadOwned([]source.Source{root("a.xsd", "urn:a"), root("b.xsd", "urn:b")}); err != nil {
+	if err = c.loadOwned([]source.Source{root("a.xsd", "urn:a"), root("b.xsd", "urn:b")}); err != nil {
 		t.Fatalf("load error = %v", err)
 	}
-	if err := c.index(); err != nil {
+	if err = c.index(); err != nil {
 		t.Fatalf("index() error = %v", err)
 	}
-	if err := c.compileGlobals(); err != nil {
+	if err = c.compileGlobals(); err != nil {
 		t.Fatalf("compileGlobals() error = %v", err)
 	}
 
@@ -299,6 +299,35 @@ func TestAChameleonIdentityConstraintCompiledInTwoNamespacesSharesItsStoredPaths
 	for _, ic := range compiled {
 		if &ic.Selector[0] != &selector.Paths[0] || &ic.Fields[0].Paths[0] != &field.Paths[0] {
 			t.Fatal("a compiled constraint does not share the paths stored at its selector and field")
+		}
+	}
+
+	ids := []IdentityConstraintID{c.rt.GlobalIdentities[qname("urn:a", "k")], c.rt.GlobalIdentities[qname("urn:b", "k")]}
+	idName, pIDName := qname("", "id"), qname("urn:p", "id")
+	published, err := publishSchema(&c.rt, unlimitedContentModelWork)
+	if err != nil {
+		t.Fatalf("publishSchema() error = %v", err)
+	}
+	if !slices.EqualFunc(selector.Paths, wantSelector, sameSelector) || !slices.EqualFunc(field.Paths, wantFields, sameField) {
+		t.Fatalf("stored paths after publication = %+v and %+v, want %+v and %+v", selector.Paths, field.Paths, wantSelector, wantFields)
+	}
+	for i, target := range []string{"urn:a", "urn:b"} {
+		program, ok := published.IdentityDispatch().Program(ids[i])
+		if !ok {
+			t.Fatalf("{%s}k has no published identity program", target)
+		}
+		selectors := program.Selectors()
+		if selectors.Len() != len(wantSelector) {
+			t.Fatalf("{%s}k publishes %d selector paths, want %d", target, selectors.Len(), len(wantSelector))
+		}
+		for j, want := range wantSelector {
+			path, _ := selectors.At(j)
+			if step, ok := path.Step(0); !ok || path.StepCount() != 1 || step != want.Steps[0] {
+				t.Fatalf("{%s}k published selector path %d = %+v, want step %+v", target, j, path, want.Steps[0])
+			}
+		}
+		if program.AttributeFields(idName).Len() != 1 || program.AttributeFields(pIDName).Len() != 1 {
+			t.Fatalf("{%s}k does not publish one field path for each of @id and p:code/@p:id", target)
 		}
 	}
 }
