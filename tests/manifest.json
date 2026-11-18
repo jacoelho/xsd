@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 17073,
-    "schemaCases": 17023,
-    "instanceRuns": 35806,
+    "cases": 17076,
+    "schemaCases": 17026,
+    "instanceRuns": 35810,
     "w3cCases": 14414,
-    "internalRuns": 2646,
+    "internalRuns": 2649,
     "xercesJCases": 13
   },
   "cases": [
@@ -910513,7 +910513,7 @@
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
         ],
         "conditions": [
-          "A restriction holds maxLength twice and the second has fixed=\"yes\". The fixed value is a violation of the document syntax, so the schema is rejected with schema.invalid_attribute."
+          "A restriction holds maxLength twice and the second has fixed=\"yes\". The repeated facet is decided when the second maxLength starts, before its attributes are read, so the schema is rejected with schema.facet rather than for the fixed value."
         ]
       },
       "schema": {
@@ -910524,27 +910524,27 @@
             "role": "principal"
           }
         ],
-        "errorCode": "schema.invalid_attribute",
+        "errorCode": "schema.facet",
         "oracle": {
           "xerces": {
             "expected": "invalid",
-            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:120: s4s-att-invalid-value: Invalid attribute value for 'fixed' in element 'maxLength'. Recorded reason: cvc-datatype-valid.1.2.1: 'yes' is not a valid value for 'boolean'. The project expectation follows the schema for schemas, under which fixed of a facet is an xs:boolean; the project reports a violation of the schema document syntax, which one start tag decides, before a violation that needs the compiled schema set, wherever the two are written; this observation is not a majority-vote oracle.",
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-maxLength"
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:120: s4s-att-invalid-value: Invalid attribute value for 'fixed' in element 'maxLength'. Recorded reason: cvc-datatype-valid.1.2.1: 'yes' is not a valid value for 'boolean'. The project rejects the schema under src-single-facet-value, which the start tag of the second maxLength decides before that tag's attributes; the providers report the fixed value instead, which the project would also reject, and the reported rule is not a validity outcome; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
           },
           "dotnet": {
             "expected": "invalid",
-            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:107: 'yes' is an invalid value for the 'fixed' attribute. The project expectation follows the schema for schemas, under which fixed of a facet is an xs:boolean; the project reports a violation of the schema document syntax, which one start tag decides, before a violation that needs the compiled schema set, wherever the two are written; this observation is not a majority-vote oracle.",
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-maxLength"
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:107: 'yes' is an invalid value for the 'fixed' attribute. The project rejects the schema under src-single-facet-value, which the start tag of the second maxLength decides before that tag's attributes; the providers report the fixed value instead, which the project would also reject, and the reported rule is not a validity outcome; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
           },
           "xmlschema": {
             "expected": "invalid",
-            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute fixed='yes': 'yes' is not a boolean value: Schema component: <xs:maxLength xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"1\" fixed=\"yes\" /> Path: /xs:schema/xs:simpleType/xs:restriction/xs:maxLength[2] Schema URL: file://schema.xsd  The project expectation follows the schema for schemas, under which fixed of a facet is an xs:boolean; the project reports a violation of the schema document syntax, which one start tag decides, before a violation that needs the compiled schema set, wherever the two are written; this observation is not a majority-vote oracle.",
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-maxLength"
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute fixed='yes': 'yes' is not a boolean value: Path: /xs:schema/xs:simpleType/xs:restriction/xs:maxLength[2]. The project rejects the schema under src-single-facet-value, which the start tag of the second maxLength decides before that tag's attributes; the providers report the fixed value instead, which the project would also reject, and the reported rule is not a validity outcome; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
           },
           "libxml2": {
             "expected": "valid",
-            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, under which fixed of a facet is an xs:boolean; the project reports a violation of the schema document syntax, which one start tag decides, before a violation that needs the compiled schema set, wherever the two are written; this observation is not a majority-vote oracle. libxml2 accepts the schema: it accepts a facet whose fixed is not an xs:boolean (see project/schema-syntax/attribute-values/facet-fixed-not-boolean) and a restriction that holds maxLength twice, which Xerces-J, .NET and xmlschema reject (src-single-facet-value).",
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#element-maxLength"
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project rejects the schema under src-single-facet-value, which the start tag of the second maxLength decides before that tag's attributes; the providers report the fixed value instead, which the project would also reject, and the reported rule is not a validity outcome; this observation is not a majority-vote oracle. libxml2 accepts the schema: it accepts a facet whose fixed is not an xs:boolean (see project/schema-syntax/attribute-values/facet-fixed-not-boolean) and a restriction that holds maxLength twice, which Xerces-J, .NET and xmlschema reject (src-single-facet-value).",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
           }
         }
       },
@@ -914474,6 +914474,294 @@
         {
           "file": "corpus/project/schema-syntax/xmlns-attribute-name/name-with-xmlns-prefix/schema.xsd",
           "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/facet-repetition/simple-content-maxlength-twice",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/facet-repetition/simple-content-maxlength-twice",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+        ],
+        "conditions": [
+          "A simpleContent restriction holds maxLength twice."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/facet-repetition/simple-content-maxlength-twice/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:119: src-single-facet-value: The facet 'maxLength' is defined more than once. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:95: This is a duplicate MaxLength constraining facet. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. multiple 'maxLength' constraint facet: Schema component: <xs:restriction xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" base=\"B\"><xs:maxLength value=\"2\" /><xs:maxLength value=\"3\" /></xs:restriction> Path: /xs:schema/xs:complexType[2]/xs:simpleContent/xs:restriction Schema URL: file://schema.xsd. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle. libxml2 accepts a restriction that holds maxLength twice (see project/schema-syntax/attribute-values/facet-fixed-not-boolean-on-repeated-facet); Xerces-J, .NET and xmlschema reject it under src-single-facet-value.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/facet-repetition/simple-content-maxlength-twice/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/facet-repetition/pattern-twice",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/facet-repetition/pattern-twice",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-pattern"
+        ],
+        "conditions": [
+          "A restriction holds pattern twice; src-single-facet-value exempts pattern, and the two patterns of one step are alternatives."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/facet-repetition/pattern-twice/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "b",
+          "file": "corpus/project/schema-syntax/facet-repetition/pattern-twice/b.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+            }
+          }
+        },
+        {
+          "testName": "c",
+          "file": "corpus/project/schema-syntax/facet-repetition/pattern-twice/c.xml",
+          "expected": "invalid",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. c.xml:1:9: cvc-pattern-valid: Value 'c' is not facet-valid with respect to pattern 'a|b' for type 'S'. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. c.xml:1:7: The 'r' element is invalid - The value 'c' is invalid according to its datatype 'S' - The Pattern constraint failed. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: value doesn't match any pattern of ['a', 'b'] (path /r). The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+            },
+            "libxml2": {
+              "expected": "invalid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance rejected. c.xml:1: element r: Schemas validity error : Element 'r': [facet 'pattern'] The value 'c' is not accepted by the pattern 'b'. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/facet-repetition/pattern-twice/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/schema-syntax/facet-repetition/pattern-twice/b.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/schema-syntax/facet-repetition/pattern-twice/c.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/facet-repetition/enumeration-twice",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/facet-repetition/enumeration-twice",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-enumeration"
+        ],
+        "conditions": [
+          "A restriction holds enumeration twice; src-single-facet-value exempts enumeration."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/facet-repetition/enumeration-twice/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "b",
+          "file": "corpus/project/schema-syntax/facet-repetition/enumeration-twice/b.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+            }
+          }
+        },
+        {
+          "testName": "c",
+          "file": "corpus/project/schema-syntax/facet-repetition/enumeration-twice/c.xml",
+          "expected": "invalid",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. c.xml:1:9: cvc-enumeration-valid: Value 'c' is not facet-valid with respect to enumeration '[a, b]'. It must be a value from the enumeration. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. c.xml:1:7: The 'r' element is invalid - The value 'c' is invalid according to its datatype 'S' - The Enumeration constraint failed. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: value must be one of ['a', 'b'] (path /r). The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+            },
+            "libxml2": {
+              "expected": "invalid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance rejected. c.xml:1: element r: Schemas validity error : Element 'r': [facet 'enumeration'] The value 'c' is not an element of the set {'a', 'b'}. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/facet-repetition/enumeration-twice/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/schema-syntax/facet-repetition/enumeration-twice/b.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/schema-syntax/facet-repetition/enumeration-twice/c.xml",
+          "role": "instance"
         }
       ]
     }

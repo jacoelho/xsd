@@ -29,10 +29,10 @@ func (c *compiler) compileFacetChildren(parent *schemaNode, st *simpleType, base
 		state.apply(st)
 	}
 	step := orderedFacetStep{
-		MinInclusive: state.stepSingleFacets&valuepkg.FacetMinInclusive != 0,
-		MinExclusive: state.stepSingleFacets&valuepkg.FacetMinExclusive != 0,
-		MaxInclusive: state.stepSingleFacets&valuepkg.FacetMaxInclusive != 0,
-		MaxExclusive: state.stepSingleFacets&valuepkg.FacetMaxExclusive != 0,
+		MinInclusive: state.stepFacets&valuepkg.FacetMinInclusive != 0,
+		MinExclusive: state.stepFacets&valuepkg.FacetMinExclusive != 0,
+		MaxInclusive: state.stepFacets&valuepkg.FacetMaxInclusive != 0,
+		MaxExclusive: state.stepFacets&valuepkg.FacetMaxExclusive != 0,
 	}
 	if err := validateOrderedFacetStep(step); err != nil {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, err.Error())
@@ -46,7 +46,7 @@ func (c *compiler) compileFacetChildren(parent *schemaNode, st *simpleType, base
 type compiledFacetState struct {
 	valueEnumeration []valuepkg.LiteralSpec
 	valuePatterns    []*valuepkg.Pattern
-	stepSingleFacets valuepkg.FacetMask
+	stepFacets       valuepkg.FacetMask
 	// unavailable marks a base lost to optional-import recovery. Bound and
 	// enumeration literals are then skipped rather than evaluated, while
 	// source checks and facets decidable without the base still run.
@@ -67,10 +67,11 @@ func (s *compiledFacetState) apply(st *simpleType) {
 }
 
 func (c *compiler) compileFacetChild(child *schemaNode, st *simpleType, base SimpleTypeID, state *compiledFacetState) error {
-	flag, err := validateFacetChildSource(child, st, &state.stepSingleFacets)
+	flag, err := validateFacetChildSource(child, st)
 	if err != nil {
 		return err
 	}
+	state.stepFacets |= flag
 	facet, err := facetAttrs(child, flag)
 	if err != nil {
 		return err
@@ -78,7 +79,10 @@ func (c *compiler) compileFacetChild(child *schemaNode, st *simpleType, base Sim
 	return c.compileFacetValue(child, st, base, state, facet)
 }
 
-func validateFacetChildSource(child *schemaNode, st *simpleType, single *valuepkg.FacetMask) (valuepkg.FacetMask, error) {
+// validateFacetChildSource returns the facet child declares after checking
+// that the base type admits it. A facet the restriction repeats was rejected
+// at its start tag; see childOrderState.acceptFacet.
+func validateFacetChildSource(child *schemaNode, st *simpleType) (valuepkg.FacetMask, error) {
 	source := semanticSource[*schemaFacetSource](&child.semantic)
 	if source == nil {
 		return 0, withSchemaCompileLocation(child, xsderrors.InternalInvariant("facet node has no typed facet source"))
@@ -88,12 +92,6 @@ func validateFacetChildSource(child *schemaNode, st *simpleType, single *valuepk
 	})
 	if err != nil {
 		return 0, withSchemaCompileLocation(child, err)
-	}
-	if mask != valuepkg.FacetPattern && mask != valuepkg.FacetEnumeration {
-		if *single&mask != 0 {
-			return 0, withSchemaCompileLocation(child, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "duplicate "+facetLabel(child.local)+" facet"))
-		}
-		*single |= mask
 	}
 	return mask, nil
 }

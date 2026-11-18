@@ -187,7 +187,7 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
     </xs:simpleContent>
   </xs:complexType>
 </xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 8, column: 9, messageContains: "duplicate length"},
-		{name: "malformed fixed of a duplicate facet of an unavailable list is rejected at its start tag", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+		{name: "duplicate facet of an unavailable list is rejected before its malformed attributes", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="List"><xs:list itemType="absent"/></xs:simpleType>
   <xs:complexType name="Base"><xs:simpleContent><xs:extension base="List"/></xs:simpleContent></xs:complexType>
   <xs:complexType name="Restricted">
@@ -198,7 +198,7 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
       </xs:restriction>
     </xs:simpleContent>
   </xs:complexType>
-</xs:schema>`, code: xsderrors.CodeSchemaInvalidAttribute, line: 8, column: 9, messageContains: `invalid boolean attribute "fixed"`},
+</xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 8, column: 9, messageContains: "duplicate length facet"},
 		{name: "unavailable list retains whitespace restriction", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="List"><xs:list itemType="absent"/></xs:simpleType>
   <xs:simpleType name="Restricted">
