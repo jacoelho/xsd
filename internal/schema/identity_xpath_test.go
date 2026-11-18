@@ -2,6 +2,7 @@ package schema
 
 import (
 	"errors"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -406,5 +407,72 @@ func TestUnboundXPathPrefixIsReportedAtItsStartTag(t *testing.T) {
 	}
 	if diagnostic.Line() != 5 || diagnostic.Column() != 7 {
 		t.Fatalf("parseSchemaDocument() location = %d:%d, want the xs:field start tag at 5:7", diagnostic.Line(), diagnostic.Column())
+	}
+}
+
+func allocatedBytes(f func()) uint64 {
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	f()
+	runtime.ReadMemStats(&after)
+	return after.TotalAlloc - before.TotalAlloc
+}
+
+func TestMalformedIdentityPathIsRejectedWithoutAllocatingPerSeparator(t *testing.T) {
+	resolver := identityNameResolverStub{qnames: map[string]QName{":a": {Local: 1}}}
+	const separators = 100_000
+	const budget = 16 << 10
+	branches := "a" + strings.Repeat("|", separators)
+	steps := strings.Repeat("./", separators) + "a b"
+	tests := []struct {
+		name  string
+		parse func() error
+	}{
+		{name: "selector branches", parse: func() error {
+			_, err := parseIdentityPaths(branches, resolver)
+			return err
+		}},
+		{name: "field branches", parse: func() error {
+			_, err := parseIdentityFieldPaths(branches, resolver)
+			return err
+		}},
+		{name: "selector steps", parse: func() error {
+			_, err := parseIdentityPaths(steps, resolver)
+			return err
+		}},
+	}
+	for _, tt := range tests {
+		var err error
+		bytes := allocatedBytes(func() { err = tt.parse() })
+		if err == nil {
+			t.Fatalf("%s: parse accepted a malformed path", tt.name)
+		}
+		if bytes > budget {
+			t.Fatalf("%s: rejecting a path with %d separators allocated %d bytes, want at most %d", tt.name, separators, bytes, budget)
+		}
+	}
+}
+
+func TestIdentityPathsRetainOnlyAcceptedBranchesAndSteps(t *testing.T) {
+	resolver := identityNameResolverStub{qnames: map[string]QName{":a": {Local: 1}, ":b": {Local: 2}}}
+	paths, err := parseIdentityPaths("././a/./b | .", resolver)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(paths) != 2 || cap(paths) != 2 {
+		t.Fatalf("paths len %d cap %d, want 2 and 2", len(paths), cap(paths))
+	}
+	if steps := paths[0].Steps; len(steps) != 2 || cap(steps) != 2 {
+		t.Fatalf("first path steps len %d cap %d, want 2 and 2", len(steps), cap(steps))
+	}
+	if steps := paths[1].Steps; cap(steps) != 0 {
+		t.Fatalf("self path steps cap %d, want 0", cap(steps))
+	}
+	fields, err := parseIdentityFieldPaths("./a/./@b", resolver)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(fields) != 1 || cap(fields) != 1 || len(fields[0].Steps) != 1 || cap(fields[0].Steps) != 1 {
+		t.Fatalf("field path = %+v (cap %d, steps cap %d), want one path with one step and no spare capacity", fields, cap(fields), cap(fields[0].Steps))
 	}
 }

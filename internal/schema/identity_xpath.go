@@ -67,9 +67,15 @@ func (r tagIdentityNameResolver) ResolveIdentityWildcardNamespace(prefix string)
 }
 
 // parseIdentityPaths parses selector XPath branches for an identity constraint.
+// Like every parse below, it reserves at most maxIdentityPathHint records from
+// the separator count before accepting any, grows only with accepted branches
+// and steps, and returns a slice of exactly their length, because the source
+// record keeps it.
 func parseIdentityPaths[R identityNameResolver](xpath string, resolver R) ([]identityPath, error) {
-	out := make([]identityPath, 0, strings.Count(xpath, "|")+1)
-	for part := range strings.SplitSeq(xpath, "|") {
+	out := make([]identityPath, 0, identityPathHint(xpath, "|"))
+	for rest, more := xpath, true; more; {
+		var part string
+		part, rest, more = strings.Cut(rest, "|")
 		part = lex.TrimXMLWhitespaceString(part)
 		if part == "" {
 			return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "identity selector XPath branch is empty")
@@ -85,13 +91,35 @@ func parseIdentityPaths[R identityNameResolver](xpath string, resolver R) ([]ide
 		}
 		out = append(out, identityPath{Descendant: desc, Steps: steps})
 	}
-	return out, nil
+	return exactSlice(out), nil
+}
+
+// maxIdentityPathHint bounds what a path reserves before its branches or
+// steps are accepted, so a malformed path with many separators is rejected
+// without allocating per separator.
+const maxIdentityPathHint = 64
+
+// identityPathHint is the number of parts xpath has when every separator
+// starts an accepted part, capped at maxIdentityPathHint.
+func identityPathHint(xpath, separator string) int {
+	return min(strings.Count(xpath, separator)+1, maxIdentityPathHint)
+}
+
+// exactSlice returns s, or a copy of it without spare capacity when parts
+// were discarded or the hint was exceeded.
+func exactSlice[T any](s []T) []T {
+	if len(s) == cap(s) {
+		return s
+	}
+	return append(make([]T, 0, len(s)), s...)
 }
 
 // parseIdentityFieldPaths parses field XPath branches for an identity constraint.
 func parseIdentityFieldPaths[R identityNameResolver](xpath string, resolver R) ([]identityFieldPath, error) {
-	out := make([]identityFieldPath, 0, strings.Count(xpath, "|")+1)
-	for part := range strings.SplitSeq(xpath, "|") {
+	out := make([]identityFieldPath, 0, identityPathHint(xpath, "|"))
+	for rest, more := xpath, true; more; {
+		var part string
+		part, rest, more = strings.Cut(rest, "|")
 		part = lex.TrimXMLWhitespaceString(part)
 		if part == "" {
 			return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "identity field XPath branch is empty")
@@ -102,7 +130,7 @@ func parseIdentityFieldPaths[R identityNameResolver](xpath string, resolver R) (
 		}
 		out = append(out, path)
 	}
-	return out, nil
+	return exactSlice(out), nil
 }
 
 func parseIdentityFieldPathBranch[R identityNameResolver](part string, resolver R) (identityFieldPath, error) {
@@ -231,8 +259,10 @@ func parseIdentitySteps[R identityNameResolver](path string, resolver R) ([]Iden
 	if err := validateIdentityElementPath(path); err != nil {
 		return nil, err
 	}
-	steps := make([]IdentityStep, 0, strings.Count(path, "/")+1)
-	for part := range strings.SplitSeq(path, "/") {
+	steps := make([]IdentityStep, 0, identityPathHint(path, "/"))
+	for rest, more := path, true; more; {
+		var part string
+		part, rest, more = strings.Cut(rest, "/")
 		step, present, err := parseIdentityElementStep(part, resolver)
 		if err != nil {
 			return nil, err
@@ -241,7 +271,7 @@ func parseIdentitySteps[R identityNameResolver](path string, resolver R) ([]Iden
 			steps = append(steps, step)
 		}
 	}
-	return steps, nil
+	return exactSlice(steps), nil
 }
 
 func validateIdentityElementPath(path string) error {
