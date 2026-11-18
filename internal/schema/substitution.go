@@ -268,6 +268,50 @@ func (t substitutionTable) span(head ElementID) (substitutionSpan, bool) {
 	return span, true
 }
 
+// substitutionNameOrderMark is the bit validNameOrder sets on a byName slot
+// while it checks a span; a table addresses fewer positions than the bit.
+const substitutionNameOrderMark = uint32(1) << 31
+
+// validNameOrder reports whether byName holds, for every span, a permutation
+// of that span's entry positions. It checks without allocating by marking each
+// position of a span as seen in the span's own byName slots, and clears the
+// marks before it returns, so it must not run while the table is read
+// elsewhere; publication runs it before the table is shared.
+func (t substitutionTable) validNameOrder() bool {
+	if len(t.byName) != len(t.entries) || uint64(len(t.entries)) > uint64(substitutionNameOrderMark) {
+		return false
+	}
+	for head := range t.spans {
+		span, ok := t.span(ElementID(head))
+		if !ok || !t.spanNameOrderIsPermutation(span) {
+			return false
+		}
+	}
+	return true
+}
+
+func (t substitutionTable) spanNameOrderIsPermutation(span substitutionSpan) bool {
+	positions := t.byName[span.start : span.start+span.count]
+	for _, value := range positions {
+		if value&substitutionNameOrderMark != 0 {
+			return false
+		}
+	}
+	permutation := true
+	for _, value := range positions {
+		position := int(value &^ substitutionNameOrderMark)
+		if position < span.start || position >= span.start+span.count || t.byName[position]&substitutionNameOrderMark != 0 {
+			permutation = false
+			break
+		}
+		t.byName[position] |= substitutionNameOrderMark
+	}
+	for i := range positions {
+		positions[i] &^= substitutionNameOrderMark
+	}
+	return permutation
+}
+
 type substitutionForest struct {
 	parents []ElementID
 	total   int

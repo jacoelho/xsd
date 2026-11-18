@@ -502,12 +502,49 @@ func fixtureSubstitutions(names []elementDecl, raw map[ElementID][]ElementID, ef
 	return newSubstitutionTable(spans, all, compareQName)
 }
 
-func TestSchemaPublicationRejectsSubstitutionTableWithoutNameOrder(t *testing.T) {
+func TestSchemaPublicationRejectsASubstitutionNameOrderThatIsNotAPermutationOfEachSpan(t *testing.T) {
 	t.Parallel()
 
+	spans := []substitutionSpan{{start: 0, count: 3}, {start: 3, count: 2}}
+	entries := make([]substitutionEntry, 5)
+	for _, tt := range []struct {
+		name   string
+		spans  []substitutionSpan
+		byName []uint32
+	}{
+		{name: "missing", spans: spans},
+		{name: "short", spans: spans, byName: []uint32{2, 0, 1, 4}},
+		{name: "long", spans: spans, byName: []uint32{2, 0, 1, 4, 3, 0}},
+		{name: "repeated position", spans: spans, byName: []uint32{2, 0, 2, 4, 3}},
+		{name: "position of another span", spans: spans, byName: []uint32{2, 0, 3, 4, 1}},
+		{name: "position past the entries", spans: spans, byName: []uint32{2, 0, 1, 4, 5}},
+		{name: "position with the mark bit", spans: spans, byName: []uint32{2, 0, 1 | substitutionNameOrderMark, 4, 3}},
+		{name: "span past the entries", spans: []substitutionSpan{{start: 3, count: 3}}, byName: []uint32{0, 1, 2, 3, 4}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			build := schemaBuild{Substitutions: substitutionTable{spans: tt.spans, entries: entries, byName: tt.byName}}
+			expectDiagnostic(t, validateSchemaBuildIDDomain(&build), xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+		})
+	}
+}
+
+func TestSchemaPublicationAcceptsAndKeepsASubstitutionNameOrderThatPermutesEachSpan(t *testing.T) {
+	byName := []uint32{2, 0, 1, 4, 3}
 	build := schemaBuild{Substitutions: substitutionTable{
-		spans:   []substitutionSpan{{start: 0, count: 1}},
-		entries: []substitutionEntry{{member: 1}},
+		spans:   []substitutionSpan{{start: 0, count: 3}, {start: 3, count: 2}, {start: 5}},
+		entries: make([]substitutionEntry, 5),
+		byName:  slices.Clone(byName),
 	}}
-	expectDiagnostic(t, validateSchemaBuildIDDomain(&build), xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+	if err := validateSchemaBuildIDDomain(&build); err != nil {
+		t.Fatalf("validateSchemaBuildIDDomain() error = %v", err)
+	}
+	if !slices.Equal(build.Substitutions.byName, byName) {
+		t.Fatalf("name order after the audit = %v, want it unchanged, %v", build.Substitutions.byName, byName)
+	}
+	if allocs := testing.AllocsPerRun(10, func() {
+		_ = build.Substitutions.validNameOrder()
+	}); allocs != 0 {
+		t.Fatalf("auditing the name order allocated %v times, want 0", allocs)
+	}
 }
