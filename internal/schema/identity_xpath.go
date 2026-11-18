@@ -9,11 +9,13 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// identityNameResolver maps parsed identity XPath QName tokens through the
-// schema namespace context and runtime name table.
+// identityNameResolver binds the prefixes of identity XPath name tests and
+// interns their names. A parse resolves every prefix of a branch before it
+// interns any of the branch's names.
 type identityNameResolver interface {
-	ResolveIdentityQName(parts qNameParts) (QName, error)
-	ResolveIdentityWildcardNamespace(prefix string) (namespaceID, error)
+	ResolveIdentityPrefix(prefix string) (string, error)
+	InternIdentityQName(namespace, local string) (QName, error)
+	InternIdentityNamespace(namespace string) (namespaceID, error)
 }
 
 // admitIdentityXPath parses value, the xpath of the selector or field n, into
@@ -22,8 +24,10 @@ type identityNameResolver interface {
 // is the only owner of those diagnostics and the only parse of the value.
 // Prefixes resolve against the namespace scope of the start tag; an
 // unprefixed name test has no namespace (XPath 1.0 §2.3), whatever the
-// target namespace of the including context. Name tests are interned into
-// names, so a MaxSchemaNames breach is reported at the start tag.
+// target namespace of the including context. The names of a branch are
+// interned into names once its grammar and prefixes are accepted, so a
+// MaxSchemaNames breach is reported at the start tag and never in place of the
+// branch's syntax or binding error.
 func admitIdentityXPath(n *schemaSyntaxNode, value string, names *nameTable, values *admittedValues) error {
 	resolver := tagIdentityNameResolver{node: n, names: names}
 	var err error
@@ -46,33 +50,91 @@ type tagIdentityNameResolver struct {
 	names *nameTable
 }
 
-func (r tagIdentityNameResolver) ResolveIdentityQName(parts qNameParts) (QName, error) {
-	ns := ""
-	if parts.Prefixed {
-		var ok bool
-		ns, ok = r.node.NS.Lookup(parts.Prefix)
-		if !ok {
-			return QName{}, schemaCompileAt(r.node, xsderrors.CodeSchemaReference, "unbound QName prefix "+diagnostictext.Quote(parts.Prefix))
-		}
-	}
-	return newNameInterner(r.names).InternQName(ns, parts.Local)
-}
-
-func (r tagIdentityNameResolver) ResolveIdentityWildcardNamespace(prefix string) (namespaceID, error) {
+func (r tagIdentityNameResolver) ResolveIdentityPrefix(prefix string) (string, error) {
 	ns, ok := r.node.NS.Lookup(prefix)
 	if !ok {
-		return 0, schemaCompileAt(r.node, xsderrors.CodeSchemaReference, "unbound QName prefix "+diagnostictext.Quote(prefix))
+		return "", schemaCompileAt(r.node, xsderrors.CodeSchemaReference, "unbound QName prefix "+diagnostictext.Quote(prefix))
 	}
-	return newNameInterner(r.names).InternNamespace(ns)
+	return ns, nil
+}
+
+func (r tagIdentityNameResolver) InternIdentityQName(namespace, local string) (QName, error) {
+	return newNameInterner(r.names).InternQName(namespace, local)
+}
+
+func (r tagIdentityNameResolver) InternIdentityNamespace(namespace string) (namespaceID, error) {
+	return newNameInterner(r.names).InternNamespace(namespace)
+}
+
+// identityNameSyntax is a name test whose prefix is bound and whose names are
+// not interned yet.
+type identityNameSyntax struct {
+	namespace string
+	local     string
+	kind      identityNameKind
+}
+
+type identityNameKind uint8
+
+const (
+	// identityNameAny is the name test *.
+	identityNameAny identityNameKind = iota
+	// identityNameNamespace is the name test prefix:*.
+	identityNameNamespace
+	// identityNameQName is a QName name test.
+	identityNameQName
+)
+
+// identityBranchNames is the number of name tests a branch holds before its
+// pending names spill from the stack.
+const identityBranchNames = 8
+
+func internIdentityName[R identityNameResolver](syntax identityNameSyntax, resolver R) (identityNameTest, error) {
+	switch syntax.kind {
+	case identityNameNamespace:
+		ns, err := resolver.InternIdentityNamespace(syntax.namespace)
+		if err != nil {
+			return identityNameTest{}, err
+		}
+		return identityNameTest{name: noQName(), wildcard: true, namespaceSet: true, namespace: ns}, nil
+	case identityNameQName:
+		q, err := resolver.InternIdentityQName(syntax.namespace, syntax.local)
+		if err != nil {
+			return identityNameTest{}, err
+		}
+		return identityNameTest{name: q}, nil
+	case identityNameAny:
+		return identityNameTest{name: noQName(), wildcard: true}, nil
+	default:
+		return identityNameTest{}, xsderrors.InternalInvariant("unknown identity XPath name test kind")
+	}
+}
+
+// internIdentitySteps returns the element steps of the accepted name tests
+// names, in a slice of exactly their length.
+func internIdentitySteps[R identityNameResolver](names []identityNameSyntax, resolver R) ([]IdentityStep, error) {
+	if len(names) == 0 {
+		return nil, nil
+	}
+	steps := make([]IdentityStep, len(names))
+	for i, syntax := range names {
+		test, err := internIdentityName(syntax, resolver)
+		if err != nil {
+			return nil, err
+		}
+		steps[i] = IdentityStep{Name: test.name, Namespace: test.namespace, Wildcard: test.wildcard, NamespaceSet: test.namespaceSet}
+	}
+	return steps, nil
 }
 
 // parseIdentityPaths parses selector XPath branches for an identity constraint.
-// Like every parse below, it reserves at most maxIdentityPathHint records from
+// Like the field parse, it reserves at most maxIdentityPathHint branches from
 // the separator count before accepting any, grows only with accepted branches
-// and steps, and returns a slice of exactly their length, because the source
-// record keeps it.
+// and name tests, and returns slices of exactly the accepted length, because
+// the source record keeps them.
 func parseIdentityPaths[R identityNameResolver](xpath string, resolver R) ([]identityPath, error) {
 	out := make([]identityPath, 0, identityPathHint(xpath, "|"))
+	var pending [identityBranchNames]identityNameSyntax
 	for rest, more := xpath, true; more; {
 		var part string
 		part, rest, more = strings.Cut(rest, "|")
@@ -85,7 +147,11 @@ func parseIdentityPaths[R identityNameResolver](xpath string, resolver R) ([]ide
 			desc = true
 			part = rest
 		}
-		steps, err := parseIdentitySteps(part, resolver)
+		names, err := parseIdentityStepNames(part, resolver, pending[:0])
+		if err != nil {
+			return nil, err
+		}
+		steps, err := internIdentitySteps(names, resolver)
 		if err != nil {
 			return nil, err
 		}
@@ -94,18 +160,18 @@ func parseIdentityPaths[R identityNameResolver](xpath string, resolver R) ([]ide
 	return exactSlice(out), nil
 }
 
-// maxIdentityPathHint bounds what a path reserves before its branches or
-// steps are accepted, so a malformed path with many separators is rejected
-// without allocating per separator.
+// maxIdentityPathHint bounds what a path reserves before its branches are
+// accepted, so a malformed path with many separators is rejected without
+// allocating per separator.
 const maxIdentityPathHint = 64
 
-// identityPathHint is the number of parts xpath has when every separator
-// starts an accepted part, capped at maxIdentityPathHint.
+// identityPathHint is the number of branches xpath has when every separator
+// starts an accepted branch, capped at maxIdentityPathHint.
 func identityPathHint(xpath, separator string) int {
 	return min(strings.Count(xpath, separator)+1, maxIdentityPathHint)
 }
 
-// exactSlice returns s, or a copy of it without spare capacity when parts
+// exactSlice returns s, or a copy of it without spare capacity when branches
 // were discarded or the hint was exceeded.
 func exactSlice[T any](s []T) []T {
 	if len(s) == cap(s) {
@@ -117,6 +183,7 @@ func exactSlice[T any](s []T) []T {
 // parseIdentityFieldPaths parses field XPath branches for an identity constraint.
 func parseIdentityFieldPaths[R identityNameResolver](xpath string, resolver R) ([]identityFieldPath, error) {
 	out := make([]identityFieldPath, 0, identityPathHint(xpath, "|"))
+	var pending [identityBranchNames]identityNameSyntax
 	for rest, more := xpath, true; more; {
 		var part string
 		part, rest, more = strings.Cut(rest, "|")
@@ -124,7 +191,7 @@ func parseIdentityFieldPaths[R identityNameResolver](xpath string, resolver R) (
 		if part == "" {
 			return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "identity field XPath branch is empty")
 		}
-		path, err := parseIdentityFieldPathBranch(part, resolver)
+		path, err := parseIdentityFieldPathBranch(part, resolver, pending[:0])
 		if err != nil {
 			return nil, err
 		}
@@ -133,7 +200,7 @@ func parseIdentityFieldPaths[R identityNameResolver](xpath string, resolver R) (
 	return exactSlice(out), nil
 }
 
-func parseIdentityFieldPathBranch[R identityNameResolver](part string, resolver R) (identityFieldPath, error) {
+func parseIdentityFieldPathBranch[R identityNameResolver](part string, resolver R, pending []identityNameSyntax) (identityFieldPath, error) {
 	desc := false
 	if rest, ok := parseIdentityDescendantPrefix(part); ok {
 		desc = true
@@ -146,10 +213,20 @@ func parseIdentityFieldPathBranch[R identityNameResolver](part string, resolver 
 	if err != nil {
 		return identityFieldPath{}, err
 	}
-	part = attribute.elementPath
-	var steps []IdentityStep
-	if part != "" {
-		steps, err = parseIdentitySteps(part, resolver)
+	names := pending
+	if attribute.elementPath != "" {
+		names, err = parseIdentityStepNames(attribute.elementPath, resolver, pending)
+		if err != nil {
+			return identityFieldPath{}, err
+		}
+	}
+	steps, err := internIdentitySteps(names, resolver)
+	if err != nil {
+		return identityFieldPath{}, err
+	}
+	name := identityNameTest{name: noQName()}
+	if attribute.present {
+		name, err = internIdentityName(attribute.name, resolver)
 		if err != nil {
 			return identityFieldPath{}, err
 		}
@@ -157,17 +234,17 @@ func parseIdentityFieldPathBranch[R identityNameResolver](part string, resolver 
 	return identityFieldPath{
 		Descendant:       desc,
 		Attr:             attribute.present,
-		AttrWildcard:     attribute.name.wildcard,
-		AttrNamespaceSet: attribute.name.namespaceSet,
-		AttrNamespace:    attribute.name.namespace,
+		AttrWildcard:     name.wildcard,
+		AttrNamespaceSet: name.namespaceSet,
+		AttrNamespace:    name.namespace,
 		Steps:            steps,
-		Attribute:        attribute.name.name,
+		Attribute:        name.name,
 	}, nil
 }
 
 type identityFieldAttribute struct {
 	elementPath string
-	name        identityNameTest
+	name        identityNameSyntax
 	present     bool
 }
 
@@ -180,7 +257,7 @@ func parseIdentityFieldAttribute[R identityNameResolver](part string, resolver R
 		if name == "" {
 			return identityFieldAttribute{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity field XPath "+diagnostictext.Quote(part))
 		}
-		attrName, err := parseIdentityNameTestParts(name, resolver)
+		attrName, err := parseIdentityNameSyntax(name, resolver)
 		return identityFieldAttribute{elementPath: elementPath, name: attrName, present: true}, err
 	}
 	name, ok := parseIdentityAxisStep(step, "attribute")
@@ -188,9 +265,9 @@ func parseIdentityFieldAttribute[R identityNameResolver](part string, resolver R
 		return identityFieldAttribute{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity field XPath "+diagnostictext.Quote(part))
 	}
 	if !ok {
-		return identityFieldAttribute{elementPath: part, name: identityNameTest{name: noQName()}}, nil
+		return identityFieldAttribute{elementPath: part}, nil
 	}
-	attrName, err := parseIdentityNameTestParts(name, resolver)
+	attrName, err := parseIdentityNameSyntax(name, resolver)
 	return identityFieldAttribute{elementPath: elementPath, name: attrName, present: true}, err
 }
 
@@ -212,19 +289,6 @@ func parseIdentityDescendantPrefix(path string) (string, bool) {
 	return path, false
 }
 
-func parseIdentityNameTest[R identityNameResolver](lexical string, resolver R) (IdentityStep, error) {
-	parsed, err := parseIdentityNameTestParts(lexical, resolver)
-	if err != nil {
-		return IdentityStep{}, err
-	}
-	return IdentityStep{
-		Name:         parsed.name,
-		Namespace:    parsed.namespace,
-		Wildcard:     parsed.wildcard,
-		NamespaceSet: parsed.namespaceSet,
-	}, nil
-}
-
 type identityNameTest struct {
 	name         QName
 	namespace    namespaceID
@@ -232,46 +296,53 @@ type identityNameTest struct {
 	namespaceSet bool
 }
 
-func parseIdentityNameTestParts[R identityNameResolver](lexical string, resolver R) (identityNameTest, error) {
+func parseIdentityNameSyntax[R identityNameResolver](lexical string, resolver R) (identityNameSyntax, error) {
 	lexical = lex.TrimXMLWhitespaceString(lexical)
 	if lexical == "*" {
-		return identityNameTest{name: noQName(), wildcard: true}, nil
+		return identityNameSyntax{kind: identityNameAny}, nil
 	}
 	prefix, wildcard, err := parseIdentityQNamePrefixWildcard(lexical)
 	if err != nil {
-		return identityNameTest{}, err
+		return identityNameSyntax{}, err
 	}
 	if wildcard {
-		nsID, nsErr := resolver.ResolveIdentityWildcardNamespace(prefix)
+		ns, nsErr := resolver.ResolveIdentityPrefix(prefix)
 		if nsErr != nil {
-			return identityNameTest{}, nsErr
+			return identityNameSyntax{}, nsErr
 		}
-		return identityNameTest{name: noQName(), wildcard: true, namespaceSet: true, namespace: nsID}, nil
+		return identityNameSyntax{namespace: ns, kind: identityNameNamespace}, nil
 	}
-	q, err := parseIdentityQName(lexical, resolver)
+	parts, err := parseQNameParts(lexical)
 	if err != nil {
-		return identityNameTest{}, err
+		return identityNameSyntax{}, err
 	}
-	return identityNameTest{name: q}, nil
+	ns := ""
+	if parts.Prefixed {
+		if ns, err = resolver.ResolveIdentityPrefix(parts.Prefix); err != nil {
+			return identityNameSyntax{}, err
+		}
+	}
+	return identityNameSyntax{namespace: ns, local: parts.Local, kind: identityNameQName}, nil
 }
 
-func parseIdentitySteps[R identityNameResolver](path string, resolver R) ([]IdentityStep, error) {
+// parseIdentityStepNames appends the name tests of an element path to names,
+// in step order, without interning them.
+func parseIdentityStepNames[R identityNameResolver](path string, resolver R, names []identityNameSyntax) ([]identityNameSyntax, error) {
 	if err := validateIdentityElementPath(path); err != nil {
 		return nil, err
 	}
-	steps := make([]IdentityStep, 0, identityPathHint(path, "/"))
 	for rest, more := path, true; more; {
 		var part string
 		part, rest, more = strings.Cut(rest, "/")
-		step, present, err := parseIdentityElementStep(part, resolver)
+		name, present, err := parseIdentityElementStep(part, resolver)
 		if err != nil {
 			return nil, err
 		}
 		if present {
-			steps = append(steps, step)
+			names = append(names, name)
 		}
 	}
-	return exactSlice(steps), nil
+	return names, nil
 }
 
 func validateIdentityElementPath(path string) error {
@@ -284,23 +355,23 @@ func validateIdentityElementPath(path string) error {
 	return nil
 }
 
-func parseIdentityElementStep[R identityNameResolver](part string, resolver R) (IdentityStep, bool, error) {
+func parseIdentityElementStep[R identityNameResolver](part string, resolver R) (identityNameSyntax, bool, error) {
 	part = lex.TrimXMLWhitespaceString(part)
 	if part == "" {
-		return IdentityStep{}, false, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity XPath step")
+		return identityNameSyntax{}, false, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity XPath step")
 	}
 	if strings.Contains(part, "::") {
 		name, err := parseIdentityChildAxisStep(part)
 		if err != nil {
-			return IdentityStep{}, false, err
+			return identityNameSyntax{}, false, err
 		}
 		part = name
 	}
 	if part == "." {
-		return IdentityStep{}, false, nil
+		return identityNameSyntax{}, false, nil
 	}
-	step, err := parseIdentityNameTest(part, resolver)
-	return step, true, err
+	name, err := parseIdentityNameSyntax(part, resolver)
+	return name, true, err
 }
 
 func parseIdentityChildAxisStep(part string) (string, error) {
@@ -326,14 +397,6 @@ func parseIdentityAxisStep(part, axis string) (string, bool) {
 		return "", false
 	}
 	return lex.TrimXMLWhitespaceString(rest), true
-}
-
-func parseIdentityQName[R identityNameResolver](lexical string, resolver R) (QName, error) {
-	parts, err := parseQNameParts(lexical)
-	if err != nil {
-		return QName{}, err
-	}
-	return resolver.ResolveIdentityQName(parts)
 }
 
 func parseIdentityQNamePrefixWildcard(lexical string) (string, bool, error) {

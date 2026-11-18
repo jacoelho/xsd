@@ -304,22 +304,32 @@ type identityNameResolverStub struct {
 	qnames     map[string]QName
 }
 
-func (s identityNameResolverStub) ResolveIdentityQName(parts qNameParts) (QName, error) {
-	key := ":" + parts.Local
-	if parts.Prefixed {
-		key = parts.Prefix + ":" + parts.Local
+// ResolveIdentityPrefix binds a prefix to a namespace named like the prefix
+// when the stub holds any name in it.
+func (s identityNameResolverStub) ResolveIdentityPrefix(prefix string) (string, error) {
+	if _, ok := s.namespaces[prefix]; ok {
+		return prefix, nil
 	}
-	q, ok := s.qnames[key]
+	for key := range s.qnames {
+		if strings.HasPrefix(key, prefix+":") {
+			return prefix, nil
+		}
+	}
+	return "", xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "unbound QName prefix "+prefix)
+}
+
+func (s identityNameResolverStub) InternIdentityQName(namespace, local string) (QName, error) {
+	q, ok := s.qnames[namespace+":"+local]
 	if !ok {
-		return QName{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "unbound QName prefix "+parts.Prefix)
+		return QName{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "stub holds no name "+namespace+":"+local)
 	}
 	return q, nil
 }
 
-func (s identityNameResolverStub) ResolveIdentityWildcardNamespace(prefix string) (namespaceID, error) {
-	ns, ok := s.namespaces[prefix]
+func (s identityNameResolverStub) InternIdentityNamespace(namespace string) (namespaceID, error) {
+	ns, ok := s.namespaces[namespace]
 	if !ok {
-		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "unbound QName prefix "+prefix)
+		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "stub holds no namespace "+namespace)
 	}
 	return ns, nil
 }

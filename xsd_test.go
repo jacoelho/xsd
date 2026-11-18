@@ -145,6 +145,37 @@ func TestNameLimitBreachOnAnXPathNameIsReportedAtItsStartTagInLoadOrder(t *testi
 	}
 }
 
+func TestIdentityXPathSyntaxErrorTakesPrecedenceOverANameLimitBreachInTheSameBranch(t *testing.T) {
+	t.Parallel()
+
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="r">
+    <xs:key name="k">
+      <xs:selector xpath="."/>
+      <xs:field xmlns:p="urn:new" xpath="a[1]/@p:x"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`
+	reachedField := false
+	for limit := 1; limit <= 1_000; limit++ {
+		_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaNames: limit}, xsd.Bytes("schema.xsd", []byte(schema)))
+		d, ok := errors.AsType[*xsderrors.Error](err)
+		if !ok {
+			t.Fatalf("CompileWithOptions(MaxSchemaNames: %d) error = %v, want a diagnostic", limit, err)
+		}
+		if d.Line() != 5 {
+			continue
+		}
+		reachedField = true
+		if d.Category() != xsderrors.CategorySchemaCompile || d.Code() != xsderrors.CodeSchemaIdentity {
+			t.Fatalf("CompileWithOptions(MaxSchemaNames: %d) error = %v, want schema.identity for the invalid field XPath", limit, err)
+		}
+	}
+	if !reachedField {
+		t.Fatal("no name limit up to 1000 reached the xs:field start tag")
+	}
+}
+
 func TestCompileMatchesZeroOptionCompileWithOptions(t *testing.T) {
 	t.Parallel()
 
