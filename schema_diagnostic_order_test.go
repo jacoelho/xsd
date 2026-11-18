@@ -31,9 +31,11 @@ const (
 	compileTier
 )
 
-// The stages of one decision point. Stages up to stageExcludedAttributes are
-// decided at a start tag, the others at an end tag. Contract stage 6 decides
-// the attributes a tag requires and then the ones that exclude each other.
+// The stages of one decision point. Stages up to stageXmlnsName are decided
+// at a start tag, the others at an end tag. Contract stage 6 decides, in this
+// order, the attributes a tag requires, the ones that exclude each other, the
+// occurrence bounds against each other, and an attribute declaration's name
+// against its use.
 const (
 	stageRoot = iota + 1
 	stageVocabulary
@@ -42,6 +44,8 @@ const (
 	stageAttribute
 	stageRequiredAttribute
 	stageExcludedAttributes
+	stageOccurrenceRelation
+	stageXmlnsName
 	stageText
 	stageRequiredChild
 )
@@ -54,6 +58,8 @@ var stageNames = map[int]string{
 	stageAttribute:          "5 attribute",
 	stageRequiredAttribute:  "6 required attribute",
 	stageExcludedAttributes: "6 excluded attributes",
+	stageOccurrenceRelation: "6 occurrence relation",
+	stageXmlnsName:          "6 xmlns name",
 	stageText:               "7 character data",
 	stageRequiredChild:      "8 required child",
 }
@@ -287,7 +293,7 @@ func (v violation) editedKey() string {
 }
 
 func (v violation) decidedAtStart() bool {
-	return v.stage <= stageExcludedAttributes
+	return v.stage <= stageXmlnsName
 }
 
 // entry is one violation of one fixture.

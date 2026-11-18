@@ -9,7 +9,44 @@ import "github.com/jacoelho/xsd/xsderrors"
 
 // knownSchemaDiagnosticOrderGaps names the catalogue entries the compiler
 // decides later than the contract declares, with the reason each stays open.
-var knownSchemaDiagnosticOrderGaps = map[string]string{}
+var knownSchemaDiagnosticOrderGaps = map[string]string{
+	"all group/maxOccurs of all above one":                                             "the xs:all occurrence ranges are checked when the content model compiles",
+	"all group/minOccurs of all is above uint32":                                       "the occurrence of a particle is parsed when its component compiles",
+	"all group/maxOccurs of member above one":                                          "the xs:all occurrence ranges are checked when the content model compiles",
+	"all group/maxOccurs of member unbounded":                                          "the xs:all occurrence ranges are checked when the content model compiles",
+	"all group/minOccurs of member above the default maxOccurs":                        "the occurrence of a particle is parsed when its component compiles",
+	"local element/maxOccurs below minOccurs":                                          "the occurrence of a particle is parsed when its component compiles",
+	"local element/maxOccurs zero below the default minOccurs":                         "the occurrence of a particle is parsed when its component compiles",
+	"local element/minOccurs two above the default maxOccurs":                          "the occurrence of a particle is parsed when its component compiles",
+	"local element/maxOccurs of declaration is above uint32":                           "the occurrence of a particle is parsed when its component compiles",
+	"local element/minOccurs of declaration is above uint32":                           "the occurrence of a particle is parsed when its component compiles",
+	"local element/maxOccurs of group below minOccurs":                                 "the occurrence of a particle is parsed when its component compiles",
+	"element reference/minOccurs two above the default maxOccurs":                      "the occurrence of a particle is parsed when its component compiles",
+	"group reference/maxOccurs zero below the default minOccurs":                       "the occurrence of a particle is parsed when its component compiles",
+	"wildcard/minOccurs of any above maxOccurs":                                        "the occurrence of a particle is parsed when its component compiles",
+	"local attribute/attribute named xmlns":                                            "the xmlns name of an attribute declaration is checked when the declaration compiles",
+	"local attribute/attribute named xmlns after whitespace collapse":                  "the xmlns name of an attribute declaration is checked when the declaration compiles",
+	"attribute group reference/attribute in the group named xmlns":                     "the xmlns name of an attribute declaration is checked when the declaration compiles",
+	"anonymous simple type/top-level attribute named xmlns":                            "the xmlns name of an attribute declaration is checked when the declaration compiles",
+	"prohibited xmlns attribute/use optional":                                          "the xmlns name of an attribute declaration is checked when the declaration compiles",
+	"prohibited xmlns attribute/use required":                                          "the xmlns name of an attribute declaration is checked when the declaration compiles",
+	"prohibited xmlns attribute/no use":                                                "the xmlns name of an attribute declaration is checked when the declaration compiles",
+	"facet/facet repeated":                                                             "a repeated facet is detected when the restriction compiles",
+	"simple content/facet repeated":                                                    "a repeated facet is detected when the restriction compiles",
+	"standalone/whiteSpace repeated":                                                   "a repeated facet is detected when the restriction compiles",
+	"facet/value is no length":                                                         "size and whiteSpace facet values are parsed when the facet compiles",
+	"facet/value above uint32":                                                         "size and whiteSpace facet values are parsed when the facet compiles",
+	"simple content/value is no length":                                                "size and whiteSpace facet values are parsed when the facet compiles",
+	"standalone/whiteSpace value is no mode":                                           "size and whiteSpace facet values are parsed when the facet compiles",
+	"standalone/totalDigits value zero":                                                "size and whiteSpace facet values are parsed when the facet compiles",
+	"standalone/pattern is no regular expression":                                      "a pattern is compiled when the facet compiles",
+	"identity constraint/selector xpath is no selector path":                           "selector and field paths are parsed when the identity constraint compiles",
+	"identity constraint/unbound prefix in the selector before a later invalid branch": "selector and field paths are parsed when the identity constraint compiles",
+	"identity constraint/invalid selector branch before a later unbound prefix":        "selector and field paths are parsed when the identity constraint compiles",
+	"identity constraint/field xpath is no field path":                                 "selector and field paths are parsed when the identity constraint compiles",
+	"identity constraint/empty attribute step before an unbound element prefix":        "selector and field paths are parsed when the identity constraint compiles",
+	"identity constraint/unbound wildcard prefix in the field":                         "selector and field paths are parsed when the identity constraint compiles",
+}
 
 // sameStartTagFixtures are the fixtures that must generate pairs of
 // violations on one start tag.
@@ -83,6 +120,30 @@ func excludedAttributes(name, message string) violation {
 	return parseViolation(stageExcludedAttributes, name, invalidAttribute, message)
 }
 
+// occurrenceRelation is a minOccurs greater than the maxOccurs of one start
+// tag, either written or by default, decided after the attributes that exclude
+// each other.
+func occurrenceRelation(name string, attrs ...string) violation {
+	return parseViolation(stageOccurrenceRelation, name, occurrence, "maxOccurs is less than minOccurs").setting(attrs...)
+}
+
+// xmlnsName is an attribute declaration named xmlns whose use is not
+// prohibited, decided after the occurrence relation.
+func xmlnsName(name string, attrs ...string) violation {
+	return parseViolation(stageXmlnsName, name, invalidAttribute, "attribute cannot be named xmlns").setting(attrs...)
+}
+
+// occurrenceLimit is an occurrence count above uint32, decided with the
+// value of its attribute.
+func occurrenceLimit(key, attr string) violation {
+	return attributeViolation(attr+" of "+key+" is above uint32", xsderrors.CodeSchemaLimit, attr+" exceeds uint32 limit").at(key).setting(attr + `="4294967296"`)
+}
+
+const (
+	allOccurrenceMessage = "xs:all occurrence must be zero or one"
+	allMemberMessage     = "xs:all particles cannot repeat"
+)
+
 // textInside is character data after the last child of the element at key,
 // whose local name is local.
 func textInside(key, local string) violation {
@@ -118,6 +179,8 @@ func schemaDiagnosticFixtures() []fixture {
 		notationFixture(),
 		anonymousComplexTypeFixture(),
 		anonymousSimpleTypeFixture(),
+		allGroupFixture(),
+		prohibitedXmlnsAttributeFixture(),
 		annotationFixture(),
 		standaloneFixture(),
 	}
@@ -239,8 +302,12 @@ func localElementFixture() fixture {
 			attributeViolation("block is no derivation set", invalidAttribute, `invalid element block value "x"`).at(key).setting(`block="x"`),
 			requiredAttribute("no name and no ref", reference, "local element missing name or ref").at(key).dropping("name"),
 			textInside(key, "element"),
-			compileViolation("maxOccurs below minOccurs", occurrence, "maxOccurs is less than minOccurs").at(key).setting(`minOccurs="2"`, `maxOccurs="1"`),
-			compileViolation("maxOccurs above the occurrence limit", xsderrors.CodeSchemaLimit, "maxOccurs exceeds").at(key).setting(`maxOccurs="99999999999"`),
+			excludedAttributes("default with fixed", "element cannot have both default and fixed").at(key).setting(`default="a"`, `fixed="b"`),
+			occurrenceRelation("maxOccurs below minOccurs", `minOccurs="2"`, `maxOccurs="1"`).at(key),
+			occurrenceRelation("maxOccurs zero below the default minOccurs", `maxOccurs="0"`).at(key),
+			occurrenceRelation("minOccurs two above the default maxOccurs", `minOccurs="2"`).at(key),
+			occurrenceLimit(key, "maxOccurs"),
+			occurrenceLimit(key, "minOccurs"),
 
 			earlierText(group, "complexType"),
 			unknownAttribute(group, "sequence"),
@@ -249,6 +316,7 @@ func localElementFixture() fixture {
 			attributeViolation("minOccurs of group is unbounded", occurrence, `invalid minOccurs "unbounded"`).at(group).setting(`minOccurs="unbounded"`),
 			textInside(group, "sequence"),
 			childViolation("second model group", contentModel, "complexType model group is out of order").at(group).after(func() *node { return xs("choice") }),
+			occurrenceRelation("maxOccurs of group below minOccurs", `minOccurs="3"`, `maxOccurs="2"`).at(group),
 		},
 	}
 }
@@ -274,6 +342,7 @@ func elementReferenceFixture() fixture {
 			invalidOccurrence(key, "minOccurs"),
 			invalidOccurrence(key, "maxOccurs"),
 			textInside(key, "element"),
+			occurrenceRelation("minOccurs two above the default maxOccurs", `minOccurs="2"`).at(key),
 			compileViolation("unresolved ref", reference, "unknown element").at(key).setting(`ref="missing"`),
 		},
 	}
@@ -302,7 +371,8 @@ func localAttributeFixture() fixture {
 			excludedAttributes("default with fixed", "attribute cannot have both default and fixed").at(key).setting(`default="a"`, `fixed="b"`),
 			excludedAttributes("default on a required attribute", "required attribute cannot have default").at(key).setting(`use="required"`, `default="a"`),
 			excludedAttributes("default on a prohibited attribute", "prohibited attribute cannot have default").at(key).setting(`use="prohibited"`, `default="a"`),
-			compileViolation("attribute named xmlns", invalidAttribute, "xmlns").at(key).setting(`name="xmlns"`),
+			xmlnsName("attribute named xmlns", `name="xmlns"`).at(key),
+			xmlnsName("attribute named xmlns after whitespace collapse", `name=" xmlns "`).at(key),
 
 			vocabulary("XSD 1.1 attribute defaultAttributesApply", xsd11, "XSD 1.1 attribute defaultAttributesApply on xs:complexType").at(owner).setting(`defaultAttributesApply="true"`),
 			unknownAttribute(owner, "complexType"),
@@ -341,12 +411,12 @@ func attributeReferenceFixture() fixture {
 }
 
 func attributeGroupReferenceFixture() fixture {
-	const key, group = "reference", "group"
+	const key, group, member = "reference", "group", "member"
 	return fixture{
 		name: "attribute group reference",
 		build: func(n string) []*node {
 			return []*node{
-				xs("attributeGroup", `name="ag`+n+`"`).as(group).with(xs("attribute", `name="a"`)),
+				xs("attributeGroup", `name="ag`+n+`"`).as(group).with(xs("attribute", `name="a"`).as(member)),
 				xs("complexType", `name="t`+n+`"`).with(xs("attributeGroup", `ref="ag`+n+`"`).as(key)),
 			}
 		},
@@ -363,6 +433,9 @@ func attributeGroupReferenceFixture() fixture {
 			attributeViolation("ref on a definition", invalidAttribute, `top-level "attributeGroup" cannot have "ref"`).at(group).setting(`ref="other"`),
 			requiredAttribute("definition has no name", reference, `top-level "attributeGroup" missing name`).at(group).dropping("name"),
 			textInside(group, "attributeGroup"),
+
+			xmlnsName("attribute in the group named xmlns", `name="xmlns"`).at(member),
+			excludedAttributes("default on a prohibited attribute in the group", "prohibited attribute cannot have default").at(member).setting(`use="prohibited"`, `default="a"`),
 		},
 	}
 }
@@ -388,6 +461,7 @@ func groupReferenceFixture() fixture {
 			invalidOccurrence(key, "maxOccurs"),
 			requiredAttribute("no ref", reference, "group use missing ref").at(key).dropping("ref"),
 			textInside(key, "group"),
+			occurrenceRelation("maxOccurs zero below the default minOccurs", `maxOccurs="0"`).at(key),
 			compileViolation("unresolved ref", reference, "unknown model group").at(key).setting(`ref="missing"`),
 		},
 	}
@@ -463,7 +537,9 @@ func simpleTypeFixture() fixture {
 			invalidBoolean(facet, "fixed"),
 			requiredAttribute("no value", facetCode, "maxLength missing value").at(facet).dropping("value"),
 			textInside(facet, "maxLength"),
-			compileViolation("value is no length", facetCode, "maxLength").at(facet).setting(`value="-1"`),
+			childViolation("facet repeated", facetCode, "duplicate maxLength facet").at(facet).after(func() *node { return xs("maxLength", `value="6"`) }),
+			attributeViolation("value is no length", facetCode, `invalid maxLength facet "-1"`).at(facet).setting(`value="-1"`),
+			attributeViolation("value above uint32", xsderrors.CodeSchemaLimit, "maxLength facet exceeds uint32 limit").at(facet).setting(`value="4294967296"`),
 			compileViolation("facet the base type does not admit", facetCode, "is not allowed").at(facet).renamed("xs:totalDigits"),
 		},
 	}
@@ -562,6 +638,8 @@ func simpleContentFixture() fixture {
 			unknownAttribute(facet, "maxLength"),
 			invalidBoolean(facet, "fixed"),
 			requiredAttribute("facet has no value", facetCode, "maxLength missing value").at(facet).dropping("value"),
+			childViolation("facet repeated", facetCode, "duplicate maxLength facet").at(facet).after(func() *node { return xs("maxLength", `value="6"`) }),
+			attributeViolation("value is no length", facetCode, `invalid maxLength facet "x"`).at(facet).setting(`value="x"`),
 		},
 	}
 }
@@ -601,14 +679,18 @@ func identityConstraintFixture() fixture {
 			attributeViolation("selector xpath is empty", identity, `"selector" xpath is empty`).at(selector).setting(`xpath=" "`),
 			requiredAttribute("selector has no xpath", identity, `"selector" missing xpath`).at(selector).dropping("xpath"),
 			textInside(selector, "selector"),
-			compileViolation("selector xpath is no selector path", identity, "XPath").at(selector).setting(`xpath="///"`),
+			attributeViolation("selector xpath is no selector path", identity, `invalid identity XPath "///"`).at(selector).setting(`xpath="///"`),
+			attributeViolation("unbound prefix in the selector before a later invalid branch", reference, `unbound QName prefix "p"`).at(selector).setting(`xpath="p:a | //"`),
+			attributeViolation("invalid selector branch before a later unbound prefix", identity, `invalid identity XPath "//"`).at(selector).setting(`xpath="// | p:a"`),
 
 			earlierText(field, "key"),
 			childViolation("second selector", contentModel, "identity constraint can contain at most one selector").at(field).renamed("xs:selector"),
 			unknownAttribute(field, "field"),
 			attributeViolation("field xpath is empty", identity, `"field" xpath is empty`).at(field).setting(`xpath=""`),
 			requiredAttribute("field has no xpath", identity, `"field" missing xpath`).at(field).dropping("xpath"),
-			compileViolation("field xpath is no field path", identity, "XPath").at(field).setting(`xpath="a/@b/c"`),
+			attributeViolation("field xpath is no field path", identity, `invalid identity XPath "a/@b/c"`).at(field).setting(`xpath="a/@b/c"`),
+			attributeViolation("empty attribute step before an unbound element prefix", identity, `invalid identity field XPath "p:a/@"`).at(field).setting(`xpath="p:a/@"`),
+			attributeViolation("unbound wildcard prefix in the field", reference, "unbound QName prefix p").at(field).setting(`xpath="@p:*"`),
 		},
 	}
 }
@@ -652,6 +734,7 @@ func wildcardFixture() fixture {
 			attributeViolation("namespace of any is no namespace list", invalidAttribute, `invalid wildcard namespace "##bogus"`).at(particle).setting(`namespace="##bogus"`),
 			invalidOccurrence(particle, "minOccurs"),
 			invalidOccurrence(particle, "maxOccurs"),
+			occurrenceRelation("minOccurs of any above maxOccurs", `minOccurs="3"`, `maxOccurs="2"`).at(particle),
 			textInside(particle, "any"),
 
 			vocabulary("XSD 1.1 attribute notNamespace on anyAttribute", xsd11, "XSD 1.1 attribute notNamespace on xs:anyAttribute").at(attribute).setting(`notNamespace="urn:x"`),
@@ -736,6 +819,7 @@ func anonymousSimpleTypeFixture() fixture {
 			attributeViolation("form at top level", invalidAttribute, `top-level "attribute" cannot have "form"`).at(owner).setting(`form="qualified"`),
 			requiredAttribute("attribute has no name", reference, `top-level "attribute" missing name`).at(owner).dropping("name"),
 			textInside(owner, "attribute"),
+			xmlnsName("top-level attribute named xmlns", `name="xmlns"`).at(owner),
 
 			childViolation("base attribute and simpleType", contentModel, "restriction cannot have both base and simpleType").at("inner").
 				alone(func(n string) []*node {
@@ -747,6 +831,49 @@ func anonymousSimpleTypeFixture() fixture {
 					return []*node{xs("simpleType", `name="s`+n+`"`).with(xs("list", `itemType="xs:int"`).with(
 						xs("simpleType").as("inner").with(xs("restriction", `base="xs:int"`))))}
 				}),
+		},
+	}
+}
+
+func allGroupFixture() fixture {
+	const model, member = "all", "member"
+	return fixture{
+		name: "all group",
+		build: func(n string) []*node {
+			return []*node{xs("complexType", `name="t`+n+`"`).with(
+				xs("all").as(model).with(xs("element", `name="e"`).as(member)))}
+		},
+		violations: []violation{
+			unknownAttribute(model, "all"),
+			attributeViolation("maxOccurs of all above one", occurrence, allOccurrenceMessage).at(model).setting(`maxOccurs="2"`),
+			occurrenceLimit(model, "minOccurs"),
+			textInside(model, "all"),
+			childViolation("sequence in all", contentModel, "xs:all can contain only element particles").at(member).renamed("xs:sequence"),
+
+			attributeViolation("maxOccurs of member above one", occurrence, allMemberMessage).at(member).setting(`maxOccurs="2"`),
+			attributeViolation("maxOccurs of member unbounded", occurrence, allMemberMessage).at(member).setting(`maxOccurs="unbounded"`),
+			occurrenceRelation("minOccurs of member above the default maxOccurs", `minOccurs="2"`).at(member),
+			invalidBoolean(member, "nillable"),
+		},
+	}
+}
+
+// prohibitedXmlnsAttributeFixture holds an attribute declaration named xmlns
+// whose use is prohibited, which corresponds to no component (I-008): the
+// fixture is valid, and each edit of the use makes it a violation.
+func prohibitedXmlnsAttributeFixture() fixture {
+	const key = "declaration"
+	return fixture{
+		name: "prohibited xmlns attribute",
+		build: func(n string) []*node {
+			return []*node{xs("complexType", `name="t`+n+`"`).with(xs("attribute", `name="xmlns"`, `use="prohibited"`).as(key))}
+		},
+		violations: []violation{
+			xmlnsName("use optional", `use="optional"`).at(key),
+			xmlnsName("use required", `use="required"`).at(key),
+			xmlnsName("no use").at(key).dropping("use"),
+			excludedAttributes("default on the prohibited attribute", "prohibited attribute cannot have default").at(key).setting(`use="prohibited"`, `default="a"`),
+			attributeViolation("use is no use", invalidAttribute, "invalid attribute use x").at(key).setting(`use="x"`),
 		},
 	}
 }
@@ -881,7 +1008,7 @@ func standaloneFixture() fixture {
 					xs("keyref", `name="r`+n+`"`, `refer="k`+n+`"`).with(xs("selector", `xpath="."`), xs("field", `xpath="@a"`)),
 					xs("keyref", `name="s`+n+`"`, `refer="r`+n+`"`).as(key).with(xs("selector", `xpath="."`), xs("field", `xpath="@a"`)))}
 			}),
-		compileViolation("group reference resolving to xs:all in a sequence", contentModel, "xs:all").at(key).
+		compileViolation("group reference resolving to xs:all in a sequence", contentModel, "xs:all cannot be nested in model groups").at(key).
 			alone(func(n string) []*node {
 				return []*node{
 					xs("group", `name="g`+n+`"`).with(xs("all").with(xs("element", `name="e"`))),
@@ -893,9 +1020,32 @@ func standaloneFixture() fixture {
 				return []*node{xs("simpleType", `name="s`+n+`"`).with(xs("restriction", `base="xs:int"`).with(
 					xs("enumeration", `value="abc"`).as(key)))}
 			}),
-		compileViolation("occurrence of an xs:all particle above one", occurrence, "xs:all").at(key).
-			alone(inComplexType(func(string) []*node {
-				return []*node{xs("all").with(xs("element", `name="e"`, `maxOccurs="2"`).as(key))}
-			})),
+		compileViolation("group reference to xs:all repeating it", occurrence, allOccurrenceMessage).at(key).
+			alone(func(n string) []*node {
+				return []*node{
+					xs("group", `name="g`+n+`"`).with(xs("all").with(xs("element", `name="e"`))),
+					xs("complexType", `name="t`+n+`"`).with(xs("group", `ref="g`+n+`"`, `maxOccurs="2"`).as(key)),
+				}
+			}),
+		attributeViolation("whiteSpace value is no mode", facetCode, `invalid whiteSpace facet "trim"`).at(key).
+			alone(func(n string) []*node {
+				return []*node{xs("simpleType", `name="s`+n+`"`).with(xs("restriction", `base="xs:string"`).with(
+					xs("whiteSpace", `value="trim"`).as(key)))}
+			}),
+		attributeViolation("totalDigits value zero", facetCode, "totalDigits must be positive").at(key).
+			alone(func(n string) []*node {
+				return []*node{xs("simpleType", `name="s`+n+`"`).with(xs("restriction", `base="xs:decimal"`).with(
+					xs("totalDigits", `value="0"`).as(key)))}
+			}),
+		attributeViolation("pattern is no regular expression", facetCode, "invalid pattern").at(key).
+			alone(func(n string) []*node {
+				return []*node{xs("simpleType", `name="s`+n+`"`).with(xs("restriction", `base="xs:string"`).with(
+					xs("pattern", `value="[a"`).as(key)))}
+			}),
+		childViolation("whiteSpace repeated", facetCode, "duplicate whiteSpace facet").at(key).
+			alone(func(n string) []*node {
+				return []*node{xs("simpleType", `name="s`+n+`"`).with(xs("restriction", `base="xs:string"`).with(
+					xs("whiteSpace", `value="collapse"`), xs("whiteSpace", `value="collapse"`).as(key)))}
+			}),
 	}}
 }

@@ -229,7 +229,24 @@ build only on success; `*schema.Schema` exposes only immutable derived reads.
 
 Schema-document diagnostics have an order. A violation has one decision point,
 and a compilation reports the violation whose decision point comes first. Two
-tiers hold the decision points.
+tiers hold the decision points, and one criterion assigns every rule to one of
+them.
+
+A rule of any kind (Schema Representation Constraint, schema for schemas, or
+Schema Component Constraint) is parse tier when every input it reads is on the
+tag or in earlier content of the same document. A Schema Component Constraint
+is parse tier only when, in addition, every value of the constrained property
+that can violate it is written by one tag and never produced by resolution,
+derivation or the including context; a value the processor synthesizes as a
+constant (the 1..1 particle of an extension, a builtin component) cannot
+violate it. Occurrence bounds, attribute declaration names and selector and
+field paths qualify. All Group Limited through a group reference does not, and
+neither does the XMLSchema-instance target namespace of an attribute
+declaration, whose chameleon form takes the namespace of the including
+document. A rule is classified once: when any form of it needs resolution or
+set-wide context, the whole rule is compile tier, unless the specification
+states the forms as separate constraints, as it does for the occurrence ranges
+the schema for schemas gives `xs:all` and its elements and All Group Limited.
 
 The parse tier decides while a document is read, at a start tag (`admitStart`)
 or an end tag (`completeTypedNode`). Its violations are reported in document
@@ -241,17 +258,29 @@ At a start tag:
    or attribute, or `xs:redefine`;
 3. character data earlier in the parent;
 4. the parent's content admits the child: no foreign element, the annotation
-   rules, then the parent's child order (`childOrderState.accept`);
+   rules, then the parent's child order (`childOrderState.accept`), which also
+   rejects a facet the restriction already holds (src-single-facet-value;
+   `xs:pattern` and `xs:enumeration` may repeat);
 5. the element's own attributes in the order written. For each attribute:
    that the element may have it in this placement (`schemaElementAttributeAllowed`,
    `misplacedSchemaAttributeError`), then its value: the name syntax of `name`
    and `id`, an `id` the document already declares, the lexical form
-   (`checkSchemaAttributeValueSyntax`), the lexical form and prefix binding of
-   a QName, and anyURI syntax;
+   (`checkSchemaAttributeValueSyntax`); for `minOccurs` and `maxOccurs` the
+   count against uint32 and `MaxFiniteOccurs` and then the range the schema
+   for schemas gives `xs:all` and an element directly in it
+   (`occurrenceAdmission`); for the `value` of a size facet, `xs:whiteSpace`
+   and `xs:pattern` its integer and uint32 cap, its mode and its regular
+   expression (`admitFacetValue`); for `xpath` the path grammar and the
+   prefix bindings of its name tests, branch by branch from the left
+   (`admitIdentityXPath`); the lexical form and prefix binding of a QName; and
+   anyURI syntax;
 6. the attributes the placement requires (`checkRequiredSchemaAttributes`),
    then the attributes that exclude each other
    (`checkValueConstraintAttributes`): `default` with `fixed`, and `default`
-   with a `use` other than optional.
+   with a `use` other than optional; then `minOccurs` not greater than
+   `maxOccurs`, each written or by default (`occurrenceAdmission`); then an
+   attribute declaration named `xmlns` whose `use` is not prohibited
+   (`checkAttributeDeclarationName`).
 
 At an end tag:
 
@@ -266,44 +295,35 @@ failure is reported when the loader reaches its reference.
 
 The compile tier decides after every document of the set is read, so a
 compile-tier violation is reported only when no document has a parse-tier
-violation. A rule is compile tier when one start or end tag cannot decide it:
-reference resolution and import authorization; duplicate components and
-attribute uses; cycles, derivation and `final`; whether the base type admits a
-facet, and a facet's value, whose type the facet and the base type give
-together; a value constraint against its type; a group reference that resolves
-to `xs:all`; and the content model rules (Unique Particle Attribution, Element
-Declarations Consistent, restriction).
+violation. Each compile-tier rule has a reason the criterion names: reference
+resolution and import authorization (resolution); duplicate components and
+attribute uses (set-wide uniqueness); cycles, derivation and `final`
+(resolution); whether the base type admits a facet, a facet's value against
+the base type, and a value constraint against its type (type-dependent value);
+All Group Limited through a group reference (resolution); the content model
+rules: Unique Particle Attribution, Element Declarations Consistent and
+restriction (content-model analysis); and the XMLSchema-instance target
+namespace of an attribute declaration (chameleon namespace).
 
-Compilation also owns rules that one start tag states. They are Schema
-Component Constraints, and the compiler checks each where it builds the
-component:
-
-- `minOccurs` above `maxOccurs` (Particle Correct), and an occurrence count
-  above the occurrence limits.
-- The occurrence range of `xs:all` (`validateAllModelOccurrence`) and of its
-  particles (`appendParticle`). The XML representation of `xs:all` states the
-  same ranges; they are compile tier so that All Group Limited, which also
-  rejects an `xs:all` that a group reference brings into a model group, has
-  one owner.
-- An attribute declaration named `xmlns` (xmlns Not Allowed).
-
-The path of `xs:selector` and `xs:field` is the form of one attribute and is
-compile tier all the same: the identity constraint compiler owns the grammar,
-and stage 5 rejects only an empty `xpath`. A facet repeated in one restriction,
-which the start tag of the second could decide, is compile tier with the other
-facet rules.
-
-Each parse-tier rule has one owner. The child orders (`childOrderFor`) own
-where an element may appear; the placement of a component
-(`schemaElementPlacementOf`) selects its attribute rules and says nothing
-about whether its parent admits it. `schemaElementAttributeAllowed` and
-`misplacedSchemaAttributeError` own the attributes an element may have,
+Each rule has one owner: one function, called at the tag that decides it,
+whose product the tag's typed source record stores and compilation reads. The
+child orders (`childOrderFor`) own where an element may appear; the placement
+of a component (`schemaElementPlacementOf`) selects its attribute rules and
+says nothing about whether its parent admits it. `schemaElementAttributeAllowed`
+and `misplacedSchemaAttributeError` own the attributes an element may have,
 `checkRequiredSchemaAttributes` the ones it must have,
 `checkValueConstraintAttributes` the ones that exclude each other, and
-`checkSchemaAttributeValueSyntax` the lexical form of a value. Compilation
-parses an admitted value again with the same parser to use it, and a lexical
-failure there is an internal invariant (`admittedValueInvariant`), not a second
-schema diagnostic.
+`checkSchemaAttributeValueSyntax` the lexical form of a value.
+`occurrenceAdmission` stores the occurrence of a particle, `admitFacetValue`
+the size or whiteSpace mode of a facet, and `admitIdentityXPath` the parsed
+paths of a selector or field, so compilation never parses those values again
+and has no diagnostic for them. A pattern is the exception:
+compilation compiles it again with `xsdregex.Compile`, because the compiler
+owns the pattern cache and the `MaxSchemaPatternRetainedBytes` charge, and a
+failure there is an internal invariant. Compilation parses the other admitted
+values again with the same parser to use them, and a lexical failure there is
+an internal invariant (`admittedValueInvariant`), not a second schema
+diagnostic.
 
 `internal/schema`, `internal/value` and `internal/validate` export only
 identifiers consumed outside their package: for schema the published read
@@ -983,6 +1003,21 @@ graph preserves these ownership rules:
   context instead.
 - Reimplementing content matching in the diagnostic layer was rejected because
   it would duplicate occurrence, wildcard and substitution rules.
+- Deciding tag-decidable Schema Component Constraints when their component
+  compiles (minOccurs above maxOccurs, the occurrence limits, the `xs:all`
+  ranges, an attribute named `xmlns`, selector and field paths) and a repeated
+  facet with the other facet rules was rejected: each then lost to a parse-tier
+  violation later in the same document, so the reported violation depended on
+  which tier owned a rule rather than on document order. The reason given for
+  the `xs:all` ranges, one owner for All Group Limited, does not hold: the
+  schema for schemas states the ranges of `xs:all` and its elements as a
+  separate constraint from All Group Limited through a group reference, and
+  each now has its own owner.
+- Checking the syntax of selector and field paths only when the identity
+  constraint compiles, so that no second parse allocates on a successful
+  compile, was rejected with the tier rule above: the tag parses each path
+  once and stores the steps with namespace and local-name strings, and
+  compilation only interns them.
 
 - Bounding segments inside an incremental path-text cache was rejected: escaped
   lengths need a per-element name scan on the element-start hot path, and every
