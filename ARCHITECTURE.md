@@ -796,7 +796,8 @@ Diagnostics flow:
    spent before it do not depend on name IDs. The expected-child projection
    inspects at most 256 alternatives: the edges of the DFA state or the
    all-group terms in compiled model order, and the substitution members of
-   each element particle in expanded-name order. It displays the first eight
+   each element particle in expanded-name order, stopping a head's members at
+   the first that sorts after eight kept element names. It displays the first eight
    inspected alternatives in diagnostic order (`compareContentExpectation`):
    wildcards, then element names in expanded-name order, each listed once
    however many particles render it. Wildcards take at most four of the eight

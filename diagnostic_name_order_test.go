@@ -273,3 +273,25 @@ func TestExpectedChildDiagnosticAtTheTraversalLimitIsTheSameInAnyDeclarationOrde
 		}
 	}
 }
+
+func TestExpectedChildDiagnosticListsAnElementBesideASubstitutionGroupWiderThanTheTraversalLimit(t *testing.T) {
+	t.Parallel()
+
+	var schema strings.Builder
+	schema.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:element name="head" abstract="true"/>
+<xs:element name="root"><xs:complexType><xs:choice><xs:element ref="head"/><xs:element name="a"/></xs:choice></xs:complexType></xs:element>`)
+	for i := range 300 {
+		fmt.Fprintf(&schema, `<xs:element name="m%03d" substitutionGroup="head"/>`, i)
+	}
+	schema.WriteString(`</xs:schema>`)
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema.String())))
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	const want = `unexpected child element "zzz"; expected next child ["a", "m000", "m001", "m002", "m003", "m004", "m005", "m006", ...]`
+	err = engine.Validate(strings.NewReader(`<root><zzz/></root>`))
+	if err == nil || !strings.Contains(err.Error(), want) {
+		t.Fatalf("Validate() error = %v, want it to contain %q", err, want)
+	}
+}

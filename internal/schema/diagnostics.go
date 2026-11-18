@@ -162,6 +162,12 @@ func (r *contentExpectationRanking) insert(item ContentExpectation) {
 	r.count++
 }
 
+// sortsAfterFull reports whether the ranking is full and item sorts after
+// every alternative it keeps, so insert would drop it.
+func (r *contentExpectationRanking) sortsAfterFull(item ContentExpectation) bool {
+	return r.count == len(r.values) && compareContentExpectation(item, r.values[r.count-1]) > 0
+}
+
 // result applies the display rule of ContentExpectations to the rankings.
 func (p *contentExpectationProjection) result() ContentExpectations {
 	const slots = diagnostictext.MaxAlternatives
@@ -367,16 +373,31 @@ func (p *contentExpectationProjection) namedElement(name QName) bool {
 	return true
 }
 
+// substitutionMembers adds the effective members of head id in expanded-name
+// order. Once the element ranking is full and a member sorts after every kept
+// element, so does each member after it: the ranking is marked as having
+// dropped alternatives and the rest of the head is not inspected.
 func (p *contentExpectationProjection) substitutionMembers(id ElementID) bool {
 	valid := true
 	p.schema.program.Substitutions.forEachEntryByName(id, func(entry substitutionEntry) bool {
 		if !p.spend() {
 			return false
 		}
-		if entry.effective && !p.namedElement(entry.name) {
-			valid = false
+		if !entry.effective {
+			return true
 		}
-		return valid
+		name, ok := p.schema.diagnosticName(entry.name)
+		if !ok {
+			valid = false
+			return false
+		}
+		item := ContentExpectation{Name: name}
+		if p.elements.sortsAfterFull(item) {
+			p.elements.dropped = true
+			return false
+		}
+		p.add(item)
+		return true
 	})
 	return valid
 }
