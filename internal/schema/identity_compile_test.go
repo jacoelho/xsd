@@ -8,49 +8,6 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-func TestValidateIdentityConstraintNameSource(t *testing.T) {
-	t.Parallel()
-
-	if err := validateIdentityConstraintNameSource(lexicalAttribute{Value: "name", Present: true}); err != nil {
-		t.Fatalf("ValidateIdentityConstraintNameSource(present) error = %v", err)
-	}
-	err := validateIdentityConstraintNameSource(lexicalAttribute{})
-	expectSchemaIdentityMessage(t, err, "identity constraint missing name")
-}
-
-func TestValidateIdentityConstraintReferSource(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name        string
-		local       string
-		hasRefer    bool
-		wantMessage string
-	}{
-		{name: "keyref with refer", local: vocab.XSDElemKeyref, hasRefer: true},
-		{name: "key ignores refer", local: vocab.XSDElemKey},
-		{name: "unique ignores refer", local: vocab.XSDElemUnique},
-		{name: "keyref missing refer", local: vocab.XSDElemKeyref, wantMessage: "keyref missing refer"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			err := validateIdentityConstraintReferSource(identityConstraintReferSource{
-				Local: tt.local,
-				Refer: lexicalAttribute{Present: tt.hasRefer},
-			})
-			if tt.wantMessage == "" {
-				if err != nil {
-					t.Fatalf("ValidateIdentityConstraintReferSource() error = %v", err)
-				}
-				return
-			}
-			expectSchemaIdentityMessage(t, err, tt.wantMessage)
-		})
-	}
-}
-
 func TestIdentityConstraintKindForLocal(t *testing.T) {
 	t.Parallel()
 

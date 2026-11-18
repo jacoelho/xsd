@@ -150,20 +150,10 @@ func (s *substitutionCompilation) finalizeElementConstraint(pending pendingEleme
 		return xsderrors.InternalInvariant("pending element constraint references invalid element")
 	}
 	decl := s.elements[pending.element]
-	if decl.Default != nil || decl.Fixed != nil {
+	if decl.ValueConstraint != nil {
 		return xsderrors.InternalInvariant("pending element constraint targets finalized declaration")
 	}
-	switch pending.kind {
-	case declarationValueConstraintDefault:
-		decl.Default = &valueConstraint{Lexical: pending.lexical}
-	case declarationValueConstraintFixed:
-		decl.Fixed = &valueConstraint{Lexical: pending.lexical}
-	case declarationValueConstraintNone, declarationValueConstraintConflict:
-		return xsderrors.InternalInvariant("pending element constraint has invalid kind")
-	default:
-		err := xsderrors.InternalInvariant("pending element constraint has invalid kind")
-		return err
-	}
+	decl.ValueConstraint = pending.constraint
 	if err := s.compiler.validateElementValueConstraints(&decl, pending.node, s.compiler.rt.simpleTypeUnavailable); err != nil {
 		return withSchemaCompileLocation(pending.node, err)
 	}

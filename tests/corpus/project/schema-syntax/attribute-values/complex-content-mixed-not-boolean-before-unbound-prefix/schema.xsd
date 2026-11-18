@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:complexType name="C"><xs:complexContent mixed="no"><xs:restriction base="xs:anyType"/></xs:complexContent></xs:complexType>
+<xs:element name="z" type="p:T"/>
+</xs:schema>

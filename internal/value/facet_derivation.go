@@ -241,22 +241,21 @@ func orderedUpperRestricts(derived, base boundValue) bool {
 	return orderedFacetUpperRestricts(derived.exclusive, base.exclusive, relation)
 }
 
-// compareDerivationBounds orders a derived bound against its base. xs:time
-// bounds compare as raw UTC seconds on a reference day (rawTimeProjection),
-// not as recurring time of day: a maxInclusive base of 12:00:00-10:00 makes a
-// derived 12:00:00-14:00 invalid. Instance acceptance still uses recurring
-// time. This oracle is source-qualified; see R-127 in
-// docs/spec/INTERPRETATIONS.md.
+// compareDerivationBounds orders a derived bound against the base bound of
+// the same side. xs:time bounds are ordered there by their timezone-normalized
+// time before it is wrapped into one day, so a base maxInclusive of
+// 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid (W3C
+// time_maxInclusive007_119). Every other relation between bounds and values
+// uses compareAtomic, which knows no day (Time midnight in
+// docs/spec/INTERPRETATIONS.md).
 func compareDerivationBounds(derived, base boundValue) (orderedFacetRelation, bool) {
 	if derived.value.kind != primitiveTime || base.value.kind != primitiveTime {
 		return compareAtomic(&derived.value, &base.value)
 	}
-	left := rawTimeProjection(derived)
-	right := rawTimeProjection(base)
-	return compareTimePartial(left, right), true
+	return compareTimePartial(unwrappedTime(derived), unwrappedTime(base)), true
 }
 
-func rawTimeProjection(bound boundValue) TimeValue {
+func unwrappedTime(bound boundValue) TimeValue {
 	time := bound.value.time
 	time.second += int(bound.timeDayOffset) * daySeconds
 	return time

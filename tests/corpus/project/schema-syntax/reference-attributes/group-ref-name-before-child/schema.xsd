@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:group name="g"><xs:sequence/></xs:group>
+<xs:complexType name="T"><xs:sequence><xs:group ref="g" name="x"><xs:sequence/></xs:group></xs:sequence></xs:complexType>
+</xs:schema>

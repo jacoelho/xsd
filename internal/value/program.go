@@ -224,7 +224,7 @@ func (b *Builder) Complete(id TypeID, spec TypeSpec) error {
 			b.storageUsed -= charge
 		}
 	}()
-	if err := b.program.compileFacets(id, spec.Facets, EvaluationLimits{Work: b.maxConstructionWork, PatternWork: b.maxPatternWork, PatternTotal: &b.patternTotal}); err != nil {
+	if err := b.program.compileFacets(id, spec.Facets, b.constructionLimits()); err != nil {
 		return err
 	}
 	b.program.types[i].needsQName = b.program.typeNeedsQName(id, nil, 0)
@@ -255,6 +255,21 @@ func (b *Builder) prepareType(id TypeID, spec TypeSpec) (int, error) {
 	}
 	b.program.types[i].dependencyDepth = coreDepth
 	return int(i), nil
+}
+
+// constructionLimits returns the limits of every builder evaluation, all
+// charged to the builder's aggregate pattern account.
+func (b *Builder) constructionLimits() EvaluationLimits {
+	return EvaluationLimits{Work: b.maxConstructionWork, PatternWork: b.maxPatternWork, PatternTotal: &b.patternTotal}
+}
+
+// literalBudget returns the budget of one literal evaluation on an unsealed
+// builder.
+func (b *Builder) literalBudget() (evaluationBudget, error) {
+	if b == nil || b.program == nil || b.program.sealed {
+		return evaluationBudget{}, ErrMetadata
+	}
+	return newEvaluationBudget(b.constructionLimits())
 }
 
 func (b *Builder) reservedTypeIndex(id TypeID) (TypeID, error) {
@@ -545,10 +560,28 @@ type facetProgram struct {
 	fixed          FacetMask
 }
 
+// boundValue is one compiled bound facet. timeDayOffset is, for an xs:time
+// bound, how many days normalization moved the literal from its lexical day
+// (parseTimeOnDay). It belongs to the facet, not to the value, and only the
+// same-side restriction order reads it (compareDerivationBounds).
 type boundValue struct {
 	value         atomicValue
 	exclusive     bool
 	timeDayOffset int8
+}
+
+// newBoundValue returns the bound of an atomic value parsed from normalized.
+func newBoundValue(atom atomicValue, normalized string) (boundValue, error) {
+	bound := boundValue{value: atom}
+	if atom.kind != primitiveTime {
+		return bound, nil
+	}
+	_, days, err := parseTimeOnDay(normalized)
+	if err != nil {
+		return boundValue{}, ErrMetadata
+	}
+	bound.timeDayOffset = int8(days) // #nosec G115 -- the hour 24 and an offset of at most 14 hours move a time by at most one day.
+	return bound, nil
 }
 
 func (p *Program) typeDef(id TypeID) (*typeDef, bool) {
@@ -720,7 +753,7 @@ func (p *Program) compileBound(id TypeID, t *typeDef, source BoundFacet, budget 
 	}
 	var v parsedValue
 	budget.beginPatternValue()
-	_, err := p.eval(literalType, source.Lexical, evalOptions{
+	normalized, err := p.eval(literalType, source.Lexical, evalOptions{
 		resolver:      source.Resolver,
 		enforceFacets: false,
 		work:          budget,
@@ -731,31 +764,7 @@ func (p *Program) compileBound(id TypeID, t *typeDef, source BoundFacet, budget 
 	if t.variety != Atomic || v.isList || v.atom.kind != t.primitive {
 		return boundValue{}, fmt.Errorf(msgIncompatibleBound, source.Lexical)
 	}
-	offset, err := p.timeBoundDayOffset(t, literalType, source.Lexical, v.atom)
-	if err != nil {
-		return boundValue{}, err
-	}
-	return boundValue{value: v.atom, timeDayOffset: offset}, nil
-}
-
-func (p *Program) timeBoundDayOffset(spec *typeDef, literalType TypeID, lexical string, value atomicValue) (int8, error) {
-	if spec.primitive != primitiveTime {
-		return 0, nil
-	}
-	normalized := normalize(lexical, effectiveWhitespace(p, literalType))
-	raw, err := parseTimeRawValue(normalized)
-	if err != nil {
-		return 0, err
-	}
-	delta := raw.second - value.time.second
-	if delta%daySeconds != 0 {
-		return 0, ErrMetadata
-	}
-	offset := delta / daySeconds
-	if offset < -128 || offset > 127 {
-		return 0, ErrLimit
-	}
-	return int8(offset), nil
+	return newBoundValue(v.atom, normalized)
 }
 
 func (p *Program) compileEnumeration(id TypeID, source FacetSpec, own *facetProgram, budget *evaluationBudget) error {

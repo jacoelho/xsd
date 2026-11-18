@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:complexType name="C"><xs:sequence><xs:group minOccurs="0"><xs:annotation foo="1"/></xs:group></xs:sequence></xs:complexType>
+</xs:schema>

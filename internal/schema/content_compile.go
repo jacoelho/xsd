@@ -188,15 +188,49 @@ func (c *contentModelCompiler) checkContentModelUPA(id contentModelID, seen []in
 }
 
 // elementDeclarationConsistencyChecker is the one charged, model-cached EDC
-// check shared by compilation and publication. Same-named particles,
-// including effective transitive substitution members, must share one named
-// global type; generated internal names never make an anonymous type named.
-// A single particle is visited once regardless of its occurrence range.
+// check shared by compilation and publication. Distinct same-named element
+// declarations, including effective transitive substitution members, must
+// share one named global type; generated internal names never make an
+// anonymous type named. One declaration reached through several particles,
+// groups or substitution heads counts once (I-026 in
+// docs/spec/INTERPRETATIONS.md). A single particle is visited once regardless
+// of its occurrence range. Declarations are collected and merged in particle
+// order, so work charging and the reported conflict do not depend on map
+// iteration.
 type elementDeclarationConsistencyChecker struct {
-	rt     *schemaBuild
-	work   contentModelWork
-	states map[contentModelID]contentModelVisitState
-	cache  map[contentModelID]map[QName]TypeID
+	rt   *schemaBuild
+	work contentModelWork
+	// models holds the collection state of each content model of rt, indexed
+	// by contentModelID.
+	models []collectedContentModel
+	// scratch holds one empty name index per content model on the collection
+	// stack, and depth counts the ones in use. A model empties its index by
+	// deleting the names it added, so reusing an index costs a model its own
+	// size, however many names an earlier model at that depth had.
+	scratch []map[QName]ElementID
+	depth   int
+}
+
+// namedElementDeclaration is the first element declaration EDC saw for a name
+// in one content model.
+type namedElementDeclaration struct {
+	name    QName
+	element ElementID
+}
+
+// elementDeclarationSet collects the first declaration EDC saw for each name
+// in one content model: ordered lists them in particle order and first indexes
+// them by name.
+type elementDeclarationSet struct {
+	first   map[QName]ElementID
+	ordered []namedElementDeclaration
+}
+
+// collectedContentModel is the EDC collection state of one content model and,
+// once visited, its declarations.
+type collectedContentModel struct {
+	declarations []namedElementDeclaration
+	state        contentModelVisitState
 }
 
 type contentModelVisitState uint8
@@ -213,8 +247,7 @@ func newElementDeclarationConsistencyChecker(
 	return &elementDeclarationConsistencyChecker{
 		rt:     rt,
 		work:   work,
-		states: make(map[contentModelID]contentModelVisitState),
-		cache:  make(map[contentModelID]map[QName]TypeID),
+		models: make([]collectedContentModel, len(rt.Models)),
 	}
 }
 
@@ -232,67 +265,81 @@ func (c *elementDeclarationConsistencyChecker) checkModel(id contentModelID) err
 
 func (c *elementDeclarationConsistencyChecker) collectModel(
 	id contentModelID,
-) (map[QName]TypeID, error) {
+) ([]namedElementDeclaration, error) {
 	if err := c.spend(); err != nil {
 		return nil, err
 	}
-	switch c.states[id] {
+	if !validContentModelID(id, len(c.models)) {
+		return nil, xsderrors.InternalInvariant("element declaration consistency check references missing content model")
+	}
+	collected := &c.models[id]
+	switch collected.state {
 	case contentModelVisiting:
 		return nil, xsderrors.InternalInvariant("element declaration consistency check references cyclic content model")
 	case contentModelVisited:
-		return c.cache[id], nil
+		return collected.declarations, nil
 	}
-	if !validContentModelID(id, len(c.rt.Models)) {
-		return nil, xsderrors.InternalInvariant("element declaration consistency check references missing content model")
-	}
-	model := c.rt.Models[id]
-	c.states[id] = contentModelVisiting
-	types, err := c.collectParticles(model.Particles)
+	collected.state = contentModelVisiting
+	declarations, err := c.collectParticles(c.rt.Models[id].Particles)
 	if err != nil {
-		delete(c.states, id)
+		collected.state = 0
 		return nil, err
 	}
-	c.states[id] = contentModelVisited
-	c.cache[id] = types
-	return types, nil
+	*collected = collectedContentModel{state: contentModelVisited, declarations: declarations}
+	return declarations, nil
 }
 
 func (c *elementDeclarationConsistencyChecker) collectParticles(
 	particles []contentParticle,
-) (map[QName]TypeID, error) {
-	types := make(map[QName]TypeID, c.particleTypesHint(particles))
+) ([]namedElementDeclaration, error) {
+	hint := c.particleDeclarationsHint(particles)
+	if c.depth == len(c.scratch) {
+		c.scratch = append(c.scratch, make(map[QName]ElementID, hint))
+	}
+	declarations := elementDeclarationSet{
+		first:   c.scratch[c.depth],
+		ordered: make([]namedElementDeclaration, 0, hint),
+	}
+	c.depth++
+	defer func() {
+		c.depth--
+		for _, declaration := range declarations.ordered {
+			delete(declarations.first, declaration.name)
+		}
+	}()
 	for _, p := range particles {
 		if err := c.spend(); err != nil {
 			return nil, err
 		}
-		if err := c.collectParticle(types, p); err != nil {
+		if err := c.collectParticle(&declarations, p); err != nil {
 			return nil, err
 		}
 	}
-	return types, nil
+	return declarations.ordered, nil
 }
 
-// particleTypesHint sizes a model's name map from its element particles and
-// the cached maps of nested models already visited. It reads only the cache, so
-// work charging and error order are those of the collection itself.
-func (c *elementDeclarationConsistencyChecker) particleTypesHint(particles []contentParticle) int {
+// particleDeclarationsHint sizes a model's declaration set from its element
+// particles and the cached declarations of nested models already visited. It
+// reads only the cache, so work charging and error order are those of the
+// collection itself.
+func (c *elementDeclarationConsistencyChecker) particleDeclarationsHint(particles []contentParticle) int {
 	n := 0
 	for _, p := range particles {
 		if p.Kind == particleElement {
 			n++
-		} else if p.Kind == particleModel && c.states[p.Model] == contentModelVisited {
-			n += len(c.cache[p.Model])
+		} else if p.Kind == particleModel && validContentModelID(p.Model, len(c.models)) {
+			n += len(c.models[p.Model].declarations)
 		}
 	}
 	return n
 }
 
-func (c *elementDeclarationConsistencyChecker) collectParticle(types map[QName]TypeID, particle contentParticle) error {
+func (c *elementDeclarationConsistencyChecker) collectParticle(declarations *elementDeclarationSet, particle contentParticle) error {
 	switch particle.Kind {
 	case particleElement:
-		return c.collectElementParticle(types, particle.Element)
+		return c.collectElementParticle(declarations, particle.Element)
 	case particleModel:
-		return c.collectModelParticle(types, particle.Model)
+		return c.collectModelParticle(declarations, particle.Model)
 	case particleWildcard:
 		return nil
 	default:
@@ -300,19 +347,19 @@ func (c *elementDeclarationConsistencyChecker) collectParticle(types map[QName]T
 	return nil
 }
 
-func (c *elementDeclarationConsistencyChecker) collectElementParticle(types map[QName]TypeID, element ElementID) error {
-	if err := c.collectElementDeclaration(types, element); err != nil {
+func (c *elementDeclarationConsistencyChecker) collectElementParticle(declarations *elementDeclarationSet, element ElementID) error {
+	if err := c.collectElementDeclaration(declarations, element); err != nil {
 		return err
 	}
 	var err error
 	c.rt.Substitutions.ForEachMember(element, func(member ElementID) bool {
-		err = c.collectSubstitutionMember(types, element, member)
+		err = c.collectSubstitutionMember(declarations, element, member)
 		return err == nil
 	})
 	return err
 }
 
-func (c *elementDeclarationConsistencyChecker) collectSubstitutionMember(types map[QName]TypeID, head, member ElementID) error {
+func (c *elementDeclarationConsistencyChecker) collectSubstitutionMember(declarations *elementDeclarationSet, head, member ElementID) error {
 	// EDC includes the actual substitution group, but every raw member scan
 	// consumes work even when abstractness or blocking excludes that member.
 	if err := c.spend(); err != nil {
@@ -325,55 +372,61 @@ func (c *elementDeclarationConsistencyChecker) collectSubstitutionMember(types m
 	if accepted, ok := c.rt.Substitutions.MemberByName(head, name); !ok || accepted != member {
 		return nil
 	}
-	return c.collectElementDeclaration(types, member)
+	return c.collectElementDeclaration(declarations, member)
 }
 
-func (c *elementDeclarationConsistencyChecker) collectElementDeclaration(types map[QName]TypeID, element ElementID) error {
+func (c *elementDeclarationConsistencyChecker) collectElementDeclaration(declarations *elementDeclarationSet, element ElementID) error {
 	name, ok := c.rt.ElementName(element)
 	if !ok {
 		return xsderrors.InternalInvariant("element declaration consistency check references missing element name")
 	}
-	typ, ok := elementTypeByID(c.rt.Elements, element)
-	if !ok {
-		return xsderrors.InternalInvariant("element declaration consistency check references missing element type")
-	}
-	return c.addElementDeclarationType(types, name, typ)
+	return c.addElementDeclaration(declarations, namedElementDeclaration{name: name, element: element})
 }
 
-func (c *elementDeclarationConsistencyChecker) collectModelParticle(types map[QName]TypeID, model contentModelID) error {
+func (c *elementDeclarationConsistencyChecker) collectModelParticle(declarations *elementDeclarationSet, model contentModelID) error {
 	nested, err := c.collectModel(model)
 	if err != nil {
 		return err
 	}
-	for name, typ := range nested {
+	for _, declaration := range nested {
 		if err := c.spend(); err != nil {
 			return err
 		}
-		if err := c.addElementDeclarationType(types, name, typ); err != nil {
+		if err := c.addElementDeclaration(declarations, declaration); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (c *elementDeclarationConsistencyChecker) addElementDeclarationType(
-	types map[QName]TypeID,
-	name QName,
-	typ TypeID,
+func (c *elementDeclarationConsistencyChecker) addElementDeclaration(
+	declarations *elementDeclarationSet,
+	declaration namedElementDeclaration,
 ) error {
-	if previous, ok := types[name]; ok {
-		if previous != typ {
-			return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "element declarations with the same name must have the same type")
-		}
-		named, err := c.hasNamedType(typ)
-		if err != nil {
-			return err
-		}
-		if !named {
-			return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "element declarations with the same name must use a named top-level type")
-		}
+	previous, ok := declarations.first[declaration.name]
+	if !ok {
+		declarations.first[declaration.name] = declaration.element
+		declarations.ordered = append(declarations.ordered, declaration)
+		return nil
 	}
-	types[name] = typ
+	if previous == declaration.element {
+		return nil
+	}
+	previousType, previousOK := elementTypeByID(c.rt.Elements, previous)
+	typ, ok := elementTypeByID(c.rt.Elements, declaration.element)
+	if !previousOK || !ok {
+		return xsderrors.InternalInvariant("element declaration consistency check references missing element type")
+	}
+	if previousType != typ {
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "element declarations with the same name must have the same type")
+	}
+	named, err := c.hasNamedType(typ)
+	if err != nil {
+		return err
+	}
+	if !named {
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "element declarations with the same name must use a named top-level type")
+	}
 	return nil
 }
 

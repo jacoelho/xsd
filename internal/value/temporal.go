@@ -2,6 +2,7 @@ package value
 
 import (
 	"cmp"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"slices"
@@ -41,7 +42,10 @@ type TemporalValue struct {
 
 // TimeValue is the value-space projection for xs:time values. Like
 // xsdDateTimePoint, it keeps fractional seconds as a digit string rather than
-// a fixed-precision number.
+// a fixed-precision number. second is the timezone-normalized time of day; a
+// parsed value has it below daySeconds, so 24:00:00 is 00:00:00 (Time
+// midnight in docs/spec/INTERPRETATIONS.md). The day that the hour 24, a
+// second 60 or a timezone moves a time to is not part of the value.
 type TimeValue struct {
 	frac   string
 	second int
@@ -186,30 +190,36 @@ func compareTemporalValues(a, b TemporalValue) orderedFacetRelation {
 	return orderedFacetIncomparable
 }
 
-// equalTemporalValues reports XML Schema equality for xs:date/xs:dateTime
-// values, including timezone-presence equivalence.
+// equalTemporalValues reports whether compareTemporalValues ranks a and b
+// equal, which it does only for values of equal timezone presence.
 func equalTemporalValues(a, b TemporalValue) bool {
 	return a.hasTZ == b.hasTZ && compareXSDDateTimePoint(a.instant, b.instant) == 0
 }
 
-// ParseTimeValue parses s as an XML Schema xs:time value.
-func ParseTimeValue(s string) (TimeValue, error) {
-	tm, err := parseXSDTimeParts(s)
-	if err != nil {
-		return TimeValue{}, err
-	}
-	_, second := divModDay(tm.rawSecond())
-	return TimeValue{second: second, frac: tm.frac, hasTZ: tm.tz.present}, nil
+// appendTemporalEnumerationKey appends what equalTemporalValues compares.
+func appendTemporalEnumerationKey(b []byte, v TemporalValue) []byte {
+	b = appendKeyBool(b, v.hasTZ)
+	return appendKeyDateTimePoint(b, v.instant)
 }
 
-// parseTimeRawValue parses s as xs:time without canonical day wrapping. It is
-// used for restriction checks where lexical timezone absence must be preserved.
-func parseTimeRawValue(s string) (TimeValue, error) {
+// ParseTimeValue parses s as an XML Schema xs:time value.
+func ParseTimeValue(s string) (TimeValue, error) {
+	t, _, err := parseTimeOnDay(s)
+	return t, err
+}
+
+// parseTimeOnDay parses s as xs:time and also returns how many days
+// normalization moved the time from its lexical day: the hour 24, a second 60
+// and a timezone offset can each carry it across midnight. The day is not
+// part of the value; only the restriction order of bound facets reads it
+// (boundValue.timeDayOffset).
+func parseTimeOnDay(s string) (TimeValue, int, error) {
 	tm, err := parseXSDTimeParts(s)
 	if err != nil {
-		return TimeValue{}, err
+		return TimeValue{}, 0, err
 	}
-	return TimeValue{second: tm.rawSecond(), frac: tm.frac, hasTZ: tm.tz.present}, nil
+	days, second := divModDay(tm.rawSecond())
+	return TimeValue{second: second, frac: tm.frac, hasTZ: tm.tz.present}, days, nil
 }
 
 // CanonicalText returns the XML Schema canonical lexical form for v.
@@ -224,7 +234,8 @@ func (v TimeValue) CanonicalText() string {
 	return out
 }
 
-// compareTimeValues compares xs:time values after timezone normalization.
+// compareTimeValues orders xs:time values of equal timezone presence by
+// their normalized time of day.
 func compareTimeValues(a, b TimeValue) int {
 	if n := cmp.Compare(a.second, b.second); n != 0 {
 		return n
@@ -241,10 +252,17 @@ func compareTimePartial(a, b TimeValue) orderedFacetRelation {
 	return compareTemporalValues(xsdTimeTemporalValue(a), xsdTimeTemporalValue(b))
 }
 
-// equalTimeValues reports XML Schema equality for xs:time values, including
-// timezone-presence equivalence.
+// equalTimeValues reports whether compareTimePartial ranks a and b equal,
+// which it does only for values of equal timezone presence.
 func equalTimeValues(a, b TimeValue) bool {
 	return a.hasTZ == b.hasTZ && compareTimeValues(a, b) == 0
+}
+
+// appendTimeEnumerationKey appends what equalTimeValues compares.
+func appendTimeEnumerationKey(b []byte, v TimeValue) []byte {
+	b = appendKeyBool(b, v.hasTZ)
+	b = binary.AppendVarint(b, int64(v.second))
+	return appendKeyText(b, v.frac)
 }
 
 type xsdDatePart struct {
@@ -454,6 +472,18 @@ func compareXSDDateTimePoint(a, b xsdDateTimePoint) int {
 		return n
 	}
 	return compareFraction(a.frac, b.frac)
+}
+
+// appendKeyDateTimePoint appends the fields compareXSDDateTimePoint compares,
+// the year as the sign and magnitude compareYear compares.
+func appendKeyDateTimePoint(b []byte, p xsdDateTimePoint) []byte {
+	year := strings.TrimLeft(p.year.digits, "0")
+	b = appendKeyBool(b, p.year.neg && year != "")
+	b = appendKeyText(b, year)
+	b = binary.AppendVarint(b, int64(p.month))
+	b = binary.AppendVarint(b, int64(p.day))
+	b = binary.AppendVarint(b, int64(p.second))
+	return appendKeyText(b, p.frac)
 }
 
 func addMinutes(p xsdDateTimePoint, minutes int) xsdDateTimePoint {

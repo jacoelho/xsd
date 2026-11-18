@@ -42,17 +42,17 @@ func TestAttributeUseRead(t *testing.T) {
 		Lexical: "p:item", Canonical: "{urn:fixed}item", Value: fixedValue,
 		ResolvedNames: []resolvedValueName{{Lexical: "p:item", NS: "urn:fixed", Local: "item"}},
 		qnameContext:  &valueConstraintQNameContext{bindings: []valueConstraintQNameBinding{{prefix: "p", namespace: "urn:fixed", bound: true}}},
+		Fixed:         true,
 	}
 	def := &valueConstraint{
 		Lexical: "p:item", Canonical: "{urn:default}item", Value: defaultValue,
 		ResolvedNames: []resolvedValueName{{Lexical: "p:item", NS: "urn:default", Local: "item"}},
 		qnameContext:  &valueConstraintQNameContext{bindings: []valueConstraintQNameBinding{{prefix: "p", namespace: "urn:default", bound: true}}},
 	}
-	// Both pointers exercise read precedence; schema admission rejects that shape.
 	use := newAttributeUseRead(&names, attributeUse{
-		Name: name, Type: 7, Fixed: fixed, Default: def, Required: true,
+		Name: name, Type: 7, ValueConstraint: fixed, Required: true,
 	})
-	defaulted := newAttributeUseRead(&names, attributeUse{Name: name, Type: 7, Default: def})
+	defaulted := newAttributeUseRead(&names, attributeUse{Name: name, Type: 7, ValueConstraint: def})
 	fixed.qnameContext.bindings[0].namespace = "urn:changed"
 	def.qnameContext.bindings[0].bound = false
 	if use.Name() != name {
@@ -61,8 +61,8 @@ func TestAttributeUseRead(t *testing.T) {
 	if use.TypeID() != 7 {
 		t.Fatalf("TypeID() = %d, want 7", use.TypeID())
 	}
-	if use.Label() != `"a"` {
-		t.Fatalf("Label() = %q, want a", use.Label())
+	if use.QuotedName() != `"a"` {
+		t.Fatalf("QuotedName() = %q, want \"a\"", use.QuotedName())
 	}
 	if !use.Required() {
 		t.Fatal("Required() = false, want true")
@@ -85,6 +85,9 @@ func TestAttributeUseRead(t *testing.T) {
 		if resolved, ok := defaultRead.ResolveQName("p:item"); !ok || resolved != (valuepkg.ExpandedName{Namespace: "urn:default", Local: "item"}) {
 			t.Fatalf("default QName = %v, %v; want {urn:default}item, true", resolved, ok)
 		}
+		if got, ok := defaulted.FixedValue(); ok || got != (ValueConstraintRead{}) {
+			t.Fatalf("defaulted FixedValue() = %+v, %v; want zero, false", got, ok)
+		}
 	}
 	absent := newAttributeUseRead(&names, attributeUse{Name: name, Type: 8})
 	if got, ok := absent.FixedValue(); ok || got != (ValueConstraintRead{}) {
@@ -93,7 +96,7 @@ func TestAttributeUseRead(t *testing.T) {
 	if got, ok := absent.AbsentValueConstraint(); ok || got != (ValueConstraintRead{}) {
 		t.Fatalf("absent AbsentValueConstraint() = %+v, %v; want zero, false", got, ok)
 	}
-	empty := newAttributeUseRead(&names, attributeUse{Fixed: &valueConstraint{}})
+	empty := newAttributeUseRead(&names, attributeUse{ValueConstraint: &valueConstraint{Fixed: true}})
 	if got, ok := empty.FixedValue(); !ok || got != (ValueConstraintRead{}) {
 		t.Fatalf("present-empty FixedValue() = %+v, %v; want zero, true", got, ok)
 	}
@@ -123,9 +126,12 @@ func TestAttributeDeclRead(t *testing.T) {
 		Lexical: "p:item", Canonical: "{urn:fixed}item", Value: value,
 		ResolvedNames: []resolvedValueName{{Lexical: "p:item", NS: "urn:fixed", Local: "item"}},
 		qnameContext:  &valueConstraintQNameContext{bindings: []valueConstraintQNameBinding{{prefix: "p", namespace: "urn:fixed", bound: true}}},
+		Fixed:         true,
 	}
-	decl := newAttributeDeclRead(attributeDecl{Name: name, Type: 7, Fixed: fixed})
-	defaultOnly := newAttributeDeclRead(attributeDecl{Name: name, Type: 7, Default: fixed})
+	def := *fixed
+	def.Fixed = false
+	decl := newAttributeDeclRead(attributeDecl{Name: name, Type: 7, ValueConstraint: fixed})
+	defaultOnly := newAttributeDeclRead(attributeDecl{Name: name, Type: 7, ValueConstraint: &def})
 	fixed.qnameContext.bindings[0].namespace = "urn:changed"
 	if decl.Name() != name {
 		t.Fatalf("Name() = %v, want %v", decl.Name(), name)
@@ -145,7 +151,7 @@ func TestAttributeDeclRead(t *testing.T) {
 	if got, ok := defaultOnly.FixedValue(); ok || got != (ValueConstraintRead{}) {
 		t.Fatalf("default declaration FixedValue() = %+v, %v; want zero, false", got, ok)
 	}
-	empty := newAttributeDeclRead(attributeDecl{Fixed: &valueConstraint{}})
+	empty := newAttributeDeclRead(attributeDecl{ValueConstraint: &valueConstraint{Fixed: true}})
 	if got, ok := empty.FixedValue(); !ok || got != (ValueConstraintRead{}) {
 		t.Fatalf("present-empty declaration FixedValue() = %+v, %v; want zero, true", got, ok)
 	}
@@ -184,7 +190,7 @@ func TestAttributeUseSetRead(t *testing.T) {
 
 	names, firstName, secondName := attributeUseNameTable(t)
 	firstUse := attributeUse{Name: firstName, Required: true}
-	secondUse := attributeUse{Name: secondName, Default: &valueConstraint{}}
+	secondUse := attributeUse{Name: secondName, ValueConstraint: &valueConstraint{}}
 	index := map[QName]uint32{
 		firstName:  0,
 		secondName: 1,
@@ -199,7 +205,7 @@ func TestAttributeUseSetRead(t *testing.T) {
 
 	index[firstName] = 99
 	uses[0] = attributeUse{}
-	uses[1].Default = nil
+	uses[1].ValueConstraint = nil
 
 	if set.UseCount() != 2 {
 		t.Fatalf("UseCount() = %d, want 2", set.UseCount())
@@ -207,11 +213,11 @@ func TestAttributeUseSetRead(t *testing.T) {
 	if set.Wildcard() != 7 {
 		t.Fatalf("Wildcard() = %d, want 7", set.Wildcard())
 	}
-	if first, ok := set.UseAt(0); !ok || first.Label() != `"first"` {
-		t.Fatalf("UseAt(0).Label() = %q, %v; want first, true", first.Label(), ok)
+	if first, ok := set.UseAt(0); !ok || first.QuotedName() != `"first"` {
+		t.Fatalf("UseAt(0).QuotedName() = %q, %v; want \"first\", true", first.QuotedName(), ok)
 	}
-	if second, ok := set.UseAt(1); !ok || second.Label() != `"second"` {
-		t.Fatalf("UseAt(1).Label() = %q, %v; want second, true", second.Label(), ok)
+	if second, ok := set.UseAt(1); !ok || second.QuotedName() != `"second"` {
+		t.Fatalf("UseAt(1).QuotedName() = %q, %v; want \"second\", true", second.QuotedName(), ok)
 	}
 	for _, slot := range []int{-1, 2} {
 		if got, ok := set.UseAt(slot); ok || got != (AttributeUseRead{}) {
@@ -278,12 +284,12 @@ func TestAttributeUseSetReadDerivesOrderedSlots(t *testing.T) {
 		{name: "absent"},
 		{name: "optional", uses: []attributeUse{{Name: first}}},
 		{name: "required only", uses: []attributeUse{{Name: first, Required: true}}, required: []uint32{0}},
-		{name: "empty default only", uses: []attributeUse{{Name: first, Default: &valueConstraint{}}}, constraints: []uint32{0}},
+		{name: "empty default only", uses: []attributeUse{{Name: first, ValueConstraint: &valueConstraint{}}}, constraints: []uint32{0}},
 		{name: "mixed", uses: []attributeUse{
 			{Name: first},
 			{Name: second, Required: true},
-			{Name: third, Default: &valueConstraint{}},
-			{Name: fourth, Required: true, Fixed: &valueConstraint{Canonical: "fixed"}},
+			{Name: third, ValueConstraint: &valueConstraint{}},
+			{Name: fourth, Required: true, ValueConstraint: &valueConstraint{Canonical: "fixed", Fixed: true}},
 		}, required: []uint32{1, 3}, constraints: []uint32{2, 3}},
 	}
 	for _, test := range tests {
@@ -539,21 +545,13 @@ func TestValidateAttributeUseSetRecord(t *testing.T) {
 			},
 			wantErr: "attribute use index does not match use slice",
 		},
-		{
-			name: "default and fixed",
-			mutate: func(set *attributeUseSet) {
-				set.Uses[0].Default = &valueConstraint{}
-				set.Uses[0].Fixed = &valueConstraint{}
-			},
-			wantErr: "attribute use stores both default and fixed value constraints",
-		},
 	}
 	for _, carrier := range idTypes {
 		tests = append(tests, attributeUseSetCase{
 			name: carrier.name + " value constraint",
 			mutate: func(set *attributeUseSet) {
 				set.Uses[0].Type = carrier.id
-				set.Uses[0].Default = &valueConstraint{}
+				set.Uses[0].ValueConstraint = &valueConstraint{}
 			},
 			wantErr: "ID-typed attribute use stores value constraint",
 		}, attributeUseSetCase{
@@ -561,7 +559,7 @@ func TestValidateAttributeUseSetRecord(t *testing.T) {
 			mutate: func(set *attributeUseSet) {
 				set.Uses[0].Type = idTypes[0].id
 				set.Uses[1].Type = carrier.id
-				set.Uses[1].Default = nil
+				set.Uses[1].ValueConstraint = nil
 			},
 			wantErr: "attribute use set stores multiple ID attributes",
 		})
@@ -632,19 +630,19 @@ func TestValidateAttributeUseRestriction(t *testing.T) {
 		{
 			name: "fixed value preserved",
 			base: attributeUse{
-				Type:  0,
-				Fixed: attributeUseConstraintForTest(t, "decimal", "5.0"),
+				Type:            0,
+				ValueConstraint: fixedAttributeUseConstraintForTest(t, "decimal", "5.0"),
 			},
 			derived: attributeUse{
-				Type:  1,
-				Fixed: attributeUseConstraintForTest(t, "decimal", "5"),
+				Type:            1,
+				ValueConstraint: fixedAttributeUseConstraintForTest(t, "decimal", "5"),
 			},
 		},
 		{
 			name: "fixed missing",
 			base: attributeUse{
-				Type:  0,
-				Fixed: attributeUseConstraintForTest(t, "string", "fixed"),
+				Type:            0,
+				ValueConstraint: fixedAttributeUseConstraintForTest(t, "string", "fixed"),
 			},
 			derived: derived,
 			wantErr: "fixed attribute constraint must be preserved by restriction",
@@ -652,12 +650,24 @@ func TestValidateAttributeUseRestriction(t *testing.T) {
 		{
 			name: "fixed value mismatch",
 			base: attributeUse{
-				Type:  0,
-				Fixed: attributeUseConstraintForTest(t, "string", "true"),
+				Type:            0,
+				ValueConstraint: fixedAttributeUseConstraintForTest(t, "string", "true"),
 			},
 			derived: attributeUse{
-				Type:  1,
-				Fixed: attributeUseConstraintForTest(t, "boolean", "true"),
+				Type:            1,
+				ValueConstraint: fixedAttributeUseConstraintForTest(t, "boolean", "true"),
+			},
+			wantErr: "fixed attribute constraint must be preserved by restriction",
+		},
+		{
+			name: "fixed replaced by equal default",
+			base: attributeUse{
+				Type:            0,
+				ValueConstraint: fixedAttributeUseConstraintForTest(t, "decimal", "5"),
+			},
+			derived: attributeUse{
+				Type:            1,
+				ValueConstraint: attributeUseConstraintForTest(t, "decimal", "5"),
 			},
 			wantErr: "fixed attribute constraint must be preserved by restriction",
 		},
@@ -848,18 +858,19 @@ func TestValidateAttributeUseSetExtension(t *testing.T) {
 		Lexical:   "fixed",
 		Canonical: "fixed",
 		Value:     builtinValueForTest(t, "string", "fixed"),
+		Fixed:     true,
 	}
 	base := []attributeUse{
 		{
-			Default:  value,
-			Name:     QName{Namespace: 1, Local: 1},
-			Type:     1,
-			Required: true,
+			ValueConstraint: value,
+			Name:            QName{Namespace: 1, Local: 1},
+			Type:            1,
+			Required:        true,
 		},
 		{
-			Fixed: fixed,
-			Name:  QName{Namespace: 1, Local: 2},
-			Type:  2,
+			ValueConstraint: fixed,
+			Name:            QName{Namespace: 1, Local: 2},
+			Type:            2,
 		},
 	}
 	tests := []struct {
@@ -896,7 +907,7 @@ func TestValidateAttributeUseSetExtension(t *testing.T) {
 		{
 			name: "default presence mismatch",
 			mutate: func(uses []attributeUse) []attributeUse {
-				uses[0].Default = nil
+				uses[0].ValueConstraint = nil
 				return uses
 			},
 			wantErr: "complex extension does not preserve base attribute use",
@@ -904,7 +915,7 @@ func TestValidateAttributeUseSetExtension(t *testing.T) {
 		{
 			name: "default canonical mismatch",
 			mutate: func(uses []attributeUse) []attributeUse {
-				uses[0].Default.Canonical = "other"
+				uses[0].ValueConstraint.Canonical = "other"
 				return uses
 			},
 			wantErr: "complex extension does not preserve base attribute use",
@@ -912,7 +923,7 @@ func TestValidateAttributeUseSetExtension(t *testing.T) {
 		{
 			name: "default value mismatch",
 			mutate: func(uses []attributeUse) []attributeUse {
-				uses[0].Default.Value = builtinValueForTest(t, "string", "other")
+				uses[0].ValueConstraint.Value = builtinValueForTest(t, "string", "other")
 				return uses
 			},
 			wantErr: "complex extension does not preserve base attribute use",
@@ -920,7 +931,7 @@ func TestValidateAttributeUseSetExtension(t *testing.T) {
 		{
 			name: "default resolved name mismatch",
 			mutate: func(uses []attributeUse) []attributeUse {
-				uses[0].Default.ResolvedNames[0].Local = "other"
+				uses[0].ValueConstraint.ResolvedNames[0].Local = "other"
 				return uses
 			},
 			wantErr: "complex extension does not preserve base attribute use",
@@ -928,7 +939,15 @@ func TestValidateAttributeUseSetExtension(t *testing.T) {
 		{
 			name: "fixed canonical mismatch",
 			mutate: func(uses []attributeUse) []attributeUse {
-				uses[1].Fixed.Canonical = "other"
+				uses[1].ValueConstraint.Canonical = "other"
+				return uses
+			},
+			wantErr: "complex extension does not preserve base attribute use",
+		},
+		{
+			name: "fixed kind mismatch",
+			mutate: func(uses []attributeUse) []attributeUse {
+				uses[1].ValueConstraint.Fixed = false
 				return uses
 			},
 			wantErr: "complex extension does not preserve base attribute use",
@@ -958,15 +977,10 @@ func TestValidateAttributeUseSetExtension(t *testing.T) {
 func cloneAttributeUsesForTest(in []attributeUse) []attributeUse {
 	out := append([]attributeUse(nil), in...)
 	for i := range out {
-		if out[i].Default != nil {
-			cloned := *out[i].Default
+		if out[i].ValueConstraint != nil {
+			cloned := *out[i].ValueConstraint
 			cloned.ResolvedNames = append([]resolvedValueName(nil), cloned.ResolvedNames...)
-			out[i].Default = &cloned
-		}
-		if out[i].Fixed != nil {
-			cloned := *out[i].Fixed
-			cloned.ResolvedNames = append([]resolvedValueName(nil), cloned.ResolvedNames...)
-			out[i].Fixed = &cloned
+			out[i].ValueConstraint = &cloned
 		}
 	}
 	return out
@@ -976,6 +990,13 @@ func attributeUseConstraintForTest(tb testing.TB, typeName, lexical string) *val
 	tb.Helper()
 	validated := builtinValueForTest(tb, typeName, lexical)
 	return &valueConstraint{Lexical: lexical, Canonical: validated.CanonicalText(), Value: validated}
+}
+
+func fixedAttributeUseConstraintForTest(tb testing.TB, typeName, lexical string) *valueConstraint {
+	tb.Helper()
+	vc := attributeUseConstraintForTest(tb, typeName, lexical)
+	vc.Fixed = true
+	return vc
 }
 
 type attributeWildcardFixture map[WildcardID]wildcardRuntime
@@ -1041,7 +1062,7 @@ func validAttributeUseSet(first, second QName) attributeUseSet {
 		},
 		Uses: []attributeUse{
 			{Name: first, Type: 0, Required: true},
-			{Name: second, Type: 0, Default: &valueConstraint{}},
+			{Name: second, Type: 0, ValueConstraint: &valueConstraint{}},
 		},
 		Wildcard:         NoWildcard,
 		WildcardBase:     NoWildcard,

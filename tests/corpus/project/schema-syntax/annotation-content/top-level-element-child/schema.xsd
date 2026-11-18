@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:annotation><xs:element name="z"/></xs:annotation>
+<xs:element name="r"/>
+</xs:schema>

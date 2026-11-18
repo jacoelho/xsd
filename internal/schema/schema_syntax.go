@@ -6,19 +6,6 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// schemaNodeNames describes one schema node enough for compile-owned name
-// syntax validation.
-type schemaNodeNames struct {
-	Local       string
-	ParentLocal string
-	ID          string
-	Name        string
-	XSD         bool
-	ParentXSD   bool
-	HasID       bool
-	HasName     bool
-}
-
 // validateSchemaTargetNamespace validates the raw xs:schema targetNamespace
 // attribute value.
 func validateSchemaTargetNamespace(target lexicalAttribute) error {
@@ -28,20 +15,23 @@ func validateSchemaTargetNamespace(target lexicalAttribute) error {
 	return nil
 }
 
-// validateSchemaNodeNames validates schema node id/name syntax and name
-// placement rules.
-func validateSchemaNodeNames(node schemaNodeNames) error {
-	if !node.XSD {
-		return nil
+// validateSchemaImportNamespace validates the raw xs:import namespace
+// attribute value.
+func validateSchemaImportNamespace(namespace lexicalAttribute) error {
+	if namespace.Present && namespace.Value == "" {
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "import namespace cannot be empty")
 	}
-	if node.HasID && !lex.IsNCName(node.ID) {
+	return nil
+}
+
+// validateSchemaNameAttribute validates the NCName syntax of an unqualified
+// id or name attribute; any other attribute passes.
+func validateSchemaNameAttribute(attr, value string) error {
+	switch {
+	case attr == vocab.XSDAttrID && !lex.IsNCName(value):
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "schema id must be NCName")
-	}
-	if node.HasName && !lex.IsNCName(node.Name) {
+	case attr == vocab.XSDAttrName && !lex.IsNCName(value):
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "schema component name must be NCName")
-	}
-	if node.Local == attributeGroup && node.HasName && (!node.ParentXSD || node.ParentLocal != vocab.XSDElemSchema) {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "attributeGroup use cannot have name")
 	}
 	return nil
 }

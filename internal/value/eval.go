@@ -1,7 +1,6 @@
 package value
 
 import (
-	"bytes"
 	"errors"
 	"math"
 	"slices"
@@ -72,6 +71,19 @@ type parsedValue struct {
 	identityReady      bool
 }
 
+// atomicValue is one primitive value; kind selects the field that holds it.
+//
+// The file that declares a primitive's value type owns that primitive's
+// order, equality and enumeration key. compareAtomic, equalAtomic and
+// appendAtomicEnumerationKey only dispatch on kind. Two values of an ordered
+// primitive are equal exactly when its order ranks them equal, except
+// durations (durationValue); FloatValue states how NaN relates. String,
+// boolean, hexBinary, base64Binary, anyURI, QName and NOTATION values have no
+// order.
+//
+// A value type holds a value and representations of it, never a fact that
+// only one schema relation reads. Such a fact belongs to the owner of that
+// relation, as the day offset of an xs:time bound belongs to boundValue.
 type atomicValue struct {
 	expandedName ExpandedName
 	lexical      lexicalValue
@@ -205,16 +217,176 @@ func (p *Program) ValidateAdmitted(id TypeID, lexical string, resolver Resolver,
 // aggregate pattern account (BuilderOptions.MaxTotalPatternWork), as Complete
 // does; the builder has no uncharged evaluation.
 func (b *Builder) Validate(id TypeID, lexical string, resolver Resolver, needs Needs, scratch *Scratch) (Value, error) {
-	if b == nil || b.program == nil || b.program.sealed {
-		return Value{}, ErrMetadata
-	}
-	budget, err := newEvaluationBudget(EvaluationLimits{Work: b.maxConstructionWork, PatternWork: b.maxPatternWork, PatternTotal: &b.patternTotal})
+	budget, err := b.literalBudget()
 	if err != nil {
 		return Value{}, err
 	}
 	return b.program.validateValueWithBudget(id, lexical, &evaluationRequest{
 		resolver: resolver, needs: needs, scratch: scratch, budget: &budget,
 	})
+}
+
+// AdmitBoundLiteral returns an error unless lexical may be the {value} of the
+// ordered-bound facet named by facet in a restriction of base: it must be in
+// the value space of base, or a minExclusive or maxExclusive may instead equal
+// the effective same facet of base (Datatypes §4.3.8.1, §4.3.9.1). The base's
+// length, digit, pattern and enumeration facets are checked first. The literal
+// is then ordered against the bounds of base as an instance value is.
+// Restatement equality is value equality, so a duration equal to the base
+// facet only in order is an ordinary literal. A restatement is checked only
+// against the patterns of base and its bounds other than the exclusive bounds
+// of the restated side. The valid-restriction clauses, which order xs:time
+// bounds of one side by their unwrapped time (compareDerivationBounds), and
+// the fixed-facet checks belong to Complete. facet must be one of
+// FacetMinInclusive, FacetMaxInclusive, FacetMinExclusive or
+// FacetMaxExclusive; any other mask returns ErrMetadata. Each call charges the
+// builder's aggregate pattern account, as Validate does.
+func (b *Builder) AdmitBoundLiteral(base TypeID, facet FacetMask, lexical string) error {
+	if facet != FacetMinInclusive && facet != FacetMinExclusive && facet != FacetMaxInclusive && facet != FacetMaxExclusive {
+		return ErrMetadata
+	}
+	budget, err := b.literalBudget()
+	if err != nil {
+		return err
+	}
+	p := b.program
+	t, ok := p.typeDef(base)
+	if !ok {
+		return ErrMetadata
+	}
+	var v parsedValue
+	normalized, err := p.eval(base, lexical, evalOptions{work: &budget}, &v)
+	if err != nil {
+		return describeValueFailure(p, base, lexical, &v, err)
+	}
+	admission := newBoundAdmission(&t.facets, facet, &v.atom)
+	if err := admission.applyNonBound(&v, normalized, &budget); err != nil {
+		checked := typeWithFacets(t, admission.nonBoundFacets())
+		return describeTypeValueFailure(p, base, &checked, lexical, &v, err)
+	}
+	if err := admission.applyBounds(&v); err != nil {
+		checked := typeWithFacets(t, admission.boundFacets())
+		return describeTypeValueFailure(p, base, &checked, lexical, &v, err)
+	}
+	return nil
+}
+
+// boundSide names the lower or upper bounds of a type.
+type boundSide uint8
+
+const (
+	noBoundSide boundSide = iota
+	lowerBoundSide
+	upperBoundSide
+)
+
+// boundAdmission selects the facets of a base that a literal offered as the
+// {value} of one of its ordered-bound facets is checked against: every facet,
+// or, for a literal that restates the effective exclusive bound of the facet's
+// side, only the patterns of the base and its bounds other than the exclusive
+// bounds of that side.
+type boundAdmission struct {
+	base *facetProgram
+	// restated is the side whose effective exclusive bound the literal
+	// restates.
+	restated boundSide
+}
+
+func newBoundAdmission(base *facetProgram, facet FacetMask, literal *atomicValue) boundAdmission {
+	admission := boundAdmission{base: base}
+	switch {
+	case facet == FacetMinExclusive && restatesExclusiveBound(base.lower, literal):
+		admission.restated = lowerBoundSide
+	case facet == FacetMaxExclusive && restatesExclusiveBound(base.upper, literal):
+		admission.restated = upperBoundSide
+	}
+	return admission
+}
+
+func (a boundAdmission) applyNonBound(v *parsedValue, normalized string, budget *evaluationBudget) error {
+	if a.restated != noBoundSide {
+		return applyPatternFacets(a.base.patterns, normalized, nil, budget)
+	}
+	return applyNonBoundFacets(a.base, v, normalized, nil, budget)
+}
+
+func (a boundAdmission) applyBounds(v *parsedValue) error {
+	lower, upper := a.base.lower, a.base.upper
+	switch a.restated {
+	case lowerBoundSide:
+		if err := applyInclusiveBounds(lowerBoundSide, lower, v); err != nil {
+			return err
+		}
+		return applyBounds(nil, upper, v)
+	case upperBoundSide:
+		if err := applyBounds(lower, nil, v); err != nil {
+			return err
+		}
+		return applyInclusiveBounds(upperBoundSide, upper, v)
+	case noBoundSide:
+	}
+	return applyBounds(lower, upper, v)
+}
+
+// applyInclusiveBounds orders value against the inclusive bounds among
+// bounds, the bounds of one side.
+func applyInclusiveBounds(side boundSide, bounds []boundValue, value *parsedValue) error {
+	for i := range bounds {
+		if bounds[i].exclusive {
+			continue
+		}
+		lowers, uppers := bounds[i:i+1], []boundValue(nil)
+		if side == upperBoundSide {
+			lowers, uppers = uppers, lowers
+		}
+		if err := applyBounds(lowers, uppers, value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a boundAdmission) nonBoundFacets() facetProgram {
+	if a.restated != noBoundSide {
+		return facetProgram{patterns: a.base.patterns}
+	}
+	nonBound := *a.base
+	nonBound.lower, nonBound.upper = nil, nil
+	return nonBound
+}
+
+func (a boundAdmission) boundFacets() facetProgram {
+	checked := facetProgram{lower: a.base.lower, upper: a.base.upper}
+	switch a.restated {
+	case lowerBoundSide:
+		checked.lower = inclusiveBounds(checked.lower)
+	case upperBoundSide:
+		checked.upper = inclusiveBounds(checked.upper)
+	case noBoundSide:
+	}
+	return checked
+}
+
+// typeWithFacets returns t restricted to checked, the facets a rejected
+// literal was checked against, for describing the failure.
+func typeWithFacets(t *typeDef, checked facetProgram) typeDef {
+	described := *t
+	described.facets = checked
+	return described
+}
+
+// restatesExclusiveBound reports whether literal equals the effective
+// exclusive bound among side, the bounds of base on the restated facet's side.
+func restatesExclusiveBound(side []boundValue, literal *atomicValue) bool {
+	effective, ok := findBound(side, true)
+	if !ok {
+		return false
+	}
+	return equalAtomic(literal, &effective.value)
+}
+
+func inclusiveBounds(bounds []boundValue) []boundValue {
+	return slices.DeleteFunc(slices.Clone(bounds), func(bound boundValue) bool { return bound.exclusive })
 }
 
 // validateBorrowedBytes admits raw bytes and retains the accumulated work when
@@ -1416,13 +1588,6 @@ func nextListField[T byteText](s T, start int) (field T, next int, ok bool) {
 	return s[start:next], next, true
 }
 
-func effectiveWhitespace(p *Program, id TypeID) WhitespaceMode {
-	if t, ok := p.typeDef(id); ok {
-		return t.whitespace
-	}
-	return WhitespacePreserve
-}
-
 func valueIdentityCanonical(v *parsedValue) string {
 	if v.atom.kind == PrimitiveDuration {
 		return durationIdentityCanonical(v.atom.duration)
@@ -1453,11 +1618,11 @@ func equalAtomic(a, b *atomicValue) bool {
 	}
 	switch a.kind {
 	case PrimitiveString, PrimitiveAnyURI:
-		return a.lexical.Canonical == b.lexical.Canonical
+		return equalTextValues(&a.lexical, &b.lexical)
 	case PrimitiveBoolean:
 		return a.boolean == b.boolean
 	case PrimitiveDecimal:
-		return CompareDecimalValues(a.decimal, b.decimal) == 0
+		return equalDecimalValues(a.decimal, b.decimal)
 	case PrimitiveFloat, PrimitiveDouble:
 		return equalFloatValues(a.float, b.float)
 	case PrimitiveDuration:
@@ -1467,24 +1632,39 @@ func equalAtomic(a, b *atomicValue) bool {
 	case primitiveTime:
 		return equalTimeValues(a.time, b.time)
 	case primitiveGYearMonth, primitiveGYear, primitiveGMonthDay, primitiveGDay, primitiveGMonth:
-		return equalGValues(a.g, b.g)
-	case PrimitiveHexBinary, PrimitiveBase64Binary:
-		if a.kind == PrimitiveHexBinary {
-			return strings.EqualFold(a.lexical.Canonical, b.lexical.Canonical)
-		}
-		// Equality never compacts an operand in place; unless both are
-		// already compact it compares decoded octets.
-		if a.lexical.canonicalReady && b.lexical.canonicalReady {
-			return a.lexical.Canonical == b.lexical.Canonical
-		}
-		left, leftErr := decodeBase64Binary(a.lexical.Canonical)
-		right, rightErr := decodeBase64Binary(b.lexical.Canonical)
-		return leftErr == nil && rightErr == nil && bytes.Equal(left, right)
+		return equalTemporalValues(a.g.temporal(), b.g.temporal())
+	case PrimitiveHexBinary:
+		return equalHexBinaryValues(&a.lexical, &b.lexical)
+	case PrimitiveBase64Binary:
+		return equalBase64BinaryValues(&a.lexical, &b.lexical)
 	case PrimitiveQName, PrimitiveNotation:
-		return a.expandedName == b.expandedName
+		return equalExpandedNames(a.expandedName, b.expandedName)
 	default:
 		return false
 	}
+}
+
+func compareAtomic(a, b *atomicValue) (orderedFacetRelation, bool) {
+	if a.kind != b.kind {
+		return orderedFacetIncomparable, false
+	}
+	switch a.kind {
+	case PrimitiveDecimal:
+		return orderedFacetRelationFromInt(CompareDecimalValues(a.decimal, b.decimal)), true
+	case PrimitiveFloat, PrimitiveDouble:
+		return floatRelation(a.float, b.float), true
+	case PrimitiveDuration:
+		return compareDurationValues(a.duration, b.duration), true
+	case primitiveDate, PrimitiveDateTime:
+		return compareTemporalValues(a.temporal, b.temporal), true
+	case primitiveTime:
+		return compareTimePartial(a.time, b.time), true
+	case primitiveGYearMonth, primitiveGYear, primitiveGMonthDay, primitiveGDay, primitiveGMonth:
+		return compareTemporalValues(a.g.temporal(), b.g.temporal()), true
+	case PrimitiveString, PrimitiveBoolean, PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
+		return orderedFacetIncomparable, false
+	}
+	return orderedFacetIncomparable, false
 }
 
 // prepareBase64Canonical compacts one document-local value when an
@@ -1507,6 +1687,21 @@ func applyFacets(t *typeDef, value *parsedValue, normalized string, scratch *Scr
 		return err
 	}
 	if err := applyBounds(f.lower, f.upper, value); err != nil {
+		return err
+	}
+	if err := applyPatternFacets(f.patterns, normalized, scratch, budget); err != nil {
+		return err
+	}
+	return applyEnumerationFacets(f, value)
+}
+
+// applyNonBoundFacets applies the facets of f other than its ordered bounds,
+// in the order applyFacets applies them.
+func applyNonBoundFacets(f *facetProgram, value *parsedValue, normalized string, scratch *Scratch, budget *evaluationBudget) error {
+	if err := applyLengthFacet(f, value); err != nil {
+		return err
+	}
+	if err := applyDigitFacets(f, value); err != nil {
 		return err
 	}
 	if err := applyPatternFacets(f.patterns, normalized, scratch, budget); err != nil {
@@ -1637,29 +1832,6 @@ func applyBounds(lowers, uppers []boundValue, value *parsedValue) error {
 		}
 	}
 	return nil
-}
-
-func compareAtomic(a, b *atomicValue) (orderedFacetRelation, bool) {
-	if a.kind != b.kind {
-		return orderedFacetIncomparable, false
-	}
-	switch a.kind {
-	case PrimitiveDecimal:
-		return orderedFacetRelationFromInt(CompareDecimalValues(a.decimal, b.decimal)), true
-	case PrimitiveFloat, PrimitiveDouble:
-		return floatRelation(a.float, b.float), true
-	case PrimitiveDuration:
-		return compareDurationValues(a.duration, b.duration), true
-	case primitiveDate, PrimitiveDateTime:
-		return compareTemporalValues(a.temporal, b.temporal), true
-	case primitiveTime:
-		return compareTimePartial(a.time, b.time), true
-	case primitiveGYearMonth, primitiveGYear, primitiveGMonthDay, primitiveGDay, primitiveGMonth:
-		return compareGValues(a.g, b.g), true
-	case PrimitiveString, PrimitiveBoolean, PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
-		return orderedFacetIncomparable, false
-	}
-	return orderedFacetIncomparable, false
 }
 
 func equalParsed(a, b *parsedValue) bool {

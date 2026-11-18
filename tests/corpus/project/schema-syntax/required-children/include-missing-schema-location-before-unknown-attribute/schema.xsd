@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:include/>
+<xs:element name="z" foo="1"/>
+</xs:schema>

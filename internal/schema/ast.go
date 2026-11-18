@@ -244,15 +244,6 @@ func (n *schemaSyntaxNode) attr(local string) (string, bool) {
 	return "", false
 }
 
-func (n *schemaSyntaxNode) attrNS(namespace, local string) (string, bool) {
-	for _, a := range n.Attrs {
-		if a.Name.Space == namespace && a.Name.Local == local {
-			return a.Value, true
-		}
-	}
-	return "", false
-}
-
 func (n *schemaSyntaxNode) resolveQName(lexical string) (xml.Name, error) {
 	parts, err := checkSchemaQNamePartsSyntax(n, lexical)
 	if err != nil {

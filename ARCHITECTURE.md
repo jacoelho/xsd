@@ -211,6 +211,84 @@ locates its dependency charge at the reference being resolved and a
 Publication consumes the
 build only on success; `*schema.Schema` exposes only immutable derived reads.
 
+Schema-document diagnostics have an order. A violation has one decision point,
+and a compilation reports the violation whose decision point comes first. Two
+tiers hold the decision points.
+
+The parse tier decides while a document is read, at a start tag (`admitStart`)
+or an end tag (`completeTypedNode`). Its violations are reported in document
+order of their decision points and, at one decision point, in this stage order.
+At a start tag:
+
+1. the root element is `xs:schema`;
+2. unsupported vocabulary (`rejectUnsupportedVocabulary`): an XSD 1.1 element
+   or attribute, or `xs:redefine`;
+3. character data earlier in the parent;
+4. the parent's content admits the child: no foreign element, the annotation
+   rules, then the parent's child order (`childOrderState.accept`);
+5. the element's own attributes in the order written. For each attribute:
+   that the element may have it in this placement (`schemaElementAttributeAllowed`,
+   `misplacedSchemaAttributeError`), then its value: the name syntax of `name`
+   and `id`, an `id` the document already declares, the lexical form
+   (`checkSchemaAttributeValueSyntax`), the lexical form and prefix binding of
+   a QName, and anyURI syntax;
+6. the attributes the placement requires (`checkRequiredSchemaAttributes`),
+   then the attributes that exclude each other
+   (`checkValueConstraintAttributes`): `default` with `fixed`, and `default`
+   with a `use` other than optional.
+
+At an end tag:
+
+7. character data in the element;
+8. the children the element requires (`childOrderState.missingChild`).
+
+Malformed XML and the parse limits are reported where the reader meets them, in
+the same document order. Documents are read one at a time, explicit sources in
+name order and then referenced documents as the loader reaches them, so the
+parse-tier violations of one document precede those of the next, and a loading
+failure is reported when the loader reaches its reference.
+
+The compile tier decides after every document of the set is read, so a
+compile-tier violation is reported only when no document has a parse-tier
+violation. A rule is compile tier when one start or end tag cannot decide it:
+reference resolution and import authorization; duplicate components and
+attribute uses; cycles, derivation and `final`; whether the base type admits a
+facet, and a facet's value, whose type the facet and the base type give
+together; a value constraint against its type; a group reference that resolves
+to `xs:all`; and the content model rules (Unique Particle Attribution, Element
+Declarations Consistent, restriction).
+
+Compilation also owns rules that one start tag states. They are Schema
+Component Constraints, and the compiler checks each where it builds the
+component:
+
+- `minOccurs` above `maxOccurs` (Particle Correct), and an occurrence count
+  above the occurrence limits.
+- The occurrence range of `xs:all` (`validateAllModelOccurrence`) and of its
+  particles (`appendParticle`). The XML representation of `xs:all` states the
+  same ranges; they are compile tier so that All Group Limited, which also
+  rejects an `xs:all` that a group reference brings into a model group, has
+  one owner.
+- An attribute declaration named `xmlns` (xmlns Not Allowed).
+
+The path of `xs:selector` and `xs:field` is the form of one attribute and is
+compile tier all the same: the identity constraint compiler owns the grammar,
+and stage 5 rejects only an empty `xpath`. A facet repeated in one restriction,
+which the start tag of the second could decide, is compile tier with the other
+facet rules.
+
+Each parse-tier rule has one owner. The child orders (`childOrderFor`) own
+where an element may appear; the placement of a component
+(`schemaElementPlacementOf`) selects its attribute rules and says nothing
+about whether its parent admits it. `schemaElementAttributeAllowed` and
+`misplacedSchemaAttributeError` own the attributes an element may have,
+`checkRequiredSchemaAttributes` the ones it must have,
+`checkValueConstraintAttributes` the ones that exclude each other, and
+`checkSchemaAttributeValueSyntax` the lexical form of a value. Compilation
+parses an admitted value again with the same parser to use it, and a lexical
+failure there is an internal invariant (`admittedValueInvariant`), not a second
+schema diagnostic.
+
 `internal/schema`, `internal/value` and `internal/validate` export only
 identifiers consumed outside their package: for schema the published read
 surface plus `Compile`, `CompileMappedSources`, `NormalizeOptions`,
@@ -251,12 +329,37 @@ schema documents and `xsi:nil` is parsed with `ParseBooleanValue`; only
 owner, `internal/schema`, because no value-owned parser exists for them.
 
 - **Construction.** The schema compiler drives `Builder` (`Reserve`,
-  `Complete`, `Seal`) and supplies its construction limits. Compile-time
-  literals (`Builder.Validate`) and instance values have the same value
-  semantics. Restriction derivation returns the effective facet program, and
-  the compiler does not reconstruct that merge. `FacetAllowed` is the only
-  facet-applicability rule for schema admission, value construction, and
-  diagnostics.
+  `Complete`, `Seal`) and supplies its construction limits. Enumeration and
+  value-constraint literals (`Builder.Validate`) and instance values have the
+  same value semantics. A bound literal is admitted by
+  `Builder.AdmitBoundLiteral`: base value-space membership, or, for a
+  `minExclusive` or `maxExclusive` equal to the base's effective same facet,
+  only the base's patterns and other bounds; the base's non-bound facets are
+  checked before its bounds. The compiler admits it while
+  reading the facet, so the diagnostic names the literal; the
+  valid-restriction clauses against inherited bounds and the
+  lower-versus-upper and fixed-facet checks belong to `Builder.Complete`'s
+  restriction derivation, located at the simple type.
+  One order (`compareAtomic`) and one equality (`equalAtomic`) relate two
+  values of a primitive wherever they are related: an instance value against
+  a bound, enumeration, fixed values, identity constraints, a literal against
+  the base's bounds, an exclusive restatement, a bound under a fixed base
+  bound, the opposite-side restriction clauses, and the effective
+  lower-versus-upper check. The order never separates equal values, and two
+  values it ranks equal are equal, except durations equal only in order
+  (Duration equality and order in `docs/spec/INTERPRETATIONS.md`). The doc
+  comment of `atomicValue` names the owner of each primitive's order,
+  equality and enumeration key and states what a value type may hold. An
+  `xs:time` value is its timezone-normalized time of day, so `24:00:00` is
+  `00:00:00` (Time midnight boundary in `docs/spec/INTERPRETATIONS.md`). One
+  relation needs more than the two values: the same-side restriction clause
+  orders `xs:time` bounds by un-wrapped time. The day that the hour 24, a
+  second 60 or a timezone offset moves a bound to is a fact of the bound
+  facet (`boundValue`), not of the value, and `compareDerivationBounds` is
+  its only reader. Restriction derivation returns the effective facet
+  program, and the compiler does not reconstruct that merge. `FacetAllowed`
+  is the only facet-applicability rule for schema admission, value
+  construction, and diagnostics.
 - **Inputs.** `ValidateBytes` and `ValidateAdmitted` trust that
   `internal/xmlstream` has already admitted UTF-8 XML 1.0 character data.
   `Validate` admits external text itself. All paths share value semantics and
@@ -286,9 +389,9 @@ owner, `internal/schema`, because no value-owned parser exists for them.
   entry, including after a document that failed mid-stream. `value.Builder`
   owns the per-compilation account, configured by `internal/schema` through
   `BuilderOptions.MaxTotalPatternWork` (`MaxSchemaTotalPatternWork`). Every
-  compile-time evaluation through `Builder.Validate` or `Builder.Complete`
-  charges it, including a facet literal's base-type check. There is no
-  uncharged evaluation path, so `MaxSchemaTotalPatternWork` bounds all
+  compile-time evaluation through `Builder.Validate`,
+  `Builder.AdmitBoundLiteral` or `Builder.Complete` charges it, including a
+  facet literal's base-type check. There is no uncharged evaluation path, so `MaxSchemaTotalPatternWork` bounds all
   compile-time pattern matching. A facet literal can be charged for its
   base-type check and again when facet compilation re-evaluates it; a value
   constraint is charged once. Publication audits element and attribute value
@@ -749,6 +852,8 @@ change-detector tests that mirror the implementation or assert their own setup.
 | `tests/phase_import_graph_test.go` | Package allowlists, dependency direction, context-free and reflection-free library code, source I/O ownership, and capability isolation |
 | `tests/phase_boundary_test.go` | Required modules, single facade execution edges, session construction ownership, and retired public paths |
 | `tests/schema_diagnostic_text_test.go` | Schema diagnostics quote schema text through `internal/diagnostictext`: an allowlist lint over `internal/schema` message operands (known gaps are listed in its doc comment); the public hostile-value table in `schema_diagnostic_bound_test.go` is the contract proof |
+| `internal/value/value_laws_contract_test.go` | For every primitive, one order and one equality: equality decides identity keys and enumeration membership, the bound facets agree on one order that never separates equal values and separates unequal ones outside the declared duration exception, and canonical text denotes its value; checked on declared pairs and on a generated grid of lexical forms |
+| `schema_diagnostic_order_test.go` with the catalogue in `schema_diagnostic_catalogue_test.go` | The schema-document diagnostics order of `internal/schema`: a catalogue of single violations, each declaring its tier and stage from the contract and never from compiler output, and every ordered pair of them (as consecutive components, inside one component, on one start tag in both attribute orders, and across two documents) reports the violation that tier, decision point, stage and attribute order select. A rule decided later than the contract says is listed by name in `knownSchemaDiagnosticOrderGaps`, and a listed gap that holds fails as stale |
 | `tests/schema_export_surface_test.go` | The exported top-level identifiers of `internal/schema`, `internal/value` and `internal/validate` equal an explicit allowlist of the surface consumed across packages |
 | `tests/resource_limits_doc_test.go` | `docs/RESOURCE_LIMITS.md` option tables list every public option with its code-owned default |
 | `tests/root_public_shape_test.go` and `tests/external_api_smoke_test.go` | External callers use only the supported public packages and interface |
@@ -951,6 +1056,17 @@ graph preserves these ownership rules:
 - Inferring empty complex content from an empty normalized child model was
   rejected because element-only particles can accept no children while still
   permitting whitespace.
+- For the name index Element Declarations Consistent collects each content
+  model with, a fresh map per model was rejected: on
+  `CompileReachableContentModels/models_5000` it costs 235,952 allocs/op and
+  33.75 MB/op, against 225,951 allocs/op and 34.12 MB/op when the map itself was
+  the cached result. One index per nesting depth, emptied by deleting the names
+  its model added, costs 215,965 allocs/op and 32.16 MB/op
+  (`elementDeclarationConsistencyChecker.scratch`). A pool of cleared indexes
+  measured the same 215,965 allocs/op and 32.16 MB/op and was rejected: `clear`
+  costs a map its buckets rather than its entries, so the pool needed a cap on
+  the size of a reused index, and a second cap on how many it kept, to stay
+  bounded.
 
 ### Values
 
@@ -959,6 +1075,40 @@ graph preserves these ownership rules:
   projections, and canonical spelling can select a different union member.
   A second equality API, lexical shortcut or identity-key cache would
   duplicate value-owned policy.
+- Folding bound-literal admission into `Builder.Complete` was rejected:
+  bound and enumeration literal errors are located at their facet element,
+  while Complete's errors name no facet and are located at the simple type, so
+  keeping that location would need a facet-identifying error and relocation in
+  the schema compiler, and enumeration literals keep the same
+  admit-then-complete shape. The cost is a second parse of each bound literal
+  at compile time.
+- Carrying the bound that `Builder.AdmitBoundLiteral` parsed to
+  `Builder.Complete`, so each bound literal is parsed once, was rejected: the
+  second parse allocates nothing, while a compiled bound carried in
+  `BoundFacet` costs an allocation per bound and enlarges the `FacetSpec` of
+  every simple type when held by pointer, and multiplies that size when held
+  inline.
+- Making the day a timezone moves an `xs:time` to part of its value was
+  rejected: it contradicts the equality Xerces-J applies in enumerations,
+  fixed values and identity constraints, where `00:30:00+14:00` is
+  `10:30:00Z` (Time midnight boundary in `docs/spec/INTERPRETATIONS.md`).
+- Keeping that day in `TimeValue` for the order while equality ignores it was
+  rejected: order and equality then disagree, so a bound separates two equal
+  values and a value can equal an enumerated literal that a bound of the same
+  spelling rejects.
+- Extending the un-wrapped `xs:time` order beyond the same-side restriction
+  clauses was rejected: W3C `time_maxInclusive007_119` requires it only
+  there, no W3C test requires it elsewhere, and Xerces-J, apart from its
+  distinct `24:00:00`, orders every other relation by time of day.
+- A distinct end-of-day midnight value for `24:00:00`, as in Xerces-J and
+  libxml2, was rejected for three reasons. Datatypes §3.2.8.2 gives midnight
+  the canonical representation `00:00:00`, and §2.3.1 makes canonical
+  representations one-to-one with values. Structures applies a value
+  constraint through its canonical representation, so a distinct value needs
+  either a canonical text that §3.2.8.2 excludes or, as in Xerces-J, a
+  `fixed="24:00:00"` that rejects `24:00:00`. XSD 1.1 Datatypes §3.3.8.2 and
+  XPath Functions and Operators 3.1 `op:time-equal` state that both forms
+  denote one value.
 - Combining Gregorian primitive parsers was rejected because their field
   grammars and failure precedence differ.
 - Re-resolving schema-supplied QNames in instance namespaces was rejected

@@ -1,0 +1,5 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:element name="H" abstract="true"/>
+<xs:complexType name="C"><xs:sequence><xs:element id="e1" name="e" type="xs:string" nillable="true" default="x" form="qualified" block="#all" minOccurs="0" maxOccurs="2"/><xs:element name="f"><xs:complexType id="t1" mixed="true"><xs:attribute id="a1" name="a" form="unqualified" use="optional" default="y"><xs:simpleType id="s1"><xs:restriction base="xs:string"/></xs:simpleType></xs:attribute></xs:complexType></xs:element></xs:sequence></xs:complexType>
+<xs:group name="G"><xs:sequence id="g1"><xs:element name="g"/></xs:sequence></xs:group>
+</xs:schema>

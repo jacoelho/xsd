@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:future/>
+<xs:element name="e" foo="1"/>
+</xs:schema>

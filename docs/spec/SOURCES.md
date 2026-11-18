@@ -45,6 +45,7 @@ from validator agreement alone.
 | Later Structures [§G.1.10](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#changes) | An absent optional attribute reference whose use has no local override uses its global declaration's effective constraint. Explicit empty overrides and required presence are separate controls; XSI still supplies no absent values, and added PSVI metadata has its own observation limits. Already implemented. | This row |
 | Later [`src-resolve`](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#src-resolve) | Keyrefs resolve to key/unique components. Already implemented. | [IDS-Q001](INTERPRETATIONS.md#ids-q001) |
 | Later [include semantics](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/structures.html#compound-schema), §4.2.3 | Includes naming one resolved location are one document; distinct locations are distinct documents even with identical bytes. | [I-019](INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location) |
+| Later [Element Declarations Consistent](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-element-consistent), with the 1.0 schema for schemas | EDC compares distinct element declarations; one declaration reached through several particles, groups, extensions or substitution heads counts once. Other 1.1 EDC clauses are not adopted. | [I-026](INTERPRETATIONS.md#i-026--element-declarations-consistent-counts-declarations) |
 | Later [double value space](https://www.w3.org/TR/2012/REC-xmlschema11-2-20120405/#double) | Corrected binary64 integer-exponent limits. Already implemented. | [Floating-point scope](#floating-point-source-versions) |
 
 These are explicit library corrections to the pinned baseline, separately
@@ -75,7 +76,7 @@ instance-validity result.
 | G.1.3 content models | Exclude relaxed UPA, expanded all groups and new wildcard facilities. |
 | G.1.4 assertions | Exclude assertions and XPath expression facilities. |
 | G.1.5 complex derivation | Keep the 1.0 structural algorithm; select only bounded R-122/R-240 repairs. |
-| G.1.6 complex types | No blanket mixed-content or consistency-rule relaxation. |
+| G.1.6 complex types | No blanket mixed-content or consistency-rule relaxation; Element Declarations Consistent counts distinct declarations per [I-026](INTERPRETATIONS.md#i-026--element-declarations-consistent-counts-declarations). |
 | G.1.7 ID-related types | Select recursive ID/IDREF carriage from [10662](https://www.w3.org/Bugs/Public/show_bug.cgi?id=10662) ([I-016](INTERPRETATIONS.md#i-016--recursive-id-ness)) at schema and run time; retain the 1.0 ID default, single-ID-attribute and DTD boundaries. Full ENTITY adoption is excluded ([ENTITY member selection](INTERPRETATIONS.md#datatype-and-observation-qualifications)). |
 | G.1.8 simple types | Select union integrity and typed constraints; exclude new primitive/universal types and assertions. |
 | G.1.9 elements | No type alternatives, abstract-type or other blanket element-policy adoption. |

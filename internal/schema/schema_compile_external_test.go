@@ -139,7 +139,7 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
   <xs:simpleType name="Restricted">
     <xs:restriction base="xs:QName">
       <xs:enumeration value="p:item"/>
-      <xs:enumeration/>
+      <xs:totalDigits value="1"/>
     </xs:restriction>
   </xs:simpleType>
 </xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 4, column: 7},
@@ -149,7 +149,7 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
     <xs:simpleContent>
       <xs:restriction base="Base">
         <xs:enumeration value="p:item"/>
-        <xs:enumeration/>
+        <xs:totalDigits value="1"/>
       </xs:restriction>
     </xs:simpleContent>
   </xs:complexType>
@@ -159,7 +159,7 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
   <xs:simpleType name="Restricted">
     <xs:restriction base="Base">
       <xs:enumeration value="p:item"/>
-      <xs:enumeration/>
+      <xs:totalDigits value="1"/>
     </xs:restriction>
   </xs:simpleType>
 </xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 6, column: 7},
@@ -170,12 +170,24 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
     <xs:simpleContent>
       <xs:restriction base="Base">
         <xs:enumeration value="p:item"/>
-        <xs:enumeration/>
+        <xs:totalDigits value="1"/>
       </xs:restriction>
     </xs:simpleContent>
   </xs:complexType>
 </xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 8, column: 9},
-		{name: "unavailable list duplicate precedes malformed attributes", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+		{name: "unavailable list duplicate precedes malformed value", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="List"><xs:list itemType="absent"/></xs:simpleType>
+  <xs:complexType name="Base"><xs:simpleContent><xs:extension base="List"/></xs:simpleContent></xs:complexType>
+  <xs:complexType name="Restricted">
+    <xs:simpleContent>
+      <xs:restriction base="Base">
+        <xs:length value="1"/>
+        <xs:length value="bad"/>
+      </xs:restriction>
+    </xs:simpleContent>
+  </xs:complexType>
+</xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 8, column: 9, messageContains: "duplicate length"},
+		{name: "malformed fixed of a duplicate facet of an unavailable list is rejected at its start tag", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="List"><xs:list itemType="absent"/></xs:simpleType>
   <xs:complexType name="Base"><xs:simpleContent><xs:extension base="List"/></xs:simpleContent></xs:complexType>
   <xs:complexType name="Restricted">
@@ -186,7 +198,7 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
       </xs:restriction>
     </xs:simpleContent>
   </xs:complexType>
-</xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 8, column: 9, messageContains: "duplicate length"},
+</xs:schema>`, code: xsderrors.CodeSchemaInvalidAttribute, line: 8, column: 9, messageContains: `invalid boolean attribute "fixed"`},
 		{name: "unavailable list retains whitespace restriction", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="List"><xs:list itemType="absent"/></xs:simpleType>
   <xs:simpleType name="Restricted">
@@ -227,6 +239,28 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
     </xs:restriction>
   </xs:simpleType>
 </xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 6, column: 7},
+		{name: "bound literal outside the base value space is located at its facet", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Limited">
+    <xs:restriction base="xs:decimal">
+      <xs:maxExclusive value="abc"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 4, column: 7, messageContains: `invalid facet value "abc"`},
+		{name: "bound literal outside an inherited bound is located at its facet", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Base"><xs:restriction base="xs:decimal"><xs:maxExclusive value="10"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="Limited">
+    <xs:restriction base="Base">
+      <xs:minInclusive value="11"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 5, column: 7, messageContains: `does not satisfy maxExclusive "10.0"`},
+		{name: "enumeration literal outside the base value space is located at its facet", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Limited">
+    <xs:restriction base="xs:decimal">
+      <xs:enumeration value="abc"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 4, column: 7, messageContains: `invalid facet value "abc"`},
 		{name: "simple content late facet keeps child location", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="Base"><xs:simpleContent><xs:extension base="xs:decimal"/></xs:simpleContent></xs:complexType>
   <xs:complexType name="Limited">
@@ -324,21 +358,27 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
   </xs:element>
 </xs:schema>`, code: xsderrors.CodeSchemaIdentity, line: 3, column: 26},
 		{name: "element reference", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:complexType name="container"><xs:sequence>
-  <xs:element type="t:T" substitutionGroup="s:H" ref="r:R"/>
+  <xs:element minOccurs="0" ref="r:R"/>
 </xs:sequence></xs:complexType></xs:schema>`, code: xsderrors.CodeSchemaReference, line: 2, column: 3, messageContains: "prefix \"r\""},
-		{name: "element substitution", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:complexType name="container"><xs:sequence>
-  <xs:element type="t:T" substitutionGroup="s:H" ref="xs:string"/>
-</xs:sequence></xs:complexType></xs:schema>`, code: xsderrors.CodeSchemaReference, line: 2, column: 3, messageContains: "prefix \"s\""},
+		{name: "element substitution", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element substitutionGroup="s:H" type="t:T" name="e"/>
+</xs:schema>`, code: xsderrors.CodeSchemaReference, line: 2, column: 3, messageContains: "prefix \"s\""},
 		{name: "attribute reference", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:complexType name="container">
-  <xs:attribute type="t:T" ref="r:R"/>
+  <xs:attribute use="optional" ref="r:R"/>
 </xs:complexType></xs:schema>`, code: xsderrors.CodeSchemaReference, line: 2, column: 3, messageContains: "prefix \"r\""},
+		{name: "element reference forbidden attribute before unbound ref prefix", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:complexType name="container"><xs:sequence>
+  <xs:element type="t:T" substitutionGroup="s:H" ref="r:R"/>
+</xs:sequence></xs:complexType></xs:schema>`, code: xsderrors.CodeSchemaInvalidAttribute, line: 2, column: 3, messageContains: `element ref cannot have attribute "type"`},
+		{name: "attribute reference forbidden attribute before unbound ref prefix", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:complexType name="container">
+  <xs:attribute type="t:T" ref="r:R"/>
+</xs:complexType></xs:schema>`, code: xsderrors.CodeSchemaInvalidAttribute, line: 2, column: 3, messageContains: `attribute ref cannot have attribute "type"`},
 		{name: "empty type", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="value" type=""/></xs:schema>`, code: xsderrors.CodeSchemaReference, line: 2, column: 3},
 		{name: "unknown-model", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:f="urn:foreign">
   <xs:complexType name="C">
     <xs:sequence>
       <xs:future/>
-      <xs:attribute/>
+      <xs:attribute name="a"/>
     </xs:sequence>
   </xs:complexType>
 </xs:schema>`, code: xsderrors.CodeSchemaContentModel, line: 4, column: 7},
@@ -352,13 +392,13 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
     <f:annotation/>
   </xs:notation>
 </xs:schema>`, code: xsderrors.CodeSchemaContentModel, line: 3, column: 5},
-		{name: "nonopaque-documentation", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:f="urn:foreign">
+		{name: "misplaced-documentation", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:f="urn:foreign">
   <xs:element name="r">
     <xs:documentation>
       <f:element/>
     </xs:documentation>
   </xs:element>
-</xs:schema>`, code: xsderrors.CodeSchemaContentModel, line: 4, column: 7},
+</xs:schema>`, code: xsderrors.CodeSchemaContentModel, line: 3, column: 5},
 		{name: "simple-content-self", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:f="urn:foreign">
   <xs:complexType name="C">
     <xs:simpleContent><xs:extension base="C"/></xs:simpleContent>
@@ -474,21 +514,26 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
   <xs:annotation id="  a&#x9; "/>
   <xs:annotation id="a"/>
 </xs:schema>`, code: xsderrors.CodeSchemaInvalidAttribute, line: 3, column: 3, category: xsderrors.CategorySchemaCompile},
-		{name: "later malformed XML wins", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+		{name: "repeated ID wins over later malformed XML", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:annotation id="a"/>
   <xs:annotation id="a"/>
   <xs:annotation></xs:element>
-</xs:schema>`, code: xsderrors.CodeSchemaXML, line: 4, column: 18, category: xsderrors.CategorySchemaParse},
-		{name: "later unsupported feature wins", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+</xs:schema>`, code: xsderrors.CodeSchemaInvalidAttribute, line: 3, column: 3, category: xsderrors.CategorySchemaCompile, messageContains: "duplicate schema id"},
+		{name: "repeated ID wins over later unsupported feature", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:annotation id="a"/>
   <xs:annotation id="a"/>
-  <xs:assert/>
-</xs:schema>`, code: xsderrors.CodeUnsupportedXSD11, line: 4, column: 3, category: xsderrors.CategoryUnsupported},
-		{name: "later empty ID wins", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:override schemaLocation="absent.xsd"/>
+</xs:schema>`, code: xsderrors.CodeSchemaInvalidAttribute, line: 3, column: 3, category: xsderrors.CategorySchemaCompile, messageContains: "duplicate schema id"},
+		{name: "repeated ID wins over later empty ID", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:annotation id="a"/>
   <xs:annotation id="a"/>
   <xs:annotation id=""/>
-</xs:schema>`, code: xsderrors.CodeSchemaInvalidAttribute, line: 4, column: 3, category: xsderrors.CategorySchemaCompile},
+</xs:schema>`, code: xsderrors.CodeSchemaInvalidAttribute, line: 3, column: 3, category: xsderrors.CategorySchemaCompile, messageContains: "duplicate schema id"},
+		{name: "earlier empty ID wins over repeated ID", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:annotation id="a"/>
+  <xs:annotation id=""/>
+  <xs:annotation id="a"/>
+</xs:schema>`, code: xsderrors.CodeSchemaInvalidAttribute, line: 3, column: 3, category: xsderrors.CategorySchemaCompile, messageContains: "must be NCName"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -3756,9 +3801,9 @@ func TestPublishedSchemaOwnsValidationStorage(t *testing.T) {
 	attrs := &aliases.AttributeUseSets[attrSetID]
 	codeSlot := attrs.Index[codeName]
 	attrs.Index[codeName] = 0
-	attrs.Uses[codeSlot].Fixed.Canonical = "CA"
+	attrs.Uses[codeSlot].ValueConstraint.Canonical = "CA"
 	attrs.Uses[attrs.Index[idName]].Required = false
-	attrs.Uses[codeSlot].Fixed = nil
+	attrs.Uses[codeSlot].ValueConstraint = nil
 
 	interner := xsdSchema.NewNameInterner(&aliases.Names)
 	if _, err := interner.InternQName("urn:poison", "poison"); err != nil {
@@ -3995,4 +4040,17 @@ func TestGlobalAttributeTypeRequiresSimpleType(t *testing.T) {
 		t.Fatal(err)
 	}
 	mustValidate(t, compiled, `<r a="value"/>`)
+}
+
+func TestCompileReportsIDReferenceValueConstraintOnAttributeUse(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:attribute name="a" type="xs:ID"/>
+  <xs:element name="r"><xs:complexType><xs:attribute ref="a" fixed="x"/></xs:complexType></xs:element>
+</xs:schema>`
+	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("id-reference.xsd", []byte(schema))})
+	expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaInvalidAttribute)
+	diagnostic, _ := errors.AsType[*xsderrors.Error](err)
+	if diagnostic.Line() != 3 || !strings.Contains(err.Error(), "ID-typed attribute use stores value constraint") {
+		t.Fatalf("Compile() error = %v, want ID-typed attribute use at line 3", err)
+	}
 }

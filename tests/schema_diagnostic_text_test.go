@@ -52,9 +52,12 @@ func TestSchemaDiagnosticsQuoteSchemaText(t *testing.T) {
 		}
 		files = append(files, file)
 	}
-	violations := lintSchemaDiagnostics(t, fset, files)
+	violations, unused := lintSchemaDiagnostics(t, fset, files)
 	for _, v := range violations {
 		t.Error(v)
+	}
+	for _, entry := range unused {
+		t.Errorf("allowlist entry %s matches no message operand in internal/schema", entry)
 	}
 }
 
@@ -120,7 +123,7 @@ func f(n node) error { q := diagnostictext.Quote(n.name); return wrap("bad " + q
 			if err != nil {
 				t.Fatal(err)
 			}
-			got := lintSchemaDiagnostics(t, fset, []*ast.File{file})
+			got, _ := lintSchemaDiagnostics(t, fset, []*ast.File{file})
 			if tt.bad && len(got) == 0 {
 				t.Fatal("expected a violation, got none")
 			}
@@ -134,7 +137,7 @@ func f(n node) error { q := diagnostictext.Quote(n.name); return wrap("bad " + q
 // schemaDiagnosticLabelFuncs render names or enum labels that never carry
 // unbounded schema text; formatName delegates to diagnostictext.
 var schemaDiagnosticLabelFuncs = map[string]bool{
-	"formatName": true, "label": true, "Label": true,
+	"formatName": true, "label": true,
 	"cycleLabel": true, "missingLabel": true, "facetLabel": true,
 }
 
@@ -142,10 +145,15 @@ var schemaDiagnosticLabelFuncs = map[string]bool{
 // or already-quoted text at construction. The lint does not check the
 // constructors, which is one of its known gaps.
 var schemaDiagnosticFields = map[string]bool{
-	"childOrderError.Message":                 true,
+	"childOrder.Label":                        true,
+	"childRule.ForbiddenMsg":                  true,
+	"childRule.OrderMsg":                      true,
+	"childRule.DupMsg":                        true,
+	"childRule.PrecedingMsg":                  true,
+	"childRule.MissingMsg":                    true,
+	"childRule.ConflictMsg":                   true,
+	"elementAttributeRequirement.message":     true,
 	"derivationSetParser.label":               true,
-	"contentDerivationBase.Container":         true,
-	"contentDerivationBase.Derivation":        true,
 	"substitutionMembershipLabels.MemberName": true,
 	"substitutionMembershipLabels.MemberType": true,
 	"substitutionMembershipLabels.HeadName":   true,
@@ -167,6 +175,8 @@ type diagnosticLint struct {
 	changed  bool
 	report   bool
 	problems map[string]bool
+	// used records the allowlist entries that admitted an operand.
+	used map[string]bool
 }
 
 type paramSlot struct {
@@ -174,7 +184,9 @@ type paramSlot struct {
 	index int
 }
 
-func lintSchemaDiagnostics(t *testing.T, fset *token.FileSet, files []*ast.File) []string {
+// lintSchemaDiagnostics returns the violations found in files and the
+// label-function and field allowlist entries that admitted no operand.
+func lintSchemaDiagnostics(t *testing.T, fset *token.FileSet, files []*ast.File) (violations, unused []string) {
 	t.Helper()
 	info := &types.Info{
 		Types:      make(map[ast.Expr]types.TypeAndValue),
@@ -194,6 +206,7 @@ func lintSchemaDiagnostics(t *testing.T, fset *token.FileSet, files []*ast.File)
 		decls:    make(map[*types.Func]*ast.FuncDecl),
 		sinks:    make(map[*types.Func]map[int]bool),
 		problems: make(map[string]bool),
+		used:     make(map[string]bool),
 	}
 	l.collect(files)
 	// Parameters that feed messages turn their functions into sinks; iterate
@@ -207,12 +220,22 @@ func lintSchemaDiagnostics(t *testing.T, fset *token.FileSet, files []*ast.File)
 	}
 	l.report = true
 	l.walk(files)
-	out := make([]string, 0, len(l.problems))
 	for p := range l.problems {
-		out = append(out, p)
+		violations = append(violations, p)
 	}
-	sort.Strings(out)
-	return out
+	sort.Strings(violations)
+	for name := range schemaDiagnosticLabelFuncs {
+		if !l.used[name] {
+			unused = append(unused, name)
+		}
+	}
+	for field := range schemaDiagnosticFields {
+		if !l.used[field] {
+			unused = append(unused, field)
+		}
+	}
+	sort.Strings(unused)
+	return violations, unused
 }
 
 func (l *diagnosticLint) obj(id *ast.Ident) types.Object {
@@ -418,6 +441,7 @@ func (l *diagnosticLint) checkCall(call *ast.CallExpr, depth int) {
 		}
 	case name == "Error" && sig.Recv() != nil && sig.Params().Len() == 0:
 	case path == l.pkg.Path() && schemaDiagnosticLabelFuncs[name]:
+		l.used[name] = true
 	default:
 		decl := l.decls[fn]
 		if decl == nil || decl.Body == nil || sig.Results().Len() != 1 {
@@ -479,5 +503,13 @@ func (l *diagnosticLint) allowedField(sel *ast.SelectorExpr) bool {
 		recv = ptr.Elem()
 	}
 	named, ok := types.Unalias(recv).(*types.Named)
-	return ok && schemaDiagnosticFields[named.Obj().Name()+"."+selection.Obj().Name()]
+	if !ok {
+		return false
+	}
+	field := named.Obj().Name() + "." + selection.Obj().Name()
+	if !schemaDiagnosticFields[field] {
+		return false
+	}
+	l.used[field] = true
+	return true
 }

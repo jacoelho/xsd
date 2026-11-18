@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:include schemaLocation="other.xsd"><xs:element name="z"/></xs:include>
+<xs:element name="r"/>
+</xs:schema>

@@ -185,6 +185,20 @@ func CompareDecimalValues(a, b DecimalValue) int {
 	return n
 }
 
+// equalDecimalValues reports whether CompareDecimalValues ranks a and b equal.
+func equalDecimalValues(a, b DecimalValue) bool {
+	return CompareDecimalValues(a, b) == 0
+}
+
+// appendDecimalEnumerationKey appends what CompareDecimalValues compares: the
+// sign, the integer digits without leading zeros and the fraction digits
+// without trailing zeros.
+func appendDecimalEnumerationKey(b []byte, d *DecimalValue) []byte {
+	b = appendKeyBool(b, d.negative)
+	b = appendKeyText(b, d.text[d.intTrimStart:d.intEnd])
+	return appendKeyText(b, d.text[d.fracStart:d.fracTrimEnd])
+}
+
 func comparePositiveDecimalValues(a, b DecimalValue) int {
 	if n := compareIntegerMagnitudeText(a.text[a.intTrimStart:a.intEnd], b.text[b.intTrimStart:b.intEnd]); n != 0 {
 		return n

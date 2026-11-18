@@ -17,6 +17,9 @@ const (
 	schemaComponentModelGroupLabel     = "model group"
 	schemaComponentTypeLabel           = "type"
 	schemaComponentLabel               = "schema component"
+	elementDeclarationLabel            = "element declaration"
+	attributeDeclarationLabel          = "attribute declaration"
+	attributeUseLabel                  = "attribute use"
 )
 
 const (
@@ -60,9 +63,9 @@ func (k schemaComponentKind) missingLabel() string {
 func (k schemaComponentKind) cycleLabel() string {
 	switch k {
 	case schemaComponentAttribute:
-		return "attribute declaration"
+		return attributeDeclarationLabel
 	case schemaComponentElement:
-		return "element declaration"
+		return elementDeclarationLabel
 	case schemaComponentSimpleType, schemaComponentComplexType, schemaComponentAttributeGroup, schemaComponentModelGroup, schemaComponentType:
 		return k.missingLabel()
 	default:

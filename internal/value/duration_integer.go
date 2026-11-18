@@ -2,6 +2,7 @@ package value
 
 import (
 	"cmp"
+	"encoding/binary"
 	"strconv"
 	"strings"
 )
@@ -93,6 +94,18 @@ func compareDurationInteger(a, b durationInteger) int {
 		return -n
 	}
 	return n
+}
+
+// appendKeyDurationInteger appends n's decimal text, which compareDurationInteger
+// equates exactly when the integers are equal, whichever form holds them.
+func appendKeyDurationInteger(b []byte, n durationInteger) []byte {
+	if n.digits != "" {
+		return appendKeyText(b, n.digits)
+	}
+	var digits [20]byte
+	text := strconv.AppendInt(digits[:0], n.small, 10)
+	b = binary.AppendUvarint(b, uint64(len(text)))
+	return append(b, text...)
 }
 
 func (n durationInteger) add(other durationInteger) durationInteger {

@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:element name="e" type="xs:string" default="a" fixed="b"/>
+<xs:element name="z" type="p:T"/>
+</xs:schema>

@@ -8,6 +8,11 @@ import (
 // durationValue stores independent month and second coordinates. Ordinary
 // durations stay inline; promotion preserves arbitrary precision within the
 // caller's lexical byte bound. All retained promoted values are immutable.
+//
+// Two durations are equal when their coordinates are. The order also ranks
+// some distinct durations equal, such as P400Y and P146097D, so equality is
+// not derived from compareDurationValues (Duration equality and order in
+// docs/spec/INTERPRETATIONS.md).
 type durationValue struct {
 	large        *durationLarge
 	frac         string
@@ -190,6 +195,16 @@ func equalDurationValues(a, b durationValue) bool {
 	bm, bs := b.coordinates()
 	return compareDurationInteger(am, bm) == 0 && compareDurationInteger(as, bs) == 0 &&
 		a.negativeFrac == b.negativeFrac && a.frac == b.frac
+}
+
+// appendDurationEnumerationKey appends the coordinates equalDurationValues
+// compares.
+func appendDurationEnumerationKey(b []byte, d *durationValue) []byte {
+	months, seconds := d.coordinates()
+	b = appendKeyDurationInteger(b, months)
+	b = appendKeyDurationInteger(b, seconds)
+	b = appendKeyBool(b, d.negativeFrac)
+	return appendKeyText(b, d.frac)
 }
 
 func durationIdentityCanonical(value durationValue) string {

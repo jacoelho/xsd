@@ -1,11 +1,6 @@
 package value
 
-import (
-	"encoding/binary"
-	"math"
-	"strconv"
-	"strings"
-)
+import "encoding/binary"
 
 // enumerationIndexMinLiterals is the smallest group that gets an index;
 // smaller groups are scanned. Membership work per group visit is therefore at
@@ -218,89 +213,31 @@ func appendEnumerationKey(b []byte, v *parsedValue) ([]byte, bool) {
 func appendAtomicEnumerationKey(b []byte, a *atomicValue) ([]byte, bool) {
 	b = append(b, byte(a.kind))
 	switch a.kind {
-	case PrimitiveString, PrimitiveAnyURI, PrimitiveBase64Binary:
-		// Base64 literals are compact, and prepareBase64EnumerationValue
-		// compacts a value before membership; admitted compact text has one
-		// spelling per octet sequence.
-		return appendKeyText(b, a.lexical.Canonical), true
+	case PrimitiveString, PrimitiveAnyURI:
+		return appendTextEnumerationKey(b, &a.lexical), true
 	case PrimitiveBoolean:
 		return appendKeyBool(b, a.boolean), true
 	case PrimitiveDecimal:
-		d := &a.decimal
-		b = appendKeyBool(b, d.negative)
-		b = appendKeyText(b, d.text[d.intTrimStart:d.intEnd])
-		return appendKeyText(b, d.text[d.fracStart:d.fracTrimEnd]), true
+		return appendDecimalEnumerationKey(b, &a.decimal), true
 	case PrimitiveFloat, PrimitiveDouble:
-		return binary.BigEndian.AppendUint64(b, enumerationFloatBits(a.float)), true
+		return appendFloatEnumerationKey(b, a.float), true
 	case PrimitiveDuration:
-		months, seconds := a.duration.coordinates()
-		b = appendKeyDurationInteger(b, months)
-		b = appendKeyDurationInteger(b, seconds)
-		b = appendKeyBool(b, a.duration.negativeFrac)
-		return appendKeyText(b, a.duration.frac), true
+		return appendDurationEnumerationKey(b, &a.duration), true
 	case primitiveDate, PrimitiveDateTime:
-		b = appendKeyBool(b, a.temporal.hasTZ)
-		return appendKeyDateTimePoint(b, a.temporal.instant), true
+		return appendTemporalEnumerationKey(b, a.temporal), true
 	case primitiveTime:
-		b = appendKeyBool(b, a.time.hasTZ)
-		b = binary.AppendVarint(b, int64(a.time.second))
-		return appendKeyText(b, a.time.frac), true
+		return appendTimeEnumerationKey(b, a.time), true
 	case primitiveGYearMonth, primitiveGYear, primitiveGMonthDay, primitiveGDay, primitiveGMonth:
-		b = appendKeyBool(b, a.g.tz.present)
-		return appendKeyDateTimePoint(b, a.g.instant), true
+		return appendTemporalEnumerationKey(b, a.g.temporal()), true
 	case PrimitiveHexBinary:
-		// Hex equality ignores letter case.
-		text := a.lexical.Canonical
-		b = binary.AppendUvarint(b, uint64(len(text)))
-		for i := range len(text) {
-			c := text[i]
-			if 'a' <= c && c <= 'f' {
-				c -= 'a' - 'A'
-			}
-			b = append(b, c)
-		}
-		return b, true
+		return appendHexBinaryEnumerationKey(b, &a.lexical), true
+	case PrimitiveBase64Binary:
+		return appendBase64BinaryEnumerationKey(b, &a.lexical), true
 	case PrimitiveQName, PrimitiveNotation:
-		b = appendKeyText(b, a.expandedName.Namespace)
-		return appendKeyText(b, a.expandedName.Local), true
+		return appendExpandedNameEnumerationKey(b, a.expandedName), true
 	default:
 		return b, false
 	}
-}
-
-// enumerationFloatBits folds the float values equalFloatValues equates: both
-// zeros, and every NaN.
-func enumerationFloatBits(f float64) uint64 {
-	switch {
-	case f == 0:
-		return 0
-	case math.IsNaN(f):
-		return math.Float64bits(math.NaN())
-	default:
-		return math.Float64bits(f)
-	}
-}
-
-func appendKeyDateTimePoint(b []byte, p xsdDateTimePoint) []byte {
-	year := strings.TrimLeft(p.year.digits, "0")
-	b = appendKeyBool(b, p.year.neg && year != "")
-	b = appendKeyText(b, year)
-	b = binary.AppendVarint(b, int64(p.month))
-	b = binary.AppendVarint(b, int64(p.day))
-	b = binary.AppendVarint(b, int64(p.second))
-	return appendKeyText(b, p.frac)
-}
-
-// appendKeyDurationInteger appends n's decimal text, which compareDurationInteger
-// equates exactly when the integers are equal, whichever form holds them.
-func appendKeyDurationInteger(b []byte, n durationInteger) []byte {
-	if n.digits != "" {
-		return appendKeyText(b, n.digits)
-	}
-	var digits [20]byte
-	text := strconv.AppendInt(digits[:0], n.small, 10)
-	b = binary.AppendUvarint(b, uint64(len(text)))
-	return append(b, text...)
 }
 
 func appendKeyBool(b []byte, v bool) []byte { //nolint:revive // v is an encoded value-space field, not a control flag.

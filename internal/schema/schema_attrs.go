@@ -1,61 +1,426 @@
 package schema
 
 import (
+	"encoding/xml"
+
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// typedAttributeMaskFor returns the bit assigned to one admitted unqualified
-// XSD attribute. A zero result means the name is outside that vocabulary.
-func typedAttributeMaskFor(local string) uint64 {
-	for index, candidate := range typedAttributeNames {
-		if local == candidate {
-			return uint64(1) << index
+// schemaElementPlacement is where an XSD element appears, as far as the
+// unqualified attributes it admits or requires depend on it.
+type schemaElementPlacement uint8
+
+const (
+	schemaPlacementOther schemaElementPlacement = iota
+	// schemaPlacementTopLevel is a child of xs:schema.
+	schemaPlacementTopLevel
+	// schemaPlacementReference is a reference; see isSchemaReference.
+	schemaPlacementReference
+	// schemaPlacementLocal is an xs:element or xs:attribute declaration, or
+	// an xs:complexType or xs:simpleType definition, that is neither
+	// top-level nor a reference. Whether its parent admits it there is the
+	// parent's content model; see schemaElementPlacementOf.
+	schemaPlacementLocal
+	// schemaPlacementNamedGroupModel is the model group of a top-level
+	// xs:group. A nested xs:group is a reference, whose model group child
+	// admitChildContent rejects before attributes are checked.
+	schemaPlacementNamedGroupModel
+	// schemaPlacementContentDerivation is an xs:restriction or xs:extension
+	// child of xs:simpleContent or xs:complexContent.
+	schemaPlacementContentDerivation
+)
+
+// schemaElementPlacementOf returns the placement of n, an XSD element whose
+// parent is named parent. It classifies each start tag once; its content
+// (childContentFor) and its attributes (admitXSDChildStart) both read the
+// result. The placement says nothing about whether parent admits n:
+// admitChildContent rejects a misplaced element before its attributes are
+// read, so the content model of each parent stays the single owner of where a
+// component may appear. xs:redefine is rejected at its own start, so no child
+// of it is classified.
+func schemaElementPlacementOf(n *schemaSyntaxNode, parent xml.Name) schemaElementPlacement {
+	switch {
+	case isXSDName(parent, vocab.XSDElemSchema):
+		return schemaPlacementTopLevel
+	case isSchemaReference(n):
+		return schemaPlacementReference
+	}
+	switch n.Name.Local {
+	case vocab.XSDElemElement, vocab.XSDElemAttribute, vocab.XSDElemComplexType, vocab.XSDElemSimpleType:
+		return schemaPlacementLocal
+	case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll:
+		if isXSDName(parent, vocab.XSDElemGroup) {
+			return schemaPlacementNamedGroupModel
+		}
+	case vocab.XSDElemRestriction, vocab.XSDElemExtension:
+		if isXSDName(parent, vocab.XSDElemSimpleContent) || isXSDName(parent, vocab.XSDElemComplexContent) {
+			return schemaPlacementContentDerivation
 		}
 	}
-	return 0
+	return schemaPlacementOther
 }
 
-// nameReferenceSource keeps the name and reference attributes of a declaration
-// together for source admission.
-type nameReferenceSource struct {
-	Name      lexicalAttribute
-	Reference lexicalAttribute
+// isSchemaReference reports whether start, an XSD element that is not a
+// child of xs:schema, is a reference rather than a declaration or definition:
+// an xs:group or xs:attributeGroup, or an xs:element or xs:attribute carrying
+// ref (src-element.2.2, src-attribute.3.2). A reference has (annotation?)
+// content and admits only the attributes misplacedReferenceAttribute admits.
+func isSchemaReference(start *schemaSyntaxNode) bool {
+	switch start.Name.Local {
+	case vocab.XSDElemGroup, vocab.XSDElemAttributeGroup:
+		return true
+	case vocab.XSDElemElement, vocab.XSDElemAttribute:
+		_, hasRef := start.attr(vocab.XSDAttrRef)
+		return hasRef
+	default:
+		return false
+	}
 }
 
-// validateLocalElementSource validates that a local xs:element has a name or
-// reference source.
-func validateLocalElementSource(source nameReferenceSource) error {
-	if !source.Name.Present && !source.Reference.Present {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "local element missing name or ref")
+// misplacedSchemaAttributeError returns the error for attr, an XSD 1.0
+// attribute of n, when the placement of n forbids it, or nil.
+// misplacedSchemaAttributeError and checkRequiredSchemaAttributes are the
+// single owner of which unqualified XSD 1.0 attributes each XSD element
+// admits and requires in each placement, as the schema for schemas types of
+// that placement and src-element.2.1 and src-attribute.3.1 declare them. Both
+// run on the start tag, so their violations precede every child in document
+// order. Unsupported vocabulary never reaches them; see
+// rejectUnsupportedVocabulary. Elements outside the XSD 1.0 vocabulary never
+// reach them: their parent's content rejects them first; see
+// childContentViolation.
+func misplacedSchemaAttributeError(n *schemaSyntaxNode, attr string, placement schemaElementPlacement) error {
+	element := n.Name.Local
+	var message string
+	switch placement {
+	case schemaPlacementOther, schemaPlacementContentDerivation:
+	case schemaPlacementTopLevel:
+		if topLevelAttributeForbidden(element, attr) {
+			message = "top-level " + diagnostictext.Quote(element) + " cannot have " + diagnostictext.Quote(attr)
+		}
+	case schemaPlacementReference:
+		message = misplacedReferenceAttribute(element, attr)
+	case schemaPlacementLocal:
+		message = misplacedLocalAttribute(element, attr)
+	case schemaPlacementNamedGroupModel:
+		message = misplacedNamedGroupModelAttribute(attr)
+	default:
+		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("schema element placement is unknown"))
+	}
+	if message == "" {
+		return nil
+	}
+	return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, message)
+}
+
+// checkRequiredSchemaAttributes returns the error for n, an XSD element in
+// placement whose parent is named parent, when it lacks an attribute its
+// placement or its element requires, or nil. A local declaration has no ref by
+// definition of its placement, so it requires name. A missing attribute that
+// the placement requires is a reference violation; one that the element
+// requires in every placement carries the code of the rule it breaks.
+func checkRequiredSchemaAttributes(n *schemaSyntaxNode, parent xml.Name, placement schemaElementPlacement) error {
+	if err := checkPlacementRequiredAttribute(n, parent, placement); err != nil {
+		return err
+	}
+	return checkElementRequiredAttributes(n)
+}
+
+// checkValueConstraintAttributes returns the error for n when it is an
+// xs:element or xs:attribute whose default excludes another of its attributes:
+// a fixed (src-element.1, src-attribute.1), or a use other than optional
+// (src-attribute.2). It is the only owner of these rules; n has passed
+// checkSchemaAttributesSyntax, so its use is one of the three modes.
+func checkValueConstraintAttributes(n *schemaSyntaxNode) error {
+	element := n.Name.Local
+	if element != vocab.XSDElemElement && element != vocab.XSDElemAttribute {
+		return nil
+	}
+	if _, ok := n.attr(vocab.XSDAttrDefault); !ok {
+		return nil
+	}
+	if _, ok := n.attr(vocab.XSDAttrFixed); ok {
+		message := "attribute cannot have both default and fixed"
+		if element == vocab.XSDElemElement {
+			message = "element cannot have both default and fixed"
+		}
+		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, message)
+	}
+	use, ok := n.attr(vocab.XSDAttrUse)
+	if !ok {
+		return nil
+	}
+	mode, err := parseAttributeUseMode(use)
+	if err != nil {
+		return withSchemaCompileLocation(n, admittedValueInvariant(err))
+	}
+	return withSchemaCompileLocation(n, invalidAttributeError(checkAttributeUseDefault(mode)))
+}
+
+func checkPlacementRequiredAttribute(n *schemaSyntaxNode, parent xml.Name, placement schemaElementPlacement) error {
+	element := n.Name.Local
+	required, known := requiredSchemaAttribute(element, placement)
+	if !known {
+		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("schema element placement is unknown"))
+	}
+	if required == "" {
+		return nil
+	}
+	if _, ok := n.attr(required); ok {
+		return nil
+	}
+	message := missingSchemaAttributeMessage(element, parent, placement)
+	if message == "" {
+		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("schema element xs:"+diagnostictext.Quote(element)+" has no required attribute message"))
+	}
+	return schemaCompileAt(n, xsderrors.CodeSchemaReference, message)
+}
+
+// elementAttributeRequirement is an attribute that an XSD element requires in
+// every placement that admits it; when alternative is set, either attribute
+// satisfies it.
+type elementAttributeRequirement struct {
+	attr        string
+	alternative string
+	message     string
+	code        xsderrors.Code
+}
+
+var (
+	includeAttributeRequirements = []elementAttributeRequirement{
+		{attr: vocab.XSDAttrSchemaLocation, message: "include missing schemaLocation", code: xsderrors.CodeSchemaReference},
+	}
+	notationAttributeRequirements = []elementAttributeRequirement{
+		{attr: vocab.XSDAttrName, message: "notation missing name", code: xsderrors.CodeSchemaInvalidAttribute},
+		{attr: vocab.XSDAttrPublic, alternative: vocab.XSDAttrSystem, message: "notation requires public or system", code: xsderrors.CodeSchemaInvalidAttribute},
+	}
+	identityAttributeRequirements = []elementAttributeRequirement{
+		{attr: vocab.XSDAttrName, message: "identity constraint missing name", code: xsderrors.CodeSchemaIdentity},
+	}
+	keyrefAttributeRequirements = []elementAttributeRequirement{
+		identityAttributeRequirements[0],
+		{attr: vocab.XSDAttrRefer, message: "keyref missing refer", code: xsderrors.CodeSchemaIdentity},
+	}
+	selectorAttributeRequirements = []elementAttributeRequirement{
+		{attr: vocab.XSDAttrXPath, message: `"selector" missing xpath`, code: xsderrors.CodeSchemaIdentity},
+	}
+	fieldAttributeRequirements = []elementAttributeRequirement{
+		{attr: vocab.XSDAttrXPath, message: `"field" missing xpath`, code: xsderrors.CodeSchemaIdentity},
+	}
+)
+
+// checkElementRequiredAttributes returns the error for the first attribute,
+// in requirement order, that n lacks and its element requires in every
+// placement, or nil.
+func checkElementRequiredAttributes(n *schemaSyntaxNode) error {
+	element := n.Name.Local
+	if isFacetLocal(element) {
+		if _, ok := n.attr(vocab.XSDAttrValue); !ok {
+			return schemaCompileAt(n, xsderrors.CodeSchemaFacet, facetLabel(element)+" missing value")
+		}
+		return nil
+	}
+	for _, requirement := range elementAttributeRequirements(element) {
+		if !requirement.satisfiedBy(n) {
+			return schemaCompileAt(n, requirement.code, requirement.message)
+		}
 	}
 	return nil
 }
 
-// validateAttributeUseSource validates that an xs:attribute use has a name or
-// reference source.
-func validateAttributeUseSource(source nameReferenceSource) error {
-	if !source.Name.Present && !source.Reference.Present {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "attribute missing name or ref")
+func (r elementAttributeRequirement) satisfiedBy(n *schemaSyntaxNode) bool {
+	if _, ok := n.attr(r.attr); ok {
+		return true
+	}
+	if r.alternative == "" {
+		return false
+	}
+	_, ok := n.attr(r.alternative)
+	return ok
+}
+
+func elementAttributeRequirements(element string) []elementAttributeRequirement {
+	switch element {
+	case vocab.XSDElemInclude:
+		return includeAttributeRequirements
+	case vocab.XSDElemNotation:
+		return notationAttributeRequirements
+	case vocab.XSDElemKey, vocab.XSDElemUnique:
+		return identityAttributeRequirements
+	case vocab.XSDElemKeyref:
+		return keyrefAttributeRequirements
+	case vocab.XSDElemSelector:
+		return selectorAttributeRequirements
+	case vocab.XSDElemField:
+		return fieldAttributeRequirements
 	}
 	return nil
 }
 
-// validateAttributeGroupUseSource validates that an xs:attributeGroup use has
-// a ref source.
-func validateAttributeGroupUseSource(reference lexicalAttribute) error {
-	if !reference.Present {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "attributeGroup use missing ref")
+// requiredSchemaAttribute returns the attribute an XSD element named element
+// requires in placement, or "" when it requires none, and whether placement
+// is known.
+func requiredSchemaAttribute(element string, placement schemaElementPlacement) (string, bool) {
+	switch placement {
+	case schemaPlacementOther, schemaPlacementNamedGroupModel:
+	case schemaPlacementTopLevel:
+		switch element {
+		case vocab.XSDElemSimpleType, vocab.XSDElemComplexType, vocab.XSDElemAttributeGroup, vocab.XSDElemGroup, vocab.XSDElemAttribute, vocab.XSDElemElement:
+			return vocab.XSDAttrName, true
+		}
+	case schemaPlacementLocal:
+		if element == vocab.XSDElemElement || element == vocab.XSDElemAttribute {
+			return vocab.XSDAttrName, true
+		}
+	case schemaPlacementReference:
+		return vocab.XSDAttrRef, true
+	case schemaPlacementContentDerivation:
+		return vocab.XSDAttrBase, true
+	default:
+		return "", false
 	}
-	return nil
+	return "", true
 }
 
-// validateGroupUseSource validates that an xs:group use has a ref source.
-func validateGroupUseSource(reference lexicalAttribute) error {
-	if !reference.Present {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "group use missing ref")
+// missingSchemaAttributeMessage describes an XSD element named element in
+// placement, whose parent is named parent, that lacks the attribute
+// checkRequiredSchemaAttributes requires, or returns "" when the placement
+// requires none of it. A reference to an element or attribute carries ref by
+// definition of its placement. Element names reach a message only as
+// constants or quoted, so no raw schema text does.
+func missingSchemaAttributeMessage(element string, parent xml.Name, placement schemaElementPlacement) string {
+	switch placement {
+	case schemaPlacementTopLevel:
+		return "top-level " + diagnostictext.Quote(element) + " missing name"
+	case schemaPlacementLocal:
+		switch element {
+		case vocab.XSDElemElement:
+			return "local element missing name or ref"
+		case vocab.XSDElemAttribute:
+			return "attribute missing name or ref"
+		}
+	case schemaPlacementReference:
+		switch element {
+		case vocab.XSDElemGroup:
+			return "group use missing ref"
+		case vocab.XSDElemAttributeGroup:
+			return "attributeGroup use missing ref"
+		}
+	case schemaPlacementContentDerivation:
+		return missingContentDerivationBaseMessage(parent.Local, element)
+	case schemaPlacementOther, schemaPlacementNamedGroupModel:
 	}
-	return nil
+	return ""
+}
+
+// missingContentDerivationBaseMessage describes a derivation named element
+// inside container that lacks base, or returns "" for any other pair.
+func missingContentDerivationBaseMessage(container, element string) string {
+	switch {
+	case container == vocab.XSDElemSimpleContent && element == vocab.XSDElemRestriction:
+		return "simpleContent restriction missing base"
+	case container == vocab.XSDElemSimpleContent && element == vocab.XSDElemExtension:
+		return "simpleContent extension missing base"
+	case container == vocab.XSDElemComplexContent && element == vocab.XSDElemRestriction:
+		return "complexContent restriction missing base"
+	case container == vocab.XSDElemComplexContent && element == vocab.XSDElemExtension:
+		return "complexContent extension missing base"
+	}
+	return ""
+}
+
+func topLevelAttributeForbidden(element, attr string) bool {
+	switch element {
+	case vocab.XSDElemAttributeGroup:
+		return attr == vocab.XSDAttrRef
+	case vocab.XSDElemGroup:
+		return attr == vocab.XSDAttrRef || attr == vocab.XSDAttrMinOccurs || attr == vocab.XSDAttrMaxOccurs
+	case vocab.XSDElemAttribute:
+		return attr == vocab.XSDAttrRef || attr == vocab.XSDAttrForm || attr == vocab.XSDAttrUse
+	case vocab.XSDElemElement:
+		return attr == vocab.XSDAttrRef || attr == vocab.XSDAttrForm || attr == vocab.XSDAttrMinOccurs || attr == vocab.XSDAttrMaxOccurs
+	default:
+		return false
+	}
+}
+
+// misplacedLocalAttribute returns why a local declaration or definition named
+// element cannot have attr, or "" when it can. Each message is a constant, so
+// no schema text reaches it.
+func misplacedLocalAttribute(element, attr string) string {
+	switch (schemaElementAttribute{element: element, attr: attr}) {
+	case schemaElementAttribute{vocab.XSDElemElement, vocab.XSDAttrAbstract}:
+		return "local element cannot have abstract"
+	case schemaElementAttribute{vocab.XSDElemElement, vocab.XSDAttrFinal}:
+		return "local element cannot have final"
+	case schemaElementAttribute{vocab.XSDElemElement, vocab.XSDAttrSubstitutionGroup}:
+		return "local element cannot have substitutionGroup"
+	case schemaElementAttribute{vocab.XSDElemComplexType, vocab.XSDAttrName}:
+		return "local complexType cannot have name"
+	case schemaElementAttribute{vocab.XSDElemComplexType, vocab.XSDAttrAbstract}:
+		return "local complexType cannot have abstract"
+	case schemaElementAttribute{vocab.XSDElemComplexType, vocab.XSDAttrFinal}:
+		return "local complexType cannot have final"
+	case schemaElementAttribute{vocab.XSDElemComplexType, vocab.XSDAttrBlock}:
+		return "local complexType cannot have block"
+	case schemaElementAttribute{vocab.XSDElemSimpleType, vocab.XSDAttrName}:
+		return "local simpleType cannot have name"
+	case schemaElementAttribute{vocab.XSDElemSimpleType, vocab.XSDAttrFinal}:
+		return "local simpleType cannot have final"
+	default:
+		return ""
+	}
+}
+
+// schemaElementAttribute is an unqualified attribute named attr of the XSD
+// element named element.
+type schemaElementAttribute struct {
+	element string
+	attr    string
+}
+
+// misplacedNamedGroupModelAttribute returns why the model group of a
+// top-level xs:group cannot have attr, or "" when it can.
+func misplacedNamedGroupModelAttribute(attr string) string {
+	switch attr {
+	case vocab.XSDAttrMinOccurs:
+		return "top-level model group cannot have " + vocab.XSDAttrMinOccurs
+	case vocab.XSDAttrMaxOccurs:
+		return "top-level model group cannot have " + vocab.XSDAttrMaxOccurs
+	}
+	return ""
+}
+
+// misplacedReferenceAttribute returns why a reference named element, one of
+// those isSchemaReference admits, cannot have attr, or "" when it can.
+func misplacedReferenceAttribute(element, attr string) string {
+	switch element {
+	case vocab.XSDElemElement:
+		switch attr {
+		case vocab.XSDAttrID, vocab.XSDAttrRef, vocab.XSDAttrMinOccurs, vocab.XSDAttrMaxOccurs:
+			return ""
+		}
+		return "element ref cannot have attribute " + diagnostictext.Quote(attr)
+	case vocab.XSDElemGroup:
+		switch attr {
+		case vocab.XSDAttrID, vocab.XSDAttrRef, vocab.XSDAttrMinOccurs, vocab.XSDAttrMaxOccurs:
+			return ""
+		}
+		return "group cannot have attribute " + diagnostictext.Quote(attr)
+	case vocab.XSDElemAttribute:
+		switch attr {
+		case vocab.XSDAttrID, vocab.XSDAttrRef, vocab.XSDAttrUse, vocab.XSDAttrDefault, vocab.XSDAttrFixed:
+			return ""
+		}
+		return "attribute ref cannot have attribute " + diagnostictext.Quote(attr)
+	case vocab.XSDElemAttributeGroup:
+		if attr == vocab.XSDAttrID || attr == vocab.XSDAttrRef {
+			return ""
+		}
+		return "attributeGroup use cannot have attribute " + diagnostictext.Quote(attr)
+	}
+	return ""
 }
 
 func schemaElementAttributeAllowed(element, attr string) bool {
@@ -90,8 +455,70 @@ func schemaElementAttributeAllowed(element, attr string) bool {
 		if _, ok := facetMaskForLocal(element); ok {
 			return facetAttributeAllowed(element, attr)
 		}
-		return true
+		return false
 	}
+}
+
+// checkSchemaAttributeValueSyntax checks the value of attr, an unqualified
+// attribute of the XSD element named element, against the lexical form the
+// element gives it: a boolean, an occurrence count, a form, an attribute use,
+// a derivation set, a wildcard namespace list, a processContents mode, or a
+// namespace name that cannot be empty. An attribute with none of these forms
+// passes. Start-tag admission decides these violations; compilation parses the
+// admitted value with the same parsers.
+func checkSchemaAttributeValueSyntax(element, attr, value string) error {
+	if rule, ok := derivationAttrRuleOf(element, attr); ok {
+		_, err := parseDerivationSet(value, rule.Label, rule.Allowed)
+		return err
+	}
+	var err error
+	switch attr {
+	case vocab.XSDAttrNillable, vocab.XSDAttrAbstract, vocab.XSDAttrMixed:
+		_, err = parseBooleanAttr(booleanAttr{Name: attr, Value: value, HasValue: true})
+	case vocab.XSDAttrFixed:
+		if isFacetLocal(element) {
+			_, err = parseBooleanAttr(booleanAttr{Name: attr, Value: value, HasValue: true})
+		}
+	case vocab.XSDAttrMinOccurs:
+		_, err = parseMinOccursLexical(value)
+	case vocab.XSDAttrMaxOccurs:
+		_, err = parseMaxOccursLexical(value)
+	case vocab.XSDAttrForm:
+		err = checkFormSyntax(element, value)
+	case vocab.XSDAttrElementFormDefault, vocab.XSDAttrAttributeFormDefault:
+		_, err = parseFormDefaultAttr(formAttr{Name: attr, Value: value, HasValue: true})
+	case vocab.XSDAttrUse:
+		_, err = parseAttributeUseMode(value)
+		err = invalidAttributeError(err)
+	case vocab.XSDAttrProcessContents:
+		_, err = parseWildcardProcessContents(wildcardAttrs{ProcessContents: value, HasProcessContents: true})
+	case vocab.XSDAttrNamespace:
+		err = checkNamespaceAttributeSyntax(element, value)
+	case vocab.XSDAttrTargetNamespace:
+		err = validateSchemaTargetNamespace(lexicalAttribute{Value: value, Present: true})
+	}
+	return err
+}
+
+func checkFormSyntax(element, value string) error {
+	var err error
+	switch element {
+	case vocab.XSDElemElement:
+		_, err = parseElementFormAttr(formAttr{Value: value, HasValue: true})
+	case vocab.XSDElemAttribute:
+		_, err = parseAttributeFormAttr(formAttr{Value: value, HasValue: true})
+	}
+	return err
+}
+
+func checkNamespaceAttributeSyntax(element, value string) error {
+	switch element {
+	case vocab.XSDElemAny, vocab.XSDElemAnyAttribute:
+		return checkWildcardNamespaceSyntax(value)
+	case vocab.XSDElemImport:
+		return validateSchemaImportNamespace(lexicalAttribute{Value: value, Present: true})
+	}
+	return nil
 }
 
 func schemaAnyURIAttribute(element, attr string) bool {
@@ -200,15 +627,6 @@ func isAttributeAttribute(name string) bool {
 	}
 }
 
-func isElementRefAttribute(name string) bool {
-	switch name {
-	case vocab.XSDAttrID, vocab.XSDAttrRef, vocab.XSDAttrMinOccurs, vocab.XSDAttrMaxOccurs:
-		return true
-	default:
-		return false
-	}
-}
-
 func isAnyParticleAttribute(name string) bool {
 	switch name {
 	case vocab.XSDAttrID, vocab.XSDAttrNamespace, vocab.XSDAttrProcessContents, vocab.XSDAttrMinOccurs, vocab.XSDAttrMaxOccurs:
@@ -257,24 +675,6 @@ func isIdentityXPathAttribute(name string) bool {
 func isNotationAttribute(name string) bool {
 	switch name {
 	case vocab.XSDAttrID, vocab.XSDAttrName, vocab.XSDAttrPublic, vocab.XSDAttrSystem:
-		return true
-	default:
-		return false
-	}
-}
-
-func isAttributeRefAttribute(name string) bool {
-	switch name {
-	case vocab.XSDAttrID, vocab.XSDAttrRef, vocab.XSDAttrUse, vocab.XSDAttrDefault, vocab.XSDAttrFixed:
-		return true
-	default:
-		return false
-	}
-}
-
-func isGroupOccurrenceAttribute(name string) bool {
-	switch name {
-	case vocab.XSDAttrID, vocab.XSDAttrMinOccurs, vocab.XSDAttrMaxOccurs, vocab.XSDAttrRef:
 		return true
 	default:
 		return false

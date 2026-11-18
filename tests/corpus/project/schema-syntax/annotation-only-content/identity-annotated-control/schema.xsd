@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:element name="r"><xs:complexType><xs:attribute name="a"/></xs:complexType>
+<xs:key name="k"><xs:selector xpath="."><xs:annotation/></xs:selector><xs:field xpath="@a"><xs:annotation/></xs:field></xs:key>
+</xs:element>
+<xs:notation name="N" public="p"><xs:annotation/></xs:notation>
+</xs:schema>

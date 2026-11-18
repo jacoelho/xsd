@@ -1,0 +1,5 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:simpleType name="B"><xs:restriction base="xs:decimal"><xs:maxExclusive value="10" fixed="true"/></xs:restriction></xs:simpleType>
+<xs:simpleType name="D"><xs:restriction base="B"><xs:maxExclusive value="10"/></xs:restriction></xs:simpleType>
+<xs:element name="r" type="D"/>
+</xs:schema>

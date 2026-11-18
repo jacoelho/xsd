@@ -157,54 +157,6 @@ func TestModelKindForLocal(t *testing.T) {
 	}
 }
 
-func TestModelChildAdmissionForNode(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		local       string
-		source      schemaSemanticKind
-		want        modelChildAdmission
-		wantMessage string
-	}{
-		{local: "element", source: &schemaElementSource{}, want: modelChildAdmission{Kind: modelChildElement}},
-		{local: "any", source: &schemaWildcardSource{}, want: modelChildAdmission{Kind: modelChildWildcard}},
-		{local: "group", source: &schemaGroupSource{}, want: modelChildAdmission{Kind: modelChildModel}},
-		{local: "sequence", source: &schemaModelSource{Kind: modelSequence}, want: modelChildAdmission{Kind: modelChildModel, ModelKind: modelSequence}},
-		{local: "choice", source: &schemaModelSource{Kind: modelChoice}, want: modelChildAdmission{Kind: modelChildModel, ModelKind: modelChoice}},
-		{local: "all", source: &schemaModelSource{Kind: modelAll}, want: modelChildAdmission{Kind: modelChildModel, ModelKind: modelAll}},
-		{local: "attribute", source: &schemaAttributeSource{}, wantMessage: "invalid model group child \"attribute\""},
-	}
-	for _, tt := range tests {
-		t.Run(tt.local, func(t *testing.T) {
-			t.Parallel()
-
-			doc := &schemaDocument{name: "model-child.xsd"}
-			child := &schemaNode{doc: doc, id: 1, local: tt.local, semantic: schemaSemanticSource{kind: tt.source}, line: 4, column: 5}
-			if tt.wantMessage != "" {
-				parent := &schemaNode{doc: doc, local: "sequence", semantic: schemaSemanticSource{kind: &schemaModelSource{Kind: modelSequence}}, children: []schemaNodeID{1}, line: 2, column: 3}
-				doc.arena = []*schemaNode{parent, child}
-				err := validateModelGroupSyntax(parent, Limits{})
-				expectSchemaContentModelMessage(t, err, tt.wantMessage)
-				diagnostic, ok := errors.AsType[*xsderrors.Error](err)
-				if !ok {
-					t.Fatalf("model grammar error = %T %[1]v, want xsderrors.Error", err)
-				}
-				if diagnostic.Path() != "model-child.xsd" || diagnostic.Line() != 4 || diagnostic.Column() != 5 {
-					t.Fatalf("location = {%q %d %d}, want {model-child.xsd 4 5}", diagnostic.Path(), diagnostic.Line(), diagnostic.Column())
-				}
-				return
-			}
-			got, err := modelChildAdmissionForNode(child)
-			if err != nil {
-				t.Fatalf("modelChildAdmissionForNode() error = %v", err)
-			}
-			if got != tt.want {
-				t.Fatalf("modelChildAdmissionForNode() = %#v, want %#v", got, tt.want)
-			}
-		})
-	}
-}
-
 func expectSchemaContentModelMessage(t *testing.T, err error, message string) {
 	t.Helper()
 	diag, ok := errors.AsType[*xsderrors.Error](err)

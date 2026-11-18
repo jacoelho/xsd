@@ -119,9 +119,6 @@ func TestParseDerivationAttrWithDefault(t *testing.T) {
 	if got != DerivationExtension {
 		t.Fatalf("ParseDerivationAttrWithDefault(present) = %08b, want extension", got)
 	}
-
-	_, err = parseDerivationAttrWithDefault(lexicalAttribute{Value: "list", Present: true}, def, complexTypeBlockDerivation())
-	expectInvalidAttributeMessage(t, err, "complexType block cannot contain \"list\"")
 }
 
 func TestDerivationRulesReturnIndependentValues(t *testing.T) {

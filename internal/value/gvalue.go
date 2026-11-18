@@ -72,18 +72,12 @@ func (v gValue) identityCanonical() string {
 	return canonical
 }
 
-// compareGValues compares g* values using the XML Schema partial order.
-func compareGValues(a, b gValue) orderedFacetRelation {
-	return compareTemporalValues(
-		TemporalValue{instant: a.instant, hasTZ: a.tz.present},
-		TemporalValue{instant: b.instant, hasTZ: b.tz.present},
-	)
-}
-
-// equalGValues reports XML Schema equality for g* values, including
-// timezone-presence equivalence.
-func equalGValues(a, b gValue) bool {
-	return a.tz.present == b.tz.present && compareXSDDateTimePoint(a.instant, b.instant) == 0
+// temporal returns the value v denotes: its normalized instant and timezone
+// presence. The order, equality and enumeration key of a g* value are those
+// of this TemporalValue; the calendar fields and timezone offset of v serve
+// canonical text only.
+func (v gValue) temporal() TemporalValue {
+	return TemporalValue{instant: v.instant, hasTZ: v.tz.present}
 }
 
 func parseGYearMonthValue(s string) (gValue, error) {

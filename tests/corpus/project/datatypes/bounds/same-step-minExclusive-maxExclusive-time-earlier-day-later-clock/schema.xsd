@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:simpleType name="D"><xs:restriction base="xs:time"><xs:minExclusive value="23:00:00-02:00"/><xs:maxExclusive value="01:00:01Z"/></xs:restriction></xs:simpleType>
+<xs:element name="r" type="D"/>
+</xs:schema>

@@ -17,28 +17,95 @@ import (
 // completed element is published as a schemaNode; no generic XML node tree is
 // retained while parsing the next sibling.
 type typedSchemaParseFrame struct {
-	node      *schemaNode
+	node *schemaNode
+	// order is the content model that childContentFor selected for an
+	// element whose content is childContentOrdered or childContentSchema;
+	// orders is its progress through it.
+	order     *childOrder
 	name      xml.Name
 	namespace xmlstream.Handle
 	syntax    schemaSyntaxNode
+	orders    childOrderState
 	textBytes int64
+	content   childContent
+	placement schemaElementPlacement
 	opaque    bool
 }
 
-type typedSchemaIDRecord struct {
-	node  *schemaNode
-	value string
+// childContent classifies the children a schema element admits as each child
+// starts, so the first violation in document order is reported before the
+// offending child's own XSD 1.0 checks run or its subtree is admitted. The
+// (annotation?) content models of the schema for schemas, the
+// (appinfo | documentation)* content of xs:annotation, the placement of
+// xs:appinfo and xs:documentation, and the single leading xs:annotation of
+// every component are decided here; every other content model is the
+// childOrder of the element. Unsupported vocabulary is reported before this
+// check; see rejectUnsupportedVocabulary.
+type childContent uint8
+
+const (
+	childContentOrdered childContent = iota
+	childContentAnnotationOnly
+	childContentAnnotationPayload
+	// childContentSchema is the content of xs:schema, where xs:annotation may
+	// appear anywhere.
+	childContentSchema
+)
+
+// childContentFor classifies the content of the XSD element named local in
+// placement, whose parent is named parent, and selects the childOrder of an
+// ordered content. Only XSD-namespace elements reach it.
+func childContentFor(local string, placement schemaElementPlacement, parent xml.Name) (childContent, *childOrder) {
+	if placement == schemaPlacementReference {
+		return childContentAnnotationOnly, nil
+	}
+	switch local {
+	case vocab.XSDElemSchema:
+		return childContentSchema, &schemaChildOrder
+	case annotationChild:
+		return childContentAnnotationPayload, nil
+	case includeChild, importChild, notationChild, selectorChild, fieldChild, anyChild, anyAttribute:
+		return childContentAnnotationOnly, nil
+	}
+	if isFacetLocal(local) {
+		return childContentAnnotationOnly, nil
+	}
+	return childContentOrdered, childOrderFor(local, parent)
+}
+
+// schemaIDs is the set of id attribute values one schema document declares.
+type schemaIDs struct {
+	declared map[string]struct{}
+}
+
+// declare records value and reports whether the document declares it for the
+// first time.
+func (ids *schemaIDs) declare(value string) bool {
+	if _, duplicate := ids.declared[value]; duplicate {
+		return false
+	}
+	if ids.declared == nil {
+		ids.declared = make(map[string]struct{})
+	}
+	ids.declared[value] = struct{}{}
+	return true
+}
+
+// startTagAttributes is what the attributes of one start tag are admitted
+// into: the QName projection of its element and the ids of its document.
+type startTagAttributes struct {
+	qnames *semanticQNameProjection
+	ids    *schemaIDs
 }
 
 type typedSchemaParseState struct {
-	parser             *xmlstream.Reader
-	doc                *schemaDocument
-	root               *schemaNode
-	stack              []typedSchemaParseFrame
-	ids                []typedSchemaIDRecord
-	limits             Limits
-	nodes              int
-	rootSawDeclaration bool
+	parser *xmlstream.Reader
+	doc    *schemaDocument
+	root   *schemaNode
+	ids    schemaIDs
+	stack  []typedSchemaParseFrame
+	limits Limits
+	nodes  int
 }
 
 // parseTypedSchemaSourceDocument admits XML directly into compact semantic
@@ -69,15 +136,6 @@ func parseTypedSchemaSourceDocument(name, key string, input io.Reader, limits Li
 	if state.root == nil {
 		return nil, xsderrors.WithLocation(name, 0, 0,
 			schemaParseAt(0, 0, xsderrors.CodeSchemaRoot, "empty schema document", nil))
-	}
-	if state.root.local != vocab.XSDElemSchema {
-		return nil, xsderrors.WithLocation(name, state.root.line, state.root.column,
-			schemaParseAt(state.root.line, state.root.column, xsderrors.CodeSchemaRoot, "root element must be xs:schema", nil))
-	}
-	// Lexical ids are checked only after the whole document is admitted, so a
-	// structural error earlier in the document wins over a duplicate id.
-	if err := state.validateIDs(); err != nil {
-		return nil, xsderrors.WithLocation(name, 0, 0, err)
 	}
 	doc.root = state.root
 	doc.nodes = state.nodes
@@ -146,11 +204,28 @@ func (s *typedSchemaParseState) start(start xmlstream.StartElement, line, col in
 	if err != nil {
 		return s.abortStart(namespaceFrame, err)
 	}
-	frame := typedSchemaParseFrame{name: start.Name, namespace: namespaceFrame, syntax: syntax, opaque: opaque}
+	frame := typedSchemaParseFrame{
+		name:      start.Name,
+		namespace: namespaceFrame,
+		syntax:    syntax,
+		opaque:    opaque,
+	}
+	if start.Name.Space == vocab.XSDNamespaceURI {
+		parentName := typedParentName(parent)
+		frame.placement = schemaElementPlacementOf(&syntax, parentName)
+		frame.content, frame.order = childContentFor(start.Name.Local, frame.placement, parentName)
+	}
 	if err := s.admitTypedFrame(frame, line, col); err != nil {
 		return s.abortStart(namespaceFrame, err)
 	}
 	return nil
+}
+
+func typedParentName(parent *typedSchemaParseFrame) xml.Name {
+	if parent == nil {
+		return xml.Name{}
+	}
+	return parent.name
 }
 
 func (s *typedSchemaParseState) appendOpaqueFrame(name xml.Name, namespace xmlstream.Handle, opaque bool) {
@@ -166,26 +241,23 @@ func (s *typedSchemaParseState) admitTypedFrame(initial typedSchemaParseFrame, l
 	if parentIndex >= 0 {
 		parent = &s.stack[parentIndex]
 	}
-	if err := admitTypedStart(&frame.syntax, parent); err != nil {
+	var qnames semanticQNameProjection
+	if err := admitTypedStart(&frame.syntax, frame.placement, parent, startTagAttributes{qnames: &qnames, ids: &s.ids}); err != nil {
 		s.stack = s.stack[:len(s.stack)-1]
 		return err
 	}
 	var node *schemaNode
 	if !frame.opaque {
 		var err error
-		node, err = s.admitTypedNode(frame.name, frame.syntax.Attrs, parent, line, col)
+		node, err = s.admitTypedNode(frame.name, parent, line, col)
 		if err != nil {
 			s.stack = s.stack[:len(s.stack)-1]
 			return err
 		}
 	}
-	if err := s.admitRootChild(parent, frame.name, &frame.syntax); err != nil {
-		s.stack = s.stack[:len(s.stack)-1]
-		return err
-	}
 	frame.node = node
 	if node != nil {
-		s.recordTypedID(node, &frame.syntax)
+		frame.syntax.buildSemanticSource(node, &qnames)
 	}
 	return nil
 }
@@ -212,20 +284,11 @@ func (s *typedSchemaParseState) startSyntax(start xmlstream.StartElement, line, 
 	}, nil
 }
 
-func admitTypedStart(n *schemaSyntaxNode, parent *typedSchemaParseFrame) error {
+func admitTypedStart(n *schemaSyntaxNode, placement schemaElementPlacement, parent *typedSchemaParseFrame, attrs startTagAttributes) error {
 	if !shouldAdmitTypedStart(parent) {
 		return nil
 	}
-	return admitStart(n, typedParentName(parent))
-}
-
-func (s *typedSchemaParseState) recordTypedID(node *schemaNode, syntax *schemaSyntaxNode) {
-	if node == nil {
-		return
-	}
-	if idValue, ok := syntax.attr(vocab.XSDAttrID); ok {
-		s.ids = append(s.ids, typedSchemaIDRecord{node: node, value: idValue})
-	}
+	return admitStart(n, placement, parent, attrs)
 }
 
 func (s *typedSchemaParseState) validateStartLimits(line, col int) error {
@@ -239,13 +302,6 @@ func shouldAdmitTypedStart(parent *typedSchemaParseFrame) bool {
 	return parent == nil || !parent.opaque
 }
 
-func typedParentName(parent *typedSchemaParseFrame) xml.Name {
-	if parent == nil {
-		return xml.Name{}
-	}
-	return parent.name
-}
-
 // typedStartOpaque marks xs:appinfo and xs:documentation payload as opaque:
 // it is consumed as namespace-well-formed XML and counted against node limits,
 // but never admitted as schema syntax or retained.
@@ -256,7 +312,7 @@ func typedStartOpaque(parent *typedSchemaParseFrame, name xml.Name) bool {
 	if parent.opaque {
 		return true
 	}
-	return parent.name.Space == vocab.XSDNamespaceURI && parent.name.Local == annotationChild && typedAnnotationEnvelope(name)
+	return isXSDName(parent.name, annotationChild) && typedAnnotationEnvelope(name)
 }
 
 func typedOpaqueDescendant(parent *typedSchemaParseFrame) bool {
@@ -264,29 +320,25 @@ func typedOpaqueDescendant(parent *typedSchemaParseFrame) bool {
 }
 
 func typedAnnotationEnvelope(name xml.Name) bool {
-	return name.Space == vocab.XSDNamespaceURI &&
-		(name.Local == vocab.XSDElemAppinfo || name.Local == vocab.XSDElemDocumentation)
+	return isXSDName(name, vocab.XSDElemAppinfo) || isXSDName(name, vocab.XSDElemDocumentation)
 }
 
-func (s *typedSchemaParseState) admitTypedNode(name xml.Name, attrs []schemaAttribute, parent *typedSchemaParseFrame, line, col int) (*schemaNode, error) {
+func isXSDName(name xml.Name, local string) bool {
+	return name.Space == vocab.XSDNamespaceURI && name.Local == local
+}
+
+func (s *typedSchemaParseState) admitTypedNode(name xml.Name, parent *typedSchemaParseFrame, line, col int) (*schemaNode, error) {
 	id, err := schemaNodeIDFor(len(s.doc.arena))
 	if err != nil {
 		return nil, schemaParseAt(line, col, xsderrors.CodeSchemaLimit, err.Error(), err)
 	}
-	var attributeMask uint64
-	for _, attr := range attrs {
-		if attr.Name.Space == "" {
-			attributeMask |= typedAttributeMaskFor(attr.Name.Local)
-		}
-	}
 	node := &schemaNode{
-		doc:           s.doc,
-		id:            id,
-		local:         name.Local,
-		attributeMask: attributeMask,
-		line:          line,
-		column:        col,
-		namespace:     s.parser.Context(),
+		doc:       s.doc,
+		id:        id,
+		local:     name.Local,
+		line:      line,
+		column:    col,
+		namespace: s.parser.Context(),
 	}
 	s.doc.arena = append(s.doc.arena, node)
 	s.attachTypedNode(node, parent)
@@ -304,19 +356,6 @@ func (s *typedSchemaParseState) attachTypedNode(node *schemaNode, parent *typedS
 	}
 }
 
-func (s *typedSchemaParseState) admitRootChild(parent *typedSchemaParseFrame, name xml.Name, syntax *schemaSyntaxNode) error {
-	if parent == nil || parent.node != s.root || name.Space != vocab.XSDNamespaceURI {
-		return nil
-	}
-	if name.Local != annotationChild && name.Local != includeChild && name.Local != importChild {
-		s.rootSawDeclaration = true
-	}
-	if (name.Local == includeChild || name.Local == importChild) && s.rootSawDeclaration {
-		return schemaCompileAt(syntax, xsderrors.CodeSchemaContentModel, "xs:"+diagnostictext.Quote(name.Local)+" must precede global declarations")
-	}
-	return nil
-}
-
 func (s *typedSchemaParseState) parentFrame() *typedSchemaParseFrame {
 	if len(s.stack) == 0 {
 		return nil
@@ -324,89 +363,118 @@ func (s *typedSchemaParseState) parentFrame() *typedSchemaParseFrame {
 	return &s.stack[len(s.stack)-1]
 }
 
-func admitStart(n *schemaSyntaxNode, parent xml.Name) error {
-	if parent.Local == "" {
-		return admitRootStart(n)
+// admitStart checks unsupported vocabulary before any other rule except that
+// the root is xs:schema; see rejectUnsupportedVocabulary. Text earlier in
+// parent precedes n in document order, so its diagnostic wins over every other
+// violation of n. The attributes of n are admitted into attrs.
+func admitStart(n *schemaSyntaxNode, placement schemaElementPlacement, parent *typedSchemaParseFrame, attrs startTagAttributes) error {
+	if parent == nil {
+		return admitRootStart(n, attrs)
 	}
-	if n.Name.Space != vocab.XSDNamespaceURI {
-		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "foreign element "+diagnostictext.Quote(n.Name.Local)+" is not allowed in schema grammar")
-	}
-	if parent.Space == vocab.XSDNamespaceURI && parent.Local == annotationChild && typedAnnotationEnvelope(n.Name) {
-		return admitAnnotationEnvelopeStart(n, parent)
-	}
-	return admitXSDChildStart(n, parent)
-}
-
-func admitRootStart(n *schemaSyntaxNode) error {
-	if n.Name.Space != vocab.XSDNamespaceURI || n.Name.Local != vocab.XSDElemSchema {
-		return schemaCompileAt(n, xsderrors.CodeSchemaRoot, "root element must be xs:schema")
-	}
-	if err := rejectSchemaNamespaceAttributes(n); err != nil {
-		return err
-	}
-	if err := checkSchemaNodeNamesSyntax(n, nil); err != nil {
-		return err
-	}
-	if err := checkXMLBaseAttributeSyntax(n); err != nil {
-		return err
-	}
-	return checkSchemaAttributesSyntax(n)
-}
-
-func admitAnnotationEnvelopeStart(n *schemaSyntaxNode, parent xml.Name) error {
-	// The payload envelope is admitted separately; arbitrary descendants are
-	// skipped by the caller after this attribute and annotation check.
-	if err := rejectSchemaNamespaceAttributes(n); err != nil {
-		return err
-	}
-	if err := checkSchemaNodeNamesSyntax(n, &schemaSyntaxNode{Name: parent}); err != nil {
-		return err
-	}
-	if err := checkXMLBaseAttributeSyntax(n); err != nil {
-		return err
-	}
-	if err := checkSchemaAttributesSyntax(n); err != nil {
-		return err
-	}
-	return checkAnnotationEnvelopeStart(n)
-}
-
-// admitXSDChildStart runs start checks in a fixed order that decides which
-// diagnostic wins when a node violates several rules. The syntax facts it reads
-// are transient; compilation never treats them as a generic XML tree.
-// Reference and local-declaration attribute restrictions are compiler-owned.
-func admitXSDChildStart(n *schemaSyntaxNode, parent xml.Name) error {
-	if err := rejectSchemaNamespaceAttributes(n); err != nil {
-		return err
-	}
-	if err := checkSchemaNodeNamesSyntax(n, &schemaSyntaxNode{Name: parent}); err != nil {
-		return err
-	}
-	if _, err := checkUnsupportedXSDNodeSyntax(n, parent); err != nil {
-		return err
-	}
-	if err := checkXMLBaseAttributeSyntax(n); err != nil {
-		return err
-	}
-	if err := checkSchemaAttributesSyntax(n); err != nil {
-		return err
-	}
-	if parent.Space == vocab.XSDNamespaceURI && parent.Local == vocab.XSDElemSchema {
-		return checkTopLevelSchemaChildSyntax(n)
-	}
-	return nil
-}
-
-func checkAnnotationEnvelopeStart(n *schemaSyntaxNode) error {
-	if n.Name.Local != vocab.XSDElemDocumentation {
-		return nil
-	}
-	for _, attr := range n.Attrs {
-		if attr.Name.Space == vocab.XMLNamespaceURI && attr.Name.Local == vocab.XMLAttrLang && !lex.IsLanguage(lex.CollapseXMLWhitespace(attr.Value)) {
-			return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "invalid xml:lang on xs:documentation")
+	foreign := n.Name.Space != vocab.XSDNamespaceURI
+	if !foreign {
+		if err := rejectUnsupportedVocabulary(n); err != nil {
+			return err
 		}
 	}
+	if err := rejectInvalidSchemaTextTyped(parent.node); err != nil {
+		return err
+	}
+	if foreign {
+		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "foreign element "+diagnostictext.Quote(n.Name.Local)+" is not allowed in schema grammar")
+	}
+	if err := admitChildContent(n, parent); err != nil {
+		return err
+	}
+	if parent.content == childContentAnnotationPayload {
+		return admitAnnotationEnvelopeStart(n, attrs)
+	}
+	return admitXSDChildStart(n, parent.name, placement, attrs)
+}
+
+// admitChildContent checks the schema-namespace child n against the content
+// of parent and admits it there.
+func admitChildContent(n *schemaSyntaxNode, parent *typedSchemaParseFrame) error {
+	if (parent.content == childContentOrdered || parent.content == childContentSchema) && parent.order == nil {
+		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("schema element xs:"+diagnostictext.Quote(parent.name.Local)+" has no child order"))
+	}
+	if message := childContentViolation(n.Name.Local, parent); message != "" {
+		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, message)
+	}
+	if parent.content == childContentOrdered || parent.content == childContentSchema {
+		return parent.orders.accept(n, parent.order, parent.node)
+	}
 	return nil
+}
+
+// childContentViolation returns why parent cannot contain a schema-namespace
+// child named child after the children parent already has, as far as its
+// annotation-only content, annotation payload or annotation placement decide,
+// or "" when they admit it. The childOrder of an ordered content decides the
+// rest; see admitChildContent.
+func childContentViolation(child string, parent *typedSchemaParseFrame) string {
+	switch parent.content {
+	case childContentAnnotationPayload:
+		if child == vocab.XSDElemAppinfo || child == vocab.XSDElemDocumentation {
+			return ""
+		}
+		return "xs:" + diagnostictext.Quote(parent.name.Local) + " can contain only xs:appinfo and xs:documentation, not xs:" + diagnostictext.Quote(child)
+	case childContentAnnotationOnly:
+		if child != annotationChild {
+			return "xs:" + diagnostictext.Quote(parent.name.Local) + " can contain only xs:annotation, not xs:" + diagnostictext.Quote(child)
+		}
+	case childContentOrdered, childContentSchema:
+	}
+	return annotationPlacementViolation(child, parent)
+}
+
+// annotationPlacementViolation returns why child, an xs:annotation,
+// xs:appinfo or xs:documentation, cannot appear in parent at this position,
+// or "" when it can or is none of them.
+func annotationPlacementViolation(child string, parent *typedSchemaParseFrame) string {
+	switch child {
+	case vocab.XSDElemAppinfo, vocab.XSDElemDocumentation:
+		return "xs:" + diagnostictext.Quote(child) + " can appear only in xs:annotation"
+	case annotationChild:
+		if parent.content != childContentSchema && len(parent.node.children) != 0 {
+			return "xs:" + diagnostictext.Quote(parent.name.Local) + " can contain xs:annotation only as its first child"
+		}
+	}
+	return ""
+}
+
+func admitRootStart(n *schemaSyntaxNode, attrs startTagAttributes) error {
+	if !isXSDName(n.Name, vocab.XSDElemSchema) {
+		return schemaCompileAt(n, xsderrors.CodeSchemaRoot, "root element must be xs:schema")
+	}
+	if err := rejectUnsupportedVocabulary(n); err != nil {
+		return err
+	}
+	return checkSchemaAttributesSyntax(n, schemaPlacementOther, attrs)
+}
+
+func admitAnnotationEnvelopeStart(n *schemaSyntaxNode, attrs startTagAttributes) error {
+	// The payload envelope is admitted separately; arbitrary descendants are
+	// skipped by the caller after this attribute check.
+	return checkSchemaAttributesSyntax(n, schemaPlacementOther, attrs)
+}
+
+// admitXSDChildStart checks the attributes of n in start-tag order, then the
+// attributes its placement requires. It runs after rejectUnsupportedVocabulary
+// and admitChildContent, so unsupported vocabulary and a child that its
+// parent's content forbids report that violation rather than the child's own.
+// The syntax facts it reads are transient; compilation never treats them as a
+// generic XML tree. Which unqualified attributes an element admits and
+// requires in its placement, and which of them exclude each other, is decided
+// here, so those violations precede every later child in document order.
+func admitXSDChildStart(n *schemaSyntaxNode, parent xml.Name, placement schemaElementPlacement, attrs startTagAttributes) error {
+	if err := checkSchemaAttributesSyntax(n, placement, attrs); err != nil {
+		return err
+	}
+	if err := checkRequiredSchemaAttributes(n, parent, placement); err != nil {
+		return err
+	}
+	return checkValueConstraintAttributes(n)
 }
 
 func (s *typedSchemaParseState) end(line, col int) error {
@@ -428,17 +496,23 @@ func (s *typedSchemaParseState) end(line, col int) error {
 	return completeTypedNode(frame)
 }
 
+// completeTypedNode checks what the end tag of frame decides: text in the
+// element precedes its end tag, so a text violation wins over a missing
+// required child.
 func completeTypedNode(frame *typedSchemaParseFrame) error {
-	if err := frame.syntax.buildSemanticSource(frame.node); err != nil {
-		return withSchemaCompileLocation(frame.node, err)
-	}
 	if !schemaNodeNeedsDeferredQNameContext(frame.node, frame.syntax.Attrs) {
 		frame.node.namespace = xmlstream.Context{}
 	}
-	if err := checkAnnotationEnvelopeStart(&frame.syntax); err != nil {
+	if err := rejectInvalidSchemaTextTyped(frame.node); err != nil {
 		return err
 	}
-	return admitEnd(frame.node)
+	if frame.order == nil {
+		return nil
+	}
+	if rule := frame.orders.missingChild(frame.order, frame.node); rule != nil {
+		return schemaCompileAt(frame.node, rule.MissingCode, rule.MissingMsg)
+	}
+	return nil
 }
 
 // schemaNodeNeedsDeferredQNameContext identifies source values whose QName
@@ -469,54 +543,12 @@ func schemaNodeNeedsDeferredQNameContext(n *schemaNode, attrs []schemaAttribute)
 	}
 }
 
-func admitEnd(n *schemaNode) error {
-	if err := rejectInvalidSchemaTextTyped(n); err != nil {
-		return err
-	}
-	if err := rejectInvalidReferenceDirectivesTyped(n); err != nil {
-		return err
-	}
-	return checkSchemaAnnotationNode(n)
-}
-
 func rejectInvalidSchemaTextTyped(n *schemaNode) error {
 	if n == nil || n.local == vocab.XSDElemAppinfo || n.local == vocab.XSDElemDocumentation {
 		return nil
 	}
 	if n.hasNonWhitespaceText {
 		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "xs:"+diagnostictext.Quote(n.local)+" cannot contain text")
-	}
-	return nil
-}
-
-func rejectInvalidReferenceDirectivesTyped(n *schemaNode) error {
-	if n == nil || n.local != includeChild && n.local != importChild {
-		return nil
-	}
-	return checkOrderedXSDChildren(n, annotationOnlyChildOrder(n.local))
-}
-
-//nolint:gocognit // Keep ordered annotation grammar and diagnostic precedence in one owner.
-func checkSchemaAnnotationNode(n *schemaNode) error {
-	if n.local == vocab.XSDElemSchema || n.local == vocab.XSDElemAppinfo || n.local == vocab.XSDElemDocumentation {
-		return nil
-	}
-	seenAnnotation, seenNonAnnotation := false, false
-	for child := range n.xsdChildren() {
-		if child.local != annotationChild {
-			seenNonAnnotation = true
-			continue
-		}
-		if n.local == annotationChild {
-			return schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "xs:annotation cannot contain xs:annotation")
-		}
-		if seenAnnotation {
-			return schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "schema component cannot contain multiple annotations")
-		}
-		if seenNonAnnotation {
-			return schemaCompileAt(child, xsderrors.CodeSchemaContentModel, diagnostictext.Quote(n.local)+" annotation must be first")
-		}
-		seenAnnotation = true
 	}
 	return nil
 }
@@ -549,15 +581,4 @@ func (s *typedSchemaParseState) abortStart(frame xmlstream.Handle, cause error) 
 		return errors.Join(cause, abortErr)
 	}
 	return cause
-}
-
-func (s *typedSchemaParseState) validateIDs() error {
-	seen := make(map[string]bool, len(s.ids))
-	for _, id := range s.ids {
-		if seen[id.value] {
-			return schemaCompileAt(id.node, xsderrors.CodeSchemaInvalidAttribute, "duplicate schema id "+diagnostictext.Quote(id.value))
-		}
-		seen[id.value] = true
-	}
-	return nil
 }

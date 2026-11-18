@@ -1,8 +1,12 @@
 package schema
 
 import (
+	"errors"
 	"strings"
 	"testing"
+
+	"github.com/jacoelho/xsd/internal/source"
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 func TestParseAttributeUseMode(t *testing.T) {
@@ -48,45 +52,13 @@ func TestValidateAttributeUseValueConstraintAdmission(t *testing.T) {
 		admission attributeUseValueConstraintAdmission
 		wantErr   string
 	}{
-		{name: "optional unconstrained", admission: attributeUseValueConstraintAdmission{Mode: attributeUseOptional}},
+		{name: "no default"},
+		{name: "default on an unfixed declaration", admission: attributeUseValueConstraintAdmission{HasDefault: true}},
+		{name: "no default on a fixed declaration", admission: attributeUseValueConstraintAdmission{ReferencedDeclHasFixed: true}},
 		{
-			name: "required default",
-			admission: attributeUseValueConstraintAdmission{
-				Mode:       attributeUseRequired,
-				HasDefault: true,
-			},
-			wantErr: "required attribute cannot have default",
-		},
-		{
-			name: "prohibited default",
-			admission: attributeUseValueConstraintAdmission{
-				Mode:       attributeUseProhibited,
-				HasDefault: true,
-			},
-			wantErr: "prohibited attribute cannot have default",
-		},
-		{
-			name: "default conflicts with declaration fixed",
-			admission: attributeUseValueConstraintAdmission{
-				Mode:                   attributeUseOptional,
-				HasDefault:             true,
-				ReferencedDeclHasFixed: true,
-			},
-			wantErr: "attribute use default conflicts with fixed attribute declaration",
-		},
-		{
-			name: "default and fixed",
-			admission: attributeUseValueConstraintAdmission{
-				Mode:       attributeUseOptional,
-				HasDefault: true,
-				HasFixed:   true,
-			},
-			wantErr: "attribute cannot have both default and fixed",
-		},
-		{
-			name:      "invalid mode",
-			admission: attributeUseValueConstraintAdmission{Mode: attributeUseMode(99)},
-			wantErr:   "attribute use mode is invalid",
+			name:      "default conflicts with declaration fixed",
+			admission: attributeUseValueConstraintAdmission{HasDefault: true, ReferencedDeclHasFixed: true},
+			wantErr:   "attribute use default conflicts with fixed attribute declaration",
 		},
 	}
 	for _, tt := range tests {
@@ -161,59 +133,33 @@ func TestValidateAttributeUseFixedValueAdmission(t *testing.T) {
 	}
 }
 
-func TestValidateDeclValueConstraintAdmission(t *testing.T) {
+func TestDefaultAndFixedTogetherRejectedAtTheirSource(t *testing.T) {
 	t.Parallel()
-
-	tests := []struct {
-		name       string
-		fn         func(declarationValueConstraint) error
-		wantErr    string
-		constraint declarationValueConstraint
+	const both = `default="1" fixed="1"`
+	for _, tt := range []struct {
+		name, body, wantMsg string
+		line, column        int
 	}{
-		{name: "element absent", fn: validateElementDeclValueConstraintAdmission},
-		{name: "element default", fn: validateElementDeclValueConstraintAdmission, constraint: declarationValueConstraintDefault},
-		{name: "element fixed", fn: validateElementDeclValueConstraintAdmission, constraint: declarationValueConstraintFixed},
-		{
-			name:       "element both",
-			fn:         validateElementDeclValueConstraintAdmission,
-			constraint: declarationValueConstraintConflict,
-			wantErr:    "element cannot have both default and fixed",
-		},
-		{
-			name:       "element unknown",
-			fn:         validateElementDeclValueConstraintAdmission,
-			constraint: declarationValueConstraint(99),
-			wantErr:    "element declaration has unknown value constraint",
-		},
-		{name: "attribute absent", fn: validateAttributeDeclValueConstraintAdmission},
-		{name: "attribute default", fn: validateAttributeDeclValueConstraintAdmission, constraint: declarationValueConstraintDefault},
-		{name: "attribute fixed", fn: validateAttributeDeclValueConstraintAdmission, constraint: declarationValueConstraintFixed},
-		{
-			name:       "attribute both",
-			fn:         validateAttributeDeclValueConstraintAdmission,
-			constraint: declarationValueConstraintConflict,
-			wantErr:    "attribute cannot have both default and fixed",
-		},
-		{
-			name:       "attribute unknown",
-			fn:         validateAttributeDeclValueConstraintAdmission,
-			constraint: declarationValueConstraint(99),
-			wantErr:    "attribute declaration has unknown value constraint",
-		},
-	}
-	for _, tt := range tests {
+		{name: "global element", body: `<xs:element name="e" ` + both + `/>`, wantMsg: "element cannot have both default and fixed", line: 2, column: 1},
+		{name: "local element", body: `<xs:complexType name="T"><xs:sequence><xs:element name="e" ` + both + `/></xs:sequence></xs:complexType>`, wantMsg: "element cannot have both default and fixed", line: 2, column: 39},
+		{name: "global attribute", body: `<xs:attribute name="g" ` + both + `/>`, wantMsg: "attribute cannot have both default and fixed", line: 2, column: 1},
+		{name: "local attribute", body: `<xs:complexType name="T"><xs:attribute name="a" ` + both + `/></xs:complexType>`, wantMsg: "attribute cannot have both default and fixed", line: 2, column: 26},
+		{name: "required local attribute", body: `<xs:complexType name="T"><xs:attribute name="a" use="required" ` + both + `/></xs:complexType>`, wantMsg: "attribute cannot have both default and fixed", line: 2, column: 26},
+		{name: "attribute reference", body: `<xs:attribute name="g"/><xs:complexType name="T"><xs:attribute ref="g" ` + both + `/></xs:complexType>`, wantMsg: "attribute cannot have both default and fixed", line: 2, column: 50},
+		{name: "reference to fixed declaration", body: `<xs:attribute name="g" fixed="1"/><xs:complexType name="T"><xs:attribute ref="g" ` + both + `/></xs:complexType>`, wantMsg: "attribute cannot have both default and fixed", line: 2, column: 60},
+		{name: "required reference", body: `<xs:attribute name="g"/><xs:complexType name="T"><xs:attribute ref="g" use="required" ` + both + `/></xs:complexType>`, wantMsg: "attribute cannot have both default and fixed", line: 2, column: 50},
+		{name: "prohibited local attribute", body: `<xs:complexType name="T"><xs:attribute name="a" use="prohibited" ` + both + `/></xs:complexType>`, wantMsg: "attribute cannot have both default and fixed", line: 2, column: 26},
+	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-
-			err := tt.fn(tt.constraint)
-			if tt.wantErr == "" {
-				if err != nil {
-					t.Fatalf("admission validator error = %v", err)
-				}
-				return
+			schema := "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n" + tt.body + "\n</xs:schema>"
+			_, err := Compile(Options{}, []source.Source{source.Bytes("constraints.xsd", []byte(schema))})
+			issue, ok := errors.AsType[*xsderrors.Error](err)
+			if !ok {
+				t.Fatalf("Compile() error = %T %[1]v, want structured diagnostic", err)
 			}
-			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
-				t.Fatalf("admission validator error = %v, want %q", err, tt.wantErr)
+			if issue.Code() != xsderrors.CodeSchemaInvalidAttribute || issue.Message() != tt.wantMsg || issue.Line() != tt.line || issue.Column() != tt.column {
+				t.Fatalf("diagnostic = %s %q at %d:%d, want %s %q at %d:%d", issue.Code(), issue.Message(), issue.Line(), issue.Column(), xsderrors.CodeSchemaInvalidAttribute, tt.wantMsg, tt.line, tt.column)
 			}
 		})
 	}

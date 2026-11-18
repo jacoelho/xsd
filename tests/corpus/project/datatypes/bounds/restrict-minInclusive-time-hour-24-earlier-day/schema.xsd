@@ -1,0 +1,5 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:simpleType name="B"><xs:restriction base="xs:time"><xs:minInclusive value="24:00:00Z"/></xs:restriction></xs:simpleType>
+<xs:simpleType name="D"><xs:restriction base="B"><xs:minInclusive value="00:00:00Z"/></xs:restriction></xs:simpleType>
+<xs:element name="r" type="D"/>
+</xs:schema>

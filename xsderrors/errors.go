@@ -56,13 +56,26 @@ const (
 	CodeUnsupportedExternal    Code = "unsupported.external_entity"
 	CodeUnsupportedEntity      Code = "unsupported.entity"
 	CodeUnsupportedNonUTF8     Code = "unsupported.non_utf8"
-	CodeUnsupportedRedefine    Code = "unsupported.xs_redefine"
-	CodeUnsupportedRegex       Code = "unsupported.regex"
+	// CodeUnsupportedRedefine reports an xs:redefine element. Like
+	// CodeUnsupportedXSD11 it is an opt-out by vocabulary: it is reported
+	// wherever the element appears outside xs:appinfo and xs:documentation,
+	// whatever its placement, attributes or content.
+	CodeUnsupportedRedefine Code = "unsupported.xs_redefine"
+	CodeUnsupportedRegex    Code = "unsupported.regex"
 	// CodeUnsupportedXMLVersion reports an XML declaration whose well-formed
 	// version is not "1.0". A malformed version is an XML well-formedness error.
 	CodeUnsupportedXMLVersion Code = "unsupported.xml_version"
-	CodeUnsupportedXSD11      Code = "unsupported.xsd_1_1"
-	CodeValidationXML         Code = "validation.xml"
+	// CodeUnsupportedXSD11 reports that a schema document uses XSD 1.1
+	// syntax: an XSD-namespace element, or an unqualified attribute of an
+	// XSD-namespace element, that the XSD 1.1 schema for schemas adds over
+	// XSD 1.0. It is reported wherever the name appears and whatever its value,
+	// so it does not mean the use is valid XSD 1.1. Content of xs:appinfo and
+	// xs:documentation is never inspected, and a root element other than
+	// xs:schema is CodeSchemaRoot whatever it carries. XSD 1.1 relaxations of XSD 1.0
+	// constraints and references to XSD 1.1 built-in types keep their XSD 1.0
+	// schema diagnostics.
+	CodeUnsupportedXSD11 Code = "unsupported.xsd_1_1"
+	CodeValidationXML    Code = "validation.xml"
 	// CodeValidationRead reports that the caller's instance reader returned an
 	// error other than io.EOF itself or was nil; the document was not assessed. Cause errors from the reader are
 	// preserved for errors.Is. It is inconclusive, never a validity result.

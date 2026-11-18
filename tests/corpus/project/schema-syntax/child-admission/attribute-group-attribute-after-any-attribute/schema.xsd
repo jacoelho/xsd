@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:attributeGroup name="AG"><xs:anyAttribute/><xs:attribute name="a" type="p:T"/></xs:attributeGroup>
+</xs:schema>

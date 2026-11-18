@@ -1,0 +1,8 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:attribute name="a" type="xs:int" default="1"/>
+<xs:element name="r"><xs:complexType><xs:sequence>
+<xs:element name="e" minOccurs="0" maxOccurs="unbounded"><xs:complexType><xs:attribute ref="a" default="3"/></xs:complexType></xs:element>
+<xs:element name="f" minOccurs="0" maxOccurs="unbounded"><xs:complexType><xs:attribute ref="a"/></xs:complexType></xs:element>
+</xs:sequence></xs:complexType>
+<xs:unique name="u"><xs:selector xpath="e|f"/><xs:field xpath="@a"/></xs:unique></xs:element>
+</xs:schema>

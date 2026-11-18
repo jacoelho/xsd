@@ -1,0 +1,14 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:attribute name="g" type="xs:string" fixed="b"/>
+<xs:element name="d" type="xs:string" default="a"/>
+<xs:element name="r">
+<xs:complexType>
+<xs:sequence><xs:element name="f" type="xs:string" fixed="b" minOccurs="0"/></xs:sequence>
+<xs:attribute name="a" type="xs:string" default="a" use="optional"/>
+<xs:attribute name="b" type="xs:string" default="a"/>
+<xs:attribute name="c" type="xs:string" fixed="b" use="required"/>
+<xs:attribute ref="g" use="required"/>
+<xs:attribute name="p" use="prohibited"/>
+</xs:complexType>
+</xs:element>
+</xs:schema>

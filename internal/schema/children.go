@@ -1,8 +1,9 @@
 package schema
 
 import (
-	"fmt"
+	"encoding/xml"
 	"slices"
+	"strconv"
 
 	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/vocab"
@@ -29,8 +30,6 @@ const (
 	restrictionChild = vocab.XSDElemRestriction
 	listChild        = vocab.XSDElemList
 	notationChild    = vocab.XSDElemNotation
-	redefineChild    = "redefine"
-	assertChild      = "assert"
 	sequenceChild    = vocab.XSDElemSequence
 	simpleContent    = vocab.XSDElemSimpleContent
 	simpleTypeChild  = vocab.XSDElemSimpleType
@@ -39,8 +38,6 @@ const (
 )
 
 const (
-	nilErrorString                                = "<nil>"
-	annotationMustBeFirstSuffix                   = " annotation must be first"
 	attributeOutOfOrderSuffix                     = " attribute is out of order"
 	modelGroupOutOfOrderSuffix                    = " model group is out of order"
 	oneAnyAttributeSuffix                         = " can contain at most one anyAttribute"
@@ -48,41 +45,61 @@ const (
 	simpleContentSimpleTypeOutOfOrder             = "simpleContent simpleType is out of order"
 	simpleContentFacetOutOfOrder                  = "simpleContent facet is out of order"
 	simpleContentExtensionCannotContainSimpleType = "simpleContent extension cannot contain simpleType"
+	topLevelGroupModelGroupCount                  = "top-level group must contain exactly one model group"
+	identityConstraintOneSelector                 = "identity constraint can contain at most one selector"
 )
 
 // childRule classifies one child element kind inside a schema component.
+// Children of one rule may repeat unless MaxOne is set; a child whose rule
+// has a lower Level than an earlier child's is out of order. PrecedingMsg
+// reports a child that no child of a lower level precedes. A rule with a
+// MissingMsg requires a child: a parent that ends without one is reported
+// with MissingCode, unless Supplied reports that the parent's attributes
+// supply what the child would. A rule with a ConflictMsg forbids its child,
+// reported with ConflictCode, when Supplied holds: the parent's attributes and
+// the child would both supply it.
 type childRule struct {
 	Match        func(local string) bool
+	Supplied     func(parent *schemaNode) bool
 	ForbiddenMsg string
 	OrderMsg     string
 	DupMsg       string
+	PrecedingMsg string
+	MissingMsg   string
+	ConflictMsg  string
+	MissingCode  xsderrors.Code
+	ConflictCode xsderrors.Code
 	Level        int
 	MaxOne       bool
 	Terminal     bool
 }
 
-// childOrder describes the permitted children of one schema component:
-// optional leading annotations followed by ordered sections of rules.
+// childOrder is the XSD 1.0 content model of one schema element in one
+// placement, after its leading annotation, whose placement
+// childContentViolation owns: ordered sections of rules. childContentFor
+// selects it when the element starts, and childOrderState admits each child as it
+// starts, so a misplaced, repeated or unknown child is the violation at its
+// own start tag. A missing required child is the violation at the parent's
+// end tag, the earliest point it is known; see childOrderState.missingChild.
 type childOrder struct {
-	// InvalidMsg receives the offending child name already quoted by
-	// diagnostictext.
-	InvalidMsg         func(local string) string
-	AnnotationFirstMsg string
-	Rules              []childRule
-	SingleAnnotation   bool
+	// Label names the parent in the diagnostic of a child no rule matches.
+	Label string
+	Rules []childRule
 }
 
-// childOrderError identifies the child index that violated an order rule.
-type childOrderError struct {
-	Message string
-	Index   int
-}
+// maxChildRules bounds the rules of one childOrder: childOrderState records
+// the rules it has seen as bits of one uint64.
+const maxChildRules = 64
 
-func (e *childOrderError) Error() string {
-	if e == nil {
-		return nilErrorString
+// checkedChildOrder returns order, and panics when it holds more rules than
+// childOrderState can record. Every childOrder is built at package
+// initialisation, so an oversized order fails every test run and never reaches
+// a schema.
+func checkedChildOrder(order childOrder) childOrder {
+	if len(order.Rules) > maxChildRules {
+		panic("schema child order " + order.Label + " has more than " + strconv.Itoa(maxChildRules) + " rules")
 	}
-	return e.Message
+	return order
 }
 
 // contentDerivationKind identifies the xs:extension/xs:restriction choice in a
@@ -98,31 +115,18 @@ const (
 	contentDerivationRestriction
 )
 
-func (k contentDerivationKind) String() string {
-	switch k {
-	case contentDerivationExtension:
-		return extensionChild
-	case contentDerivationRestriction:
-		return restrictionChild
-	case contentDerivationNone:
-		return ""
-	default:
-	}
-	return ""
-}
-
-var simpleTypeChildOrder = childOrder{
-	AnnotationFirstMsg: "simpleType annotation must be first",
-	SingleAnnotation:   true,
+var simpleTypeChildOrder = checkedChildOrder(childOrder{
 	Rules: []childRule{
 		{
-			Match:  matchChildLocal(restrictionChild, listChild, unionChild),
-			MaxOne: true,
-			DupMsg: "simpleType can contain one restriction, list, or union",
+			Match:       matchChildLocal(restrictionChild, listChild, unionChild),
+			MaxOne:      true,
+			DupMsg:      "simpleType can contain one restriction, list, or union",
+			MissingMsg:  "simpleType must contain one restriction, list, or union",
+			MissingCode: xsderrors.CodeSchemaContentModel,
 		},
 	},
-	InvalidMsg: func(local string) string { return "unsupported simpleType child " + local },
-}
+	Label: "simpleType",
+})
 
 type simpleDerivationKind uint8
 
@@ -141,8 +145,7 @@ var simpleRestrictionChildOrder = simpleDerivationOrder(simpleDerivationRestrict
 var simpleListChildOrder = simpleDerivationOrder(simpleDerivationList)
 var simpleUnionChildOrder = simpleDerivationOrder(simpleDerivationUnion)
 
-var complexTypeChildOrder = childOrder{
-	AnnotationFirstMsg: "complexType" + annotationMustBeFirstSuffix,
+var complexTypeChildOrder = checkedChildOrder(childOrder{
 	Rules: []childRule{
 		{
 			Match:    matchChildLocal(simpleContent, complexContent),
@@ -169,8 +172,8 @@ var complexTypeChildOrder = childOrder{
 			DupMsg: "complexType" + oneAnyAttributeSuffix,
 		},
 	},
-	InvalidMsg: func(local string) string { return "invalid complexType child " + local },
-}
+	Label: "complexType",
+})
 
 var complexContentChildOrder = derivationContainerOrder(complexContent)
 var simpleContentChildOrder = derivationContainerOrder(simpleContent)
@@ -178,14 +181,7 @@ var simpleContentRestrictionChildOrder = simpleContentDerivationOrder(restrictio
 var simpleContentExtensionChildOrder = simpleContentDerivationOrder(extensionChild)
 var complexContentRestrictionChildOrder = complexContentDerivationOrder(restrictionChild)
 var complexContentExtensionChildOrder = complexContentDerivationOrder(extensionChild)
-var anyParticleChildOrder = annotationOnlyChildOrder(anyChild)
-var anyAttributeChildOrder = annotationOnlyChildOrder(anyAttribute)
-var elementRefChildOrder = annotationOnlyChildOrder("element ref")
-var attributeRefChildOrder = annotationOnlyChildOrder("attribute ref")
-var attributeGroupUseChildOrder = annotationOnlyChildOrder("attributeGroup use")
-var groupUseChildOrder = annotationOnlyChildOrder("group use")
-var attributeGroupDeclarationChildOrder = childOrder{
-	AnnotationFirstMsg: "attributeGroup annotation must be first",
+var attributeGroupDeclarationChildOrder = checkedChildOrder(childOrder{
 	Rules: []childRule{
 		{
 			Match:    matchChildLocal(attributeChild, attributeGroup),
@@ -199,147 +195,248 @@ var attributeGroupDeclarationChildOrder = childOrder{
 			DupMsg: "attributeGroup can contain at most one anyAttribute",
 		},
 	},
-	InvalidMsg: func(local string) string { return "invalid attribute use child " + local },
-}
-var attributeDeclarationChildOrder = childOrder{
-	AnnotationFirstMsg: "attribute annotation must precede simpleType",
+	Label: attributeUseLabel,
+})
+var attributeDeclarationChildOrder = checkedChildOrder(childOrder{
 	Rules: []childRule{
 		{
-			Match:  matchChildLocal(simpleTypeChild),
-			MaxOne: true,
-			DupMsg: "attribute can contain at most one simpleType",
+			Match:        matchChildLocal(simpleTypeChild),
+			MaxOne:       true,
+			DupMsg:       "attribute can contain at most one simpleType",
+			Supplied:     attributeTypeSupplied,
+			ConflictMsg:  "attribute cannot have both type and simpleType",
+			ConflictCode: xsderrors.CodeSchemaInvalidAttribute,
 		},
 	},
-	InvalidMsg: func(local string) string { return "invalid attribute child " + local },
-}
-var elementDeclarationChildOrder = childOrder{
-	AnnotationFirstMsg: "element annotation must be first",
+	Label: "attribute",
+})
+var elementDeclarationChildOrder = checkedChildOrder(childOrder{
 	Rules: []childRule{
 		{
-			Match:    matchChildLocal(simpleTypeChild, complexTypeChild),
-			Level:    0,
-			MaxOne:   true,
-			OrderMsg: "element anonymous type must precede identity constraints",
-			DupMsg:   "element can contain at most one anonymous type",
+			Match:        matchChildLocal(simpleTypeChild, complexTypeChild),
+			Level:        0,
+			MaxOne:       true,
+			OrderMsg:     "element anonymous type must precede identity constraints",
+			DupMsg:       "element can contain at most one anonymous type",
+			Supplied:     elementTypeSupplied,
+			ConflictMsg:  "element cannot have both type and anonymous type",
+			ConflictCode: xsderrors.CodeSchemaInvalidAttribute,
 		},
 		{
 			Match: matchChildLocal(uniqueChild, keyChild, keyrefChild),
 			Level: 1,
 		},
 	},
-	InvalidMsg: func(local string) string { return "invalid element child " + local },
-}
+	Label: "element",
+})
 
-// contentDerivationBase owns the lexical and presence state of a required base
-// attribute together with the grammar context used in its diagnostic.
-type contentDerivationBase struct {
-	Container  string
-	Derivation string
-	Lexical    string
-	Present    bool
-}
-
-// validateContentDerivationBase validates that a content derivation has its
-// required base attribute.
-func validateContentDerivationBase(base contentDerivationBase) error {
-	if base.Present {
-		return nil
-	}
-	return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, base.Container+" "+base.Derivation+" missing base")
-}
-
+// nestedModelGroupChildOrder is the content of xs:sequence and xs:choice,
+// whose particles are nestedParticle in the schema for schemas: no xs:all.
+// allModelGroupChildOrder is the content of xs:all, whose particles are
+// element declarations only. A model group reference that resolves to xs:all
+// is checked when the content model compiles.
 var (
-	modelGroupChildRules = []childRule{
-		{
-			Match: matchChildLocal(elementChild, sequenceChild, choiceChild, allChild, groupChild, anyChild),
+	nestedModelGroupChildOrder = checkedChildOrder(childOrder{
+		Rules: []childRule{
+			{Match: matchChildLocal(elementChild, sequenceChild, choiceChild, groupChild, anyChild)},
+			{Match: matchChildLocal(allChild), ForbiddenMsg: "xs:all cannot be nested in model groups"},
 		},
-	}
-	sequenceModelGroupChildOrder = childOrder{
-		AnnotationFirstMsg: sequenceChild + annotationMustBeFirstSuffix,
-		Rules:              modelGroupChildRules,
-		InvalidMsg:         invalidModelGroupChild,
-	}
-	choiceModelGroupChildOrder = childOrder{
-		AnnotationFirstMsg: choiceChild + annotationMustBeFirstSuffix,
-		Rules:              modelGroupChildRules,
-		InvalidMsg:         invalidModelGroupChild,
-	}
-	allModelGroupChildOrder = childOrder{
-		AnnotationFirstMsg: allChild + annotationMustBeFirstSuffix,
-		Rules:              modelGroupChildRules,
-		InvalidMsg:         invalidModelGroupChild,
-	}
+		Label: schemaComponentModelGroupLabel,
+	})
+	allModelGroupChildOrder = checkedChildOrder(childOrder{
+		Rules: []childRule{
+			{Match: matchChildLocal(elementChild)},
+			{Match: matchChildLocal(sequenceChild, choiceChild, allChild, groupChild, anyChild), ForbiddenMsg: "xs:all can contain only element particles"},
+		},
+		Label: schemaComponentModelGroupLabel,
+	})
 )
 
-func modelGroupChildOrder(parent string) childOrder {
-	switch parent {
-	case sequenceChild:
-		return sequenceModelGroupChildOrder
-	case choiceChild:
-		return choiceModelGroupChildOrder
-	case allChild:
-		return allModelGroupChildOrder
-	default:
-		return childOrder{
-			AnnotationFirstMsg: parent + annotationMustBeFirstSuffix,
-			Rules:              modelGroupChildRules,
-			InvalidMsg:         invalidModelGroupChild,
+var topLevelGroupChildOrder = checkedChildOrder(childOrder{
+	Rules: []childRule{
+		{
+			Match:       matchChildLocal(sequenceChild, choiceChild, allChild),
+			MaxOne:      true,
+			DupMsg:      topLevelGroupModelGroupCount,
+			MissingMsg:  topLevelGroupModelGroupCount,
+			MissingCode: xsderrors.CodeSchemaContentModel,
+		},
+		{
+			Match:        matchChildLocal(groupChild),
+			ForbiddenMsg: "top-level group cannot contain group ref",
+		},
+	},
+	Label: "top-level group",
+})
+
+var identityConstraintChildOrder = checkedChildOrder(childOrder{
+	Rules: []childRule{
+		{
+			Match:       matchChildLocal(selectorChild),
+			Level:       0,
+			MaxOne:      true,
+			OrderMsg:    identityConstraintOneSelector,
+			DupMsg:      identityConstraintOneSelector,
+			MissingMsg:  "identity constraint missing selector",
+			MissingCode: xsderrors.CodeSchemaIdentity,
+		},
+		{
+			Match:        matchChildLocal(fieldChild),
+			Level:        1,
+			PrecedingMsg: "identity constraint field requires selector",
+			MissingMsg:   "identity constraint missing fields",
+			MissingCode:  xsderrors.CodeSchemaIdentity,
+		},
+	},
+	Label: "identity constraint",
+})
+
+// schemaChildOrder is the content of xs:schema, whose xs:annotation children
+// may appear anywhere.
+var schemaChildOrder = checkedChildOrder(childOrder{
+	Rules: []childRule{
+		{
+			Match:    matchChildLocal(includeChild),
+			Level:    0,
+			OrderMsg: `xs:"include" must precede global declarations`,
+		},
+		{
+			Match:    matchChildLocal(importChild),
+			Level:    0,
+			OrderMsg: `xs:"import" must precede global declarations`,
+		},
+		{
+			Match: matchChildLocal(simpleTypeChild, complexTypeChild, groupChild, attributeGroup, elementChild, attributeChild, notationChild),
+			Level: 1,
+		},
+		{
+			Match:        matchChildLocal(uniqueChild, keyChild, keyrefChild, selectorChild, fieldChild),
+			ForbiddenMsg: "identity constraint must be inside element",
+		},
+	},
+	Label: "top-level schema",
+})
+
+// childOrderFor returns the content model of the XSD element named local,
+// other than xs:schema, whose parent is named parent, or nil when the element
+// admits only xs:annotation or is never admitted as a parent; childContentFor
+// selects the content model of xs:schema. An element whose parent's
+// content model does not admit it never starts, so parent here is one that
+// admits local.
+func childOrderFor(local string, parent xml.Name) *childOrder {
+	switch local {
+	case simpleTypeChild:
+		return &simpleTypeChildOrder
+	case restrictionChild:
+		switch parent.Local {
+		case simpleContent:
+			return &simpleContentRestrictionChildOrder
+		case complexContent:
+			return &complexContentRestrictionChildOrder
 		}
+		return &simpleRestrictionChildOrder
+	case extensionChild:
+		if parent.Local == simpleContent {
+			return &simpleContentExtensionChildOrder
+		}
+		return &complexContentExtensionChildOrder
+	case listChild:
+		return &simpleListChildOrder
+	case unionChild:
+		return &simpleUnionChildOrder
+	case complexTypeChild:
+		return &complexTypeChildOrder
+	case simpleContent:
+		return &simpleContentChildOrder
+	case complexContent:
+		return &complexContentChildOrder
+	case sequenceChild, choiceChild:
+		return &nestedModelGroupChildOrder
+	case allChild:
+		return &allModelGroupChildOrder
+	case groupChild:
+		return &topLevelGroupChildOrder
+	case attributeGroup:
+		return &attributeGroupDeclarationChildOrder
+	case attributeChild:
+		return &attributeDeclarationChildOrder
+	case elementChild:
+		return &elementDeclarationChildOrder
+	case uniqueChild, keyChild, keyrefChild:
+		return &identityConstraintChildOrder
 	}
+	return nil
 }
 
-func invalidModelGroupChild(local string) string { return "invalid model group child " + local }
-
+// childOrderState is the progress of one parent through its childOrder. Its
+// zero value has seen no child.
 type childOrderState struct {
-	seen              uint64
-	annotationSeen    bool
-	nonAnnotationSeen bool
-	terminalSeen      bool
-	maxLevelSeen      int
+	seen         uint64
+	levelSeen    int
+	terminalSeen bool
 }
 
-func (s *childOrderState) accept(index int, child string, order childOrder) error {
+// accept admits n, the next XSD-namespace child of parent, into order, or
+// returns why order forbids it there. The diagnostic is built only on
+// rejection. Annotation placement is childContentViolation's.
+func (s *childOrderState) accept(n *schemaSyntaxNode, order *childOrder, parent *schemaNode) error {
+	child := n.Name.Local
 	if s.terminalSeen {
-		return newChildOrderError(index, order.InvalidMsg(diagnostictext.Quote(child)))
+		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "invalid "+order.Label+" child "+diagnostictext.Quote(child))
 	}
 	if child == annotationChild {
-		return s.acceptAnnotation(index, order)
+		return nil
 	}
-	return s.acceptRule(index, child, order)
-}
-
-func (s *childOrderState) acceptAnnotation(index int, order childOrder) error {
-	if s.nonAnnotationSeen || order.SingleAnnotation && s.annotationSeen {
-		return newChildOrderError(index, order.AnnotationFirstMsg)
-	}
-	s.annotationSeen = true
-	return nil
-}
-
-func (s *childOrderState) acceptRule(index int, child string, order childOrder) error {
 	ruleIndex := childRuleIndex(child, order.Rules)
 	if ruleIndex < 0 {
-		return newChildOrderError(index, order.InvalidMsg(diagnostictext.Quote(child)))
+		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "invalid "+order.Label+" child "+diagnostictext.Quote(child))
 	}
-	rule := order.Rules[ruleIndex]
-	if rule.ForbiddenMsg != "" {
-		return newChildOrderError(index, rule.ForbiddenMsg)
+	rule := &order.Rules[ruleIndex]
+	switch {
+	case rule.ForbiddenMsg != "":
+		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, rule.ForbiddenMsg)
+	case s.levelSeen > rule.Level:
+		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, rule.OrderMsg)
+	case rule.PrecedingMsg != "" && !s.seenBelow(rule.Level, order.Rules):
+		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, rule.PrecedingMsg)
 	}
-	s.nonAnnotationSeen = true
-	if s.maxLevelSeen > rule.Level {
-		return newChildOrderError(index, rule.OrderMsg)
-	}
-	bit, err := childRuleSeenBit(ruleIndex)
-	if err != nil {
-		return err
-	}
+	bit := uint64(1) << ruleIndex
 	if s.seen&bit != 0 && rule.MaxOne {
-		return newChildOrderError(index, rule.DupMsg)
+		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, rule.DupMsg)
+	}
+	if rule.ConflictMsg != "" && rule.Supplied(parent) {
+		return schemaCompileAt(n, rule.ConflictCode, rule.ConflictMsg)
 	}
 	s.seen |= bit
-	s.maxLevelSeen = max(s.maxLevelSeen, rule.Level)
+	s.levelSeen = max(s.levelSeen, rule.Level)
 	s.terminalSeen = rule.Terminal
 	return nil
+}
+
+// missingChild returns the first rule of order, in rule order, that requires
+// a child parent ended without, or nil when parent has every child order
+// requires.
+func (s *childOrderState) missingChild(order *childOrder, parent *schemaNode) *childRule {
+	for i := range order.Rules {
+		rule := &order.Rules[i]
+		if rule.MissingMsg == "" || s.seen&(uint64(1)<<i) != 0 {
+			continue
+		}
+		if rule.Supplied != nil && rule.Supplied(parent) {
+			continue
+		}
+		return rule
+	}
+	return nil
+}
+
+func (s *childOrderState) seenBelow(level int, rules []childRule) bool {
+	for i := range rules {
+		if rules[i].Level < level && s.seen&(uint64(1)<<i) != 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func childRuleIndex(child string, rules []childRule) int {
@@ -351,31 +448,30 @@ func childRuleIndex(child string, rules []childRule) int {
 	return -1
 }
 
-func childRuleSeenBit(idx int) (uint64, error) {
-	if idx < 0 || idx >= 64 {
-		return 0, xsderrors.InternalInvariant(fmt.Sprintf("child order rule index %d exceeds bitset capacity", idx))
-	}
-	return uint64(1) << idx, nil
-}
-
-func newChildOrderError(index int, msg string) error {
-	return &childOrderError{Index: index, Message: msg}
-}
-
 func simpleDerivationOrder(kind simpleDerivationKind) childOrder {
 	var derivation string
 	var singleChild bool
 	var allowFacets bool
+	var supplied func(*schemaNode) bool
+	var missing, conflict string
 	switch kind {
 	case simpleDerivationRestriction:
 		derivation = restrictionChild
 		singleChild = true
 		allowFacets = true
+		supplied = restrictionBaseSupplied
+		missing = "simple restriction missing base"
+		conflict = "restriction cannot have both base and simpleType"
 	case simpleDerivationList:
 		derivation = listChild
 		singleChild = true
+		supplied = listItemTypeSupplied
+		missing = "list missing item type"
+		conflict = "list cannot have both itemType and simpleType"
 	case simpleDerivationUnion:
 		derivation = unionChild
+		supplied = unionMemberTypesSupplied
+		missing = "union missing member types"
 	case simpleDerivationInvalid:
 		panic("invalid simple derivation kind")
 	default:
@@ -383,39 +479,75 @@ func simpleDerivationOrder(kind simpleDerivationKind) childOrder {
 	}
 	rules := []childRule{
 		{
-			Match:    matchChildLocal(simpleTypeChild),
-			Level:    0,
-			MaxOne:   singleChild,
-			OrderMsg: derivation + " simpleType must precede facets",
-			DupMsg:   derivation + " can contain one simpleType",
+			Match:        matchChildLocal(simpleTypeChild),
+			Level:        0,
+			MaxOne:       singleChild,
+			OrderMsg:     derivation + " simpleType must precede facets",
+			DupMsg:       derivation + " can contain one simpleType",
+			Supplied:     supplied,
+			MissingMsg:   missing,
+			MissingCode:  xsderrors.CodeSchemaReference,
+			ConflictMsg:  conflict,
+			ConflictCode: xsderrors.CodeSchemaContentModel,
 		},
 	}
 	if allowFacets {
 		rules = append(rules, childRule{
-			Match: isFacetChild,
+			Match: isFacetLocal,
 			Level: 1,
 		})
 	}
-	return childOrder{
-		AnnotationFirstMsg: derivation + annotationMustBeFirstSuffix,
-		SingleAnnotation:   true,
-		Rules:              rules,
-		InvalidMsg:         func(local string) string { return "invalid " + derivation + " child " + local },
-	}
+	return checkedChildOrder(childOrder{
+		Rules: rules,
+		Label: derivation,
+	})
+}
+
+// elementTypeSupplied reports whether n, an element declaration, names its
+// type in type (src-element.3).
+func elementTypeSupplied(n *schemaNode) bool {
+	return semanticSource[*schemaElementSource](&n.semantic).Type.Lexical.Present
+}
+
+// attributeTypeSupplied reports whether n, an attribute declaration, names
+// its type in type (src-attribute.4).
+func attributeTypeSupplied(n *schemaNode) bool {
+	return semanticSource[*schemaAttributeSource](&n.semantic).Type.Lexical.Present
+}
+
+// restrictionBaseSupplied reports whether n, a simple xs:restriction, names
+// its base type in base (src-simple-type.2).
+func restrictionBaseSupplied(n *schemaNode) bool {
+	base, _ := n.semantic.derivationBase()
+	return base.Lexical.Present
+}
+
+// listItemTypeSupplied reports whether n, an xs:list, names its item type in
+// itemType (src-simple-type.3).
+func listItemTypeSupplied(n *schemaNode) bool {
+	return n.semantic.derivationItemType().Lexical.Present
+}
+
+// unionMemberTypesSupplied reports whether n, an xs:union, names at least one
+// member type in memberTypes (src-simple-type.4).
+func unionMemberTypesSupplied(n *schemaNode) bool {
+	members, _ := n.semantic.derivationMemberTypes()
+	return len(members.Names) != 0
 }
 
 func derivationContainerOrder(label string) childOrder {
-	return childOrder{
-		AnnotationFirstMsg: label + annotationMustBeFirstSuffix,
+	return checkedChildOrder(childOrder{
 		Rules: []childRule{
 			{
-				Match:  matchChildLocal(extensionChild, restrictionChild),
-				MaxOne: true,
-				DupMsg: label + " can contain one derivation",
+				Match:       matchChildLocal(extensionChild, restrictionChild),
+				MaxOne:      true,
+				DupMsg:      label + " can contain one derivation",
+				MissingMsg:  label + " missing extension or restriction",
+				MissingCode: xsderrors.CodeSchemaContentModel,
 			},
 		},
-		InvalidMsg: func(local string) string { return "invalid " + label + " child " + local },
-	}
+		Label: label,
+	})
 }
 
 func simpleContentDerivationOrder(derivation string) childOrder {
@@ -441,25 +573,21 @@ func simpleContentDerivationOrder(derivation string) childOrder {
 	}
 	if derivation == restrictionChild {
 		rules = append(rules, childRule{
-			Match:    isFacetChild,
+			Match:    isFacetLocal,
 			Level:    1,
 			OrderMsg: simpleContentFacetOutOfOrder,
 		})
 	} else {
 		rules[0].ForbiddenMsg = simpleContentExtensionCannotContainSimpleType
 	}
-	return childOrder{
-		AnnotationFirstMsg: derivation + annotationMustBeFirstSuffix,
-		Rules:              rules,
-		InvalidMsg: func(local string) string {
-			return "invalid simpleContent " + derivation + " child " + local
-		},
-	}
+	return checkedChildOrder(childOrder{
+		Rules: rules,
+		Label: "simpleContent " + derivation,
+	})
 }
 
 func complexContentDerivationOrder(derivation string) childOrder {
-	return childOrder{
-		AnnotationFirstMsg: derivation + annotationMustBeFirstSuffix,
+	return checkedChildOrder(childOrder{
 		Rules: []childRule{
 			{
 				Match:    matchChildLocal(sequenceChild, choiceChild, allChild, groupChild),
@@ -480,27 +608,8 @@ func complexContentDerivationOrder(derivation string) childOrder {
 				DupMsg: derivation + oneAnyAttributeSuffix,
 			},
 		},
-		InvalidMsg: func(local string) string { return "invalid complexContent child " + local },
-	}
-}
-
-func annotationOnlyChildOrder(label string) childOrder {
-	return childOrder{
-		AnnotationFirstMsg: label + " can contain at most one annotation",
-		SingleAnnotation:   true,
-		InvalidMsg:         func(string) string { return label + " can contain only annotation" },
-	}
-}
-
-func isFacetChild(local string) bool {
-	switch local {
-	case vocab.XSDFacetLength, vocab.XSDFacetMinLength, vocab.XSDFacetMaxLength, vocab.XSDFacetTotalDigits, vocab.XSDFacetFractionDigits,
-		vocab.XSDFacetMinInclusive, vocab.XSDFacetMaxInclusive, vocab.XSDFacetMinExclusive, vocab.XSDFacetMaxExclusive,
-		vocab.XSDFacetEnumeration, vocab.XSDFacetPattern, vocab.XSDFacetWhiteSpace:
-		return true
-	default:
-		return false
-	}
+		Label: complexContent,
+	})
 }
 
 func matchChildLocal(locals ...string) func(string) bool {

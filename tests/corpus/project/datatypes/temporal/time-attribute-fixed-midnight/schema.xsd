@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:element name="r"><xs:complexType><xs:attribute name="t" type="xs:time" fixed="00:00:00"/></xs:complexType></xs:element>
+</xs:schema>

@@ -191,11 +191,17 @@ func (e *valueDiagnosticError) Is(target error) bool {
 // retained literals and pure equality, and pattern failures describe every
 // group rather than rematching to guess which one failed.
 func describeValueFailure[T byteText](program *Program, id TypeID, lexical T, parsed *parsedValue, cause error) error {
-	if errors.Is(cause, ErrLimit) || errors.Is(cause, ErrMetadata) || isUnsupported(cause) {
-		return cause
-	}
 	t, ok := program.typeDef(id)
 	if !ok {
+		return cause
+	}
+	return describeTypeValueFailure(program, id, t, lexical, parsed, cause)
+}
+
+// describeTypeValueFailure describes a failure of lexical as a value of id
+// whose facets were those of t.
+func describeTypeValueFailure[T byteText](program *Program, id TypeID, t *typeDef, lexical T, parsed *parsedValue, cause error) error {
+	if errors.Is(cause, ErrLimit) || errors.Is(cause, ErrMetadata) || isUnsupported(cause) {
 		return cause
 	}
 	var message string
@@ -471,7 +477,7 @@ func diagnosticFacetRules(builtin BuiltinKind, f *facetProgram) []string {
 	for _, side := range []struct {
 		prefix string
 		bounds []boundValue
-	}{{"min", f.lower}, {"max", f.upper}} {
+	}{{minBoundPrefix, f.lower}, {maxBoundPrefix, f.upper}} {
 		var truncated bool
 		rules, truncated = appendDiagnosticBounds(rules, builtin, side.prefix, side.bounds)
 		if truncated {
@@ -480,6 +486,13 @@ func diagnosticFacetRules(builtin BuiltinKind, f *facetProgram) []string {
 	}
 	return rules
 }
+
+// minBoundPrefix and maxBoundPrefix begin the names of the lower and upper
+// bound facets.
+const (
+	minBoundPrefix = "min"
+	maxBoundPrefix = "max"
+)
 
 func diagnosticBoundName(prefix string, bound *boundValue) string {
 	if bound.exclusive {
@@ -532,13 +545,15 @@ func appendDiagnosticEnumerationGroup(text *strings.Builder, group []parsedValue
 	return remaining
 }
 
+// failedLowerBoundDiagnostic and failedOrderedBoundDiagnostic name the failed
+// bound declared nearest the type. Inherited bounds are retained oldest first,
+// so they are searched from the end.
 func failedLowerBoundDiagnostic[T byteText](t *typeDef, lexical T, parsed *parsedValue) string {
-	for i := range t.facets.lower {
+	for i := len(t.facets.lower) - 1; i >= 0; i-- {
 		bound := &t.facets.lower[i]
 		relation, ok := compareAtomic(&parsed.atom, &bound.value)
 		if !ok || !orderedFacetLowerBoundAccepts(bound.exclusive, relation) {
-			name := diagnosticBoundName("min", bound)
-			return boundDiagnostic(t, lexical, name, bound)
+			return boundDiagnostic(t, lexical, diagnosticBoundName(minBoundPrefix, bound), bound)
 		}
 	}
 	return ""
@@ -548,12 +563,11 @@ func failedOrderedBoundDiagnostic[T byteText](t *typeDef, lexical T, parsed *par
 	if message := failedLowerBoundDiagnostic(t, lexical, parsed); message != "" {
 		return message
 	}
-	for i := range t.facets.upper {
+	for i := len(t.facets.upper) - 1; i >= 0; i-- {
 		bound := &t.facets.upper[i]
 		relation, ok := compareAtomic(&parsed.atom, &bound.value)
 		if !ok || !orderedFacetUpperBoundAccepts(bound.exclusive, relation) {
-			name := diagnosticBoundName("max", bound)
-			return boundDiagnostic(t, lexical, name, bound)
+			return boundDiagnostic(t, lexical, diagnosticBoundName(maxBoundPrefix, bound), bound)
 		}
 	}
 	return ""

@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:notation name="N" public="p"><xs:element name="z"/></xs:notation>
+<xs:element name="r"/>
+</xs:schema>

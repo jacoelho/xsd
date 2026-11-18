@@ -66,11 +66,7 @@ func (c *compiler) declareIdentityConstraint(ctx *schemaSetDocument, node *schem
 	if source == nil {
 		return NoIdentityConstraint, withSchemaCompileLocation(node, xsderrors.InternalInvariant("identity node has no typed identity source"))
 	}
-	name := source.Name
-	if err := validateIdentityConstraintNameSource(name); err != nil {
-		return NoIdentityConstraint, withSchemaCompileLocation(node, err)
-	}
-	q, err := c.rt.internQName(ctx.effectiveTargetNS, name.Value)
+	q, err := c.rt.internQName(ctx.effectiveTargetNS, source.Name.Value)
 	if err != nil {
 		return NoIdentityConstraint, err
 	}
@@ -101,9 +97,14 @@ func (c *compiler) validateIdentityReferences() error {
 	return c.validateIdentityReferencesBuild()
 }
 
+// compileIdentityConstraint parses the selector and field XPaths of n. Their
+// presence and emptiness are checked on each start tag, but their syntax and
+// prefixes only here: name tests intern into the compiler's name table, so a
+// start-tag parse would be a second parse that allocates on every successful
+// compile.
 func (c *compiler) compileIdentityConstraint(ctx *schemaSetDocument, n *schemaNode, name QName) (identityConstraintSpec, error) {
 	empty := identityConstraintSpec{Refer: NoIdentityConstraint}
-	syntax, err := checkIdentityConstraintChildren(n)
+	syntax, err := identityConstraintChildren(n)
 	if err != nil {
 		return empty, err
 	}
@@ -139,10 +140,6 @@ func (c *compiler) compileIdentityRefer(ctx *schemaSetDocument, n *schemaNode) (
 	typed := semanticSource[*schemaIdentitySource](&n.semantic)
 	if typed == nil {
 		return NoIdentityConstraint, withSchemaCompileLocation(n, xsderrors.InternalInvariant("identity node has no typed identity source"))
-	}
-	source := identityConstraintReferSource{Local: n.local, Refer: typed.Refer.Lexical}
-	if err := validateIdentityConstraintReferSource(source); err != nil {
-		return NoIdentityConstraint, withSchemaCompileLocation(n, err)
 	}
 	q, err := c.referenceQName(ctx, n, typed.Refer.Name)
 	if err != nil {

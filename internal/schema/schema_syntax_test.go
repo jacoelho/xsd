@@ -79,7 +79,7 @@ func TestCheckTopLevelSchemaChild(t *testing.T) {
 		{name: "annotation", body: `  <xs:annotation/>`},
 		{name: "include", body: `  <xs:include schemaLocation="other.xsd"/>`},
 		{name: "notation", body: `  <xs:notation name="N" public=""/>`},
-		{name: "simple type named", body: `  <xs:simpleType name="T"/>`},
+		{name: "simple type named", body: `  <xs:simpleType name="T"><xs:restriction base="xs:string"/></xs:simpleType>`},
 		{name: "complex type named", body: `  <xs:complexType name="T"/>`},
 		{name: "attributeGroup named", body: `  <xs:attributeGroup name="Attrs"/>`},
 		{name: "unknown child", body: `  <xs:selector xpath="."/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaContentModel, wantMsg: "identity constraint must be inside element", wantLine: 2, wantCol: 3},
@@ -89,14 +89,19 @@ func TestCheckTopLevelSchemaChild(t *testing.T) {
 		{name: "group minOccurs", body: `  <xs:group name="Group" minOccurs=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "top-level \"group\" cannot have \"minOccurs\"", wantLine: 2, wantCol: 3},
 		{name: "attribute form", body: `  <xs:attribute name="Attr" form=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "top-level \"attribute\" cannot have \"form\"", wantLine: 2, wantCol: 3},
 		{name: "element ref", body: `  <xs:element name="Root" ref="Other"/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "top-level \"element\" cannot have \"ref\"", wantLine: 2, wantCol: 3},
-		{name: "group ref wins reverse order and missing name", body: `  <xs:group maxOccurs="" minOccurs="" ref=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "top-level \"group\" cannot have \"ref\"", wantLine: 2, wantCol: 3},
-		{name: "group min wins reverse order and missing name", body: `  <xs:group maxOccurs="" minOccurs=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "top-level \"group\" cannot have \"minOccurs\"", wantLine: 2, wantCol: 3},
-		{name: "attribute ref wins reverse order and missing name", body: `  <xs:attribute use="" form="" ref=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "top-level \"attribute\" cannot have \"ref\"", wantLine: 2, wantCol: 3},
-		{name: "attribute form wins reverse order and missing name", body: `  <xs:attribute use="" form=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "top-level \"attribute\" cannot have \"form\"", wantLine: 2, wantCol: 3},
-		{name: "element ref wins reverse order and missing name", body: `  <xs:element maxOccurs="" minOccurs="" form="" ref=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "top-level \"element\" cannot have \"ref\"", wantLine: 2, wantCol: 3},
-		{name: "element form wins reverse order and missing name", body: `  <xs:element maxOccurs="" minOccurs="" form=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "top-level \"element\" cannot have \"form\"", wantLine: 2, wantCol: 3},
-		{name: "empty name wins before forbidden attr", body: `  <xs:element ref="" name=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "schema component name must be NCName", wantLine: 2, wantCol: 3},
-		{name: "whitespace name wins before forbidden attr", body: `  <xs:group minOccurs="" name=" "/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "schema component name must be NCName", wantLine: 2, wantCol: 3},
+		{name: "group: first forbidden attribute in document order wins over missing name", body: `  <xs:group maxOccurs="" minOccurs="" ref=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "top-level \"group\" cannot have \"maxOccurs\"", wantLine: 2, wantCol: 3},
+		{name: "attribute: first forbidden attribute in document order wins over missing name", body: `  <xs:attribute use="" form="" ref=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "top-level \"attribute\" cannot have \"use\"", wantLine: 2, wantCol: 3},
+		{name: "element: first forbidden attribute in document order wins over missing name", body: `  <xs:element maxOccurs="" minOccurs="" form="" ref=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "top-level \"element\" cannot have \"maxOccurs\"", wantLine: 2, wantCol: 3},
+		{name: "forbidden attr wins before later empty name", body: `  <xs:element ref="" name=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "top-level \"element\" cannot have \"ref\"", wantLine: 2, wantCol: 3},
+		{name: "forbidden attr wins before later whitespace name", body: `  <xs:group minOccurs="" name=" "/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "top-level \"group\" cannot have \"minOccurs\"", wantLine: 2, wantCol: 3},
+		{name: "empty name wins before later forbidden attr", body: `  <xs:element name="" ref=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "schema component name must be NCName", wantLine: 2, wantCol: 3},
+		{name: "unknown attr wins before later invalid name", body: `  <xs:element foo="x" name="1"/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "\"element\" cannot have attribute \"foo\"", wantLine: 2, wantCol: 3},
+		{name: "invalid xml:base wins before later unknown attr", body: `  <xs:element xml:base="%zz" foo="x" name="e"/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaReference, wantMsg: "invalid xml:base: invalid anyURI", wantLine: 2, wantCol: 3},
+		{name: "unknown attr wins before later schema namespace attr", body: `  <xs:element foo="x" xs:bar="" name="e"/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "\"element\" cannot have attribute \"foo\"", wantLine: 2, wantCol: 3},
+		{name: "reference attr wins before invalid name syntax", body: "  <xs:element name=\"x\"/>\n  <xs:complexType name=\"C\"><xs:sequence>\n    <xs:element ref=\"x\" name=\"a:b\"/>\n  </xs:sequence></xs:complexType>", wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "element ref cannot have attribute \"name\"", wantLine: 4, wantCol: 5},
+		{name: "local definition name wins before its syntax", body: "  <xs:element name=\"x\">\n    <xs:complexType name=\"1\"/>\n  </xs:element>", wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "local complexType cannot have name", wantLine: 3, wantCol: 5},
+		{name: "earlier parent text wins before child attr", body: "  <xs:complexType name=\"C\"><xs:sequence>text\n    <xs:element name=\"a\" foo=\"1\"/>\n  </xs:sequence></xs:complexType>", wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaContentModel, wantMsg: "xs:\"sequence\" cannot contain text", wantLine: 2, wantCol: 28},
+		{name: "earlier parent text wins before foreign child", body: "  <xs:complexType name=\"C\"><xs:sequence>text\n    <f:other/>\n  </xs:sequence></xs:complexType>", wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaContentModel, wantMsg: "xs:\"sequence\" cannot contain text", wantLine: 2, wantCol: 28},
 		{name: "foreign attributes do not create forbidden presence", body: `  <xs:element name="Root" f:ref="" f:form="" f:minOccurs="" f:maxOccurs=""/>`},
 		{name: "start general attr wins before end text", body: `  <xs:element name="Root" foo="">text</xs:element>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "\"element\" cannot have attribute \"foo\"", wantLine: 2, wantCol: 3},
 	} {
@@ -123,14 +128,16 @@ func TestCheckUnsupportedSchemaNode(t *testing.T) {
 		{name: "top-level notation", body: `  <xs:notation name="N" public=""/>`},
 		{name: "nested notation", body: `  <xs:element name="Root">
     <xs:notation name="N" public=""/>
-  </xs:element>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaContentModel, wantMsg: "xs:notation must be a top-level schema child", wantLine: 3, wantCol: 5},
-		{name: "xsd 1.1 element", body: `  <xs:assert/>`, wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedXSD11, wantMsg: "XSD 1.1 feature assert is not supported", wantLine: 2, wantCol: 3},
-		{name: "xsd 1.1 wildcard attribute", body: `  <xs:anyAttribute notNamespace=""/>`, wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedXSD11, wantMsg: "XSD 1.1 wildcard attribute notNamespace is not supported", wantLine: 2, wantCol: 3},
-		{name: "schema namespace wildcard attribute reports invalid attribute first", body: `  <xs:any xs:notQName=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "schema namespace attribute \"notQName\" is not allowed", wantLine: 2, wantCol: 3},
+  </xs:element>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaContentModel, wantMsg: "invalid element child \"notation\"", wantLine: 3, wantCol: 5},
+		{name: "redefine wins before namespace attrs and names", body: `  <xs:redefine xs:foo="" id=""/>`, wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedRedefine, wantMsg: "xs:redefine is not supported", wantLine: 2, wantCol: 3},
+		{name: "redefine wins before invalid name", body: `  <xs:redefine name=""/>`, wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedRedefine, wantMsg: "xs:redefine is not supported", wantLine: 2, wantCol: 3},
+		{name: "redefine after declaration", body: "  <xs:element name=\"e\"/>\n  <xs:redefine schemaLocation=\"other.xsd\"/>", wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedRedefine, wantMsg: "xs:redefine is not supported", wantLine: 3, wantCol: 3},
+		{name: "redefine in annotation", body: "  <xs:annotation>\n    <xs:redefine schemaLocation=\"other.xsd\"/>\n  </xs:annotation>", wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedRedefine, wantMsg: "xs:redefine is not supported", wantLine: 3, wantCol: 5},
+		{name: "redefine in notation", body: "  <xs:notation name=\"N\" public=\"p\">\n    <xs:redefine/>\n  </xs:notation>", wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedRedefine, wantMsg: "xs:redefine is not supported", wantLine: 3, wantCol: 5},
+		{name: "redefine in facet", body: "  <xs:simpleType name=\"S\"><xs:restriction base=\"xs:string\"><xs:length value=\"1\">\n    <xs:redefine/>\n  </xs:length></xs:restriction></xs:simpleType>", wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedRedefine, wantMsg: "xs:redefine is not supported", wantLine: 3, wantCol: 5},
+		{name: "redefine in model group", body: "  <xs:complexType name=\"C\"><xs:sequence>\n    <xs:redefine/>\n  </xs:sequence></xs:complexType>", wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedRedefine, wantMsg: "xs:redefine is not supported", wantLine: 3, wantCol: 5},
+		{name: "redefine wins over earlier text", body: "  <xs:complexType name=\"C\"><xs:sequence>text\n    <xs:redefine/>\n  </xs:sequence></xs:complexType>", wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedRedefine, wantMsg: "xs:redefine is not supported", wantLine: 3, wantCol: 5},
 		{name: "foreign rejection wins before namespace attrs and names", body: `  <f:other xs:foo="" id=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaContentModel, wantMsg: "foreign element \"other\" is not allowed in schema grammar", wantLine: 2, wantCol: 3},
-		{name: "namespace attr wins before names and unsupported", body: `  <xs:assert xs:foo="" id=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "schema namespace attribute \"foo\" is not allowed", wantLine: 2, wantCol: 3},
-		{name: "invalid name wins before unsupported", body: `  <xs:assert name=""/>`, wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaInvalidAttribute, wantMsg: "schema component name must be NCName", wantLine: 2, wantCol: 3},
-		{name: "unsupported wins before general attrs and text", body: `  <xs:assert foo="">text</xs:assert>`, wantCat: xsderrors.CategoryUnsupported, wantCode: xsderrors.CodeUnsupportedXSD11, wantMsg: "XSD 1.1 feature assert is not supported", wantLine: 2, wantCol: 3},
 	} {
 		t.Run(fixture.name, func(t *testing.T) {
 			t.Parallel()
@@ -146,38 +153,32 @@ func TestCheckUnsupportedSchemaNode(t *testing.T) {
 	}
 }
 
-func TestValidateSchemaIDs(t *testing.T) {
+func TestSchemaIDsAreUniqueInTheDocument(t *testing.T) {
 	t.Parallel()
-	doc := &schemaDocument{name: "ids.xsd"}
-	first := &schemaNode{doc: doc, local: vocab.XSDElemAnnotation, line: 2, column: 3}
-	second := &schemaNode{doc: doc, local: vocab.XSDElemAnnotation, line: 3, column: 5}
-	third := &schemaNode{doc: doc, local: vocab.XSDElemAnnotation, line: 4, column: 7}
-	for _, test := range []struct {
-		name          string
-		ids           []typedSchemaIDRecord
-		wantDuplicate bool
-	}{
-		{name: "no IDs"},
-		{name: "distinct", ids: []typedSchemaIDRecord{{node: first, value: "a"}, {node: second, value: "b"}}},
-		{name: "first duplicate", ids: []typedSchemaIDRecord{{node: first, value: "a"}, {node: second, value: "b"}, {node: third, value: "a"}, {node: second, value: "b"}}, wantDuplicate: true},
+	const invalidAttribute = xsderrors.CodeSchemaInvalidAttribute
+	for _, fixture := range []schemaStartFixture{
+		{name: "no ids", body: `  <xs:element name="a"/>`},
+		{name: "distinct ids", rootAttrs: ` id="r"`, body: `  <xs:element name="a" id="a"/>` + "\n" + `  <xs:element name="b" id="b"/>`},
+		{name: "ids in annotation payload are not schema ids", body: `  <xs:annotation id="a"><xs:appinfo><f:x id="a"/><f:x id="a"/></xs:appinfo></xs:annotation>`},
+		{name: "second declaration of an id", body: `  <xs:element name="a" id="a"/>` + "\n" + `  <xs:element name="b" id="b"/>` + "\n" + `    <xs:element name="c" id="a"/>`,
+			wantCat: xsderrors.CategorySchemaCompile, wantCode: invalidAttribute, wantMsg: `duplicate schema id "a"`, wantLine: 4, wantCol: 5},
+		{name: "id of the root declared again", rootAttrs: ` id="r"`, body: `  <xs:element name="a" id="r"/>`,
+			wantCat: xsderrors.CategorySchemaCompile, wantCode: invalidAttribute, wantMsg: `duplicate schema id "r"`, wantLine: 2, wantCol: 3},
+		{name: "id declared again by a descendant", body: `  <xs:element name="a" id="a"><xs:complexType id="a"/></xs:element>`,
+			wantCat: xsderrors.CategorySchemaCompile, wantCode: invalidAttribute, wantMsg: `duplicate schema id "a"`, wantLine: 2, wantCol: 31},
+		{name: "attribute written before the duplicate id wins", body: `  <xs:element name="a" id="a"/>` + "\n" + `  <xs:element name="b" nillable="x" id="a"/>`,
+			wantCat: xsderrors.CategorySchemaCompile, wantCode: invalidAttribute, wantMsg: `invalid boolean attribute "nillable"`, wantLine: 3, wantCol: 3},
+		{name: "duplicate id wins over an attribute written after it", body: `  <xs:element name="a" id="a"/>` + "\n" + `  <xs:element name="b" id="a" nillable="x"/>`,
+			wantCat: xsderrors.CategorySchemaCompile, wantCode: invalidAttribute, wantMsg: `duplicate schema id "a"`, wantLine: 3, wantCol: 3},
+		{name: "duplicate id wins over a later element", body: `  <xs:element name="a" id="a"/>` + "\n" + `  <xs:element name="b" id="a"/>` + "\n" + `  <xs:foo/>`,
+			wantCat: xsderrors.CategorySchemaCompile, wantCode: invalidAttribute, wantMsg: `duplicate schema id "a"`, wantLine: 3, wantCol: 3},
+		{name: "earlier element wins over a duplicate id", body: `  <xs:element name="a" id="a"/>` + "\n" + `  <xs:foo/>` + "\n" + `  <xs:element name="b" id="a"/>`,
+			wantCat: xsderrors.CategorySchemaCompile, wantCode: xsderrors.CodeSchemaContentModel, wantMsg: `invalid top-level schema child "foo"`, wantLine: 3, wantCol: 3},
 	} {
-		t.Run(test.name, func(t *testing.T) {
+		t.Run(fixture.name, func(t *testing.T) {
 			t.Parallel()
-			state := typedSchemaParseState{ids: test.ids}
-			err := state.validateIDs()
-			if !test.wantDuplicate {
-				if err != nil {
-					t.Fatalf("validateIDs() error = %v", err)
-				}
-				return
-			}
-			diagnostic, ok := errors.AsType[*xsderrors.Error](err)
-			if !ok {
-				t.Fatalf("error = %T %[1]v, want structured diagnostic", err)
-			}
-			if diagnostic.Category() != xsderrors.CategorySchemaCompile || diagnostic.Code() != xsderrors.CodeSchemaInvalidAttribute || diagnostic.Message() != "duplicate schema id \"a\"" || diagnostic.Path() != "ids.xsd" || diagnostic.Line() != 4 || diagnostic.Column() != 7 || diagnostic.Cause() != nil {
-				t.Fatalf("duplicate diagnostic = %#v", diagnostic)
-			}
+			_, err := parseSchemaStartFixture(t, fixture)
+			assertSchemaStartFixture(t, err, fixture)
 		})
 	}
 }
@@ -217,70 +218,26 @@ func TestValidateSchemaTargetNamespace(t *testing.T) {
 	}
 }
 
-func TestValidateSchemaNodeNames(t *testing.T) {
+func TestValidateSchemaNameAttribute(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		node    schemaNodeNames
-		wantMsg string
+		name, attr, value, wantMsg string
 	}{
-		{name: "non schema node", node: schemaNodeNames{Local: elementChild, HasName: true, Name: "0"}},
-		{name: "valid schema names", node: schemaNodeNames{Local: elementChild, XSD: true, HasID: true, ID: "id1", HasName: true, Name: "root"}},
-		{
-			name:    "invalid id",
-			node:    schemaNodeNames{Local: elementChild, XSD: true, HasID: true, ID: ":bad"},
-			wantMsg: "schema id must be NCName",
-		},
-		{
-			name:    "invalid name",
-			node:    schemaNodeNames{Local: elementChild, XSD: true, HasName: true, Name: "0"},
-			wantMsg: "schema component name must be NCName",
-		},
-		{
-			name: "top-level attribute group name",
-			node: schemaNodeNames{
-				Local:       attributeGroup,
-				ParentLocal: vocab.XSDElemSchema,
-				Name:        "attrs",
-				XSD:         true,
-				ParentXSD:   true,
-				HasName:     true,
-			},
-		},
-		{
-			name: "nested attribute group name",
-			node: schemaNodeNames{
-				Local:       attributeGroup,
-				ParentLocal: complexTypeChild,
-				Name:        "attrs",
-				XSD:         true,
-				ParentXSD:   true,
-				HasName:     true,
-			},
-			wantMsg: "attributeGroup use cannot have name",
-		},
-		{
-			name: "invalid nested attribute group name wins",
-			node: schemaNodeNames{
-				Local:       attributeGroup,
-				ParentLocal: complexTypeChild,
-				Name:        "0",
-				XSD:         true,
-				ParentXSD:   true,
-				HasName:     true,
-			},
-			wantMsg: "schema component name must be NCName",
-		},
+		{name: "valid id", attr: vocab.XSDAttrID, value: "id1"},
+		{name: "valid name", attr: vocab.XSDAttrName, value: "root"},
+		{name: "invalid id", attr: vocab.XSDAttrID, value: ":bad", wantMsg: "schema id must be NCName"},
+		{name: "invalid name", attr: vocab.XSDAttrName, value: "0", wantMsg: "schema component name must be NCName"},
+		{name: "other attribute", attr: vocab.XSDAttrType, value: "0"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := validateSchemaNodeNames(tt.node)
+			err := validateSchemaNameAttribute(tt.attr, tt.value)
 			if tt.wantMsg == "" {
 				if err != nil {
-					t.Fatalf("ValidateSchemaNodeNames() error = %v", err)
+					t.Fatalf("validateSchemaNameAttribute() error = %v", err)
 				}
 				return
 			}
@@ -289,81 +246,10 @@ func TestValidateSchemaNodeNames(t *testing.T) {
 	}
 }
 
-func TestCheckSchemaAnnotationNode(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name     string
-		local    string
-		children []annotationChildFixture
-		wantLine int
-		wantMsg  string
-	}{
-		{
-			name: "annotation rejects nested annotation", local: annotationChild,
-			children: []annotationChildFixture{{local: annotationChild}},
-			wantLine: 100, wantMsg: "xs:annotation cannot contain xs:annotation",
-		},
-		{
-			name: "schema allows multiple top-level annotations", local: vocab.XSDElemSchema,
-			children: []annotationChildFixture{{local: annotationChild}, {local: annotationChild}},
-		},
-		{
-			name: "component rejects duplicate annotation", local: elementChild,
-			children: []annotationChildFixture{{local: annotationChild}, {local: annotationChild}},
-			wantLine: 101, wantMsg: "schema component cannot contain multiple annotations",
-		},
-		{
-			name: "component rejects late annotation", local: complexTypeChild,
-			children: []annotationChildFixture{{local: attributeChild}, {local: annotationChild}},
-			wantLine: 101, wantMsg: "\"complexType\" annotation must be first",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			parent := annotationGrammarFixture(t, tt.local, tt.children)
-			err := checkSchemaAnnotationNode(parent)
-			if tt.wantMsg == "" {
-				if err != nil {
-					t.Fatalf("checkSchemaAnnotationNode() error = %v", err)
-				}
-				return
-			}
-			issue, ok := errors.AsType[*xsderrors.Error](err)
-			if !ok {
-				t.Fatalf("checkSchemaAnnotationNode() error = %T %[1]v, want structured diagnostic", err)
-			}
-			if issue.Category() != xsderrors.CategorySchemaCompile || issue.Code() != xsderrors.CodeSchemaContentModel || issue.Message() != tt.wantMsg {
-				t.Fatalf("diagnostic = {%s %s %q}, want {%s %s %q}", issue.Category(), issue.Code(), issue.Message(), xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel, tt.wantMsg)
-			}
-			if issue.Path() != "annotation.xsd" || issue.Line() != tt.wantLine || issue.Column() != 7 {
-				t.Fatalf("location = {%q %d %d}, want {%q %d %d}", issue.Path(), issue.Line(), issue.Column(), "annotation.xsd", tt.wantLine, 7)
-			}
-		})
-	}
-}
-
-type annotationChildFixture struct {
-	local string
-}
-
-func annotationGrammarFixture(t *testing.T, local string, children []annotationChildFixture) *schemaNode {
-	t.Helper()
-	doc := &schemaDocument{name: "annotation.xsd"}
-	parent := &schemaNode{doc: doc, local: local, line: 1, column: 3}
-	doc.arena = append(doc.arena, parent)
-	for i, child := range children {
-		id, err := schemaNodeIDFor(len(doc.arena))
-		if err != nil {
-			t.Fatal(err)
-		}
-		node := &schemaNode{doc: doc, id: id, local: child.local, line: 100 + i, column: 7}
-		doc.arena = append(doc.arena, node)
-		parent.children = append(parent.children, node.id)
-	}
-	return parent
+func checkElementChildAttributes(n *schemaSyntaxNode) error {
+	var qnames semanticQNameProjection
+	var ids schemaIDs
+	return checkSchemaAttributesSyntax(n, schemaPlacementOther, startTagAttributes{qnames: &qnames, ids: &ids})
 }
 
 func TestSchemaAnnotationStartAttributes(t *testing.T) {
@@ -378,23 +264,23 @@ func TestSchemaAnnotationStartAttributes(t *testing.T) {
 	}{
 		{
 			name: "annotation allows id attr", local: annotationChild,
-			attrs:    []xmlstream.Attr{testRawAttr("", vocab.XSDAttrID, "")},
-			validate: checkSchemaAttributesSyntax,
+			attrs:    []xmlstream.Attr{testRawAttr("", vocab.XSDAttrID, "a1")},
+			validate: checkElementChildAttributes,
 		},
 		{
 			name: "annotation rejects local attr", local: annotationChild,
 			attrs:    []xmlstream.Attr{testRawAttr("", "foo", "")},
-			validate: checkSchemaAttributesSyntax, wantMsg: "\"annotation\" cannot have attribute \"foo\"",
+			validate: checkElementChildAttributes, wantMsg: "\"annotation\" cannot have attribute \"foo\"",
 		},
 		{
 			name: "documentation valid lang", local: vocab.XSDElemDocumentation,
 			attrs:    []xmlstream.Attr{testRawAttr(vocab.XMLNamespaceURI, vocab.XMLAttrLang, "en-US")},
-			validate: checkAnnotationEnvelopeStart,
+			validate: checkElementChildAttributes,
 		},
 		{
 			name: "documentation invalid lang", local: vocab.XSDElemDocumentation,
 			attrs:    []xmlstream.Attr{testRawAttr(vocab.XMLNamespaceURI, vocab.XMLAttrLang, " ")},
-			validate: checkAnnotationEnvelopeStart, wantMsg: "invalid xml:lang on xs:documentation",
+			validate: checkElementChildAttributes, wantMsg: "invalid xml:lang on xs:documentation",
 		},
 	}
 	for _, tt := range tests {
@@ -423,135 +309,4 @@ func TestSchemaAnnotationStartAttributes(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestCheckNotationDeclaration(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name      string
-		hasText   bool
-		children  []notationChildFixture
-		hasName   bool
-		hasPublic bool
-		hasSystem bool
-		wantIndex int
-		wantCode  xsderrors.Code
-		wantMsg   string
-	}{
-		{name: "public", hasName: true, hasPublic: true},
-		{name: "system", hasName: true, hasSystem: true},
-		{name: "annotation", children: []notationChildFixture{{local: annotationChild}}, hasName: true, hasPublic: true},
-		{
-			name:      "text",
-			hasText:   true,
-			hasName:   true,
-			hasPublic: true,
-			wantIndex: -1,
-			wantCode:  xsderrors.CodeSchemaContentModel,
-			wantMsg:   "notation can contain only annotation",
-		},
-		{
-			name:      "xsd child",
-			children:  []notationChildFixture{{local: "element"}},
-			hasName:   true,
-			hasPublic: true,
-			wantIndex: 0,
-			wantCode:  xsderrors.CodeSchemaContentModel,
-			wantMsg:   "notation can contain only annotation",
-		},
-		{
-			name:      "other nonannotation child",
-			children:  []notationChildFixture{{local: simpleTypeChild}},
-			hasName:   true,
-			hasPublic: true,
-			wantIndex: 0,
-			wantCode:  xsderrors.CodeSchemaContentModel,
-			wantMsg:   "notation can contain only annotation",
-		},
-		{
-			name:      "missing name",
-			hasPublic: true,
-			wantIndex: -1,
-			wantCode:  xsderrors.CodeSchemaInvalidAttribute,
-			wantMsg:   "notation missing name",
-		},
-		{
-			name:      "missing public and system",
-			hasName:   true,
-			wantIndex: -1,
-			wantCode:  xsderrors.CodeSchemaInvalidAttribute,
-			wantMsg:   "notation requires public or system",
-		},
-		{
-			name:      "text before invalid child and missing attributes",
-			hasText:   true,
-			children:  []notationChildFixture{{local: elementChild}},
-			wantIndex: -1,
-			wantCode:  xsderrors.CodeSchemaContentModel,
-			wantMsg:   "notation can contain only annotation",
-		},
-		{
-			name:      "nonannotation child before missing name",
-			children:  []notationChildFixture{{local: elementChild}},
-			wantIndex: 0,
-			wantCode:  xsderrors.CodeSchemaContentModel,
-			wantMsg:   "notation can contain only annotation",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			parent := notationGrammarFixture(t, tt.children)
-			parent.hasNonWhitespaceText = tt.hasText
-			parent.semantic.kind = &schemaNotationSource{
-				Global: schemaGlobalSource{Name: lexicalAttribute{Present: tt.hasName}},
-				Public: lexicalAttribute{Present: tt.hasPublic},
-				System: lexicalAttribute{Present: tt.hasSystem},
-			}
-			err := checkNotationDeclaration(parent)
-			if tt.wantMsg == "" {
-				if err != nil {
-					t.Fatalf("checkNotationDeclaration() error = %v", err)
-				}
-				return
-			}
-			issue, ok := errors.AsType[*xsderrors.Error](err)
-			if !ok {
-				t.Fatalf("checkNotationDeclaration() error = %T %[1]v, want structured diagnostic", err)
-			}
-			target := parent
-			if tt.wantIndex >= 0 {
-				target = parent.doc.node(parent.children[tt.wantIndex])
-			}
-			if issue.Category() != xsderrors.CategorySchemaCompile || issue.Code() != tt.wantCode || issue.Message() != tt.wantMsg {
-				t.Fatalf("diagnostic = {%s %s %q}, want {%s %s %q}", issue.Category(), issue.Code(), issue.Message(), xsderrors.CategorySchemaCompile, tt.wantCode, tt.wantMsg)
-			}
-			if issue.Path() != "notation.xsd" || issue.Line() != target.line || issue.Column() != target.column {
-				t.Fatalf("location = {%q %d %d}, want {%q %d %d}", issue.Path(), issue.Line(), issue.Column(), "notation.xsd", target.line, target.column)
-			}
-		})
-	}
-}
-
-type notationChildFixture struct {
-	local string
-}
-
-func notationGrammarFixture(t *testing.T, children []notationChildFixture) *schemaNode {
-	t.Helper()
-	doc := &schemaDocument{name: "notation.xsd"}
-	parent := &schemaNode{doc: doc, local: notationChild, line: 1, column: 3}
-	doc.arena = append(doc.arena, parent)
-	for i, child := range children {
-		id, err := schemaNodeIDFor(len(doc.arena))
-		if err != nil {
-			t.Fatal(err)
-		}
-		node := &schemaNode{doc: doc, id: id, local: child.local, line: 100 + i, column: 7}
-		doc.arena = append(doc.arena, node)
-		parent.children = append(parent.children, node.id)
-	}
-	return parent
 }

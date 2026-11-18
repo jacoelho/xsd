@@ -6,11 +6,13 @@ import (
 
 	"github.com/jacoelho/xsd/internal/lex"
 	valuepkg "github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// valueConstraint is a prevalidated default or fixed value constraint.
-// A nil *valueConstraint means absent. Once attached to a runtime component,
-// the value is immutable; declarations and uses may share the same pointer.
+// valueConstraint is a prevalidated {value constraint}: one value that is
+// either a default or, when Fixed is set, a fixed value. A nil
+// *valueConstraint means absent. Once attached to a runtime component, the
+// value is immutable; declarations and uses may share the same pointer.
 // The cached value's type is the exact owning simple type, including an outer
 // union, never the member that accepted the text; publication rejects a
 // member-typed cache even when that member accepts the same lexical value.
@@ -20,6 +22,93 @@ type valueConstraint struct {
 	Canonical     string
 	ResolvedNames []resolvedValueName
 	Value         valuepkg.Value
+	Fixed         bool
+}
+
+// sourceValueConstraint returns the unvalidated constraint that the default
+// and fixed attributes of n, an xs:element or xs:attribute, give, or nil when
+// they give none. Start-tag admission rejects a source that gives both
+// (checkValueConstraintAttributes), so both here is an internal invariant.
+func sourceValueConstraint(n *schemaNode, defaultAttr, fixedAttr lexicalAttribute) (*valueConstraint, error) {
+	switch {
+	case defaultAttr.Present && fixedAttr.Present:
+		return nil, withSchemaCompileLocation(n, xsderrors.InternalInvariant("start tag admitted default with fixed"))
+	case defaultAttr.Present:
+		return &valueConstraint{Lexical: defaultAttr.Value}, nil
+	case fixedAttr.Present:
+		return &valueConstraint{Lexical: fixedAttr.Value, Fixed: true}, nil
+	default:
+		return nil, nil //nolint:nilnil // A nil constraint is the absent {value constraint}; see valueConstraint.
+	}
+}
+
+// valueConstraintKind is the variety of a {value constraint}: absent, default
+// or fixed.
+type valueConstraintKind uint8
+
+const (
+	valueConstraintNone valueConstraintKind = iota
+	valueConstraintDefault
+	valueConstraintFixed
+)
+
+func (k valueConstraintKind) present() bool {
+	return k != valueConstraintNone
+}
+
+// label names k in diagnostics.
+func (k valueConstraintKind) label() string {
+	switch k {
+	case valueConstraintDefault:
+		return "default"
+	case valueConstraintFixed:
+		return "fixed"
+	case valueConstraintNone:
+	}
+	return "absent"
+}
+
+// valueConstraintOwner is the kind of component that carries a {value
+// constraint}.
+type valueConstraintOwner uint8
+
+const (
+	valueConstraintOwnerElementDeclaration valueConstraintOwner = iota
+	valueConstraintOwnerAttributeDeclaration
+	valueConstraintOwnerAttributeUse
+)
+
+// label names o in diagnostics.
+func (o valueConstraintOwner) label() string {
+	switch o {
+	case valueConstraintOwnerElementDeclaration:
+		return elementDeclarationLabel
+	case valueConstraintOwnerAttributeDeclaration:
+		return attributeDeclarationLabel
+	case valueConstraintOwnerAttributeUse:
+		return attributeUseLabel
+	}
+	return "component"
+}
+
+// kind classifies vc; nil is valueConstraintNone.
+func (vc *valueConstraint) kind() valueConstraintKind {
+	switch {
+	case vc == nil:
+		return valueConstraintNone
+	case vc.Fixed:
+		return valueConstraintFixed
+	default:
+		return valueConstraintDefault
+	}
+}
+
+// fixedConstraint returns vc when it is fixed and nil otherwise.
+func (vc *valueConstraint) fixedConstraint() *valueConstraint {
+	if vc == nil || !vc.Fixed {
+		return nil
+	}
+	return vc
 }
 
 // valueConstraintValidation is the runtime projection needed to validate cached
@@ -111,7 +200,7 @@ func (c ElementValueConstraints) HasAny() bool {
 
 // FixedValue returns the fixed value, if present.
 func (c ElementValueConstraints) FixedValue() (ValueConstraintRead, bool) {
-	if c.constraint.kind != declarationValueConstraintFixed {
+	if c.constraint.kind != valueConstraintFixed {
 		return ValueConstraintRead{}, false
 	}
 	return c.constraint.value, true
@@ -119,7 +208,7 @@ func (c ElementValueConstraints) FixedValue() (ValueConstraintRead, bool) {
 
 // DefaultValueConstraint returns the default value, if present.
 func (c ElementValueConstraints) DefaultValueConstraint() (ValueConstraintRead, bool) {
-	if c.constraint.kind != declarationValueConstraintDefault {
+	if c.constraint.kind != valueConstraintDefault {
 		return ValueConstraintRead{}, false
 	}
 	return c.constraint.value, true

@@ -1,8 +1,6 @@
 package schema
 
 import (
-	"encoding/xml"
-
 	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/uriref"
@@ -16,33 +14,77 @@ func schemaLexicalAttributeSyntax(n *schemaSyntaxNode, name string) lexicalAttri
 	return lexicalAttribute{Value: value, Present: present}
 }
 
-func checkXMLBaseAttributeSyntax(n *schemaSyntaxNode) error {
-	value, ok := n.attrNS(vocab.XMLNamespaceURI, vocab.XMLAttrBase)
-	if !ok {
-		return nil
-	}
-	if _, err := uriref.Check(value); err != nil {
-		return schemaCompileAt(n, xsderrors.CodeSchemaReference, "invalid xml:base: "+err.Error())
-	}
-	return nil
-}
-
-func checkSchemaAttributesSyntax(n *schemaSyntaxNode) error {
+// checkSchemaAttributesSyntax checks every attribute of one start in
+// start-tag order, so the first violating attribute is the one reported. Each
+// unqualified attribute is checked against the XSD 1.0 vocabulary of its
+// element in its placement before its value: a forbidden attribute is rejected
+// whatever its value. QName-valued attributes are resolved into the QName
+// projection of admitted; see admitSchemaQNameAttribute.
+func checkSchemaAttributesSyntax(n *schemaSyntaxNode, placement schemaElementPlacement, admitted startTagAttributes) error {
 	for _, attr := range n.Attrs {
-		if xmlstream.IsExpandedNamespaceName(attr.Name) || attr.Name.Space != "" {
-			continue
+		var err error
+		switch {
+		case xmlstream.IsExpandedNamespaceName(attr.Name):
+		case attr.Name.Space == "":
+			err = checkSchemaAttributeSyntax(n, attr, placement, admitted)
+		case attr.Name.Space == vocab.XSDNamespaceURI:
+			err = schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "schema namespace attribute "+diagnostictext.Quote(attr.Name.Local)+" is not allowed")
+		case attr.Name.Space == vocab.XMLNamespaceURI:
+			err = checkXMLAttributeSyntax(n, attr)
 		}
-		if err := checkSchemaAttributeSyntax(n, attr); err != nil {
+		if err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func checkSchemaAttributeSyntax(n *schemaSyntaxNode, attr schemaAttribute) error {
-	if !schemaElementAttributeAllowed(n.Name.Local, attr.Name.Local) {
-		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, diagnostictext.Quote(n.Name.Local)+" cannot have attribute "+diagnostictext.Quote(attr.Name.Local))
+func checkXMLAttributeSyntax(n *schemaSyntaxNode, attr schemaAttribute) error {
+	switch {
+	case attr.Name.Local == vocab.XMLAttrBase:
+		if _, err := uriref.Check(attr.Value); err != nil {
+			return schemaCompileAt(n, xsderrors.CodeSchemaReference, "invalid xml:base: "+err.Error())
+		}
+	case attr.Name.Local == vocab.XMLAttrLang && n.Name.Local == vocab.XSDElemDocumentation:
+		if !lex.IsLanguage(lex.CollapseXMLWhitespace(attr.Value)) {
+			return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "invalid xml:lang on xs:documentation")
+		}
 	}
+	return nil
+}
+
+func checkSchemaAttributeSyntax(n *schemaSyntaxNode, attr schemaAttribute, placement schemaElementPlacement, admitted startTagAttributes) error {
+	if !schemaElementAttributeAllowed(n.Name.Local, attr.Name.Local) {
+		return schemaAttributeNotAllowed(n, attr.Name.Local)
+	}
+	if err := misplacedSchemaAttributeError(n, attr.Name.Local, placement); err != nil {
+		return err
+	}
+	return admitSchemaAttributeValue(n, attr, admitted)
+}
+
+// admitSchemaAttributeValue checks the value of attr, an unqualified attribute
+// n may have in its placement, and admits it into admitted.
+func admitSchemaAttributeValue(n *schemaSyntaxNode, attr schemaAttribute, admitted startTagAttributes) error {
+	if err := withSchemaCompileLocation(n, validateSchemaNameAttribute(attr.Name.Local, attr.Value)); err != nil {
+		return err
+	}
+	if attr.Name.Local == vocab.XSDAttrID && !admitted.ids.declare(attr.Value) {
+		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "duplicate schema id "+diagnostictext.Quote(attr.Value))
+	}
+	if attr.Name.Local == vocab.XSDAttrXPath && lex.TrimXMLWhitespaceString(attr.Value) == "" {
+		return schemaCompileAt(n, xsderrors.CodeSchemaIdentity, diagnostictext.Quote(n.Name.Local)+" xpath is empty")
+	}
+	if err := withSchemaCompileLocation(n, checkSchemaAttributeValueSyntax(n.Name.Local, attr.Name.Local, attr.Value)); err != nil {
+		return err
+	}
+	if schemaNodeHasQNameAttr(n, attr.Name.Local) {
+		return admitSchemaQNameAttribute(n, attr, admitted.qnames)
+	}
+	return checkSchemaAnyURIAttribute(n, attr)
+}
+
+func checkSchemaAnyURIAttribute(n *schemaSyntaxNode, attr schemaAttribute) error {
 	if !schemaAnyURIAttribute(n.Name.Local, attr.Name.Local) {
 		return nil
 	}
@@ -56,59 +98,8 @@ func checkSchemaAttributeSyntax(n *schemaSyntaxNode, attr schemaAttribute) error
 	return nil
 }
 
-func rejectSchemaNamespaceAttributes(n *schemaSyntaxNode) error {
-	for _, attr := range n.Attrs {
-		if attr.Name.Space == vocab.XSDNamespaceURI {
-			return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "schema namespace attribute "+diagnostictext.Quote(attr.Name.Local)+" is not allowed")
-		}
-	}
-	return nil
-}
-
-func checkUnsupportedXSDNodeSyntax(n *schemaSyntaxNode, parentName xml.Name) (bool, error) {
-	switch n.Name.Local {
-	case redefineChild:
-		return false, unsupportedAtSchemaNode(n, xsderrors.CodeUnsupportedRedefine, "xs:redefine is not supported")
-	case notationChild:
-		if parentName != (xml.Name{Space: vocab.XSDNamespaceURI, Local: vocab.XSDElemSchema}) {
-			return false, schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "xs:notation must be a top-level schema child")
-		}
-	case assertChild, "alternative", "override", "openContent", "defaultOpenContent":
-		return false, unsupportedAtSchemaNode(n, xsderrors.CodeUnsupportedXSD11, "XSD 1.1 feature "+n.Name.Local+" is not supported")
-	case anyChild, anyAttribute:
-		return rejectUnsupportedWildcardAttributes(n)
-	}
-	return false, nil
-}
-
-func rejectUnsupportedWildcardAttributes(n *schemaSyntaxNode) (bool, error) {
-	for _, attr := range []string{vocab.XSDAttrNotNamespace, vocab.XSDAttrNotQName} {
-		if _, ok := n.attr(attr); ok {
-			return false, unsupportedAtSchemaNode(n, xsderrors.CodeUnsupportedXSD11, "XSD 1.1 wildcard attribute "+attr+" is not supported")
-		}
-	}
-	return false, nil
-}
-
-func checkSchemaNodeNamesSyntax(n, parent *schemaSyntaxNode) error {
-	var parentLocal string
-	var parentXSD bool
-	if parent != nil {
-		parentLocal = parent.Name.Local
-		parentXSD = parent.Name.Space == vocab.XSDNamespaceURI
-	}
-	id, hasID := n.attr(vocab.XSDAttrID)
-	name, hasName := n.attr(vocab.XSDAttrName)
-	return withSchemaCompileLocation(n, validateSchemaNodeNames(schemaNodeNames{
-		Local:       n.Name.Local,
-		ParentLocal: parentLocal,
-		ID:          id,
-		Name:        name,
-		XSD:         n.Name.Space == vocab.XSDNamespaceURI,
-		ParentXSD:   parentXSD,
-		HasID:       hasID,
-		HasName:     hasName,
-	}))
+func schemaAttributeNotAllowed(n *schemaSyntaxNode, attr string) error {
+	return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, diagnostictext.Quote(n.Name.Local)+" cannot have attribute "+diagnostictext.Quote(attr))
 }
 
 func checkSchemaQNamePartsSyntax(n *schemaSyntaxNode, lexical string) (qNameParts, error) {
@@ -117,35 +108,4 @@ func checkSchemaQNamePartsSyntax(n *schemaSyntaxNode, lexical string) (qNamePart
 		return qNameParts{}, withSchemaCompileLocation(n, err)
 	}
 	return parts, nil
-}
-
-func checkTopLevelSchemaChildSyntax(n *schemaSyntaxNode) error {
-	local := n.Name.Local
-	var forbidden []string
-	switch local {
-	case annotationChild, includeChild, importChild, redefineChild, notationChild:
-		return nil
-	case simpleTypeChild, complexTypeChild:
-	case attributeGroup:
-		forbidden = []string{vocab.XSDAttrRef}
-	case groupChild:
-		forbidden = []string{vocab.XSDAttrRef, vocab.XSDAttrMinOccurs, vocab.XSDAttrMaxOccurs}
-	case attributeChild:
-		forbidden = []string{vocab.XSDAttrRef, vocab.XSDAttrForm, vocab.XSDAttrUse}
-	case elementChild:
-		forbidden = []string{vocab.XSDAttrRef, vocab.XSDAttrForm, vocab.XSDAttrMinOccurs, vocab.XSDAttrMaxOccurs}
-	case uniqueChild, keyChild, keyrefChild, selectorChild, fieldChild:
-		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "identity constraint must be inside element")
-	default:
-		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "invalid top-level schema child "+diagnostictext.Quote(local))
-	}
-	for _, attr := range forbidden {
-		if _, present := n.attr(attr); present {
-			return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "top-level "+diagnostictext.Quote(local)+" cannot have "+diagnostictext.Quote(attr))
-		}
-	}
-	if _, present := n.attr(vocab.XSDAttrName); !present {
-		return schemaCompileAt(n, xsderrors.CodeSchemaReference, "top-level "+diagnostictext.Quote(local)+" missing name")
-	}
-	return nil
 }

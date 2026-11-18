@@ -12,6 +12,17 @@ type textValue struct {
 	Length    uint32
 }
 
+// equalTextValues reports whether two xs:string or xs:anyURI values have the
+// same characters.
+func equalTextValues(a, b *lexicalValue) bool {
+	return a.Canonical == b.Canonical
+}
+
+// appendTextEnumerationKey appends the characters equalTextValues compares.
+func appendTextEnumerationKey(b []byte, v *lexicalValue) []byte {
+	return appendKeyText(b, v.Canonical)
+}
+
 // parseTextValue parses normalized as an XML Schema string or anyURI primitive
 // value.
 func parseTextValue(kind PrimitiveKind, normalized string, needs primitiveValueNeed) (textValue, error) {

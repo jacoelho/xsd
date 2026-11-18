@@ -36,7 +36,7 @@ func TestElementFrameUsesEffectiveTypeAndDeclarationConstraint(t *testing.T) {
 		}),
 		Elements: newElementReadTable([]elementDecl{
 			{Type: SimpleRef(stringID)},
-			{Type: SimpleRef(integerID), Fixed: &valueConstraint{}},
+			{Type: SimpleRef(integerID), ValueConstraint: &valueConstraint{Fixed: true}},
 		}),
 	}}
 

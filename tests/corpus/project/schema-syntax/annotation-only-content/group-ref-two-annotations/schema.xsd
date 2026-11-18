@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:group name="G"><xs:sequence><xs:element name="g"/></xs:sequence></xs:group>
+<xs:attributeGroup name="AG"><xs:attribute name="a"/></xs:attributeGroup>
+<xs:complexType name="C"><xs:sequence><xs:group ref="G"><xs:annotation/><xs:annotation/></xs:group></xs:sequence></xs:complexType>
+<xs:element name="r" type="C"/>
+</xs:schema>

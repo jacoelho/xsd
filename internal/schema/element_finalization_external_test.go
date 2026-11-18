@@ -124,7 +124,7 @@ func TestElementConstraintFinalizationIsAtomic(t *testing.T) {
 	for _, local := range []string{"a", "b"} {
 		q := mustQName(t, &build.Names, local)
 		decl := build.Elements[build.GlobalElements[q]]
-		if decl.Default != nil || decl.Fixed != nil {
+		if decl.ValueConstraint != nil {
 			t.Fatalf("element %s committed a constraint after batch failure", local)
 		}
 	}

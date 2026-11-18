@@ -128,10 +128,9 @@ func (rt *schemaBuild) buildSubstitutionTable(elements []elementDecl, maxEntries
 func (rt *schemaBuild) attributeUse(id AttributeID) attributeUse {
 	decl := rt.Attributes[id]
 	return attributeUse{
-		Name:    decl.Name,
-		Type:    decl.Type,
-		Default: cloneValueConstraint(decl.Default),
-		Fixed:   cloneValueConstraint(decl.Fixed),
+		Name:            decl.Name,
+		Type:            decl.Type,
+		ValueConstraint: cloneValueConstraint(decl.ValueConstraint),
 	}
 }
 
