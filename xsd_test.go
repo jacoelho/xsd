@@ -133,10 +133,8 @@ func TestNameLimitBreachOnAnXPathNameIsReportedAtItsStartTagInLoadOrder(t *testi
 		if limit > 10_000 {
 			t.Fatalf("CompileWithOptions(MaxSchemaNames: %d) error = %v, want success below 10000 names", limit, err)
 		}
-		d, ok := errors.AsType[*xsderrors.Error](err)
-		if !ok || d.Code() != xsderrors.CodeSchemaLimit {
-			t.Fatalf("CompileWithOptions(MaxSchemaNames: %d) error = %v, want schema.limit", limit, err)
-		}
+		expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
+		d, _ := errors.AsType[*xsderrors.Error](err)
 		if d.Line() != 0 {
 			located = append(located, location{d.Line(), d.Column()})
 		}
