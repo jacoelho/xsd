@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
@@ -13,16 +14,8 @@ import (
 func TestParseIdentityPaths(t *testing.T) {
 	t.Parallel()
 
-	resolver := identityNameResolverStub{
-		namespaces: map[string]namespaceID{"p": 2},
-		qnames: map[string]QName{
-			":row":   {Local: 1},
-			":code":  {Local: 2},
-			"p:item": {Namespace: 2, Local: 3},
-		},
-	}
-
-	paths, err := parseIdentityPaths(". | .// child::row / code | p:*", resolver)
+	xpaths := newIdentityXPathFixture(t, map[string]string{"p": "urn:p"})
+	paths, err := xpaths.selector(". | .// child::row / code | p:*")
 	if err != nil {
 		t.Fatalf("ParseIdentityPaths() error = %v", err)
 	}
@@ -32,10 +25,10 @@ func TestParseIdentityPaths(t *testing.T) {
 	if !identitySelectorPathProgramRead(paths[0]).Self() {
 		t.Fatalf("first path = %#v, want self", paths[0])
 	}
-	if !paths[1].Descendant || len(paths[1].Steps) != 2 || paths[1].Steps[0].Name != resolver.qnames[":row"] || paths[1].Steps[1].Name != resolver.qnames[":code"] {
+	if !paths[1].Descendant || len(paths[1].Steps) != 2 || paths[1].Steps[0].Name != xpaths.qname(t, "", "row") || paths[1].Steps[1].Name != xpaths.qname(t, "", "code") {
 		t.Fatalf("second path = %#v, want descendant row/code", paths[1])
 	}
-	if !paths[2].Steps[0].Wildcard || !paths[2].Steps[0].NamespaceSet || paths[2].Steps[0].Namespace != 2 {
+	if !paths[2].Steps[0].Wildcard || !paths[2].Steps[0].NamespaceSet || paths[2].Steps[0].Namespace != xpaths.namespace(t, "urn:p") {
 		t.Fatalf("third path = %#v, want p:*", paths[2])
 	}
 }
@@ -43,16 +36,8 @@ func TestParseIdentityPaths(t *testing.T) {
 func TestParseIdentityFieldPaths(t *testing.T) {
 	t.Parallel()
 
-	resolver := identityNameResolverStub{
-		namespaces: map[string]namespaceID{"p": 2},
-		qnames: map[string]QName{
-			":row":  {Local: 1},
-			":id":   {Local: 2},
-			"p:ref": {Namespace: 2, Local: 3},
-		},
-	}
-
-	paths, err := parseIdentityFieldPaths(". | row/@p:ref | attribute::p:*", resolver)
+	xpaths := newIdentityXPathFixture(t, map[string]string{"p": "urn:p"})
+	paths, err := xpaths.field(". | row/@p:ref | attribute::p:*")
 	if err != nil {
 		t.Fatalf("ParseIdentityFieldPaths() error = %v", err)
 	}
@@ -62,10 +47,10 @@ func TestParseIdentityFieldPaths(t *testing.T) {
 	if !identityFieldPathProgramRead(paths[0]).Self() || paths[0].Attribute != noQName() {
 		t.Fatalf("first field path = %#v, want self", paths[0])
 	}
-	if !paths[1].Attr || paths[1].Attribute != resolver.qnames["p:ref"] || len(paths[1].Steps) != 1 || paths[1].Steps[0].Name != resolver.qnames[":row"] {
+	if !paths[1].Attr || paths[1].Attribute != xpaths.qname(t, "urn:p", "ref") || len(paths[1].Steps) != 1 || paths[1].Steps[0].Name != xpaths.qname(t, "", "row") {
 		t.Fatalf("second field path = %#v, want row/@p:ref", paths[1])
 	}
-	if !paths[2].Attr || !paths[2].AttrWildcard || !paths[2].AttrNamespaceSet || paths[2].AttrNamespace != 2 {
+	if !paths[2].Attr || !paths[2].AttrWildcard || !paths[2].AttrNamespaceSet || paths[2].AttrNamespace != xpaths.namespace(t, "urn:p") {
 		t.Fatalf("third field path = %#v, want attribute::p:*", paths[2])
 	}
 }
@@ -77,11 +62,7 @@ func TestParseIdentityFieldPaths(t *testing.T) {
 func TestParseIdentityPathShapes(t *testing.T) {
 	t.Parallel()
 
-	resolver := identityNameResolverStub{qnames: map[string]QName{
-		":e":  {Local: 1},
-		":f":  {Local: 2},
-		":id": {Local: 3},
-	}}
+	xpaths := newIdentityXPathFixture(t, nil)
 	type shape struct {
 		descendant bool
 		steps      int
@@ -102,7 +83,7 @@ func TestParseIdentityPathShapes(t *testing.T) {
 		{xpath: "./*", want: []shape{{steps: 1}}},
 	}
 	for _, tt := range selectors {
-		paths, err := parseIdentityPaths(tt.xpath, resolver)
+		paths, err := xpaths.selector(tt.xpath)
 		if err != nil {
 			t.Fatalf("ParseIdentityPaths(%q) error = %v", tt.xpath, err)
 		}
@@ -131,7 +112,7 @@ func TestParseIdentityPathShapes(t *testing.T) {
 		{xpath: ".//@id", want: shape{descendant: true}, attr: true},
 	}
 	for _, tt := range fields {
-		paths, err := parseIdentityFieldPaths(tt.xpath, resolver)
+		paths, err := xpaths.field(tt.xpath)
 		if err != nil {
 			t.Fatalf("ParseIdentityFieldPaths(%q) error = %v", tt.xpath, err)
 		}
@@ -145,7 +126,7 @@ func TestParseIdentityPathShapes(t *testing.T) {
 		}
 		wantAttribute := noQName()
 		if tt.attr {
-			wantAttribute = resolver.qnames[":id"]
+			wantAttribute = xpaths.qname(t, "", "id")
 		}
 		if path.Attribute != wantAttribute {
 			t.Fatalf("ParseIdentityFieldPaths(%q) attribute = %v, want %v", tt.xpath, path.Attribute, wantAttribute)
@@ -156,7 +137,7 @@ func TestParseIdentityPathShapes(t *testing.T) {
 func TestParseIdentityXPathErrors(t *testing.T) {
 	t.Parallel()
 
-	resolver := identityNameResolverStub{qnames: map[string]QName{":a": {Local: 1}}}
+	xpaths := newIdentityXPathFixture(t, nil)
 	tests := []struct {
 		name     string
 		parse    func() error
@@ -166,7 +147,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "empty selector branch",
 			parse: func() error {
-				_, err := parseIdentityPaths("| a", resolver)
+				_, err := xpaths.selector("| a")
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -175,7 +156,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "empty field branch",
 			parse: func() error {
-				_, err := parseIdentityFieldPaths("| @a", resolver)
+				_, err := xpaths.field("| @a")
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -184,7 +165,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "trailing slash after self",
 			parse: func() error {
-				_, err := parseIdentityPaths("./", resolver)
+				_, err := xpaths.selector("./")
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -193,7 +174,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "empty step between names",
 			parse: func() error {
-				_, err := parseIdentityPaths("a//a", resolver)
+				_, err := xpaths.selector("a//a")
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -202,7 +183,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "descendant prefix without step",
 			parse: func() error {
-				_, err := parseIdentityPaths(".//", resolver)
+				_, err := xpaths.selector(".//")
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -211,7 +192,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "empty step between self steps",
 			parse: func() error {
-				_, err := parseIdentityPaths("./ /.", resolver)
+				_, err := xpaths.selector("./ /.")
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -220,7 +201,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "field trailing slash after self",
 			parse: func() error {
-				_, err := parseIdentityFieldPaths("./", resolver)
+				_, err := xpaths.field("./")
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -229,7 +210,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "invalid child axis",
 			parse: func() error {
-				_, err := parseIdentityPaths("child::", resolver)
+				_, err := xpaths.selector("child::")
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -238,7 +219,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "child axis requires node test",
 			parse: func() error {
-				_, err := parseIdentityPaths("child :: .", resolver)
+				_, err := xpaths.selector("child :: .")
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -247,7 +228,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "field child axis requires node test",
 			parse: func() error {
-				_, err := parseIdentityFieldPaths("child::.", resolver)
+				_, err := xpaths.field("child::.")
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -256,7 +237,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "invalid attribute axis",
 			parse: func() error {
-				_, err := parseIdentityFieldPaths("attribute::", resolver)
+				_, err := xpaths.field("attribute::")
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -265,7 +246,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "attribute in selector",
 			parse: func() error {
-				_, err := parseIdentityPaths("@*", resolver)
+				_, err := xpaths.selector("@*")
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -274,7 +255,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "invalid QName",
 			parse: func() error {
-				_, err := parseIdentityFieldPaths("t: *", resolver)
+				_, err := xpaths.field("t: *")
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -283,7 +264,7 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 		{
 			name: "unbound wildcard prefix",
 			parse: func() error {
-				_, err := parseIdentityFieldPaths("@p:*", resolver)
+				_, err := xpaths.field("@p:*")
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,
@@ -299,42 +280,65 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 	}
 }
 
-type identityNameResolverStub struct {
-	namespaces map[string]namespaceID
-	qnames     map[string]QName
+// identityXPathFixture binds the prefixes it holds, parses paths with them, and
+// interns their names into its own name table.
+type identityXPathFixture struct {
+	prefixes map[string]string
+	names    nameTable
 }
 
-// ResolveIdentityPrefix binds a prefix to a namespace named like the prefix
-// when the stub holds any name in it.
-func (s identityNameResolverStub) ResolveIdentityPrefix(prefix string) (string, error) {
-	if _, ok := s.namespaces[prefix]; ok {
-		return prefix, nil
+func newIdentityXPathFixture(t *testing.T, prefixes map[string]string) *identityXPathFixture {
+	t.Helper()
+	names, err := newRuntimeNameTable(0)
+	if err != nil {
+		t.Fatal(err)
 	}
-	for key := range s.qnames {
-		if strings.HasPrefix(key, prefix+":") {
-			return prefix, nil
-		}
-	}
-	return "", xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "unbound QName prefix "+prefix)
+	return &identityXPathFixture{prefixes: prefixes, names: names}
 }
 
-func (s identityNameResolverStub) InternIdentityQName(namespace, local string) (QName, error) {
-	q, ok := s.qnames[namespace+":"+local]
+func (f *identityXPathFixture) ResolveIdentityPrefix(prefix string) (string, error) {
+	ns, ok := f.prefixes[prefix]
 	if !ok {
-		return QName{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "stub holds no name "+namespace+":"+local)
-	}
-	return q, nil
-}
-
-func (s identityNameResolverStub) InternIdentityNamespace(namespace string) (namespaceID, error) {
-	ns, ok := s.namespaces[namespace]
-	if !ok {
-		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "stub holds no namespace "+namespace)
+		return "", xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "unbound QName prefix "+diagnostictext.Quote(prefix))
 	}
 	return ns, nil
 }
 
-func TestSelectorAndFieldStoreThePathsBuiltAtTheirStartTag(t *testing.T) {
+func (f *identityXPathFixture) selector(xpath string) ([]identityPath, error) {
+	paths, names, err := parseIdentityPaths(xpath, f)
+	if err != nil {
+		return nil, err
+	}
+	return paths, internIdentitySelectorNames(&f.names, paths, names)
+}
+
+func (f *identityXPathFixture) field(xpath string) ([]identityFieldPath, error) {
+	paths, names, err := parseIdentityFieldPaths(xpath, f)
+	if err != nil {
+		return nil, err
+	}
+	return paths, internIdentityFieldNames(&f.names, paths, names)
+}
+
+func (f *identityXPathFixture) qname(t *testing.T, ns, local string) QName {
+	t.Helper()
+	q, ok := f.names.LookupQName(ns, local)
+	if !ok {
+		t.Fatalf("name table has no {%s}%s", ns, local)
+	}
+	return q
+}
+
+func (f *identityXPathFixture) namespace(t *testing.T, uri string) namespaceID {
+	t.Helper()
+	ns, ok := f.names.LookupNamespace(uri)
+	if !ok {
+		t.Fatalf("name table has no namespace %s", uri)
+	}
+	return ns
+}
+
+func TestSelectorAndFieldBindTheirNamesAtTheStartTagAndInternThemOnce(t *testing.T) {
 	t.Parallel()
 
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="urn:default" xmlns:p="urn:outer" targetNamespace="urn:target">
@@ -350,28 +354,40 @@ func TestSelectorAndFieldStoreThePathsBuiltAtTheirStartTag(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	admission := testSchemaAdmission(limits)
-	doc, err := parseSchemaDocument("schema.xsd", "schema.xsd", strings.NewReader(schema), limits, new(xmlstream.Reader), admission)
+	doc, err := parseSchemaDocument("schema.xsd", "schema.xsd", strings.NewReader(schema), limits, new(xmlstream.Reader), testSchemaPatterns(limits))
 	if err != nil {
 		t.Fatalf("parseSchemaDocument() error = %v", err)
 	}
 	key := doc.node(doc.node(doc.root.children[0]).children[0])
+	names, err := newRuntimeNameTable(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	selector := semanticSource[*schemaIdentitySelectorSource](&doc.node(key.children[0]).semantic)
+	code := semanticSource[*schemaIdentityFieldSource](&doc.node(key.children[1]).semantic)
+	wildcard := semanticSource[*schemaIdentityFieldSource](&doc.node(key.children[2]).semantic)
+	if selector == nil || len(selector.Paths) != 2 || code == nil || len(code.Paths) != 1 || wildcard == nil || len(wildcard.Paths) != 1 {
+		t.Fatalf("sources = %#v, %#v, %#v, want two selector paths and one path per field", selector, code, wildcard)
+	}
+	for range 2 {
+		for _, intern := range []func(*nameTable) error{selector.internNames, code.internNames, wildcard.internNames} {
+			if err := intern(&names); err != nil {
+				t.Fatalf("internNames() error = %v", err)
+			}
+		}
+	}
 	name := func(ns, local string) QName {
-		q, ok := admission.names.LookupQName(ns, local)
+		q, ok := names.LookupQName(ns, local)
 		if !ok {
 			t.Fatalf("name table has no {%s}%s", ns, local)
 		}
 		return q
 	}
-	outer, ok := admission.names.LookupNamespace("urn:outer")
+	outer, ok := names.LookupNamespace("urn:outer")
 	if !ok {
 		t.Fatal("name table has no urn:outer")
 	}
 
-	selector := semanticSource[*schemaIdentitySelectorSource](&doc.node(key.children[0]).semantic)
-	if selector == nil || len(selector.Paths) != 2 {
-		t.Fatalf("selector source = %#v, want two paths", selector)
-	}
 	if got := selector.Paths[0]; got.Descendant || len(got.Steps) != 1 || got.Steps[0].Name != name("urn:selector", "row") {
 		t.Fatalf("selector path 0 = %#v, want {urn:selector}row from the selector's own binding", got)
 	}
@@ -379,16 +395,8 @@ func TestSelectorAndFieldStoreThePathsBuiltAtTheirStartTag(t *testing.T) {
 		t.Fatalf("selector path 1 = %#v, want .//cell in no namespace despite the default and target namespaces", got)
 	}
 
-	code := semanticSource[*schemaIdentityFieldSource](&doc.node(key.children[1]).semantic)
-	if code == nil || len(code.Paths) != 1 {
-		t.Fatalf("first field source = %#v, want one path", code)
-	}
 	if got := code.Paths[0]; !got.Attr || got.Attribute != name("urn:outer", "id") || len(got.Steps) != 1 || got.Steps[0].Name != name("urn:outer", "code") {
 		t.Fatalf("first field path = %#v, want {urn:outer}code/@{urn:outer}id", got)
-	}
-	wildcard := semanticSource[*schemaIdentityFieldSource](&doc.node(key.children[2]).semantic)
-	if wildcard == nil || len(wildcard.Paths) != 1 {
-		t.Fatalf("second field source = %#v, want one path", wildcard)
 	}
 	if got := wildcard.Paths[0]; !got.Attr || !got.AttrWildcard || !got.AttrNamespaceSet || got.AttrNamespace != outer {
 		t.Fatalf("second field path = %#v, want attribute::{urn:outer}*", got)
@@ -414,7 +422,7 @@ func TestUnboundXPathPrefixIsReportedAtItsStartTag(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = parseSchemaDocument("schema.xsd", "schema.xsd", strings.NewReader(schema), limits, new(xmlstream.Reader), testSchemaAdmission(limits))
+			_, err = parseSchemaDocument("schema.xsd", "schema.xsd", strings.NewReader(schema), limits, new(xmlstream.Reader), testSchemaPatterns(limits))
 			diagnostic, ok := errors.AsType[*xsderrors.Error](err)
 			if !ok || diagnostic.Code() != xsderrors.CodeSchemaReference || diagnostic.Message() != `unbound QName prefix "q"` {
 				t.Fatalf("parseSchemaDocument() error = %v, want schema.reference: unbound QName prefix \"q\"", err)
@@ -435,7 +443,7 @@ func allocatedBytes(f func()) uint64 {
 }
 
 func TestMalformedIdentityPathIsRejectedWithoutAllocatingPerSeparator(t *testing.T) {
-	resolver := identityNameResolverStub{qnames: map[string]QName{":a": {Local: 1}}}
+	resolver := newIdentityXPathFixture(t, nil)
 	const separators = 100_000
 	const budget = 16 << 10
 	branches := "a" + strings.Repeat("|", separators)
@@ -445,15 +453,15 @@ func TestMalformedIdentityPathIsRejectedWithoutAllocatingPerSeparator(t *testing
 		parse func() error
 	}{
 		{name: "selector branches", parse: func() error {
-			_, err := parseIdentityPaths(branches, resolver)
+			_, _, err := parseIdentityPaths(branches, resolver)
 			return err
 		}},
 		{name: "field branches", parse: func() error {
-			_, err := parseIdentityFieldPaths(branches, resolver)
+			_, _, err := parseIdentityFieldPaths(branches, resolver)
 			return err
 		}},
 		{name: "selector steps", parse: func() error {
-			_, err := parseIdentityPaths(steps, resolver)
+			_, _, err := parseIdentityPaths(steps, resolver)
 			return err
 		}},
 	}
@@ -470,32 +478,32 @@ func TestMalformedIdentityPathIsRejectedWithoutAllocatingPerSeparator(t *testing
 }
 
 func TestIdentityPathsRetainCapacityForAcceptedStepsNotForSeparators(t *testing.T) {
-	resolver := identityNameResolverStub{qnames: map[string]QName{":a": {Local: 1}, ":b": {Local: 2}}}
+	xpaths := newIdentityXPathFixture(t, nil)
 	selfSteps := strings.Repeat("./", 1_000)
 	const factor = 2
 
-	paths, err := parseIdentityPaths(selfSteps+"a/"+selfSteps+"b | "+selfSteps+".", resolver)
+	paths, err := xpaths.selector(selfSteps + "a/" + selfSteps + "b | " + selfSteps + ".")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(paths) != 2 || cap(paths) > factor*len(paths) {
 		t.Fatalf("selector paths len %d cap %d, want 2 paths and capacity at most %d", len(paths), cap(paths), factor*2)
 	}
-	if steps := paths[0].Steps; len(steps) != 2 || steps[0].Name != (QName{Local: 1}) || steps[1].Name != (QName{Local: 2}) || cap(steps) > factor*len(steps) {
+	if steps := paths[0].Steps; len(steps) != 2 || steps[0].Name != xpaths.qname(t, "", "a") || steps[1].Name != xpaths.qname(t, "", "b") || cap(steps) > factor*len(steps) {
 		t.Fatalf("first selector path steps = %+v (cap %d), want a/b with capacity at most %d", steps, cap(steps), factor*2)
 	}
 	if steps := paths[1].Steps; len(steps) != 0 || cap(steps) > factor {
 		t.Fatalf("self selector path steps len %d cap %d, want none and capacity at most %d", len(steps), cap(steps), factor)
 	}
 
-	fields, err := parseIdentityFieldPaths(selfSteps+"a/"+selfSteps+"@b", resolver)
+	fields, err := xpaths.field(selfSteps + "a/" + selfSteps + "@b")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(fields) != 1 || cap(fields) > factor {
 		t.Fatalf("field paths len %d cap %d, want 1 path and capacity at most %d", len(fields), cap(fields), factor)
 	}
-	if steps := fields[0].Steps; len(steps) != 1 || steps[0].Name != (QName{Local: 1}) || cap(steps) > factor || fields[0].Attribute != (QName{Local: 2}) {
+	if steps := fields[0].Steps; len(steps) != 1 || steps[0].Name != xpaths.qname(t, "", "a") || cap(steps) > factor || fields[0].Attribute != xpaths.qname(t, "", "b") {
 		t.Fatalf("field path = %+v (steps cap %d), want a/@b with step capacity at most %d", fields[0], cap(steps), factor)
 	}
 }

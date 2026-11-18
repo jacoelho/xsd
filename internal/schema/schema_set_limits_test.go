@@ -32,7 +32,7 @@ func TestTargetContextViewsShareSemanticSourceArena(t *testing.T) {
 		return source.Bytes(name, data).WithResolver(resolver)
 	}
 	work := newWorkBudget(dependencyWorkBudget, limits.MaxSchemaDependencySteps)
-	graph, err := loadSchemaGraphOwned([]source.Source{root("a.xsd", "urn:a"), root("b.xsd", "urn:b")}, limits, &work, testSchemaAdmission(limits))
+	graph, err := loadSchemaGraphOwned([]source.Source{root("a.xsd", "urn:a"), root("b.xsd", "urn:b")}, limits, &work, testSchemaPatterns(limits))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -700,7 +700,7 @@ func TestTargetReferencePlanningChargesOnlyResolvedEdges(t *testing.T) {
 			loading := newWorkBudget(dependencyWorkBudget, limits.MaxSchemaDependencySteps)
 			graph, err := loadSchemaGraphOwned([]source.Source{
 				source.Bytes("z-root", []byte(root)).WithResolver(resolver),
-			}, limits, &loading, testSchemaAdmission(limits))
+			}, limits, &loading, testSchemaPatterns(limits))
 			if err != nil {
 				t.Fatal(err)
 			}

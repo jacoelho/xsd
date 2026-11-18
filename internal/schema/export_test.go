@@ -68,7 +68,7 @@ func (c *compiler) DocumentNamesForTest() []string {
 
 // ParseSchemaRootForTest parses a schema document and returns its root node.
 func ParseSchemaRootForTest(data []byte, limits Limits) (*SchemaNode, error) {
-	doc, err := parseTypedSchemaSourceDocument("test.xsd", "test.xsd", bytes.NewReader(data), limits, new(xmlstream.Reader), testSchemaAdmission(limits))
+	doc, err := parseTypedSchemaSourceDocument("test.xsd", "test.xsd", bytes.NewReader(data), limits, new(xmlstream.Reader), testSchemaPatterns(limits))
 	if err != nil {
 		return nil, err
 	}

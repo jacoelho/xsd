@@ -93,7 +93,7 @@ func admitXPathAttribute(n *schemaSyntaxNode, value string, admitted startTagAtt
 	if lex.TrimXMLWhitespaceString(value) == "" {
 		return schemaCompileAt(n, xsderrors.CodeSchemaIdentity, diagnostictext.Quote(n.Name.Local)+" xpath is empty")
 	}
-	return admitIdentityXPath(n, value, admitted.set.names, admitted.values)
+	return admitIdentityXPath(n, value, admitted.values)
 }
 
 // admitParsedAttributeValue admits attr, an attribute of the XSD element
@@ -106,7 +106,7 @@ func admitParsedAttributeValue(element string, attr schemaAttribute, admitted st
 	case vocab.XSDAttrMinOccurs, vocab.XSDAttrMaxOccurs:
 		return values.occurrence.admitAttribute(attr.Name.Local, attr.Value)
 	case vocab.XSDAttrValue:
-		facet, err := admitFacetValue(element, attr.Value, admitted.set.patterns)
+		facet, err := admitFacetValue(element, attr.Value, admitted.patterns)
 		facet.fixed = values.facet.fixed
 		values.facet = facet
 		return err

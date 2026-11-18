@@ -9,13 +9,9 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// identityNameResolver binds the prefixes of identity XPath name tests and
-// interns their names. A parse resolves every prefix of a branch before it
-// interns any of the branch's names.
-type identityNameResolver interface {
+// identityPrefixResolver binds the prefixes of identity XPath name tests.
+type identityPrefixResolver interface {
 	ResolveIdentityPrefix(prefix string) (string, error)
-	InternIdentityQName(namespace, local string) (QName, error)
-	InternIdentityNamespace(namespace string) (namespaceID, error)
 }
 
 // admitIdentityXPath parses value, the xpath of the selector or field n, into
@@ -24,46 +20,37 @@ type identityNameResolver interface {
 // is the only owner of those diagnostics and the only parse of the value.
 // Prefixes resolve against the namespace scope of the start tag; an
 // unprefixed name test has no namespace (XPath 1.0 §2.3), whatever the
-// target namespace of the including context. The names of a branch are
-// interned into names once its grammar and prefixes are accepted, so a
-// MaxSchemaNames breach is reported at the start tag and never in place of the
-// branch's syntax or binding error.
-func admitIdentityXPath(n *schemaSyntaxNode, value string, names *nameTable, values *admittedValues) error {
-	resolver := tagIdentityNameResolver{node: n, names: names}
+// target namespace of the including context. No name is interned here: the
+// name tests are kept, bound, for compileIdentityConstraint to intern, so name
+// IDs follow compilation order, as every other component name's do, and a
+// MaxSchemaNames breach on a path name is a compile diagnostic that no syntax
+// or binding error of any path waits behind.
+func admitIdentityXPath(n *schemaSyntaxNode, value string, values *admittedValues) error {
+	resolver := tagIdentityPrefixResolver{node: n}
 	var err error
 	switch n.Name.Local {
 	case vocab.XSDElemSelector:
-		values.selector, err = parseIdentityPaths(value, resolver)
+		values.selector, values.xpathNames, err = parseIdentityPaths(value, resolver)
 	case vocab.XSDElemField:
-		values.field, err = parseIdentityFieldPaths(value, resolver)
+		values.field, values.xpathNames, err = parseIdentityFieldPaths(value, resolver)
 	default:
 		err = xsderrors.InternalInvariant("identity XPath admission of xs:" + diagnostictext.Quote(n.Name.Local))
 	}
 	return withSchemaCompileLocation(n, err)
 }
 
-// tagIdentityNameResolver resolves the prefixes of name tests against the
-// namespace scope of a start tag and interns the names into the compiler's
-// name table.
-type tagIdentityNameResolver struct {
-	node  *schemaSyntaxNode
-	names *nameTable
+// tagIdentityPrefixResolver resolves the prefixes of name tests against the
+// namespace scope of a start tag.
+type tagIdentityPrefixResolver struct {
+	node *schemaSyntaxNode
 }
 
-func (r tagIdentityNameResolver) ResolveIdentityPrefix(prefix string) (string, error) {
+func (r tagIdentityPrefixResolver) ResolveIdentityPrefix(prefix string) (string, error) {
 	ns, ok := r.node.NS.Lookup(prefix)
 	if !ok {
 		return "", schemaCompileAt(r.node, xsderrors.CodeSchemaReference, "unbound QName prefix "+diagnostictext.Quote(prefix))
 	}
 	return ns, nil
-}
-
-func (r tagIdentityNameResolver) InternIdentityQName(namespace, local string) (QName, error) {
-	return newNameInterner(r.names).InternQName(namespace, local)
-}
-
-func (r tagIdentityNameResolver) InternIdentityNamespace(namespace string) (namespaceID, error) {
-	return newNameInterner(r.names).InternNamespace(namespace)
 }
 
 // identityNameSyntax is a name test whose prefix is bound and whose names are
@@ -74,90 +61,179 @@ type identityNameSyntax struct {
 	kind      identityNameKind
 }
 
+// identityNameKind is the form of a name test. Its zero value is no form, so
+// a name test that was never parsed cannot pass for one.
 type identityNameKind uint8
 
 const (
+	identityNameInvalid identityNameKind = iota
 	// identityNameAny is the name test *.
-	identityNameAny identityNameKind = iota
+	identityNameAny
 	// identityNameNamespace is the name test prefix:*.
 	identityNameNamespace
 	// identityNameQName is a QName name test.
 	identityNameQName
 )
 
-// identityBranchNames is the number of name tests a branch holds before its
-// pending names spill from the stack.
-const identityBranchNames = 8
-
-func internIdentityName[R identityNameResolver](syntax identityNameSyntax, resolver R) (identityNameTest, error) {
+// internIdentityName interns the names of syntax into names.
+func internIdentityName(names *nameTable, syntax identityNameSyntax) (identityNameTest, error) {
+	interner := newNameInterner(names)
 	switch syntax.kind {
 	case identityNameNamespace:
-		ns, err := resolver.InternIdentityNamespace(syntax.namespace)
+		ns, err := interner.InternNamespace(syntax.namespace)
 		if err != nil {
 			return identityNameTest{}, err
 		}
 		return identityNameTest{name: noQName(), wildcard: true, namespaceSet: true, namespace: ns}, nil
 	case identityNameQName:
-		q, err := resolver.InternIdentityQName(syntax.namespace, syntax.local)
+		q, err := interner.InternQName(syntax.namespace, syntax.local)
 		if err != nil {
 			return identityNameTest{}, err
 		}
 		return identityNameTest{name: q}, nil
 	case identityNameAny:
 		return identityNameTest{name: noQName(), wildcard: true}, nil
+	case identityNameInvalid:
+		return identityNameTest{}, xsderrors.InternalInvariant("identity XPath name test was not parsed")
 	default:
 		return identityNameTest{}, xsderrors.InternalInvariant("unknown identity XPath name test kind")
 	}
 }
 
-// internIdentitySteps returns the element steps of the accepted name tests
-// names, in a slice of exactly their length.
-func internIdentitySteps[R identityNameResolver](names []identityNameSyntax, resolver R) ([]IdentityStep, error) {
-	if len(names) == 0 {
-		return nil, nil
-	}
-	steps := make([]IdentityStep, len(names))
-	for i, syntax := range names {
-		test, err := internIdentityName(syntax, resolver)
-		if err != nil {
-			return nil, err
-		}
-		steps[i] = IdentityStep{Name: test.name, Namespace: test.namespace, Wildcard: test.wildcard, NamespaceSet: test.namespaceSet}
-	}
-	return steps, nil
+// identityStepFor returns the element step of the interned name test test.
+func identityStepFor(test identityNameTest) IdentityStep {
+	return IdentityStep{Name: test.name, Namespace: test.namespace, Wildcard: test.wildcard, NamespaceSet: test.namespaceSet}
 }
 
-// parseIdentityPaths parses selector XPath branches for an identity constraint.
-// Like the field parse, it reserves at most maxIdentityPathHint branches from
-// the separator count before accepting any, grows only with accepted branches
-// and name tests, and returns slices of exactly the accepted length, because
-// the source record keeps them.
-func parseIdentityPaths[R identityNameResolver](xpath string, resolver R) ([]identityPath, error) {
+// internIdentitySelectorNames interns names, the name tests
+// parseIdentityPaths returned with paths, into the steps of paths in place.
+func internIdentitySelectorNames(table *nameTable, paths []identityPath, names []identityNameSyntax) error {
+	next := 0
+	for _, path := range paths {
+		for i := range path.Steps {
+			if next == len(names) {
+				return xsderrors.InternalInvariant("identity selector has more steps than admitted name tests")
+			}
+			test, err := internIdentityName(table, names[next])
+			if err != nil {
+				return err
+			}
+			path.Steps[i] = identityStepFor(test)
+			next++
+		}
+	}
+	if next != len(names) {
+		return xsderrors.InternalInvariant("identity selector has fewer steps than admitted name tests")
+	}
+	return nil
+}
+
+// internIdentityFieldNames interns names, the name tests
+// parseIdentityFieldPaths returned with paths, into the attributes and steps
+// of paths in place: in each path its attribute, then its steps.
+func internIdentityFieldNames(table *nameTable, paths []identityFieldPath, names []identityNameSyntax) error {
+	next := 0
+	for p := range paths {
+		var err error
+		if next, err = internIdentityFieldPathNames(table, &paths[p], names, next); err != nil {
+			return err
+		}
+	}
+	if next != len(names) {
+		return xsderrors.InternalInvariant("identity field has fewer name tests than admitted")
+	}
+	return nil
+}
+
+// internIdentityFieldPathNames interns the name tests of path, which start at
+// names[next], and returns the index after them.
+func internIdentityFieldPathNames(table *nameTable, path *identityFieldPath, names []identityNameSyntax, next int) (int, error) {
+	count := len(path.Steps)
+	if path.Attr {
+		count++
+	}
+	if count > len(names)-next {
+		return next, xsderrors.InternalInvariant("identity field has more name tests than admitted")
+	}
+	if path.Attr {
+		test, err := internIdentityName(table, names[next])
+		if err != nil {
+			return next, err
+		}
+		path.Attribute, path.AttrNamespace, path.AttrWildcard, path.AttrNamespaceSet = test.name, test.namespace, test.wildcard, test.namespaceSet
+		next++
+	}
+	for i := range path.Steps {
+		test, err := internIdentityName(table, names[next])
+		if err != nil {
+			return next, err
+		}
+		path.Steps[i] = identityStepFor(test)
+		next++
+	}
+	return next, nil
+}
+
+// identityPathNames is the number of name tests a path holds before its
+// pending names spill from the stack.
+const identityPathNames = 8
+
+// parseIdentityPaths parses selector XPath branches for an identity constraint
+// into its paths, whose steps hold no names yet, and their name tests in step
+// order. Like the field parse, it reserves at most maxIdentityPathHint
+// branches from the separator count before accepting any, grows only with
+// accepted branches and name tests, and returns slices of exactly the accepted
+// length, because the source record keeps them.
+func parseIdentityPaths[R identityPrefixResolver](xpath string, resolver R) ([]identityPath, []identityNameSyntax, error) {
 	out := make([]identityPath, 0, identityPathHint(xpath, "|"))
-	var pending [identityBranchNames]identityNameSyntax
+	var buffer [identityPathNames]identityNameSyntax
+	names := buffer[:0]
 	for rest, more := xpath, true; more; {
 		var part string
 		part, rest, more = strings.Cut(rest, "|")
 		part = lex.TrimXMLWhitespaceString(part)
 		if part == "" {
-			return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "identity selector XPath branch is empty")
+			return nil, nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "identity selector XPath branch is empty")
 		}
 		desc := false
 		if rest, ok := parseIdentityDescendantPrefix(part); ok {
 			desc = true
 			part = rest
 		}
-		names, err := parseIdentityStepNames(part, resolver, pending[:0])
-		if err != nil {
-			return nil, err
+		start := len(names)
+		var err error
+		if names, err = parseIdentityStepNames(part, resolver, names); err != nil {
+			return nil, nil, err
 		}
-		steps, err := internIdentitySteps(names, resolver)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, identityPath{Descendant: desc, Steps: steps})
+		out = append(out, identityPath{Descendant: desc, Steps: unnamedIdentitySteps(len(names) - start)})
 	}
-	return exactSlice(out), nil
+	return exactSlice(out), ownedIdentityNames(names), nil
+}
+
+// exactSlice returns s, or a copy of it without spare capacity when branches
+// were discarded or the hint was exceeded.
+func exactSlice[T any](s []T) []T {
+	if len(s) == cap(s) {
+		return s
+	}
+	return append(make([]T, 0, len(s)), s...)
+}
+
+// ownedIdentityNames returns a copy of names, which may lie in a parse's stack
+// buffer, of exactly their length.
+func ownedIdentityNames(names []identityNameSyntax) []identityNameSyntax {
+	if len(names) == 0 {
+		return nil
+	}
+	return append(make([]identityNameSyntax, 0, len(names)), names...)
+}
+
+// unnamedIdentitySteps returns count steps whose names are not interned yet.
+func unnamedIdentitySteps(count int) []IdentityStep {
+	if count == 0 {
+		return nil
+	}
+	return make([]IdentityStep, count)
 }
 
 // maxIdentityPathHint bounds what a path reserves before its branches are
@@ -171,75 +247,58 @@ func identityPathHint(xpath, separator string) int {
 	return min(strings.Count(xpath, separator)+1, maxIdentityPathHint)
 }
 
-// exactSlice returns s, or a copy of it without spare capacity when branches
-// were discarded or the hint was exceeded.
-func exactSlice[T any](s []T) []T {
-	if len(s) == cap(s) {
-		return s
-	}
-	return append(make([]T, 0, len(s)), s...)
-}
-
-// parseIdentityFieldPaths parses field XPath branches for an identity constraint.
-func parseIdentityFieldPaths[R identityNameResolver](xpath string, resolver R) ([]identityFieldPath, error) {
+// parseIdentityFieldPaths parses field XPath branches for an identity
+// constraint into its paths, whose attributes and steps hold no names yet, and
+// their name tests: in each path its attribute's, then its steps'.
+func parseIdentityFieldPaths[R identityPrefixResolver](xpath string, resolver R) ([]identityFieldPath, []identityNameSyntax, error) {
 	out := make([]identityFieldPath, 0, identityPathHint(xpath, "|"))
-	var pending [identityBranchNames]identityNameSyntax
+	var buffer [identityPathNames]identityNameSyntax
+	names := buffer[:0]
 	for rest, more := xpath, true; more; {
 		var part string
 		part, rest, more = strings.Cut(rest, "|")
 		part = lex.TrimXMLWhitespaceString(part)
 		if part == "" {
-			return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "identity field XPath branch is empty")
+			return nil, nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "identity field XPath branch is empty")
 		}
-		path, err := parseIdentityFieldPathBranch(part, resolver, pending[:0])
-		if err != nil {
-			return nil, err
+		var path identityFieldPath
+		var err error
+		if path, names, err = parseIdentityFieldPathBranch(part, resolver, names); err != nil {
+			return nil, nil, err
 		}
 		out = append(out, path)
 	}
-	return exactSlice(out), nil
+	return exactSlice(out), ownedIdentityNames(names), nil
 }
 
-func parseIdentityFieldPathBranch[R identityNameResolver](part string, resolver R, pending []identityNameSyntax) (identityFieldPath, error) {
+func parseIdentityFieldPathBranch[R identityPrefixResolver](part string, resolver R, names []identityNameSyntax) (identityFieldPath, []identityNameSyntax, error) {
 	desc := false
 	if rest, ok := parseIdentityDescendantPrefix(part); ok {
 		desc = true
 		part = rest
 	}
 	if part == "" {
-		return identityFieldPath{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "identity field XPath branch is empty")
+		return identityFieldPath{}, nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "identity field XPath branch is empty")
 	}
 	attribute, err := parseIdentityFieldAttribute(part, resolver)
 	if err != nil {
-		return identityFieldPath{}, err
+		return identityFieldPath{}, nil, err
 	}
-	names := pending
-	if attribute.elementPath != "" {
-		names, err = parseIdentityStepNames(attribute.elementPath, resolver, pending)
-		if err != nil {
-			return identityFieldPath{}, err
-		}
-	}
-	steps, err := internIdentitySteps(names, resolver)
-	if err != nil {
-		return identityFieldPath{}, err
-	}
-	name := identityNameTest{name: noQName()}
 	if attribute.present {
-		name, err = internIdentityName(attribute.name, resolver)
-		if err != nil {
-			return identityFieldPath{}, err
+		names = append(names, attribute.name)
+	}
+	start := len(names)
+	if attribute.elementPath != "" {
+		if names, err = parseIdentityStepNames(attribute.elementPath, resolver, names); err != nil {
+			return identityFieldPath{}, nil, err
 		}
 	}
 	return identityFieldPath{
-		Descendant:       desc,
-		Attr:             attribute.present,
-		AttrWildcard:     name.wildcard,
-		AttrNamespaceSet: name.namespaceSet,
-		AttrNamespace:    name.namespace,
-		Steps:            steps,
-		Attribute:        name.name,
-	}, nil
+		Descendant: desc,
+		Attr:       attribute.present,
+		Steps:      unnamedIdentitySteps(len(names) - start),
+		Attribute:  noQName(),
+	}, names, nil
 }
 
 type identityFieldAttribute struct {
@@ -248,7 +307,7 @@ type identityFieldAttribute struct {
 	present     bool
 }
 
-func parseIdentityFieldAttribute[R identityNameResolver](part string, resolver R) (identityFieldAttribute, error) {
+func parseIdentityFieldAttribute[R identityPrefixResolver](part string, resolver R) (identityFieldAttribute, error) {
 	if strings.HasPrefix(part, "/") {
 		return identityFieldAttribute{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity field XPath "+diagnostictext.Quote(part))
 	}
@@ -296,7 +355,7 @@ type identityNameTest struct {
 	namespaceSet bool
 }
 
-func parseIdentityNameSyntax[R identityNameResolver](lexical string, resolver R) (identityNameSyntax, error) {
+func parseIdentityNameSyntax[R identityPrefixResolver](lexical string, resolver R) (identityNameSyntax, error) {
 	lexical = lex.TrimXMLWhitespaceString(lexical)
 	if lexical == "*" {
 		return identityNameSyntax{kind: identityNameAny}, nil
@@ -327,7 +386,7 @@ func parseIdentityNameSyntax[R identityNameResolver](lexical string, resolver R)
 
 // parseIdentityStepNames appends the name tests of an element path to names,
 // in step order, without interning them.
-func parseIdentityStepNames[R identityNameResolver](path string, resolver R, names []identityNameSyntax) ([]identityNameSyntax, error) {
+func parseIdentityStepNames[R identityPrefixResolver](path string, resolver R, names []identityNameSyntax) ([]identityNameSyntax, error) {
 	if err := validateIdentityElementPath(path); err != nil {
 		return nil, err
 	}
@@ -355,7 +414,7 @@ func validateIdentityElementPath(path string) error {
 	return nil
 }
 
-func parseIdentityElementStep[R identityNameResolver](part string, resolver R) (identityNameSyntax, bool, error) {
+func parseIdentityElementStep[R identityPrefixResolver](part string, resolver R) (identityNameSyntax, bool, error) {
 	part = lex.TrimXMLWhitespaceString(part)
 	if part == "" {
 		return identityNameSyntax{}, false, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity XPath step")

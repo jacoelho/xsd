@@ -2,8 +2,10 @@ package schema
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/source"
@@ -473,5 +475,50 @@ func TestDenseDFAOptionalWorkPreservesMandatoryFailure(t *testing.T) {
 	program, err := newSchemaProgram(build, func(steps int) error { calls += steps; return nil })
 	if err != nil || calls != 36 || program.CompiledModels[0].Rows[0].indexKind != publishedDFADense {
 		t.Fatalf("mandatory retry = %v, work %d; want 36 units and dense admission", err, calls)
+	}
+}
+
+func TestIdentityXPathNamesDoNotChangeWhichContentModelRowsAreDense(t *testing.T) {
+	t.Parallel()
+
+	var types, choice strings.Builder
+	for i := 1; i <= 40; i++ {
+		fmt.Fprintf(&types, `<xs:complexType name="t%02d"/>`, i)
+	}
+	for i := 1; i <= 20; i++ {
+		fmt.Fprintf(&choice, `<xs:element name="a%02d" type="xs:string"/>`, i)
+	}
+	schema := func(identity string) string {
+		return `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">` + types.String() +
+			`<xs:element name="root"><xs:complexType><xs:choice maxOccurs="unbounded">` + choice.String() +
+			`</xs:choice></xs:complexType>` + identity + `</xs:element></xs:schema>`
+	}
+	denseRows := func(text string) int {
+		rt, err := Compile(Options{}, []source.Source{source.Bytes("schema.xsd", []byte(text))})
+		if err != nil {
+			t.Fatalf("Compile() error = %v", err)
+		}
+		count := 0
+		for _, model := range rt.program.CompiledModels {
+			for _, row := range model.Rows {
+				if row.indexKind == publishedDFADense {
+					count++
+				}
+			}
+		}
+		return count
+	}
+	without := denseRows(schema(""))
+	if without == 0 {
+		t.Fatal("schema without an identity constraint has no dense rows; the fixture no longer exercises dense indexing")
+	}
+	for _, identity := range []string{
+		`<xs:key name="k"><xs:selector xpath="a20"/><xs:field xpath="."/></xs:key>`,
+		`<xs:key name="k"><xs:selector xpath="."/><xs:field xpath="a20"/></xs:key>`,
+		`<xs:key name="a20"><xs:selector xpath="."/><xs:field xpath="."/></xs:key>`,
+	} {
+		if with := denseRows(schema(identity)); with != without {
+			t.Fatalf("dense rows with %s = %d, want %d as without it", identity, with, without)
+		}
 	}
 }

@@ -124,6 +124,7 @@ type schemaQNameListAttribute struct {
 type admittedValues struct {
 	selector          []identityPath
 	field             []identityFieldPath
+	xpathNames        []identityNameSyntax
 	facet             facetValue
 	memberTypes       schemaQNameListAttribute
 	base              schemaQNameAttribute
@@ -229,17 +230,53 @@ type schemaIdentitySource struct {
 }
 
 // schemaIdentitySelectorSource is the typed source record of an xs:selector:
-// its paths as admitIdentityXPath built them at the start tag. The paths are
-// immutable and shared by every identity constraint compiled from the node.
+// its paths as admitIdentityXPath built them at the start tag, and the name
+// tests of their steps until internNames interns them into the steps. The
+// paths are immutable once their names are interned and are shared by every
+// identity constraint compiled from the node.
 type schemaIdentitySelectorSource struct {
 	Paths []identityPath
+	names []identityNameSyntax
+	named bool
+}
+
+// internNames interns the name tests of the selector into its paths the first
+// time it is called; later calls, from the node compiled in another document
+// context, find the paths already named.
+func (s *schemaIdentitySelectorSource) internNames(table *nameTable) error {
+	if s.named {
+		return nil
+	}
+	if err := internIdentitySelectorNames(table, s.Paths, s.names); err != nil {
+		return err
+	}
+	s.names, s.named = nil, true
+	return nil
 }
 
 // schemaIdentityFieldSource is the typed source record of an xs:field: its
-// paths as admitIdentityXPath built them at the start tag. The paths are
-// immutable and shared by every identity constraint compiled from the node.
+// paths as admitIdentityXPath built them at the start tag, and the name tests
+// of their attributes and steps until internNames interns them. The paths are
+// immutable once their names are interned and are shared by every identity
+// constraint compiled from the node.
 type schemaIdentityFieldSource struct {
 	Paths []identityFieldPath
+	names []identityNameSyntax
+	named bool
+}
+
+// internNames interns the name tests of the field into its paths the first
+// time it is called; later calls, from the node compiled in another document
+// context, find the paths already named.
+func (s *schemaIdentityFieldSource) internNames(table *nameTable) error {
+	if s.named {
+		return nil
+	}
+	if err := internIdentityFieldNames(table, s.Paths, s.names); err != nil {
+		return err
+	}
+	s.names, s.named = nil, true
+	return nil
 }
 
 type schemaWildcardSource struct {
@@ -615,9 +652,9 @@ func buildSemanticKind(n *schemaSyntaxNode, values *admittedValues) schemaSemant
 			Refer: values.refer,
 		}
 	case vocab.XSDElemSelector:
-		return &schemaIdentitySelectorSource{Paths: values.selector}
+		return &schemaIdentitySelectorSource{Paths: values.selector, names: values.xpathNames}
 	case vocab.XSDElemField:
-		return &schemaIdentityFieldSource{Paths: values.field}
+		return &schemaIdentityFieldSource{Paths: values.field, names: values.xpathNames}
 	case vocab.XSDElemAttributeGroup:
 		return &schemaAttributeGroupSource{Global: schemaGlobalSourceFor(n), Ref: values.ref}
 	case vocab.XSDElemNotation:

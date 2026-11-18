@@ -18,16 +18,6 @@ func testSchemaPatterns(limits Limits) *schemaPatterns {
 	return &patterns
 }
 
-// testSchemaAdmission returns what a compiler with limits lends to start-tag
-// admission: an empty pattern admission and an empty runtime name table.
-func testSchemaAdmission(limits Limits) schemaSetAdmission {
-	names, err := newRuntimeNameTable(limits.MaxSchemaNames)
-	if err != nil {
-		panic(err)
-	}
-	return schemaSetAdmission{patterns: testSchemaPatterns(limits), names: &names}
-}
-
 func TestAdmitFacetValueStoresTheCompiledPattern(t *testing.T) {
 	t.Parallel()
 

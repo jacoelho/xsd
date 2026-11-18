@@ -91,40 +91,31 @@ func (ids *schemaIDs) declare(value string) bool {
 	return true
 }
 
-// schemaSetAdmission is what the compiler lends to start-tag admission while
-// its schema set loads: the pattern admission and the name table that
-// compilation interns into. A selector or field path interns its name tests
-// at its start tag, in document load order.
-type schemaSetAdmission struct {
-	patterns *schemaPatterns
-	names    *nameTable
-}
-
 // startTagAttributes is what the attributes of one start tag are admitted
 // into: the values admitted from its attributes, the ids of its document, and
-// what its schema set lends to admission.
+// the pattern admission of its schema set.
 type startTagAttributes struct {
-	values *admittedValues
-	ids    *schemaIDs
-	set    *schemaSetAdmission
+	values   *admittedValues
+	ids      *schemaIDs
+	patterns *schemaPatterns
 }
 
 type typedSchemaParseState struct {
-	parser    *xmlstream.Reader
-	doc       *schemaDocument
-	root      *schemaNode
-	admission schemaSetAdmission
-	ids       schemaIDs
-	stack     []typedSchemaParseFrame
-	limits    Limits
-	nodes     int
+	parser   *xmlstream.Reader
+	doc      *schemaDocument
+	root     *schemaNode
+	patterns *schemaPatterns
+	ids      schemaIDs
+	stack    []typedSchemaParseFrame
+	limits   Limits
+	nodes    int
 }
 
 // parseTypedSchemaSourceDocument admits XML directly into compact semantic
 // source records. Syntax nodes are used only as transient admission facts for
 // the active element and its direct children. The caller owns parser and may
 // reuse it sequentially; this function detaches it before returning.
-func parseTypedSchemaSourceDocument(name, key string, input io.Reader, limits Limits, parser *xmlstream.Reader, admission schemaSetAdmission) (*schemaDocument, error) {
+func parseTypedSchemaSourceDocument(name, key string, input io.Reader, limits Limits, parser *xmlstream.Reader, patterns *schemaPatterns) (*schemaDocument, error) {
 	if parser == nil {
 		return nil, xsderrors.InternalInvariant("schema parser reader is nil")
 	}
@@ -141,7 +132,7 @@ func parseTypedSchemaSourceDocument(name, key string, input io.Reader, limits Li
 		return nil, xsderrors.WithLocation(name, 0, 0, schemaReaderError(err, limits))
 	}
 	defer parser.Detach()
-	state := typedSchemaParseState{parser: parser, doc: doc, limits: limits, admission: admission}
+	state := typedSchemaParseState{parser: parser, doc: doc, limits: limits, patterns: patterns}
 	if err := state.parse(); err != nil {
 		return nil, xsderrors.WithLocation(name, 0, 0, err)
 	}
@@ -256,7 +247,7 @@ func (s *typedSchemaParseState) admitTypedFrame(initial typedSchemaParseFrame, l
 		parent = &s.stack[parentIndex]
 	}
 	values := admittedValues{occurrence: newOccurrenceAdmission(frame.name, typedParentName(parent), s.limits.MaxFiniteOccurs)}
-	if err := admitTypedStart(&frame.syntax, frame.placement, parent, startTagAttributes{values: &values, ids: &s.ids, set: &s.admission}); err != nil {
+	if err := admitTypedStart(&frame.syntax, frame.placement, parent, startTagAttributes{values: &values, ids: &s.ids, patterns: s.patterns}); err != nil {
 		s.stack = s.stack[:len(s.stack)-1]
 		return err
 	}

@@ -139,7 +139,9 @@ func (c *compiler) validateIdentityReference(id IdentityConstraintID) (err error
 }
 
 // compileIdentityConstraint builds the identity constraint n from the paths
-// its selector and fields stored at their start tags (admitIdentityXPath).
+// its selector and fields stored at their start tags (admitIdentityXPath),
+// interning their name tests here, after the keyref refer, as each other
+// component's names are interned when it compiles.
 func (c *compiler) compileIdentityConstraint(ctx *schemaSetDocument, n *schemaNode, name QName) (identityConstraintSpec, error) {
 	empty := identityConstraintSpec{Refer: NoIdentityConstraint}
 	syntax, err := identityConstraintChildren(n)
@@ -154,7 +156,10 @@ func (c *compiler) compileIdentityConstraint(ctx *schemaSetDocument, n *schemaNo
 	if selector == nil || len(selector.Paths) == 0 {
 		return empty, withSchemaCompileLocation(syntax.selector, xsderrors.InternalInvariant("identity selector has no admitted paths"))
 	}
-	fields, err := compileIdentityFields(syntax.fields)
+	if err = selector.internNames(&c.rt.Names); err != nil {
+		return empty, withSchemaCompileLocation(syntax.selector, err)
+	}
+	fields, err := c.compileIdentityFields(syntax.fields)
 	if err != nil {
 		return empty, err
 	}
@@ -184,12 +189,15 @@ func (c *compiler) compileIdentityRefer(ctx *schemaSetDocument, n *schemaNode) (
 	return refer, nil
 }
 
-func compileIdentityFields(nodes []*schemaNode) ([]identityField, error) {
+func (c *compiler) compileIdentityFields(nodes []*schemaNode) ([]identityField, error) {
 	fields := make([]identityField, 0, len(nodes))
 	for _, field := range nodes {
 		source := semanticSource[*schemaIdentityFieldSource](&field.semantic)
 		if source == nil || len(source.Paths) == 0 {
 			return nil, withSchemaCompileLocation(field, xsderrors.InternalInvariant("identity field has no admitted paths"))
+		}
+		if err := source.internNames(&c.rt.Names); err != nil {
+			return nil, withSchemaCompileLocation(field, err)
 		}
 		fields = append(fields, identityField{Paths: source.Paths})
 	}

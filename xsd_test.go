@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -112,7 +113,7 @@ func TestConfiguredMaxFiniteOccursIsDecidedAtTheParticleStartTag(t *testing.T) {
 	}
 }
 
-func TestNameLimitBreachOnAnXPathNameIsReportedAtItsStartTagInLoadOrder(t *testing.T) {
+func TestNameLimitBreachOnAnXPathNameIsASchemaLimitAtItsSelectorOrFieldWhenTheConstraintCompiles(t *testing.T) {
 	t.Parallel()
 
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:only-in-xpath">
@@ -139,19 +140,26 @@ func TestNameLimitBreachOnAnXPathNameIsReportedAtItsStartTagInLoadOrder(t *testi
 			located = append(located, location{d.Line(), d.Column()})
 		}
 	}
-	selector, field := location{4, 7}, location{5, 7}
-	if len(located) < 4 || located[0] != selector || located[1] != selector || located[2] != field || located[3] != field {
-		t.Fatalf("located name-limit breaches in increasing limit order = %v, want the xs:selector (%v) for its two new names, then the xs:field (%v) for its two, before any other declaration", located, selector, field)
+	key, selector, field := location{3, 5}, location{4, 7}, location{5, 7}
+	want := []location{key, selector, selector, field, field}
+	if len(located) < len(want) || !slices.Equal(located[len(located)-len(want):], want) {
+		t.Fatalf("located name-limit breaches in increasing limit order = %v, want them to end with the xs:key name (%v), then the xs:selector (%v) for its two new names, then the xs:field (%v) for its two", located, key, selector, field)
 	}
 }
 
-func TestIdentityXPathSyntaxErrorTakesPrecedenceOverANameLimitBreachInTheSameBranch(t *testing.T) {
+func TestIdentityXPathSyntaxErrorTakesPrecedenceOverANameLimitBreachOnAnyPathName(t *testing.T) {
 	t.Parallel()
 
-	for _, tt := range []struct{ name, selector, field string }{
-		{name: "field attribute after invalid element path", selector: `xpath="."`, field: `xmlns:p="urn:new" xpath="a[1]/@p:x"`},
-		{name: "selector predicate after new name", selector: `xmlns:p="urn:new" xpath="p:a/b[1]"`, field: `xpath="@id"`},
-		{name: "selector invalid axis after new name", selector: `xmlns:p="urn:new" xpath="p:a/child::"`, field: `xpath="@id"`},
+	for _, tt := range []struct {
+		name, selector, field string
+		want                  xsderrors.Code
+	}{
+		{name: "field attribute after invalid element path", selector: `xpath="."`, field: `xmlns:p="urn:new" xpath="a[1]/@p:x"`, want: xsderrors.CodeSchemaIdentity},
+		{name: "selector predicate after new name", selector: `xmlns:p="urn:new" xpath="p:a/b[1]"`, field: `xpath="@id"`, want: xsderrors.CodeSchemaIdentity},
+		{name: "selector invalid axis after new name", selector: `xmlns:p="urn:new" xpath="p:a/child::"`, field: `xpath="@id"`, want: xsderrors.CodeSchemaIdentity},
+		{name: "selector branch after a branch with a new name", selector: `xmlns:p="urn:new" xpath="p:a | b[1]"`, field: `xpath="@id"`, want: xsderrors.CodeSchemaIdentity},
+		{name: "unbound prefix in a selector branch after a branch with a new name", selector: `xmlns:p="urn:new" xpath="p:a | q:b"`, field: `xpath="@id"`, want: xsderrors.CodeSchemaReference},
+		{name: "field after a selector with a new name", selector: `xmlns:p="urn:new" xpath="p:a"`, field: `xpath="b[1]"`, want: xsderrors.CodeSchemaIdentity},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
@@ -175,8 +183,8 @@ func TestIdentityXPathSyntaxErrorTakesPrecedenceOverANameLimitBreachInTheSameBra
 					continue
 				}
 				reachedXPath = true
-				if d.Category() != xsderrors.CategorySchemaCompile || d.Code() != xsderrors.CodeSchemaIdentity {
-					t.Fatalf("CompileWithOptions(MaxSchemaNames: %d) error = %v, want schema.identity for the invalid XPath", limit, err)
+				if d.Category() != xsderrors.CategorySchemaCompile || d.Code() != tt.want {
+					t.Fatalf("CompileWithOptions(MaxSchemaNames: %d) error = %v, want %s for the invalid XPath", limit, err, tt.want)
 				}
 			}
 			if !reachedXPath {
