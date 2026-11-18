@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:t" xmlns:o="urn:other" targetNamespace="urn:t" elementFormDefault="qualified">
+<xs:element name="r"><xs:complexType><xs:sequence>
+<xs:element name="a" minOccurs="0" maxOccurs="0"><xs:complexType><xs:attribute name="v"/></xs:complexType><xs:key name="k"><xs:selector xpath="."/><xs:field xpath="@v"/></xs:key></xs:element>
+</xs:sequence><xs:attribute name="v"/></xs:complexType>
+<xs:keyref name="kr" refer="t:k"><xs:selector xpath="."/><xs:field xpath="@v"/></xs:keyref></xs:element>
+</xs:schema>

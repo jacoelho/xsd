@@ -81,13 +81,27 @@ func (c *compiler) declareIdentityConstraint(ctx *schemaSetDocument, node *schem
 	return id, nil
 }
 
-func (c *compiler) compileDeclaredIdentityConstraints(ctx *schemaSetDocument, nodes []*schemaNode, ids []IdentityConstraintID) error {
+// identityOwnership states whether an element declaration owns the identity
+// constraints being compiled.
+type identityOwnership uint8
+
+const (
+	// identityOwned constraints belong to the element declaration that
+	// declares them.
+	identityOwned identityOwnership = iota
+	// identityDetached constraints are declared under an xs:element with
+	// minOccurs and maxOccurs 0, which maps to no declaration.
+	identityDetached
+)
+
+func (c *compiler) compileDeclaredIdentityConstraints(ctx *schemaSetDocument, nodes []*schemaNode, ids []IdentityConstraintID, ownership identityOwnership) error {
 	for i, node := range nodes {
 		id := ids[i]
 		ic, err := c.compileIdentityConstraint(ctx, node, c.rt.identityName(id))
 		if err != nil {
 			return err
 		}
+		ic.Detached = ownership == identityDetached
 		c.completeIdentity(id, ic)
 	}
 	return nil

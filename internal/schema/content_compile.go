@@ -558,7 +558,7 @@ func (c *contentModelCompiler) particleContinuationParticles(p contentParticle) 
 	if err := c.work.spend(1); err != nil {
 		return nil, err
 	}
-	if p.Occurs.Max == 0 && !p.Occurs.Unbounded {
+	if p.Occurs.IsAbsent() {
 		return nil, nil
 	}
 	switch p.Kind {
@@ -890,7 +890,7 @@ func (b *directSequenceCompilation) addParticle(particle contentParticle) (bool,
 	if particle.Kind != particleElement && particle.Kind != particleWildcard {
 		return false, nil
 	}
-	if particle.Occurs.Max == 0 && !particle.Occurs.Unbounded {
+	if particle.Occurs.IsAbsent() {
 		return true, nil
 	}
 	if particle.Occurs.IsExactlyOne() {
@@ -992,7 +992,7 @@ func (b *directChoiceCompilation) addParticle(particle contentParticle) (bool, e
 	if particle.Kind != particleElement && particle.Kind != particleWildcard {
 		return false, nil
 	}
-	if particle.Occurs.Max == 0 && !particle.Occurs.Unbounded {
+	if particle.Occurs.IsAbsent() {
 		b.rows[0].Accept = true
 		return true, nil
 	}
@@ -1518,7 +1518,7 @@ func (b *dfaBuilder) repeat(child dfaNode, occurs occurrence) (dfaNode, error) {
 	if err := b.c.work.spend(1); err != nil {
 		return dfaNode{}, err
 	}
-	if occurs.Max == 0 && !occurs.Unbounded {
+	if occurs.IsAbsent() {
 		return dfaNode{Nullable: true}, nil
 	}
 	if occurs.IsExactlyOne() {

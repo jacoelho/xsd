@@ -1108,7 +1108,20 @@ graph preserves these ownership rules:
   is uncharged work proportional to references times group size.
 - Skipping all validation below a zero-count compositor was rejected because
   the mapping removes only that compositor's component (see
-  `compileDeferredModelChildren`).
+  `compileDeferredModelChildren`): each child particle keeps its own mapping,
+  decided by its own occurrence. A child `xs:element` with minOccurs and
+  maxOccurs 0 is itself absent (`occurrence.IsAbsent`, Structures §3.3.2), so
+  its own `ref`, `type` and value constraint are not resolved, authorized or
+  checked. The parse tier still decides at its start tag and at every start
+  tag inside it (the occurrence relation and the `xs:all` range, XPath,
+  pattern, a repeated facet, size and `xs:whiteSpace` values, namespace
+  declaration names), and the definitions nested in it keep their own
+  mapping: its inline type definition, as for a prohibited attribute
+  ([I-008](docs/spec/INTERPRETATIONS.md#i-008--prohibited-attribute-use-with-fixed)),
+  and its identity constraints (§3.11.2), which the build marks
+  `Detached`: no element declaration owns them, publication rejects any other
+  unowned constraint, and no instance element evaluates them. Treating the whole subtree as absent was
+  rejected: §3.11.2 maps every identity constraint regardless of its parent.
 - Deferring complex types only when their immediate base is active was
   rejected: intermediate bases still produce false cycles and renaming types
   changes acceptance (see `complexTypeCompletion`).

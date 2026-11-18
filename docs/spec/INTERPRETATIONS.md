@@ -234,6 +234,14 @@ original valid result in `instance.oracle.w3c`, with its reason and source.
 The upstream result is interoperability evidence, not replacement normative
 text. An absent attribute remains a distinct valid witness.
 
+The element and model group reference mappings (§3.3.2, §3.7.2) give an
+`xs:element` or `xs:group` with `minOccurs` and `maxOccurs` 0 no component in
+the same words, and the library reads them the same way: the item's own
+references and value constraints are not resolved or checked, while its source
+syntax, the rules decided at its start tag, and the definitions nested in it
+(an inline type definition, identity constraints) keep their own mapping.
+[I-023](#i-023--unresolved-references) lists the cases.
+
 ## I-009 — fixed attribute-use values
 
 **Status:** adopt typed-value equality from the later
@@ -713,7 +721,7 @@ behaviour, so their results are manifest `oracle` metadata on those cases.
 | `xs:group ref` with `minOccurs` and `maxOccurs` 0; `xs:attribute ref` with `use="prohibited"` | Not resolved and not import-authorized (`project/composition/unresolved-references/group-ref-zero-unimported`, `project/content-models/group-zero-occurrence-absent-content`, `project/prohibited-no-component-missing-imported-attribute-prohibited`) | §3.7.2: such a group reference "corresponds to no component at all", and [I-008](#i-008--prohibited-attribute-use-with-fixed), so there is no reference to resolve. The text decides it, so processor results do not; .NET accepts the group reference, Xerces-J, xmlschema and libxml2 reject it |
 | A name in the XML Schema namespace | Rejected (`project/composition/unresolved-references/xsd-namespace-type-missing`, `xsd-namespace-member-missing`) | The built-in components of that namespace are fixed, so no schema can supply the name (`typeQNameMayBeUnavailable`) |
 | A name in a namespace the document does not import | Rejected (`project/composition/unresolved-references/type-unimported-namespace`) | `src-resolve` clause 4 applies before any of the tolerances above |
-| `ref`, `type`, `default`, `fixed` and identity constraints of an `xs:element` with `minOccurs` and `maxOccurs` 0 | Compiled as for any other element: a missing `ref`, a `ref` or `type` into an unimported namespace, an invalid `default` or `fixed` value and a colliding identity-constraint name are rejected, and a missing `type` loads as for element `type` above. Not pinned | Pending a decision on the §3.3.2 mapping, under which the item "corresponds to no component at all" |
+| `ref`, `type`, `default` and `fixed` of an `xs:element` with `minOccurs` and `maxOccurs` 0 | Not resolved, not import-authorized and not checked. The rules decided at its start tag and at every start tag inside it still apply: its QName syntax and prefix bindings, the occurrence relation and the `xs:all` range, XPath, pattern, a repeated facet, size and `xs:whiteSpace` values, and namespace declaration names. The definitions nested in it keep their own mapping and checks: its inline type definition, as for a prohibited attribute, and its identity constraints, which map to identity-constraint definitions and take part in name uniqueness, are evaluated for no instance element, and resolve a keyref `refer` that names them as any other identity constraint does; a keyref value never matches one. As no particle, it takes part in no Element Declarations Consistent, Unique Particle Attribution or particle restriction check (`project/content-models/element-zero-occurrence/*`) | §3.3.2 maps the item to “no component at all”, as §3.7.2 does for the group reference above, and §3.11.2 maps every `xs:key`, `xs:unique` and `xs:keyref` to an identity-constraint definition. The text decides it, so processor results do not. Of the schemas that a skipped `ref`, `type`, `default` or `fixed` would otherwise make invalid, Xerces-J rejects every one, .NET accepts all, xmlschema only the NOTATION type, and libxml2 only the missing reference and the NOTATION type. All four agree on the identity-constraint schemas; on the keyref instances .NET rejects the absent value and xmlschema fails with an internal error. On the particle checks Xerces-J rejects the zero-count restriction particle, xmlschema the Element Declarations Consistent case and libxml2 the wildcard case, and libxml2 accepts the base whose only particle is zero-count |
 
 A tolerated missing `substitutionGroup` head leaves `{substitution group
 affiliation}`, an optional property, absent. The §3.3.2 `{type definition}`

@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 17115,
-    "schemaCases": 17065,
-    "instanceRuns": 35819,
+    "cases": 17136,
+    "schemaCases": 17086,
+    "instanceRuns": 35846,
     "w3cCases": 14414,
-    "internalRuns": 2688,
+    "internalRuns": 2709,
     "xercesJCases": 13
   },
   "cases": [
@@ -916946,6 +916946,1699 @@
         },
         {
           "file": "corpus/project/composition/unresolved-references/attribute-type-missing-value-constraint/fixed-attribute-present.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/element-zero-occurrence/ref-missing",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/ref-missing",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+        ],
+        "conditions": [
+          "An xs:element with minOccurs and maxOccurs 0 corresponds to no component at all (Structures 3.3.2), so a reference to a missing element declaration is not resolved; the referenced name is not admitted in the instance."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/ref-missing/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4:58: src-resolve: Cannot resolve the name 't:missing' to a(n) 'element declaration' component. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. unknown element '{urn:t}missing': Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" ref=\"t:missing\" minOccurs=\"0\" maxOccurs=\"0\" /> Path: /xs:schema/xs:element/xs:complexType/xs:sequence/xs:element[2] Schema URL: schema.xsd. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/element-zero-occurrence/ref-missing/empty.xml",
+          "expected": "valid",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            }
+          }
+        },
+        {
+          "testName": "sibling",
+          "file": "corpus/project/content-models/element-zero-occurrence/ref-missing/sibling.xml",
+          "expected": "valid",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            }
+          }
+        },
+        {
+          "testName": "absent-name",
+          "file": "corpus/project/content-models/element-zero-occurrence/ref-missing/absent-name.xml",
+          "expected": "invalid",
+          "oracle": {
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. absent-name.xml:1:19: The element 'r' in namespace 'urn:t' has invalid child element 'missing' in namespace 'urn:t'. List of possible elements expected: 'x' in namespace 'urn:t'. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            },
+            "libxml2": {
+              "expected": "invalid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance rejected. absent-name.xml:1: element missing: Schemas validity error : Element '{urn:t}missing': This element is not expected. Expected is ( {urn:t}x ). The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/ref-missing/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/ref-missing/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/ref-missing/sibling.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/ref-missing/absent-name.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/element-zero-occurrence/ref-unimported-namespace",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/ref-unimported-namespace",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+        ],
+        "conditions": [
+          "An xs:element with minOccurs and maxOccurs 0 corresponds to no component at all (Structures 3.3.2), so a reference into a namespace the document does not import is neither resolved nor import-authorized."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/ref-unimported-namespace/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4:52: src-resolve.4.2: Error resolving component 'o:e'. It was detected that 'o:e' is in namespace 'urn:other', but components from this namespace are not referenceable from schema document 'file:schema.xsd'. If this is the incorrect namespace, perhaps the prefix of 'o:e' needs to be changed. If this is the correct namespace, then an appropriate 'import' tag should be added to 'file:schema.xsd'. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. warning: schema.xsd:4:2: Namespace 'urn:other' is not available to be referenced in this schema. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. the QName 'o:e' is mapped to the namespace 'urn:other', but this namespace has not an xs:import statement in the schema: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" ref=\"o:e\" minOccurs=\"0\" maxOccurs=\"0\" /> Path: /xs:schema/xs:element/xs:complexType/xs:sequence/xs:element[2] Schema URL: schema.xsd. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'ref': References from this schema to components in the namespace 'urn:other' are not allowed, since not indicated by an import statement. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/element-zero-occurrence/ref-unimported-namespace/empty.xml",
+          "expected": "valid",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            }
+          }
+        },
+        {
+          "testName": "sibling",
+          "file": "corpus/project/content-models/element-zero-occurrence/ref-unimported-namespace/sibling.xml",
+          "expected": "valid",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            }
+          }
+        },
+        {
+          "testName": "absent-name",
+          "file": "corpus/project/content-models/element-zero-occurrence/ref-unimported-namespace/absent-name.xml",
+          "expected": "invalid",
+          "oracle": {
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. absent-name.xml:1:19: The element 'r' in namespace 'urn:t' has invalid child element 'e' in namespace 'urn:other'. List of possible elements expected: 'x' in namespace 'urn:t'. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/ref-unimported-namespace/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/ref-unimported-namespace/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/ref-unimported-namespace/sibling.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/ref-unimported-namespace/absent-name.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/element-zero-occurrence/type-unimported-namespace",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/type-unimported-namespace",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+        ],
+        "conditions": [
+          "An xs:element with minOccurs and maxOccurs 0 corresponds to no component at all (Structures 3.3.2), so its type QName into a namespace the document does not import is neither resolved nor import-authorized."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/type-unimported-namespace/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4:62: src-resolve.4.2: Error resolving component 'o:t'. It was detected that 'o:t' is in namespace 'urn:other', but components from this namespace are not referenceable from schema document 'file:schema.xsd'. If this is the incorrect namespace, perhaps the prefix of 'o:t' needs to be changed. If this is the correct namespace, then an appropriate 'import' tag should be added to 'file:schema.xsd'. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. warning: schema.xsd:4:2: Namespace 'urn:other' is not available to be referenced in this schema. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. the QName 'o:t' is mapped to the namespace 'urn:other', but this namespace has not an xs:import statement in the schema: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"a\" type=\"o:t\" minOccurs=\"0\" maxOccurs=\"0\" /> Path: /xs:schema/xs:element/xs:complexType/xs:sequence/xs:element[2] Schema URL: schema.xsd. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'type': References from this schema to components in the namespace 'urn:other' are not allowed, since not indicated by an import statement. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/element-zero-occurrence/type-unimported-namespace/empty.xml",
+          "expected": "valid",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            }
+          }
+        },
+        {
+          "testName": "sibling",
+          "file": "corpus/project/content-models/element-zero-occurrence/type-unimported-namespace/sibling.xml",
+          "expected": "valid",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            }
+          }
+        },
+        {
+          "testName": "absent-name",
+          "file": "corpus/project/content-models/element-zero-occurrence/type-unimported-namespace/absent-name.xml",
+          "expected": "invalid",
+          "oracle": {
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. absent-name.xml:1:19: The element 'r' in namespace 'urn:t' has invalid child element 'a' in namespace 'urn:t'. List of possible elements expected: 'x' in namespace 'urn:t'. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/type-unimported-namespace/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/type-unimported-namespace/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/type-unimported-namespace/sibling.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/type-unimported-namespace/absent-name.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/element-zero-occurrence/notation-type",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/notation-type",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#enumeration-required-notation"
+        ],
+        "conditions": [
+          "An xs:element with minOccurs and maxOccurs 0 corresponds to no component at all (Structures 3.3.2), so the rule that xs:NOTATION is not used directly as an element type has no declaration to apply to."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/notation-type/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4:70: enumeration-required-notation: The NOTATION type, 'NOTATION' used by element 'a', must have an enumeration facet value which specifies the notation elements used by this type. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/element-zero-occurrence/notation-type/empty.xml",
+          "expected": "valid",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            }
+          }
+        },
+        {
+          "testName": "sibling",
+          "file": "corpus/project/content-models/element-zero-occurrence/notation-type/sibling.xml",
+          "expected": "valid",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/notation-type/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/notation-type/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/notation-type/sibling.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/element-zero-occurrence/invalid-default",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/invalid-default",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct"
+        ],
+        "conditions": [
+          "An xs:element with minOccurs and maxOccurs 0 corresponds to no component at all (Structures 3.3.2), so a default that is not valid for the declared type is not checked."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/invalid-default/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4:77: e-props-correct.2: Invalid value constraint value 'x' in element 'a'. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. 'default' value 'x' is not compatible with element's type: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"a\" type=\"xs:int\" default=\"x\" minOccurs=\"0\" maxOccurs=\"0\" /> Path: /xs:schema/xs:element/xs:complexType/xs:sequence/xs:element[2] Schema URL: schema.xsd. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'default': 'x' is not a valid value of the atomic type 'xs:int'. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/element-zero-occurrence/invalid-default/empty.xml",
+          "expected": "valid",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            }
+          }
+        },
+        {
+          "testName": "sibling",
+          "file": "corpus/project/content-models/element-zero-occurrence/invalid-default/sibling.xml",
+          "expected": "valid",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/invalid-default/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/invalid-default/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/invalid-default/sibling.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/element-zero-occurrence/invalid-fixed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/invalid-fixed",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct"
+        ],
+        "conditions": [
+          "An xs:element with minOccurs and maxOccurs 0 corresponds to no component at all (Structures 3.3.2), so a fixed value that is not valid for the declared type is not checked."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/invalid-fixed/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4:75: e-props-correct.2: Invalid value constraint value 'x' in element 'a'. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. 'fixed' value 'x' is not compatible with element's type: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"a\" type=\"xs:int\" fixed=\"x\" minOccurs=\"0\" maxOccurs=\"0\" /> Path: /xs:schema/xs:element/xs:complexType/xs:sequence/xs:element[2] Schema URL: schema.xsd. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'fixed': 'x' is not a valid value of the atomic type 'xs:int'. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/element-zero-occurrence/invalid-fixed/empty.xml",
+          "expected": "valid",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            }
+          }
+        },
+        {
+          "testName": "sibling",
+          "file": "corpus/project/content-models/element-zero-occurrence/invalid-fixed/sibling.xml",
+          "expected": "valid",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/invalid-fixed/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/invalid-fixed/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/invalid-fixed/sibling.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/element-zero-occurrence/key-name-collision",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/key-name-collision",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-key",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#sch-props-correct"
+        ],
+        "conditions": [
+          "An xs:key inside an xs:element with minOccurs and maxOccurs 0 maps to an identity-constraint definition of the schema (Structures 3.11.2), although the element maps to no component (3.3.2), so it collides with the key of the same name on r."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/key-name-collision/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:124: sch-props-correct.2: A schema cannot contain two global components with the same name; this schema contains two occurrences of 'urn:t,k'. The project expectation follows Structures 3.11.2, under which an xs:key, xs:unique or xs:keyref maps to an identity-constraint definition whatever its parent xs:element maps to, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-key"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:5:2: The identity constraint 'urn:t:k' has already been declared. The project expectation follows Structures 3.11.2, under which an xs:key, xs:unique or xs:keyref maps to an identity-constraint definition whatever its parent xs:element maps to, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-key"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. duplicated value ('k',) for XsdKey(name='xs:identityConstraint'): Schema component: <xs:key xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"k\"><xs:selector xpath=\".\" /><xs:field xpath=\"@v\" /></xs:key> Path: /xs:schema/xs:element/xs:key Schema URL: schema.xsd. The project expectation follows Structures 3.11.2, under which an xs:key, xs:unique or xs:keyref maps to an identity-constraint definition whatever its parent xs:element maps to, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-key"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:5: element key: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}key': A global key identity-constraint '{urn:t}k' does already exist. The project expectation follows Structures 3.11.2, under which an xs:key, xs:unique or xs:keyref maps to an identity-constraint definition whatever its parent xs:element maps to, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-key"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/key-name-collision/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/element-zero-occurrence/keyref-to-zero-count-key",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/keyref-to-zero-count-key",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-key",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-props-correct"
+        ],
+        "conditions": [
+          "An xs:key inside an xs:element with minOccurs and maxOccurs 0 maps to an identity-constraint definition of the schema (Structures 3.11.2), although the element maps to no component (3.3.2), so a keyref whose refer names it resolves."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/keyref-to-zero-count-key/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.11.2, under which an xs:key, xs:unique or xs:keyref maps to an identity-constraint definition whatever its parent xs:element maps to, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-key"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.11.2, under which an xs:key, xs:unique or xs:keyref maps to an identity-constraint definition whatever its parent xs:element maps to, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-key"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.11.2, under which an xs:key, xs:unique or xs:keyref maps to an identity-constraint definition whatever its parent xs:element maps to, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-key"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.11.2, under which an xs:key, xs:unique or xs:keyref maps to an identity-constraint definition whatever its parent xs:element maps to, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-key"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/keyref-to-zero-count-key/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/keyref-to-zero-count-key/keyref-value-present.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/keyref-to-zero-count-key/keyref-value-absent.xml",
+          "role": "instance"
+        }
+      ],
+      "instances": [
+        {
+          "testName": "keyref-value-present",
+          "file": "corpus/project/content-models/element-zero-occurrence/keyref-to-zero-count-key/keyref-value-present.xml",
+          "expected": "invalid",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-value-present.xml:1:25: Identity Constraint error: the keyref identity constraint \"kr\" refers to a key or unique that is out of scope. The project expectation follows Structures 3.11.2 and Identity-constraint Satisfied clause 4.2, as I-023 in docs/spec/INTERPRETATIONS.md records: the key maps to a definition that no element evaluates, so it has no node table to match a keyref value; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-key"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-value-present.xml:1:2: The Keyref 'urn:t:r' cannot find the referred key or unique in scope. The project expectation follows Structures 3.11.2 and Identity-constraint Satisfied clause 4.2, as I-023 in docs/spec/INTERPRETATIONS.md records: the key maps to a definition that no element evaluates, so it has no node table to match a keyref value; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-key"
+            },
+            "xmlschema": {
+              "status": "blocked",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: blocked: the provider failed with an internal error, no validity result. KeyError after 0 validation error(s): XsdKey(name='t:k') The project expectation follows Structures 3.11.2 and Identity-constraint Satisfied clause 4.2, as I-023 in docs/spec/INTERPRETATIONS.md records: the key maps to a definition that no element evaluates, so it has no node table to match a keyref value; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-key"
+            },
+            "libxml2": {
+              "expected": "invalid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-value-present.xml:1: Schemas validity error : Element '{urn:t}r': No match found for key-sequence ['1'] of keyref '{urn:t}kr'. The project expectation follows Structures 3.11.2 and Identity-constraint Satisfied clause 4.2, as I-023 in docs/spec/INTERPRETATIONS.md records: the key maps to a definition that no element evaluates, so it has no node table to match a keyref value; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-key"
+            }
+          }
+        },
+        {
+          "testName": "keyref-value-absent",
+          "file": "corpus/project/content-models/element-zero-occurrence/keyref-to-zero-count-key/keyref-value-absent.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.11.2 and Identity-constraint Satisfied clause 4.2, as I-023 in docs/spec/INTERPRETATIONS.md records: the key maps to a definition that no element evaluates, so it has no node table to match a keyref value; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-key"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-value-absent.xml:1:2: The Keyref 'urn:t:r' cannot find the referred key or unique in scope. The project expectation follows Structures 3.11.2 and Identity-constraint Satisfied clause 4.2, as I-023 in docs/spec/INTERPRETATIONS.md records: the key maps to a definition that no element evaluates, so it has no node table to match a keyref value; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-key"
+            },
+            "xmlschema": {
+              "status": "blocked",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: blocked: the provider failed with an internal error, no validity result. KeyError after 0 validation error(s): XsdKey(name='t:k') The project expectation follows Structures 3.11.2 and Identity-constraint Satisfied clause 4.2, as I-023 in docs/spec/INTERPRETATIONS.md records: the key maps to a definition that no element evaluates, so it has no node table to match a keyref value; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-key"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.11.2 and Identity-constraint Satisfied clause 4.2, as I-023 in docs/spec/INTERPRETATIONS.md records: the key maps to a definition that no element evaluates, so it has no node table to match a keyref value; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-key"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/element-zero-occurrence/inline-type-checked",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/inline-type-checked",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cos-applicable-facets"
+        ],
+        "conditions": [
+          "An inline simple type maps to its own type definition, as for a prohibited attribute (docs/spec/INTERPRETATIONS.md I-008), so its facet rules still apply under an xs:element with minOccurs and maxOccurs 0: length is not a facet of xs:int."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/inline-type-checked/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4:95: cos-applicable-facets: Facet 'length' is not allowed by type #AnonType_ar. The project expectation follows I-008 and I-023 in docs/spec/INTERPRETATIONS.md: the inline type definition of an xs:element with minOccurs and maxOccurs 0 maps on its own and keeps its facet rules; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows I-008 and I-023 in docs/spec/INTERPRETATIONS.md: the inline type definition of an xs:element with minOccurs and maxOccurs 0 maps on its own and keeps its facet rules; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. one or more facets are not applicable, admitted set is {'totalDigits', 'minExclusive', 'maxExclusive', 'maxInclusive', 'minInclusive', 'assertion', 'fractionDigits', 'whiteSpace', 'pattern', 'enumeration'}: Schema component: <xs:restriction xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" base=\"xs:int\"><xs:length value=\"1\" /></xs:restriction> Path: /xs:schema/xs:element/xs:complexType/xs:sequence/xs:element[2]/xs:simpleType/xs:restriction Schema URL: schema.xsd. The project expectation follows I-008 and I-023 in docs/spec/INTERPRETATIONS.md: the inline type definition of an xs:element with minOccurs and maxOccurs 0 maps on its own and keeps its facet rules; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4: element simpleType: Schemas parser error : local atomic type: The facet 'length' is not allowed on types derived from the type atomic type 'xs:decimal'. The project expectation follows I-008 and I-023 in docs/spec/INTERPRETATIONS.md: the inline type definition of an xs:element with minOccurs and maxOccurs 0 maps on its own and keeps its facet rules; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-checked/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/element-zero-occurrence/ref-unbound-prefix",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/ref-unbound-prefix",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#QName"
+        ],
+        "conditions": [
+          "The ref of an xs:element with minOccurs and maxOccurs 0 is still a QName in the schema for schemas, so a prefix with no namespace binding is rejected even though the item maps to no component."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/ref-unbound-prefix/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4:52: s4s-att-invalid-value: Invalid attribute value for 'ref' in element 'element'. Recorded reason: UndeclaredPrefix: Cannot resolve 'u:e' as a QName: the prefix 'u' is not declared. The project expectation follows the schema for schemas, which types ref as QName whatever the item maps to (I-023 in docs/spec/INTERPRETATIONS.md); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4:13: 'u:e' is an invalid value for the 'ref' attribute. The project expectation follows the schema for schemas, which types ref as QName whatever the item maps to (I-023 in docs/spec/INTERPRETATIONS.md); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. prefix 'u' not found in namespace map: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" ref=\"u:e\" minOccurs=\"0\" maxOccurs=\"0\" /> Path: /xs:schema/xs:element/xs:complexType/xs:sequence/xs:element[2] Schema URL: schema.xsd. The project expectation follows the schema for schemas, which types ref as QName whatever the item maps to (I-023 in docs/spec/INTERPRETATIONS.md); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'ref': The value 'u:e' of simple type 'xs:QName' has no corresponding namespace declaration in scope. The project expectation follows the schema for schemas, which types ref as QName whatever the item maps to (I-023 in docs/spec/INTERPRETATIONS.md); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/ref-unbound-prefix/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/element-zero-occurrence/type-invalid-qname",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/type-invalid-qname",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#QName"
+        ],
+        "conditions": [
+          "The type of an xs:element with minOccurs and maxOccurs 0 is still a QName in the schema for schemas, so 1bad is rejected even though the item maps to no component."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/type-invalid-qname/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4:63: s4s-att-invalid-value: Invalid attribute value for 'type' in element 'element'. Recorded reason: cvc-datatype-valid.1.2.1: '1bad' is not a valid value for 'QName'. The project expectation follows the schema for schemas, which types type as QName whatever the item maps to (I-023 in docs/spec/INTERPRETATIONS.md); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4:22: '1bad' is an invalid value for the 'type' attribute. The project expectation follows the schema for schemas, which types type as QName whatever the item maps to (I-023 in docs/spec/INTERPRETATIONS.md); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute type='1bad': value is not an xs:QName: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"a\" type=\"1bad\" minOccurs=\"0\" maxOccurs=\"0\" /> Path: /xs:schema/xs:element/xs:complexType/xs:sequence/xs:element[2] Schema URL: schema.xsd. The project expectation follows the schema for schemas, which types type as QName whatever the item maps to (I-023 in docs/spec/INTERPRETATIONS.md); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'type': '1bad' is not a valid value of the atomic type 'xs:QName'. The project expectation follows the schema for schemas, which types type as QName whatever the item maps to (I-023 in docs/spec/INTERPRETATIONS.md); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/type-invalid-qname/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/element-zero-occurrence/inside-zero-sequence",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/inside-zero-sequence",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+        ],
+        "conditions": [
+          "An xs:element with minOccurs and maxOccurs 0 corresponds to no component at all (Structures 3.3.2), also inside an xs:sequence with minOccurs and maxOccurs 0; an element with an occurring count inside that sequence still maps to a declaration, so its type into an unimported namespace is rejected, as project/content-models/element-zero-occurrence/inside-zero-sequence-occurring-child shows."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/inside-zero-sequence/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4:103: src-resolve.4.2: Error resolving component 'o:t'. It was detected that 'o:t' is in namespace 'urn:other', but components from this namespace are not referenceable from schema document 'file:schema.xsd'. If this is the incorrect namespace, perhaps the prefix of 'o:t' needs to be changed. If this is the correct namespace, then an appropriate 'import' tag should be added to 'file:schema.xsd'. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. warning: schema.xsd:4:43: Namespace 'urn:other' is not available to be referenced in this schema. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. the QName 'o:t' is mapped to the namespace 'urn:other', but this namespace has not an xs:import statement in the schema: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"a\" type=\"o:t\" minOccurs=\"0\" maxOccurs=\"0\" /> Path: /xs:schema/xs:element/xs:complexType/xs:sequence/xs:sequence/xs:element Schema URL: schema.xsd. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'type': References from this schema to components in the namespace 'urn:other' are not allowed, since not indicated by an import statement. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/element-zero-occurrence/inside-zero-sequence/empty.xml",
+          "expected": "valid",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            }
+          }
+        },
+        {
+          "testName": "sibling",
+          "file": "corpus/project/content-models/element-zero-occurrence/inside-zero-sequence/sibling.xml",
+          "expected": "valid",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inside-zero-sequence/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inside-zero-sequence/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inside-zero-sequence/sibling.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/element-zero-occurrence/inside-zero-sequence-occurring-child",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/inside-zero-sequence-occurring-child",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel"
+        ],
+        "conditions": [
+          "An xs:sequence with minOccurs and maxOccurs 0 corresponds to no component, but its children keep their own mapping (ARCHITECTURE.md Rejected Alternatives), so an occurring element inside it with a type into an unimported namespace is rejected."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/inside-zero-sequence-occurring-child/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4:75: src-resolve.4.2: Error resolving component 'o:t'. It was detected that 'o:t' is in namespace 'urn:other', but components from this namespace are not referenceable from schema document 'file:schema.xsd'. If this is the incorrect namespace, perhaps the prefix of 'o:t' needs to be changed. If this is the correct namespace, then an appropriate 'import' tag should be added to 'file:schema.xsd'. The project expectation follows Structures 3.8.2 and src-resolve clause 4: a zero-count xs:sequence maps to no component, but its occurring child keeps its own mapping (ARCHITECTURE.md Rejected Alternatives), and its type names a namespace the document does not import; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. warning: schema.xsd:4:43: Namespace 'urn:other' is not available to be referenced in this schema. The project expectation follows Structures 3.8.2 and src-resolve clause 4: a zero-count xs:sequence maps to no component, but its occurring child keeps its own mapping (ARCHITECTURE.md Rejected Alternatives), and its type names a namespace the document does not import; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. the QName 'o:t' is mapped to the namespace 'urn:other', but this namespace has not an xs:import statement in the schema: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"a\" type=\"o:t\" /> Path: /xs:schema/xs:element/xs:complexType/xs:sequence/xs:sequence/xs:element Schema URL: schema.xsd. The project expectation follows Structures 3.8.2 and src-resolve clause 4: a zero-count xs:sequence maps to no component, but its occurring child keeps its own mapping (ARCHITECTURE.md Rejected Alternatives), and its type names a namespace the document does not import; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'type': References from this schema to components in the namespace 'urn:other' are not allowed, since not indicated by an import statement. The project expectation follows Structures 3.8.2 and src-resolve clause 4: a zero-count xs:sequence maps to no component, but its occurring child keeps its own mapping (ARCHITECTURE.md Rejected Alternatives), and its type names a namespace the document does not import; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inside-zero-sequence-occurring-child/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/element-zero-occurrence/inside-all",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/inside-all",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+        ],
+        "conditions": [
+          "An xs:element with minOccurs and maxOccurs 0 corresponds to no component at all (Structures 3.3.2), also inside xs:all, so its reference into an unimported namespace is neither resolved nor import-authorized."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/inside-all/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4:52: src-resolve.4.2: Error resolving component 'o:e'. It was detected that 'o:e' is in namespace 'urn:other', but components from this namespace are not referenceable from schema document 'file:schema.xsd'. If this is the incorrect namespace, perhaps the prefix of 'o:e' needs to be changed. If this is the correct namespace, then an appropriate 'import' tag should be added to 'file:schema.xsd'. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. warning: schema.xsd:4:2: Namespace 'urn:other' is not available to be referenced in this schema. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. the QName 'o:e' is mapped to the namespace 'urn:other', but this namespace has not an xs:import statement in the schema: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" ref=\"o:e\" minOccurs=\"0\" maxOccurs=\"0\" /> Path: /xs:schema/xs:element/xs:complexType/xs:all/xs:element[2] Schema URL: schema.xsd. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'ref': References from this schema to components in the namespace 'urn:other' are not allowed, since not indicated by an import statement. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/element-zero-occurrence/inside-all/empty.xml",
+          "expected": "valid",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            }
+          }
+        },
+        {
+          "testName": "sibling",
+          "file": "corpus/project/content-models/element-zero-occurrence/inside-all/sibling.xml",
+          "expected": "valid",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inside-all/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inside-all/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inside-all/sibling.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/element-zero-occurrence/inline-complex-type-checked",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/inline-complex-type-checked",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+        ],
+        "conditions": [
+          "An inline complex type maps to its own type definition, as for a prohibited attribute (docs/spec/INTERPRETATIONS.md I-008), so the occurring element declared in it under an xs:element with minOccurs and maxOccurs 0 keeps its rules: its type names a namespace the document does not import."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/inline-complex-type-checked/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4:112: src-resolve.4.2: Error resolving component 'o:t'. It was detected that 'o:t' is in namespace 'urn:other', but components from this namespace are not referenceable from schema document 'file:schema.xsd'. If this is the incorrect namespace, perhaps the prefix of 'o:t' needs to be changed. If this is the correct namespace, then an appropriate 'import' tag should be added to 'file:schema.xsd'. The project expectation follows I-008 and I-023 in docs/spec/INTERPRETATIONS.md and src-resolve clause 4: the inline type definition of an xs:element with minOccurs and maxOccurs 0 maps on its own, and the element declared in it names a namespace the document does not import; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. warning: schema.xsd:4:80: Namespace 'urn:other' is not available to be referenced in this schema. The project expectation follows I-008 and I-023 in docs/spec/INTERPRETATIONS.md and src-resolve clause 4: the inline type definition of an xs:element with minOccurs and maxOccurs 0 maps on its own, and the element declared in it names a namespace the document does not import; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. the QName 'o:t' is mapped to the namespace 'urn:other', but this namespace has not an xs:import statement in the schema: Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"b\" type=\"o:t\" /> Path: /xs:schema/xs:element/xs:complexType/xs:sequence/xs:element[2]/xs:complexType/xs:sequence/xs:element Schema URL: schema.xsd. The project expectation follows I-008 and I-023 in docs/spec/INTERPRETATIONS.md and src-resolve clause 4: the inline type definition of an xs:element with minOccurs and maxOccurs 0 maps on its own, and the element declared in it names a namespace the document does not import; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'type': References from this schema to components in the namespace 'urn:other' are not allowed, since not indicated by an import statement. The project expectation follows I-008 and I-023 in docs/spec/INTERPRETATIONS.md and src-resolve clause 4: the inline type definition of an xs:element with minOccurs and maxOccurs 0 maps on its own, and the element declared in it names a namespace the document does not import; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-complex-type-checked/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/element-zero-occurrence/keyref-to-nested-key",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/keyref-to-nested-key",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-key",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-props-correct"
+        ],
+        "conditions": [
+          "The inline complex type of an xs:element with minOccurs and maxOccurs 0 maps on its own (docs/spec/INTERPRETATIONS.md I-008), and the xs:key on a local element declared in it maps to an identity-constraint definition (Structures 3.11.2), so a keyref elsewhere whose refer names that key resolves."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/keyref-to-nested-key/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows I-008 and Structures 3.11.2, as I-023 in docs/spec/INTERPRETATIONS.md records: the inline type of an xs:element with minOccurs and maxOccurs 0 maps on its own, and an xs:key maps to an identity-constraint definition whatever its parent maps to; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-key"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows I-008 and Structures 3.11.2, as I-023 in docs/spec/INTERPRETATIONS.md records: the inline type of an xs:element with minOccurs and maxOccurs 0 maps on its own, and an xs:key maps to an identity-constraint definition whatever its parent maps to; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-key"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows I-008 and Structures 3.11.2, as I-023 in docs/spec/INTERPRETATIONS.md records: the inline type of an xs:element with minOccurs and maxOccurs 0 maps on its own, and an xs:key maps to an identity-constraint definition whatever its parent maps to; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-key"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows I-008 and Structures 3.11.2, as I-023 in docs/spec/INTERPRETATIONS.md records: the inline type of an xs:element with minOccurs and maxOccurs 0 maps on its own, and an xs:key maps to an identity-constraint definition whatever its parent maps to; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-key"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/keyref-to-nested-key/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/element-zero-occurrence/inline-type-malformed-pattern",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/inline-type-malformed-pattern",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#regexs",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+        ],
+        "conditions": [
+          "A rule decided at the start tag of a schema element still applies inside an xs:element with minOccurs and maxOccurs 0, which maps to no component (Structures 3.3.2): the pattern [ in its inline simple type is not a regular expression."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/inline-type-malformed-pattern/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4:98: InvalidRegex: Pattern value '[' is not a valid regular expression. The reported error was: 'Unexpected end of the pattern in a character class.'. The project expectation follows the regular expression grammar of Datatypes Appendix F, a rule decided at the start tag that applies inside an xs:element with minOccurs and maxOccurs 0, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#regexs"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the regular expression grammar of Datatypes Appendix F, a rule decided at the start tag that applies inside an xs:element with minOccurs and maxOccurs 0, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#regexs"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. unterminated character class at position 1: '[': Schema component: <xs:pattern xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"[\" /> Path: /xs:schema/xs:element/xs:complexType/xs:sequence/xs:element[2]/xs:simpleType/xs:restriction/xs:pattern Schema URL: schema.xsd. The project expectation follows the regular expression grammar of Datatypes Appendix F, a rule decided at the start tag that applies inside an xs:element with minOccurs and maxOccurs 0, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#regexs"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. regexp error : failed to compile: Expecting ']'. The project expectation follows the regular expression grammar of Datatypes Appendix F, a rule decided at the start tag that applies inside an xs:element with minOccurs and maxOccurs 0, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#regexs"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-malformed-pattern/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/element-zero-occurrence/edc-sibling-different-type",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/edc-sibling-different-type",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-element-consistent"
+        ],
+        "conditions": [
+          "An xs:element with minOccurs and maxOccurs 0 corresponds to no component at all (Structures 3.3.2), so it is no particle of the content model and Element Declarations Consistent does not compare it with the occurring sibling of the same name and another type."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/edc-sibling-different-type/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Element Declarations Consistent; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Element Declarations Consistent; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Element Declarations Consistent violation between XsdElement(name='t:a', occurs=[0, 0]) and XsdElement(name='t:a', occurs=[1, 1]): match the same name but with different types: Schema component: <xs:sequence xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"> <xs:element name=\"a\" type=\"xs:int\" /> <xs:element name=\"a\" type=\"xs:string\" minOccurs=\"0\" maxOccurs=\"0\" /> </xs:sequence> Path: /xs:schema/xs:element/xs:complexType/xs:sequence Schema URL: schema.xsd. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Element Declarations Consistent; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Element Declarations Consistent; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "int-value",
+          "file": "corpus/project/content-models/element-zero-occurrence/edc-sibling-different-type/int-value.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Element Declarations Consistent; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Element Declarations Consistent; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Element Declarations Consistent; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            }
+          }
+        },
+        {
+          "testName": "string-value",
+          "file": "corpus/project/content-models/element-zero-occurrence/edc-sibling-different-type/string-value.xml",
+          "expected": "invalid",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. string-value.xml:1:26: cvc-datatype-valid.1.2.1: 'x' is not a valid value for 'integer'. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Element Declarations Consistent; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. string-value.xml:1:24: The 'urn:t:a' element is invalid - The value 'x' is invalid according to its datatype 'http://www.w3.org/2001/XMLSchema:int' - The string 'x' is not a valid Int32 value. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Element Declarations Consistent; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            },
+            "libxml2": {
+              "expected": "invalid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance rejected. string-value.xml:1: element a: Schemas validity error : Element '{urn:t}a': 'x' is not a valid value of the atomic type 'xs:int'. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Element Declarations Consistent; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/edc-sibling-different-type/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/edc-sibling-different-type/int-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/edc-sibling-different-type/string-value.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/element-zero-occurrence/restriction-derived-particle-zero-count",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/restriction-derived-particle-zero-count",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "An xs:element with minOccurs and maxOccurs 0 corresponds to no component at all (Structures 3.3.2), so a restriction whose only particle is such an element has an empty sequence, which restricts a base with one optional element of the same name and another type."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/restriction-derived-particle-zero-count/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:26: cos-particle-restrict.2: Forbidden particle restriction: 'seq:elt'. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Particle Valid (Restriction); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Particle Valid (Restriction); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Particle Valid (Restriction); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Particle Valid (Restriction); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/element-zero-occurrence/restriction-derived-particle-zero-count/empty.xml",
+          "expected": "valid",
+          "oracle": {
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Particle Valid (Restriction); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Particle Valid (Restriction); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Particle Valid (Restriction); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            }
+          }
+        },
+        {
+          "testName": "element-present",
+          "file": "corpus/project/content-models/element-zero-occurrence/restriction-derived-particle-zero-count/element-present.xml",
+          "expected": "invalid",
+          "oracle": {
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. element-present.xml:1:19: The element 'urn:t:r' cannot contain child element 'urn:t:a' because the parent element's content model is empty. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Particle Valid (Restriction); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: Unexpected child with tag '{urn:t}a' at position 1. (path /r) The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Particle Valid (Restriction); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Particle Valid (Restriction); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/restriction-derived-particle-zero-count/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/restriction-derived-particle-zero-count/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/restriction-derived-particle-zero-count/element-present.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/element-zero-occurrence/restriction-base-particle-zero-count",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/restriction-base-particle-zero-count",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-Recurse",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "An xs:element with minOccurs and maxOccurs 0 corresponds to no component at all (Structures 3.3.2), so a base whose only particle is such an element has an empty sequence, and a restriction that adds an optional element of that name maps a particle to no base particle (Particle Valid (Restriction), Recurse)."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/restriction-base-particle-zero-count/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:26: cos-particle-restrict.b: Base particle is empty, but derived particle is not. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Particle Valid (Restriction) clause Recurse; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3:2: Invalid particle derivation by restriction. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Particle Valid (Restriction) clause Recurse; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. the derived group is an illegal restriction: Schema component: <xs:complexType xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"D\"><xs:complexContent><xs:restriction base=\"t:B\"><xs:sequence><xs:element name=\"a\" type=\"xs:string\" minOccurs=\"0\" /></xs:sequence></xs:restriction></xs:complexContent></xs:complexType> Path: /xs:schema/xs:complexType[2] Schema URL: schema.xsd. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Particle Valid (Restriction) clause Recurse; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Particle Valid (Restriction) clause Recurse; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/restriction-base-particle-zero-count/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/element-zero-occurrence/wildcard-same-name",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/wildcard-same-name",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig"
+        ],
+        "conditions": [
+          "An xs:element with minOccurs and maxOccurs 0 corresponds to no component at all (Structures 3.3.2), so it is no particle of the content model and takes part in no Unique Particle Attribution check with the wildcard that follows it; an element of that name is matched by the wildcard."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/wildcard-same-name/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Unique Particle Attribution; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Unique Particle Attribution; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Unique Particle Attribution; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element complexType: Schemas parser error : local complex type: The content model is not determinist. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Unique Particle Attribution; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "wildcard-match",
+          "file": "corpus/project/content-models/element-zero-occurrence/wildcard-same-name/wildcard-match.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Unique Particle Attribution; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. warning: wildcard-match.xml:1:19: Could not find schema information for the element 'urn:t:a'. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Unique Particle Attribution; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Unique Particle Attribution; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            }
+          }
+        },
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/element-zero-occurrence/wildcard-same-name/empty.xml",
+          "expected": "invalid",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. empty.xml:1:19: cvc-complex-type.2.4.b: The content of element 'r' is not complete. One of '{WC[\"urn:t\"]}' is expected. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Unique Particle Attribution; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. empty.xml:1:2: The element 'r' in namespace 'urn:t' has incomplete content. List of possible elements expected: any element in namespace '##targetNamespace'. The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Unique Particle Attribution; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: The content of element '{urn:t}r' is not complete. (path /r) The project expectation follows Structures 3.3.2, under which an xs:element with minOccurs and maxOccurs 0 corresponds to no component at all, as I-023 in docs/spec/INTERPRETATIONS.md records, and Unique Particle Attribution; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/wildcard-same-name/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/wildcard-same-name/wildcard-match.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/wildcard-same-name/empty.xml",
           "role": "instance"
         }
       ]

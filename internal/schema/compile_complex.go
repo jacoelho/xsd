@@ -184,7 +184,7 @@ func (*compiler) effectiveComplexContentKind(modelNode *schemaNode, contentKind 
 	if err != nil {
 		return contentElementOnly, err
 	}
-	if occurs.Max == 0 && !occurs.Unbounded {
+	if occurs.IsAbsent() {
 		// A top-level particle whose maximum is zero corresponds to no
 		// particle in the effective content mapping.
 		return contentEmpty, nil

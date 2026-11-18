@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:t" xmlns:o="urn:other" targetNamespace="urn:t" elementFormDefault="qualified">
+<xs:element name="r"><xs:complexType><xs:all>
+<xs:element name="x" type="xs:string" minOccurs="0"/>
+<xs:element ref="o:e" minOccurs="0" maxOccurs="0"/>
+</xs:all></xs:complexType></xs:element>
+</xs:schema>

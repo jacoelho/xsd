@@ -15,15 +15,21 @@ func validateIdentityConstraints(names *nameTable, identities []identityConstrai
 	return nil
 }
 
-func validateIdentityConstraintOwnership(elements []elementDecl, identityCount int) error {
-	owned := make([]bool, identityCount)
+// validateIdentityConstraintOwnership checks that each identity constraint is
+// attached to exactly one element declaration, except a detached one, which
+// is attached to none (identityConstraintSpec.Detached).
+func validateIdentityConstraintOwnership(elements []elementDecl, identities []identityConstraintSpec) error {
+	owned := make([]bool, len(identities))
 	for _, element := range elements {
 		if err := markOwnedIdentityConstraints(owned, element.Identity); err != nil {
 			return err
 		}
 	}
-	for _, attached := range owned {
-		if !attached {
+	for id, attached := range owned {
+		switch detached := identities[id].Detached; {
+		case detached && attached:
+			return errors.New("detached identity constraint is attached to an element declaration")
+		case !detached && !attached:
 			return errors.New("identity constraint is not attached to an element declaration")
 		}
 	}

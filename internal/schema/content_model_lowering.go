@@ -105,7 +105,7 @@ func appendParticle(work *workBudget, model *contentModelNode, p contentParticle
 	if err := validateModelGroupChildAdmission(model.Kind, modelChildAdmission{Kind: modelParticleChildKind(p)}); err != nil {
 		return err
 	}
-	if p.Occurs.Max == 0 && !p.Occurs.Unbounded {
+	if p.Occurs.IsAbsent() {
 		return nil
 	}
 	return appendModelParticles(work, model, p)
@@ -243,7 +243,7 @@ func compileModelParticle(rt *schemaBuild, add addContentModelFunc, id contentMo
 		return contentParticle{}, false, xsderrors.InternalInvariant("model particle references missing content model")
 	}
 	occurs := model.Occurs
-	if occurs.Max == 0 && !occurs.Unbounded {
+	if occurs.IsAbsent() {
 		return contentParticle{}, false, nil
 	}
 	modelID := id

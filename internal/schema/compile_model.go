@@ -27,7 +27,7 @@ func (c *compiler) compileModel(ctx *schemaSetDocument, n *schemaNode) (contentM
 	if err != nil {
 		return noContentModel, err
 	}
-	if (n.local == vocab.XSDElemSequence || n.local == vocab.XSDElemChoice) && occurs.Max == 0 && !occurs.Unbounded {
+	if (n.local == vocab.XSDElemSequence || n.local == vocab.XSDElemChoice) && occurs.IsAbsent() {
 		if err := c.spendComponentDependency(n); err != nil {
 			return noContentModel, err
 		}
@@ -98,7 +98,7 @@ func (c *compiler) compileModelGroupRef(ctx *schemaSetDocument, n *schemaNode, r
 		return noContentModel, err
 	}
 	// A zero-occurrence reference has no particle and therefore no term to resolve.
-	if occurs.Max == 0 && !occurs.Unbounded {
+	if occurs.IsAbsent() {
 		return noContentModel, nil
 	}
 	source, err := c.resolveModelGroupRef(ctx, n, ref)
@@ -196,8 +196,8 @@ func (c *compiler) compileModelChildren(ctx *schemaSetDocument, n *schemaNode, m
 func (c *compiler) appendModelChild(ctx *schemaSetDocument, m *contentModelNode, child *schemaNode) error {
 	switch child.local {
 	case vocab.XSDElemElement:
-		p, err := c.compileElementParticle(ctx, child)
-		if err != nil {
+		p, ok, err := c.compileElementParticle(ctx, child)
+		if err != nil || !ok {
 			return err
 		}
 		return withSchemaCompileLocation(child, appendParticle(&c.dependencyWork, m, p))
@@ -277,7 +277,7 @@ func (c *compiler) compileDeferredModelChildren(source schemaComponent) error {
 		case vocab.XSDElemAnnotation:
 			continue
 		case vocab.XSDElemElement:
-			_, err = c.compileElementParticle(source.ctx, child)
+			_, _, err = c.compileElementParticle(source.ctx, child)
 		case vocab.XSDElemAny:
 			_, err = c.compileWildcardParticle(source.ctx, child)
 		case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll, vocab.XSDElemGroup:
@@ -302,7 +302,7 @@ func (c *compiler) modelParticle(id contentModelID) (contentParticle, bool, erro
 		return contentParticle{}, false, err
 	}
 	occurs := model.Occurs
-	if occurs.Max == 0 && !occurs.Unbounded {
+	if occurs.IsAbsent() {
 		return contentParticle{}, false, nil
 	}
 	modelID := id
