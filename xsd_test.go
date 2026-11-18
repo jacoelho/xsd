@@ -148,31 +148,41 @@ func TestNameLimitBreachOnAnXPathNameIsReportedAtItsStartTagInLoadOrder(t *testi
 func TestIdentityXPathSyntaxErrorTakesPrecedenceOverANameLimitBreachInTheSameBranch(t *testing.T) {
 	t.Parallel()
 
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	for _, tt := range []struct{ name, selector, field string }{
+		{name: "field attribute after invalid element path", selector: `xpath="."`, field: `xmlns:p="urn:new" xpath="a[1]/@p:x"`},
+		{name: "selector predicate after new name", selector: `xmlns:p="urn:new" xpath="p:a/b[1]"`, field: `xpath="@id"`},
+		{name: "selector invalid axis after new name", selector: `xmlns:p="urn:new" xpath="p:a/child::"`, field: `xpath="@id"`},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="r">
     <xs:key name="k">
-      <xs:selector xpath="."/>
-      <xs:field xmlns:p="urn:new" xpath="a[1]/@p:x"/>
+      <xs:selector ` + tt.selector + `/>
+      <xs:field ` + tt.field + `/>
     </xs:key>
   </xs:element>
 </xs:schema>`
-	reachedField := false
-	for limit := 1; limit <= 1_000; limit++ {
-		_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaNames: limit}, xsd.Bytes("schema.xsd", []byte(schema)))
-		d, ok := errors.AsType[*xsderrors.Error](err)
-		if !ok {
-			t.Fatalf("CompileWithOptions(MaxSchemaNames: %d) error = %v, want a diagnostic", limit, err)
-		}
-		if d.Line() != 5 {
-			continue
-		}
-		reachedField = true
-		if d.Category() != xsderrors.CategorySchemaCompile || d.Code() != xsderrors.CodeSchemaIdentity {
-			t.Fatalf("CompileWithOptions(MaxSchemaNames: %d) error = %v, want schema.identity for the invalid field XPath", limit, err)
-		}
-	}
-	if !reachedField {
-		t.Fatal("no name limit up to 1000 reached the xs:field start tag")
+			reachedXPath := false
+			for limit := 1; limit <= 1_000; limit++ {
+				_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaNames: limit}, xsd.Bytes("schema.xsd", []byte(schema)))
+				d, ok := errors.AsType[*xsderrors.Error](err)
+				if !ok {
+					t.Fatalf("CompileWithOptions(MaxSchemaNames: %d) error = %v, want a diagnostic", limit, err)
+				}
+				if d.Line() != 4 && d.Line() != 5 {
+					continue
+				}
+				reachedXPath = true
+				if d.Category() != xsderrors.CategorySchemaCompile || d.Code() != xsderrors.CodeSchemaIdentity {
+					t.Fatalf("CompileWithOptions(MaxSchemaNames: %d) error = %v, want schema.identity for the invalid XPath", limit, err)
+				}
+			}
+			if !reachedXPath {
+				t.Fatal("no name limit up to 1000 reached the xs:selector or xs:field start tag")
+			}
+		})
 	}
 }
 
