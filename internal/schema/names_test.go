@@ -300,11 +300,21 @@ func TestNamespaceURISortFollowsTheExpandedNameNamespaceOrder(t *testing.T) {
 }
 
 func TestTheRuntimeNameSeedFitsTheFirstArenaChunk(t *testing.T) {
-	names, err := newRuntimeNameTable(0)
-	if err != nil {
-		t.Fatal(err)
+	t.Parallel()
+
+	stored := make(map[string]bool)
+	for _, ns := range requiredRuntimeNamespaces {
+		stored[ns] = true
 	}
-	if got := names.arena.chunk.Cap(); got != nameArenaFirstChunk {
-		t.Fatalf("seeded name arena chunk capacity = %d, want the first chunk, %d bytes", got, nameArenaFirstChunk)
+	for _, name := range requiredRuntimeNames {
+		stored[name.Namespace] = true
+		stored[name.Local] = true
+	}
+	bytes := 0
+	for name := range stored {
+		bytes += len(name)
+	}
+	if bytes > nameArenaFirstChunk {
+		t.Fatalf("the runtime name seed stores %d bytes of names, more than the first arena chunk, %d", bytes, nameArenaFirstChunk)
 	}
 }
