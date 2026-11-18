@@ -5,7 +5,6 @@ import (
 	"maps"
 	"slices"
 	"strings"
-	"unsafe"
 
 	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/vocab"
@@ -41,30 +40,25 @@ type nameTable struct {
 
 // nameArenaChunk is the size of a full nameArena chunk. A name longer than a
 // quarter chunk gets its own allocation, so at most a quarter chunk is left
-// unused when a chunk is replaced. The first chunk, nameArenaFirstChunk
-// bytes, is part of the arena itself and each next chunk doubles up to a full
-// one, so a schema with few names pays neither a separate allocation nor a
-// full chunk for them.
+// unused when a chunk is replaced. The first chunk is nameArenaFirstChunk
+// bytes and each next chunk doubles up to a full one, so a schema with few
+// names does not pay for a full chunk.
 const (
 	nameArenaChunk      = 4096
 	nameArenaFirstChunk = 256
 )
 
 // nameArena stores the bytes of copied names in chunks, one allocation per
-// chunk instead of one per name. Invariant: bytes of a chunk are written once,
-// by store, past the chunk's length, and never changed afterwards, so a string
-// over written bytes stays immutable for as long as it is reachable. chunk
-// starts over first, so a nameArena is used through one pointer and never
-// copied by value.
+// chunk instead of one per name. Each chunk is a strings.Builder grown once to
+// its capacity, so writing a name never moves the bytes of names already
+// stored, and each name is a substring of the chunk's String. A nameArena
+// holds a strings.Builder, so it is used through one pointer.
 type nameArena struct {
-	chunk []byte
-	first [nameArenaFirstChunk]byte
+	chunk strings.Builder
 }
 
 func newNameArena() *nameArena {
-	a := new(nameArena)
-	a.chunk = a.first[:0]
-	return a
+	return new(nameArena)
 }
 
 // store returns a copy of name that shares no memory with name.
@@ -75,12 +69,17 @@ func (a *nameArena) store(name string) string {
 	if len(name) > nameArenaChunk/4 {
 		return strings.Clone(name)
 	}
-	if cap(a.chunk)-len(a.chunk) < len(name) {
-		a.chunk = make([]byte, 0, max(len(name), min(2*cap(a.chunk), nameArenaChunk)))
+	if a.chunk.Cap()-a.chunk.Len() < len(name) {
+		size := nameArenaFirstChunk
+		if a.chunk.Cap() > 0 {
+			size = min(2*a.chunk.Cap(), nameArenaChunk)
+		}
+		a.chunk = strings.Builder{}
+		a.chunk.Grow(max(size, len(name)))
 	}
-	start := len(a.chunk)
-	a.chunk = append(a.chunk, name...)
-	return unsafe.String(&a.chunk[start], len(name)) //nolint:gosec // The bytes are never written again; see the nameArena invariant.
+	start := a.chunk.Len()
+	a.chunk.WriteString(name)
+	return a.chunk.String()[start:]
 }
 
 // nameReadView is a validation view over frozen runtime names.
