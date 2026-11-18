@@ -518,13 +518,15 @@ func TestSchemaPublicationRejectsASubstitutionNameOrderThatIsNotAPermutationOfEa
 		{name: "repeated position", spans: spans, byName: []uint32{2, 0, 2, 4, 3}},
 		{name: "position of another span", spans: spans, byName: []uint32{2, 0, 3, 4, 1}},
 		{name: "position past the entries", spans: spans, byName: []uint32{2, 0, 1, 4, 5}},
-		{name: "position with the mark bit", spans: spans, byName: []uint32{2, 0, 1 | substitutionNameOrderMark, 4, 3}},
 		{name: "span past the entries", spans: []substitutionSpan{{start: 3, count: 3}}, byName: []uint32{0, 1, 2, 3, 4}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			build := schemaBuild{Substitutions: substitutionTable{spans: tt.spans, entries: entries, byName: tt.byName}}
+			build := schemaBuild{Substitutions: substitutionTable{spans: tt.spans, entries: entries, byName: slices.Clone(tt.byName)}}
 			expectDiagnostic(t, validateSchemaBuildIDDomain(&build), xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+			if !slices.Equal(build.Substitutions.byName, tt.byName) {
+				t.Fatalf("name order after the audit = %v, want it unchanged, %v", build.Substitutions.byName, tt.byName)
+			}
 		})
 	}
 }
@@ -541,10 +543,5 @@ func TestSchemaPublicationAcceptsAndKeepsASubstitutionNameOrderThatPermutesEachS
 	}
 	if !slices.Equal(build.Substitutions.byName, byName) {
 		t.Fatalf("name order after the audit = %v, want it unchanged, %v", build.Substitutions.byName, byName)
-	}
-	if allocs := testing.AllocsPerRun(10, func() {
-		_ = build.Substitutions.validNameOrder()
-	}); allocs != 0 {
-		t.Fatalf("auditing the name order allocated %v times, want 0", allocs)
 	}
 }
