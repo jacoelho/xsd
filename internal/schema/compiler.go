@@ -144,6 +144,9 @@ type compilerBuildState struct {
 	localDone        map[schemaNodeKey]ElementID
 	identityDeclared map[schemaNodeKey]IdentityConstraintID
 	identitySources  []*schemaNode
+	// identityPathsByNode holds the interned paths of each compiled identity
+	// constraint node, keyed without a document context; see identityPaths.
+	identityPathsByNode map[schemaNodeKey]identityConstraintPaths
 	// identityNames and identityDeclarations hold every identity constraint
 	// declareAllIdentityConstraints declares, by expanded name and by ID, so a
 	// keyref refer resolves before the referenced constraint's name is

@@ -166,7 +166,7 @@ func (c *compiler) validateIdentityReference(id IdentityConstraintID) (err error
 }
 
 // compileIdentityConstraint builds the identity constraint n from the paths
-// its selector and fields stored at their start tags (admitIdentityXPath),
+// its selector and fields admitted at their start tags (admitIdentityXPath),
 // interning their name tests here, after the keyref refer, as each other
 // component's names are interned when it compiles.
 func (c *compiler) compileIdentityConstraint(ctx *schemaSetDocument, n *schemaNode, name QName) (identityConstraintSpec, error) {
@@ -179,14 +179,7 @@ func (c *compiler) compileIdentityConstraint(ctx *schemaSetDocument, n *schemaNo
 	if err != nil {
 		return empty, err
 	}
-	selector := semanticSource[*schemaIdentitySelectorSource](&syntax.selector.semantic)
-	if selector == nil || len(selector.Paths) == 0 {
-		return empty, withSchemaCompileLocation(syntax.selector, xsderrors.InternalInvariant("identity selector has no admitted paths"))
-	}
-	if err = selector.internNames(&c.rt.Names); err != nil {
-		return empty, withSchemaCompileLocation(syntax.selector, err)
-	}
-	fields, err := c.compileIdentityFields(syntax.fields)
+	paths, err := c.identityPaths(n, syntax)
 	if err != nil {
 		return empty, err
 	}
@@ -194,7 +187,7 @@ func (c *compiler) compileIdentityConstraint(ctx *schemaSetDocument, n *schemaNo
 	if kindErr != nil {
 		return empty, withSchemaCompileLocation(n, kindErr)
 	}
-	return newIdentityConstraint(kind, name, refer, selector.Paths, fields), nil
+	return newIdentityConstraint(kind, name, refer, paths.selector, paths.fields), nil
 }
 
 func (c *compiler) compileIdentityRefer(ctx *schemaSetDocument, n *schemaNode) (IdentityConstraintID, error) {
@@ -216,19 +209,55 @@ func (c *compiler) compileIdentityRefer(ctx *schemaSetDocument, n *schemaNode) (
 	return refer, nil
 }
 
-func (c *compiler) compileIdentityFields(nodes []*schemaNode) ([]identityField, error) {
-	fields := make([]identityField, 0, len(nodes))
-	for _, field := range nodes {
-		source := semanticSource[*schemaIdentityFieldSource](&field.semantic)
-		if source == nil || len(source.Paths) == 0 {
-			return nil, withSchemaCompileLocation(field, xsderrors.InternalInvariant("identity field has no admitted paths"))
-		}
-		if err := source.internNames(&c.rt.Names); err != nil {
-			return nil, withSchemaCompileLocation(field, err)
-		}
-		fields = append(fields, identityField{Paths: source.Paths})
+// identityConstraintPaths are the interned selector and field paths of one
+// identity constraint node.
+type identityConstraintPaths struct {
+	selector []identityPath
+	fields   []identityField
+}
+
+// identityPaths returns the interned paths of the selector and fields of the
+// identity constraint n, interning their admitted name tests into this
+// compiler's name table the first time n compiles. The node's document is
+// immutable and may be shared, so the paths are kept in compiler state, once
+// per node: they do not depend on the document context, and the constraint
+// compiled from n in each chameleon context shares them.
+func (c *compiler) identityPaths(n *schemaNode, syntax identityConstraintSyntax) (identityConstraintPaths, error) {
+	key := nodeKey(nil, n)
+	if paths, ok := c.identityPathsByNode[key]; ok {
+		return paths, nil
 	}
-	return fields, nil
+	selector, err := identityXPathOf(syntax.selector)
+	if err != nil {
+		return identityConstraintPaths{}, err
+	}
+	paths := identityConstraintPaths{fields: make([]identityField, len(syntax.fields))}
+	if paths.selector, err = selector.selectorPaths(&c.rt.Names); err != nil {
+		return identityConstraintPaths{}, withSchemaCompileLocation(syntax.selector, err)
+	}
+	for i, node := range syntax.fields {
+		field, err := identityXPathOf(node)
+		if err != nil {
+			return identityConstraintPaths{}, err
+		}
+		if paths.fields[i].Paths, err = field.fieldPaths(&c.rt.Names); err != nil {
+			return identityConstraintPaths{}, withSchemaCompileLocation(node, err)
+		}
+	}
+	if c.identityPathsByNode == nil {
+		c.identityPathsByNode = make(map[schemaNodeKey]identityConstraintPaths, len(c.identityDeclarations))
+	}
+	c.identityPathsByNode[key] = paths
+	return paths, nil
+}
+
+// identityXPathOf returns the path the selector or field n admitted.
+func identityXPathOf(n *schemaNode) (identityXPathSyntax, error) {
+	source := semanticSource[*schemaIdentityXPathSource](&n.semantic)
+	if source == nil || len(source.XPath.items) == 0 {
+		return identityXPathSyntax{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("identity "+n.local+" has no admitted paths"))
+	}
+	return source.XPath, nil
 }
 
 type identityConstraintSyntax struct {

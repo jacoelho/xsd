@@ -305,19 +305,19 @@ func (f *identityXPathFixture) ResolveIdentityPrefix(prefix string) (string, err
 }
 
 func (f *identityXPathFixture) selector(xpath string) ([]identityPath, error) {
-	paths, names, err := parseIdentityPaths(xpath, f)
+	syntax, err := parseIdentityPaths(xpath, f)
 	if err != nil {
 		return nil, err
 	}
-	return paths, internIdentitySelectorNames(&f.names, paths, names)
+	return syntax.selectorPaths(&f.names)
 }
 
 func (f *identityXPathFixture) field(xpath string) ([]identityFieldPath, error) {
-	paths, names, err := parseIdentityFieldPaths(xpath, f)
+	syntax, err := parseIdentityFieldPaths(xpath, f)
 	if err != nil {
 		return nil, err
 	}
-	return paths, internIdentityFieldNames(&f.names, paths, names)
+	return syntax.fieldPaths(&f.names)
 }
 
 func (f *identityXPathFixture) qname(t *testing.T, ns, local string) QName {
@@ -338,7 +338,7 @@ func (f *identityXPathFixture) namespace(t *testing.T, uri string) namespaceID {
 	return ns
 }
 
-func TestSelectorAndFieldBindTheirNamesAtTheStartTagAndInternThemOnce(t *testing.T) {
+func TestSelectorAndFieldBindTheirNamesAtTheStartTagAndEachCompilerInternsThemIntoItsOwnTable(t *testing.T) {
 	t.Parallel()
 
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="urn:default" xmlns:p="urn:outer" targetNamespace="urn:target">
@@ -359,47 +359,62 @@ func TestSelectorAndFieldBindTheirNamesAtTheStartTagAndInternThemOnce(t *testing
 		t.Fatalf("parseSchemaDocument() error = %v", err)
 	}
 	key := doc.node(doc.node(doc.root.children[0]).children[0])
-	names, err := newRuntimeNameTable(0)
-	if err != nil {
-		t.Fatal(err)
+	selector := semanticSource[*schemaIdentityXPathSource](&doc.node(key.children[0]).semantic)
+	code := semanticSource[*schemaIdentityXPathSource](&doc.node(key.children[1]).semantic)
+	wildcard := semanticSource[*schemaIdentityXPathSource](&doc.node(key.children[2]).semantic)
+	if selector == nil || code == nil || wildcard == nil {
+		t.Fatalf("sources = %#v, %#v, %#v, want an XPath source on the selector and each field", selector, code, wildcard)
 	}
-	selector := semanticSource[*schemaIdentitySelectorSource](&doc.node(key.children[0]).semantic)
-	code := semanticSource[*schemaIdentityFieldSource](&doc.node(key.children[1]).semantic)
-	wildcard := semanticSource[*schemaIdentityFieldSource](&doc.node(key.children[2]).semantic)
-	if selector == nil || len(selector.Paths) != 2 || code == nil || len(code.Paths) != 1 || wildcard == nil || len(wildcard.Paths) != 1 {
-		t.Fatalf("sources = %#v, %#v, %#v, want two selector paths and one path per field", selector, code, wildcard)
-	}
-	for range 2 {
-		for _, intern := range []func(*nameTable) error{selector.internNames, code.internNames, wildcard.internNames} {
-			if err := intern(&names); err != nil {
-				t.Fatalf("internNames() error = %v", err)
+
+	for _, unrelated := range [][]string{nil, {"cell", "code", "row", "id", "urn:outer"}} {
+		names, err := newRuntimeNameTable(0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, local := range unrelated {
+			if _, err = newNameInterner(&names).InternQName("urn:unrelated", local); err != nil {
+				t.Fatal(err)
 			}
 		}
-	}
-	name := func(ns, local string) QName {
-		q, ok := names.LookupQName(ns, local)
-		if !ok {
-			t.Fatalf("name table has no {%s}%s", ns, local)
+		selectorPaths, err := selector.XPath.selectorPaths(&names)
+		if err != nil {
+			t.Fatalf("selectorPaths() error = %v", err)
 		}
-		return q
-	}
-	outer, ok := names.LookupNamespace("urn:outer")
-	if !ok {
-		t.Fatal("name table has no urn:outer")
-	}
+		codePaths, err := code.XPath.fieldPaths(&names)
+		if err != nil {
+			t.Fatalf("fieldPaths() error = %v", err)
+		}
+		wildcardPaths, err := wildcard.XPath.fieldPaths(&names)
+		if err != nil {
+			t.Fatalf("fieldPaths() error = %v", err)
+		}
+		name := func(ns, local string) QName {
+			q, ok := names.LookupQName(ns, local)
+			if !ok {
+				t.Fatalf("name table has no {%s}%s", ns, local)
+			}
+			return q
+		}
+		outer, ok := names.LookupNamespace("urn:outer")
+		if !ok {
+			t.Fatal("name table has no urn:outer")
+		}
 
-	if got := selector.Paths[0]; got.Descendant || len(got.Steps) != 1 || got.Steps[0].Name != name("urn:selector", "row") {
-		t.Fatalf("selector path 0 = %#v, want {urn:selector}row from the selector's own binding", got)
-	}
-	if got := selector.Paths[1]; !got.Descendant || len(got.Steps) != 1 || got.Steps[0].Name != name("", "cell") {
-		t.Fatalf("selector path 1 = %#v, want .//cell in no namespace despite the default and target namespaces", got)
-	}
-
-	if got := code.Paths[0]; !got.Attr || got.Attribute != name("urn:outer", "id") || len(got.Steps) != 1 || got.Steps[0].Name != name("urn:outer", "code") {
-		t.Fatalf("first field path = %#v, want {urn:outer}code/@{urn:outer}id", got)
-	}
-	if got := wildcard.Paths[0]; !got.Attr || !got.AttrWildcard || !got.AttrNamespaceSet || got.AttrNamespace != outer {
-		t.Fatalf("second field path = %#v, want attribute::{urn:outer}*", got)
+		if len(selectorPaths) != 2 || len(codePaths) != 1 || len(wildcardPaths) != 1 {
+			t.Fatalf("paths = %d, %d, %d, want two selector paths and one path per field", len(selectorPaths), len(codePaths), len(wildcardPaths))
+		}
+		if got := selectorPaths[0]; got.Descendant || len(got.Steps) != 1 || got.Steps[0].Name != name("urn:selector", "row") {
+			t.Fatalf("selector path 0 = %#v, want {urn:selector}row from the selector's own binding", got)
+		}
+		if got := selectorPaths[1]; !got.Descendant || len(got.Steps) != 1 || got.Steps[0].Name != name("", "cell") {
+			t.Fatalf("selector path 1 = %#v, want .//cell in no namespace despite the default and target namespaces", got)
+		}
+		if got := codePaths[0]; !got.Attr || got.Attribute != name("urn:outer", "id") || len(got.Steps) != 1 || got.Steps[0].Name != name("urn:outer", "code") {
+			t.Fatalf("first field path = %#v, want {urn:outer}code/@{urn:outer}id", got)
+		}
+		if got := wildcardPaths[0]; !got.Attr || !got.AttrWildcard || !got.AttrNamespaceSet || got.AttrNamespace != outer {
+			t.Fatalf("second field path = %#v, want attribute::{urn:outer}*", got)
+		}
 	}
 }
 
@@ -453,15 +468,15 @@ func TestMalformedIdentityPathIsRejectedWithoutAllocatingPerSeparator(t *testing
 		parse func() error
 	}{
 		{name: "selector branches", parse: func() error {
-			_, _, err := parseIdentityPaths(branches, resolver)
+			_, err := parseIdentityPaths(branches, resolver)
 			return err
 		}},
 		{name: "field branches", parse: func() error {
-			_, _, err := parseIdentityFieldPaths(branches, resolver)
+			_, err := parseIdentityFieldPaths(branches, resolver)
 			return err
 		}},
 		{name: "selector steps", parse: func() error {
-			_, _, err := parseIdentityPaths(steps, resolver)
+			_, err := parseIdentityPaths(steps, resolver)
 			return err
 		}},
 	}

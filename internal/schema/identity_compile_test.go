@@ -278,7 +278,6 @@ func TestAChameleonIdentityConstraintPublishesTheSamePathsInEveryNamespaceItComp
 	}
 
 	var compiled []identityConstraintSpec
-	var node *schemaNode
 	for _, target := range []string{"urn:a", "urn:b"} {
 		id, ok := c.rt.GlobalIdentities[qname(target, "k")]
 		if !ok {
@@ -292,14 +291,9 @@ func TestAChameleonIdentityConstraintPublishesTheSamePathsInEveryNamespaceItComp
 			t.Fatalf("{%s}k fields = %+v, want one field with paths %+v", target, ic.Fields, wantFields)
 		}
 		compiled = append(compiled, ic)
-		node = c.identitySources[id]
 	}
-	selector := semanticSource[*schemaIdentitySelectorSource](&node.firstXS(vocab.XSDElemSelector).semantic)
-	field := semanticSource[*schemaIdentityFieldSource](&node.firstXS(vocab.XSDElemField).semantic)
-	for _, ic := range compiled {
-		if &ic.Selector[0] != &selector.Paths[0] || &ic.Fields[0].Paths[0] != &field.Paths[0] {
-			t.Fatal("a compiled constraint does not share the paths stored at its selector and field")
-		}
+	if &compiled[0].Selector[0] != &compiled[1].Selector[0] || &compiled[0].Fields[0].Paths[0] != &compiled[1].Fields[0].Paths[0] {
+		t.Fatal("the constraint compiled in each namespace has its own copy of the paths")
 	}
 
 	ids := []IdentityConstraintID{c.rt.GlobalIdentities[qname("urn:a", "k")], c.rt.GlobalIdentities[qname("urn:b", "k")]}
@@ -308,8 +302,8 @@ func TestAChameleonIdentityConstraintPublishesTheSamePathsInEveryNamespaceItComp
 	if err != nil {
 		t.Fatalf("publishSchema() error = %v", err)
 	}
-	if !slices.EqualFunc(selector.Paths, wantSelector, sameSelector) || !slices.EqualFunc(field.Paths, wantFields, sameField) {
-		t.Fatalf("stored paths after publication = %+v and %+v, want %+v and %+v", selector.Paths, field.Paths, wantSelector, wantFields)
+	if selector, field := compiled[0].Selector, compiled[0].Fields[0].Paths; !slices.EqualFunc(selector, wantSelector, sameSelector) || !slices.EqualFunc(field, wantFields, sameField) {
+		t.Fatalf("compiled paths after publication = %+v and %+v, want %+v and %+v", selector, field, wantSelector, wantFields)
 	}
 	for i, target := range []string{"urn:a", "urn:b"} {
 		program, ok := published.IdentityDispatch().Program(ids[i])

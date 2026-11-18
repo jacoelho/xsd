@@ -344,15 +344,16 @@ before it is kept, so a breach is reported at that facet's start tag.
 A selector or field path is parsed once, by `admitIdentityXPath` at its start
 tag: prefixes resolve against that tag's namespace scope and an unprefixed
 name test has no namespace whatever the including target namespace. The tag
-owns every syntax and prefix diagnostic of every path, and stores the paths
-with their name tests bound but not interned. `compileIdentityConstraint`
-interns them into the stored paths the first time the node compiles, after
-the keyref `refer`, so path names take name IDs in compilation order, as every
-other component name does, and a `MaxSchemaNames` breach on a path name is a
-compile diagnostic at the selector or field, after every syntax diagnostic.
-Every identity constraint compiled from the node, in each chameleon context,
-then shares the stored paths without copying them; a missing stored path is an
-internal invariant. The other
+owns every syntax and prefix diagnostic of every path, and stores the form of
+each branch with its name tests bound but not interned
+(`identityXPathSyntax`); the parsed document stays immutable. The compiler
+builds the interned paths from it the first time the node compiles
+(`compiler.identityPaths`), after the keyref `refer`, so path names take name
+IDs in compilation order, as every other component name does, and a
+`MaxSchemaNames` breach on a path name is a compile diagnostic at the selector
+or field, after every syntax diagnostic. The compiler keeps the paths once per
+node, so every identity constraint compiled from the node, in each chameleon
+context, shares them; a missing admitted path is an internal invariant. The other
 attribute values that are single keywords or short lists (booleans, `form`,
 `use`, derivation sets, `processContents`, wildcard namespaces,
 `targetNamespace`) stay lexical in the record and are parsed again with the
@@ -1078,11 +1079,15 @@ graph preserves these ownership rules:
   compilation to intern its name tests was rejected: the second scan cost
   about 5–9% of compile time on `BenchmarkCompileIdentityPrograms` and kept
   the selector and field nodes' namespace context alive until compilation.
-  Storing complete second copies of the paths with namespace and local-name
-  strings was rejected because it allocated each path twice; the stored paths
-  are allocated once and only the name tests wait, in one side slice per node
-  that interning drops, and no namespace context is kept for a selector or
-  field (`schemaNodeNeedsDeferredQNameContext`).
+  Storing complete paths with namespace and local-name strings beside the
+  interned paths was rejected because it allocated each path twice; the tag
+  keeps only each branch's form and one slice of name tests per node, the
+  compiler allocates the interned paths once, and no namespace context is kept
+  for a selector or field (`schemaNodeNeedsDeferredQNameContext`).
+- Interning the name tests into paths stored in the parsed document was
+  rejected: the document is immutable and shared by chameleon views, and a
+  second compiler of the same document would find the first compiler's name
+  IDs there.
 - Interning path names at the start tag was rejected. It gave them name IDs
   in document load order, ahead of every declaration, and the dense DFA index
   (`addDenseDFAIndexes`) admits a row only when the local-name IDs of its
