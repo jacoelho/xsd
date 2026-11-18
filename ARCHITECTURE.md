@@ -266,8 +266,8 @@ At a start tag:
    `misplacedSchemaAttributeError`), then its value: the name syntax of `name`
    and `id`, an `id` the document already declares, the lexical form
    (`checkSchemaAttributeValueSyntax`); for `minOccurs` and `maxOccurs` the
-   count against uint32 and `MaxFiniteOccurs` and then the range the schema
-   for schemas gives `xs:all` and an element directly in it
+   lexical form, the count against uint32 and `MaxFiniteOccurs` and then the
+   range the schema for schemas gives `xs:all` and an element directly in it
    (`occurrenceAdmission`); for the `value` of a size facet, `xs:whiteSpace`
    and `xs:pattern` its integer and uint32 cap, its mode, and its regular
    expression with the `MaxSchemaPatternRetainedBytes` charge
@@ -315,7 +315,8 @@ says nothing about whether its parent admits it. `schemaElementAttributeAllowed`
 and `misplacedSchemaAttributeError` own the attributes an element may have,
 `checkRequiredSchemaAttributes` the ones it must have,
 `checkValueConstraintAttributes` the ones that exclude each other, and
-`checkSchemaAttributeValueSyntax` the lexical form of a value.
+`checkSchemaAttributeValueSyntax` the lexical form of a value other than the
+ones below.
 
 The tag stores these admitted values in the typed source record, and
 compilation reads them without parsing again: the resolved names of QName
@@ -327,14 +328,16 @@ which the compiler owns and lends to start-tag admission while the set loads:
 each distinct pattern text is compiled once, at the first facet that names it
 in document load order, and charged against `MaxSchemaPatternRetainedBytes`
 before it is kept, so a breach is reported at that facet's start tag.
-A selector or field path is checked by `admitIdentityXPath` without being
-built and parsed again to intern its name tests, which keeps the selector and
-field nodes' namespace context until then; storing the parsed paths was
-measured to allocate each path twice (see Rejected Alternatives). Compilation
-parses the other admitted
-values again with the same parser to use them, and a lexical failure there is
+Compilation parses two kinds of admitted value again, and a failure there is
 an internal invariant (`admittedValueInvariant`), not a second schema
-diagnostic.
+diagnostic. A selector or field path is checked by `admitIdentityXPath`
+without being built and parsed again to intern its name tests, which keeps the
+selector and field nodes' namespace context until then; storing the parsed
+paths was measured to allocate each path twice (see Rejected Alternatives).
+The other attribute values that are single keywords or short lists (booleans,
+`form`, `use`, derivation sets, `processContents`, wildcard namespaces,
+`targetNamespace`) stay lexical in the record and are parsed again with the
+same allocation-free parser where compilation uses them.
 
 `internal/schema`, `internal/value` and `internal/validate` export only
 identifiers consumed outside their package: for schema the published read

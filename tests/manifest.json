@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 17110,
-    "schemaCases": 17060,
+    "cases": 17111,
+    "schemaCases": 17061,
     "instanceRuns": 35810,
     "w3cCases": 14414,
-    "internalRuns": 2683,
+    "internalRuns": 2684,
     "xercesJCases": 13
   },
   "cases": [
@@ -916588,6 +916588,60 @@
       "files": [
         {
           "file": "corpus/project/schema-syntax/identity-xpath/bound-prefixes/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/facet-values/pattern-above-compile-limit",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/facet-values/pattern-above-compile-limit",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#regexs"
+        ],
+        "conditions": [
+          "pattern value=\"(a{1000}){1000}\" is a regular expression whose compiled form exceeds the project's fixed xsdregex compile limit; the facet's start tag decides it."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/facet-values/pattern-above-compile-limit/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.limit",
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle. The provider has no compile limit at this size; the project rejects the pattern with schema.limit because its compiled form exceeds the fixed xsdregex compile limit, a resource limit and not XSD invalidity.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#regexs"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle. The provider has no compile limit at this size; the project rejects the pattern with schema.limit because its compiled form exceeds the fixed xsdregex compile limit, a resource limit and not XSD invalidity.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#regexs"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle. The provider has no compile limit at this size; the project rejects the pattern with schema.limit because its compiled form exceeds the fixed xsdregex compile limit, a resource limit and not XSD invalidity.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#regexs"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle. The provider has no compile limit at this size; the project rejects the pattern with schema.limit because its compiled form exceeds the fixed xsdregex compile limit, a resource limit and not XSD invalidity.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#regexs"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/facet-values/pattern-above-compile-limit/schema.xsd",
           "role": "principal"
         }
       ]
