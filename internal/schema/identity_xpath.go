@@ -174,20 +174,40 @@ func internIdentityFieldPathNames(table *nameTable, path *identityFieldPath, nam
 	return next, nil
 }
 
-// identityPathNames is the number of name tests a path holds before its
-// pending names spill from the stack.
-const identityPathNames = 8
-
 // parseIdentityPaths parses selector XPath branches for an identity constraint
 // into its paths, whose steps hold no names yet, and their name tests in step
 // order. Like the field parse, it reserves at most maxIdentityPathHint
-// branches from the separator count before accepting any, grows only with
-// accepted branches and name tests, and returns slices of exactly the accepted
-// length, because the source record keeps them.
+// branches and maxIdentityNameHint name tests from the separator count before
+// accepting any, grows only with accepted branches and name tests, and returns
+// paths of exactly the accepted length, because the source record keeps them.
+// The name tests are collected on the stack when they can be few and copied
+// out, and otherwise in one reservation whose spare capacity interning drops.
 func parseIdentityPaths[R identityPrefixResolver](xpath string, resolver R) ([]identityPath, []identityNameSyntax, error) {
+	if hint := identityNameHint(xpath); hint > identityStackNames {
+		return parseIdentityPathsInto(xpath, resolver, make([]identityNameSyntax, 0, hint))
+	}
+	var buffer [identityStackNames]identityNameSyntax
+	paths, names, err := parseIdentityPathsInto(xpath, resolver, buffer[:0])
+	if err != nil {
+		return nil, nil, err
+	}
+	return paths, ownedIdentityNames(names), nil
+}
+
+// identityStackNames is the most name tests a path collects on the stack.
+const identityStackNames = 8
+
+// ownedIdentityNames returns a copy of names, which lie in a parse's stack
+// buffer, of exactly their length.
+func ownedIdentityNames(names []identityNameSyntax) []identityNameSyntax {
+	if len(names) == 0 {
+		return nil
+	}
+	return append(make([]identityNameSyntax, 0, len(names)), names...)
+}
+
+func parseIdentityPathsInto[R identityPrefixResolver](xpath string, resolver R, names []identityNameSyntax) ([]identityPath, []identityNameSyntax, error) {
 	out := make([]identityPath, 0, identityPathHint(xpath, "|"))
-	var buffer [identityPathNames]identityNameSyntax
-	names := buffer[:0]
 	for rest, more := xpath, true; more; {
 		var part string
 		part, rest, more = strings.Cut(rest, "|")
@@ -207,16 +227,7 @@ func parseIdentityPaths[R identityPrefixResolver](xpath string, resolver R) ([]i
 		}
 		out = append(out, identityPath{Descendant: desc, Steps: unnamedIdentitySteps(len(names) - start)})
 	}
-	return tightSlice(out), ownedIdentityNames(names), nil
-}
-
-// ownedIdentityNames returns a copy of names, which may lie in a parse's stack
-// buffer, of exactly their length.
-func ownedIdentityNames(names []identityNameSyntax) []identityNameSyntax {
-	if len(names) == 0 {
-		return nil
-	}
-	return append(make([]identityNameSyntax, 0, len(names)), names...)
+	return tightSlice(out), names, nil
 }
 
 // unnamedIdentitySteps returns count steps whose names are not interned yet.
@@ -232,6 +243,16 @@ func unnamedIdentitySteps(count int) []IdentityStep {
 // allocating per separator.
 const maxIdentityPathHint = 64
 
+// maxIdentityNameHint bounds the name tests a path reserves before its
+// branches are accepted, for the same reason.
+const maxIdentityNameHint = 256
+
+// identityNameHint is the number of name tests xpath holds at most: one per
+// branch and one after each step separator, capped at maxIdentityNameHint.
+func identityNameHint(xpath string) int {
+	return min(strings.Count(xpath, "|")+strings.Count(xpath, "/")+1, maxIdentityNameHint)
+}
+
 // identityPathHint is the number of branches xpath has when every separator
 // starts an accepted branch, capped at maxIdentityPathHint.
 func identityPathHint(xpath, separator string) int {
@@ -242,9 +263,19 @@ func identityPathHint(xpath, separator string) int {
 // constraint into its paths, whose attributes and steps hold no names yet, and
 // their name tests: in each path its attribute's, then its steps'.
 func parseIdentityFieldPaths[R identityPrefixResolver](xpath string, resolver R) ([]identityFieldPath, []identityNameSyntax, error) {
+	if hint := identityNameHint(xpath); hint > identityStackNames {
+		return parseIdentityFieldPathsInto(xpath, resolver, make([]identityNameSyntax, 0, hint))
+	}
+	var buffer [identityStackNames]identityNameSyntax
+	paths, names, err := parseIdentityFieldPathsInto(xpath, resolver, buffer[:0])
+	if err != nil {
+		return nil, nil, err
+	}
+	return paths, ownedIdentityNames(names), nil
+}
+
+func parseIdentityFieldPathsInto[R identityPrefixResolver](xpath string, resolver R, names []identityNameSyntax) ([]identityFieldPath, []identityNameSyntax, error) {
 	out := make([]identityFieldPath, 0, identityPathHint(xpath, "|"))
-	var buffer [identityPathNames]identityNameSyntax
-	names := buffer[:0]
 	for rest, more := xpath, true; more; {
 		var part string
 		part, rest, more = strings.Cut(rest, "|")
@@ -259,7 +290,7 @@ func parseIdentityFieldPaths[R identityPrefixResolver](xpath string, resolver R)
 		}
 		out = append(out, path)
 	}
-	return tightSlice(out), ownedIdentityNames(names), nil
+	return tightSlice(out), names, nil
 }
 
 func parseIdentityFieldPathBranch[R identityPrefixResolver](part string, resolver R, names []identityNameSyntax) (identityFieldPath, []identityNameSyntax, error) {
