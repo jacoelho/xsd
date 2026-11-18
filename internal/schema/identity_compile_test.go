@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/source"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
@@ -188,4 +189,25 @@ func expectSchemaIdentityMessage(t *testing.T, err error, message string) {
 			diag.Category(), diag.Code(), diag.Message(),
 			xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaIdentity, message)
 	}
+}
+
+func TestDeclaringAnIdentityConstraintTwiceInOneContextIsAnInternalInvariant(t *testing.T) {
+	t.Parallel()
+
+	limits, err := NormalizeOptions(Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := newCompiler(limits)
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:key name="k"><xs:selector xpath="a"/><xs:field xpath="@id"/></xs:key></xs:element></xs:schema>`
+	if err = c.loadOwned([]source.Source{source.Bytes("identity.xsd", []byte(input))}); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.declareAllIdentityConstraints(); err != nil {
+		t.Fatalf("first declaration: %v", err)
+	}
+	expectDiagnostic(t, c.declareAllIdentityConstraints(), xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 }

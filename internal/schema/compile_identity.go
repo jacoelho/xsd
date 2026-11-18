@@ -50,7 +50,14 @@ func (c *compiler) declareIdentityConstraintsInTree(ctx *schemaSetDocument, n *s
 	return nil
 }
 
+// declareIdentityConstraint declares node in ctx. The walk visits each
+// (context, node) once, so a second declaration is an invariant violation, not
+// a duplicate name.
 func (c *compiler) declareIdentityConstraint(ctx *schemaSetDocument, node *schemaNode) error {
+	key := nodeKey(ctx, node)
+	if _, declared := c.identityDeclared[key]; declared {
+		return withSchemaCompileLocation(node, xsderrors.InternalInvariant("identity constraint declared twice in one document context"))
+	}
 	source := semanticSource[*schemaIdentitySource](&node.semantic)
 	if source == nil {
 		return withSchemaCompileLocation(node, xsderrors.InternalInvariant("identity node has no typed identity source"))
@@ -66,7 +73,7 @@ func (c *compiler) declareIdentityConstraint(ctx *schemaSetDocument, node *schem
 	if err != nil {
 		return withSchemaCompileLocation(node, err)
 	}
-	c.identityDeclared[nodeKey(ctx, node)] = id
+	c.identityDeclared[key] = id
 	return nil
 }
 
