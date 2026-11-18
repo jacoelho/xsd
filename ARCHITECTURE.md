@@ -771,6 +771,16 @@ Diagnostics flow:
    keyrefs name their retained target constraint; they never add source IDs or original tuple lexemes
    to document state, and opaque identity keys are never presented as values.
 
+   A diagnostic that lists or picks among names or namespaces orders them by
+   expanded name, namespace URI then local name, never by interned name ID
+   (`compareQNameText` for the Unique Particle Attribution name,
+   `compareContentExpectation` for content expectations), so writing the same
+   schema in another order gives the same text. A check that stops at its
+   first failure visits substitution-group members in the same order (Element
+   Declarations Consistent, the generated choice of a restriction), so the
+   failure reported and the work spent before it do not depend on name IDs
+   either.
+
    `internal/diagnostictext` owns bounded quoting for all these owners.
    Diagnostics never retain borrowed input. `xsderrors` defines absent
    diagnostics and wrapper preservation in its package documentation. Unsupported DTD diagnostics retain the positioned

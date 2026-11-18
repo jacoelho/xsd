@@ -1,6 +1,9 @@
 package schema
 
-import "errors"
+import (
+	"errors"
+	"slices"
+)
 
 // contentModelAnalysis is the bounded owner of content-model emptiability,
 // count-range, substitution-name, and particle-overlap facts.
@@ -27,6 +30,10 @@ func (a *contentModelAnalysis) contentModel(id contentModelID) (contentModelNode
 	return a.rt.Models[id], true
 }
 
+// particleAcceptedNames holds the names an element particle accepts: its own
+// and those of its effective substitution members. ordered is sorted by
+// expanded name, so the name a Unique Particle Attribution diagnostic reports
+// is the first overlapping name in that order.
 type particleAcceptedNames struct {
 	byName  map[QName]ElementID
 	ordered []QName
@@ -310,6 +317,9 @@ func (a *contentModelAnalysis) acceptedNames(id ElementID) (particleAcceptedName
 	if collector.err != nil {
 		return particleAcceptedNames{}, false, collector.err
 	}
+	slices.SortFunc(accepted.ordered, func(x, y QName) int {
+		return compareQNameText(&a.rt.Names, x, y)
+	})
 	a.names[id] = accepted
 	return accepted, true, nil
 }

@@ -186,6 +186,16 @@ func (t substitutionTable) MemberByName(head ElementID, name QName) (ElementID, 
 	return entries[position].member, true
 }
 
+// MemberCount returns the number of raw transitive substitution members of
+// head.
+func (t substitutionTable) MemberCount(head ElementID) int {
+	span, ok := t.span(head)
+	if !ok {
+		return 0
+	}
+	return span.count
+}
+
 // HasMembers reports whether head has raw transitive substitution members.
 func (t substitutionTable) HasMembers(head ElementID) bool {
 	span, ok := t.span(head)

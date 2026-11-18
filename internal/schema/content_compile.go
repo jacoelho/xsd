@@ -195,6 +195,9 @@ type elementDeclarationConsistencyChecker struct {
 	// deleting the names it added, so reusing an index costs a model its own
 	// size, however many names an earlier model at that depth had.
 	scratch []map[QName]ElementID
+	// members holds the accepted members of one substitution group larger
+	// than smallSubstitutionGroup while collectElementParticle orders them.
+	members []namedElementDeclaration
 	depth   int
 }
 
@@ -334,32 +337,69 @@ func (c *elementDeclarationConsistencyChecker) collectParticle(declarations *ele
 	return nil
 }
 
+// collectElementParticle collects element and the members of its actual
+// substitution group in expanded-name order, so the first conflict found, and
+// the work spent before it, do not depend on the order names were interned.
+// A group of up to smallSubstitutionGroup members is ordered on the stack;
+// a larger one in c.members, which keeps its capacity.
 func (c *elementDeclarationConsistencyChecker) collectElementParticle(declarations *elementDeclarationSet, element ElementID) error {
 	if err := c.collectElementDeclaration(declarations, element); err != nil {
 		return err
 	}
-	var err error
-	c.rt.Substitutions.ForEachMember(element, func(member ElementID) bool {
-		err = c.collectSubstitutionMember(declarations, element, member)
-		return err == nil
-	})
-	return err
-}
-
-func (c *elementDeclarationConsistencyChecker) collectSubstitutionMember(declarations *elementDeclarationSet, head, member ElementID) error {
-	// EDC includes the actual substitution group, but every raw member scan
-	// consumes work even when abstractness or blocking excludes that member.
-	if err := c.spend(); err != nil {
+	if c.rt.Substitutions.MemberCount(element) > smallSubstitutionGroup {
+		members, err := c.actualSubstitutionMembers(element, c.members[:0])
+		c.members = members
+		if err != nil {
+			return err
+		}
+		return c.addElementDeclarations(declarations, members)
+	}
+	var small [smallSubstitutionGroup]namedElementDeclaration
+	members, err := c.actualSubstitutionMembers(element, small[:0])
+	if err != nil {
 		return err
 	}
-	name, ok := c.rt.ElementName(member)
-	if !ok {
-		return xsderrors.InternalInvariant("element declaration consistency references missing substitution member")
+	return c.addElementDeclarations(declarations, members)
+}
+
+const smallSubstitutionGroup = 16
+
+// actualSubstitutionMembers appends the members of head's actual substitution
+// group to members and orders them by expanded name.
+func (c *elementDeclarationConsistencyChecker) actualSubstitutionMembers(head ElementID, members []namedElementDeclaration) ([]namedElementDeclaration, error) {
+	var err error
+	c.rt.Substitutions.ForEachMember(head, func(member ElementID) bool {
+		// EDC includes the actual substitution group, but every raw member
+		// scan consumes work even when abstractness or blocking excludes it.
+		if err = c.spend(); err != nil {
+			return false
+		}
+		name, ok := c.rt.ElementName(member)
+		if !ok {
+			err = xsderrors.InternalInvariant("element declaration consistency references missing substitution member")
+			return false
+		}
+		if accepted, ok := c.rt.Substitutions.MemberByName(head, name); ok && accepted == member {
+			members = append(members, namedElementDeclaration{name: name, element: member})
+		}
+		return true
+	})
+	if err != nil {
+		return members, err
 	}
-	if accepted, ok := c.rt.Substitutions.MemberByName(head, name); !ok || accepted != member {
-		return nil
+	slices.SortFunc(members, func(a, b namedElementDeclaration) int {
+		return compareQNameText(&c.rt.Names, a.name, b.name)
+	})
+	return members, nil
+}
+
+func (c *elementDeclarationConsistencyChecker) addElementDeclarations(declarations *elementDeclarationSet, members []namedElementDeclaration) error {
+	for _, member := range members {
+		if err := c.addElementDeclaration(declarations, member); err != nil {
+			return err
+		}
 	}
-	return c.collectElementDeclaration(declarations, member)
+	return nil
 }
 
 func (c *elementDeclarationConsistencyChecker) collectElementDeclaration(declarations *elementDeclarationSet, element ElementID) error {

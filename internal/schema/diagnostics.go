@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"cmp"
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/diagnostictext"
@@ -95,7 +96,9 @@ type ContentExpectation struct {
 }
 
 // ContentExpectations is a bounded error-only projection of the authoritative
-// content state. More means alternatives or traversal work were truncated.
+// content state. It holds the first alternatives in diagnostic order: element
+// names by namespace URI, then local name, then wildcards. More means
+// alternatives or traversal work were truncated.
 type ContentExpectations struct {
 	values [diagnostictext.MaxAlternatives]ContentExpectation
 	count  int
@@ -164,7 +167,7 @@ func (rt *Schema) ExpectedContent(state ContentState, scratch *ContentScratch, p
 
 func (p *contentExpectationProjection) allContent(model *compiledModelRead, scratch *ContentScratch, purpose contentExpectationPurpose) bool {
 	for index, term := range model.All {
-		if p.result.More || !p.spend() {
+		if !p.spend() {
 			return true
 		}
 		if !p.allTerm(term, index, scratch, purpose) {
@@ -190,7 +193,7 @@ func (p *contentExpectationProjection) dfaContent(state ContentState, model *com
 		return false
 	}
 	for _, edge := range model.Rows[state.state].Edges {
-		if p.result.More || !p.spend() {
+		if !p.spend() {
 			return true
 		}
 		if !p.dfaEdge(state, model, edge) {
@@ -218,19 +221,76 @@ func (p *contentExpectationProjection) spend() bool {
 	p.remaining--
 	return true
 }
+
+// add inserts item in diagnostic order. When the projection is full, the
+// last alternative in that order is dropped, so the result does not depend on
+// traversal order once every alternative has been inspected.
 func (p *contentExpectationProjection) add(item ContentExpectation) {
-	for i := range p.result.count {
-		if !item.IsWildcard && !p.result.values[i].IsWildcard && item.Name == p.result.values[i].Name {
+	r := &p.result
+	for i := range r.count {
+		if !item.IsWildcard && !r.values[i].IsWildcard && item.Name == r.values[i].Name {
 			return
 		}
 	}
-	if p.result.count == len(p.result.values) {
-		p.result.More = true
-		return
+	at := r.count
+	for at > 0 && compareContentExpectation(item, r.values[at-1]) < 0 {
+		at--
 	}
-	p.result.values[p.result.count] = item
-	p.result.count++
+	if r.count == len(r.values) {
+		r.More = true
+		if at == r.count {
+			return
+		}
+		r.count--
+	}
+	copy(r.values[at+1:r.count+1], r.values[at:r.count])
+	r.values[at] = item
+	r.count++
 }
+
+func compareContentExpectation(a, b ContentExpectation) int {
+	return cmp.Or(
+		compareFalseFirst(a.IsWildcard, b.IsWildcard),
+		cmp.Compare(a.Name.Namespace, b.Name.Namespace),
+		cmp.Compare(a.Name.Local, b.Name.Local),
+		cmp.Compare(a.WildcardMode, b.WildcardMode),
+		cmp.Compare(a.ExcludedNamespace, b.ExcludedNamespace),
+		slices.Compare(a.Namespaces, b.Namespaces),
+		compareFalseFirst(a.MoreNamespaces, b.MoreNamespaces),
+	)
+}
+
+func compareFalseFirst(a, b bool) int {
+	switch {
+	case a == b:
+		return 0
+	case a:
+		return 1
+	default:
+		return -1
+	}
+}
+
+// firstNamespaces returns the first count of namespaces in text order without
+// sorting the wildcard's own list.
+func firstNamespaces(namespaces []string, count int) []string {
+	out := make([]string, 0, count)
+	for _, ns := range namespaces {
+		at := len(out)
+		for at > 0 && ns < out[at-1] {
+			at--
+		}
+		if len(out) == count {
+			if at == count {
+				continue
+			}
+			out = out[:count-1]
+		}
+		out = slices.Insert(out, at, ns)
+	}
+	return out
+}
+
 func (p *contentExpectationProjection) particle(particle compiledParticleRead) bool {
 	switch particle.Kind {
 	case particleElement:
@@ -244,7 +304,7 @@ func (p *contentExpectationProjection) particle(particle compiledParticleRead) b
 			return false
 		}
 		count := min(len(wildcard.namespaces), diagnostictext.MaxAlternatives)
-		p.add(ContentExpectation{IsWildcard: true, WildcardMode: wildcard.mode, ExcludedNamespace: wildcard.otherThan, Namespaces: slices.Clone(wildcard.namespaces[:count]), MoreNamespaces: count < len(wildcard.namespaces)})
+		p.add(ContentExpectation{IsWildcard: true, WildcardMode: wildcard.mode, ExcludedNamespace: wildcard.otherThan, Namespaces: firstNamespaces(wildcard.namespaces, count), MoreNamespaces: count < len(wildcard.namespaces)})
 		return true
 	case particleModel:
 		return false
@@ -282,7 +342,7 @@ func (p *contentExpectationProjection) substitutionMembers(id ElementID) bool {
 		return true
 	}
 	for _, entry := range table.entries[span.start : span.start+span.count] {
-		if p.result.More || !p.spend() {
+		if !p.spend() {
 			return true
 		}
 		if !entry.effective {

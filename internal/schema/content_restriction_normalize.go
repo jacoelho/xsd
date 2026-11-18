@@ -1,6 +1,10 @@
 package schema
 
-import "github.com/jacoelho/xsd/xsderrors"
+import (
+	"slices"
+
+	"github.com/jacoelho/xsd/xsderrors"
+)
 
 type restrictionNormalizer struct {
 	validator contentRestrictionValidator
@@ -75,6 +79,10 @@ func (n *restrictionNormalizer) element(p contentParticle) (contentParticle, err
 	if len(members) == 0 {
 		return p, nil
 	}
+	elements := v.rt.Elements
+	slices.SortFunc(members, func(a, b contentParticle) int {
+		return compareQNameText(&v.rt.Names, elements[a.Element].Name, elements[b.Element].Name)
+	})
 	members, err = n.insertConcreteHead(members, p.Element)
 	if err != nil {
 		return contentParticle{}, err
@@ -100,8 +108,9 @@ func (n *restrictionNormalizer) appendActualMember(members *[]contentParticle, h
 	return n.appendLiteralMember(members, id)
 }
 
-// Generated groups retain deterministic QName storage order, including the
-// concrete head. Comparison spans waive only generated order; explicit source
+// Generated groups are in expanded-name order, including the concrete head,
+// so the work spent before the first failing member does not depend on the
+// order names were interned. Comparison spans waive only generated order; explicit source
 // choice boundaries remain ordered.
 func (n *restrictionNormalizer) insertConcreteHead(members []contentParticle, head ElementID) ([]contentParticle, error) {
 	if n.validator.rt.Elements[head].Abstract {
@@ -128,7 +137,7 @@ func (n *restrictionNormalizer) headInsertionIndex(members []contentParticle, he
 		if err := n.validator.charge(); err != nil {
 			return 0, err
 		}
-		if compareQName(elements[head].Name, elements[member.Element].Name) < 0 {
+		if compareQNameText(&n.validator.rt.Names, elements[head].Name, elements[member.Element].Name) < 0 {
 			return i, nil
 		}
 	}
