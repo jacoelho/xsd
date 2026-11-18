@@ -23,7 +23,11 @@ func identityConstraintNodes(n *schemaNode) []*schemaNode {
 // them, wherever the keyref and the referenced constraint are written. A
 // constraint is declared once per document context: a group referenced twice
 // shares its constraints, and a chameleon document declares its constraints
-// once in each including namespace.
+// once in each including namespace. Declaration keys a constraint by its
+// expanded name and interns nothing: the name is interned when the element
+// holding it compiles, or before global elements compile
+// (nameAllIdentityConstraints), so it takes its name ID in compilation order,
+// as other component names do.
 func (c *compiler) declareAllIdentityConstraints() error {
 	for i := range c.plan.documents {
 		ctx := &c.plan.documents[i]
@@ -34,17 +38,20 @@ func (c *compiler) declareAllIdentityConstraints() error {
 	return nil
 }
 
+// declareIdentityConstraintsInTree declares the constraints of each element
+// in the tree under n before those of the elements it contains, the order in
+// which elements compile and name them.
 func (c *compiler) declareIdentityConstraintsInTree(ctx *schemaSetDocument, n *schemaNode) error {
+	if n.local == vocab.XSDElemElement {
+		for _, node := range identityConstraintNodes(n) {
+			if err := c.declareIdentityConstraint(ctx, node); err != nil {
+				return err
+			}
+		}
+	}
 	for child := range n.xsdChildren() {
-		switch child.local {
-		case vocab.XSDElemKey, vocab.XSDElemKeyref, vocab.XSDElemUnique:
-			if err := c.declareIdentityConstraint(ctx, child); err != nil {
-				return err
-			}
-		default:
-			if err := c.declareIdentityConstraintsInTree(ctx, child); err != nil {
-				return err
-			}
+		if err := c.declareIdentityConstraintsInTree(ctx, child); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -62,14 +69,11 @@ func (c *compiler) declareIdentityConstraint(ctx *schemaSetDocument, node *schem
 	if source == nil {
 		return withSchemaCompileLocation(node, xsderrors.InternalInvariant("identity node has no typed identity source"))
 	}
-	q, err := c.rt.internQName(ctx.effectiveTargetNS, source.Name.Value)
-	if err != nil {
-		return withSchemaCompileLocation(node, err)
-	}
-	if duplicateErr := c.checkIdentityConstraintNameAvailable(q); duplicateErr != nil {
+	name := ExpandedName{Namespace: ctx.effectiveTargetNS, Local: source.Name.Value}
+	if duplicateErr := c.checkIdentityConstraintNameAvailable(name); duplicateErr != nil {
 		return withSchemaCompileLocation(node, duplicateErr)
 	}
-	id, err := c.registerGlobalIdentity(q, newDeclaredIdentityConstraint(q), node)
+	id, err := c.reserveIdentity(name, node)
 	if err != nil {
 		return withSchemaCompileLocation(node, err)
 	}
@@ -77,8 +81,28 @@ func (c *compiler) declareIdentityConstraint(ctx *schemaSetDocument, node *schem
 	return nil
 }
 
+// identityDeclaration is an identity constraint declared by expanded name
+// and, once nameIdentityConstraint has run for it, by interned name.
+type identityDeclaration struct {
+	name  ExpandedName
+	named bool
+}
+
+// nameAllIdentityConstraints interns the names of the identity constraints no
+// element compilation has named yet, in declaration order, before global
+// elements compile.
+func (c *compiler) nameAllIdentityConstraints() error {
+	for id := range c.identityDeclarations {
+		if err := c.nameIdentityConstraint(IdentityConstraintID(id)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // declaredIdentityConstraints returns the IDs declareAllIdentityConstraints
-// gave nodes in ctx.
+// gave nodes in ctx, interning their names, as the element holding them
+// compiles.
 func (c *compiler) declaredIdentityConstraints(ctx *schemaSetDocument, nodes []*schemaNode) ([]IdentityConstraintID, error) {
 	if len(nodes) == 0 {
 		return nil, nil
@@ -88,6 +112,9 @@ func (c *compiler) declaredIdentityConstraints(ctx *schemaSetDocument, nodes []*
 		id, ok := c.identityDeclared[nodeKey(ctx, node)]
 		if !ok {
 			return nil, withSchemaCompileLocation(node, xsderrors.InternalInvariant("identity constraint was not declared before compilation"))
+		}
+		if err := c.nameIdentityConstraint(id); err != nil {
+			return nil, err
 		}
 		ids = append(ids, id)
 	}

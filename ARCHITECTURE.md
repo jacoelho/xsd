@@ -309,10 +309,16 @@ namespace of an attribute declaration (chameleon namespace).
 
 Identity-constraint names are one schema-wide symbol space per target
 namespace (Structures §3.11.1). `declareAllIdentityConstraints` is their only
-writer: it declares every constraint of every document context, rejecting a
-duplicate name, before any component compiles, and compilation only looks the
-declarations up. A keyref `refer` therefore resolves against every name,
-whichever component holds the keyref or the referenced constraint.
+writer: it declares every constraint of every document context by expanded
+name, rejecting a duplicate name, before any component compiles, and
+compilation only looks the declarations up. A keyref `refer` therefore
+resolves against every name, whichever component holds the keyref or the
+referenced constraint. Declaration interns nothing: a constraint's name is
+interned when the element holding it compiles, or before global elements
+compile (`nameAllIdentityConstraints`), and its selector and field names when
+it compiles. Every name therefore takes its name ID in compilation order, which
+is not only a diagnostic concern: the dense DFA index depends on the
+local-name IDs of a content-model row's elements (`addDenseDFAIndexes`).
 
 Each rule has one owner: one function, called at the tag that decides it,
 whose product the tag's typed source record stores and compilation reads. The

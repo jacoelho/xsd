@@ -3,6 +3,7 @@ package schema
 import (
 	"slices"
 
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/xsderrors"
 )
@@ -156,12 +157,14 @@ func (rt *schemaBuild) identityName(id IdentityConstraintID) QName {
 	return rt.Identities[id].Name
 }
 
-func (c *compiler) checkIdentityConstraintNameAvailable(q QName) error {
-	return checkIdentityConstraintNameAvailable(c.rt.GlobalIdentities, q, c.rt.Names.Format(q))
+func (c *compiler) checkIdentityConstraintNameAvailable(name ExpandedName) error {
+	return checkIdentityConstraintNameAvailable(c.identityNames, name, diagnostictext.ExpandedName(name.Namespace, name.Local))
 }
 
+// resolveIdentityConstraintRefer resolves the keyref refer q against every
+// declared identity constraint, named or not.
 func (c *compiler) resolveIdentityConstraintRefer(q QName) (IdentityConstraintID, error) {
-	return resolveIdentityConstraintRefer(c.rt.GlobalIdentities, q, c.rt.Names.Format(q))
+	return resolveIdentityConstraintRefer(c.identityNames, ExpandedName{Namespace: c.rt.Names.Namespace(q.Namespace), Local: c.rt.Names.Local(q.Local)}, c.rt.Names.Format(q))
 }
 
 func (c *compiler) validateAttributeDeclNameBuild(q QName) error {
@@ -220,17 +223,36 @@ func (c *compiler) registerGlobalSimpleType(q QName, typ simpleType) (SimpleType
 	return id, nil
 }
 
-// registerGlobalIdentity admits the identity constraint declared at source,
-// whose node locates its compile checks.
-func (c *compiler) registerGlobalIdentity(q QName, identity identityConstraintSpec, source *schemaNode) (IdentityConstraintID, error) {
+// reserveIdentity admits the identity constraint named name and declared at
+// source, whose node locates its compile checks. Its name is interned later,
+// by nameIdentityConstraint.
+func (c *compiler) reserveIdentity(name ExpandedName, source *schemaNode) (IdentityConstraintID, error) {
 	id, err := nextIdentityConstraintID(len(c.rt.Identities))
 	if err != nil {
 		return NoIdentityConstraint, err
 	}
-	c.rt.Identities = append(c.rt.Identities, identity)
+	c.rt.Identities = append(c.rt.Identities, newDeclaredIdentityConstraint(noQName()))
 	c.identitySources = append(c.identitySources, source)
-	c.rt.GlobalIdentities[q] = id
+	c.identityDeclarations = append(c.identityDeclarations, identityDeclaration{name: name})
+	c.identityNames[name] = id
 	return id, nil
+}
+
+// nameIdentityConstraint interns the name of the declared constraint id the
+// first time it is called and registers it as a global identity constraint.
+func (c *compiler) nameIdentityConstraint(id IdentityConstraintID) error {
+	declaration := &c.identityDeclarations[id]
+	if declaration.named {
+		return nil
+	}
+	q, err := c.rt.internQName(declaration.name.Namespace, declaration.name.Local)
+	if err != nil {
+		return withSchemaCompileLocation(c.identitySources[id], err)
+	}
+	c.rt.Identities[id].Name = q
+	c.rt.GlobalIdentities[q] = id
+	declaration.named = true
+	return nil
 }
 
 func (c *compiler) addElement(decl elementDecl) (ElementID, error) {

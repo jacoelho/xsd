@@ -140,10 +140,16 @@ type compilerIndexState struct {
 }
 
 type compilerBuildState struct {
-	attrGroupDone             map[QName]attributeUseSetID
-	localDone                 map[schemaNodeKey]ElementID
-	identityDeclared          map[schemaNodeKey]IdentityConstraintID
-	identitySources           []*schemaNode
+	attrGroupDone    map[QName]attributeUseSetID
+	localDone        map[schemaNodeKey]ElementID
+	identityDeclared map[schemaNodeKey]IdentityConstraintID
+	identitySources  []*schemaNode
+	// identityNames and identityDeclarations hold every identity constraint
+	// declareAllIdentityConstraints declares, by expanded name and by ID, so a
+	// keyref refer resolves before the referenced constraint's name is
+	// interned (nameIdentityConstraint).
+	identityNames             map[ExpandedName]IdentityConstraintID
+	identityDeclarations      []identityDeclaration
 	complexDefinitions        []complexTypeDefinition
 	pendingElementConstraints []pendingElementConstraint
 	unionMemberEntries        int
@@ -250,6 +256,7 @@ func newCompiler(limits Limits) (*compiler, error) {
 		attrGroupDone:            make(map[QName]attributeUseSetID),
 		localDone:                make(map[schemaNodeKey]ElementID),
 		identityDeclared:         make(map[schemaNodeKey]IdentityConstraintID),
+		identityNames:            make(map[ExpandedName]IdentityConstraintID),
 		compilingSimple:          make(map[QName]bool),
 		compilingAttrGrp:         make(map[QName]bool),
 		compilingModel:           make(map[schemaNodeKey]bool),
@@ -318,7 +325,7 @@ func (c *compiler) compileGlobalAttributeAndModelGroups() error {
 			return err
 		}
 	}
-	return nil
+	return c.nameAllIdentityConstraints()
 }
 
 func (c *compiler) compileGlobalElements() error {

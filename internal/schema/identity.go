@@ -23,9 +23,9 @@ func identityConstraintKindForLocal(local string) (IdentityKind, error) {
 
 // checkIdentityConstraintNameAvailable rejects duplicate global identity
 // constraint names.
-func checkIdentityConstraintNameAvailable(
-	identities map[QName]IdentityConstraintID,
-	name QName,
+func checkIdentityConstraintNameAvailable[K comparable](
+	identities map[K]IdentityConstraintID,
+	name K,
 	label string,
 ) error {
 	if _, exists := identities[name]; exists {
@@ -36,9 +36,9 @@ func checkIdentityConstraintNameAvailable(
 
 // resolveIdentityConstraintRefer resolves a keyref refer name against declared
 // global identity constraints.
-func resolveIdentityConstraintRefer(
-	identities map[QName]IdentityConstraintID,
-	name QName,
+func resolveIdentityConstraintRefer[K comparable](
+	identities map[K]IdentityConstraintID,
+	name K,
 	label string,
 ) (IdentityConstraintID, error) {
 	id, exists := identities[name]
