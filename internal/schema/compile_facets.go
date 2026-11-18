@@ -6,7 +6,6 @@ import (
 
 	"github.com/jacoelho/xsd/internal/diagnostictext"
 	valuepkg "github.com/jacoelho/xsd/internal/value"
-	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/internal/xsdregex"
 	"github.com/jacoelho/xsd/xsderrors"
 )
@@ -99,7 +98,8 @@ func validateFacetChildSource(child *schemaNode, st *simpleType) (valuepkg.Facet
 func (c *compiler) compileFacetValue(child *schemaNode, st *simpleType, base SimpleTypeID, state *compiledFacetState, facet facetInput) error {
 	switch facet.flag {
 	case valuepkg.FacetLength, valuepkg.FacetMinLength, valuepkg.FacetMaxLength, valuepkg.FacetTotalDigits, valuepkg.FacetFractionDigits:
-		return compileSizeFacet(st, child, facet)
+		compileSizeFacet(st, facet)
+		return nil
 	case valuepkg.FacetMinInclusive, valuepkg.FacetMaxInclusive, valuepkg.FacetMinExclusive, valuepkg.FacetMaxExclusive:
 		return c.compileBoundFacet(child, st, base, facet, state)
 	case valuepkg.FacetEnumeration:
@@ -110,7 +110,8 @@ func (c *compiler) compileFacetValue(child *schemaNode, st *simpleType, base Sim
 	case valuepkg.FacetPattern:
 		return c.compilePatternFacet(child, facet.value, state)
 	case valuepkg.FacetWhiteSpace:
-		return c.compileWhitespaceFacet(st, child, facet)
+		compileWhitespaceFacet(st, facet)
+		return nil
 	}
 	return nil
 }
@@ -150,9 +151,10 @@ func (c *compiler) compilePatternFacet(child *schemaNode, patternText string, st
 }
 
 type facetInput struct {
-	value string
-	flag  valuepkg.FacetMask
-	fixed bool
+	value  string
+	parsed facetValue
+	flag   valuepkg.FacetMask
+	fixed  bool
 }
 
 func facetAttrs(n *schemaNode, flag valuepkg.FacetMask) (facetInput, error) {
@@ -161,24 +163,14 @@ func facetAttrs(n *schemaNode, flag valuepkg.FacetMask) (facetInput, error) {
 		return facetInput{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("facet node has no typed facet source"))
 	}
 	value := source.Value.Value
-	fixed, err := parseBooleanAttr(booleanAttr{Name: vocab.XSDAttrFixed, Value: source.Fixed.Value, HasValue: source.Fixed.Present})
-	if err != nil {
-		return facetInput{}, withSchemaCompileLocation(n, admittedValueInvariant(err))
-	}
-	return facetInput{value: value, flag: flag, fixed: fixed}, nil
+	return facetInput{value: value, parsed: source.Parsed, flag: flag, fixed: source.Parsed.fixed}, nil
 }
 
-func compileSizeFacet(st *simpleType, node *schemaNode, facet facetInput) error {
-	name := node.local
-	size, err := parseSizeFacetValue(name, facet.value)
-	if err != nil {
-		return withSchemaCompileLocation(node, err)
-	}
-	setValueCardinalityFacet(&st.ValueSpec.Facets, facet.flag, size)
+func compileSizeFacet(st *simpleType, facet facetInput) {
+	setValueCardinalityFacet(&st.ValueSpec.Facets, facet.flag, facet.parsed.size)
 	if facet.fixed {
 		st.ValueSpec.Facets.Fixed |= facet.flag
 	}
-	return nil
 }
 
 // compileBoundFacet admits an ordered-bound literal against its base. Ordered
@@ -195,17 +187,12 @@ func (c *compiler) compileBoundFacet(child *schemaNode, st *simpleType, base Sim
 	return nil
 }
 
-func (*compiler) compileWhitespaceFacet(st *simpleType, n *schemaNode, facet facetInput) error {
-	mode, err := parseWhitespaceFacetValue(facet.value)
-	if err != nil {
-		return withSchemaCompileLocation(n, err)
-	}
-	st.ValueSpec.Whitespace = mode
+func compileWhitespaceFacet(st *simpleType, facet facetInput) {
+	st.ValueSpec.Whitespace = facet.parsed.whitespace
 	st.ValueSpec.WhitespacePresent = true
 	if facet.fixed {
 		st.ValueSpec.Facets.Fixed |= valuepkg.FacetWhiteSpace
 	}
-	return nil
 }
 
 func setValueCardinalityFacet(f *valuepkg.FacetSpec, flag valuepkg.FacetMask, size uint32) {

@@ -312,13 +312,13 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
   </xs:simpleType>
   <xs:element name="r" type="Derived"/>
 </xs:schema>`, code: xsderrors.CodeSchemaFacet, line: 7, column: 3},
-		{name: "unavailable simple content admits fixed before size", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+		{name: "unavailable simple content admits fixed written before size", schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="List"><xs:list itemType="absent"/></xs:simpleType>
   <xs:complexType name="Base"><xs:simpleContent><xs:extension base="List"/></xs:simpleContent></xs:complexType>
   <xs:complexType name="Restricted">
     <xs:simpleContent>
       <xs:restriction base="Base">
-        <xs:length value="bad" fixed="bad"/>
+        <xs:length fixed="bad" value="bad"/>
       </xs:restriction>
     </xs:simpleContent>
   </xs:complexType>

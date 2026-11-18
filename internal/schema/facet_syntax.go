@@ -37,6 +37,33 @@ func validateFacetSource(source facetSource) (valuepkg.FacetMask, error) {
 	return mask, nil
 }
 
+// facetValue is what the start tag of a facet admits from its value and
+// fixed attributes: the size of a size facet, the mode of xs:whiteSpace, and
+// fixed. The facet's typed source record stores it and compilation reads it.
+type facetValue struct {
+	size       uint32
+	whitespace valuepkg.WhitespaceMode
+	fixed      bool
+}
+
+// admitFacetValue parses value, the value attribute of the facet element
+// named element, when the element is a size facet or xs:whiteSpace, and is
+// the only owner of their value syntax and size limit. A value it rejects is a
+// violation of the facet's start tag, whatever the base type of the
+// restriction. Every other facet value depends on the base type and is
+// compiled with it.
+func admitFacetValue(element, value string) (facetValue, error) {
+	switch element {
+	case vocab.XSDFacetLength, vocab.XSDFacetMinLength, vocab.XSDFacetMaxLength, vocab.XSDFacetTotalDigits, vocab.XSDFacetFractionDigits:
+		size, err := parseSizeFacetValue(element, value)
+		return facetValue{size: size}, err
+	case vocab.XSDFacetWhiteSpace:
+		mode, err := parseWhitespaceFacetValue(value)
+		return facetValue{whitespace: mode}, err
+	}
+	return facetValue{}, nil
+}
+
 // parseWhitespaceFacetValue parses an xs:whiteSpace facet value. Loosening the
 // base whiteSpace is rejected by value.Builder during derivation.
 func parseWhitespaceFacetValue(value string) (valuepkg.WhitespaceMode, error) {

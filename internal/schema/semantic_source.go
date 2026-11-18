@@ -117,7 +117,10 @@ type schemaQNameListAttribute struct {
 	Names   []xml.Name
 }
 
-type semanticQNameProjection struct {
+// admittedValues holds what start-tag admission resolves or parses from the
+// attributes of one start tag, for buildSemanticSource to store in the typed
+// source record.
+type admittedValues struct {
 	memberTypes       schemaQNameListAttribute
 	base              schemaQNameAttribute
 	itemType          schemaQNameAttribute
@@ -125,6 +128,7 @@ type semanticQNameProjection struct {
 	refer             schemaQNameAttribute
 	substitutionGroup schemaQNameAttribute
 	typeName          schemaQNameAttribute
+	facet             facetValue
 }
 
 // schemaGlobalSource contains the common source contract for named global
@@ -141,7 +145,8 @@ type schemaSimpleTypeSource struct {
 
 type schemaFacetSource struct {
 	Value lexicalAttribute
-	Fixed lexicalAttribute
+	// Parsed is what the facet's start tag admitted; see facetValue.
+	Parsed facetValue
 }
 
 type schemaElementSource struct {
@@ -402,7 +407,7 @@ func schemaGlobalSourceFor(n *schemaSyntaxNode) schemaGlobalSource {
 // carries it; both are known on that start tag, so the violation is ordered
 // with the tag's other attribute checks. The components the names denote are
 // resolved when the referring component compiles.
-func admitSchemaQNameAttribute(n *schemaSyntaxNode, attr schemaAttribute, qnames *semanticQNameProjection) error {
+func admitSchemaQNameAttribute(n *schemaSyntaxNode, attr schemaAttribute, qnames *admittedValues) error {
 	lexical := lexicalAttribute{Value: attr.Value, Present: true}
 	if attr.Name.Local != vocab.XSDAttrMemberTypes {
 		name, err := n.resolveQName(attr.Value)
@@ -461,7 +466,7 @@ func xmlFieldCount(s string) int {
 
 // buildSemanticSource publishes the semantic source of n from its admitted
 // start tag and the QName attributes resolved while it was admitted.
-func (syntax *schemaSyntaxNode) buildSemanticSource(n *schemaNode, qnames *semanticQNameProjection) {
+func (syntax *schemaSyntaxNode) buildSemanticSource(n *schemaNode, values *admittedValues) {
 	var s schemaSemanticSource
 	for _, attr := range syntax.Attrs {
 		if attr.Name.Space == vocab.XMLNamespaceURI && attr.Name.Local == vocab.XMLAttrBase {
@@ -469,11 +474,11 @@ func (syntax *schemaSyntaxNode) buildSemanticSource(n *schemaNode, qnames *seman
 			continue
 		}
 	}
-	s.kind = buildSemanticKind(syntax, qnames)
+	s.kind = buildSemanticKind(syntax, values)
 	n.semantic = s
 }
 
-func setSemanticQNameAttribute(projection *semanticQNameProjection, local string, value schemaQNameAttribute) {
+func setSemanticQNameAttribute(projection *admittedValues, local string, value schemaQNameAttribute) {
 	switch local {
 	case vocab.XSDAttrBase:
 		projection.base = value
@@ -491,7 +496,7 @@ func setSemanticQNameAttribute(projection *semanticQNameProjection, local string
 }
 
 //nolint:ireturn // The closed variant is the canonical construction boundary.
-func buildSemanticKind(n *schemaSyntaxNode, qnames *semanticQNameProjection) schemaSemanticKind {
+func buildSemanticKind(n *schemaSyntaxNode, values *admittedValues) schemaSemanticKind {
 	switch n.Name.Local {
 	case vocab.XSDElemSchema:
 		return &schemaDocumentSource{
@@ -518,11 +523,11 @@ func buildSemanticKind(n *schemaSyntaxNode, qnames *semanticQNameProjection) sch
 			schemaParticleSource: schemaParticleSource{
 				MinOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMinOccurs),
 				MaxOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMaxOccurs),
-				Ref:       qnames.ref,
+				Ref:       values.ref,
 			},
 			Global:            schemaGlobalSourceFor(n),
-			Type:              qnames.typeName,
-			SubstitutionGroup: qnames.substitutionGroup,
+			Type:              values.typeName,
+			SubstitutionGroup: values.substitutionGroup,
 			Default:           schemaLexicalAttributeSyntax(n, vocab.XSDAttrDefault),
 			Fixed:             schemaLexicalAttributeSyntax(n, vocab.XSDAttrFixed),
 			Form:              schemaLexicalAttributeSyntax(n, vocab.XSDAttrForm),
@@ -534,8 +539,8 @@ func buildSemanticKind(n *schemaSyntaxNode, qnames *semanticQNameProjection) sch
 	case vocab.XSDElemAttribute:
 		return &schemaAttributeSource{
 			Global:  schemaGlobalSourceFor(n),
-			Ref:     qnames.ref,
-			Type:    qnames.typeName,
+			Ref:     values.ref,
+			Type:    values.typeName,
 			Default: schemaLexicalAttributeSyntax(n, vocab.XSDAttrDefault),
 			Fixed:   schemaLexicalAttributeSyntax(n, vocab.XSDAttrFixed),
 			Form:    schemaLexicalAttributeSyntax(n, vocab.XSDAttrForm),
@@ -550,13 +555,13 @@ func buildSemanticKind(n *schemaSyntaxNode, qnames *semanticQNameProjection) sch
 			Final:    schemaLexicalAttributeSyntax(n, vocab.XSDAttrFinal),
 		}
 	case vocab.XSDElemRestriction, vocab.XSDElemExtension:
-		return &schemaBaseDerivationSource{Base: qnames.base}
+		return &schemaBaseDerivationSource{Base: values.base}
 	case vocab.XSDElemComplexContent:
 		return &schemaComplexContentSource{Mixed: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMixed)}
 	case vocab.XSDElemList:
-		return &schemaListDerivationSource{ItemType: qnames.itemType}
+		return &schemaListDerivationSource{ItemType: values.itemType}
 	case vocab.XSDElemUnion:
-		return &schemaUnionDerivationSource{MemberTypes: qnames.memberTypes}
+		return &schemaUnionDerivationSource{MemberTypes: values.memberTypes}
 	case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll, vocab.XSDElemGroup:
 		if n.Name.Local != vocab.XSDElemGroup {
 			kind := mustModelKindForLocal(n.Name.Local)
@@ -565,7 +570,7 @@ func buildSemanticKind(n *schemaSyntaxNode, qnames *semanticQNameProjection) sch
 				schemaParticleSource: schemaParticleSource{
 					MinOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMinOccurs),
 					MaxOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMaxOccurs),
-					Ref:       qnames.ref,
+					Ref:       values.ref,
 				},
 				Kind: kind,
 			}
@@ -575,7 +580,7 @@ func buildSemanticKind(n *schemaSyntaxNode, qnames *semanticQNameProjection) sch
 			schemaParticleSource: schemaParticleSource{
 				MinOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMinOccurs),
 				MaxOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMaxOccurs),
-				Ref:       qnames.ref,
+				Ref:       values.ref,
 			},
 			Global: schemaGlobalSourceFor(n),
 		}
@@ -592,17 +597,17 @@ func buildSemanticKind(n *schemaSyntaxNode, qnames *semanticQNameProjection) sch
 	case vocab.XSDElemKey, vocab.XSDElemKeyref, vocab.XSDElemUnique:
 		return &schemaIdentitySource{
 			Name:  schemaLexicalAttributeSyntax(n, vocab.XSDAttrName),
-			Refer: qnames.refer,
+			Refer: values.refer,
 		}
 	case vocab.XSDElemSelector, vocab.XSDElemField:
 		return &schemaIdentityXPathSource{XPath: schemaLexicalAttributeSyntax(n, vocab.XSDAttrXPath)}
 	case vocab.XSDElemAttributeGroup:
-		return &schemaAttributeGroupSource{Global: schemaGlobalSourceFor(n), Ref: qnames.ref}
+		return &schemaAttributeGroupSource{Global: schemaGlobalSourceFor(n), Ref: values.ref}
 	case vocab.XSDElemNotation:
 		return &schemaNotationSource{Global: schemaGlobalSourceFor(n), Public: schemaLexicalAttributeSyntax(n, vocab.XSDAttrPublic), System: schemaLexicalAttributeSyntax(n, vocab.XSDAttrSystem)}
 	default:
 		if _, ok := facetMaskForLocal(n.Name.Local); ok {
-			return &schemaFacetSource{Value: schemaLexicalAttributeSyntax(n, vocab.XSDAttrValue), Fixed: schemaLexicalAttributeSyntax(n, vocab.XSDAttrFixed)}
+			return &schemaFacetSource{Value: schemaLexicalAttributeSyntax(n, vocab.XSDAttrValue), Parsed: values.facet}
 		}
 	}
 	return nil

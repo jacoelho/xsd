@@ -502,10 +502,6 @@ func checkSchemaAttributeValueSyntax(element, attr, value string) error {
 	switch attr {
 	case vocab.XSDAttrNillable, vocab.XSDAttrAbstract, vocab.XSDAttrMixed:
 		_, err = parseBooleanAttr(booleanAttr{Name: attr, Value: value, HasValue: true})
-	case vocab.XSDAttrFixed:
-		if isFacetLocal(element) {
-			_, err = parseBooleanAttr(booleanAttr{Name: attr, Value: value, HasValue: true})
-		}
 	case vocab.XSDAttrMinOccurs:
 		_, err = parseMinOccursLexical(value)
 	case vocab.XSDAttrMaxOccurs:

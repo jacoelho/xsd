@@ -270,7 +270,8 @@ At a start tag:
    for schemas gives `xs:all` and an element directly in it
    (`occurrenceAdmission`); for the `value` of a size facet, `xs:whiteSpace`
    and `xs:pattern` its integer and uint32 cap, its mode and its regular
-   expression (`admitFacetValue`); for `xpath` the path grammar and the
+   expression (`admitFacetValue`); for the `fixed` of a facet its boolean form
+   (`admitParsedAttributeValue`); for `xpath` the path grammar and the
    prefix bindings of its name tests, branch by branch from the left
    (`admitIdentityXPath`); the lexical form and prefix binding of a QName; and
    anyURI syntax;
@@ -315,7 +316,8 @@ and `misplacedSchemaAttributeError` own the attributes an element may have,
 `checkValueConstraintAttributes` the ones that exclude each other, and
 `checkSchemaAttributeValueSyntax` the lexical form of a value.
 `occurrenceAdmission` stores the occurrence of a particle, `admitFacetValue`
-the size or whiteSpace mode of a facet, and `admitIdentityXPath` the parsed
+the size or whiteSpace mode of a facet, `admitParsedAttributeValue` the fixed
+flag of a facet, and `admitIdentityXPath` the parsed
 paths of a selector or field, so compilation never parses those values again
 and has no diagnostic for them. A pattern is the exception:
 compilation compiles it again with `xsdregex.Compile`, because the compiler

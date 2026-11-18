@@ -94,7 +94,7 @@ func (ids *schemaIDs) declare(value string) bool {
 // startTagAttributes is what the attributes of one start tag are admitted
 // into: the QName projection of its element and the ids of its document.
 type startTagAttributes struct {
-	qnames *semanticQNameProjection
+	values *admittedValues
 	ids    *schemaIDs
 }
 
@@ -243,8 +243,8 @@ func (s *typedSchemaParseState) admitTypedFrame(initial typedSchemaParseFrame, l
 	if parentIndex >= 0 {
 		parent = &s.stack[parentIndex]
 	}
-	var qnames semanticQNameProjection
-	if err := admitTypedStart(&frame.syntax, frame.placement, parent, startTagAttributes{qnames: &qnames, ids: &s.ids}); err != nil {
+	var values admittedValues
+	if err := admitTypedStart(&frame.syntax, frame.placement, parent, startTagAttributes{values: &values, ids: &s.ids}); err != nil {
 		s.stack = s.stack[:len(s.stack)-1]
 		return err
 	}
@@ -259,7 +259,7 @@ func (s *typedSchemaParseState) admitTypedFrame(initial typedSchemaParseFrame, l
 	}
 	frame.node = node
 	if node != nil {
-		frame.syntax.buildSemanticSource(node, &qnames)
+		frame.syntax.buildSemanticSource(node, &values)
 	}
 	return nil
 }

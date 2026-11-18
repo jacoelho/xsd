@@ -78,10 +78,36 @@ func admitSchemaAttributeValue(n *schemaSyntaxNode, attr schemaAttribute, admitt
 	if err := withSchemaCompileLocation(n, checkSchemaAttributeValueSyntax(n.Name.Local, attr.Name.Local, attr.Value)); err != nil {
 		return err
 	}
+	if err := withSchemaCompileLocation(n, admitParsedAttributeValue(n.Name.Local, attr, admitted)); err != nil {
+		return err
+	}
 	if schemaNodeHasQNameAttr(n, attr.Name.Local) {
-		return admitSchemaQNameAttribute(n, attr, admitted.qnames)
+		return admitSchemaQNameAttribute(n, attr, admitted.values)
 	}
 	return checkSchemaAnyURIAttribute(n, attr)
+}
+
+// admitParsedAttributeValue admits attr, an attribute of the XSD element
+// named element, into admitted when its value is parsed at the tag: a facet
+// value, or the fixed of a facet, which may precede or follow the facet's
+// value.
+func admitParsedAttributeValue(element string, attr schemaAttribute, admitted startTagAttributes) error {
+	values := admitted.values
+	switch attr.Name.Local {
+	case vocab.XSDAttrValue:
+		facet, err := admitFacetValue(element, attr.Value)
+		facet.fixed = values.facet.fixed
+		values.facet = facet
+		return err
+	case vocab.XSDAttrFixed:
+		if !isFacetLocal(element) {
+			return nil
+		}
+		fixed, err := parseBooleanAttr(booleanAttr{Name: attr.Name.Local, Value: attr.Value, HasValue: true})
+		values.facet.fixed = fixed
+		return err
+	}
+	return nil
 }
 
 func checkSchemaAnyURIAttribute(n *schemaSyntaxNode, attr schemaAttribute) error {

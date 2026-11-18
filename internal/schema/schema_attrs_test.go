@@ -27,6 +27,11 @@ func testRawNodeWithLocalAttrs(local string, attrs []string) *schemaSyntaxNode {
 			value = "lax"
 		case "block", "final", "blockDefault", "finalDefault":
 			value = "#all"
+		case "value":
+			value = "1"
+			if local == "whiteSpace" {
+				value = "collapse"
+			}
 		}
 		rawAttrs[i] = testRawAttr("", attr, value)
 	}
@@ -204,9 +209,6 @@ func TestSchemaAttributeValueSyntax(t *testing.T) {
 		{element: "complexType", attr: "mixed", value: "1"},
 		{element: "complexType", attr: "mixed", value: "2", wantCode: invalidAttribute, wantMsg: `invalid boolean attribute "mixed"`},
 		{element: "complexContent", attr: "mixed", value: "no", wantCode: invalidAttribute, wantMsg: `invalid boolean attribute "mixed"`},
-		{element: "maxLength", attr: "fixed", value: "false"},
-		{element: "maxLength", attr: "fixed", value: "x", wantCode: invalidAttribute, wantMsg: `invalid boolean attribute "fixed"`},
-		{element: "whiteSpace", attr: "fixed", value: "x", wantCode: invalidAttribute, wantMsg: `invalid boolean attribute "fixed"`},
 		{element: "element", attr: "fixed", value: "x"},
 		{element: "attribute", attr: "fixed", value: "x"},
 		{element: "element", attr: "minOccurs", value: "0"},

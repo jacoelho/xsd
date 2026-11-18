@@ -247,9 +247,9 @@ func TestValidateSchemaNameAttribute(t *testing.T) {
 }
 
 func checkElementChildAttributes(n *schemaSyntaxNode) error {
-	var qnames semanticQNameProjection
+	var values admittedValues
 	var ids schemaIDs
-	return checkSchemaAttributesSyntax(n, schemaPlacementOther, startTagAttributes{qnames: &qnames, ids: &ids})
+	return checkSchemaAttributesSyntax(n, schemaPlacementOther, startTagAttributes{values: &values, ids: &ids})
 }
 
 func TestSchemaAnnotationStartAttributes(t *testing.T) {

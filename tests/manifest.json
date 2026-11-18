@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 17076,
-    "schemaCases": 17026,
+    "cases": 17084,
+    "schemaCases": 17034,
     "instanceRuns": 35810,
     "w3cCases": 14414,
-    "internalRuns": 2649,
+    "internalRuns": 2657,
     "xercesJCases": 13
   },
   "cases": [
@@ -914762,6 +914762,435 @@
         {
           "file": "corpus/project/schema-syntax/facet-repetition/enumeration-twice/c.xml",
           "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/facet-values/maxlength-uint32",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/facet-values/maxlength-uint32",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxLength"
+        ],
+        "conditions": [
+          "maxLength value=\"4294967295\" is a nonNegativeInteger at the project's uint32 size limit."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/facet-values/maxlength-uint32/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:92: s4s-att-invalid-value: Invalid attribute value for 'value' in element 'maxLength'. Recorded reason: cvc-datatype-valid.1.2.1: '4294967295' is not a valid value for 'nonNegativeInteger'. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle. Xerces-J rejects 4294967295 as an xs:nonNegativeInteger attribute value, an implementation range limit below the value space; xmlschema and libxml2 accept it.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxLength"
+          },
+          "dotnet": {
+            "status": "blocked",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: provider failure. System.OverflowException: Value '4294967295' was either too large or too small for Int32. at System.Xml.Schema.XmlBaseConverter.DecimalToInt32(Decimal value) at System.Xml.Schema.FacetsChecker.FacetsCompiler.CompileMaxLengthFacet(XmlSchemaF. .NET throws System.OverflowException while compiling the maxLength facet: it holds lengths as Int32 and cannot represent the value. The run produced no validity result. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxLength"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxLength"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxLength"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/facet-values/maxlength-uint32/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/facet-values/maxlength-above-uint32",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/facet-values/maxlength-above-uint32",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxLength"
+        ],
+        "conditions": [
+          "maxLength value=\"4294967296\" is a nonNegativeInteger above the project's uint32 size limit."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/facet-values/maxlength-above-uint32/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.limit",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:92: s4s-att-invalid-value: Invalid attribute value for 'value' in element 'maxLength'. Recorded reason: cvc-datatype-valid.1.2.1: '4294967296' is not a valid value for 'nonNegativeInteger'. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle. Xerces-J rejects the value as an xs:nonNegativeInteger out of its implementation range; the project rejects it with schema.limit as a resource limit.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxLength"
+          },
+          "dotnet": {
+            "status": "blocked",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: provider failure. System.OverflowException: Value '4294967296' was either too large or too small for Int32. at System.Xml.Schema.XmlBaseConverter.DecimalToInt32(Decimal value) at System.Xml.Schema.FacetsChecker.FacetsCompiler.CompileMaxLengthFacet(XmlSchemaF. .NET throws System.OverflowException while compiling the maxLength facet: it holds lengths as Int32 and cannot represent the value. The run produced no validity result. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxLength"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle. xmlschema has no size limit; the project rejects the value with schema.limit as a resource limit, not as XSD invalidity.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxLength"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle. libxml2 has no size limit at this value; the project rejects the value with schema.limit as a resource limit, not as XSD invalidity.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxLength"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/facet-values/maxlength-above-uint32/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/facet-values/totaldigits-zero",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/facet-values/totaldigits-zero",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-totalDigits"
+        ],
+        "conditions": [
+          "totalDigits value=\"0\"; the value of totalDigits is a positiveInteger."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/facet-values/totaldigits-zero/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:86: s4s-att-invalid-value: Invalid attribute value for 'value' in element 'totalDigits'. Recorded reason: cvc-datatype-valid.1.2.1: '0' is not a valid value for 'positiveInteger'. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-totalDigits"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:60: The TotalDigits constraining facet is invalid - Value '0' was either too large or too small for PositiveInteger. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-totalDigits"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute value='0': value must be positive: Schema component: <xs:totalDigits xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"0\" /> Path: /xs:schema/xs:simpleType/xs:restriction/xs:totalDigits Schema URL: file://schema.xsd. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-totalDigits"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element totalDigits: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}totalDigits': The value '0' of the facet 'totalDigits' is not a valid 'positiveInteger'. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-totalDigits"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/facet-values/totaldigits-zero/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/facet-values/totaldigits-one",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/facet-values/totaldigits-one",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-totalDigits"
+        ],
+        "conditions": [
+          "totalDigits value=\"1\", the smallest positiveInteger."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/facet-values/totaldigits-one/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-totalDigits"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-totalDigits"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-totalDigits"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-totalDigits"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/facet-values/totaldigits-one/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/facet-values/whitespace-unknown-mode",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/facet-values/whitespace-unknown-mode",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-whiteSpace"
+        ],
+        "conditions": [
+          "whiteSpace value=\"trim\" is not one of preserve, replace and collapse."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/facet-values/whitespace-unknown-mode/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:87: s4s-att-invalid-value: Invalid attribute value for 'value' in element 'whiteSpace'. Recorded reason: cvc-enumeration-valid: Value 'trim' is not facet-valid with respect to enumeration '(preserve | replace | collapse)'. It must be a value from the enumeration. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-whiteSpace"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:59: The whitespace character, 'trim', is invalid. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-whiteSpace"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute value='trim': value must be one of ['preserve', 'replace', 'collapse']: Schema component: <xs:whiteSpace xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"trim\" /> Path: /xs:schema/xs:simpleType/xs:restriction/xs:whiteSpace Schema URL: file://schema.xsd. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-whiteSpace"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element whiteSpace: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}whiteSpace': The value 'trim' of the facet 'whitespace' is not valid. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-whiteSpace"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/facet-values/whitespace-unknown-mode/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/facet-values/whitespace-padded-mode",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/facet-values/whitespace-padded-mode",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-whiteSpace"
+        ],
+        "conditions": [
+          "whiteSpace value=\" collapse \" is collapse after whitespace collapse."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/facet-values/whitespace-padded-mode/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-whiteSpace"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:59: The whitespace character, ' collapse ', is invalid. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle. .NET compares the whiteSpace value before whitespace collapse; Xerces-J and xmlschema collapse it.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-whiteSpace"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-whiteSpace"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element whiteSpace: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}whiteSpace': The value ' collapse ' of the facet 'whitespace' is not valid. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle. libxml2 compares the whiteSpace value before whitespace collapse; Xerces-J and xmlschema collapse it.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-whiteSpace"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/facet-values/whitespace-padded-mode/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/facet-values/maxlength-not-integer-on-int",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/facet-values/maxlength-not-integer-on-int",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxLength"
+        ],
+        "conditions": [
+          "maxLength value=\"x\" on a restriction of xs:int: the value is no nonNegativeInteger, and xs:int does not admit maxLength either; the project reports the value, which the facet's start tag decides."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/facet-values/maxlength-not-integer-on-int/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:80: s4s-att-invalid-value: Invalid attribute value for 'value' in element 'maxLength'. Recorded reason: cvc-datatype-valid.1.2.1: 'x' is not a valid value for 'nonNegativeInteger'. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxLength"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:56: The MaxLength constraining facet is prohibited for 'Int'. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxLength"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. attribute value='x': invalid literal for int() with base 10: 'x': Schema component: <xs:maxLength xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"x\" /> Path: /xs:schema/xs:simpleType/xs:restriction/xs:maxLength Schema URL: file://schema.xsd. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxLength"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element simpleType: Schemas parser error : atomic type 'S': The facet 'maxLength' is not allowed on types derived from the type atomic type 'xs:decimal'. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxLength"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/facet-values/maxlength-not-integer-on-int/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/schema-syntax/facet-values/pattern-unclosed-class",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/schema-syntax/facet-values/pattern-unclosed-class",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#regexs"
+        ],
+        "conditions": [
+          "pattern value=\"[a\" is no regular expression: the character class is not closed."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/schema-syntax/facet-values/pattern-unclosed-class/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.facet",
+        "oracle": {
+          "xerces": {
+            "expected": "invalid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:58: InvalidRegex: Pattern value '[a' is not a valid regular expression. The reported error was: 'Unexpected end of the pattern in a character class.'. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#regexs"
+          },
+          "dotnet": {
+            "expected": "invalid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:59: The Pattern constraining facet is invalid - Invalid pattern '^([a)$' at offset 6. Unterminated [] set. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#regexs"
+          },
+          "xmlschema": {
+            "expected": "invalid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. unterminated character class at position 2: '[a': Schema component: <xs:pattern xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"[a\" /> Path: /xs:schema/xs:simpleType/xs:restriction/xs:pattern Schema URL: file://schema.xsd. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#regexs"
+          },
+          "libxml2": {
+            "expected": "invalid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. regexp error : failed to compile: Expecting ']'. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#regexs"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/schema-syntax/facet-values/pattern-unclosed-class/schema.xsd",
+          "role": "principal"
         }
       ]
     }
