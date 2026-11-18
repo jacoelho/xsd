@@ -4054,3 +4054,33 @@ func TestCompileReportsIDReferenceValueConstraintOnAttributeUse(t *testing.T) {
 		t.Fatalf("Compile() error = %v, want ID-typed attribute use at line 3", err)
 	}
 }
+
+func TestCompileLocatesNameLimitBreachAtIdentityConstraint(t *testing.T) {
+	t.Parallel()
+
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:string">
+    <xs:key name="onlyIdentityName"><xs:selector xpath="."/><xs:field xpath="."/></xs:key>
+  </xs:element>
+</xs:schema>`
+	compile := func(maxNames int) error {
+		_, err := xsdSchema.Compile(xsdSchema.Options{MaxSchemaNames: maxNames}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
+		return err
+	}
+	fits := 1
+	for compile(fits) != nil {
+		if fits > 4096 {
+			t.Fatal("Compile() fails at every MaxSchemaNames up to 4096")
+		}
+		fits++
+	}
+
+	err := compile(fits - 1)
+	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+	if !ok || diagnostic.Code() != xsderrors.CodeSchemaLimit {
+		t.Fatalf("Compile(MaxSchemaNames=%d) error = %v, want %s", fits-1, err, xsderrors.CodeSchemaLimit)
+	}
+	if diagnostic.Path() != "schema.xsd" || diagnostic.Line() != 3 || diagnostic.Column() != 5 {
+		t.Fatalf("Compile(MaxSchemaNames=%d) location = %s:%d:%d, want the xs:key start tag at schema.xsd:3:5", fits-1, diagnostic.Path(), diagnostic.Line(), diagnostic.Column())
+	}
+}
