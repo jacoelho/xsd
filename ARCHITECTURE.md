@@ -307,6 +307,13 @@ rules: Unique Particle Attribution, Element Declarations Consistent and
 restriction (content-model analysis); and the XMLSchema-instance target
 namespace of an attribute declaration (chameleon namespace).
 
+Identity-constraint names are one schema-wide symbol space per target
+namespace (Structures §3.11.1). `declareAllIdentityConstraints` is their only
+writer: it declares every constraint of every document context, rejecting a
+duplicate name, before any component compiles, and compilation only looks the
+declarations up. A keyref `refer` therefore resolves against every name,
+whichever component holds the keyref or the referenced constraint.
+
 Each rule has one owner: one function, called at the tag that decides it,
 whose product the tag's typed source record stores and compilation reads. The
 child orders (`childOrderFor`) own where an element may appear; the placement
@@ -1122,6 +1129,10 @@ graph preserves these ownership rules:
   `Detached`: no element declaration owns them, publication rejects any other
   unowned constraint, and no instance element evaluates them. Treating the whole subtree as absent was
   rejected: §3.11.2 maps every identity constraint regardless of its parent.
+- Declaring identity constraints as the components holding them compile,
+  with a later pass for the rest, was rejected: types and named groups
+  compiled first, so a keyref in them resolved its `refer` before a constraint
+  on an element was declared and was rejected as unknown.
 - Deferring complex types only when their immediate base is active was
   rejected: intermediate bases still produce false cycles and renaming types
   changes acceptance (see `complexTypeCompletion`).

@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:p" xmlns:p="urn:p" xmlns:q="urn:q">
+  <xs:import namespace="urn:q" schemaLocation="dependency.xsd"/>
+  <xs:element name="r_g"><xs:complexType><xs:attribute name="a" type="xs:string"/></xs:complexType><xs:keyref name="kr" refer="q:k"><xs:selector xpath="."/><xs:field xpath="@a"/></xs:keyref></xs:element>
+</xs:schema>

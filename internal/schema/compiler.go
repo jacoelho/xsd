@@ -273,6 +273,9 @@ func newCompiler(limits Limits) (*compiler, error) {
 }
 
 func (c *compiler) compileGlobals() error {
+	if err := c.declareAllIdentityConstraints(); err != nil {
+		return err
+	}
 	if err := c.compileGlobalTypes(); err != nil {
 		return err
 	}
@@ -315,7 +318,7 @@ func (c *compiler) compileGlobalAttributeAndModelGroups() error {
 			return err
 		}
 	}
-	return c.declareAllIdentityConstraints()
+	return nil
 }
 
 func (c *compiler) compileGlobalElements() error {

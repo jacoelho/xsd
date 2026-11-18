@@ -17,11 +17,18 @@ func identityConstraintNodes(n *schemaNode) []*schemaNode {
 	return nodes
 }
 
+// declareAllIdentityConstraints declares every identity constraint of every
+// plan document context, in plan order, before any component compiles.
+// Identity-constraint names are one schema-wide symbol space (Structures
+// §3.11.1), so every name is declared before a keyref refer resolves against
+// them, wherever the keyref and the referenced constraint are written. A
+// constraint is declared once per document context: a group referenced twice
+// shares its constraints, and a chameleon document declares its constraints
+// once in each including namespace.
 func (c *compiler) declareAllIdentityConstraints() error {
 	for i := range c.plan.documents {
 		ctx := &c.plan.documents[i]
-		doc := ctx.doc
-		if err := c.declareIdentityConstraintsInTree(ctx, doc.root); err != nil {
+		if err := c.declareIdentityConstraintsInTree(ctx, ctx.doc.root); err != nil {
 			return err
 		}
 	}
@@ -29,56 +36,56 @@ func (c *compiler) declareAllIdentityConstraints() error {
 }
 
 func (c *compiler) declareIdentityConstraintsInTree(ctx *schemaSetDocument, n *schemaNode) error {
-	if n.local == vocab.XSDElemElement {
-		if _, err := c.declareIdentityConstraints(ctx, identityConstraintNodes(n)); err != nil {
-			return err
-		}
-	}
 	for child := range n.xsdChildren() {
-		if err := c.declareIdentityConstraintsInTree(ctx, child); err != nil {
-			return err
+		switch child.local {
+		case vocab.XSDElemKey, vocab.XSDElemKeyref, vocab.XSDElemUnique:
+			if err := c.declareIdentityConstraint(ctx, child); err != nil {
+				return err
+			}
+		default:
+			if err := c.declareIdentityConstraintsInTree(ctx, child); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
 }
 
-func (c *compiler) declareIdentityConstraints(ctx *schemaSetDocument, nodes []*schemaNode) ([]IdentityConstraintID, error) {
+func (c *compiler) declareIdentityConstraint(ctx *schemaSetDocument, node *schemaNode) error {
+	source := semanticSource[*schemaIdentitySource](&node.semantic)
+	if source == nil {
+		return withSchemaCompileLocation(node, xsderrors.InternalInvariant("identity node has no typed identity source"))
+	}
+	q, err := c.rt.internQName(ctx.effectiveTargetNS, source.Name.Value)
+	if err != nil {
+		return withSchemaCompileLocation(node, err)
+	}
+	if duplicateErr := c.checkIdentityConstraintNameAvailable(q); duplicateErr != nil {
+		return withSchemaCompileLocation(node, duplicateErr)
+	}
+	id, err := c.registerGlobalIdentity(q, newDeclaredIdentityConstraint(q), node)
+	if err != nil {
+		return withSchemaCompileLocation(node, err)
+	}
+	c.identityDeclared[nodeKey(ctx, node)] = id
+	return nil
+}
+
+// declaredIdentityConstraints returns the IDs declareAllIdentityConstraints
+// gave nodes in ctx.
+func (c *compiler) declaredIdentityConstraints(ctx *schemaSetDocument, nodes []*schemaNode) ([]IdentityConstraintID, error) {
 	if len(nodes) == 0 {
 		return nil, nil
 	}
 	ids := make([]IdentityConstraintID, 0, len(nodes))
 	for _, node := range nodes {
-		if id, ok := c.identityDeclared[nodeKey(ctx, node)]; ok {
-			ids = append(ids, id)
-			continue
-		}
-		id, err := c.declareIdentityConstraint(ctx, node)
-		if err != nil {
-			return nil, err
+		id, ok := c.identityDeclared[nodeKey(ctx, node)]
+		if !ok {
+			return nil, withSchemaCompileLocation(node, xsderrors.InternalInvariant("identity constraint was not declared before compilation"))
 		}
 		ids = append(ids, id)
 	}
 	return ids, nil
-}
-
-func (c *compiler) declareIdentityConstraint(ctx *schemaSetDocument, node *schemaNode) (IdentityConstraintID, error) {
-	source := semanticSource[*schemaIdentitySource](&node.semantic)
-	if source == nil {
-		return NoIdentityConstraint, withSchemaCompileLocation(node, xsderrors.InternalInvariant("identity node has no typed identity source"))
-	}
-	q, err := c.rt.internQName(ctx.effectiveTargetNS, source.Name.Value)
-	if err != nil {
-		return NoIdentityConstraint, err
-	}
-	if duplicateErr := c.checkIdentityConstraintNameAvailable(q); duplicateErr != nil {
-		return NoIdentityConstraint, withSchemaCompileLocation(node, duplicateErr)
-	}
-	id, err := c.registerGlobalIdentity(q, newDeclaredIdentityConstraint(q), node)
-	if err != nil {
-		return NoIdentityConstraint, err
-	}
-	c.identityDeclared[nodeKey(ctx, node)] = id
-	return id, nil
 }
 
 // identityOwnership states whether an element declaration owns the identity
