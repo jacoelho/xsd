@@ -150,3 +150,35 @@ func BenchmarkSessionContentDispatchWidthSixteen(b *testing.B) {
 		})
 	}
 }
+
+// BenchmarkSessionDenseChoiceBesideIdentityNames validates a choice of twenty
+// elements whose rows are densely indexed, beside identity constraints that
+// name one of those elements in a selector or as the constraint name.
+func BenchmarkSessionDenseChoiceBesideIdentityNames(b *testing.B) {
+	var fillers, choice strings.Builder
+	for i := 1; i <= 40; i++ {
+		fmt.Fprintf(&fillers, `<xs:element name="f%02d" type="xs:string"/>`, i)
+	}
+	for i := 1; i <= 20; i++ {
+		fmt.Fprintf(&choice, `<xs:element name="a%02d" type="xs:string"/>`, i)
+	}
+	var doc strings.Builder
+	doc.WriteString("<root>")
+	for i := range 4_000 {
+		fmt.Fprintf(&doc, "<a%02d>v%d</a%02d>", i%20+1, i, i%20+1)
+	}
+	doc.WriteString("</root>")
+	for _, fixture := range []struct{ name, identity string }{
+		{name: "None"},
+		{name: "SelectorNamesChoiceElement", identity: `<xs:key name="k"><xs:selector xpath="a20"/><xs:field xpath="."/></xs:key>`},
+		{name: "KeyNamedLikeChoiceElement", identity: `<xs:key name="a20"><xs:selector xpath="a19"/><xs:field xpath="."/></xs:key>`},
+	} {
+		b.Run(fixture.name, func(b *testing.B) {
+			schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">` +
+				`<xs:complexType name="A"><xs:sequence>` + fillers.String() + `</xs:sequence></xs:complexType>` +
+				`<xs:complexType name="B"><xs:choice maxOccurs="unbounded">` + choice.String() + `</xs:choice></xs:complexType>` +
+				`<xs:element name="root" type="B">` + fixture.identity + `</xs:element></xs:schema>`
+			benchmarkSessionDocument(b, schema, doc.String())
+		})
+	}
+}
