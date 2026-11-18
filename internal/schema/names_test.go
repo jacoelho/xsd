@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -293,5 +294,23 @@ func TestNameArenaStoresANameLongerThanTheNextChunkInOneAllocation(t *testing.T)
 	}
 	if stored != long {
 		t.Fatalf("stored name = %q, want %q", stored, long)
+	}
+}
+
+func TestNamespaceURISortAndSearchFollowTheExpandedNameNamespaceOrder(t *testing.T) {
+	t.Parallel()
+
+	uris := []string{"urn:b", "", "urn:a", "http://example.com/", "urn:a:b", "URN:A"}
+	sortNamespaceURIs(uris)
+	if !slices.IsSortedFunc(uris, compareNamespaceURI) {
+		t.Fatalf("sortNamespaceURIs() = %q, not in compareNamespaceURI order", uris)
+	}
+	for _, uri := range uris {
+		if !searchNamespaceURI(uris, uri) {
+			t.Fatalf("searchNamespaceURI(%q, %q) = false, want true", uris, uri)
+		}
+	}
+	if searchNamespaceURI(uris, "urn:c") {
+		t.Fatalf("searchNamespaceURI(%q, %q) = true, want false", uris, "urn:c")
 	}
 }

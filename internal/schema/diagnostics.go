@@ -256,11 +256,10 @@ func (p *contentExpectationProjection) add(item ContentExpectation) {
 func compareContentExpectation(a, b ContentExpectation) int {
 	return cmp.Or(
 		compareFalseFirst(!a.IsWildcard, !b.IsWildcard),
-		cmp.Compare(a.Name.Namespace, b.Name.Namespace),
-		cmp.Compare(a.Name.Local, b.Name.Local),
+		compareExpandedName(a.Name, b.Name),
 		cmp.Compare(a.WildcardMode, b.WildcardMode),
-		cmp.Compare(a.ExcludedNamespace, b.ExcludedNamespace),
-		slices.Compare(a.Namespaces, b.Namespaces),
+		compareNamespaceURI(a.ExcludedNamespace, b.ExcludedNamespace),
+		slices.CompareFunc(a.Namespaces, b.Namespaces, compareNamespaceURI),
 		compareFalseFirst(a.MoreNamespaces, b.MoreNamespaces),
 	)
 }

@@ -774,10 +774,12 @@ Diagnostics flow:
    keyrefs name their retained target constraint; they never add source IDs or original tuple lexemes
    to document state, and opaque identity keys are never presented as values.
 
-   Name order is computed once by its owner and never by interned name ID:
-   the substitution table keeps each head's members in expanded-name order,
-   namespace URI then local name, beside its name-ID lookup order, and a
-   published wildcard keeps its namespaces in text order. A check that stops
+   Name order is computed once by its owner and never by interned name ID.
+   Expanded-name order, namespace URI then local name by text, has one
+   definition (`compareExpandedName` and its namespace key
+   `compareNamespaceURI`): the substitution table keeps each head's members in
+   that order beside its name-ID lookup order, and a published wildcard keeps
+   its namespaces in the namespace-key order. A check that stops
    at its first failure visits substitution-group members in that order
    (Element Declarations Consistent, the generated choice of a restriction,
    the Unique Particle Attribution name), so the failure reported and the work

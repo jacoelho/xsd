@@ -104,7 +104,7 @@ func newFiniteWildcardView(view WildcardView, names *nameTable, namespaces []nam
 		}
 		view.namespaces[i] = names.Namespace(ns)
 	}
-	slices.Sort(view.namespaces)
+	sortNamespaceURIs(view.namespaces)
 	return view
 }
 
@@ -140,8 +140,7 @@ func (v WildcardView) AllowsURI(uri string) bool {
 	case WildcardTargetNamespace:
 		return len(v.namespaces) != 0 && v.namespaces[0] == uri
 	case WildcardList:
-		_, found := slices.BinarySearch(v.namespaces, uri)
-		return found
+		return searchNamespaceURI(v.namespaces, uri)
 	default:
 		return false
 	}
