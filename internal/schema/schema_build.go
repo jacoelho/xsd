@@ -52,6 +52,12 @@ func (rt *schemaBuild) internQName(ns, local string) (QName, error) {
 	return newNameInterner(&rt.Names).InternQName(ns, local)
 }
 
+// internBuiltinQName interns a built-in name, a string constant of this
+// program, without copying it.
+func (rt *schemaBuild) internBuiltinQName(ns, local string) (QName, error) {
+	return newNameInterner(&rt.Names).internQNameWith(ns, local, nameConstant)
+}
+
 func (rt *schemaBuild) simpleTypeFinalMask(id SimpleTypeID) DerivationMask {
 	return rt.SimpleTypes[id].Final
 }

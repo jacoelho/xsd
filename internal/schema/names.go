@@ -4,6 +4,8 @@ import (
 	"errors"
 	"maps"
 	"slices"
+	"strings"
+	"unsafe"
 
 	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/vocab"
@@ -29,9 +31,56 @@ type ExpandedName struct {
 type nameTable struct {
 	nsIndex    map[string]namespaceID
 	localIndex map[string]localNameID
+	// arena holds the bytes of the names this table copied. Copies of the
+	// table share it, so every copy appends to the same unwritten tail.
+	arena      *nameArena
 	namespaces []string
 	locals     []string
 	maxNames   int
+}
+
+// nameArenaChunk is the size of a full nameArena chunk. A name longer than a
+// quarter chunk gets its own allocation, so at most a quarter chunk is left
+// unused when a chunk is replaced. The first chunk, nameArenaFirstChunk
+// bytes, is part of the arena itself and each next chunk doubles up to a full
+// one, so a schema with few names pays neither a separate allocation nor a
+// full chunk for them.
+const (
+	nameArenaChunk      = 4096
+	nameArenaFirstChunk = 256
+)
+
+// nameArena stores the bytes of copied names in chunks, one allocation per
+// chunk instead of one per name. Invariant: bytes of a chunk are written once,
+// by store, past the chunk's length, and never changed afterwards, so a string
+// over written bytes stays immutable for as long as it is reachable. chunk
+// starts over first, so a nameArena is used through one pointer and never
+// copied by value.
+type nameArena struct {
+	chunk []byte
+	first [nameArenaFirstChunk]byte
+}
+
+func newNameArena() *nameArena {
+	a := new(nameArena)
+	a.chunk = a.first[:0]
+	return a
+}
+
+// store returns a copy of name that shares no memory with name.
+func (a *nameArena) store(name string) string {
+	if name == "" {
+		return ""
+	}
+	if len(name) > nameArenaChunk/4 {
+		return strings.Clone(name)
+	}
+	if cap(a.chunk)-len(a.chunk) < len(name) {
+		a.chunk = make([]byte, 0, max(len(name), min(2*cap(a.chunk), nameArenaChunk)))
+	}
+	start := len(a.chunk)
+	a.chunk = append(a.chunk, name...)
+	return unsafe.String(&a.chunk[start], len(name)) //nolint:gosec // The bytes are never written again; see the nameArena invariant.
 }
 
 // nameReadView is a validation view over frozen runtime names.
@@ -117,19 +166,19 @@ func newBoundedNameTable(maxNames int, requiredNamespaces []string, requiredName
 		maxNames:   maxNames,
 	}
 	interner := newNameInterner(&n)
-	if _, err := interner.InternNamespace(vocab.EmptyNamespaceURI); err != nil {
+	if _, err := interner.internNamespaceWith(vocab.EmptyNamespaceURI, nameConstant); err != nil {
 		return nameTable{}, err
 	}
 	for _, uri := range requiredNamespaces {
 		if uri == vocab.EmptyNamespaceURI {
 			continue
 		}
-		if _, err := interner.InternNamespace(uri); err != nil {
+		if _, err := interner.internNamespaceWith(uri, nameConstant); err != nil {
 			return nameTable{}, err
 		}
 	}
 	for _, name := range requiredNames {
-		if _, err := interner.InternQName(name.Namespace, name.Local); err != nil {
+		if _, err := interner.internQNameWith(name.Namespace, name.Local, nameConstant); err != nil {
 			return nameTable{}, err
 		}
 	}
@@ -304,7 +353,11 @@ func (n *nameTable) Format(q QName) string {
 	return diagnostictext.ExpandedName(n.Namespace(q.Namespace), n.Local(q.Local))
 }
 
-// nameInterner interns names into a nameTable.
+// nameInterner interns names into a nameTable. A name the table does not hold
+// yet is copied into the table's nameArena before it is stored: callers pass
+// substrings of attribute values and XPath expressions, and the table outlives
+// them, so storing the substring would retain the whole source string for the
+// life of the engine. A name the table already holds is found without copying.
 type nameInterner struct {
 	table *nameTable
 }
@@ -316,6 +369,37 @@ func newNameInterner(table *nameTable) nameInterner {
 
 // InternNamespace interns uri and returns its namespace ID.
 func (n nameInterner) InternNamespace(uri string) (namespaceID, error) {
+	return n.internNamespaceWith(uri, nameFromSource)
+}
+
+// InternQName interns ns and local and returns the corresponding QName.
+func (n nameInterner) InternQName(ns, local string) (QName, error) {
+	return n.internQNameWith(ns, local, nameFromSource)
+}
+
+// nameOrigin says whether a name may be part of a longer source string.
+type nameOrigin uint8
+
+const (
+	// nameFromSource is a name read from a schema source, possibly a
+	// substring of a longer value.
+	nameFromSource nameOrigin = iota
+	// nameConstant is a string constant of this program; it pins no source.
+	nameConstant
+)
+
+// own returns the string the table stores for a name it does not hold yet.
+func (n nameInterner) own(name string, origin nameOrigin) string {
+	if origin == nameConstant {
+		return name
+	}
+	if n.table.arena == nil {
+		n.table.arena = newNameArena()
+	}
+	return n.table.arena.store(name)
+}
+
+func (n nameInterner) internNamespaceWith(uri string, origin nameOrigin) (namespaceID, error) {
 	table := n.table
 	if id, ok := table.nsIndex[uri]; ok {
 		return id, nil
@@ -327,13 +411,13 @@ func (n nameInterner) InternNamespace(uri string) (namespaceID, error) {
 	if err != nil {
 		return 0, err
 	}
+	uri = n.own(uri, origin)
 	table.namespaces = append(table.namespaces, uri)
 	table.nsIndex[uri] = id
 	return id, nil
 }
 
-// InternQName interns ns and local and returns the corresponding QName.
-func (n nameInterner) InternQName(ns, local string) (QName, error) {
+func (n nameInterner) internQNameWith(ns, local string, origin nameOrigin) (QName, error) {
 	table := n.table
 	nsID, nsOK := table.nsIndex[ns]
 	localID, localOK := table.localIndex[local]
@@ -353,6 +437,7 @@ func (n nameInterner) InternQName(ns, local string) (QName, error) {
 			return QName{}, err
 		}
 		nsID = next
+		ns = n.own(ns, origin)
 		table.namespaces = append(table.namespaces, ns)
 		table.nsIndex[ns] = nsID
 	}
@@ -362,6 +447,7 @@ func (n nameInterner) InternQName(ns, local string) (QName, error) {
 			return QName{}, err
 		}
 		localID = next
+		local = n.own(local, origin)
 		table.locals = append(table.locals, local)
 		table.localIndex[local] = localID
 	}

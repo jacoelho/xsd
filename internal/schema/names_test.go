@@ -2,8 +2,12 @@ package schema
 
 import (
 	"errors"
+	"fmt"
+	"runtime"
 	"strconv"
+	"strings"
 	"testing"
+	"unsafe"
 )
 
 func TestNameIDAllocatorsReserveAbsentSentinel(t *testing.T) {
@@ -202,5 +206,92 @@ func TestNameTableCloneDoesNotAlias(t *testing.T) {
 	}
 	if _, ok := clone.LookupQName("urn:new", "new"); ok {
 		t.Fatal("clone observed name interned after clone")
+	}
+}
+
+func TestInternedNamesDoNotRetainTheirSourceString(t *testing.T) {
+	names, err := newRuntimeNameTable(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const source = `p:row | .//urn:only-in-this-attribute/cell`
+	within := func(s string) bool {
+		start := uintptr(unsafe.Pointer(unsafe.StringData(source))) //nolint:gosec // Compares string backing addresses only; nothing is dereferenced.
+		at := uintptr(unsafe.Pointer(unsafe.StringData(s)))         //nolint:gosec // Compares string backing addresses only; nothing is dereferenced.
+		return at >= start && at < start+uintptr(len(source))
+	}
+	namespace := source[strings.Index(source, "urn:"):strings.LastIndex(source, "/")]
+	local := source[strings.LastIndex(source, "/")+1:]
+	interner := newNameInterner(&names)
+	q, err := interner.InternQName(namespace, local)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotNS, gotLocal := names.Namespace(q.Namespace), names.Local(q.Local); within(gotNS) || within(gotLocal) || gotNS != "urn:only-in-this-attribute" || gotLocal != "cell" {
+		t.Fatalf("interned {%s}%s shares the backing array of its source string", gotNS, gotLocal)
+	}
+	id, err := interner.InternNamespace(source[2:5])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ns := names.Namespace(id); within(ns) || ns != "row" {
+		t.Fatalf("interned namespace %q shares the backing array of its source string", ns)
+	}
+	if allocs := testing.AllocsPerRun(10, func() {
+		if _, err := interner.InternQName(namespace, local); err != nil {
+			t.Fatal(err)
+		}
+	}); allocs != 0 {
+		t.Fatalf("interning a held name allocated %v times, want 0", allocs)
+	}
+}
+
+func TestInterningDistinctNamesAllocatesPerArenaChunkNotPerName(t *testing.T) {
+	const count, length = 10_000, 12
+	names, err := newBoundedNameTable(0, nil, nil, 1, count)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := make([]string, count)
+	for i := range source {
+		source[i] = fmt.Sprintf("name-%07d", i)
+	}
+	interner := newNameInterner(&names)
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	var last QName
+	for _, local := range source {
+		if last, err = interner.InternQName("", local); err != nil {
+			t.Fatal(err)
+		}
+	}
+	runtime.ReadMemStats(&after)
+	const rampChunks = 4 // the arena with its first chunk, then 512, 1024 and 2048 bytes
+	if nameArenaChunk>>rampChunks != nameArenaFirstChunk {
+		t.Fatalf("rampChunks = %d does not match chunk sizes %d to %d", rampChunks, nameArenaFirstChunk, nameArenaChunk)
+	}
+	const chunks = (count*length+nameArenaChunk-1)/nameArenaChunk + rampChunks
+	if allocs := after.Mallocs - before.Mallocs; allocs > chunks+2 {
+		t.Fatalf("interning %d distinct %d-byte names allocated %d times, want at most %d arena chunks and 2 more", count, length, allocs, chunks)
+	}
+	if got := names.Local(last.Local); got != source[count-1] {
+		t.Fatalf("last interned local name = %q, want %q", got, source[count-1])
+	}
+}
+
+func TestNameArenaStoresANameLongerThanTheNextChunkInOneAllocation(t *testing.T) {
+	short := strings.Repeat("s", nameArenaFirstChunk-1)
+	long := strings.Repeat("l", 2*nameArenaFirstChunk+1)
+	var stored string
+	allocs := testing.AllocsPerRun(10, func() {
+		arena := newNameArena()
+		arena.store(short)
+		stored = arena.store(long)
+	})
+	if allocs != 2 {
+		t.Fatalf("a fresh arena storing a %d-byte name after a %d-byte one allocated %v times, want 2: the arena and one chunk", len(long), len(short), allocs)
+	}
+	if stored != long {
+		t.Fatalf("stored name = %q, want %q", stored, long)
 	}
 }

@@ -21,7 +21,7 @@ func (c *compiler) addBuiltins() error {
 }
 
 func (c *compiler) addBuiltinXSIAttributes() error {
-	name, err := c.rt.internQName(vocab.XSINamespaceURI, "$schemaLocation")
+	name, err := c.rt.internBuiltinQName(vocab.XSINamespaceURI, "$schemaLocation")
 	if err != nil {
 		return err
 	}
@@ -37,7 +37,7 @@ func (c *compiler) addBuiltinXSIAttributes() error {
 		return err
 	}
 	for _, attribute := range builtinXSIAttributes {
-		q, err := c.rt.internQName(vocab.XSINamespaceURI, attribute.local)
+		q, err := c.rt.internBuiltinQName(vocab.XSINamespaceURI, attribute.local)
 		if err != nil {
 			return err
 		}
@@ -63,7 +63,7 @@ func (c *compiler) addBuiltinSimpleType(builder *value.Builder, id SimpleTypeID)
 	if !ok {
 		return xsderrors.InternalInvariant("canonical builtin type has no schema declaration")
 	}
-	q, err := c.rt.internQName(vocab.XSDNamespaceURI, name)
+	q, err := c.rt.internBuiltinQName(vocab.XSDNamespaceURI, name)
 	if err != nil {
 		return err
 	}
@@ -112,7 +112,7 @@ func (c *compiler) addBuiltinAnyType() error {
 	if err != nil {
 		return err
 	}
-	q, err := c.rt.internQName(vocab.XSDNamespaceURI, builtinAnyTypeLocalName())
+	q, err := c.rt.internBuiltinQName(vocab.XSDNamespaceURI, builtinAnyTypeLocalName())
 	if err != nil {
 		return err
 	}
@@ -124,7 +124,7 @@ func (c *compiler) missingSimpleType() (SimpleTypeID, error) {
 	if c.missingSimple != NoSimpleType {
 		return c.missingSimple, nil
 	}
-	q, err := c.rt.internQName(vocab.EmptyNamespaceURI, missingSimpleTypeLocalName())
+	q, err := c.rt.internBuiltinQName(vocab.EmptyNamespaceURI, missingSimpleTypeLocalName())
 	if err != nil {
 		return NoSimpleType, err
 	}
