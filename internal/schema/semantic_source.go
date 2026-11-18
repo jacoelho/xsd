@@ -121,6 +121,7 @@ type schemaQNameListAttribute struct {
 // attributes of one start tag, for buildSemanticSource to store in the typed
 // source record.
 type admittedValues struct {
+	facet             facetValue
 	memberTypes       schemaQNameListAttribute
 	base              schemaQNameAttribute
 	itemType          schemaQNameAttribute
@@ -128,7 +129,6 @@ type admittedValues struct {
 	refer             schemaQNameAttribute
 	substitutionGroup schemaQNameAttribute
 	typeName          schemaQNameAttribute
-	facet             facetValue
 }
 
 // schemaGlobalSource contains the common source contract for named global
@@ -144,9 +144,9 @@ type schemaSimpleTypeSource struct {
 }
 
 type schemaFacetSource struct {
-	Value lexicalAttribute
 	// Parsed is what the facet's start tag admitted; see facetValue.
 	Parsed facetValue
+	Value  lexicalAttribute
 }
 
 type schemaElementSource struct {

@@ -64,7 +64,7 @@ func TestOmittedCompositorAdmissionReusesAbsentModel(t *testing.T) {
 func TestOmittedCompositorFailedAdmissionLeavesNoWork(t *testing.T) {
 	t.Parallel()
 
-	c, component := omittedCompositorCompiler(t, `<xs:element name="child"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="["/></xs:restriction></xs:simpleType></xs:element>`)
+	c, component := omittedCompositorCompiler(t, `<xs:element name="child"><xs:simpleType><xs:restriction base="xs:int"><xs:maxLength value="1"/></xs:restriction></xs:simpleType></xs:element>`)
 	available := c.dependencyWork
 	c.dependencyWork = newWorkBudget(dependencyWorkBudget, 0)
 	_, err := c.compileModel(component.ctx, component.sourceNode())

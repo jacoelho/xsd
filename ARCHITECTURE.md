@@ -269,8 +269,9 @@ At a start tag:
    count against uint32 and `MaxFiniteOccurs` and then the range the schema
    for schemas gives `xs:all` and an element directly in it
    (`occurrenceAdmission`); for the `value` of a size facet, `xs:whiteSpace`
-   and `xs:pattern` its integer and uint32 cap, its mode and its regular
-   expression (`admitFacetValue`); for the `fixed` of a facet its boolean form
+   and `xs:pattern` its integer and uint32 cap, its mode, and its regular
+   expression with the `MaxSchemaPatternRetainedBytes` charge
+   (`admitFacetValue`); for the `fixed` of a facet its boolean form
    (`admitParsedAttributeValue`); for `xpath` the path grammar and the
    prefix bindings of its name tests, branch by branch from the left
    (`admitIdentityXPath`); the lexical form and prefix binding of a QName; and
@@ -316,13 +317,15 @@ and `misplacedSchemaAttributeError` own the attributes an element may have,
 `checkValueConstraintAttributes` the ones that exclude each other, and
 `checkSchemaAttributeValueSyntax` the lexical form of a value.
 `occurrenceAdmission` stores the occurrence of a particle, `admitFacetValue`
-the size or whiteSpace mode of a facet, `admitParsedAttributeValue` the fixed
-flag of a facet, and `admitIdentityXPath` the parsed
-paths of a selector or field, so compilation never parses those values again
-and has no diagnostic for them. A pattern is the exception:
-compilation compiles it again with `xsdregex.Compile`, because the compiler
-owns the pattern cache and the `MaxSchemaPatternRetainedBytes` charge, and a
-failure there is an internal invariant. Compilation parses the other admitted
+the size, whiteSpace mode or compiled pattern of a facet,
+`admitParsedAttributeValue` the fixed flag of a facet, and
+`admitIdentityXPath` the parsed paths of a selector or field, so compilation
+never parses those values again and has no diagnostic for them. Patterns are
+compiled through `schemaPatterns`, which the compiler owns and lends to
+start-tag admission while the set loads: each distinct pattern text is
+compiled once, at the first facet that names it in document load order, and
+charged against `MaxSchemaPatternRetainedBytes` before it is kept, so a breach
+is reported at that facet's start tag. Compilation parses the other admitted
 values again with the same parser to use them, and a lexical failure there is
 an internal invariant (`admittedValueInvariant`), not a second schema
 diagnostic.
@@ -483,8 +486,9 @@ owner, `internal/schema`, because no value-owned parser exists for them.
   within one restriction step, and every inherited step applies) and the
   per-value pattern budget described under **Pattern work**. The aggregate
   `MaxSchemaPatternRetainedBytes` budget and the per-compilation pattern cache
-  keyed by pattern text belong to `internal/schema`; identical text is
-  compiled and charged once.
+  keyed by pattern text belong to `internal/schema` (`schemaPatterns`), which
+  admits each pattern at its facet's start tag in document load order;
+  identical text is compiled and charged once.
 
 ### `internal/xsdregex`
 
@@ -1020,6 +1024,13 @@ graph preserves these ownership rules:
   compile, was rejected with the tier rule above: the tag parses each path
   once and stores the steps with namespace and local-name strings, and
   compilation only interns them.
+- Checking a pattern at its facet's start tag and compiling it again when the
+  restriction compiles was rejected: the tag compiled every occurrence of a
+  text that the compiler cache would have compiled once, and compiled every
+  distinct text before any `MaxSchemaPatternRetainedBytes` charge, so 200
+  copies of one large pattern cost gigabytes instead of one compile. A
+  syntax-only `xsdregex` check was rejected as well: the NFA state limit is
+  raised while the program is built, and parsing is most of the compile cost.
 
 - Bounding segments inside an incremental path-text cache was rejected: escaped
   lengths need a per-element name scan on the element-start hot path, and every

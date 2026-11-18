@@ -60,7 +60,7 @@ func TestSchemaNodeResolveQNameReturnsXMLName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc, err := parseSchemaDocument("schema.xsd", "schema.xsd", strings.NewReader(schema), limits, new(xmlstream.Reader))
+	doc, err := parseSchemaDocument("schema.xsd", "schema.xsd", strings.NewReader(schema), limits, new(xmlstream.Reader), testSchemaPatterns(limits))
 	if err != nil {
 		t.Fatalf("parseSchemaDocument() error = %v", err)
 	}
@@ -103,11 +103,11 @@ func TestSchemaParserReuseRetainsEarlierNamespaceContext(t *testing.T) {
 		t.Fatal(err)
 	}
 	parser := new(xmlstream.Reader)
-	first, err := parseSchemaDocument("first.xsd", "first.xsd", strings.NewReader(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:first"><xs:element name="first" default="p:value"/></xs:schema>`), limits, parser)
+	first, err := parseSchemaDocument("first.xsd", "first.xsd", strings.NewReader(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:first"><xs:element name="first" default="p:value"/></xs:schema>`), limits, parser, testSchemaPatterns(limits))
 	if err != nil {
 		t.Fatalf("parse first schema: %v", err)
 	}
-	second, err := parseSchemaDocument("second.xsd", "second.xsd", strings.NewReader(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:second"><xs:element name="second" default="p:value"/></xs:schema>`), limits, parser)
+	second, err := parseSchemaDocument("second.xsd", "second.xsd", strings.NewReader(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:second"><xs:element name="second" default="p:value"/></xs:schema>`), limits, parser, testSchemaPatterns(limits))
 	if err != nil {
 		t.Fatalf("parse second schema: %v", err)
 	}
@@ -140,7 +140,7 @@ func TestSchemaSourceDocumentNormalizesAttributesOnceAndAssignsStableIDs(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc, err := parseSchemaDocument("schema.xsd", "schema.xsd", strings.NewReader(schema), limits, new(xmlstream.Reader))
+	doc, err := parseSchemaDocument("schema.xsd", "schema.xsd", strings.NewReader(schema), limits, new(xmlstream.Reader), testSchemaPatterns(limits))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -180,7 +180,7 @@ func TestSchemaSemanticSourceResolvesQNameAttributes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc, err := parseSchemaDocument("schema.xsd", "schema.xsd", strings.NewReader(schema), limits, new(xmlstream.Reader))
+	doc, err := parseSchemaDocument("schema.xsd", "schema.xsd", strings.NewReader(schema), limits, new(xmlstream.Reader), testSchemaPatterns(limits))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -253,7 +253,7 @@ func TestSchemaSemanticSourceResolvesQNameAttributes(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			input := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:test">` + test.body + `</xs:schema>`
-			parsed, parseErr := parseSchemaDocument("schema.xsd", "schema.xsd", strings.NewReader(input), limits, new(xmlstream.Reader))
+			parsed, parseErr := parseSchemaDocument("schema.xsd", "schema.xsd", strings.NewReader(input), limits, new(xmlstream.Reader), testSchemaPatterns(limits))
 			if parseErr != nil {
 				t.Fatal(parseErr)
 			}
@@ -273,7 +273,7 @@ func TestSchemaSemanticSourceResolvesQNameAttributes(t *testing.T) {
 	t.Run("union memberTypes", func(t *testing.T) {
 		t.Parallel()
 		const input = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:test"><xs:simpleType name="union"><xs:union memberTypes=" xs:string   t:value "/></xs:simpleType></xs:schema>`
-		parsed, parseErr := parseSchemaDocument("schema.xsd", "schema.xsd", strings.NewReader(input), limits, new(xmlstream.Reader))
+		parsed, parseErr := parseSchemaDocument("schema.xsd", "schema.xsd", strings.NewReader(input), limits, new(xmlstream.Reader), testSchemaPatterns(limits))
 		if parseErr != nil {
 			t.Fatal(parseErr)
 		}
@@ -303,7 +303,7 @@ func TestSchemaSemanticSourceTypesAllModelDispatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc, err := parseSchemaDocument("schema.xsd", "schema.xsd", strings.NewReader(schema), limits, new(xmlstream.Reader))
+	doc, err := parseSchemaDocument("schema.xsd", "schema.xsd", strings.NewReader(schema), limits, new(xmlstream.Reader), testSchemaPatterns(limits))
 	if err != nil {
 		t.Fatalf("parseSchemaDocument() error = %v", err)
 	}
@@ -336,7 +336,7 @@ func TestSchemaSemanticQNameNamesRetainNodeBindings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	parsed, err := parseSchemaDocument("schema.xsd", "schema.xsd", strings.NewReader(input), limits, new(xmlstream.Reader))
+	parsed, err := parseSchemaDocument("schema.xsd", "schema.xsd", strings.NewReader(input), limits, new(xmlstream.Reader), testSchemaPatterns(limits))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -360,7 +360,7 @@ func TestSchemaSemanticQNameNamesRetainNodeBindings(t *testing.T) {
 		}
 	}
 	const noDefault = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="absent" type=" T "/></xs:schema>`
-	absent, err := parseSchemaDocument("absent.xsd", "absent.xsd", strings.NewReader(noDefault), limits, new(xmlstream.Reader))
+	absent, err := parseSchemaDocument("absent.xsd", "absent.xsd", strings.NewReader(noDefault), limits, new(xmlstream.Reader), testSchemaPatterns(limits))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -411,7 +411,7 @@ func TestSchemaQNameAdmissionRejectsInvalidReferences(t *testing.T) {
 			t.Run(category.name+"/"+failure.name, func(t *testing.T) {
 				t.Parallel()
 				input := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">` + category.before + "\n  " + strings.ReplaceAll(category.node, "VALUE", failure.lexical) + category.after + `</xs:schema>`
-				parsed, parseErr := parseSchemaDocument("admission.xsd", "admission.xsd", strings.NewReader(input), limits, new(xmlstream.Reader))
+				parsed, parseErr := parseSchemaDocument("admission.xsd", "admission.xsd", strings.NewReader(input), limits, new(xmlstream.Reader), testSchemaPatterns(limits))
 				if parsed != nil {
 					t.Fatal("failed QName admission published a document")
 				}

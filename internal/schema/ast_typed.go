@@ -92,27 +92,30 @@ func (ids *schemaIDs) declare(value string) bool {
 }
 
 // startTagAttributes is what the attributes of one start tag are admitted
-// into: the QName projection of its element and the ids of its document.
+// into: the values admitted from its attributes, the ids of its document, and
+// the pattern admission of its schema set.
 type startTagAttributes struct {
-	values *admittedValues
-	ids    *schemaIDs
+	values   *admittedValues
+	ids      *schemaIDs
+	patterns *schemaPatterns
 }
 
 type typedSchemaParseState struct {
-	parser *xmlstream.Reader
-	doc    *schemaDocument
-	root   *schemaNode
-	ids    schemaIDs
-	stack  []typedSchemaParseFrame
-	limits Limits
-	nodes  int
+	parser   *xmlstream.Reader
+	doc      *schemaDocument
+	root     *schemaNode
+	patterns *schemaPatterns
+	ids      schemaIDs
+	stack    []typedSchemaParseFrame
+	limits   Limits
+	nodes    int
 }
 
 // parseTypedSchemaSourceDocument admits XML directly into compact semantic
 // source records. Syntax nodes are used only as transient admission facts for
 // the active element and its direct children. The caller owns parser and may
 // reuse it sequentially; this function detaches it before returning.
-func parseTypedSchemaSourceDocument(name, key string, input io.Reader, limits Limits, parser *xmlstream.Reader) (*schemaDocument, error) {
+func parseTypedSchemaSourceDocument(name, key string, input io.Reader, limits Limits, parser *xmlstream.Reader, patterns *schemaPatterns) (*schemaDocument, error) {
 	if parser == nil {
 		return nil, xsderrors.InternalInvariant("schema parser reader is nil")
 	}
@@ -129,7 +132,7 @@ func parseTypedSchemaSourceDocument(name, key string, input io.Reader, limits Li
 		return nil, xsderrors.WithLocation(name, 0, 0, schemaReaderError(err, limits))
 	}
 	defer parser.Detach()
-	state := typedSchemaParseState{parser: parser, doc: doc, limits: limits}
+	state := typedSchemaParseState{parser: parser, doc: doc, limits: limits, patterns: patterns}
 	if err := state.parse(); err != nil {
 		return nil, xsderrors.WithLocation(name, 0, 0, err)
 	}
@@ -244,7 +247,7 @@ func (s *typedSchemaParseState) admitTypedFrame(initial typedSchemaParseFrame, l
 		parent = &s.stack[parentIndex]
 	}
 	var values admittedValues
-	if err := admitTypedStart(&frame.syntax, frame.placement, parent, startTagAttributes{values: &values, ids: &s.ids}); err != nil {
+	if err := admitTypedStart(&frame.syntax, frame.placement, parent, startTagAttributes{values: &values, ids: &s.ids, patterns: s.patterns}); err != nil {
 		s.stack = s.stack[:len(s.stack)-1]
 		return err
 	}

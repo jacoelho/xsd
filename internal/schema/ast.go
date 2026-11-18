@@ -154,8 +154,8 @@ func (n *schemaSyntaxNode) schemaLocation() (path string, line int, column int) 
 
 // parseSchemaDocument parses one source with the caller-owned parser. The
 // parser is detached before this function returns and may be reused.
-func parseSchemaDocument(name, key string, input io.Reader, limits Limits, parser *xmlstream.Reader) (*schemaDocument, error) {
-	doc, err := parseTypedSchemaSourceDocument(name, key, input, limits, parser)
+func parseSchemaDocument(name, key string, input io.Reader, limits Limits, parser *xmlstream.Reader, patterns *schemaPatterns) (*schemaDocument, error) {
+	doc, err := parseTypedSchemaSourceDocument(name, key, input, limits, parser, patterns)
 	if err != nil {
 		return nil, err
 	}

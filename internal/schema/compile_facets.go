@@ -1,7 +1,6 @@
 package schema
 
 import (
-	"fmt"
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/diagnostictext"
@@ -108,7 +107,7 @@ func (c *compiler) compileFacetValue(child *schemaNode, st *simpleType, base Sim
 		}
 		return c.compileEnumerationFacet(child, base, facet.value, state)
 	case valuepkg.FacetPattern:
-		return c.compilePatternFacet(child, facet.value, state)
+		return c.compilePatternFacet(child, facet.parsed.pattern, state)
 	case valuepkg.FacetWhiteSpace:
 		compileWhitespaceFacet(st, facet)
 		return nil
@@ -125,27 +124,12 @@ func (c *compiler) compileEnumerationFacet(child *schemaNode, literalType Simple
 	return nil
 }
 
-func (c *compiler) compilePatternFacet(child *schemaNode, patternText string, state *compiledFacetState) error {
-	if pattern, ok := c.patterns[patternText]; ok {
-		state.valuePatterns = append(state.valuePatterns, pattern)
-		return nil
+// compilePatternFacet adds pattern, which the facet's start tag admitted, to
+// the patterns of the restriction step.
+func (*compiler) compilePatternFacet(child *schemaNode, pattern *xsdregex.Pattern, state *compiledFacetState) error {
+	if pattern == nil {
+		return withSchemaCompileLocation(child, xsderrors.InternalInvariant("pattern facet was not admitted at its start tag"))
 	}
-	pattern, err := xsdregex.Compile(patternText)
-	if err != nil {
-		return withSchemaCompileLocation(child, schemaRegexError(err))
-	}
-	n := pattern.RetainedBytes()
-	// The charged total never exceeds the normalized, non-negative limit.
-	remaining := uint64(c.limits.MaxSchemaPatternRetainedBytes - c.patternRetainedBytes) //nolint:gosec // Normalization rejects negative limits and charges stay within them.
-	if n > remaining {
-		return withSchemaCompileLocation(child, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit,
-			fmt.Sprintf("MaxSchemaPatternRetainedBytes=%d exceeded", c.limits.MaxSchemaPatternRetainedBytes)))
-	}
-	c.patternRetainedBytes += int64(n) //nolint:gosec // n <= remaining <= MaxInt64.
-	if c.patterns == nil {
-		c.patterns = make(map[string]*xsdregex.Pattern)
-	}
-	c.patterns[patternText] = pattern
 	state.valuePatterns = append(state.valuePatterns, pattern)
 	return nil
 }
@@ -261,12 +245,11 @@ func (c *compiler) facetValueError(lexical string, err error) error {
 	return schemaValueError(c.limits, xsderrors.CodeSchemaFacet, "invalid facet value "+diagnostictext.Quote(lexical), err)
 }
 
+// schemaRegexError maps an xsdregex compile error, whose kind is syntax or a
+// fixed compile limit, to its schema diagnostic.
 func schemaRegexError(err error) error {
 	if err == nil {
 		return nil
-	}
-	if xsderrors.IsUnsupported(err) {
-		return err
 	}
 	if xsdregex.IsLimit(err) {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "pattern exceeds fixed compile limit: "+err.Error())

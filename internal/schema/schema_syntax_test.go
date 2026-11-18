@@ -50,7 +50,7 @@ func parseSchemaStartFixture(t *testing.T, fixture schemaStartFixture) (*schemaD
 		t.Fatal(err)
 	}
 	input := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:f="urn:foreign"` + fixture.rootAttrs + `>` + "\n" + fixture.body + "\n</xs:schema>"
-	return parseSchemaDocument("start.xsd", "start.xsd", strings.NewReader(input), limits, new(xmlstream.Reader))
+	return parseSchemaDocument("start.xsd", "start.xsd", strings.NewReader(input), limits, new(xmlstream.Reader), testSchemaPatterns(limits))
 }
 
 func assertSchemaStartFixture(t *testing.T, err error, fixture schemaStartFixture) {
@@ -249,7 +249,7 @@ func TestValidateSchemaNameAttribute(t *testing.T) {
 func checkElementChildAttributes(n *schemaSyntaxNode) error {
 	var values admittedValues
 	var ids schemaIDs
-	return checkSchemaAttributesSyntax(n, schemaPlacementOther, startTagAttributes{values: &values, ids: &ids})
+	return checkSchemaAttributesSyntax(n, schemaPlacementOther, startTagAttributes{values: &values, ids: &ids, patterns: testSchemaPatterns(defaultPatternLimits)})
 }
 
 func TestSchemaAnnotationStartAttributes(t *testing.T) {

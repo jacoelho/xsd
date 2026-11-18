@@ -9,7 +9,6 @@ import (
 	"github.com/jacoelho/xsd/internal/source"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
-	"github.com/jacoelho/xsd/internal/xsdregex"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -171,12 +170,9 @@ type compiler struct {
 
 	contentAnalysis *contentModelAnalysis
 
-	// patterns is a per-compilation cache keyed by pattern text. It exists so
-	// identical text is charged once against MaxSchemaPatternRetainedBytes, not
-	// for speed; it has no eviction or limit of its own. It is sound because
-	// Compile takes no other input and Pattern is immutable.
-	// MaxSchemaInstantiatedNodes bounds its entries.
-	patterns map[string]*xsdregex.Pattern
+	// patterns is lent to start-tag admission while the schema set loads;
+	// see schemaPatterns.
+	patterns schemaPatterns
 
 	plan           schemaPlan
 	rt             schemaBuild
@@ -185,10 +181,6 @@ type compiler struct {
 	componentDepth int
 	limits         Limits
 	missingSimple  SimpleTypeID
-
-	// patternRetainedBytes is the estimate charged so far against
-	// MaxSchemaPatternRetainedBytes.
-	patternRetainedBytes int64
 }
 
 // spendComponentDependency charges one component reference. Callers spend
@@ -267,6 +259,7 @@ func newCompiler(limits Limits) (*compiler, error) {
 		limits:                   limits,
 		contentWork:              newWorkBudget(contentModelWorkBudget, limits.MaxContentModelAnalysisSteps),
 		dependencyWork:           newWorkBudget(dependencyWorkBudget, limits.MaxSchemaDependencySteps),
+		patterns:                 newSchemaPatterns(limits),
 	}
 	c.rt.typeWork = &c.dependencyWork
 	if err = c.addBuiltins(); err != nil {

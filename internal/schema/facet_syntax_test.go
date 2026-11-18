@@ -95,7 +95,7 @@ func TestIsFacetLocal(t *testing.T) {
 	}
 }
 
-func TestAdmitFacetValueDecidesOnlyTypeIndependentFacets(t *testing.T) {
+func TestAdmitFacetValueDecidesOnlyTypeIndependentValues(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -114,12 +114,14 @@ func TestAdmitFacetValueDecidesOnlyTypeIndependentFacets(t *testing.T) {
 		{element: "whiteSpace", value: "trim", wantCode: xsderrors.CodeSchemaFacet},
 		{element: "minInclusive", value: "not a number", want: facetValue{}},
 		{element: "enumeration", value: "", want: facetValue{}},
+		{element: "pattern", value: "[a", wantCode: xsderrors.CodeSchemaFacet},
+		{element: "pattern", value: "(a{1000}){1000}", wantCode: xsderrors.CodeSchemaLimit},
 	}
 	for _, tt := range tests {
 		t.Run(tt.element+"="+tt.value, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := admitFacetValue(tt.element, tt.value)
+			got, err := admitFacetValue(tt.element, tt.value, testSchemaPatterns(defaultPatternLimits))
 			if tt.wantCode != "" {
 				expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, tt.wantCode)
 				return
@@ -183,7 +185,8 @@ func BenchmarkSizeFacetAdmission(b *testing.B) {
 	}{{"Short", "8", 8}, {"MinusZero", "-" + strings.Repeat("0", 4096), 0}}
 	for _, c := range cases {
 		b.Run(c.name, func(b *testing.B) {
-			pre, err := admitFacetValue("maxLength", c.text)
+			patterns := testSchemaPatterns(defaultPatternLimits)
+			pre, err := admitFacetValue("maxLength", c.text, patterns)
 			if err != nil || pre.size != c.want {
 				b.Fatalf("preflight %v %v", pre, err)
 			}
@@ -191,7 +194,7 @@ func BenchmarkSizeFacetAdmission(b *testing.B) {
 			b.ReportAllocs()
 			for b.Loop() {
 				var err error
-				last, err = admitFacetValue("maxLength", c.text)
+				last, err = admitFacetValue("maxLength", c.text, patterns)
 				if err != nil {
 					b.Fatal(err)
 				}

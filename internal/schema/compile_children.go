@@ -95,7 +95,7 @@ func admitParsedAttributeValue(element string, attr schemaAttribute, admitted st
 	values := admitted.values
 	switch attr.Name.Local {
 	case vocab.XSDAttrValue:
-		facet, err := admitFacetValue(element, attr.Value)
+		facet, err := admitFacetValue(element, attr.Value, admitted.patterns)
 		facet.fixed = values.facet.fixed
 		values.facet = facet
 		return err

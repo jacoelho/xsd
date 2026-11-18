@@ -24,7 +24,6 @@ var knownSchemaDiagnosticOrderGaps = map[string]string{
 	"element reference/minOccurs two above the default maxOccurs":                      "the occurrence of a particle is parsed when its component compiles",
 	"group reference/maxOccurs zero below the default minOccurs":                       "the occurrence of a particle is parsed when its component compiles",
 	"wildcard/minOccurs of any above maxOccurs":                                        "the occurrence of a particle is parsed when its component compiles",
-	"standalone/pattern is no regular expression":                                      "a pattern is compiled when the facet compiles",
 	"identity constraint/selector xpath is no selector path":                           "selector and field paths are parsed when the identity constraint compiles",
 	"identity constraint/unbound prefix in the selector before a later invalid branch": "selector and field paths are parsed when the identity constraint compiles",
 	"identity constraint/invalid selector branch before a later unbound prefix":        "selector and field paths are parsed when the identity constraint compiles",
@@ -1026,6 +1025,11 @@ func standaloneFixture() fixture {
 			alone(func(n string) []*node {
 				return []*node{xs("simpleType", `name="s`+n+`"`).with(xs("restriction", `base="xs:string"`).with(
 					xs("pattern", `value="[a"`).as(key)))}
+			}),
+		attributeViolation("pattern above the fixed compile limit", xsderrors.CodeSchemaLimit, "pattern exceeds fixed compile limit").at(key).
+			alone(func(n string) []*node {
+				return []*node{xs("simpleType", `name="s`+n+`"`).with(xs("restriction", `base="xs:string"`).with(
+					xs("pattern", `value="(a{1000}){1000}"`).as(key)))}
 			}),
 		childViolation("whiteSpace repeated", facetCode, "duplicate whiteSpace facet").at(key).
 			alone(func(n string) []*node {
