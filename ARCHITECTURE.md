@@ -797,10 +797,10 @@ Diagnostics flow:
    inspects at most 256 alternatives: the edges of the DFA state or the
    all-group terms in compiled model order, and the substitution members of
    each element particle in expanded-name order, stopping a head's members at
-   the first that sorts after eight kept element names. It displays the first eight
-   inspected alternatives in diagnostic order (`compareContentExpectation`):
-   wildcards, then element names in expanded-name order, each listed once
-   however many particles render it. Wildcards take at most four of the eight
+   the first that sorts after eight kept element names. It displays at most
+   eight inspected alternatives: wildcards, then element names, each kind in
+   its diagnostic order (`compareContentExpectation`), element names in
+   expanded-name order, each listed once however many particles render it. Wildcards take at most four of the eight
    while element names remain to show, and at least four while wildcards
    remain, so neither kind hides the other. A wildcard shows its first eight
    namespaces. The text therefore never

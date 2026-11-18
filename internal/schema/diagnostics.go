@@ -298,9 +298,10 @@ func (p *contentExpectationProjection) add(item ContentExpectation) {
 	p.elements.insert(item)
 }
 
+// compareContentExpectation orders alternatives of one kind, the kind each
+// contentExpectationRanking holds; result lists wildcards before element names.
 func compareContentExpectation(a, b ContentExpectation) int {
 	return cmp.Or(
-		compareFalseFirst(!a.IsWildcard, !b.IsWildcard),
 		compareExpandedName(a.Name, b.Name),
 		cmp.Compare(wildcardRendering(a.WildcardMode), wildcardRendering(b.WildcardMode)),
 		compareNamespaceURI(a.ExcludedNamespace, b.ExcludedNamespace),
