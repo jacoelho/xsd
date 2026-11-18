@@ -725,5 +725,5 @@ func testSubstitutionTable(lookup map[ElementID]map[QName]ElementID, elementCoun
 		}
 		slices.SortFunc(table.entries[table.spans[head].start:], compareSubstitutionEntry)
 	}
-	return table
+	return withStorageNameOrder(table)
 }

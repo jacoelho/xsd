@@ -317,9 +317,12 @@ func (a *contentModelAnalysis) acceptedNames(id ElementID) (particleAcceptedName
 	if collector.err != nil {
 		return particleAcceptedNames{}, false, collector.err
 	}
-	slices.SortFunc(accepted.ordered, func(x, y QName) int {
-		return compareQNameText(&a.rt.Names, x, y)
+	members := accepted.ordered[1:]
+	at, _ := slices.BinarySearchFunc(members, name, func(member, head QName) int {
+		return compareQNameText(&a.rt.Names, member, head)
 	})
+	copy(accepted.ordered, members[:at])
+	accepted.ordered[at] = name
 	a.names[id] = accepted
 	return accepted, true, nil
 }

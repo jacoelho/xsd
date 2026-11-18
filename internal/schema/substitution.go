@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"cmp"
 	"errors"
 	"slices"
 )
@@ -34,9 +35,14 @@ var (
 
 // substitutionTable is the immutable substitution-group projection shared by
 // compilation and published validation. Its slices are intentionally private.
+// Each head's span of entries is in name-ID order for lookup; byName holds the
+// same span's entry positions in expanded-name order (namespace URI, then
+// local name), the order of every check that stops at its first failure and of
+// every diagnostic that lists members.
 type substitutionTable struct {
 	spans   []substitutionSpan
 	entries []substitutionEntry
+	byName  []uint32
 }
 
 type substitutionSpan struct {
@@ -74,6 +80,9 @@ func buildSubstitutionTable(
 	if forest.total > maxClosureEntries {
 		return substitutionTable{}, substitutionClosureLimitError{Limit: maxClosureEntries}
 	}
+	if _, ok := newUint32Index(forest.total); !ok {
+		return substitutionTable{}, errors.New("substitution closure has more entries than a uint32 position can address")
+	}
 	edges, err := validateSubstitutionEdges(rt, elements, forest.parents, work)
 	if err != nil {
 		return substitutionTable{}, err
@@ -82,6 +91,7 @@ func buildSubstitutionTable(
 	table, next := newSubstitutionTable(counts, forest.total)
 	populateSubstitutionTable(&table, next, elements, forest.parents, edges)
 	sortSubstitutionTable(table)
+	orderSubstitutionTableByName(&table, names)
 	return table, nil
 }
 
@@ -142,18 +152,44 @@ func sortSubstitutionTable(table substitutionTable) {
 	}
 }
 
-// ForEachMember iterates all raw transitive members for head until fn returns
-// false. Abstract and blocked members remain visible to compilation checks.
-func (t substitutionTable) ForEachMember(head ElementID, fn func(ElementID) bool) {
+// orderSubstitutionTableByName fills table.byName. Like populating and
+// sorting the entries, it is bounded by MaxSubstitutionClosureEntries, which
+// buildSubstitutionTable checks before any entry exists; it is not charged to
+// derivation work, which is bounded by direct edges.
+func orderSubstitutionTableByName(table *substitutionTable, names *nameTable) {
+	table.byName = make([]uint32, len(table.entries))
+	for i := range table.byName {
+		table.byName[i] = uint32(i)
+	}
+	for _, span := range table.spans {
+		slices.SortFunc(table.byName[span.start:span.start+span.count], func(a, b uint32) int {
+			x, y := table.entries[a], table.entries[b]
+			return cmp.Or(compareQNameText(names, x.name, y.name), cmp.Compare(x.member, y.member))
+		})
+	}
+}
+
+// forEachEntryByName iterates head's raw transitive entries in expanded-name
+// order until fn returns false.
+func (t substitutionTable) forEachEntryByName(head ElementID, fn func(substitutionEntry) bool) {
 	span, ok := t.span(head)
-	if !ok || span.count == 0 {
+	if !ok || span.count == 0 || len(t.byName) != len(t.entries) {
 		return
 	}
-	for _, entry := range t.entries[span.start : span.start+span.count] {
-		if !fn(entry.member) {
+	for _, position := range t.byName[span.start : span.start+span.count] {
+		if !fn(t.entries[position]) {
 			return
 		}
 	}
+}
+
+// ForEachMember iterates all raw transitive members for head in expanded-name
+// order until fn returns false. Abstract and blocked members remain visible to
+// compilation checks.
+func (t substitutionTable) ForEachMember(head ElementID, fn func(ElementID) bool) {
+	t.forEachEntryByName(head, func(entry substitutionEntry) bool {
+		return fn(entry.member)
+	})
 }
 
 // ForEachEntry iterates effective name/member entries for head until fn returns
@@ -184,16 +220,6 @@ func (t substitutionTable) MemberByName(head ElementID, name QName) (ElementID, 
 		return NoElement, false
 	}
 	return entries[position].member, true
-}
-
-// MemberCount returns the number of raw transitive substitution members of
-// head.
-func (t substitutionTable) MemberCount(head ElementID) int {
-	span, ok := t.span(head)
-	if !ok {
-		return 0
-	}
-	return span.count
 }
 
 // HasMembers reports whether head has raw transitive substitution members.

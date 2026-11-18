@@ -1,10 +1,6 @@
 package schema
 
-import (
-	"slices"
-
-	"github.com/jacoelho/xsd/xsderrors"
-)
+import "github.com/jacoelho/xsd/xsderrors"
 
 type restrictionNormalizer struct {
 	validator contentRestrictionValidator
@@ -79,10 +75,6 @@ func (n *restrictionNormalizer) element(p contentParticle) (contentParticle, err
 	if len(members) == 0 {
 		return p, nil
 	}
-	elements := v.rt.Elements
-	slices.SortFunc(members, func(a, b contentParticle) int {
-		return compareQNameText(&v.rt.Names, elements[a.Element].Name, elements[b.Element].Name)
-	})
 	members, err = n.insertConcreteHead(members, p.Element)
 	if err != nil {
 		return contentParticle{}, err
@@ -108,9 +100,9 @@ func (n *restrictionNormalizer) appendActualMember(members *[]contentParticle, h
 	return n.appendLiteralMember(members, id)
 }
 
-// Generated groups are in expanded-name order, including the concrete head,
-// so the work spent before the first failing member does not depend on the
-// order names were interned. Comparison spans waive only generated order; explicit source
+// Generated groups are in expanded-name order (substitutionTable.ForEachMember),
+// including the concrete head, so the work spent before the first failing
+// member does not depend on the order names were interned. Comparison spans waive only generated order; explicit source
 // choice boundaries remain ordered.
 func (n *restrictionNormalizer) insertConcreteHead(members []contentParticle, head ElementID) ([]contentParticle, error) {
 	if n.validator.rt.Elements[head].Abstract {

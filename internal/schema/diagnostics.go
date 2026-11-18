@@ -271,26 +271,6 @@ func compareFalseFirst(a, b bool) int {
 	}
 }
 
-// firstNamespaces returns the first count of namespaces in text order without
-// sorting the wildcard's own list.
-func firstNamespaces(namespaces []string, count int) []string {
-	out := make([]string, 0, count)
-	for _, ns := range namespaces {
-		at := len(out)
-		for at > 0 && ns < out[at-1] {
-			at--
-		}
-		if len(out) == count {
-			if at == count {
-				continue
-			}
-			out = out[:count-1]
-		}
-		out = slices.Insert(out, at, ns)
-	}
-	return out
-}
-
 func (p *contentExpectationProjection) particle(particle compiledParticleRead) bool {
 	switch particle.Kind {
 	case particleElement:
@@ -304,7 +284,7 @@ func (p *contentExpectationProjection) particle(particle compiledParticleRead) b
 			return false
 		}
 		count := min(len(wildcard.namespaces), diagnostictext.MaxAlternatives)
-		p.add(ContentExpectation{IsWildcard: true, WildcardMode: wildcard.mode, ExcludedNamespace: wildcard.otherThan, Namespaces: firstNamespaces(wildcard.namespaces, count), MoreNamespaces: count < len(wildcard.namespaces)})
+		p.add(ContentExpectation{IsWildcard: true, WildcardMode: wildcard.mode, ExcludedNamespace: wildcard.otherThan, Namespaces: slices.Clone(wildcard.namespaces[:count]), MoreNamespaces: count < len(wildcard.namespaces)})
 		return true
 	case particleModel:
 		return false
@@ -336,21 +316,15 @@ func (p *contentExpectationProjection) namedElement(name QName) bool {
 }
 
 func (p *contentExpectationProjection) substitutionMembers(id ElementID) bool {
-	table := p.schema.program.Substitutions
-	span, valid := table.span(id)
-	if !valid {
-		return true
-	}
-	for _, entry := range table.entries[span.start : span.start+span.count] {
+	valid := true
+	p.schema.program.Substitutions.forEachEntryByName(id, func(entry substitutionEntry) bool {
 		if !p.spend() {
-			return true
-		}
-		if !entry.effective {
-			continue
-		}
-		if !p.namedElement(entry.name) {
 			return false
 		}
-	}
-	return true
+		if entry.effective && !p.namedElement(entry.name) {
+			valid = false
+		}
+		return valid
+	})
+	return valid
 }

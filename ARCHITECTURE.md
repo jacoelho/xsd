@@ -774,15 +774,22 @@ Diagnostics flow:
    keyrefs name their retained target constraint; they never add source IDs or original tuple lexemes
    to document state, and opaque identity keys are never presented as values.
 
-   A diagnostic that lists or picks among names or namespaces orders them by
-   expanded name, namespace URI then local name, never by interned name ID
-   (`compareQNameText` for the Unique Particle Attribution name,
-   `compareContentExpectation` for content expectations), so writing the same
-   schema in another order gives the same text. A check that stops at its
-   first failure visits substitution-group members in the same order (Element
-   Declarations Consistent, the generated choice of a restriction), so the
-   failure reported and the work spent before it do not depend on name IDs
-   either.
+   Name order is computed once by its owner and never by interned name ID:
+   the substitution table keeps each head's members in expanded-name order,
+   namespace URI then local name, beside its name-ID lookup order, and a
+   published wildcard keeps its namespaces in text order. A check that stops
+   at its first failure visits substitution-group members in that order
+   (Element Declarations Consistent, the generated choice of a restriction,
+   the Unique Particle Attribution name), so the failure reported and the work
+   spent before it do not depend on name IDs. The expected-child projection
+   inspects at most 256 alternatives: the edges of the DFA state or the
+   all-group terms in compiled model order, and the substitution members of
+   each element particle in expanded-name order. It displays the first eight
+   inspected alternatives in expanded-name order (`compareContentExpectation`)
+   and the first eight namespaces of a wildcard. The text therefore never
+   depends on interning order, and it does not depend on the order of
+   declarations unless the 256-alternative limit cuts across the edges of one
+   state, whose compiled order follows element declaration IDs.
 
    `internal/diagnostictext` owns bounded quoting for all these owners.
    Diagnostics never retain borrowed input. `xsderrors` defines absent

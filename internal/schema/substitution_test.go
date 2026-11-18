@@ -36,10 +36,10 @@ func TestBuildSubstitutionTableBuildsSortedRawAndEffectiveEntries(t *testing.T) 
 	})
 	wantRaw := []ElementID{1, 2}
 	slices.SortFunc(wantRaw, func(a, b ElementID) int {
-		return compareQName(elements[a].Name, elements[b].Name)
+		return compareQNameText(&names, elements[a].Name, elements[b].Name)
 	})
 	if !slices.Equal(raw, wantRaw) {
-		t.Fatalf("raw members = %v, want QName-sorted %v", raw, wantRaw)
+		t.Fatalf("raw members = %v, want expanded-name order %v", raw, wantRaw)
 	}
 	var effective []ElementID
 	table.ForEachEntry(0, func(_ QName, member ElementID) bool {
@@ -278,10 +278,10 @@ func TestBuildSubstitutionTableDetectsDeepCycleWithoutRecursion(t *testing.T) {
 func TestNewSchemaRuntimeSharesImmutableSubstitutionTable(t *testing.T) {
 	t.Parallel()
 
-	table := substitutionTable{
+	table := withStorageNameOrder(substitutionTable{
 		spans:   []substitutionSpan{{start: 0, count: 1}, {start: 1}},
 		entries: []substitutionEntry{{name: QName{Local: 1}, member: 1, effective: true}},
-	}
+	})
 	build := schemaBuild{
 		Substitutions:  table,
 		ComplexTypes:   []complexTypeMetadata{{Derivation: derivationKindNone}},
@@ -299,10 +299,10 @@ func TestNewSchemaRuntimeSharesImmutableSubstitutionTable(t *testing.T) {
 func TestSubstitutionTableSkipsValidatedEmptySpan(t *testing.T) {
 	t.Parallel()
 
-	table := substitutionTable{
+	table := withStorageNameOrder(substitutionTable{
 		spans:   []substitutionSpan{{start: 0, count: 0}},
 		entries: []substitutionEntry{{member: 1}},
-	}
+	})
 	called := false
 	table.ForEachMember(0, func(ElementID) bool {
 		called = true
@@ -449,6 +449,16 @@ func fixtureSubstitutions(names []elementDecl, raw map[ElementID][]ElementID, ef
 		slices.SortFunc(ordered, func(a, b substitutionEntry) int { return compareQName(a.name, b.name) })
 		table.entries = append(table.entries, ordered...)
 		table.spans[head] = span
+	}
+	return withStorageNameOrder(table)
+}
+
+// withStorageNameOrder gives a hand-built table whose name IDs have no name
+// table an expanded-name order equal to its storage order.
+func withStorageNameOrder(table substitutionTable) substitutionTable {
+	table.byName = make([]uint32, len(table.entries))
+	for i := range table.byName {
+		table.byName[i] = uint32(i)
 	}
 	return table
 }

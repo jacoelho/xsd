@@ -1,6 +1,7 @@
 package xsd_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -191,6 +192,31 @@ func TestSubstitutionGroupRestrictionReportsTheSameFailureWhateverTheNameOrder(t
 		}
 		if steps > 100_000 {
 			t.Fatalf("no step limit up to %d reached the restriction failure; last diagnostic %q", steps, want)
+		}
+	}
+}
+
+func TestExpectedChildDiagnosticAtTheTraversalLimitIsTheSameInAnyDeclarationOrder(t *testing.T) {
+	t.Parallel()
+
+	declarations := []string{
+		`<xs:element name="root"><xs:complexType><xs:sequence><xs:element ref="head"/></xs:sequence></xs:complexType></xs:element>`,
+		`<xs:element name="head" abstract="true"/>`,
+	}
+	for i := range 270 {
+		declarations = append(declarations, fmt.Sprintf(`<xs:element name="n%03d" substitutionGroup="head"/>`, i))
+	}
+	earlier := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:attribute name="n269"/><xs:attribute name="n100"/></xs:schema>`
+	const want = `unexpected child element "zzz"; expected next child ["n000", "n001", "n002", "n003", "n004", "n005", "n006", "n007", ...]`
+
+	for _, variant := range nameOrderVariants(declarations, earlier) {
+		engine, err := xsd.Compile(variant.sources...)
+		if err != nil {
+			t.Fatalf("%s: Compile() error = %v", variant.name, err)
+		}
+		err = engine.Validate(strings.NewReader(`<root><zzz/></root>`))
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Fatalf("%s: Validate() error = %v, want it to contain %q", variant.name, err, want)
 		}
 	}
 }
