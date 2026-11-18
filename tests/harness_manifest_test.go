@@ -2,13 +2,16 @@ package tests_test
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+	"unicode"
 
 	"github.com/jacoelho/xsd"
 )
@@ -331,4 +334,247 @@ func isCanonicalCorpusPath(name string) bool {
 		!path.IsAbs(name) &&
 		path.Clean(name) == name &&
 		strings.HasPrefix(name, "corpus/")
+}
+
+// oracleProviders are the cross-validator keys a measured phase records, as
+// the tests/README.md Cross-validator Diagnosis table defines.
+var oracleProviders = [...]string{"xerces", "dotnet", "xmlschema", "libxml2"}
+
+func TestProjectCasesCarryOracleMetadata(t *testing.T) {
+	dir := testDir(t)
+	m := readManifest(t, filepath.Join(dir, "manifest.json"))
+	data, err := os.ReadFile(filepath.Join(dir, "oracle-backlog.txt")) //nolint:gosec // Test harness reads repository-owned backlog path.
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	backlog, err := parseOracleBacklog(string(data))
+	if err != nil {
+		t.Fatalf("oracle backlog: %v", err)
+	}
+	if err := checkOracleBacklog(m, backlog); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestOracleMeasured(t *testing.T) {
+	all := func(expected string) map[string]manifestOracle {
+		oracle := make(map[string]manifestOracle, len(oracleProviders))
+		for _, key := range oracleProviders {
+			oracle[key] = manifestOracle{Expected: expected, Reason: "r"}
+		}
+		return oracle
+	}
+	without := func(oracle map[string]manifestOracle, keys ...string) map[string]manifestOracle {
+		out := maps.Clone(oracle)
+		for _, key := range keys {
+			delete(out, key)
+		}
+		return out
+	}
+	mixed := all("valid")
+	mixed["xerces"] = manifestOracle{Expected: "invalid", Reason: "r"}
+	mixed["libxml2"] = manifestOracle{Status: "blocked", Reason: "r"}
+	for _, tt := range []struct {
+		name string
+		tc   manifestCase
+		want bool
+	}{
+		{
+			name: "every provider on every phase",
+			tc:   manifestCase{Schema: &manifestSchema{Oracle: all("valid")}, Instances: []manifestInstance{{Oracle: all("invalid")}}},
+			want: true,
+		},
+		{
+			name: "schema phase without one provider",
+			tc:   manifestCase{Schema: &manifestSchema{Oracle: without(all("valid"), "dotnet")}},
+		},
+		{
+			name: "schema rejected by every provider needs no instance entries",
+			tc:   manifestCase{Schema: &manifestSchema{Oracle: all("invalid")}, Instances: []manifestInstance{{}}},
+			want: true,
+		},
+		{
+			name: "instance needs only providers that accepted the schema",
+			tc:   manifestCase{Schema: &manifestSchema{Oracle: mixed}, Instances: []manifestInstance{{Oracle: without(all("valid"), "xerces", "libxml2")}}},
+			want: true,
+		},
+		{
+			name: "instance without a provider that accepted the schema",
+			tc:   manifestCase{Schema: &manifestSchema{Oracle: mixed}, Instances: []manifestInstance{{Oracle: without(all("valid"), "dotnet")}}},
+		},
+		{
+			name: "instance status counts as an entry",
+			tc: manifestCase{Schema: &manifestSchema{Oracle: all("valid")}, Instances: []manifestInstance{{Oracle: map[string]manifestOracle{
+				"xerces": {Status: "unassessed", Reason: "r"}, "dotnet": {Status: "unassessed", Reason: "r"},
+				"xmlschema": {Expected: "valid", Reason: "r"}, "libxml2": {Status: "blocked", Reason: "r"},
+			}}}},
+			want: true,
+		},
+		{
+			name: "w3c and project entries are not provider entries",
+			tc: manifestCase{Schema: &manifestSchema{Oracle: map[string]manifestOracle{
+				"w3c": {Expected: "valid", Reason: "r"}, "project": {Expected: "valid", Reason: "r"},
+				"xerces": {Expected: "valid", Reason: "r"}, "dotnet": {Expected: "valid", Reason: "r"}, "xmlschema": {Expected: "valid", Reason: "r"},
+			}}},
+		},
+		{
+			name: "schema-less case",
+			tc:   manifestCase{Instances: []manifestInstance{{Oracle: all("valid")}}},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := oracleMeasured(tt.tc); got != tt.want {
+				t.Fatalf("oracleMeasured() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseOracleBacklogRejectsBadLines(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		data string
+		want string
+	}{
+		{name: "unsorted", data: "project/b\nproject/a\n", want: `line 2 is not sorted after "project/b"`},
+		{name: "duplicate", data: strings.Repeat("project/a\n", 2), want: `line 2 is not sorted after "project/a"`},
+		{name: "empty line", data: "project/a\n\nproject/b\n", want: "line 2 is empty"},
+		{name: "surrounding space", data: "project/a \n", want: "line 1 has surrounding space"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := parseOracleBacklog(tt.data)
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("parseOracleBacklog() error = %v, want containing %q", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestCheckOracleBacklogRejectsStaleOrMissingEntries(t *testing.T) {
+	measured := make(map[string]manifestOracle, len(oracleProviders))
+	for _, key := range oracleProviders {
+		measured[key] = manifestOracle{Expected: "invalid", Reason: "r"}
+	}
+	acceptedByAll := make(map[string]manifestOracle, len(oracleProviders))
+	for _, key := range oracleProviders {
+		acceptedByAll[key] = manifestOracle{Expected: "valid", Reason: "r"}
+	}
+	measuredCase := manifestCase{ID: "project/measured", ExpectedSource: "project", Schema: &manifestSchema{Oracle: measured}}
+	unmeasuredCase := manifestCase{ID: "project/unmeasured", ExpectedSource: "project", Schema: &manifestSchema{Oracle: map[string]manifestOracle{"xerces": {Expected: "valid", Reason: "r"}}}}
+	schemaOnlyCase := manifestCase{ID: "project/schema-measured", ExpectedSource: "project", Schema: &manifestSchema{Oracle: acceptedByAll}, Instances: []manifestInstance{{}}}
+	w3cCase := manifestCase{ID: "w3c/unmeasured", ExpectedSource: "w3c", Schema: &manifestSchema{}}
+	m := manifest{Cases: []manifestCase{measuredCase, unmeasuredCase, schemaOnlyCase, w3cCase}}
+	if err := checkOracleBacklog(m, []string{"project/unmeasured"}); err == nil || !strings.Contains(err.Error(), `project case "project/schema-measured" lacks oracle metadata`) {
+		t.Fatalf("checkOracleBacklog() error = %v, want the unlisted case with an unmeasured instance", err)
+	}
+	for _, tt := range []struct {
+		name    string
+		backlog []string
+		want    string
+	}{
+		{name: "unlisted unmeasured case", want: `project case "project/unmeasured" lacks oracle metadata`},
+		{name: "listed measured case", backlog: []string{"project/measured", "project/unmeasured"}, want: `oracle backlog lists "project/measured", which is measured`},
+		{name: "listed case with a measured phase", backlog: []string{"project/schema-measured", "project/unmeasured"}, want: `oracle backlog lists "project/schema-measured", which has a phase with every provider`},
+		{name: "unknown case", backlog: []string{"project/missing", "project/unmeasured"}, want: `oracle backlog lists "project/missing", which is not a project case`},
+		{name: "w3c case", backlog: []string{"project/unmeasured", "w3c/unmeasured"}, want: `oracle backlog lists "w3c/unmeasured", which is not a project case`},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			err := checkOracleBacklog(m, tt.backlog)
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("checkOracleBacklog() error = %v, want containing %q", err, tt.want)
+			}
+		})
+	}
+	if err := checkOracleBacklog(manifest{Cases: []manifestCase{measuredCase, unmeasuredCase, w3cCase}}, []string{"project/unmeasured"}); err != nil {
+		t.Fatalf("checkOracleBacklog() error = %v, want nil", err)
+	}
+}
+
+// parseOracleBacklog reads tests/oracle-backlog.txt: one project case ID per
+// line, sorted and unique.
+func parseOracleBacklog(data string) ([]string, error) {
+	if data == "" {
+		return nil, nil
+	}
+	lines := strings.Split(strings.TrimSuffix(data, "\n"), "\n")
+	for i, line := range lines {
+		switch {
+		case line == "":
+			return nil, fmt.Errorf("line %d is empty", i+1)
+		case strings.TrimFunc(line, unicode.IsSpace) != line:
+			return nil, fmt.Errorf("line %d has surrounding space", i+1)
+		case i > 0 && line <= lines[i-1]:
+			return nil, fmt.Errorf("line %d is not sorted after %q", i+1, lines[i-1])
+		}
+	}
+	return lines, nil
+}
+
+// checkOracleBacklog enforces the oracle rule of the tests/README.md Corpus
+// Contract: every project case is measured unless backlog lists it, and
+// backlog lists only project cases that are unmeasured and have no phase that
+// every provider has measured.
+func checkOracleBacklog(m manifest, backlog []string) error {
+	listed := make(map[string]bool, len(backlog))
+	for _, id := range backlog {
+		listed[id] = true
+	}
+	var errs []error
+	for _, tc := range m.Cases {
+		if tc.ExpectedSource != "project" {
+			continue
+		}
+		measured := oracleMeasured(tc)
+		switch {
+		case listed[tc.ID] && measured:
+			errs = append(errs, fmt.Errorf("oracle backlog lists %q, which is measured", tc.ID))
+		case listed[tc.ID] && hasFourProviderPhase(tc):
+			errs = append(errs, fmt.Errorf("oracle backlog lists %q, which has a phase with every provider; measure its other phases", tc.ID))
+		case !listed[tc.ID] && !measured:
+			errs = append(errs, fmt.Errorf("project case %q lacks oracle metadata for every provider", tc.ID))
+		}
+		delete(listed, tc.ID)
+	}
+	for _, id := range slices.Sorted(maps.Keys(listed)) {
+		errs = append(errs, fmt.Errorf("oracle backlog lists %q, which is not a project case", id))
+	}
+	return errors.Join(errs...)
+}
+
+// oracleMeasured reports whether every phase of tc is measured: the schema
+// phase has an entry for every provider, and each instance phase has an entry
+// for every provider whose schema-phase entry is valid.
+func oracleMeasured(tc manifestCase) bool {
+	if tc.Schema == nil || !hasEveryProvider(tc.Schema.Oracle) {
+		return false
+	}
+	for _, inst := range tc.Instances {
+		for _, key := range oracleProviders {
+			if tc.Schema.Oracle[key].Expected != "valid" {
+				continue
+			}
+			if _, ok := inst.Oracle[key]; !ok {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func hasFourProviderPhase(tc manifestCase) bool {
+	if tc.Schema != nil && hasEveryProvider(tc.Schema.Oracle) {
+		return true
+	}
+	return slices.ContainsFunc(tc.Instances, func(inst manifestInstance) bool {
+		return hasEveryProvider(inst.Oracle)
+	})
+}
+
+func hasEveryProvider(oracle map[string]manifestOracle) bool {
+	for _, key := range oracleProviders {
+		if _, ok := oracle[key]; !ok {
+			return false
+		}
+	}
+	return true
 }

@@ -16056,6 +16056,16 @@
             "expected": "invalid",
             "reason": "libxml2 2.9.13 reports invalid in the fresh offline comparison. I-015 follows the operative prohibited-order consistency prose; instance bounds independently require their ordered/equal predicates. A mixed finite/NaN range admits neither witness, while an inclusive NaN/NaN range admits only NaN. The single-bound and equal-pair controls distinguish schema consistency from instance comparison.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows I-015 in docs/spec/INTERPRETATIONS.md (bound consistency with an unordered NaN endpoint); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows I-015 in docs/spec/INTERPRETATIONS.md (bound consistency with an unordered NaN endpoint); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
           }
         }
       },
@@ -16169,6 +16179,16 @@
           "dotnet": {
             "expected": "invalid",
             "reason": ".NET 10.0.9 reports invalid in the fresh offline comparison. I-015 follows the operative prohibited-order consistency prose; instance bounds independently require their ordered/equal predicates. A mixed finite/NaN range admits neither witness, while an inclusive NaN/NaN range admits only NaN. The single-bound and equal-pair controls distinguish schema consistency from instance comparison.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows I-015 in docs/spec/INTERPRETATIONS.md (bound consistency with an unordered NaN endpoint); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows I-015 in docs/spec/INTERPRETATIONS.md (bound consistency with an unordered NaN endpoint); this observation is not a majority-vote oracle.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
           }
         }
@@ -17563,7 +17583,29 @@
             "file": "corpus/project/datatypes/qname/qname-constraint-schema-context/schema.xsd",
             "role": "principal"
           }
-        ]
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows I-013 in docs/spec/INTERPRETATIONS.md (QName element constraints under xsi:type keep the schema namespace context); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows I-013 in docs/spec/INTERPRETATIONS.md (QName element constraints under xsi:type keep the schema namespace context); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows I-013 in docs/spec/INTERPRETATIONS.md (QName element constraints under xsi:type keep the schema namespace context); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows I-013 in docs/spec/INTERPRETATIONS.md (QName element constraints under xsi:type keep the schema namespace context); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt"
+          }
+        }
       },
       "instances": [
         {
@@ -20601,7 +20643,29 @@
             "file": "corpus/project/datatypes/temporal/time-facet-comparison-ignores-date-shift/schema.xsd",
             "role": "principal"
           }
-        ]
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minInclusive and maxInclusive Valid rules in the time value space of the Time midnight row of docs/spec/INTERPRETATIONS.md; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#time"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minInclusive and maxInclusive Valid rules in the time value space of the Time midnight row of docs/spec/INTERPRETATIONS.md; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#time"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minInclusive and maxInclusive Valid rules in the time value space of the Time midnight row of docs/spec/INTERPRETATIONS.md; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#time"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minInclusive and maxInclusive Valid rules in the time value space of the Time midnight row of docs/spec/INTERPRETATIONS.md; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#time"
+          }
+        }
       },
       "instances": [
         {
@@ -871040,7 +871104,29 @@
             "file": "corpus/project/datatypes/name-fifth-edition-chars/schema.xsd",
             "role": "principal"
           }
-        ]
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
+          }
+        }
       },
       "instances": [
         {
@@ -871062,6 +871148,11 @@
               "expected": "invalid",
               "reason": "Observed offline with libxml2 2.9.13 on the current fixture: instance rejected. The project expectation follows I-020 (XML 1.0 Fifth Edition name characters); this is interoperability evidence, not a majority-vote oracle.",
               "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameStartChar"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
             }
           }
         },
@@ -871084,6 +871175,11 @@
               "expected": "invalid",
               "reason": "Observed offline with libxml2 2.9.13 on the current fixture: instance rejected. The project expectation follows I-020 (XML 1.0 Fifth Edition name characters); this is interoperability evidence, not a majority-vote oracle.",
               "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameStartChar"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
             }
           }
         },
@@ -871133,6 +871229,11 @@
               "expected": "invalid",
               "reason": "Observed offline with libxml2 2.9.13 on the current fixture: instance rejected. The project expectation follows I-020 (XML 1.0 Fifth Edition name characters); this is interoperability evidence, not a majority-vote oracle.",
               "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameStartChar"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
             }
           }
         },
@@ -871155,6 +871256,11 @@
               "expected": "invalid",
               "reason": "Observed offline with libxml2 2.9.13 on the current fixture: instance rejected. The project expectation follows I-020 (XML 1.0 Fifth Edition name characters); this is interoperability evidence, not a majority-vote oracle.",
               "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameStartChar"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
             }
           }
         },
@@ -871177,6 +871283,11 @@
               "expected": "invalid",
               "reason": "Observed offline with libxml2 2.9.13 on the current fixture: instance rejected. The project expectation follows I-020 (XML 1.0 Fifth Edition name characters); this is interoperability evidence, not a majority-vote oracle.",
               "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameStartChar"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
             }
           }
         },
@@ -871184,31 +871295,141 @@
           "testName": "name-start-u00d7",
           "file": "corpus/project/datatypes/name-fifth-edition-chars/name-start-u00d7.xml",
           "expected": "invalid",
-          "errorCode": "validation.facet"
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. name-start-u00d7.xml:1:29: cvc-datatype-valid.1.2.1: '×' is not a valid value for 'Name'. The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. name-start-u00d7.xml:1:24: The 'urn:t:name' element is invalid - The value '×' is invalid according to its datatype 'http://www.w3.org/2001/XMLSchema:Name' - Name cannot begin with the '×' character, hexadecimal value 0xD7. The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: value doesn't match any pattern of ['\\\\i\\\\c*'] (path /name) The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
+            },
+            "libxml2": {
+              "expected": "invalid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance rejected. name-start-u00d7.xml:1: element name: Schemas validity error : Element '{urn:t}name': '×' is not a valid value of the atomic type 'xs:Name'. The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
+            }
+          }
         },
         {
           "testName": "ncname-contains-u00d7",
           "file": "corpus/project/datatypes/name-fifth-edition-chars/ncname-contains-u00d7.xml",
           "expected": "invalid",
-          "errorCode": "validation.facet"
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. ncname-contains-u00d7.xml:1:34: cvc-datatype-valid.1.2.1: 'a×' is not a valid value for 'NCName'. The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. ncname-contains-u00d7.xml:1:27: The 'urn:t:ncname' element is invalid - The value 'a×' is invalid according to its datatype 'http://www.w3.org/2001/XMLSchema:NCName' - The '×' character, hexadecimal value 0xD7, cannot be included in a name. The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: value doesn't match any pattern of ['[\\\\i-[:]][\\\\c-[:]]*'] (path /ncname) The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
+            },
+            "libxml2": {
+              "expected": "invalid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance rejected. ncname-contains-u00d7.xml:1: element ncname: Schemas validity error : Element '{urn:t}ncname': 'a×' is not a valid value of the atomic type 'xs:NCName'. The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
+            }
+          }
         },
         {
           "testName": "nmtoken-u00d7",
           "file": "corpus/project/datatypes/name-fifth-edition-chars/nmtoken-u00d7.xml",
           "expected": "invalid",
-          "errorCode": "validation.facet"
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. nmtoken-u00d7.xml:1:35: cvc-datatype-valid.1.2.1: '×' is not a valid value for 'NMTOKEN'. The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. nmtoken-u00d7.xml:1:27: The 'urn:t:nmtoken' element is invalid - The value '×' is invalid according to its datatype 'http://www.w3.org/2001/XMLSchema:NMTOKEN' - The '×' character, hexadecimal value 0xD7, cannot be included in a name. The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: value doesn't match any pattern of ['\\\\c+'] (path /nmtoken) The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
+            },
+            "libxml2": {
+              "expected": "invalid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance rejected. nmtoken-u00d7.xml:1: element nmtoken: Schemas validity error : Element '{urn:t}nmtoken': '×' is not a valid value of the atomic type 'xs:NMTOKEN'. The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
+            }
+          }
         },
         {
           "testName": "initial-u00d7",
           "file": "corpus/project/datatypes/name-fifth-edition-chars/initial-u00d7.xml",
           "expected": "invalid",
-          "errorCode": "validation.facet"
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. initial-u00d7.xml:1:35: cvc-pattern-valid: Value '×' is not facet-valid with respect to pattern '\\i' for type '#AnonType_initial'. The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. initial-u00d7.xml:1:27: The 'urn:t:initial' element is invalid - The value '×' is invalid according to its datatype 'String' - The Pattern constraint failed. The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: value doesn't match any pattern of ['\\\\i'] (path /initial) The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
+            },
+            "libxml2": {
+              "expected": "invalid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance rejected. initial-u00d7.xml:1: element initial: Schemas validity error : Element '{urn:t}initial': [facet 'pattern'] The value '×' is not accepted by the pattern '\\i'. The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
+            }
+          }
         },
         {
           "testName": "namechar-u00d7",
           "file": "corpus/project/datatypes/name-fifth-edition-chars/namechar-u00d7.xml",
           "expected": "invalid",
-          "errorCode": "validation.facet"
+          "errorCode": "validation.facet",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. namechar-u00d7.xml:1:37: cvc-pattern-valid: Value '×' is not facet-valid with respect to pattern '\\c' for type '#AnonType_namechar'. The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
+            },
+            "dotnet": {
+              "expected": "invalid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. namechar-u00d7.xml:1:28: The 'urn:t:namechar' element is invalid - The value '×' is invalid according to its datatype 'String' - The Pattern constraint failed. The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: value doesn't match any pattern of ['\\\\c'] (path /namechar) The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
+            },
+            "libxml2": {
+              "expected": "invalid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance rejected. namechar-u00d7.xml:1: element namechar: Schemas validity error : Element '{urn:t}namechar': [facet 'pattern'] The value '×' is not accepted by the pattern '\\c'. The project expectation follows I-020 in docs/spec/INTERPRETATIONS.md (XML 1.0 Fifth Edition name characters); this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#Name"
+            }
+          }
         }
       ],
       "files": [
@@ -877394,13 +877615,57 @@
             "file": "corpus/project/namespaces/xsi-schema-location-hint-syntax/schema.xsd",
             "role": "principal"
           }
-        ]
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the xsi:schemaLocation definition (Structures 3.3.7.1 and 4.3.2): a list of anyURI items of any count, checked only on assessed elements; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the xsi:schemaLocation definition (Structures 3.3.7.1 and 4.3.2): a list of anyURI items of any count, checked only on assessed elements; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the xsi:schemaLocation definition (Structures 3.3.7.1 and 4.3.2): a list of anyURI items of any count, checked only on assessed elements; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the xsi:schemaLocation definition (Structures 3.3.7.1 and 4.3.2): a list of anyURI items of any count, checked only on assessed elements; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+          }
+        }
       },
       "instances": [
         {
           "testName": "valid-pairs",
           "file": "corpus/project/namespaces/xsi-schema-location-hint-syntax/valid-pairs.xml",
-          "expected": "valid"
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation definition (Structures 3.3.7.1 and 4.3.2): a list of anyURI items of any count, checked only on assessed elements; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation definition (Structures 3.3.7.1 and 4.3.2): a list of anyURI items of any count, checked only on assessed elements; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation definition (Structures 3.3.7.1 and 4.3.2): a list of anyURI items of any count, checked only on assessed elements; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            },
+            "libxml2": {
+              "expected": "valid",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation definition (Structures 3.3.7.1 and 4.3.2): a list of anyURI items of any count, checked only on assessed elements; this observation is not a majority-vote oracle.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+            }
+          }
         },
         {
           "testName": "odd-field-count",
@@ -877623,7 +877888,29 @@
             "file": "corpus/project/namespaces/xsi-schema-location-hint-lax-unknown/schema.xsd",
             "role": "principal"
           }
-        ]
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the xsi:schemaLocation definition (Structures 3.3.7.1 and 4.3.2): an element reached through a lax wildcard is assessed, so its hint items are checked as anyURI; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the xsi:schemaLocation definition (Structures 3.3.7.1 and 4.3.2): an element reached through a lax wildcard is assessed, so its hint items are checked as anyURI; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the xsi:schemaLocation definition (Structures 3.3.7.1 and 4.3.2): an element reached through a lax wildcard is assessed, so its hint items are checked as anyURI; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+          },
+          "libxml2": {
+            "expected": "valid",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the xsi:schemaLocation definition (Structures 3.3.7.1 and 4.3.2): an element reached through a lax wildcard is assessed, so its hint items are checked as anyURI; this observation is not a majority-vote oracle.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#xsi.schemaLocation"
+          }
+        }
       },
       "instances": [
         {
