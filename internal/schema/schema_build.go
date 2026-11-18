@@ -150,14 +150,6 @@ func (rt *schemaBuild) identityName(id IdentityConstraintID) QName {
 	return rt.Identities[id].Name
 }
 
-func (c *compiler) checkIdentityConstraintNameAvailable(q QName) error {
-	return checkIdentityConstraintNameAvailable(c.rt.GlobalIdentities, q, c.rt.Names.Format(q))
-}
-
-func (c *compiler) resolveIdentityConstraintRefer(q QName) (IdentityConstraintID, error) {
-	return resolveIdentityConstraintRefer(c.rt.GlobalIdentities, q, c.rt.Names.Format(q))
-}
-
 func (c *compiler) validateAttributeDeclNameBuild(q QName) error {
 	return validateAttributeDeclName(&c.rt.Names, q)
 }
@@ -214,17 +206,38 @@ func (c *compiler) registerGlobalSimpleType(q QName, typ simpleType) (SimpleType
 	return id, nil
 }
 
-// registerGlobalIdentity admits the identity constraint declared at source,
-// whose node locates its compile checks.
-func (c *compiler) registerGlobalIdentity(q QName, identity identityConstraintSpec, source *schemaNode) (IdentityConstraintID, error) {
+// reserveIdentity admits the identity constraint named name and declared at
+// source, whose node locates its compile checks. Its name is interned later,
+// by nameIdentityConstraint.
+func (c *compiler) reserveIdentity(name ExpandedName, source *schemaNode) (IdentityConstraintID, error) {
 	id, err := nextIdentityConstraintID(len(c.rt.Identities))
 	if err != nil {
 		return NoIdentityConstraint, err
 	}
-	c.rt.Identities = append(c.rt.Identities, identity)
+	c.rt.Identities = append(c.rt.Identities, newDeclaredIdentityConstraint())
 	c.identitySources = append(c.identitySources, source)
-	c.rt.GlobalIdentities[q] = id
+	c.identityDeclarations = append(c.identityDeclarations, name)
+	if c.identityNames == nil {
+		c.identityNames = make(map[ExpandedName]IdentityConstraintID)
+	}
+	c.identityNames[name] = id
 	return id, nil
+}
+
+// nameIdentityConstraint interns the name of the declared constraint id, if
+// it is still unnamed, and registers it as a global identity constraint.
+func (c *compiler) nameIdentityConstraint(id IdentityConstraintID) error {
+	if c.rt.Identities[id].Name != noQName() {
+		return nil
+	}
+	name := c.identityDeclarations[id]
+	q, err := c.rt.internQName(name.Namespace, name.Local)
+	if err != nil {
+		return withSchemaCompileLocation(c.identitySources[id], err)
+	}
+	c.rt.Identities[id].Name = q
+	c.rt.GlobalIdentities[q] = id
+	return nil
 }
 
 func (c *compiler) addElement(decl elementDecl) (ElementID, error) {

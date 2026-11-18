@@ -1,7 +1,9 @@
 package schema
 
 import (
+	"cmp"
 	"errors"
+	"math"
 	"slices"
 )
 
@@ -34,9 +36,14 @@ var (
 
 // substitutionTable is the immutable substitution-group projection shared by
 // compilation and published validation. Its slices are intentionally private.
+// Each head's span of entries is in name-ID order for lookup; byName holds the
+// same span's entry positions in expanded-name order (namespace URI, then
+// local name), the order of every check that stops at its first failure and of
+// every diagnostic that lists members.
 type substitutionTable struct {
 	spans   []substitutionSpan
 	entries []substitutionEntry
+	byName  []uint32
 }
 
 type substitutionSpan struct {
@@ -71,18 +78,19 @@ func buildSubstitutionTable(
 	if forest.total == 0 {
 		return substitutionTable{}, nil
 	}
-	if forest.total > maxClosureEntries {
-		return substitutionTable{}, substitutionClosureLimitError{Limit: maxClosureEntries}
+	if limit := substitutionClosureLimit(maxClosureEntries); forest.total > limit {
+		return substitutionTable{}, substitutionClosureLimitError{Limit: limit}
 	}
 	edges, err := validateSubstitutionEdges(rt, elements, forest.parents, work)
 	if err != nil {
 		return substitutionTable{}, err
 	}
 	counts := substitutionAncestorCounts(forest.parents)
-	table, next := newSubstitutionTable(counts, forest.total)
-	populateSubstitutionTable(&table, next, elements, forest.parents, edges)
-	sortSubstitutionTable(table)
-	return table, nil
+	spans, entries, next := allocateSubstitutionSpans(counts, forest.total)
+	populateSubstitutionEntries(entries, next, elements, forest.parents, edges)
+	return newSubstitutionTable(spans, entries, func(a, b QName) int {
+		return compareQNameText(names, a, b)
+	}), nil
 }
 
 func substitutionAncestorCounts(parents []ElementID) []int {
@@ -95,23 +103,20 @@ func substitutionAncestorCounts(parents []ElementID) []int {
 	return counts
 }
 
-func newSubstitutionTable(counts []int, total int) (substitutionTable, []int) {
-	table := substitutionTable{
-		spans:   make([]substitutionSpan, len(counts)),
-		entries: make([]substitutionEntry, total),
-	}
+func allocateSubstitutionSpans(counts []int, total int) ([]substitutionSpan, []substitutionEntry, []int) {
+	spans := make([]substitutionSpan, len(counts))
 	next := make([]int, len(counts))
 	start := 0
 	for head, count := range counts {
-		table.spans[head] = substitutionSpan{start: start, count: count}
+		spans[head] = substitutionSpan{start: start, count: count}
 		next[head] = start
 		start += count
 	}
-	return table, next
+	return spans, make([]substitutionEntry, total), next
 }
 
-func populateSubstitutionTable(
-	table *substitutionTable,
+func populateSubstitutionEntries(
+	entries []substitutionEntry,
 	next []int,
 	elements []elementDecl,
 	parents []ElementID,
@@ -125,7 +130,7 @@ func populateSubstitutionTable(
 			mask |= edges[current].mask
 			blocks |= edges[current].blocks
 			pos := next[head]
-			table.entries[pos] = substitutionEntry{
+			entries[pos] = substitutionEntry{
 				name:      memberDecl.Name,
 				member:    memberID,
 				effective: substitutionEffective(elements[head], memberDecl, mask, blocks),
@@ -135,25 +140,83 @@ func populateSubstitutionTable(
 	}
 }
 
-func sortSubstitutionTable(table substitutionTable) {
-	for _, span := range table.spans {
-		entries := table.entries[span.start : span.start+span.count]
-		slices.SortFunc(entries, compareSubstitutionEntry)
+// newSubstitutionTable is the only constructor of a non-empty table. It takes
+// ownership of entries, sorts each span of them by name ID, and records their
+// order under compareNames, the expanded-name order, in byName. Sorting is
+// bounded by MaxSubstitutionClosureEntries, which buildSubstitutionTable checks
+// before any entry exists; it is not charged to derivation work, which is
+// bounded by direct edges.
+func newSubstitutionTable(spans []substitutionSpan, entries []substitutionEntry, compareNames func(a, b QName) int) substitutionTable {
+	ranked, rank := rankSubstitutionMembers(entries, compareNames)
+	position := make([]uint32, len(rank))
+	byName := make([]uint32, len(entries))
+	for i := range byName {
+		byName[i] = uint32(i)
 	}
+	for _, span := range spans {
+		spanEntries := entries[span.start : span.start+span.count]
+		slices.SortFunc(spanEntries, compareSubstitutionEntry)
+		spanByName := byName[span.start : span.start+span.count]
+		for i, entry := range spanEntries {
+			position[entry.member] = spanByName[i]
+			spanByName[i] = rank[entry.member]
+		}
+		slices.Sort(spanByName)
+		for i, r := range spanByName {
+			spanByName[i] = position[ranked[r].member]
+		}
+	}
+	return substitutionTable{spans: spans, entries: entries, byName: byName}
 }
 
-// ForEachMember iterates all raw transitive members for head until fn returns
-// false. Abstract and blocked members remain visible to compilation checks.
-func (t substitutionTable) ForEachMember(head ElementID, fn func(ElementID) bool) {
+// rankSubstitutionMembers returns each distinct member of entries once, ordered
+// by compareNames and then by member ID, and the rank of each member ID in that
+// order, so spans sort by integer rank instead of comparing names again. A
+// member is in a span at most once, so its rank orders the span.
+func rankSubstitutionMembers(entries []substitutionEntry, compareNames func(a, b QName) int) ([]substitutionEntry, []uint32) {
+	var members ElementID
+	for _, entry := range entries {
+		members = max(members, entry.member+1)
+	}
+	seen := make([]bool, members)
+	var ranked []substitutionEntry
+	for _, entry := range entries {
+		if !seen[entry.member] {
+			seen[entry.member] = true
+			ranked = append(ranked, entry)
+		}
+	}
+	slices.SortFunc(ranked, func(a, b substitutionEntry) int {
+		return cmp.Or(compareNames(a.name, b.name), cmp.Compare(a.member, b.member))
+	})
+	rank := make([]uint32, members)
+	for i, entry := range ranked {
+		rank[entry.member] = uint32(i)
+	}
+	return ranked, rank
+}
+
+// forEachEntryByName iterates head's raw transitive entries in expanded-name
+// order until fn returns false.
+func (t substitutionTable) forEachEntryByName(head ElementID, fn func(substitutionEntry) bool) {
 	span, ok := t.span(head)
 	if !ok || span.count == 0 {
 		return
 	}
-	for _, entry := range t.entries[span.start : span.start+span.count] {
-		if !fn(entry.member) {
+	for _, position := range t.byName[span.start : span.start+span.count] {
+		if !fn(t.entries[position]) {
 			return
 		}
 	}
+}
+
+// ForEachMember iterates all raw transitive members for head in expanded-name
+// order until fn returns false. Abstract and blocked members remain visible to
+// compilation checks.
+func (t substitutionTable) ForEachMember(head ElementID, fn func(ElementID) bool) {
+	t.forEachEntryByName(head, func(entry substitutionEntry) bool {
+		return fn(entry.member)
+	})
 }
 
 // ForEachEntry iterates effective name/member entries for head until fn returns
@@ -201,6 +264,56 @@ func (t substitutionTable) span(head ElementID) (substitutionSpan, bool) {
 		return substitutionSpan{}, false
 	}
 	return span, true
+}
+
+// substitutionClosureLimit is maxClosureEntries, capped at the entries a
+// uint32 byName position can address, so the configured limit is the only
+// bound a closure meets.
+func substitutionClosureLimit(maxClosureEntries int) int {
+	if _, addressable := newUint32Index(maxClosureEntries); addressable || maxClosureEntries < 0 {
+		return maxClosureEntries
+	}
+	return math.MaxUint32
+}
+
+// validNameOrder reports whether byName holds, for every span, a permutation
+// of that span's entry positions. It reads the table only, marking the
+// positions each span has seen in one scratch slice over all entries: a
+// bitset would chain each mark on the word the previous mark wrote.
+func (t substitutionTable) validNameOrder() bool {
+	if len(t.byName) != len(t.entries) {
+		return false
+	}
+	seen := make([]bool, len(t.entries))
+	for head := range t.spans {
+		span, ok := t.span(ElementID(head))
+		if !ok || !t.spanNameOrderIsPermutation(span, seen) {
+			return false
+		}
+	}
+	return true
+}
+
+// spanNameOrderIsPermutation reports whether the byName slots of span hold a
+// permutation of its positions, using seen, which is clear on entry and on
+// return, to find a repeated position.
+func (t substitutionTable) spanNameOrderIsPermutation(span substitutionSpan, seen []bool) bool {
+	positions := t.byName[span.start : span.start+span.count]
+	permutation := true
+	marked := 0
+	for _, value := range positions {
+		position := int(value)
+		if position < span.start || position >= span.start+span.count || seen[position] {
+			permutation = false
+			break
+		}
+		seen[position] = true
+		marked++
+	}
+	for _, value := range positions[:marked] {
+		seen[value] = false
+	}
+	return permutation
 }
 
 type substitutionForest struct {

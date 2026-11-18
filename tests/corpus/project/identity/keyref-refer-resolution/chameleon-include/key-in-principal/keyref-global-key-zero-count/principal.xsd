@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:p" xmlns:p="urn:p">
+  <xs:include schemaLocation="dependency.xsd"/>
+  <xs:element name="k_z"><xs:complexType><xs:sequence><xs:element name="k_e" minOccurs="0" maxOccurs="0"><xs:complexType><xs:attribute name="a" type="xs:string"/></xs:complexType><xs:key name="k"><xs:selector xpath="."/><xs:field xpath="@a"/></xs:key></xs:element></xs:sequence></xs:complexType></xs:element>
+</xs:schema>

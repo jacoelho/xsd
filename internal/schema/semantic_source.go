@@ -19,8 +19,9 @@ type schemaNode struct {
 	semantic schemaSemanticSource
 	doc      *schemaDocument
 	local    string
-	// namespace is retained only for deferred QName-valued literals and
-	// identity XPath names; schema QName attributes are resolved at admission.
+	// namespace is retained only for deferred QName-valued literals (default,
+	// fixed and enumeration values); schema QName attributes and identity XPath
+	// names are resolved at admission.
 	namespace            xmlstream.Context
 	children             []schemaNodeID
 	line                 int
@@ -121,6 +122,7 @@ type schemaQNameListAttribute struct {
 // attributes of one start tag, for buildSemanticSource to store in the typed
 // source record.
 type admittedValues struct {
+	xpath             identityXPathSyntax
 	facet             facetValue
 	memberTypes       schemaQNameListAttribute
 	base              schemaQNameAttribute
@@ -225,8 +227,11 @@ type schemaIdentitySource struct {
 	Refer schemaQNameAttribute
 }
 
+// schemaIdentityXPathSource is the typed source record of an xs:selector or
+// xs:field: its path as admitIdentityXPath parsed it at the start tag, with
+// bound name tests that the compiler interns (compiler.identityPaths).
 type schemaIdentityXPathSource struct {
-	XPath lexicalAttribute
+	XPath identityXPathSyntax
 }
 
 type schemaWildcardSource struct {
@@ -601,7 +606,7 @@ func buildSemanticKind(n *schemaSyntaxNode, values *admittedValues) schemaSemant
 			Refer: values.refer,
 		}
 	case vocab.XSDElemSelector, vocab.XSDElemField:
-		return &schemaIdentityXPathSource{XPath: schemaLexicalAttributeSyntax(n, vocab.XSDAttrXPath)}
+		return &schemaIdentityXPathSource{XPath: values.xpath}
 	case vocab.XSDElemAttributeGroup:
 		return &schemaAttributeGroupSource{Global: schemaGlobalSourceFor(n), Ref: values.ref}
 	case vocab.XSDElemNotation:

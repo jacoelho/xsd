@@ -531,9 +531,10 @@ func completeTypedNode(frame *typedSchemaParseFrame) error {
 }
 
 // schemaNodeNeedsDeferredQNameContext identifies source values whose QName
-// interpretation is intentionally deferred until the owning type or XPath is
-// compiled. Schema QName attributes are resolved while the element is active,
-// so their namespace bindings do not need to survive admission.
+// interpretation is intentionally deferred until the owning type is compiled:
+// value constraints and enumeration values. Schema QName attributes and
+// selector and field paths are resolved while the element is active, so their
+// namespace bindings do not need to survive admission.
 func schemaNodeNeedsDeferredQNameContext(n *schemaNode, attrs []schemaAttribute) bool {
 	if n == nil {
 		return false
@@ -551,8 +552,6 @@ func schemaNodeNeedsDeferredQNameContext(n *schemaNode, attrs []schemaAttribute)
 		return has(vocab.XSDAttrDefault) || has(vocab.XSDAttrFixed)
 	case vocab.XSDFacetEnumeration:
 		return has(vocab.XSDAttrValue)
-	case vocab.XSDElemSelector, vocab.XSDElemField:
-		return has(vocab.XSDAttrXPath)
 	default:
 		return false
 	}

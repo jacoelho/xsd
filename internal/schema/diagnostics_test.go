@@ -2,6 +2,7 @@ package schema
 
 import (
 	"errors"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -121,5 +122,63 @@ func TestContentExpectationsBoundSkippedAllTerms(t *testing.T) {
 	}
 	if seen, valid := scratch.AllSeen(299); !valid || seen {
 		t.Fatal("projection changed the unseen child")
+	}
+}
+
+func TestContentExpectationsCopyOnlyTheDisplayedWildcardNamespaces(t *testing.T) {
+	const count = 5000
+	var namespaces strings.Builder
+	for i := count - 1; i >= 0; i-- {
+		namespaces.WriteString(" urn:")
+		namespaces.WriteString(strconv.Itoa(100000 + i))
+	}
+	rt, err := Compile(Options{}, []source.Source{source.Bytes("test.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType><xs:sequence><xs:any namespace="`+namespaces.String()+`"/></xs:sequence></xs:complexType></xs:element></xs:schema>`))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	q, _ := rt.LookupQName("", "root")
+	element, decl, _ := rt.GlobalElement(RuntimeName{Known: true, Name: q, Local: "root"})
+	frame, _ := rt.ElementFrame(decl.Type, element)
+	state := frame.Content.ContentState()
+	scratch := NewContentScratch(nil, 0, 0)
+
+	expected, valid := rt.ExpectedContent(state, &scratch, ExpectedNextChild)
+	wildcard, ok := expected.At(0)
+	if !valid || expected.Len() != 1 || !ok || !wildcard.IsWildcard || !wildcard.MoreNamespaces {
+		t.Fatalf("ExpectedContent() = %+v, valid %v; want one truncated wildcard", expected, valid)
+	}
+	want := []string{"urn:100000", "urn:100001", "urn:100002", "urn:100003", "urn:100004", "urn:100005", "urn:100006", "urn:100007"}
+	if !slices.Equal(wildcard.Namespaces, want) || cap(wildcard.Namespaces) != len(want) {
+		t.Fatalf("wildcard namespaces = %q (cap %d), want %q with no spare capacity", wildcard.Namespaces, cap(wildcard.Namespaces), want)
+	}
+	if allocs := testing.AllocsPerRun(10, func() { rt.ExpectedContent(state, &scratch, ExpectedNextChild) }); allocs != 1 {
+		t.Fatalf("ExpectedContent() over %d namespaces allocated %v times, want 1 copy of the displayed namespaces", count, allocs)
+	}
+}
+
+func TestContentExpectationsListAnAlternativeOnceHoweverManyParticlesRenderIt(t *testing.T) {
+	t.Parallel()
+
+	var projection contentExpectationProjection
+	for range 8 {
+		projection.add(ContentExpectation{IsWildcard: true, WildcardMode: WildcardAny})
+	}
+	projection.add(ContentExpectation{IsWildcard: true, WildcardMode: WildcardTargetNamespace, Namespaces: []string{"urn:t"}})
+	projection.add(ContentExpectation{IsWildcard: true, WildcardMode: WildcardList, Namespaces: []string{"urn:t"}})
+	projection.add(ContentExpectation{Name: ExpandedName{Local: "last"}})
+	projection.add(ContentExpectation{Name: ExpandedName{Local: "last"}})
+
+	got := projection.result()
+	if got.Len() != 3 || got.More {
+		t.Fatalf("result = %+v, want the any wildcard, the urn:t wildcard and last, each once, with nothing more", got)
+	}
+	if first, _ := got.At(0); !first.IsWildcard || first.WildcardMode != WildcardAny {
+		t.Fatalf("first alternative = %+v, want the any wildcard", first)
+	}
+	if second, _ := got.At(1); !second.IsWildcard || !slices.Equal(second.Namespaces, []string{"urn:t"}) {
+		t.Fatalf("second alternative = %+v, want the urn:t wildcard", second)
+	}
+	if third, _ := got.At(2); third.IsWildcard || third.Name.Local != "last" {
+		t.Fatalf("third alternative = %+v, want element last", third)
 	}
 }

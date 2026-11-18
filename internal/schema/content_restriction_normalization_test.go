@@ -350,7 +350,7 @@ func snapshotRestrictionBuild(rt *schemaBuild) restrictionBuildSnapshot {
 		elements:       slices.Clone(rt.Elements),
 		complexTypes:   slices.Clone(rt.ComplexTypes),
 		wildcards:      make([]wildcardRuntime, len(rt.Wildcards)),
-		substitutions:  substitutionTable{spans: slices.Clone(rt.Substitutions.spans), entries: slices.Clone(rt.Substitutions.entries)},
+		substitutions:  substitutionTable{spans: slices.Clone(rt.Substitutions.spans), entries: slices.Clone(rt.Substitutions.entries), byName: slices.Clone(rt.Substitutions.byName)},
 		globalElements: maps.Clone(rt.GlobalElements),
 		globalTypes:    maps.Clone(rt.GlobalTypes),
 	}

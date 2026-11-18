@@ -307,6 +307,22 @@ rules: Unique Particle Attribution, Element Declarations Consistent and
 restriction (content-model analysis); and the XMLSchema-instance target
 namespace of an attribute declaration (chameleon namespace).
 
+Identity-constraint names are one schema-wide symbol space per target
+namespace (Structures §3.11.1). `declareAllIdentityConstraints` declares
+every constraint of every document context by expanded name, rejecting a
+duplicate name, before any component compiles; the compiler's declarations,
+the expanded name of each constraint ID, are the only record of the names
+until they are interned, and compilation only looks them up. A keyref `refer`
+therefore resolves against every name, whichever component holds the keyref or
+the referenced constraint. Declaration interns nothing: a constraint's name is
+interned by `nameIdentityConstraint`, the only writer of the constraint's
+interned name and of the published global identity constraints, when the
+element holding it compiles, or before global elements compile
+(`nameAllIdentityConstraints`), and its selector and field names when it
+compiles. A constraint is named once its interned name is set. Every name therefore takes its name ID in compilation order, which
+is not only a diagnostic concern: the dense DFA index depends on the
+local-name IDs of a content-model row's elements (`addDenseDFAIndexes`).
+
 Each rule has one owner: one function, called at the tag that decides it,
 whose product the tag's typed source record stores and compilation reads. The
 child orders (`childOrderFor`) own where an element may appear; the placement
@@ -328,16 +344,24 @@ which the compiler owns and lends to start-tag admission while the set loads:
 each distinct pattern text is compiled once, at the first facet that names it
 in document load order, and charged against `MaxSchemaPatternRetainedBytes`
 before it is kept, so a breach is reported at that facet's start tag.
-Compilation parses two kinds of admitted value again, and a failure there is
-an internal invariant (`admittedValueInvariant`), not a second schema
-diagnostic. A selector or field path is checked by `admitIdentityXPath`
-without being built and parsed again to intern its name tests, which keeps the
-selector and field nodes' namespace context until then; storing the parsed
-paths was measured to allocate each path twice (see Rejected Alternatives).
-The other attribute values that are single keywords or short lists (booleans,
-`form`, `use`, derivation sets, `processContents`, wildcard namespaces,
+A selector or field path is parsed once, by `admitIdentityXPath` at its start
+tag: prefixes resolve against that tag's namespace scope and an unprefixed
+name test has no namespace whatever the including target namespace. The tag
+owns every syntax and prefix diagnostic of every path, and stores the form of
+each branch with its name tests bound but not interned
+(`identityXPathSyntax`); the parsed document stays immutable. The compiler
+builds the interned paths from it the first time the node compiles
+(`compiler.identityPaths`), after the keyref `refer`, so path names take name
+IDs in compilation order, as every other component name does, and a
+`MaxSchemaNames` breach on a path name is a compile diagnostic at the selector
+or field, after every syntax diagnostic. The compiler keeps the paths once per
+node, so every identity constraint compiled from the node, in each chameleon
+context, shares them; a missing admitted path is an internal invariant. The other
+attribute values that are single keywords or short lists (booleans, `form`,
+`use`, derivation sets, `processContents`, wildcard namespaces,
 `targetNamespace`) stay lexical in the record and are parsed again with the
-same allocation-free parser where compilation uses them.
+same allocation-free parser where compilation uses them; a failure there is an
+internal invariant (`admittedValueInvariant`), not a second schema diagnostic.
 
 `internal/schema`, `internal/value` and `internal/validate` export only
 identifiers consumed outside their package: for schema the published read
@@ -764,6 +788,30 @@ Diagnostics flow:
    keyrefs name their retained target constraint; they never add source IDs or original tuple lexemes
    to document state, and opaque identity keys are never presented as values.
 
+   Name order is computed once by its owner and never by interned name ID.
+   Expanded-name order, namespace URI then local name by text, has one
+   definition (`compareExpandedName` and its namespace key
+   `compareNamespaceURI`): the substitution table keeps each head's members in
+   that order beside its name-ID lookup order, and a published wildcard keeps
+   its namespaces in the namespace-key order. A check that stops
+   at its first failure visits substitution-group members in that order
+   (Element Declarations Consistent, the generated choice of a restriction,
+   the Unique Particle Attribution name), so the failure reported and the work
+   spent before it do not depend on name IDs. The expected-child projection
+   inspects at most 256 alternatives: the edges of the DFA state or the
+   all-group terms in compiled model order, and the substitution members of
+   each element particle in expanded-name order, stopping a head's members at
+   the first that sorts after eight kept element names. It displays at most
+   eight inspected alternatives: wildcards, then element names, each kind in
+   its diagnostic order (`compareContentExpectation`), element names in
+   expanded-name order, each listed once however many particles render it. Wildcards take at most four of the eight
+   while element names remain to show, and at least four while wildcards
+   remain, so neither kind hides the other. A wildcard shows its first eight
+   namespaces. The text therefore never
+   depends on interning order, and it does not depend on the order of
+   declarations unless the 256-alternative limit cuts across the edges of one
+   state, whose compiled order follows element declaration IDs.
+
    `internal/diagnostictext` owns bounded quoting for all these owners.
    Diagnostics never retain borrowed input. `xsderrors` defines absent
    diagnostics and wrapper preservation in its package documentation. Unsupported DTD diagnostics retain the positioned
@@ -1029,17 +1077,27 @@ graph preserves these ownership rules:
   separate constraint from All Group Limited through a group reference, and
   each now has its own owner.
 - Checking the syntax of selector and field paths only when the identity
-  constraint compiles, so that no second parse allocates on a successful
-  compile, was rejected with the tier rule above. The tag checks each path
-  without building it, which allocates nothing, and compilation parses it
-  again to intern its name tests. That second scan is the accepted cost of the
-  tier rule: about 5–9% of compile time on `BenchmarkCompileIdentityPrograms`,
-  whose schemas are mostly selector and field paths, and no significant change
-  on `BenchmarkCompileSourceDocuments/identity_constraints`.
-- Storing the paths the tag parses, with namespace and local-name strings,
-  for compilation to intern was rejected: it allocated the paths twice, once
-  as strings at the tag and once as interned names, raising the allocations of
-  a successful compile by about one per path.
+  constraint compiles was rejected with the tier rule above.
+- Checking each path at its tag without building it and parsing it again at
+  compilation to intern its name tests was rejected: the second scan cost
+  about 5–9% of compile time on `BenchmarkCompileIdentityPrograms` and kept
+  the selector and field nodes' namespace context alive until compilation.
+  Storing complete paths with namespace and local-name strings beside the
+  interned paths was rejected because it allocated each path twice; the tag
+  keeps only each branch's form and one slice of name tests per node, the
+  compiler allocates the interned paths once, and no namespace context is kept
+  for a selector or field (`schemaNodeNeedsDeferredQNameContext`).
+- Interning the name tests into paths stored in the parsed document was
+  rejected: the document is immutable and shared by chameleon views, and a
+  second compiler of the same document would find the first compiler's name
+  IDs there.
+- Interning path names at the start tag was rejected. It gave them name IDs
+  in document load order, ahead of every declaration, and the dense DFA index
+  (`addDenseDFAIndexes`) admits a row only when the local-name IDs of its
+  edges span a narrow range, so a content-model element named in a selector
+  could cost its rows their dense index. It also put a `MaxSchemaNames` breach
+  on one path's name ahead of the syntax and prefix errors of the paths after
+  it.
 - Checking a pattern at its facet's start tag and compiling it again when the
   restriction compiles was rejected: the tag compiled every occurrence of a
   text that the compiler cache would have compiled once, and compiled every
@@ -1122,6 +1180,10 @@ graph preserves these ownership rules:
   `Detached`: no element declaration owns them, publication rejects any other
   unowned constraint, and no instance element evaluates them. Treating the whole subtree as absent was
   rejected: §3.11.2 maps every identity constraint regardless of its parent.
+- Declaring identity constraints as the components holding them compile,
+  with a later pass for the rest, was rejected: types and named groups
+  compiled first, so a keyref in them resolved its `refer` before a constraint
+  on an element was declared and was rejected as unknown.
 - Deferring complex types only when their immediate base is active was
   rejected: intermediate bases still produce false cycles and renaming types
   changes acceptance (see `complexTypeCompletion`).

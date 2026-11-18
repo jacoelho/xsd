@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="r_g"><xs:complexType><xs:attribute name="a" type="xs:string"/></xs:complexType><xs:keyref name="kr" refer="k"><xs:selector xpath="."/><xs:field xpath="@a"/></xs:keyref></xs:element>
+  <xs:element name="k_w"><xs:complexType><xs:sequence><xs:element name="k_e" minOccurs="0"><xs:complexType><xs:attribute name="a" type="xs:string"/></xs:complexType><xs:key name="k"><xs:selector xpath="."/><xs:field xpath="@a"/></xs:key></xs:element></xs:sequence></xs:complexType></xs:element>
+</xs:schema>

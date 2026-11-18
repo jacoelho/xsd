@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"cmp"
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/diagnostictext"
@@ -95,7 +96,12 @@ type ContentExpectation struct {
 }
 
 // ContentExpectations is a bounded error-only projection of the authoritative
-// content state. More means alternatives or traversal work were truncated.
+// content state. It holds the first alternatives in diagnostic order:
+// wildcards, then element names by namespace URI, then local name, each listed
+// once however many particles render it. Wildcards take at most half of the
+// displayed alternatives while element names remain to show, and at least
+// that half while wildcards remain, so neither kind hides the other. More
+// means alternatives or traversal work were truncated.
 type ContentExpectations struct {
 	values [diagnostictext.MaxAlternatives]ContentExpectation
 	count  int
@@ -115,8 +121,71 @@ func (e ContentExpectations) At(i int) (ContentExpectation, bool) {
 
 type contentExpectationProjection struct {
 	schema    *Schema
-	result    ContentExpectations
+	wildcards contentExpectationRanking
+	elements  contentExpectationRanking
 	remaining int
+	more      bool
+}
+
+// contentExpectationRanking keeps the first distinct alternatives of one kind
+// in diagnostic order, enough to fill every displayed slot. Their namespace
+// slices borrow published wildcard state until result copies them.
+type contentExpectationRanking struct {
+	values  [diagnostictext.MaxAlternatives]ContentExpectation
+	count   int
+	dropped bool
+}
+
+// insert keeps item unless an alternative that renders the same is kept or
+// the ranking is full of alternatives that precede it. The ranking therefore
+// does not depend on traversal order once every alternative is inspected.
+func (r *contentExpectationRanking) insert(item ContentExpectation) {
+	at := r.count
+	for ; at > 0; at-- {
+		order := compareContentExpectation(item, r.values[at-1])
+		if order == 0 {
+			return
+		}
+		if order > 0 {
+			break
+		}
+	}
+	if r.count == len(r.values) {
+		r.dropped = true
+		if at == r.count {
+			return
+		}
+		r.count--
+	}
+	copy(r.values[at+1:r.count+1], r.values[at:r.count])
+	r.values[at] = item
+	r.count++
+}
+
+// sortsAfterFull reports whether the ranking is full and item sorts after
+// every alternative it keeps, so insert would drop it.
+func (r *contentExpectationRanking) sortsAfterFull(item ContentExpectation) bool {
+	return r.count == len(r.values) && compareContentExpectation(item, r.values[r.count-1]) > 0
+}
+
+// result applies the display rule of ContentExpectations to the rankings.
+func (p *contentExpectationProjection) result() ContentExpectations {
+	const slots = diagnostictext.MaxAlternatives
+	wildcards := min(p.wildcards.count, max(slots/2, slots-p.elements.count))
+	elements := min(p.elements.count, slots-wildcards)
+	out := ContentExpectations{
+		More: p.more || p.wildcards.dropped || p.elements.dropped || wildcards < p.wildcards.count || elements < p.elements.count,
+	}
+	for _, item := range p.wildcards.values[:wildcards] {
+		item.Namespaces = slices.Clone(item.Namespaces)
+		out.values[out.count] = item
+		out.count++
+	}
+	for _, item := range p.elements.values[:elements] {
+		out.values[out.count] = item
+		out.count++
+	}
+	return out
 }
 
 // contentExpectationPurpose selects the failure being explained.
@@ -148,7 +217,7 @@ func (rt *Schema) ExpectedContent(state ContentState, scratch *ContentScratch, p
 		return result, true
 	case compiledModelAny:
 		projection.add(ContentExpectation{IsWildcard: true, WildcardMode: WildcardAny})
-		return projection.result, true
+		return projection.result(), true
 	case compiledModelAll:
 		valid = projection.allContent(model, scratch, purpose)
 	case compiledModelDFA:
@@ -159,12 +228,12 @@ func (rt *Schema) ExpectedContent(state ContentState, scratch *ContentScratch, p
 	if !valid {
 		return result, false
 	}
-	return projection.result, true
+	return projection.result(), true
 }
 
 func (p *contentExpectationProjection) allContent(model *compiledModelRead, scratch *ContentScratch, purpose contentExpectationPurpose) bool {
 	for index, term := range model.All {
-		if p.result.More || !p.spend() {
+		if !p.spend() {
 			return true
 		}
 		if !p.allTerm(term, index, scratch, purpose) {
@@ -190,7 +259,7 @@ func (p *contentExpectationProjection) dfaContent(state ContentState, model *com
 		return false
 	}
 	for _, edge := range model.Rows[state.state].Edges {
-		if p.result.More || !p.spend() {
+		if !p.spend() {
 			return true
 		}
 		if !p.dfaEdge(state, model, edge) {
@@ -212,25 +281,55 @@ func (p *contentExpectationProjection) dfaEdge(state ContentState, model *compil
 
 func (p *contentExpectationProjection) spend() bool {
 	if p.remaining == 0 {
-		p.result.More = true
+		p.more = true
 		return false
 	}
 	p.remaining--
 	return true
 }
+
+// add ranks item among the alternatives of its kind. item.Namespaces may
+// borrow published wildcard state: only displayed alternatives are copied.
 func (p *contentExpectationProjection) add(item ContentExpectation) {
-	for i := range p.result.count {
-		if !item.IsWildcard && !p.result.values[i].IsWildcard && item.Name == p.result.values[i].Name {
-			return
-		}
-	}
-	if p.result.count == len(p.result.values) {
-		p.result.More = true
+	if item.IsWildcard {
+		p.wildcards.insert(item)
 		return
 	}
-	p.result.values[p.result.count] = item
-	p.result.count++
+	p.elements.insert(item)
 }
+
+// compareContentExpectation orders alternatives of one kind, the kind each
+// contentExpectationRanking holds; result lists wildcards before element names.
+func compareContentExpectation(a, b ContentExpectation) int {
+	return cmp.Or(
+		compareExpandedName(a.Name, b.Name),
+		cmp.Compare(wildcardRendering(a.WildcardMode), wildcardRendering(b.WildcardMode)),
+		compareNamespaceURI(a.ExcludedNamespace, b.ExcludedNamespace),
+		slices.CompareFunc(a.Namespaces, b.Namespaces, compareNamespaceURI),
+		compareFalseFirst(a.MoreNamespaces, b.MoreNamespaces),
+	)
+}
+
+// wildcardRendering maps a wildcard mode to the modes rendered alike: a
+// target-namespace wildcard is listed as the namespace list it holds.
+func wildcardRendering(mode wildcardMode) wildcardMode {
+	if mode == WildcardTargetNamespace {
+		return WildcardList
+	}
+	return mode
+}
+
+func compareFalseFirst(a, b bool) int {
+	switch {
+	case a == b:
+		return 0
+	case a:
+		return 1
+	default:
+		return -1
+	}
+}
+
 func (p *contentExpectationProjection) particle(particle compiledParticleRead) bool {
 	switch particle.Kind {
 	case particleElement:
@@ -244,7 +343,7 @@ func (p *contentExpectationProjection) particle(particle compiledParticleRead) b
 			return false
 		}
 		count := min(len(wildcard.namespaces), diagnostictext.MaxAlternatives)
-		p.add(ContentExpectation{IsWildcard: true, WildcardMode: wildcard.mode, ExcludedNamespace: wildcard.otherThan, Namespaces: slices.Clone(wildcard.namespaces[:count]), MoreNamespaces: count < len(wildcard.namespaces)})
+		p.add(ContentExpectation{IsWildcard: true, WildcardMode: wildcard.mode, ExcludedNamespace: wildcard.otherThan, Namespaces: wildcard.namespaces[:count], MoreNamespaces: count < len(wildcard.namespaces)})
 		return true
 	case particleModel:
 		return false
@@ -275,22 +374,31 @@ func (p *contentExpectationProjection) namedElement(name QName) bool {
 	return true
 }
 
+// substitutionMembers adds the effective members of head id in expanded-name
+// order. Once the element ranking is full and a member sorts after every kept
+// element, so does each member after it: the ranking is marked as having
+// dropped alternatives and the rest of the head is not inspected.
 func (p *contentExpectationProjection) substitutionMembers(id ElementID) bool {
-	table := p.schema.program.Substitutions
-	span, valid := table.span(id)
-	if !valid {
-		return true
-	}
-	for _, entry := range table.entries[span.start : span.start+span.count] {
-		if p.result.More || !p.spend() {
-			return true
-		}
-		if !entry.effective {
-			continue
-		}
-		if !p.namedElement(entry.name) {
+	valid := true
+	p.schema.program.Substitutions.forEachEntryByName(id, func(entry substitutionEntry) bool {
+		if !p.spend() {
 			return false
 		}
-	}
-	return true
+		if !entry.effective {
+			return true
+		}
+		name, ok := p.schema.diagnosticName(entry.name)
+		if !ok {
+			valid = false
+			return false
+		}
+		item := ContentExpectation{Name: name}
+		if p.elements.sortsAfterFull(item) {
+			p.elements.dropped = true
+			return false
+		}
+		p.add(item)
+		return true
+	})
+	return valid
 }

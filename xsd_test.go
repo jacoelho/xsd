@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -112,7 +113,7 @@ func TestConfiguredMaxFiniteOccursIsDecidedAtTheParticleStartTag(t *testing.T) {
 	}
 }
 
-func TestNameLimitWhileInterningIdentityXPathIsASchemaLimit(t *testing.T) {
+func TestNameLimitBreachOnAnXPathNameIsASchemaLimitAtItsSelectorOrFieldWhenTheConstraintCompiles(t *testing.T) {
 	t.Parallel()
 
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:only-in-xpath">
@@ -123,15 +124,73 @@ func TestNameLimitWhileInterningIdentityXPathIsASchemaLimit(t *testing.T) {
     </xs:key>
   </xs:element>
 </xs:schema>`
+	type location struct{ line, column int }
+	var located []location
 	for limit := 1; ; limit++ {
 		_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaNames: limit}, xsd.Bytes("schema.xsd", []byte(schema)))
 		if err == nil {
-			return
+			break
 		}
-		expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 		if limit > 10_000 {
 			t.Fatalf("CompileWithOptions(MaxSchemaNames: %d) error = %v, want success below 10000 names", limit, err)
 		}
+		expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
+		d, _ := errors.AsType[*xsderrors.Error](err)
+		if d.Line() != 0 {
+			located = append(located, location{d.Line(), d.Column()})
+		}
+	}
+	key, selector, field := location{3, 5}, location{4, 7}, location{5, 7}
+	want := []location{key, selector, selector, field, field}
+	if len(located) < len(want) || !slices.Equal(located[len(located)-len(want):], want) {
+		t.Fatalf("located name-limit breaches in increasing limit order = %v, want them to end with the xs:key name (%v), then the xs:selector (%v) for its two new names, then the xs:field (%v) for its two", located, key, selector, field)
+	}
+}
+
+func TestIdentityXPathSyntaxErrorTakesPrecedenceOverANameLimitBreachOnAnyPathName(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		name, selector, field string
+		want                  xsderrors.Code
+	}{
+		{name: "field attribute after invalid element path", selector: `xpath="."`, field: `xmlns:p="urn:new" xpath="a[1]/@p:x"`, want: xsderrors.CodeSchemaIdentity},
+		{name: "selector predicate after new name", selector: `xmlns:p="urn:new" xpath="p:a/b[1]"`, field: `xpath="@id"`, want: xsderrors.CodeSchemaIdentity},
+		{name: "selector invalid axis after new name", selector: `xmlns:p="urn:new" xpath="p:a/child::"`, field: `xpath="@id"`, want: xsderrors.CodeSchemaIdentity},
+		{name: "selector branch after a branch with a new name", selector: `xmlns:p="urn:new" xpath="p:a | b[1]"`, field: `xpath="@id"`, want: xsderrors.CodeSchemaIdentity},
+		{name: "unbound prefix in a selector branch after a branch with a new name", selector: `xmlns:p="urn:new" xpath="p:a | q:b"`, field: `xpath="@id"`, want: xsderrors.CodeSchemaReference},
+		{name: "field after a selector with a new name", selector: `xmlns:p="urn:new" xpath="p:a"`, field: `xpath="b[1]"`, want: xsderrors.CodeSchemaIdentity},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="r">
+    <xs:key name="k">
+      <xs:selector ` + tt.selector + `/>
+      <xs:field ` + tt.field + `/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`
+			reachedXPath := false
+			for limit := 1; limit <= 1_000; limit++ {
+				_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaNames: limit}, xsd.Bytes("schema.xsd", []byte(schema)))
+				d, ok := errors.AsType[*xsderrors.Error](err)
+				if !ok {
+					t.Fatalf("CompileWithOptions(MaxSchemaNames: %d) error = %v, want a diagnostic", limit, err)
+				}
+				if d.Line() != 4 && d.Line() != 5 {
+					continue
+				}
+				reachedXPath = true
+				if d.Category() != xsderrors.CategorySchemaCompile || d.Code() != tt.want {
+					t.Fatalf("CompileWithOptions(MaxSchemaNames: %d) error = %v, want %s for the invalid XPath", limit, err, tt.want)
+				}
+			}
+			if !reachedXPath {
+				t.Fatal("no name limit up to 1000 reached the xs:selector or xs:field start tag")
+			}
+		})
 	}
 }
 

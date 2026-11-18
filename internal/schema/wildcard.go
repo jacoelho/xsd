@@ -49,7 +49,8 @@ func wildcardByID(wildcards []wildcardRuntime, id WildcardID) (wildcardRuntime, 
 	return cloneWildcard(wildcards[id]), true
 }
 
-// WildcardView is a read-only validation view over a frozen wildcard.
+// WildcardView is a read-only validation view over a frozen wildcard. Its
+// namespaces are in text order, the order diagnostics list them in.
 type WildcardView struct {
 	otherThan  string
 	namespaces []string
@@ -103,6 +104,7 @@ func newFiniteWildcardView(view WildcardView, names *nameTable, namespaces []nam
 		}
 		view.namespaces[i] = names.Namespace(ns)
 	}
+	sortNamespaceURIs(view.namespaces)
 	return view
 }
 

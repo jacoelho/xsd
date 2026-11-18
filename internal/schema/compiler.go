@@ -140,10 +140,20 @@ type compilerIndexState struct {
 }
 
 type compilerBuildState struct {
-	attrGroupDone             map[QName]attributeUseSetID
-	localDone                 map[schemaNodeKey]ElementID
-	identityDeclared          map[schemaNodeKey]IdentityConstraintID
-	identitySources           []*schemaNode
+	attrGroupDone    map[QName]attributeUseSetID
+	localDone        map[schemaNodeKey]ElementID
+	identityDeclared map[schemaNodeKey]IdentityConstraintID
+	identitySources  []*schemaNode
+	// identityPathsByNode holds the interned paths of each compiled identity
+	// constraint node, keyed without a document context; see identityPaths.
+	identityPathsByNode map[schemaNodeKey]identityConstraintPaths
+	// identityDeclarations is the expanded name of every identity constraint
+	// declareAllIdentityConstraints declares, by ID, so a keyref refer
+	// resolves before the referenced constraint's name is interned
+	// (nameIdentityConstraint). identityNames indexes it by name; reserveIdentity
+	// writes both.
+	identityDeclarations      []ExpandedName
+	identityNames             map[ExpandedName]IdentityConstraintID
 	complexDefinitions        []complexTypeDefinition
 	pendingElementConstraints []pendingElementConstraint
 	unionMemberEntries        int
@@ -273,6 +283,9 @@ func newCompiler(limits Limits) (*compiler, error) {
 }
 
 func (c *compiler) compileGlobals() error {
+	if err := c.declareAllIdentityConstraints(); err != nil {
+		return err
+	}
 	if err := c.compileGlobalTypes(); err != nil {
 		return err
 	}
@@ -315,7 +328,7 @@ func (c *compiler) compileGlobalAttributeAndModelGroups() error {
 			return err
 		}
 	}
-	return c.declareAllIdentityConstraints()
+	return c.nameAllIdentityConstraints()
 }
 
 func (c *compiler) compileGlobalElements() error {

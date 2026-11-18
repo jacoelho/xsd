@@ -4,6 +4,7 @@ import (
 	"errors"
 	"maps"
 	"slices"
+	"strings"
 
 	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/vocab"
@@ -29,9 +30,57 @@ type ExpandedName struct {
 type nameTable struct {
 	nsIndex    map[string]namespaceID
 	localIndex map[string]localNameID
+	// arena holds the bytes of the names this table copied. Copies of the
+	// table share it, so every copy appends to the same unwritten tail.
+	arena      *nameArena
 	namespaces []string
 	locals     []string
 	maxNames   int
+}
+
+// nameArenaChunk is the size of a full nameArena chunk. A name longer than a
+// quarter chunk gets its own allocation, so at most a quarter chunk is left
+// unused when a chunk is replaced. The first chunk is nameArenaFirstChunk
+// bytes, which holds the names every runtime name table is seeded with
+// (newRuntimeNameTable), and each next chunk doubles up to a full one, so a
+// schema with few names does not pay for a full chunk.
+const (
+	nameArenaChunk      = 4096
+	nameArenaFirstChunk = 512
+)
+
+// nameArena stores the bytes of copied names in chunks, one allocation per
+// chunk instead of one per name. Each chunk is a strings.Builder grown once to
+// its capacity, so writing a name never moves the bytes of names already
+// stored, and each name is a substring of the chunk's String. A nameArena
+// holds a strings.Builder, so it is used through one pointer.
+type nameArena struct {
+	chunk strings.Builder
+}
+
+func newNameArena() *nameArena {
+	return new(nameArena)
+}
+
+// store returns a copy of name that shares no memory with name.
+func (a *nameArena) store(name string) string {
+	if name == "" {
+		return ""
+	}
+	if len(name) > nameArenaChunk/4 {
+		return strings.Clone(name)
+	}
+	if a.chunk.Cap()-a.chunk.Len() < len(name) {
+		size := nameArenaFirstChunk
+		if a.chunk.Cap() > 0 {
+			size = min(2*a.chunk.Cap(), nameArenaChunk)
+		}
+		a.chunk = strings.Builder{}
+		a.chunk.Grow(max(size, len(name)))
+	}
+	start := a.chunk.Len()
+	a.chunk.WriteString(name)
+	return a.chunk.String()[start:]
 }
 
 // nameReadView is a validation view over frozen runtime names.
@@ -304,7 +353,11 @@ func (n *nameTable) Format(q QName) string {
 	return diagnostictext.ExpandedName(n.Namespace(q.Namespace), n.Local(q.Local))
 }
 
-// nameInterner interns names into a nameTable.
+// nameInterner interns names into a nameTable. A name the table does not hold
+// yet is copied into the table's nameArena before it is stored: callers pass
+// substrings of attribute values and XPath expressions, and the table outlives
+// them, so storing the substring would retain the whole source string for the
+// life of the engine. A name the table already holds is found without copying.
 type nameInterner struct {
 	table *nameTable
 }
@@ -312,6 +365,14 @@ type nameInterner struct {
 // newNameInterner returns an interner that writes to table.
 func newNameInterner(table *nameTable) nameInterner {
 	return nameInterner{table: table}
+}
+
+// own returns the string the table stores for a name it does not hold yet.
+func (n nameInterner) own(name string) string {
+	if n.table.arena == nil {
+		n.table.arena = newNameArena()
+	}
+	return n.table.arena.store(name)
 }
 
 // InternNamespace interns uri and returns its namespace ID.
@@ -327,6 +388,7 @@ func (n nameInterner) InternNamespace(uri string) (namespaceID, error) {
 	if err != nil {
 		return 0, err
 	}
+	uri = n.own(uri)
 	table.namespaces = append(table.namespaces, uri)
 	table.nsIndex[uri] = id
 	return id, nil
@@ -353,6 +415,7 @@ func (n nameInterner) InternQName(ns, local string) (QName, error) {
 			return QName{}, err
 		}
 		nsID = next
+		ns = n.own(ns)
 		table.namespaces = append(table.namespaces, ns)
 		table.nsIndex[ns] = nsID
 	}
@@ -362,6 +425,7 @@ func (n nameInterner) InternQName(ns, local string) (QName, error) {
 			return QName{}, err
 		}
 		localID = next
+		local = n.own(local)
 		table.locals = append(table.locals, local)
 		table.localIndex[local] = localID
 	}

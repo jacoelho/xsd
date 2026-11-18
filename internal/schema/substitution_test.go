@@ -2,10 +2,13 @@ package schema
 
 import (
 	"errors"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 func TestBuildSubstitutionTableBuildsSortedRawAndEffectiveEntries(t *testing.T) {
@@ -36,10 +39,10 @@ func TestBuildSubstitutionTableBuildsSortedRawAndEffectiveEntries(t *testing.T) 
 	})
 	wantRaw := []ElementID{1, 2}
 	slices.SortFunc(wantRaw, func(a, b ElementID) int {
-		return compareQName(elements[a].Name, elements[b].Name)
+		return compareQNameText(&names, elements[a].Name, elements[b].Name)
 	})
 	if !slices.Equal(raw, wantRaw) {
-		t.Fatalf("raw members = %v, want QName-sorted %v", raw, wantRaw)
+		t.Fatalf("raw members = %v, want expanded-name order %v", raw, wantRaw)
 	}
 	var effective []ElementID
 	table.ForEachEntry(0, func(_ QName, member ElementID) bool {
@@ -73,6 +76,54 @@ func TestBuildSubstitutionTableBuildsSortedRawAndEffectiveEntries(t *testing.T) 
 		transition, status := published.NextContent(ContentState{model: excluded.model, present: true}, ContentInput{Name: RuntimeName{Known: true, Name: excluded.name}}, &ContentScratch{})
 		if status != ContentTransitionNoMatch || transition.IsPlanned() {
 			t.Fatalf("NextContent admitted an excluded substitution: %+v/%v", transition, status)
+		}
+	}
+}
+
+func TestSubstitutionMembersOfEveryHeadIterateInExpandedNameOrderWhateverTheNameIDs(t *testing.T) {
+	t.Parallel()
+
+	interned := []ExpandedName{
+		{Namespace: "urn:b", Local: "a"},
+		{Namespace: "urn:a", Local: "z"},
+		{Namespace: "urn:a", Local: "m"},
+		{Namespace: "", Local: "y"},
+		{Namespace: "urn:a", Local: "b"},
+		{Namespace: "", Local: "x"},
+	}
+	names, err := newNameTable(16, []string{EmptyNamespaceURI, "urn:a", "urn:b"}, interned)
+	if err != nil {
+		t.Fatalf("newNameTable() error = %v", err)
+	}
+	qname := func(n ExpandedName) QName {
+		q, ok := names.LookupQName(n.Namespace, n.Local)
+		if !ok {
+			t.Fatalf("missing QName for %v", n)
+		}
+		return q
+	}
+	heads := []ElementID{NoElement, 0, 1, 0, 1, 3}
+	elements := make([]elementDecl, len(interned))
+	for i, name := range interned {
+		elements[i] = elementDecl{Name: qname(name), Type: ComplexRef(0), SubstHead: heads[i]}
+	}
+	rt := derivationFixture{anyType: 0, complex: []complexTypeDerivation{{Kind: derivationKindNone}}}
+	table, err := buildSubstitutionTable(rt.build(), &names, elements, substitutionGlobals(elements), 16, unboundedTypeDerivationWork)
+	if err != nil {
+		t.Fatalf("buildSubstitutionTable() error = %v", err)
+	}
+	for head, want := range map[ElementID][]ElementID{
+		0: {5, 3, 4, 2, 1},
+		1: {4, 2},
+		3: {5},
+	} {
+		var got []ElementID
+		table.ForEachMember(head, func(member ElementID) bool {
+			got = append(got, member)
+			return true
+		})
+		if !slices.Equal(got, want) {
+			t.Fatalf("ForEachMember(%d) = %v, want %v", head, got, want)
 		}
 	}
 }
@@ -278,10 +329,11 @@ func TestBuildSubstitutionTableDetectsDeepCycleWithoutRecursion(t *testing.T) {
 func TestNewSchemaRuntimeSharesImmutableSubstitutionTable(t *testing.T) {
 	t.Parallel()
 
-	table := substitutionTable{
-		spans:   []substitutionSpan{{start: 0, count: 1}, {start: 1}},
-		entries: []substitutionEntry{{name: QName{Local: 1}, member: 1, effective: true}},
-	}
+	table := newSubstitutionTable(
+		[]substitutionSpan{{start: 0, count: 1}, {start: 1}},
+		[]substitutionEntry{{name: QName{Local: 1}, member: 1, effective: true}},
+		compareQName,
+	)
 	build := schemaBuild{
 		Substitutions:  table,
 		ComplexTypes:   []complexTypeMetadata{{Derivation: derivationKindNone}},
@@ -299,10 +351,11 @@ func TestNewSchemaRuntimeSharesImmutableSubstitutionTable(t *testing.T) {
 func TestSubstitutionTableSkipsValidatedEmptySpan(t *testing.T) {
 	t.Parallel()
 
-	table := substitutionTable{
-		spans:   []substitutionSpan{{start: 0, count: 0}},
-		entries: []substitutionEntry{{member: 1}},
-	}
+	table := newSubstitutionTable(
+		[]substitutionSpan{{start: 0, count: 0}},
+		[]substitutionEntry{{member: 1}},
+		compareQName,
+	)
 	called := false
 	table.ForEachMember(0, func(ElementID) bool {
 		called = true
@@ -428,7 +481,8 @@ func fixtureSubstitutions(names []elementDecl, raw map[ElementID][]ElementID, ef
 	for id := range effective {
 		count = max(count, int(id)+1)
 	}
-	table := substitutionTable{spans: make([]substitutionSpan, count)}
+	spans := make([]substitutionSpan, count)
+	var all []substitutionEntry
 	for head := range count {
 		entries := make(map[ElementID]substitutionEntry)
 		for _, id := range raw[ElementID(head)] {
@@ -441,14 +495,69 @@ func fixtureSubstitutions(names []elementDecl, raw map[ElementID][]ElementID, ef
 		for name, id := range effective[ElementID(head)] {
 			entries[id] = substitutionEntry{name: name, member: id, effective: true}
 		}
-		span := substitutionSpan{start: len(table.entries), count: len(entries)}
-		ordered := make([]substitutionEntry, 0, len(entries))
+		spans[head] = substitutionSpan{start: len(all), count: len(entries)}
 		for _, entry := range entries {
-			ordered = append(ordered, entry)
+			all = append(all, entry)
 		}
-		slices.SortFunc(ordered, func(a, b substitutionEntry) int { return compareQName(a.name, b.name) })
-		table.entries = append(table.entries, ordered...)
-		table.spans[head] = span
 	}
-	return table
+	return newSubstitutionTable(spans, all, compareQName)
+}
+
+func TestSchemaPublicationRejectsASubstitutionNameOrderThatIsNotAPermutationOfEachSpan(t *testing.T) {
+	t.Parallel()
+
+	spans := []substitutionSpan{{start: 0, count: 3}, {start: 3, count: 2}}
+	entries := make([]substitutionEntry, 5)
+	for _, tt := range []struct {
+		name   string
+		spans  []substitutionSpan
+		byName []uint32
+	}{
+		{name: "missing", spans: spans},
+		{name: "short", spans: spans, byName: []uint32{2, 0, 1, 4}},
+		{name: "long", spans: spans, byName: []uint32{2, 0, 1, 4, 3, 0}},
+		{name: "repeated position", spans: spans, byName: []uint32{2, 0, 2, 4, 3}},
+		{name: "position of another span", spans: spans, byName: []uint32{2, 0, 3, 4, 1}},
+		{name: "position past the entries", spans: spans, byName: []uint32{2, 0, 1, 4, 5}},
+		{name: "span past the entries", spans: []substitutionSpan{{start: 3, count: 3}}, byName: []uint32{0, 1, 2, 3, 4}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			build := schemaBuild{Substitutions: substitutionTable{spans: tt.spans, entries: entries, byName: slices.Clone(tt.byName)}}
+			expectDiagnostic(t, validateSchemaBuildIDDomain(&build), xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+			if !slices.Equal(build.Substitutions.byName, tt.byName) {
+				t.Fatalf("name order after the audit = %v, want it unchanged, %v", build.Substitutions.byName, tt.byName)
+			}
+		})
+	}
+}
+
+func TestSchemaPublicationAcceptsAndKeepsASubstitutionNameOrderThatPermutesEachSpan(t *testing.T) {
+	byName := []uint32{2, 0, 1, 4, 3}
+	build := schemaBuild{Substitutions: substitutionTable{
+		spans:   []substitutionSpan{{start: 0, count: 3}, {start: 3, count: 2}, {start: 5}},
+		entries: make([]substitutionEntry, 5),
+		byName:  slices.Clone(byName),
+	}}
+	if err := validateSchemaBuildIDDomain(&build); err != nil {
+		t.Fatalf("validateSchemaBuildIDDomain() error = %v", err)
+	}
+	if !slices.Equal(build.Substitutions.byName, byName) {
+		t.Fatalf("name order after the audit = %v, want it unchanged, %v", build.Substitutions.byName, byName)
+	}
+}
+
+func TestSubstitutionClosureLimitNeverExceedsTheEntriesAPositionCanAddress(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct{ configured, want int }{
+		{configured: 0, want: 0},
+		{configured: 4950, want: 4950},
+		{configured: math.MaxUint32, want: math.MaxUint32},
+		{configured: math.MaxInt, want: math.MaxUint32},
+	} {
+		if got := substitutionClosureLimit(tt.configured); got != tt.want {
+			t.Fatalf("substitutionClosureLimit(%d) = %d, want %d", tt.configured, got, tt.want)
+		}
+	}
 }

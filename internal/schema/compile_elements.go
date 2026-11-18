@@ -47,7 +47,7 @@ func (c *compiler) compileAbsentElement(ctx *schemaSetDocument, n *schemaNode) e
 		}
 	}
 	identityNodes := identityConstraintNodes(n)
-	identityIDs, err := c.declareIdentityConstraints(ctx, identityNodes)
+	identityIDs, err := c.declaredIdentityConstraints(ctx, identityNodes)
 	if err != nil {
 		return err
 	}
@@ -155,7 +155,7 @@ type pendingElementConstraint struct {
 
 func (c *compiler) compileElementDecl(ctx *schemaSetDocument, n *schemaNode, q QName) (elementDecl, *valueConstraint, error) {
 	identityNodes := identityConstraintNodes(n)
-	identityIDs, err := c.declareIdentityConstraints(ctx, identityNodes)
+	identityIDs, err := c.declaredIdentityConstraints(ctx, identityNodes)
 	if err != nil {
 		return elementDecl{}, nil, err
 	}

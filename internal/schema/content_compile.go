@@ -334,6 +334,10 @@ func (c *elementDeclarationConsistencyChecker) collectParticle(declarations *ele
 	return nil
 }
 
+// collectElementParticle collects element and the members of its actual
+// substitution group in expanded-name order (substitutionTable.ForEachMember),
+// so the first conflict found, and the work spent before it, do not depend on
+// the order names were interned.
 func (c *elementDeclarationConsistencyChecker) collectElementParticle(declarations *elementDeclarationSet, element ElementID) error {
 	if err := c.collectElementDeclaration(declarations, element); err != nil {
 		return err

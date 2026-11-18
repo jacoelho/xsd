@@ -2,8 +2,12 @@ package schema
 
 import (
 	"errors"
+	"fmt"
+	"slices"
 	"strconv"
+	"strings"
 	"testing"
+	"unsafe"
 )
 
 func TestNameIDAllocatorsReserveAbsentSentinel(t *testing.T) {
@@ -202,5 +206,115 @@ func TestNameTableCloneDoesNotAlias(t *testing.T) {
 	}
 	if _, ok := clone.LookupQName("urn:new", "new"); ok {
 		t.Fatal("clone observed name interned after clone")
+	}
+}
+
+func TestInternedNamesDoNotRetainTheirSourceString(t *testing.T) {
+	names, err := newRuntimeNameTable(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const source = `p:row | .//urn:only-in-this-attribute/cell`
+	within := func(s string) bool {
+		start := uintptr(unsafe.Pointer(unsafe.StringData(source))) //nolint:gosec // Compares string backing addresses only; nothing is dereferenced.
+		at := uintptr(unsafe.Pointer(unsafe.StringData(s)))         //nolint:gosec // Compares string backing addresses only; nothing is dereferenced.
+		return at >= start && at < start+uintptr(len(source))
+	}
+	namespace := source[strings.Index(source, "urn:"):strings.LastIndex(source, "/")]
+	local := source[strings.LastIndex(source, "/")+1:]
+	interner := newNameInterner(&names)
+	q, err := interner.InternQName(namespace, local)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotNS, gotLocal := names.Namespace(q.Namespace), names.Local(q.Local); within(gotNS) || within(gotLocal) || gotNS != "urn:only-in-this-attribute" || gotLocal != "cell" {
+		t.Fatalf("interned {%s}%s shares the backing array of its source string", gotNS, gotLocal)
+	}
+	id, err := interner.InternNamespace(source[2:5])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ns := names.Namespace(id); within(ns) || ns != "row" {
+		t.Fatalf("interned namespace %q shares the backing array of its source string", ns)
+	}
+	if allocs := testing.AllocsPerRun(10, func() {
+		if _, err := interner.InternQName(namespace, local); err != nil {
+			t.Fatal(err)
+		}
+	}); allocs != 0 {
+		t.Fatalf("interning a held name allocated %v times, want 0", allocs)
+	}
+}
+
+func TestInterningDistinctShortNamesAllocatesFarFewerTimesThanThereAreNames(t *testing.T) {
+	const count = 10_000
+	source := make([]string, count)
+	for i := range source {
+		source[i] = fmt.Sprintf("name-%07d", i)
+	}
+	var last QName
+	allocs := testing.AllocsPerRun(3, func() {
+		names, err := newBoundedNameTable(0, nil, nil, 1, count)
+		if err != nil {
+			t.Fatal(err)
+		}
+		interner := newNameInterner(&names)
+		for _, local := range source {
+			if last, err = interner.InternQName("", local); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if got := names.Local(last.Local); got != source[count-1] {
+			t.Fatalf("last interned local name = %q, want %q", got, source[count-1])
+		}
+	})
+	if limit := float64(count/16 + 8); allocs > limit {
+		t.Fatalf("interning %d distinct short names into a fresh table allocated %v times, want at most %v", count, allocs, limit)
+	}
+}
+
+func TestNameArenaStoresAnyNameUpToAQuarterChunkWithAtMostOneAllocation(t *testing.T) {
+	for length := 1; length <= nameArenaChunk/4; length++ {
+		name := strings.Repeat("n", length)
+		var stored string
+		allocs := testing.AllocsPerRun(5, func() {
+			stored = newNameArena().store(name)
+		})
+		if allocs > 2 {
+			t.Fatalf("a fresh arena storing a %d-byte name allocated %v times, want the arena and at most one chunk", length, allocs)
+		}
+		if stored != name {
+			t.Fatalf("stored %d-byte name = %q, want %q", length, stored, name)
+		}
+	}
+}
+
+func TestNamespaceURISortFollowsTheExpandedNameNamespaceOrder(t *testing.T) {
+	t.Parallel()
+
+	uris := []string{"urn:b", "", "urn:a", "http://example.com/", "urn:a:b", "URN:A"}
+	sortNamespaceURIs(uris)
+	if !slices.IsSortedFunc(uris, compareNamespaceURI) {
+		t.Fatalf("sortNamespaceURIs() = %q, not in compareNamespaceURI order", uris)
+	}
+}
+
+func TestTheRuntimeNameSeedFitsTheFirstArenaChunk(t *testing.T) {
+	t.Parallel()
+
+	stored := make(map[string]bool)
+	for _, ns := range requiredRuntimeNamespaces {
+		stored[ns] = true
+	}
+	for _, name := range requiredRuntimeNames {
+		stored[name.Namespace] = true
+		stored[name.Local] = true
+	}
+	bytes := 0
+	for name := range stored {
+		bytes += len(name)
+	}
+	if bytes > nameArenaFirstChunk {
+		t.Fatalf("the runtime name seed stores %d bytes of names, more than the first arena chunk, %d", bytes, nameArenaFirstChunk)
 	}
 }

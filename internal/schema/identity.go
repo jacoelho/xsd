@@ -21,29 +21,45 @@ func identityConstraintKindForLocal(local string) (IdentityKind, error) {
 	}
 }
 
-// checkIdentityConstraintNameAvailable rejects duplicate global identity
-// constraint names.
-func checkIdentityConstraintNameAvailable(
-	identities map[QName]IdentityConstraintID,
-	name QName,
-	label string,
-) error {
-	if _, exists := identities[name]; exists {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate identity constraint "+label)
+// newDeclaredIdentityConstraint returns the placeholder of a declared
+// identity constraint: unnamed until nameIdentityConstraint interns its name,
+// and without paths until it compiles.
+func newDeclaredIdentityConstraint() identityConstraintSpec {
+	return identityConstraintSpec{Name: noQName(), Refer: NoIdentityConstraint}
+}
+
+// newIdentityConstraint builds an identity constraint over selector and
+// fields without copying them, so the constraints compiled from one node in
+// several document contexts share the paths compiler.identityPaths keeps for
+// that node.
+func newIdentityConstraint(kind IdentityKind, name QName, refer IdentityConstraintID, selector []identityPath, fields []identityField) identityConstraintSpec {
+	if kind != IdentityKeyRef {
+		refer = NoIdentityConstraint
+	}
+	return identityConstraintSpec{
+		Selector: selector,
+		Fields:   fields,
+		Name:     name,
+		Refer:    refer,
+		Kind:     kind,
+	}
+}
+
+// checkIdentityConstraintNameAvailable rejects name if an identity
+// constraint is already declared with it.
+func (c *compiler) checkIdentityConstraintNameAvailable(name ExpandedName) error {
+	if _, exists := c.identityNames[name]; exists {
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate identity constraint "+diagnostictext.ExpandedName(name.Namespace, name.Local))
 	}
 	return nil
 }
 
-// resolveIdentityConstraintRefer resolves a keyref refer name against declared
-// global identity constraints.
-func resolveIdentityConstraintRefer(
-	identities map[QName]IdentityConstraintID,
-	name QName,
-	label string,
-) (IdentityConstraintID, error) {
-	id, exists := identities[name]
+// resolveIdentityConstraintRefer resolves the keyref refer q against every
+// declared identity constraint, named or not.
+func (c *compiler) resolveIdentityConstraintRefer(q QName) (IdentityConstraintID, error) {
+	id, exists := c.identityNames[ExpandedName{Namespace: c.rt.Names.Namespace(q.Namespace), Local: c.rt.Names.Local(q.Local)}]
 	if !exists {
-		return NoIdentityConstraint, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "unknown keyref refer "+label)
+		return NoIdentityConstraint, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "unknown keyref refer "+c.rt.Names.Format(q))
 	}
 	return id, nil
 }
