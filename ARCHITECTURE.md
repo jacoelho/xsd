@@ -197,18 +197,34 @@ particles already charged; `addAttributeUseSet` charges `len(Uses)` and
 `appendWildcard` charges `len(Namespaces)`. Admitted models are immutable and
 `contentModelByID` shares them on read. A new retained table must charge in its
 admission function. Admission functions return unlocated budget errors.
-`enterComponent`'s leave fills the missing location of any diagnostic leaving a
-component from that component's node, so a failure is located at the innermost
-component being compiled, not at the referring site; a charge made at a
-reference before the scope opens keeps the reference location. A `schema.limit`
-failure raised after loading and outside every component scope is set-wide:
-target-context planning locates it at the document being added or whose
-references it is walking, and `compileMappedSources` locates the rest (name
-indexing, substitution closure, consistency checks, publication audit) at the
-first explicit root document in plan order, which is by document name. Loading
-locates its dependency charge at the reference being resolved and a
-`MaxSchemaReferences` failure at the document whose references exceed it.
-Publication consumes the
+
+Every diagnostic about schema document content carries the document path, line
+and column. Two other kinds carry less: a failure to obtain an explicit
+document (it cannot be opened or read, or exceeds `MaxSchemaSourceBytes`)
+carries its path only, and a failure about the source set (no sources, more
+than `MaxSchemaSources`, a source without a name) carries none; a referenced
+document that cannot be obtained is located at its reference. The component
+scope (`componentScope`, opened by `enterComponent`) is the compiler's locator:
+its leave fills the missing location of any diagnostic leaving a component from
+that component's node, so a failure is located at the innermost component being
+compiled, not at the referring site; a charge made at a reference before the
+scope opens keeps the reference location. The scope is opened to compile each
+component and again, by a compiler loop, for each check made on it after
+compilation: Element Declarations Consistent, Unique Particle Attribution and
+automaton construction at the source of the content model (`addModel` admits
+no model without one; only the builtin anyType model has none), restriction at
+the derived type's definition, keyref references at the keyref. Particles
+carry no source, so a content-model violation inside a referenced group is
+located at the first model in compilation order whose check reaches it (see
+Rejected Alternatives). A `schema.limit` failure raised after loading and
+outside every component scope is set-wide: target-context planning locates it
+at the document being added or whose references it is walking, and
+`compileMappedSources` locates the rest (name indexing, substitution closure,
+the checks of the builtin anyType model, content-model row indexing,
+publication audit) at the first explicit root document in plan order, which is
+by document name. Loading locates its dependency charge at the reference being
+resolved and a `MaxSchemaReferences` failure at the document whose references
+exceed it. Publication consumes the
 build only on success; `*schema.Schema` exposes only immutable derived reads.
 
 Schema-document diagnostics have an order. A violation has one decision point,
@@ -854,6 +870,7 @@ change-detector tests that mirror the implementation or assert their own setup.
 | `tests/schema_diagnostic_text_test.go` | Schema diagnostics quote schema text through `internal/diagnostictext`: an allowlist lint over `internal/schema` message operands (known gaps are listed in its doc comment); the public hostile-value table in `schema_diagnostic_bound_test.go` is the contract proof |
 | `internal/value/value_laws_contract_test.go` | For every primitive, one order and one equality: equality decides identity keys and enumeration membership, the bound facets agree on one order that never separates equal values and separates unequal ones outside the declared duration exception, and canonical text denotes its value; checked on declared pairs and on a generated grid of lexical forms |
 | `schema_diagnostic_order_test.go` with the catalogue in `schema_diagnostic_catalogue_test.go` | The schema-document diagnostics order of `internal/schema`: a catalogue of single violations, each declaring its tier and stage from the contract and never from compiler output, and every ordered pair of them (as consecutive components, inside one component, on one start tag in both attribute orders, and across two documents) reports the violation that tier, decision point, stage and attribute order select. A rule decided later than the contract says is listed by name in `knownSchemaDiagnosticOrderGaps`, and a listed gap that holds fails as stale |
+| `tests/harness_test.go` (`checkDiagnosticLocations`) | Every compile diagnostic of a corpus case, and every validation or unsupported diagnostic of an instance run, carries a path and a line; a compile pass that reports outside a component scope fails the corpus |
 | `tests/schema_export_surface_test.go` | The exported top-level identifiers of `internal/schema`, `internal/value` and `internal/validate` equal an explicit allowlist of the surface consumed across packages |
 | `tests/resource_limits_doc_test.go` | `docs/RESOURCE_LIMITS.md` option tables list every public option with its code-owned default |
 | `tests/root_public_shape_test.go` and `tests/external_api_smoke_test.go` | External callers use only the supported public packages and interface |
@@ -1044,6 +1061,13 @@ graph preserves these ownership rules:
   work bound. Retryability preserves build data, not spent resources.
 - Sharing UPA results across roots and eager DFA follow interning were
   rejected because each changes work accounting or limit-failure order.
+- Locating content-model diagnostics at the particle was rejected: particles
+  carry no source node, and one per particle adds a pointer to every retained
+  particle. The precision limit is that a violation inside a referenced group
+  is located at the first model, in compilation order, whose check reaches it;
+  types compile before groups, so a referring type in another document than
+  the group can be named
+  (`TestUPAInsideReferencedGroupNamesTheLowestEnclosingModel`).
 - Publishing unentered content models through a sparse table was rejected (a
   zero `CompiledModel` reads as Empty and a remap adds a lookup per read);
   skipping their compilation was rejected because their errors and work

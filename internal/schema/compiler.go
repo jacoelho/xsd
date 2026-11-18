@@ -92,7 +92,8 @@ func (c *compiler) compileLoaded() (*Schema, error) {
 }
 
 // locateSetWideLimit locates a schema.limit failure that no component scope
-// located. Substitution closure, consistency checks and the publication audit
+// located. Name indexing, substitution closure, the checks of the builtin
+// anyType content model, content-model row indexing and the publication audit
 // work on the whole schema set, so locateSetWide places their limit failures.
 // Other diagnostics are returned unchanged.
 func (c *compiler) locateSetWideLimit(err error) error {
@@ -143,6 +144,7 @@ type compilerBuildState struct {
 	attrGroupDone             map[QName]attributeUseSetID
 	localDone                 map[schemaNodeKey]ElementID
 	identityDeclared          map[schemaNodeKey]IdentityConstraintID
+	identitySources           []*schemaNode
 	complexDefinitions        []complexTypeDefinition
 	pendingElementConstraints []pendingElementConstraint
 	unionMemberEntries        int
@@ -202,28 +204,41 @@ func (c *compiler) spendComponentDependency(n *schemaNode) error {
 	return nil
 }
 
-// enterComponent opens the compile scope of the component at n. The returned
-// leave must be deferred with the address of the caller's named error result:
-// it closes the scope and fills the missing path and line of a diagnostic
-// from n, so a budget or admission failure raised anywhere inside the
+// componentScope is the open compile scope of one component, opened both to
+// compile the component and for each check made on it after compilation.
+// leave fills the missing path and line of a diagnostic leaving the component
+// from its node, so a budget or admission failure raised anywhere inside the
 // component names its document. A location attached deeper (an inner
 // component or a reference node) is not overwritten, so the innermost
-// enclosing component wins over the referring site.
-func (c *compiler) enterComponent(n *schemaNode) (leave func(*error), err error) {
+// enclosing component wins over the referring site. A scope with no node is
+// set-wide work; locateSetWideLimit locates its limit failures.
+type componentScope struct {
+	compiler *compiler
+	node     *schemaNode
+}
+
+// enterComponent opens the compile scope of the component at n. The caller
+// defers leave with the address of its named error result in the same
+// function, so the depth is restored when the component's work returns.
+func (c *compiler) enterComponent(n *schemaNode) (componentScope, error) {
 	if c.componentDepth >= maxComponentDependencyDepth {
 		err := xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema component dependency depth limit exceeded")
 		if n != nil {
 			err = withSchemaCompileLocation(n, err)
 		}
-		return nil, err
+		return componentScope{}, err
 	}
 	c.componentDepth++
-	return func(errp *error) {
-		c.componentDepth--
-		if n != nil && *errp != nil {
-			*errp = withSchemaCompileLocation(n, *errp)
-		}
-	}, nil
+	return componentScope{compiler: c, node: n}, nil
+}
+
+// leave closes the scope and locates *errp at the scope's node when *errp
+// carries no location yet.
+func (s componentScope) leave(errp *error) {
+	s.compiler.componentDepth--
+	if s.node != nil && *errp != nil {
+		*errp = withSchemaCompileLocation(s.node, *errp)
+	}
 }
 
 func newCompiler(limits Limits) (*compiler, error) {
@@ -376,28 +391,45 @@ func (c *compiler) compileModelGroupByQName(q QName) error {
 	return err
 }
 
+// validateComplexRestrictionModels checks each complex restriction against
+// its base in the scope of the derived type's definition. The content models
+// may be shared groups declared in other documents, so the derived type, not
+// a model, names the violation.
 func (c *compiler) validateComplexRestrictionModels() error {
 	for id := range len(c.rt.ComplexTypes) {
-		ct := c.rt.complexType(ComplexTypeID(id))
-		if id == int(c.rt.AnyType) || ct.Derivation != derivationKindRestriction {
-			continue
-		}
-		baseID, ok := ct.Base.Complex()
-		if !ok || baseID == c.rt.AnyType {
-			continue
-		}
-		base := c.rt.complexType(baseID)
-		if err := validateContentRestriction(
-			&c.rt,
-			base.Content,
-			ct.Content,
-			c.contentWork.spend,
-			c.contentAnalysis,
-		); err != nil {
-			return contentRestrictionCompileError(err)
+		if err := c.validateComplexRestrictionModel(ComplexTypeID(id)); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func (c *compiler) validateComplexRestrictionModel(id ComplexTypeID) (err error) {
+	ct := c.rt.complexType(id)
+	if id == c.rt.AnyType || ct.Derivation != derivationKindRestriction {
+		return nil
+	}
+	baseID, ok := ct.Base.Complex()
+	if !ok || baseID == c.rt.AnyType {
+		return nil
+	}
+	n := c.complexDefinitions[id].source.sourceNode()
+	if n == nil {
+		return xsderrors.InternalInvariant("restricted complex type has no source")
+	}
+	scope, err := c.enterComponent(n)
+	if err != nil {
+		return err
+	}
+	defer scope.leave(&err)
+	base := c.rt.complexType(baseID)
+	return contentRestrictionCompileError(validateContentRestriction(
+		&c.rt,
+		base.Content,
+		ct.Content,
+		c.contentWork.spend,
+		c.contentAnalysis,
+	))
 }
 
 func contentRestrictionCompileError(err error) error {
@@ -508,11 +540,11 @@ func (c *compiler) compileSimpleByQName(q QName) (result SimpleTypeID, err error
 	if !exists {
 		return NoSimpleType, schemaComponentMissingError(schemaComponentSimpleType, label)
 	}
-	leave, err := c.enterComponent(raw.sourceNode())
+	scope, err := c.enterComponent(raw.sourceNode())
 	if err != nil {
 		return NoSimpleType, err
 	}
-	defer leave(&err)
+	defer scope.leave(&err)
 	c.compilingSimple[q] = true
 	defer delete(c.compilingSimple, q)
 	id, err := c.registerGlobalSimpleType(q, simpleType{
@@ -564,11 +596,11 @@ func (c *compiler) compileAnonymousSimple(ctx *schemaSetDocument, n *schemaNode)
 	if err = c.spendComponentDependency(n); err != nil {
 		return NoSimpleType, err
 	}
-	leave, err := c.enterComponent(n)
+	scope, err := c.enterComponent(n)
 	if err != nil {
 		return NoSimpleType, err
 	}
-	defer leave(&err)
+	defer scope.leave(&err)
 	q, err := c.rt.internQName("", fmt.Sprintf("$simple%d", len(c.rt.SimpleTypes)))
 	if err != nil {
 		return NoSimpleType, err

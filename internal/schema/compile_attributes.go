@@ -25,11 +25,11 @@ func (c *compiler) compileAttributeByQName(q QName) (result AttributeID, err err
 	if !exists {
 		return 0, schemaComponentMissingError(schemaComponentAttribute, label)
 	}
-	leave, err := c.enterComponent(raw.sourceNode())
+	scope, err := c.enterComponent(raw.sourceNode())
 	if err != nil {
 		return 0, err
 	}
-	defer leave(&err)
+	defer scope.leave(&err)
 	decl, err := c.compileAttributeDecl(raw.ctx, raw.sourceNode(), q)
 	if err != nil {
 		return 0, err
@@ -534,11 +534,11 @@ func (c *compiler) compileLocalAttributeUse(ctx *schemaSetDocument, n *schemaNod
 	if err = c.spendComponentDependency(n); err != nil {
 		return attributeUse{}, err
 	}
-	leave, err := c.enterComponent(n)
+	scope, err := c.enterComponent(n)
 	if err != nil {
 		return attributeUse{}, err
 	}
-	defer leave(&err)
+	defer scope.leave(&err)
 	name, err := c.localAttributeUseName(ctx, n)
 	if err != nil {
 		return attributeUse{}, err
@@ -583,11 +583,11 @@ func (c *compiler) admitAttributeProhibition(ctx *schemaSetDocument, n *schemaNo
 	if err = c.spendComponentDependency(n); err != nil {
 		return QName{}, err
 	}
-	leave, err := c.enterComponent(n)
+	scope, err := c.enterComponent(n)
 	if err != nil {
 		return QName{}, err
 	}
-	defer leave(&err)
+	defer scope.leave(&err)
 	name, err := c.localAttributeUseName(ctx, n)
 	if err != nil {
 		return QName{}, err
@@ -673,11 +673,11 @@ func (c *compiler) compileAttributeGroupByQNameID(q QName) (result attributeUseS
 	if !exists {
 		return noAttributeUseSet, schemaComponentMissingError(schemaComponentAttributeGroup, label)
 	}
-	leave, err := c.enterComponent(raw.sourceNode())
+	scope, err := c.enterComponent(raw.sourceNode())
 	if err != nil {
 		return noAttributeUseSet, err
 	}
-	defer leave(&err)
+	defer scope.leave(&err)
 	c.compilingAttrGrp[q] = true
 	defer delete(c.compilingAttrGrp, q)
 	id, err := c.compileAttributeUses(raw.ctx, raw.sourceNode(), nil, NoWildcard, attributeMergeDirect)

@@ -49,11 +49,11 @@ func (c *compiler) compileElementByQName(q QName) (result ElementID, err error) 
 	if !exists {
 		return 0, schemaComponentMissingError(schemaComponentElement, label)
 	}
-	leave, err := c.enterComponent(raw.sourceNode())
+	scope, err := c.enterComponent(raw.sourceNode())
 	if err != nil {
 		return 0, err
 	}
-	defer leave(&err)
+	defer scope.leave(&err)
 	id, err := c.registerGlobalElement(q, elementDecl{Name: q, Type: ComplexRef(c.rt.AnyType)})
 	if err != nil {
 		return 0, err
@@ -74,11 +74,11 @@ func (c *compiler) compileLocalElement(ctx *schemaSetDocument, n *schemaNode) (r
 	if err = c.spendComponentDependency(n); err != nil {
 		return 0, err
 	}
-	leave, err := c.enterComponent(n)
+	scope, err := c.enterComponent(n)
 	if err != nil {
 		return 0, err
 	}
-	defer leave(&err)
+	defer scope.leave(&err)
 	name := schemaElementName(n)
 	ns := ""
 	form, hasForm := schemaElementForm(n)

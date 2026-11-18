@@ -31,7 +31,13 @@ func TestCheckContentModelsUPAChargesSharedModelForEachRoot(t *testing.T) {
 			t.Parallel()
 			work := newWorkBudget(contentModelWorkBudget, tt.limit)
 			analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-			err := checkContentModelsUPA(nil, rt.build(), 4, &work, analysis)
+			upa := newContentModelUPACheck(nil, rt.build(), 4, &work, analysis)
+			var err error
+			for id := range contentModelID(4) {
+				if err = upa.checkModel(id); err != nil {
+					break
+				}
+			}
 			if tt.err {
 				expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 				return

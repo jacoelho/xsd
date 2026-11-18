@@ -143,7 +143,7 @@ func TestSchemaBuildCompiledModelInstallationPreservesAlignment(t *testing.T) {
 	t.Parallel()
 
 	c := compiler{rt: newSchemaBuild(nameTable{}), dependencyWork: newWorkBudget(dependencyWorkBudget, math.MaxInt)}
-	if _, err := c.addModel(contentModelNode{}); err != nil {
+	if _, err := c.addModel(contentModelNode{}, &schemaNode{}); err != nil {
 		t.Fatal(err)
 	}
 	compiled := []compiledModel{{}}

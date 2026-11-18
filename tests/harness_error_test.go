@@ -92,3 +92,40 @@ func TestExpectedFailurePreservesCorpusOutcomes(t *testing.T) {
 		t.Error("checkExpectedFailure() accepted successful assessment")
 	}
 }
+
+func TestDiagnosticLocationsRejectUnlocatedDiagnostics(t *testing.T) {
+	located := func(err error) error { return xsderrors.WithLocation("a.xsd", 3, 7, err) }
+	compileDiagnostic := xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "UPA violation")
+	parseDiagnostic := xsderrors.SchemaParse(xsderrors.CodeSchemaXML, "invalid schema XML", nil)
+	unsupported := xsderrors.Unsupported(xsderrors.CodeUnsupportedDTD, "", nil)
+	validation := xsderrors.Validation(xsderrors.CodeValidationContent, "invalid content", nil)
+	for _, test := range []struct {
+		name       string
+		err        error
+		categories []xsderrors.Category
+		wantErr    bool
+	}{
+		{"compile success", nil, compileLocatedCategories, false},
+		{"located compile", located(compileDiagnostic), compileLocatedCategories, false},
+		{"located parse", located(parseDiagnostic), compileLocatedCategories, false},
+		{"located unsupported", located(unsupported), compileLocatedCategories, false},
+		{"unlocated compile", compileDiagnostic, compileLocatedCategories, true},
+		{"unlocated parse", parseDiagnostic, compileLocatedCategories, true},
+		{"unlocated unsupported at compile", unsupported, compileLocatedCategories, true},
+		{"path without line", xsderrors.WithLocation("a.xsd", 0, 0, compileDiagnostic), compileLocatedCategories, true},
+		{"line without path", xsderrors.WithLocation("", 3, 7, compileDiagnostic), compileLocatedCategories, true},
+		{"unlocated branch of an aggregate", xsderrors.NewErrors(located(compileDiagnostic), compileDiagnostic), compileLocatedCategories, true},
+		{"unlocated wrapped", fmt.Errorf("context: %w", compileDiagnostic), compileLocatedCategories, true},
+		{"internal is not a document diagnostic", xsderrors.InternalInvariant("corrupted"), compileLocatedCategories, false},
+		{"located validation", located(validation), instanceLocatedCategories, false},
+		{"unlocated validation", validation, instanceLocatedCategories, true},
+		{"unlocated unsupported at validation", unsupported, instanceLocatedCategories, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			err := checkDiagnosticLocations(test.err, test.categories)
+			if (err != nil) != test.wantErr {
+				t.Fatalf("checkDiagnosticLocations(%v) = %v, want error %t", test.err, err, test.wantErr)
+			}
+		})
+	}
+}

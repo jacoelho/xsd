@@ -851,12 +851,36 @@ func standaloneFixture() fixture {
 					xs("simpleType", `name="s`+n+`"`).with(xs("restriction", `base="f`+n+`"`).as(key)),
 				}
 			}),
-		compileViolation("ambiguous content model", contentModel, "UPA violation").at(key).unlocated().
+		compileViolation("ambiguous content model", contentModel, "UPA violation").at(key).
 			alone(inComplexType(func(string) []*node {
 				return []*node{xs("sequence").as(key).with(
 					xs("element", `name="e"`, `minOccurs="0"`),
 					xs("element", `name="e"`))}
 			})),
+		compileViolation("restriction that does not restrict its base content", contentModel, "is not subset of base").at(key).
+			alone(func(n string) []*node {
+				return []*node{
+					xs("complexType", `name="b`+n+`"`).with(xs("sequence").with(xs("element", `name="a"`))),
+					xs("complexType", `name="r`+n+`"`).as(key).with(xs("complexContent").with(
+						xs("restriction", `base="b`+n+`"`).with(xs("sequence").with(xs("element", `name="z"`))))),
+				}
+			}),
+		compileViolation("keyref field count differs from the referred key", identity, "keyref field count does not match").at(key).
+			alone(func(n string) []*node {
+				return []*node{xs("element", `name="e`+n+`"`).with(
+					xs("complexType").with(xs("attribute", `name="a"`), xs("attribute", `name="b"`)),
+					xs("key", `name="k`+n+`"`).with(xs("selector", `xpath="."`), xs("field", `xpath="@a"`)),
+					xs("keyref", `name="r`+n+`"`, `refer="k`+n+`"`).as(key).with(
+						xs("selector", `xpath="."`), xs("field", `xpath="@a"`), xs("field", `xpath="@b"`)))}
+			}),
+		compileViolation("refer names a keyref", identity, "keyref refer cannot be keyref").at(key).
+			alone(func(n string) []*node {
+				return []*node{xs("element", `name="e`+n+`"`).with(
+					xs("complexType").with(xs("attribute", `name="a"`)),
+					xs("key", `name="k`+n+`"`).with(xs("selector", `xpath="."`), xs("field", `xpath="@a"`)),
+					xs("keyref", `name="r`+n+`"`, `refer="k`+n+`"`).with(xs("selector", `xpath="."`), xs("field", `xpath="@a"`)),
+					xs("keyref", `name="s`+n+`"`, `refer="r`+n+`"`).as(key).with(xs("selector", `xpath="."`), xs("field", `xpath="@a"`)))}
+			}),
 		compileViolation("group reference resolving to xs:all in a sequence", contentModel, "xs:all").at(key).
 			alone(func(n string) []*node {
 				return []*node{

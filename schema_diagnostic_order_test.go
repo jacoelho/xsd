@@ -229,8 +229,6 @@ type violation struct {
 	tier      diagnosticTier
 	leadText  bool
 	tailText  bool
-	// nowhere marks a diagnostic the compiler reports without a location.
-	nowhere bool
 }
 
 func parseViolation(stage int, name string, code xsderrors.Code, message string) violation {
@@ -273,11 +271,6 @@ func (v violation) after(sibling func() *node) violation {
 
 func (v violation) without(keys ...string) violation {
 	v.dropKeys = keys
-	return v
-}
-
-func (v violation) unlocated() violation {
-	v.nowhere = true
 	return v
 }
 
@@ -553,16 +546,10 @@ func (o compileOutcome) reports(p placed, path string) bool {
 	if !o.identifies(p.entry) {
 		return false
 	}
-	if p.entry.nowhere {
-		return d.Path() == "" && d.Line() == 0 && d.Column() == 0
-	}
 	return d.Path() == path && d.Line() == p.named.line && d.Column() == p.named.column
 }
 
 func (p placed) want(path string) string {
-	if p.entry.nowhere {
-		return fmt.Sprintf("(%s, %q) without a location, from %s", p.entry.code, p.entry.message, p.entry.describe())
-	}
 	return fmt.Sprintf("(%s, %q) at %s:%d:%d, from %s", p.entry.code, p.entry.message, path, p.named.line, p.named.column, p.entry.describe())
 }
 

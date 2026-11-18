@@ -44,12 +44,12 @@ func (c *compiler) compileModelComponent(ctx *schemaSetDocument, n *schemaNode, 
 	if dependencyErr := c.spendComponentDependency(n); dependencyErr != nil {
 		return noContentModel, dependencyErr
 	}
-	leave, err := c.enterComponent(n)
+	scope, err := c.enterComponent(n)
 	if err != nil {
 		return noContentModel, err
 	}
-	defer leave(&err)
-	id, err := c.addModelAt(contentModelNode{}, n)
+	defer scope.leave(&err)
+	id, err := c.addModel(contentModelNode{}, n)
 	if err != nil {
 		return noContentModel, err
 	}
@@ -176,7 +176,7 @@ func (c *compiler) applyModelGroupOccurrence(n *schemaNode, id contentModelID, o
 		}
 	}
 	model.Occurs = occurs
-	return c.addModelAt(model, n)
+	return c.addModel(model, n)
 }
 
 func modelKindForNode(n *schemaNode) (modelKind, error) {
@@ -328,7 +328,7 @@ func (c *compiler) modelParticle(id contentModelID) (contentParticle, bool, erro
 		normalized := model
 		normalized.Occurs = occurrence{Min: 1, Max: 1}
 		var err error
-		modelID, err = c.addModelAt(normalized, c.modelSources[id])
+		modelID, err = c.addModel(normalized, c.modelSources[id])
 		if err != nil {
 			return contentParticle{}, false, err
 		}
@@ -371,18 +371,73 @@ func occurrenceAttrs(n *schemaNode) (rawOccurrence, error) {
 	}, nil
 }
 
+// enterContentModel opens the scope of the component that owns model id. The
+// builtin anyType model has no source; its checks are set-wide.
+func (c *compiler) enterContentModel(id contentModelID) (componentScope, error) {
+	return c.enterComponent(c.modelSources[id])
+}
+
+// compileContentModels compiles every model in the scope of its owner, then
+// indexes the table. Indexing is set-wide: it only spends budget, and
+// locateSetWideLimit locates its limit failure.
 func (c *compiler) compileContentModels() error {
-	models, err := c.compileContentModelsBuild()
+	cc := newContentModelCompiler(&c.rt.Names, &c.rt, c.limits.MaxContentModelStates, &c.contentWork, c.contentAnalysis)
+	compiled := make([]compiledModel, len(c.rt.Models))
+	for id := range compiled {
+		if err := c.compileContentModel(&cc, compiled, contentModelID(id)); err != nil {
+			return err
+		}
+	}
+	if err := indexCompiledModelsRows(&c.rt, compiled, c.contentWork.spend); err != nil {
+		return contentRestrictionCompileError(err)
+	}
+	return c.installCompiledModels(compiled)
+}
+
+func (c *compiler) compileContentModel(cc *contentModelCompiler, compiled []compiledModel, id contentModelID) (err error) {
+	scope, err := c.enterContentModel(id)
 	if err != nil {
 		return err
 	}
-	return c.installCompiledModels(models)
+	defer scope.leave(&err)
+	compiled[id], err = cc.compileRootContentModel(id)
+	return err
 }
 
 func (c *compiler) checkCompiledModelsUPA() error {
-	return c.checkContentModelsUPABuild()
+	upa := newContentModelUPACheck(&c.rt.Names, &c.rt, len(c.rt.Models), &c.contentWork, c.contentAnalysis)
+	for id := range c.rt.Models {
+		if err := c.checkModelUPA(upa, contentModelID(id)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *compiler) checkModelUPA(upa *contentModelUPACheck, id contentModelID) (err error) {
+	scope, err := c.enterContentModel(id)
+	if err != nil {
+		return err
+	}
+	defer scope.leave(&err)
+	return upa.checkModel(id)
 }
 
 func (c *compiler) checkCompiledElementDeclarationsConsistent() error {
-	return c.checkContentModelElementDeclarationsConsistentBuild()
+	checker := newElementDeclarationConsistencyChecker(&c.rt, c.contentWork.spend)
+	for id := range c.rt.Models {
+		if err := c.checkModelElementDeclarationsConsistent(checker, contentModelID(id)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *compiler) checkModelElementDeclarationsConsistent(checker *elementDeclarationConsistencyChecker, id contentModelID) (err error) {
+	scope, err := c.enterContentModel(id)
+	if err != nil {
+		return err
+	}
+	defer scope.leave(&err)
+	return checker.checkModel(id)
 }

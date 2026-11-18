@@ -188,7 +188,7 @@ func schemaStreamError(line, col int, err error, limits Limits) error {
 		line, col = boundary.Line, boundary.Column
 	}
 	if feature, ok := xmlstream.UnsupportedFeatureOf(err); ok {
-		return unsupportedSchemaFeature(feature, err)
+		return xsderrors.WithLocation("", line, col, unsupportedSchemaFeature(feature, err))
 	}
 	if limit, ok := xmlstream.LimitOf(err); ok {
 		return schemaReaderLimitError(limit, line, col, err, limits)

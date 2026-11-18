@@ -160,7 +160,12 @@ func TestValidateIdentityReferences(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := validateIdentityReferences(tt.identities)
+			var err error
+			for _, ic := range tt.identities {
+				if err = validateKeyrefReference(tt.identities, ic); err != nil {
+					break
+				}
+			}
 			if tt.code == "" {
 				if err != nil {
 					t.Fatalf("ValidateIdentityReferences() error = %v", err)

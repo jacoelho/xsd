@@ -73,7 +73,7 @@ func (c *compiler) declareIdentityConstraint(ctx *schemaSetDocument, node *schem
 	if duplicateErr := c.checkIdentityConstraintNameAvailable(q); duplicateErr != nil {
 		return NoIdentityConstraint, withSchemaCompileLocation(node, duplicateErr)
 	}
-	id, err := c.registerGlobalIdentity(q, newDeclaredIdentityConstraint(q))
+	id, err := c.registerGlobalIdentity(q, newDeclaredIdentityConstraint(q), node)
 	if err != nil {
 		return NoIdentityConstraint, err
 	}
@@ -94,7 +94,21 @@ func (c *compiler) compileDeclaredIdentityConstraints(ctx *schemaSetDocument, no
 }
 
 func (c *compiler) validateIdentityReferences() error {
-	return c.validateIdentityReferencesBuild()
+	for id := range c.rt.Identities {
+		if err := c.validateIdentityReference(IdentityConstraintID(id)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *compiler) validateIdentityReference(id IdentityConstraintID) (err error) {
+	scope, err := c.enterComponent(c.identitySources[id])
+	if err != nil {
+		return err
+	}
+	defer scope.leave(&err)
+	return validateKeyrefReference(c.rt.Identities, c.rt.Identities[id])
 }
 
 // compileIdentityConstraint parses the selector and field XPaths of n. Their

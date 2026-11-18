@@ -108,7 +108,7 @@ func (c *compiler) addBuiltinAnyType() error {
 	if err != nil {
 		return err
 	}
-	modelID, err := c.addModel(builtinAnyTypeContentModel())
+	modelID, err := c.addBuiltinModel(builtinAnyTypeContentModel())
 	if err != nil {
 		return err
 	}

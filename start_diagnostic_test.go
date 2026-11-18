@@ -76,7 +76,7 @@ func TestDTDDiagnosticReportedOnce(t *testing.T) {
 		path         string
 		line, column int
 	}{
-		{"schema", compileErr, "dtd.xsd", 0, 0},
+		{"schema", compileErr, "dtd.xsd", 2, 1},
 		{"instance", session.Validate(strings.NewReader("\n<!DOCTYPE root><root/>")), "/", 2, 1},
 	} {
 		t.Run(test.name, func(t *testing.T) {

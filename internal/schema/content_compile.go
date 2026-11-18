@@ -115,54 +115,41 @@ type dfaAccept struct {
 	Guards []compiledGuard
 }
 
-// compileContentModels lowers each source graph, constructs its finite
-// automaton, determinizes and indexes it, and charges every traversal,
-// configuration, transition, and emitted index entry to one shared budget.
-func compileContentModels(
-	names *nameTable,
-	rt *schemaBuild,
-	count int,
-	maxContentModelStates int,
-	work *workBudget,
-	analysis *contentModelAnalysis,
-) ([]compiledModel, error) {
-	cc := newContentModelCompiler(names, rt, maxContentModelStates, work, analysis)
-	compiled := make([]compiledModel, count)
-	for id := range count {
-		if err := work.spend(1); err != nil {
-			return nil, err
-		}
-		m, err := cc.compileContentModel(contentModelID(id))
-		if err != nil {
-			return nil, err
-		}
-		compiled[id] = m
+// compileRootContentModel lowers the source graph of one model in the table,
+// constructs its finite automaton and determinizes it, charging every
+// traversal, configuration and transition to the compiler's budget.
+// indexCompiledModelsRows indexes the table once every model is compiled.
+func (c *contentModelCompiler) compileRootContentModel(id contentModelID) (compiledModel, error) {
+	if err := c.work.spend(1); err != nil {
+		return compiledModel{}, err
 	}
-	if err := indexCompiledModelsRows(rt, compiled, work.spend); err != nil {
-		return nil, contentRestrictionCompileError(err)
-	}
-	return compiled, nil
+	return c.compileContentModel(id)
 }
 
-// checkContentModelsUPA validates direct unique-particle-attribution checks
-// that can be proven before compiled DFA construction. Traversal is root-local:
-// each root uses its own seen tag, so results and work charges are never
-// shared across roots.
-func checkContentModelsUPA(
+// contentModelUPACheck validates the direct unique-particle-attribution checks
+// that can be proven before compiled DFA construction, one model of a table at
+// a time. Traversal is root-local: each root uses its own seen tag, so results
+// and work charges are never shared across roots.
+type contentModelUPACheck struct {
+	compiler contentModelCompiler
+	seen     []int
+}
+
+func newContentModelUPACheck(
 	names *nameTable,
 	rt *schemaBuild,
 	count int,
 	work *workBudget,
 	analysis *contentModelAnalysis,
-) error {
-	cc := newContentModelCompiler(names, rt, 0, work, analysis)
-	seen := make([]int, count)
-	for id := range count {
-		if err := cc.checkContentModelUPA(contentModelID(id), seen, id+1); err != nil {
-			return err
-		}
+) *contentModelUPACheck {
+	return &contentModelUPACheck{
+		compiler: newContentModelCompiler(names, rt, 0, work, analysis),
+		seen:     make([]int, count),
 	}
-	return nil
+}
+
+func (u *contentModelUPACheck) checkModel(id contentModelID) error {
+	return u.compiler.checkContentModelUPA(id, u.seen, int(id)+1)
 }
 
 func (c *contentModelCompiler) checkContentModelUPA(id contentModelID, seen []int, tag int) error {

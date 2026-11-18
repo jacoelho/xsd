@@ -134,8 +134,9 @@ func parseTypedSchemaSourceDocument(name, key string, input io.Reader, limits Li
 		return nil, xsderrors.WithLocation(name, 0, 0, err)
 	}
 	if state.root == nil {
+		line, col := parser.Pos()
 		return nil, xsderrors.WithLocation(name, 0, 0,
-			schemaParseAt(0, 0, xsderrors.CodeSchemaRoot, "empty schema document", nil))
+			schemaParseAt(line, col, xsderrors.CodeSchemaRoot, "empty schema document", nil))
 	}
 	doc.root = state.root
 	doc.nodes = state.nodes
@@ -157,7 +158,8 @@ func (s *typedSchemaParseState) parse() error {
 		}
 	}
 	if len(s.stack) != 0 {
-		return schemaParseAt(0, 0, xsderrors.CodeSchemaXML, "unclosed schema element", nil)
+		line, col := s.parser.Pos()
+		return schemaParseAt(line, col, xsderrors.CodeSchemaXML, "unclosed schema element", nil)
 	}
 	return nil
 }
