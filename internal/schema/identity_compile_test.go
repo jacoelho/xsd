@@ -43,58 +43,74 @@ func TestIdentityConstraintKindForLocal(t *testing.T) {
 	}
 }
 
-func TestCheckIdentityConstraintNameAvailable(t *testing.T) {
+func identityDeclarationFixture(t *testing.T) *compiler {
+	t.Helper()
+	names, err := newRuntimeNameTable(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := &compiler{}
+	c.rt.Names = names
+	if _, err := c.reserveIdentity(ExpandedName{Namespace: "urn:p", Local: "x"}, nil); err != nil {
+		t.Fatalf("reserveIdentity({urn:p}x) error = %v", err)
+	}
+	if _, err := c.reserveIdentity(ExpandedName{Namespace: "urn:p", Local: "k"}, nil); err != nil {
+		t.Fatalf("reserveIdentity({urn:p}k) error = %v", err)
+	}
+	return c
+}
+
+func TestAnIdentityConstraintNameIsAvailableOnlyUntilItIsDeclared(t *testing.T) {
 	t.Parallel()
 
-	name := QName{Namespace: 2, Local: 3}
-	if err := checkIdentityConstraintNameAvailable(map[QName]IdentityConstraintID{}, name, "p:k"); err != nil {
-		t.Fatalf("CheckIdentityConstraintNameAvailable(absent) error = %v", err)
+	c := identityDeclarationFixture(t)
+	for _, name := range []ExpandedName{{Namespace: "urn:q", Local: "k"}, {Namespace: "", Local: "k"}, {Namespace: "urn:p", Local: "K"}} {
+		if err := c.checkIdentityConstraintNameAvailable(name); err != nil {
+			t.Fatalf("checkIdentityConstraintNameAvailable(%+v) error = %v, want none", name, err)
+		}
 	}
 
-	err := checkIdentityConstraintNameAvailable(
-		map[QName]IdentityConstraintID{name: 4},
-		name,
-		"p:k",
-	)
+	err := c.checkIdentityConstraintNameAvailable(ExpandedName{Namespace: "urn:p", Local: "k"})
 	diag, ok := errors.AsType[*xsderrors.Error](err)
 	if !ok {
-		t.Fatalf("CheckIdentityConstraintNameAvailable(duplicate) error = %T %v, want *xsderrors.Error", err, err)
+		t.Fatalf("checkIdentityConstraintNameAvailable(declared) error = %T %v, want *xsderrors.Error", err, err)
 	}
 	if diag.Category() != xsderrors.CategorySchemaCompile || diag.Code() != xsderrors.CodeSchemaDuplicate {
 		t.Fatalf("diagnostic = %s/%s, want schema compile duplicate", diag.Category(), diag.Code())
 	}
-	if diag.Message() != "duplicate identity constraint p:k" {
-		t.Fatalf("message = %q, want duplicate identity constraint label", diag.Message())
+	if diag.Message() != `duplicate identity constraint "{urn:p}k"` {
+		t.Fatalf("message = %q, want the duplicate's expanded name", diag.Message())
 	}
 }
 
-func TestResolveIdentityConstraintRefer(t *testing.T) {
+func TestAKeyrefReferResolvesToTheConstraintDeclaredWithItsExpandedName(t *testing.T) {
 	t.Parallel()
 
-	name := QName{Namespace: 2, Local: 3}
-	identities := map[QName]IdentityConstraintID{name: 4}
-	id, err := resolveIdentityConstraintRefer(identities, name, "p:k")
+	c := identityDeclarationFixture(t)
+	interner := newNameInterner(&c.rt.Names)
+	declared, err := interner.InternQName("urn:p", "k")
 	if err != nil {
-		t.Fatalf("ResolveIdentityConstraintRefer(existing) error = %v", err)
+		t.Fatal(err)
 	}
-	if id != 4 {
-		t.Fatalf("ResolveIdentityConstraintRefer(existing) = %d, want 4", id)
+	id, err := c.resolveIdentityConstraintRefer(declared)
+	if err != nil || id != 1 {
+		t.Fatalf("resolveIdentityConstraintRefer({urn:p}k) = %d, %v, want 1", id, err)
 	}
 
-	missing := QName{Namespace: 2, Local: 5}
-	id, err = resolveIdentityConstraintRefer(identities, missing, "p:missing")
+	missing, err := interner.InternQName("urn:q", "k")
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err = c.resolveIdentityConstraintRefer(missing)
 	if id != NoIdentityConstraint {
-		t.Fatalf("ResolveIdentityConstraintRefer(missing) id = %d, want NoIdentityConstraint", id)
+		t.Fatalf("resolveIdentityConstraintRefer({urn:q}k) id = %d, want NoIdentityConstraint", id)
 	}
 	diag, ok := errors.AsType[*xsderrors.Error](err)
 	if !ok {
-		t.Fatalf("ResolveIdentityConstraintRefer(missing) error = %T %v, want *xsderrors.Error", err, err)
+		t.Fatalf("resolveIdentityConstraintRefer({urn:q}k) error = %T %v, want *xsderrors.Error", err, err)
 	}
 	if diag.Category() != xsderrors.CategorySchemaCompile || diag.Code() != xsderrors.CodeSchemaReference {
 		t.Fatalf("diagnostic = %s/%s, want schema compile reference", diag.Category(), diag.Code())
-	}
-	if diag.Message() != "unknown keyref refer p:missing" {
-		t.Fatalf("message = %q, want unknown keyref refer label", diag.Message())
 	}
 }
 

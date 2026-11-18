@@ -3,7 +3,6 @@ package schema
 import (
 	"slices"
 
-	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/xsderrors"
 )
@@ -149,16 +148,6 @@ func (rt *schemaBuild) attributeUsesAndWildcardForCompilation(id attributeUseSet
 
 func (rt *schemaBuild) identityName(id IdentityConstraintID) QName {
 	return rt.Identities[id].Name
-}
-
-func (c *compiler) checkIdentityConstraintNameAvailable(name ExpandedName) error {
-	return checkIdentityConstraintNameAvailable(c.identityNames, name, diagnostictext.ExpandedName(name.Namespace, name.Local))
-}
-
-// resolveIdentityConstraintRefer resolves the keyref refer q against every
-// declared identity constraint, named or not.
-func (c *compiler) resolveIdentityConstraintRefer(q QName) (IdentityConstraintID, error) {
-	return resolveIdentityConstraintRefer(c.identityNames, ExpandedName{Namespace: c.rt.Names.Namespace(q.Namespace), Local: c.rt.Names.Local(q.Local)}, c.rt.Names.Format(q))
 }
 
 func (c *compiler) validateAttributeDeclNameBuild(q QName) error {
