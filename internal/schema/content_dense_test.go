@@ -522,3 +522,44 @@ func TestIdentityXPathNamesDoNotChangeWhichContentModelRowsAreDense(t *testing.T
 		}
 	}
 }
+
+func TestIdentityConstraintNamesDoNotChangeWhichContentModelRowsAreDense(t *testing.T) {
+	t.Parallel()
+
+	var fillers, choice strings.Builder
+	for i := 1; i <= 40; i++ {
+		fmt.Fprintf(&fillers, `<xs:element name="f%02d" type="xs:string"/>`, i)
+	}
+	for i := 1; i <= 20; i++ {
+		fmt.Fprintf(&choice, `<xs:element name="a%02d" type="xs:string"/>`, i)
+	}
+	schema := func(identity string) string {
+		return `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">` +
+			`<xs:complexType name="A"><xs:sequence>` + fillers.String() + `</xs:sequence></xs:complexType>` +
+			`<xs:complexType name="B"><xs:choice maxOccurs="unbounded">` + choice.String() + `</xs:choice></xs:complexType>` +
+			`<xs:element name="root" type="B">` + identity + `</xs:element></xs:schema>`
+	}
+	denseRows := func(text string) int {
+		rt, err := Compile(Options{}, []source.Source{source.Bytes("schema.xsd", []byte(text))})
+		if err != nil {
+			t.Fatalf("Compile() error = %v", err)
+		}
+		count := 0
+		for _, model := range rt.program.CompiledModels {
+			for _, row := range model.Rows {
+				if row.indexKind == publishedDFADense {
+					count++
+				}
+			}
+		}
+		return count
+	}
+	without := denseRows(schema(""))
+	if without == 0 {
+		t.Fatal("schema without an identity constraint has no dense rows; the fixture no longer exercises dense indexing")
+	}
+	identity := `<xs:key name="a20"><xs:selector xpath="."/><xs:field xpath="."/></xs:key>`
+	if with := denseRows(schema(identity)); with != without {
+		t.Fatalf("dense rows with %s = %d, want %d as without it", identity, with, without)
+	}
+}
