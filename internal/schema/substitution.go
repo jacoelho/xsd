@@ -149,18 +149,53 @@ func populateSubstitutionEntries(
 // before any entry exists; it is not charged to derivation work, which is
 // bounded by direct edges.
 func newSubstitutionTable(spans []substitutionSpan, entries []substitutionEntry, compareNames func(a, b QName) int) substitutionTable {
+	ranked, rank := rankSubstitutionMembers(entries, compareNames)
+	position := make([]uint32, len(rank))
 	byName := make([]uint32, len(entries))
 	for i := range byName {
 		byName[i] = uint32(i)
 	}
 	for _, span := range spans {
-		slices.SortFunc(entries[span.start:span.start+span.count], compareSubstitutionEntry)
-		slices.SortFunc(byName[span.start:span.start+span.count], func(a, b uint32) int {
-			x, y := entries[a], entries[b]
-			return cmp.Or(compareNames(x.name, y.name), cmp.Compare(x.member, y.member))
-		})
+		spanEntries := entries[span.start : span.start+span.count]
+		slices.SortFunc(spanEntries, compareSubstitutionEntry)
+		spanByName := byName[span.start : span.start+span.count]
+		for i, entry := range spanEntries {
+			position[entry.member] = spanByName[i]
+			spanByName[i] = rank[entry.member]
+		}
+		slices.Sort(spanByName)
+		for i, r := range spanByName {
+			spanByName[i] = position[ranked[r].member]
+		}
 	}
 	return substitutionTable{spans: spans, entries: entries, byName: byName}
+}
+
+// rankSubstitutionMembers returns each distinct member of entries once, ordered
+// by compareNames and then by member ID, and the rank of each member ID in that
+// order, so spans sort by integer rank instead of comparing names again. A
+// member is in a span at most once, so its rank orders the span.
+func rankSubstitutionMembers(entries []substitutionEntry, compareNames func(a, b QName) int) ([]substitutionEntry, []uint32) {
+	var members ElementID
+	for _, entry := range entries {
+		members = max(members, entry.member+1)
+	}
+	seen := make([]bool, members)
+	var ranked []substitutionEntry
+	for _, entry := range entries {
+		if !seen[entry.member] {
+			seen[entry.member] = true
+			ranked = append(ranked, entry)
+		}
+	}
+	slices.SortFunc(ranked, func(a, b substitutionEntry) int {
+		return cmp.Or(compareNames(a.name, b.name), cmp.Compare(a.member, b.member))
+	})
+	rank := make([]uint32, members)
+	for i, entry := range ranked {
+		rank[entry.member] = uint32(i)
+	}
+	return ranked, rank
 }
 
 // forEachEntryByName iterates head's raw transitive entries in expanded-name

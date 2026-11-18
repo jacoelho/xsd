@@ -37,6 +37,30 @@ func BenchmarkCompileIndependentContentModels(b *testing.B) {
 	}
 }
 
+// BenchmarkCompileSubstitutionChain measures building the substitution table
+// of one chain of depth-1 members, whose closure holds depth*(depth-1)/2
+// entries. Name text order is the reverse of chain order.
+func BenchmarkCompileSubstitutionChain(b *testing.B) {
+	for _, depth := range []int{200, 1_400} {
+		b.Run(fmt.Sprintf("depth_%d", depth), func(b *testing.B) {
+			var schema strings.Builder
+			schema.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="e0000"/>`)
+			for i := 1; i < depth; i++ {
+				fmt.Fprintf(&schema, `<xs:element name="e%04d" substitutionGroup="e%04d"/>`, depth-i, (depth-i+1)%depth)
+			}
+			schema.WriteString(`</xs:schema>`)
+			source := []byte(schema.String())
+			b.SetBytes(int64(len(source)))
+			b.ReportAllocs()
+			for b.Loop() {
+				if _, err := xsd.Compile(xsd.Bytes("substitution-chain.xsd", source)); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
 func independentContentModelsSchema(count int) []byte {
 	var schema strings.Builder
 	schema.Grow(count * 48)

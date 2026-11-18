@@ -79,6 +79,54 @@ func TestBuildSubstitutionTableBuildsSortedRawAndEffectiveEntries(t *testing.T) 
 	}
 }
 
+func TestSubstitutionMembersOfEveryHeadIterateInExpandedNameOrderWhateverTheNameIDs(t *testing.T) {
+	t.Parallel()
+
+	interned := []ExpandedName{
+		{Namespace: "urn:b", Local: "a"},
+		{Namespace: "urn:a", Local: "z"},
+		{Namespace: "urn:a", Local: "m"},
+		{Namespace: "", Local: "y"},
+		{Namespace: "urn:a", Local: "b"},
+		{Namespace: "", Local: "x"},
+	}
+	names, err := newNameTable(16, []string{EmptyNamespaceURI, "urn:a", "urn:b"}, interned)
+	if err != nil {
+		t.Fatalf("newNameTable() error = %v", err)
+	}
+	qname := func(n ExpandedName) QName {
+		q, ok := names.LookupQName(n.Namespace, n.Local)
+		if !ok {
+			t.Fatalf("missing QName for %v", n)
+		}
+		return q
+	}
+	heads := []ElementID{NoElement, 0, 1, 0, 1, 3}
+	elements := make([]elementDecl, len(interned))
+	for i, name := range interned {
+		elements[i] = elementDecl{Name: qname(name), Type: ComplexRef(0), SubstHead: heads[i]}
+	}
+	rt := derivationFixture{anyType: 0, complex: []complexTypeDerivation{{Kind: derivationKindNone}}}
+	table, err := buildSubstitutionTable(rt.build(), &names, elements, substitutionGlobals(elements), 16, unboundedTypeDerivationWork)
+	if err != nil {
+		t.Fatalf("buildSubstitutionTable() error = %v", err)
+	}
+	for head, want := range map[ElementID][]ElementID{
+		0: {5, 3, 4, 2, 1},
+		1: {4, 2},
+		3: {5},
+	} {
+		var got []ElementID
+		table.ForEachMember(head, func(member ElementID) bool {
+			got = append(got, member)
+			return true
+		})
+		if !slices.Equal(got, want) {
+			t.Fatalf("ForEachMember(%d) = %v, want %v", head, got, want)
+		}
+	}
+}
+
 func TestBuildSubstitutionTableTreatsEqualTypeEdgesAsNeutral(t *testing.T) {
 	t.Parallel()
 
