@@ -73,3 +73,27 @@ func BenchmarkCompileWildcardAttributeUses(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkSessionValidateNamespaceListWildcard(b *testing.B) {
+	for _, width := range []int{2, 8, 32} {
+		b.Run(fmt.Sprintf("Namespaces%d", width), func(b *testing.B) {
+			namespaces := make([]string, width)
+			for i := range namespaces {
+				namespaces[i] = fmt.Sprintf("urn:ns%02d", i)
+			}
+			schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:element name="root"><xs:complexType><xs:sequence>
+<xs:any namespace="` + strings.Join(namespaces, " ") + `" processContents="skip" maxOccurs="unbounded"/>
+</xs:sequence><xs:anyAttribute namespace="` + strings.Join(namespaces, " ") + `" processContents="skip"/>
+</xs:complexType></xs:element></xs:schema>`
+			var document strings.Builder
+			document.WriteString(`<root>`)
+			for i := range 100 {
+				ns := namespaces[i%width]
+				fmt.Fprintf(&document, `<w:item xmlns:w="%s" w:extra="%d"/>`, ns, i)
+			}
+			document.WriteString(`</root>`)
+			benchmarkSessionDocument(b, schema, document.String())
+		})
+	}
+}

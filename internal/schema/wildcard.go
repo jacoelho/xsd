@@ -140,7 +140,7 @@ func (v WildcardView) AllowsURI(uri string) bool {
 	case WildcardTargetNamespace:
 		return len(v.namespaces) != 0 && v.namespaces[0] == uri
 	case WildcardList:
-		return searchNamespaceURI(v.namespaces, uri)
+		return slices.Contains(v.namespaces, uri)
 	default:
 		return false
 	}

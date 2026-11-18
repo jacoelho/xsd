@@ -26,8 +26,8 @@ func compareExpandedName(a, b ExpandedName) int {
 }
 
 // compareNamespaceURI orders namespace URIs by text, the first key of
-// compareExpandedName. sortNamespaceURIs and searchNamespaceURI apply the same
-// order without an indirect call per comparison, for validation hot paths.
+// compareExpandedName. sortNamespaceURIs applies the same order without an
+// indirect call per comparison.
 func compareNamespaceURI(a, b string) int {
 	return cmp.Compare(a, b)
 }
@@ -35,13 +35,6 @@ func compareNamespaceURI(a, b string) int {
 // sortNamespaceURIs sorts uris by compareNamespaceURI.
 func sortNamespaceURIs(uris []string) {
 	slices.Sort(uris)
-}
-
-// searchNamespaceURI reports whether uris, sorted by sortNamespaceURIs,
-// holds uri.
-func searchNamespaceURI(uris []string, uri string) bool {
-	_, found := slices.BinarySearch(uris, uri)
-	return found
 }
 
 // compareQNameText orders interned names a and b by compareExpandedName.
