@@ -2,6 +2,7 @@ package schema
 
 import (
 	"errors"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -543,5 +544,20 @@ func TestSchemaPublicationAcceptsAndKeepsASubstitutionNameOrderThatPermutesEachS
 	}
 	if !slices.Equal(build.Substitutions.byName, byName) {
 		t.Fatalf("name order after the audit = %v, want it unchanged, %v", build.Substitutions.byName, byName)
+	}
+}
+
+func TestSubstitutionClosureLimitNeverExceedsTheEntriesAPositionCanAddress(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct{ configured, want int }{
+		{configured: 0, want: 0},
+		{configured: 4950, want: 4950},
+		{configured: math.MaxUint32, want: math.MaxUint32},
+		{configured: math.MaxInt, want: math.MaxUint32},
+	} {
+		if got := substitutionClosureLimit(tt.configured); got != tt.want {
+			t.Fatalf("substitutionClosureLimit(%d) = %d, want %d", tt.configured, got, tt.want)
+		}
 	}
 }

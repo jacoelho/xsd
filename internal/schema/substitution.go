@@ -3,6 +3,7 @@ package schema
 import (
 	"cmp"
 	"errors"
+	"math"
 	"slices"
 )
 
@@ -77,11 +78,8 @@ func buildSubstitutionTable(
 	if forest.total == 0 {
 		return substitutionTable{}, nil
 	}
-	if forest.total > maxClosureEntries {
-		return substitutionTable{}, substitutionClosureLimitError{Limit: maxClosureEntries}
-	}
-	if _, ok := newUint32Index(forest.total); !ok {
-		return substitutionTable{}, errors.New("substitution closure has more entries than a uint32 position can address")
+	if limit := substitutionClosureLimit(maxClosureEntries); forest.total > limit {
+		return substitutionTable{}, substitutionClosureLimitError{Limit: limit}
 	}
 	edges, err := validateSubstitutionEdges(rt, elements, forest.parents, work)
 	if err != nil {
@@ -266,6 +264,16 @@ func (t substitutionTable) span(head ElementID) (substitutionSpan, bool) {
 		return substitutionSpan{}, false
 	}
 	return span, true
+}
+
+// substitutionClosureLimit is maxClosureEntries, capped at the entries a
+// uint32 byName position can address, so the configured limit is the only
+// bound a closure meets.
+func substitutionClosureLimit(maxClosureEntries int) int {
+	if _, addressable := newUint32Index(maxClosureEntries); addressable || maxClosureEntries < 0 {
+		return maxClosureEntries
+	}
+	return math.MaxUint32
 }
 
 // validNameOrder reports whether byName holds, for every span, a permutation
