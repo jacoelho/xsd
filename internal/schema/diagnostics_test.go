@@ -155,3 +155,30 @@ func TestContentExpectationsCopyOnlyTheDisplayedWildcardNamespaces(t *testing.T)
 		t.Fatalf("ExpectedContent() over %d namespaces allocated %v times, want 1 copy of the displayed namespaces", count, allocs)
 	}
 }
+
+func TestContentExpectationsListAnAlternativeOnceHoweverManyParticlesRenderIt(t *testing.T) {
+	t.Parallel()
+
+	var projection contentExpectationProjection
+	for range 8 {
+		projection.add(ContentExpectation{IsWildcard: true, WildcardMode: WildcardAny})
+	}
+	projection.add(ContentExpectation{IsWildcard: true, WildcardMode: WildcardTargetNamespace, Namespaces: []string{"urn:t"}})
+	projection.add(ContentExpectation{IsWildcard: true, WildcardMode: WildcardList, Namespaces: []string{"urn:t"}})
+	projection.add(ContentExpectation{Name: ExpandedName{Local: "last"}})
+	projection.add(ContentExpectation{Name: ExpandedName{Local: "last"}})
+
+	got := projection.result()
+	if got.Len() != 3 || got.More {
+		t.Fatalf("result = %+v, want the any wildcard, the urn:t wildcard and last, each once, with nothing more", got)
+	}
+	if first, _ := got.At(0); !first.IsWildcard || first.WildcardMode != WildcardAny {
+		t.Fatalf("first alternative = %+v, want the any wildcard", first)
+	}
+	if second, _ := got.At(1); !second.IsWildcard || !slices.Equal(second.Namespaces, []string{"urn:t"}) {
+		t.Fatalf("second alternative = %+v, want the urn:t wildcard", second)
+	}
+	if third, _ := got.At(2); third.IsWildcard || third.Name.Local != "last" {
+		t.Fatalf("third alternative = %+v, want element last", third)
+	}
+}

@@ -97,9 +97,11 @@ type ContentExpectation struct {
 
 // ContentExpectations is a bounded error-only projection of the authoritative
 // content state. It holds the first alternatives in diagnostic order:
-// wildcards, then element names by namespace URI, then local name. Wildcards
-// come first so that no number of element alternatives hides one. More means
-// alternatives or traversal work were truncated.
+// wildcards, then element names by namespace URI, then local name, each listed
+// once however many particles render it. Wildcards take at most half of the
+// displayed alternatives while element names remain to show, and at least
+// that half while wildcards remain, so neither kind hides the other. More
+// means alternatives or traversal work were truncated.
 type ContentExpectations struct {
 	values [diagnostictext.MaxAlternatives]ContentExpectation
 	count  int
@@ -119,8 +121,65 @@ func (e ContentExpectations) At(i int) (ContentExpectation, bool) {
 
 type contentExpectationProjection struct {
 	schema    *Schema
-	result    ContentExpectations
+	wildcards contentExpectationRanking
+	elements  contentExpectationRanking
 	remaining int
+	more      bool
+}
+
+// contentExpectationRanking keeps the first distinct alternatives of one kind
+// in diagnostic order, enough to fill every displayed slot. Their namespace
+// slices borrow published wildcard state until result copies them.
+type contentExpectationRanking struct {
+	values  [diagnostictext.MaxAlternatives]ContentExpectation
+	count   int
+	dropped bool
+}
+
+// insert keeps item unless an alternative that renders the same is kept or
+// the ranking is full of alternatives that precede it. The ranking therefore
+// does not depend on traversal order once every alternative is inspected.
+func (r *contentExpectationRanking) insert(item ContentExpectation) {
+	at := r.count
+	for ; at > 0; at-- {
+		order := compareContentExpectation(item, r.values[at-1])
+		if order == 0 {
+			return
+		}
+		if order > 0 {
+			break
+		}
+	}
+	if r.count == len(r.values) {
+		r.dropped = true
+		if at == r.count {
+			return
+		}
+		r.count--
+	}
+	copy(r.values[at+1:r.count+1], r.values[at:r.count])
+	r.values[at] = item
+	r.count++
+}
+
+// result applies the display rule of ContentExpectations to the rankings.
+func (p *contentExpectationProjection) result() ContentExpectations {
+	const slots = diagnostictext.MaxAlternatives
+	wildcards := min(p.wildcards.count, max(slots/2, slots-p.elements.count))
+	elements := min(p.elements.count, slots-wildcards)
+	out := ContentExpectations{
+		More: p.more || p.wildcards.dropped || p.elements.dropped || wildcards < p.wildcards.count || elements < p.elements.count,
+	}
+	for _, item := range p.wildcards.values[:wildcards] {
+		item.Namespaces = slices.Clone(item.Namespaces)
+		out.values[out.count] = item
+		out.count++
+	}
+	for _, item := range p.elements.values[:elements] {
+		out.values[out.count] = item
+		out.count++
+	}
+	return out
 }
 
 // contentExpectationPurpose selects the failure being explained.
@@ -152,7 +211,7 @@ func (rt *Schema) ExpectedContent(state ContentState, scratch *ContentScratch, p
 		return result, true
 	case compiledModelAny:
 		projection.add(ContentExpectation{IsWildcard: true, WildcardMode: WildcardAny})
-		return projection.result, true
+		return projection.result(), true
 	case compiledModelAll:
 		valid = projection.allContent(model, scratch, purpose)
 	case compiledModelDFA:
@@ -163,7 +222,7 @@ func (rt *Schema) ExpectedContent(state ContentState, scratch *ContentScratch, p
 	if !valid {
 		return result, false
 	}
-	return projection.result, true
+	return projection.result(), true
 }
 
 func (p *contentExpectationProjection) allContent(model *compiledModelRead, scratch *ContentScratch, purpose contentExpectationPurpose) bool {
@@ -216,52 +275,41 @@ func (p *contentExpectationProjection) dfaEdge(state ContentState, model *compil
 
 func (p *contentExpectationProjection) spend() bool {
 	if p.remaining == 0 {
-		p.result.More = true
+		p.more = true
 		return false
 	}
 	p.remaining--
 	return true
 }
 
-// add inserts item in diagnostic order. When the projection is full, the
-// last alternative in that order is dropped, so the result does not depend on
-// traversal order once every alternative has been inspected. item.Namespaces
-// may borrow published wildcard state: add copies it only for an item it
-// keeps.
+// add ranks item among the alternatives of its kind. item.Namespaces may
+// borrow published wildcard state: only displayed alternatives are copied.
 func (p *contentExpectationProjection) add(item ContentExpectation) {
-	r := &p.result
-	at := r.count
-	for ; at > 0; at-- {
-		order := compareContentExpectation(item, r.values[at-1])
-		if order == 0 && !item.IsWildcard {
-			return
-		}
-		if order >= 0 {
-			break
-		}
+	if item.IsWildcard {
+		p.wildcards.insert(item)
+		return
 	}
-	if r.count == len(r.values) {
-		r.More = true
-		if at == r.count {
-			return
-		}
-		r.count--
-	}
-	copy(r.values[at+1:r.count+1], r.values[at:r.count])
-	item.Namespaces = slices.Clone(item.Namespaces)
-	r.values[at] = item
-	r.count++
+	p.elements.insert(item)
 }
 
 func compareContentExpectation(a, b ContentExpectation) int {
 	return cmp.Or(
 		compareFalseFirst(!a.IsWildcard, !b.IsWildcard),
 		compareExpandedName(a.Name, b.Name),
-		cmp.Compare(a.WildcardMode, b.WildcardMode),
+		cmp.Compare(wildcardRendering(a.WildcardMode), wildcardRendering(b.WildcardMode)),
 		compareNamespaceURI(a.ExcludedNamespace, b.ExcludedNamespace),
 		slices.CompareFunc(a.Namespaces, b.Namespaces, compareNamespaceURI),
 		compareFalseFirst(a.MoreNamespaces, b.MoreNamespaces),
 	)
+}
+
+// wildcardRendering maps a wildcard mode to the modes rendered alike: a
+// target-namespace wildcard is listed as the namespace list it holds.
+func wildcardRendering(mode wildcardMode) wildcardMode {
+	if mode == WildcardTargetNamespace {
+		return WildcardList
+	}
+	return mode
 }
 
 func compareFalseFirst(a, b bool) int {

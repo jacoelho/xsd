@@ -788,9 +788,11 @@ Diagnostics flow:
    all-group terms in compiled model order, and the substitution members of
    each element particle in expanded-name order. It displays the first eight
    inspected alternatives in diagnostic order (`compareContentExpectation`):
-   wildcards first, so no number of element alternatives hides one, then
-   element names in expanded-name order; and the first eight namespaces of a
-   wildcard. The text therefore never
+   wildcards, then element names in expanded-name order, each listed once
+   however many particles render it. Wildcards take at most four of the eight
+   while element names remain to show, and at least four while wildcards
+   remain, so neither kind hides the other. A wildcard shows its first eight
+   namespaces. The text therefore never
    depends on interning order, and it does not depend on the order of
    declarations unless the 256-alternative limit cuts across the edges of one
    state, whose compiled order follows element declaration IDs.

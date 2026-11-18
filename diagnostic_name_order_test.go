@@ -87,6 +87,33 @@ func TestExpectedChildDiagnosticListsAWildcardAlternativeWhateverTheNumberOfElem
 	}
 }
 
+func TestExpectedChildDiagnosticGivesWildcardsAtMostHalfTheListWhileElementNamesRemain(t *testing.T) {
+	t.Parallel()
+
+	var wildcards, elements string
+	for _, n := range []string{"7", "3", "9", "1", "5", "2", "8", "4", "6"} {
+		wildcards += `<xs:any namespace="urn:` + n + `" processContents="lax"/>`
+		elements += `<xs:element name="e` + n + `"/>`
+	}
+	const want = `unexpected child element "zzz"; expected next child [` +
+		`an element in namespace ["urn:1"], an element in namespace ["urn:2"], an element in namespace ["urn:3"], an element in namespace ["urn:4"], ` +
+		`"e1", "e2", "e3", "e4", ...]`
+	for _, variant := range []struct{ name, choice string }{
+		{name: "wildcards first", choice: wildcards + elements},
+		{name: "elements first", choice: elements + wildcards},
+	} {
+		schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType><xs:choice>` + variant.choice + `</xs:choice></xs:complexType></xs:element></xs:schema>`
+		engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+		if err != nil {
+			t.Fatalf("%s: Compile() error = %v", variant.name, err)
+		}
+		err = engine.Validate(strings.NewReader(`<root><zzz/></root>`))
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Fatalf("%s: Validate() error = %v, want it to contain %q", variant.name, err, want)
+		}
+	}
+}
+
 func TestExpectedChildDiagnosticListsWildcardNamespacesInTextOrder(t *testing.T) {
 	t.Parallel()
 
