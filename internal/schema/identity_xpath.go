@@ -207,16 +207,7 @@ func parseIdentityPaths[R identityPrefixResolver](xpath string, resolver R) ([]i
 		}
 		out = append(out, identityPath{Descendant: desc, Steps: unnamedIdentitySteps(len(names) - start)})
 	}
-	return exactSlice(out), ownedIdentityNames(names), nil
-}
-
-// exactSlice returns s, or a copy of it without spare capacity when branches
-// were discarded or the hint was exceeded.
-func exactSlice[T any](s []T) []T {
-	if len(s) == cap(s) {
-		return s
-	}
-	return append(make([]T, 0, len(s)), s...)
+	return tightSlice(out), ownedIdentityNames(names), nil
 }
 
 // ownedIdentityNames returns a copy of names, which may lie in a parse's stack
@@ -268,7 +259,7 @@ func parseIdentityFieldPaths[R identityPrefixResolver](xpath string, resolver R)
 		}
 		out = append(out, path)
 	}
-	return exactSlice(out), ownedIdentityNames(names), nil
+	return tightSlice(out), ownedIdentityNames(names), nil
 }
 
 func parseIdentityFieldPathBranch[R identityPrefixResolver](part string, resolver R, names []identityNameSyntax) (identityFieldPath, []identityNameSyntax, error) {

@@ -604,32 +604,33 @@ func newIdentityConstraintProgramRead(identity identityConstraintSpec) IdentityC
 			}
 		}
 		if len(elements) != 0 {
-			program.elementFields = append(program.elementFields, IdentityCompiledFieldProgramRead{field: fieldIndex, paths: tightIdentityProgramSlice(elements)})
+			program.elementFields = append(program.elementFields, IdentityCompiledFieldProgramRead{field: fieldIndex, paths: tightSlice(elements)})
 		}
 		if len(wildcards) != 0 {
-			program.attributeWildcards = append(program.attributeWildcards, IdentityCompiledFieldProgramRead{field: fieldIndex, paths: tightIdentityProgramSlice(wildcards)})
+			program.attributeWildcards = append(program.attributeWildcards, IdentityCompiledFieldProgramRead{field: fieldIndex, paths: tightSlice(wildcards)})
 		}
 		for name, paths := range exact {
 			if program.attributeFields == nil {
 				program.attributeFields = make(map[QName][]IdentityCompiledFieldProgramRead)
 			}
-			program.attributeFields[name] = append(program.attributeFields[name], IdentityCompiledFieldProgramRead{field: fieldIndex, paths: tightIdentityProgramSlice(paths)})
+			program.attributeFields[name] = append(program.attributeFields[name], IdentityCompiledFieldProgramRead{field: fieldIndex, paths: tightSlice(paths)})
 		}
 	}
-	program.elementFields = tightIdentityProgramSlice(program.elementFields)
-	program.attributeWildcards = tightIdentityProgramSlice(program.attributeWildcards)
+	program.elementFields = tightSlice(program.elementFields)
+	program.attributeWildcards = tightSlice(program.attributeWildcards)
 	if program.attributeFields != nil {
 		attributes := make(map[QName][]IdentityCompiledFieldProgramRead, len(program.attributeFields))
 		for name, fields := range program.attributeFields {
-			attributes[name] = tightIdentityProgramSlice(fields)
+			attributes[name] = tightSlice(fields)
 		}
 		program.attributeFields = attributes
 	}
 	return program
 }
 
-// Publication retains only occupied groups and paths, never append growth slack.
-func tightIdentityProgramSlice[T any](values []T) []T {
+// tightSlice returns values, or a copy of them without spare capacity, so a
+// retained slice keeps no append growth slack.
+func tightSlice[T any](values []T) []T {
 	if len(values) == cap(values) {
 		return values
 	}
