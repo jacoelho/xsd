@@ -121,6 +121,8 @@ type schemaQNameListAttribute struct {
 // attributes of one start tag, for buildSemanticSource to store in the typed
 // source record.
 type admittedValues struct {
+	selector          []identityPath
+	field             []identityFieldPath
 	facet             facetValue
 	memberTypes       schemaQNameListAttribute
 	base              schemaQNameAttribute
@@ -225,8 +227,18 @@ type schemaIdentitySource struct {
 	Refer schemaQNameAttribute
 }
 
-type schemaIdentityXPathSource struct {
-	XPath lexicalAttribute
+// schemaIdentitySelectorSource is the typed source record of an xs:selector:
+// its paths as admitIdentityXPath built them at the start tag. The paths are
+// immutable and shared by every identity constraint compiled from the node.
+type schemaIdentitySelectorSource struct {
+	Paths []identityPath
+}
+
+// schemaIdentityFieldSource is the typed source record of an xs:field: its
+// paths as admitIdentityXPath built them at the start tag. The paths are
+// immutable and shared by every identity constraint compiled from the node.
+type schemaIdentityFieldSource struct {
+	Paths []identityFieldPath
 }
 
 type schemaWildcardSource struct {
@@ -285,24 +297,25 @@ type schemaSemanticKind interface {
 	semanticKind()
 }
 
-func (*schemaComplexTypeSource) semanticKind()     {}
-func (*schemaReferenceSource) semanticKind()       {}
-func (*schemaNotationSource) semanticKind()        {}
-func (*schemaSimpleTypeSource) semanticKind()      {}
-func (*schemaFacetSource) semanticKind()           {}
-func (*schemaElementSource) semanticKind()         {}
-func (*schemaAttributeSource) semanticKind()       {}
-func (*schemaDocumentSource) semanticKind()        {}
-func (*schemaAttributeGroupSource) semanticKind()  {}
-func (*schemaBaseDerivationSource) semanticKind()  {}
-func (*schemaComplexContentSource) semanticKind()  {}
-func (*schemaListDerivationSource) semanticKind()  {}
-func (*schemaUnionDerivationSource) semanticKind() {}
-func (*schemaModelSource) semanticKind()           {}
-func (*schemaIdentitySource) semanticKind()        {}
-func (*schemaIdentityXPathSource) semanticKind()   {}
-func (*schemaWildcardSource) semanticKind()        {}
-func (*schemaGroupSource) semanticKind()           {}
+func (*schemaComplexTypeSource) semanticKind()      {}
+func (*schemaReferenceSource) semanticKind()        {}
+func (*schemaNotationSource) semanticKind()         {}
+func (*schemaSimpleTypeSource) semanticKind()       {}
+func (*schemaFacetSource) semanticKind()            {}
+func (*schemaElementSource) semanticKind()          {}
+func (*schemaAttributeSource) semanticKind()        {}
+func (*schemaDocumentSource) semanticKind()         {}
+func (*schemaAttributeGroupSource) semanticKind()   {}
+func (*schemaBaseDerivationSource) semanticKind()   {}
+func (*schemaComplexContentSource) semanticKind()   {}
+func (*schemaListDerivationSource) semanticKind()   {}
+func (*schemaUnionDerivationSource) semanticKind()  {}
+func (*schemaModelSource) semanticKind()            {}
+func (*schemaIdentitySource) semanticKind()         {}
+func (*schemaIdentitySelectorSource) semanticKind() {}
+func (*schemaIdentityFieldSource) semanticKind()    {}
+func (*schemaWildcardSource) semanticKind()         {}
+func (*schemaGroupSource) semanticKind()            {}
 
 func semanticSource[T schemaSemanticKind](s *schemaSemanticSource) T {
 	if s != nil {
@@ -600,8 +613,10 @@ func buildSemanticKind(n *schemaSyntaxNode, values *admittedValues) schemaSemant
 			Name:  schemaLexicalAttributeSyntax(n, vocab.XSDAttrName),
 			Refer: values.refer,
 		}
-	case vocab.XSDElemSelector, vocab.XSDElemField:
-		return &schemaIdentityXPathSource{XPath: schemaLexicalAttributeSyntax(n, vocab.XSDAttrXPath)}
+	case vocab.XSDElemSelector:
+		return &schemaIdentitySelectorSource{Paths: values.selector}
+	case vocab.XSDElemField:
+		return &schemaIdentityFieldSource{Paths: values.field}
 	case vocab.XSDElemAttributeGroup:
 		return &schemaAttributeGroupSource{Global: schemaGlobalSourceFor(n), Ref: values.ref}
 	case vocab.XSDElemNotation:

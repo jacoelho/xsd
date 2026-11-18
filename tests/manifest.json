@@ -9,11 +9,11 @@
     "generatedBy": "cmd/extract-harness"
   },
   "totals": {
-    "cases": 17436,
-    "schemaCases": 17386,
-    "instanceRuns": 36387,
+    "cases": 17437,
+    "schemaCases": 17387,
+    "instanceRuns": 36391,
     "w3cCases": 14414,
-    "internalRuns": 3009,
+    "internalRuns": 3010,
     "xercesJCases": 13
   },
   "cases": [
@@ -954089,6 +954089,203 @@
         },
         {
           "file": "corpus/project/identity/keyref-refer-resolution/scoping/key-in-group-keyref-on-ancestor/no-reference.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/identity/chameleon-xpath-name-tests",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/identity/chameleon-xpath-name-tests",
+        "specification": [
+          "https://www.w3.org/TR/1999/REC-xpath-19991116/#node-tests",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-key",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include"
+        ],
+        "conditions": [
+          "The chameleon document is included into urn:a and urn:b, so its identity constraints are compiled in two target namespaces (src-include clause 3.2).",
+          "XPath 1.0 §2.3: a name test without a prefix has a null namespace URI, whatever the target namespace of the including document, so the selector item does not select the qualified urn:a or urn:b items.",
+          "Identity-constraint Satisfied clause 4.2: a unique constraint rejects two members of its qualified node set with equal key-sequences; the wildcard selector * selects every child in both namespaces."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/chameleon-xpath-name-tests/a.xsd",
+            "role": "principal"
+          },
+          {
+            "file": "corpus/project/identity/chameleon-xpath-name-tests/b.xsd",
+            "role": "auxiliary"
+          }
+        ],
+        "oracle": {
+          "xerces": {
+            "expected": "valid",
+            "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows src-include clause 3.2.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include"
+          },
+          "dotnet": {
+            "expected": "valid",
+            "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows src-include clause 3.2.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include"
+          },
+          "xmlschema": {
+            "expected": "valid",
+            "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows src-include clause 3.2.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include"
+          },
+          "libxml2": {
+            "status": "blocked",
+            "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: blocked: xmllint --schema accepts one schema root; 2 given; run on a.xsd alone it reports the schema valid. The project expectation follows src-include clause 3.2.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "a-duplicate-id",
+          "file": "corpus/project/identity/chameleon-xpath-name-tests/a-duplicate-id.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows XPath 1.0 §2.3: an unprefixed name test has a null namespace URI, so the selector item never selects the qualified items and Identity-constraint Satisfied clause 4.2 has no duplicate to reject.",
+              "specRef": "https://www.w3.org/TR/1999/REC-xpath-19991116/#node-tests"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows XPath 1.0 §2.3: an unprefixed name test has a null namespace URI, so the selector item never selects the qualified items and Identity-constraint Satisfied clause 4.2 has no duplicate to reject.",
+              "specRef": "https://www.w3.org/TR/1999/REC-xpath-19991116/#node-tests"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows XPath 1.0 §2.3: an unprefixed name test has a null namespace URI, so the selector item never selects the qualified items and Identity-constraint Satisfied clause 4.2 has no duplicate to reject.",
+              "specRef": "https://www.w3.org/TR/1999/REC-xpath-19991116/#node-tests"
+            },
+            "libxml2": {
+              "status": "blocked",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: blocked: xmllint --schema accepts one schema root; 2 given; run on a.xsd alone it reports the instance valid. The project expectation follows XPath 1.0 §2.3: an unprefixed name test has a null namespace URI, so the selector item never selects the qualified items and Identity-constraint Satisfied clause 4.2 has no duplicate to reject.",
+              "specRef": "https://www.w3.org/TR/1999/REC-xpath-19991116/#node-tests"
+            }
+          }
+        },
+        {
+          "testName": "a-duplicate-key",
+          "file": "corpus/project/identity/chameleon-xpath-name-tests/a-duplicate-key.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. a-duplicate-key.xml:1:73: cvc-identity-constraint.4.1: Duplicate unique value [1] found for identity constraint \"byWildcard\" of element \"list\". The project expectation follows Identity-constraint Satisfied clause 4.2: the wildcard selector selects both qualified items, whose key fields are equal.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. .NET reports the duplicate when the same schema is written with targetNamespace instead of being included, so it does not apply identity constraints of a chameleon-included document. The project expectation follows Identity-constraint Satisfied clause 4.2: the wildcard selector selects both qualified items, whose key fields are equal.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. duplicated value ('1',) for XsdUnique(name='byWildcard') (path /n:list/n:item[2]). The project expectation follows Identity-constraint Satisfied clause 4.2: the wildcard selector selects both qualified items, whose key fields are equal.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint"
+            },
+            "libxml2": {
+              "status": "blocked",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: blocked: xmllint --schema accepts one schema root; 2 given; run on a.xsd alone it reports the instance invalid: Duplicate key-sequence ['1'] in unique identity-constraint '{urn:a}byWildcard'. The project expectation follows Identity-constraint Satisfied clause 4.2: the wildcard selector selects both qualified items, whose key fields are equal.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint"
+            }
+          }
+        },
+        {
+          "testName": "b-duplicate-id",
+          "file": "corpus/project/identity/chameleon-xpath-name-tests/b-duplicate-id.xml",
+          "expected": "valid",
+          "oracle": {
+            "xerces": {
+              "expected": "valid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows XPath 1.0 §2.3: an unprefixed name test has a null namespace URI, so the selector item never selects the qualified items and Identity-constraint Satisfied clause 4.2 has no duplicate to reject.",
+              "specRef": "https://www.w3.org/TR/1999/REC-xpath-19991116/#node-tests"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows XPath 1.0 §2.3: an unprefixed name test has a null namespace URI, so the selector item never selects the qualified items and Identity-constraint Satisfied clause 4.2 has no duplicate to reject.",
+              "specRef": "https://www.w3.org/TR/1999/REC-xpath-19991116/#node-tests"
+            },
+            "xmlschema": {
+              "expected": "valid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows XPath 1.0 §2.3: an unprefixed name test has a null namespace URI, so the selector item never selects the qualified items and Identity-constraint Satisfied clause 4.2 has no duplicate to reject.",
+              "specRef": "https://www.w3.org/TR/1999/REC-xpath-19991116/#node-tests"
+            },
+            "libxml2": {
+              "status": "blocked",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: blocked: xmllint --schema accepts one schema root; 2 given; run on a.xsd alone it reports the instance valid. The project expectation follows XPath 1.0 §2.3: an unprefixed name test has a null namespace URI, so the selector item never selects the qualified items and Identity-constraint Satisfied clause 4.2 has no duplicate to reject.",
+              "specRef": "https://www.w3.org/TR/1999/REC-xpath-19991116/#node-tests"
+            }
+          }
+        },
+        {
+          "testName": "b-duplicate-key",
+          "file": "corpus/project/identity/chameleon-xpath-name-tests/b-duplicate-key.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity",
+          "oracle": {
+            "xerces": {
+              "expected": "invalid",
+              "reason": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: instance rejected. b-duplicate-key.xml:1:73: cvc-identity-constraint.4.1: Duplicate unique value [1] found for identity constraint \"byWildcard\" of element \"list\". The project expectation follows Identity-constraint Satisfied clause 4.2: the wildcard selector selects both qualified items, whose key fields are equal.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint"
+            },
+            "dotnet": {
+              "expected": "valid",
+              "reason": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. .NET reports the duplicate when the same schema is written with targetNamespace instead of being included, so it does not apply identity constraints of a chameleon-included document. The project expectation follows Identity-constraint Satisfied clause 4.2: the wildcard selector selects both qualified items, whose key fields are equal.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint"
+            },
+            "xmlschema": {
+              "expected": "invalid",
+              "reason": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. duplicated value ('1',) for XsdUnique(name='byWildcard') (path /n:list/n:item[2]). The project expectation follows Identity-constraint Satisfied clause 4.2: the wildcard selector selects both qualified items, whose key fields are equal.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint"
+            },
+            "libxml2": {
+              "status": "blocked",
+              "reason": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: blocked: xmllint --schema accepts one schema root; 2 given; run on a.xsd alone it reports the instance invalid: Duplicate key-sequence ['1'] in unique identity-constraint '{urn:a}byWildcard'. The project expectation follows Identity-constraint Satisfied clause 4.2: the wildcard selector selects both qualified items, whose key fields are equal.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/chameleon-xpath-name-tests/a.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/chameleon-xpath-name-tests/b.xsd",
+          "role": "auxiliary"
+        },
+        {
+          "file": "corpus/project/identity/chameleon-xpath-name-tests/chameleon.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/identity/chameleon-xpath-name-tests/a-duplicate-id.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/chameleon-xpath-name-tests/a-duplicate-key.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/chameleon-xpath-name-tests/b-duplicate-id.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/chameleon-xpath-name-tests/b-duplicate-key.xml",
           "role": "instance"
         }
       ]

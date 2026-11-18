@@ -228,7 +228,7 @@ func TestFacetFixedIsAdmittedInEitherAttributeOrder(t *testing.T) {
 			t.Parallel()
 
 			var values admittedValues
-			admitted := startTagAttributes{values: &values}
+			admitted := startTagAttributes{values: &values, set: &schemaSetAdmission{}}
 			var err error
 			for _, attr := range tt.attrs {
 				if err = admitParsedAttributeValue(tt.element, attr, admitted); err != nil {

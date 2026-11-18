@@ -21,7 +21,7 @@ func TestTypedParserDoesNotRetainGenericSyntaxTree(t *testing.T) {
     <xs:documentation xml:lang="en-US">text<xs:element id="outer" name="not a schema name"><xs:future/></xs:element></xs:documentation>
   </xs:annotation>
   <xs:simpleType name="value"><xs:restriction base="xs:string"><xs:minLength value="1"/></xs:restriction></xs:simpleType>
-</xs:schema>`), limits, new(xmlstream.Reader), testSchemaPatterns(limits))
+</xs:schema>`), limits, new(xmlstream.Reader), testSchemaAdmission(limits))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -362,7 +362,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
 				t.Fatal(err)
 			}
 			schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">` + "\n" + tt.body + "\n</xs:schema>"
-			_, err = parseSchemaDocument("admission.xsd", "admission.xsd", strings.NewReader(schema), limits, new(xmlstream.Reader), testSchemaPatterns(limits))
+			_, err = parseSchemaDocument("admission.xsd", "admission.xsd", strings.NewReader(schema), limits, new(xmlstream.Reader), testSchemaAdmission(limits))
 			issue, ok := errors.AsType[*xsderrors.Error](err)
 			if !ok {
 				t.Fatalf("parseSchemaDocument() error = %T %[1]v, want structured diagnostic", err)

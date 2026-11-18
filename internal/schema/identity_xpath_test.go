@@ -1,8 +1,11 @@
 package schema
 
 import (
+	"errors"
+	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -320,35 +323,88 @@ func (s identityNameResolverStub) ResolveIdentityWildcardNamespace(prefix string
 	return ns, nil
 }
 
-func TestIdentityXPathCheckMatchesBuildWithoutPaths(t *testing.T) {
-	resolver := identityNameResolverStub{
-		namespaces: map[string]namespaceID{"p": 2},
-		qnames:     map[string]QName{":a": {Local: 1}, "p:a": {Namespace: 2, Local: 1}},
+func TestSelectorAndFieldStoreThePathsBuiltAtTheirStartTag(t *testing.T) {
+	t.Parallel()
+
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="urn:default" xmlns:p="urn:outer" targetNamespace="urn:target">
+  <xs:element name="root">
+    <xs:key name="k">
+      <xs:selector xmlns:p="urn:selector" xpath="p:row | .//cell"/>
+      <xs:field xpath="p:code/@p:id"/>
+      <xs:field xpath="attribute::p:*"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`
+	limits, err := NormalizeOptions(Options{})
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, xpath := range []string{"a | .//p:a", "p:* | a/./a", "a | //", "// | a", "q:a", "a | q:*", "child::", "@a", "a[1]"} {
-		built, buildErr := parseIdentityPaths(xpath, resolver)
-		checked, checkErr := identityXPathParser{resolver: resolver}.selectorPaths(xpath)
-		if checked != nil || identityErrorText(checkErr) != identityErrorText(buildErr) {
-			t.Fatalf("selector %q check = %v, %v, want no paths and build error %v (built %v)", xpath, checked, checkErr, buildErr, built)
-		}
-		builtFields, buildErr := parseIdentityFieldPaths(xpath, resolver)
-		checkedFields, checkErr := identityXPathParser{resolver: resolver}.fieldPaths(xpath)
-		if checkedFields != nil || identityErrorText(checkErr) != identityErrorText(buildErr) {
-			t.Fatalf("field %q check = %v, %v, want no paths and build error %v (built %v)", xpath, checkedFields, checkErr, buildErr, builtFields)
-		}
+	admission := testSchemaAdmission(limits)
+	doc, err := parseSchemaDocument("schema.xsd", "schema.xsd", strings.NewReader(schema), limits, new(xmlstream.Reader), admission)
+	if err != nil {
+		t.Fatalf("parseSchemaDocument() error = %v", err)
 	}
-	if allocs := testing.AllocsPerRun(10, func() {
-		if _, err := (identityXPathParser{resolver: &resolver}).fieldPaths(".//a/p:a/@p:a | a/attribute::p:*"); err != nil {
-			t.Fatal(err)
+	key := doc.node(doc.node(doc.root.children[0]).children[0])
+	name := func(ns, local string) QName {
+		q, ok := admission.names.LookupQName(ns, local)
+		if !ok {
+			t.Fatalf("name table has no {%s}%s", ns, local)
 		}
-	}); allocs != 0 {
-		t.Fatalf("checking a valid field XPath allocated %v times, want 0", allocs)
+		return q
+	}
+	outer, ok := admission.names.LookupNamespace("urn:outer")
+	if !ok {
+		t.Fatal("name table has no urn:outer")
+	}
+
+	selector := semanticSource[*schemaIdentitySelectorSource](&doc.node(key.children[0]).semantic)
+	if selector == nil || len(selector.Paths) != 2 {
+		t.Fatalf("selector source = %#v, want two paths", selector)
+	}
+	if got := selector.Paths[0]; got.Descendant || len(got.Steps) != 1 || got.Steps[0].Name != name("urn:selector", "row") {
+		t.Fatalf("selector path 0 = %#v, want {urn:selector}row from the selector's own binding", got)
+	}
+	if got := selector.Paths[1]; !got.Descendant || len(got.Steps) != 1 || got.Steps[0].Name != name("", "cell") {
+		t.Fatalf("selector path 1 = %#v, want .//cell in no namespace despite the default and target namespaces", got)
+	}
+
+	code := semanticSource[*schemaIdentityFieldSource](&doc.node(key.children[1]).semantic)
+	if code == nil || len(code.Paths) != 1 {
+		t.Fatalf("first field source = %#v, want one path", code)
+	}
+	if got := code.Paths[0]; !got.Attr || got.Attribute != name("urn:outer", "id") || len(got.Steps) != 1 || got.Steps[0].Name != name("urn:outer", "code") {
+		t.Fatalf("first field path = %#v, want {urn:outer}code/@{urn:outer}id", got)
+	}
+	wildcard := semanticSource[*schemaIdentityFieldSource](&doc.node(key.children[2]).semantic)
+	if wildcard == nil || len(wildcard.Paths) != 1 {
+		t.Fatalf("second field source = %#v, want one path", wildcard)
+	}
+	if got := wildcard.Paths[0]; !got.Attr || !got.AttrWildcard || !got.AttrNamespaceSet || got.AttrNamespace != outer {
+		t.Fatalf("second field path = %#v, want attribute::{urn:outer}*", got)
 	}
 }
 
-func identityErrorText(err error) string {
-	if err == nil {
-		return ""
+func TestUnboundXPathPrefixIsReportedAtItsStartTag(t *testing.T) {
+	t.Parallel()
+
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:key name="k">
+      <xs:selector xpath="."/>
+      <xs:field xmlns:p="urn:bound" xpath="@p:a | @q:a"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`
+	limits, err := NormalizeOptions(Options{})
+	if err != nil {
+		t.Fatal(err)
 	}
-	return err.Error()
+	_, err = parseSchemaDocument("schema.xsd", "schema.xsd", strings.NewReader(schema), limits, new(xmlstream.Reader), testSchemaAdmission(limits))
+	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+	if !ok || diagnostic.Code() != xsderrors.CodeSchemaReference || !strings.Contains(diagnostic.Message(), `unbound QName prefix "q"`) {
+		t.Fatalf("parseSchemaDocument() error = %v, want schema.reference for unbound prefix q", err)
+	}
+	if diagnostic.Line() != 5 || diagnostic.Column() != 7 {
+		t.Fatalf("parseSchemaDocument() location = %d:%d, want the xs:field start tag at 5:7", diagnostic.Line(), diagnostic.Column())
+	}
 }

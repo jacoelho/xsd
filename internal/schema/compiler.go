@@ -170,8 +170,8 @@ type compiler struct {
 
 	contentAnalysis *contentModelAnalysis
 
-	// patterns is lent to start-tag admission while the schema set loads;
-	// see schemaPatterns.
+	// patterns and rt.Names are lent to start-tag admission while the schema
+	// set loads; see schemaSetAdmission.
 	patterns schemaPatterns
 
 	plan           schemaPlan

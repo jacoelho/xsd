@@ -112,7 +112,7 @@ func TestConfiguredMaxFiniteOccursIsDecidedAtTheParticleStartTag(t *testing.T) {
 	}
 }
 
-func TestNameLimitWhileInterningIdentityXPathIsASchemaLimit(t *testing.T) {
+func TestNameLimitBreachOnAnXPathNameIsReportedAtItsStartTagInLoadOrder(t *testing.T) {
 	t.Parallel()
 
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:only-in-xpath">
@@ -123,15 +123,27 @@ func TestNameLimitWhileInterningIdentityXPathIsASchemaLimit(t *testing.T) {
     </xs:key>
   </xs:element>
 </xs:schema>`
+	type location struct{ line, column int }
+	var located []location
 	for limit := 1; ; limit++ {
 		_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaNames: limit}, xsd.Bytes("schema.xsd", []byte(schema)))
 		if err == nil {
-			return
+			break
 		}
-		expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 		if limit > 10_000 {
 			t.Fatalf("CompileWithOptions(MaxSchemaNames: %d) error = %v, want success below 10000 names", limit, err)
 		}
+		d, ok := errors.AsType[*xsderrors.Error](err)
+		if !ok || d.Code() != xsderrors.CodeSchemaLimit {
+			t.Fatalf("CompileWithOptions(MaxSchemaNames: %d) error = %v, want schema.limit", limit, err)
+		}
+		if d.Line() != 0 {
+			located = append(located, location{d.Line(), d.Column()})
+		}
+	}
+	selector, field := location{4, 7}, location{5, 7}
+	if len(located) < 4 || located[0] != selector || located[1] != selector || located[2] != field || located[3] != field {
+		t.Fatalf("located name-limit breaches in increasing limit order = %v, want the xs:selector (%v) for its two new names, then the xs:field (%v) for its two, before any other declaration", located, selector, field)
 	}
 }
 

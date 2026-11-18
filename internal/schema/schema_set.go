@@ -61,7 +61,7 @@ type schemaSetLoader struct {
 	byKey             map[string]loadedSchemaDocument
 	pendingReferences map[string][]*schemaReference
 	dependencyWork    *workBudget
-	patterns          *schemaPatterns
+	admission         schemaSetAdmission
 	documents         []schemaSetDocument
 	parser            xmlstream.Reader
 	limits            Limits
@@ -243,7 +243,7 @@ func loadSchemaGraphOwned(
 	sources []source.Source,
 	limits Limits,
 	dependencyWork *workBudget,
-	patterns *schemaPatterns,
+	admission schemaSetAdmission,
 ) (loadedSchemaGraph, error) {
 	if dependencyWork == nil {
 		return loadedSchemaGraph{}, xsderrors.InternalInvariant("schema dependency work budget is nil")
@@ -252,7 +252,7 @@ func loadSchemaGraphOwned(
 		limits:         limits,
 		byKey:          make(map[string]loadedSchemaDocument),
 		dependencyWork: dependencyWork,
-		patterns:       patterns,
+		admission:      admission,
 	}
 	if err := l.loadOwned(sources); err != nil {
 		return loadedSchemaGraph{}, err
@@ -286,8 +286,8 @@ func (g *loadedSchemaGraph) plan() (schemaPlan, error) {
 	return schemaPlan{documents: g.documents}, nil
 }
 
-func loadSchemaPlanOwned(sources []source.Source, limits Limits, dependencyWork *workBudget, patterns *schemaPatterns) (schemaPlan, error) {
-	graph, err := loadSchemaGraphOwned(sources, limits, dependencyWork, patterns)
+func loadSchemaPlanOwned(sources []source.Source, limits Limits, dependencyWork *workBudget, admission schemaSetAdmission) (schemaPlan, error) {
+	graph, err := loadSchemaGraphOwned(sources, limits, dependencyWork, admission)
 	if err != nil {
 		return schemaPlan{}, err
 	}
@@ -295,7 +295,7 @@ func loadSchemaPlanOwned(sources []source.Source, limits Limits, dependencyWork 
 }
 
 func (c *compiler) loadOwned(sources []source.Source) error {
-	plan, err := loadSchemaPlanOwned(sources, c.limits, &c.dependencyWork, &c.patterns)
+	plan, err := loadSchemaPlanOwned(sources, c.limits, &c.dependencyWork, schemaSetAdmission{patterns: &c.patterns, names: &c.rt.Names})
 	if err != nil {
 		return err
 	}
@@ -398,7 +398,7 @@ func (l *schemaSetLoader) parseNewSource(item schemaLoadRequest, key string) (*s
 	if input != nil {
 		parseLimits := l.limits
 		parseLimits.MaxSchemaInstantiatedNodes -= l.parsedNodes
-		doc, parseErr = parseSchemaDocument(src.Name(), key, input, parseLimits, &l.parser, l.patterns)
+		doc, parseErr = parseSchemaDocument(src.Name(), key, input, parseLimits, &l.parser, l.admission)
 		result = input.Finish()
 	}
 	missing, err := l.admitSourceResult(item, result, readLimit, remaining)

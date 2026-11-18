@@ -335,16 +335,19 @@ which the compiler owns and lends to start-tag admission while the set loads:
 each distinct pattern text is compiled once, at the first facet that names it
 in document load order, and charged against `MaxSchemaPatternRetainedBytes`
 before it is kept, so a breach is reported at that facet's start tag.
-Compilation parses two kinds of admitted value again, and a failure there is
-an internal invariant (`admittedValueInvariant`), not a second schema
-diagnostic. A selector or field path is checked by `admitIdentityXPath`
-without being built and parsed again to intern its name tests, which keeps the
-selector and field nodes' namespace context until then; storing the parsed
-paths was measured to allocate each path twice (see Rejected Alternatives).
-The other attribute values that are single keywords or short lists (booleans,
-`form`, `use`, derivation sets, `processContents`, wildcard namespaces,
+A selector or field path is parsed once, by `admitIdentityXPath` at its start
+tag: prefixes resolve against that tag's namespace scope, an unprefixed name
+test has no namespace whatever the including target namespace, and name tests
+are interned into the compiler's name table, which the compiler lends with
+`schemaPatterns` (`schemaSetAdmission`). The tag therefore owns a
+`MaxSchemaNames` breach on a path name, and every identity constraint compiled
+from the node, in each chameleon context, shares the stored paths without
+copying them; a missing stored path is an internal invariant. The other
+attribute values that are single keywords or short lists (booleans, `form`,
+`use`, derivation sets, `processContents`, wildcard namespaces,
 `targetNamespace`) stay lexical in the record and are parsed again with the
-same allocation-free parser where compilation uses them.
+same allocation-free parser where compilation uses them; a failure there is an
+internal invariant (`admittedValueInvariant`), not a second schema diagnostic.
 
 `internal/schema`, `internal/value` and `internal/validate` export only
 identifiers consumed outside their package: for schema the published read
@@ -1046,17 +1049,17 @@ graph preserves these ownership rules:
   separate constraint from All Group Limited through a group reference, and
   each now has its own owner.
 - Checking the syntax of selector and field paths only when the identity
-  constraint compiles, so that no second parse allocates on a successful
-  compile, was rejected with the tier rule above. The tag checks each path
-  without building it, which allocates nothing, and compilation parses it
-  again to intern its name tests. That second scan is the accepted cost of the
-  tier rule: about 5–9% of compile time on `BenchmarkCompileIdentityPrograms`,
-  whose schemas are mostly selector and field paths, and no significant change
-  on `BenchmarkCompileSourceDocuments/identity_constraints`.
-- Storing the paths the tag parses, with namespace and local-name strings,
-  for compilation to intern was rejected: it allocated the paths twice, once
-  as strings at the tag and once as interned names, raising the allocations of
-  a successful compile by about one per path.
+  constraint compiles was rejected with the tier rule above.
+- Checking each path at its tag without building it and parsing it again at
+  compilation to intern its name tests was rejected: the second scan cost
+  about 5–9% of compile time on `BenchmarkCompileIdentityPrograms` and kept
+  the selector and field nodes' namespace context alive until compilation.
+  Storing the paths with namespace and local-name strings for compilation to
+  intern was rejected because it allocated each path twice. Interning at the
+  tag allocates each path once and retains no namespace context for a
+  selector or field (`schemaNodeNeedsDeferredQNameContext`); the cost is that
+  path names take name IDs in document load order, which diagnostics do not
+  depend on.
 - Checking a pattern at its facet's start tag and compiling it again when the
   restriction compiles was rejected: the tag compiled every occurrence of a
   text that the compiler cache would have compiled once, and compiled every

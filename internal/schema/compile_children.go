@@ -73,7 +73,7 @@ func admitSchemaAttributeValue(n *schemaSyntaxNode, attr schemaAttribute, admitt
 		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "duplicate schema id "+diagnostictext.Quote(attr.Value))
 	}
 	if attr.Name.Local == vocab.XSDAttrXPath {
-		if err := admitXPathAttribute(n, attr.Value); err != nil {
+		if err := admitXPathAttribute(n, attr.Value, admitted); err != nil {
 			return err
 		}
 	}
@@ -89,11 +89,11 @@ func admitSchemaAttributeValue(n *schemaSyntaxNode, attr schemaAttribute, admitt
 	return checkSchemaAnyURIAttribute(n, attr)
 }
 
-func admitXPathAttribute(n *schemaSyntaxNode, value string) error {
+func admitXPathAttribute(n *schemaSyntaxNode, value string, admitted startTagAttributes) error {
 	if lex.TrimXMLWhitespaceString(value) == "" {
 		return schemaCompileAt(n, xsderrors.CodeSchemaIdentity, diagnostictext.Quote(n.Name.Local)+" xpath is empty")
 	}
-	return admitIdentityXPath(n, value)
+	return admitIdentityXPath(n, value, admitted.set.names, admitted.values)
 }
 
 // admitParsedAttributeValue admits attr, an attribute of the XSD element
@@ -106,7 +106,7 @@ func admitParsedAttributeValue(element string, attr schemaAttribute, admitted st
 	case vocab.XSDAttrMinOccurs, vocab.XSDAttrMaxOccurs:
 		return values.occurrence.admitAttribute(attr.Name.Local, attr.Value)
 	case vocab.XSDAttrValue:
-		facet, err := admitFacetValue(element, attr.Value, admitted.patterns)
+		facet, err := admitFacetValue(element, attr.Value, admitted.set.patterns)
 		facet.fixed = values.facet.fixed
 		values.facet = facet
 		return err

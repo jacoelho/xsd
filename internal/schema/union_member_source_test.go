@@ -61,7 +61,7 @@ func TestUnionMemberSourceAdmission(t *testing.T) {
 				input += `<xs:simpleType><xs:restriction base="xs:string"/></xs:simpleType>`
 			}
 			input += "</xs:union>\n  </xs:simpleType>\n</xs:schema>"
-			doc, err := parseSchemaDocument("union.xsd", "union.xsd", strings.NewReader(input), limits, new(xmlstream.Reader), testSchemaPatterns(limits))
+			doc, err := parseSchemaDocument("union.xsd", "union.xsd", strings.NewReader(input), limits, new(xmlstream.Reader), testSchemaAdmission(limits))
 			if err != nil {
 				t.Fatalf("parseSchemaDocument() error = %v", err)
 			}
