@@ -785,8 +785,10 @@ Diagnostics flow:
    inspects at most 256 alternatives: the edges of the DFA state or the
    all-group terms in compiled model order, and the substitution members of
    each element particle in expanded-name order. It displays the first eight
-   inspected alternatives in expanded-name order (`compareContentExpectation`)
-   and the first eight namespaces of a wildcard. The text therefore never
+   inspected alternatives in diagnostic order (`compareContentExpectation`):
+   wildcards first, so no number of element alternatives hides one, then
+   element names in expanded-name order; and the first eight namespaces of a
+   wildcard. The text therefore never
    depends on interning order, and it does not depend on the order of
    declarations unless the 256-alternative limit cuts across the edges of one
    state, whose compiled order follows element declaration IDs.

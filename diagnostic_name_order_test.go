@@ -61,6 +61,32 @@ func TestExpectedChildDiagnosticListsNamesInExpandedNameOrder(t *testing.T) {
 	}
 }
 
+func TestExpectedChildDiagnosticListsAWildcardAlternativeWhateverTheNumberOfElementAlternatives(t *testing.T) {
+	t.Parallel()
+
+	elements := ""
+	for _, name := range []string{"eee", "bbb", "hhh", "aaa", "ggg", "ddd", "iii", "ccc", "fff"} {
+		elements += `<xs:element name="` + name + `"/>`
+	}
+	const wildcard = `<xs:any namespace="##other" processContents="lax"/>`
+	const want = `unexpected child element "zzz"; expected next child [an element in a non-empty namespace other than "", "aaa", "bbb", "ccc", "ddd", "eee", "fff", "ggg", ...]`
+	for _, variant := range []struct{ name, choice string }{
+		{name: "wildcard last", choice: elements + wildcard},
+		{name: "wildcard first", choice: wildcard + elements},
+	} {
+		name, choice := variant.name, variant.choice
+		schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType><xs:choice>` + choice + `</xs:choice></xs:complexType></xs:element></xs:schema>`
+		engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+		if err != nil {
+			t.Fatalf("%s: Compile() error = %v", name, err)
+		}
+		err = engine.Validate(strings.NewReader(`<root><zzz/></root>`))
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Fatalf("%s: Validate() error = %v, want it to contain %q", name, err, want)
+		}
+	}
+}
+
 func TestExpectedChildDiagnosticListsWildcardNamespacesInTextOrder(t *testing.T) {
 	t.Parallel()
 

@@ -96,8 +96,9 @@ type ContentExpectation struct {
 }
 
 // ContentExpectations is a bounded error-only projection of the authoritative
-// content state. It holds the first alternatives in diagnostic order: element
-// names by namespace URI, then local name, then wildcards. More means
+// content state. It holds the first alternatives in diagnostic order:
+// wildcards, then element names by namespace URI, then local name. Wildcards
+// come first so that no number of element alternatives hides one. More means
 // alternatives or traversal work were truncated.
 type ContentExpectations struct {
 	values [diagnostictext.MaxAlternatives]ContentExpectation
@@ -250,7 +251,7 @@ func (p *contentExpectationProjection) add(item ContentExpectation) {
 
 func compareContentExpectation(a, b ContentExpectation) int {
 	return cmp.Or(
-		compareFalseFirst(a.IsWildcard, b.IsWildcard),
+		compareFalseFirst(!a.IsWildcard, !b.IsWildcard),
 		cmp.Compare(a.Name.Namespace, b.Name.Namespace),
 		cmp.Compare(a.Name.Local, b.Name.Local),
 		cmp.Compare(a.WildcardMode, b.WildcardMode),
