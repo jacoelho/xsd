@@ -393,11 +393,11 @@ func TestValidateSubstitutionEdgeMembership(t *testing.T) {
 		},
 	}
 	elements := []elementDecl{{Type: ComplexRef(0)}, {Type: ComplexRef(1)}}
-	if _, err := validateSubstitutionEdge(rt.build(), elements, 1, 0, unboundedTypeDerivationWork); err != nil {
+	if _, err := validateSubstitutionEdge(rt.build(), elements, 1, 0, new(unionMemberWalk), unboundedTypeDerivationWork); err != nil {
 		t.Fatalf("derived member rejected: %v", err)
 	}
 	elements[0].Final = DerivationExtension
-	_, err := validateSubstitutionEdge(rt.build(), elements, 1, 0, unboundedTypeDerivationWork)
+	_, err := validateSubstitutionEdge(rt.build(), elements, 1, 0, new(unionMemberWalk), unboundedTypeDerivationWork)
 	if !errors.Is(err, errSubstitutionMemberTypeExcludedDerivation) {
 		t.Fatalf("final error = %v", err)
 	}
@@ -407,7 +407,7 @@ func TestValidateSubstitutionEdgeMembership(t *testing.T) {
 	}
 	elements[0] = elementDecl{Type: ComplexRef(0)}
 	elements[1] = elementDecl{Type: ComplexRef(2)}
-	_, err = validateSubstitutionEdge(rt.build(), elements, 1, 0, unboundedTypeDerivationWork)
+	_, err = validateSubstitutionEdge(rt.build(), elements, 1, 0, new(unionMemberWalk), unboundedTypeDerivationWork)
 	if !errors.Is(err, errSubstitutionMemberTypeNotDerived) {
 		t.Fatalf("unrelated error = %v", err)
 	}
@@ -631,7 +631,7 @@ func TestValidateSubstitutionEdgeOmitsUnionMembershipFromBlockingMethodsButNotFr
 			t.Parallel()
 
 			elements := []elementDecl{{Type: tt.head}, {Type: tt.member, SubstHead: 0}}
-			edge, err := validateSubstitutionEdge(rt.build(), elements, 1, 0, unboundedTypeDerivationWork)
+			edge, err := validateSubstitutionEdge(rt.build(), elements, 1, 0, new(unionMemberWalk), unboundedTypeDerivationWork)
 			if err != nil {
 				t.Fatalf("validateSubstitutionEdge() error = %v", err)
 			}
@@ -640,11 +640,28 @@ func TestValidateSubstitutionEdgeOmitsUnionMembershipFromBlockingMethodsButNotFr
 			}
 			for _, final := range []DerivationMask{ext, rest} {
 				elements[0].Final = final
-				_, err := validateSubstitutionEdge(rt.build(), elements, 1, 0, unboundedTypeDerivationWork)
+				_, err := validateSubstitutionEdge(rt.build(), elements, 1, 0, new(unionMemberWalk), unboundedTypeDerivationWork)
 				if excluded := errors.Is(err, errSubstitutionMemberTypeExcludedDerivation); excluded != (tt.full&final != 0) {
 					t.Fatalf("head final %08b: error = %v, want excluded = %v", final, err, tt.full&final != 0)
 				}
 			}
 		})
 	}
+	t.Run("one walk across every edge in both orders", func(t *testing.T) {
+		t.Parallel()
+
+		reversed := slices.Clone(tests)
+		slices.Reverse(reversed)
+		walk := new(unionMemberWalk)
+		for _, tt := range append(slices.Clone(tests), reversed...) {
+			elements := []elementDecl{{Type: tt.head}, {Type: tt.member, SubstHead: 0}}
+			edge, err := validateSubstitutionEdge(rt.build(), elements, 1, 0, walk, unboundedTypeDerivationWork)
+			if err != nil {
+				t.Fatalf("%s: validateSubstitutionEdge() error = %v", tt.name, err)
+			}
+			if edge.methods != tt.methods {
+				t.Fatalf("%s: methods = %08b, want %08b", tt.name, edge.methods, tt.methods)
+			}
+		}
+	})
 }

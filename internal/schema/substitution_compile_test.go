@@ -55,7 +55,7 @@ func TestSubstitutionMembershipDiagnosticMapsRejectedEdges(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, edgeErr := validateSubstitutionEdge(rt.build(), []elementDecl{tt.head, tt.member}, 1, 0, unboundedTypeDerivationWork)
+			_, edgeErr := validateSubstitutionEdge(rt.build(), []elementDecl{tt.head, tt.member}, 1, 0, new(unionMemberWalk), unboundedTypeDerivationWork)
 			membership, ok := errors.AsType[substitutionMembershipError](edgeErr)
 			if !errors.Is(edgeErr, tt.cause) || !ok || !errors.Is(membership.Cause, tt.cause) || membership.Member != 1 || membership.Head != 0 {
 				t.Fatalf("edge error = %#v, want %v for member1/head0", edgeErr, tt.cause)

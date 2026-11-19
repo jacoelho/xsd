@@ -407,12 +407,12 @@ type substitutionDerivation struct {
 // membership-only path exists: it explores one member's whole subtree, base
 // steps included, before trying the next member, and stops at the first path
 // it finds. A type that is both a member and a restriction of an earlier member
-// is first found through the restriction, so simpleTypeIsUnionMember walks the
-// member edges separately, once, and only when the simple part has a method to
-// remove.
+// is first found through the restriction, so memberWalk walks the member
+// edges separately, once, and only when the simple part has a method to remove.
 func deriveSubstitution(
 	rt *schemaBuild,
 	member, head TypeID,
+	memberWalk *unionMemberWalk,
 	work func(int) error,
 ) (substitutionDerivation, bool, error) {
 	headID, ok := head.Simple()
@@ -428,7 +428,7 @@ func deriveSubstitution(
 	if d.simple == 0 {
 		return derivation, true, nil
 	}
-	membership, err := simpleTypeIsUnionMember(rt, d.core, headID, work)
+	membership, err := memberWalk.reaches(rt, d.core, headID, work)
 	if err != nil {
 		return substitutionDerivation{}, false, err
 	}
@@ -1125,11 +1125,21 @@ func (s *simpleTypeUnionDerivationSearch) pop(last int) {
 	s.stack = s.stack[:last]
 }
 
-// simpleTypeIsUnionMember reports whether derived equals base or is reached
-// from base through {member type definitions} alone, descending into members
-// that are themselves unions, along the edges unionMembers gives. Such a
-// derivation takes no base-chain step.
-func simpleTypeIsUnionMember(
+// unionMemberWalk is the scratch state of union membership walks, reused
+// across the substitution edges of one compile. Between walks seen is empty:
+// each walk clears exactly the bits it set, so a walk costs what it visits,
+// not the number of simple types.
+type unionMemberWalk struct {
+	seen    []uint64
+	marked  []SimpleTypeID
+	pending []SimpleTypeID
+}
+
+// reaches reports whether derived equals base or is reached from base through
+// {member type definitions} alone, descending into members that are
+// themselves unions, along the edges unionMembers gives. Such a derivation
+// takes no base-chain step.
+func (w *unionMemberWalk) reaches(
 	rt *schemaBuild,
 	derived, base SimpleTypeID,
 	work func(int) error,
@@ -1141,43 +1151,57 @@ func simpleTypeIsUnionMember(
 	if !ok || len(unionMembers(typ)) == 0 {
 		return false, nil
 	}
-	seen := make([]uint64, (len(rt.SimpleTypes)+63)/64)
-	markSimpleTypeSeen(seen, base)
-	pending := []SimpleTypeID{base}
-	for len(pending) != 0 {
-		current := pending[len(pending)-1]
+	if words := (len(rt.SimpleTypes) + 63) / 64; len(w.seen) != words {
+		w.seen = make([]uint64, words)
+	}
+	defer w.reset()
+	w.mark(base)
+	w.pending = append(w.pending, base)
+	for len(w.pending) != 0 {
+		last := len(w.pending) - 1
+		current := w.pending[last]
+		w.pending = w.pending[:last]
 		if current == derived {
 			return true, nil
 		}
-		var err error
-		if pending, err = appendUnseenUnionMembers(rt, pending[:len(pending)-1], seen, current, work); err != nil {
+		if err := w.pushUnseenMembers(rt, current, work); err != nil {
 			return false, err
 		}
 	}
 	return false, nil
 }
 
-func appendUnseenUnionMembers(
-	rt *schemaBuild,
-	pending []SimpleTypeID,
-	seen []uint64,
-	current SimpleTypeID,
-	work func(int) error,
-) ([]SimpleTypeID, error) {
+func (w *unionMemberWalk) pushUnseenMembers(rt *schemaBuild, current SimpleTypeID, work func(int) error) error {
 	typ, ok := rt.SimpleTypeDerivation(current)
 	if !ok {
-		return pending, nil
+		return nil
 	}
 	members := unionMembers(typ)
 	if err := work(1 + len(members)); err != nil {
-		return nil, err
+		return err
 	}
 	for _, id := range members {
-		if markSimpleTypeSeen(seen, id) {
-			pending = append(pending, id)
+		if w.mark(id) {
+			w.pending = append(w.pending, id)
 		}
 	}
-	return pending, nil
+	return nil
+}
+
+func (w *unionMemberWalk) mark(id SimpleTypeID) bool {
+	if !markSimpleTypeSeen(w.seen, id) {
+		return false
+	}
+	w.marked = append(w.marked, id)
+	return true
+}
+
+func (w *unionMemberWalk) reset() {
+	for _, id := range w.marked {
+		w.seen[uint64(id)/64] &^= uint64(1) << (uint64(id) % 64)
+	}
+	w.marked = w.marked[:0]
+	w.pending = w.pending[:0]
 }
 
 // markSimpleTypeSeen sets id in seen and reports whether it was unset. An ID

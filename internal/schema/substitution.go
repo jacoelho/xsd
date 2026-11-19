@@ -472,11 +472,12 @@ func validateSubstitutionEdges(
 	work func(int) error,
 ) ([]substitutionEdge, error) {
 	edges := make([]substitutionEdge, len(elements))
+	var memberWalk unionMemberWalk
 	for member, head := range parents {
 		if head == NoElement {
 			continue
 		}
-		edge, err := validateSubstitutionEdge(rt, elements, member, head, work)
+		edge, err := validateSubstitutionEdge(rt, elements, member, head, &memberWalk, work)
 		if err != nil {
 			return nil, err
 		}
@@ -490,13 +491,14 @@ func validateSubstitutionEdge(
 	elements []elementDecl,
 	member int,
 	head ElementID,
+	memberWalk *unionMemberWalk,
 	work func(int) error,
 ) (substitutionEdge, error) {
 	memberID, ok := elementIndexID(member)
 	if !ok {
 		return substitutionEdge{}, errors.New("substitution member index exceeds element ID range")
 	}
-	derivation, ok, err := deriveSubstitution(rt, elements[member].Type, elements[head].Type, work)
+	derivation, ok, err := deriveSubstitution(rt, elements[member].Type, elements[head].Type, memberWalk, work)
 	if err != nil {
 		return substitutionEdge{}, err
 	}
