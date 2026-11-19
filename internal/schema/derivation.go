@@ -1183,8 +1183,8 @@ func appendUnseenUnionMembers(
 // markSimpleTypeSeen sets id in seen and reports whether it was unset. An ID
 // beyond seen names no simple type, so it reports false.
 func markSimpleTypeSeen(seen []uint64, id SimpleTypeID) bool {
-	word, bit := int(id)/64, uint64(1)<<(uint(id)%64)
-	if word >= len(seen) || seen[word]&bit != 0 {
+	word, bit := uint64(id)/64, uint64(1)<<(uint64(id)%64)
+	if word >= uint64(len(seen)) || seen[word]&bit != 0 {
 		return false
 	}
 	seen[word] |= bit
