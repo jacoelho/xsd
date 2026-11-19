@@ -82,6 +82,26 @@ project/namespaces/exact-uri-identity/declaration	trailing-slash	dotnet	unassess
 project/namespaces/exact-uri-identity/declaration	trailing-slash	libxml2	invalid	declaration-trailing-slash.xml:1: element root: Schemas validity error : Element '{http://EXAMPLE.test/%7E/}root': No matching global declaration available for the validation root.
 project/namespaces/exact-uri-identity/declaration	trailing-slash	xerces	invalid	declaration-trailing-slash.xml:1:44: cvc-elt.1.a: Cannot find the declaration of element 'p:root'.
 project/namespaces/exact-uri-identity/declaration	trailing-slash	xmlschema	invalid	line None: '{http://EXAMPLE.test/%7E/}root' is not an element of the schema (path /p:root)
+project/namespaces/import-namespace-empty/import-absent-namespace-located-used	schema	dotnet	schema-valid	
+project/namespaces/import-namespace-empty/import-absent-namespace-located-used	schema	libxml2	schema-valid	
+project/namespaces/import-namespace-empty/import-absent-namespace-located-used	schema	xerces	schema-valid	
+project/namespaces/import-namespace-empty/import-absent-namespace-located-used	schema	xmlschema	schema-invalid	unknown element '{urn:t}n':␊␊Schema component:␊␊  <xs:element xmlns:xs="http://www.w3.org/2001/XMLSchema" ref="n" />␊␊Path: /xs:schema/xs:element/xs:complexType/xs:sequence/xs:element␊␊Schema URL: import-absent-namespace-located-used.xsd
+project/namespaces/import-namespace-empty/import-absent-namespace-with-target	schema	dotnet	schema-valid	
+project/namespaces/import-namespace-empty/import-absent-namespace-with-target	schema	libxml2	schema-valid	
+project/namespaces/import-namespace-empty/import-absent-namespace-with-target	schema	xerces	schema-valid	
+project/namespaces/import-namespace-empty/import-absent-namespace-with-target	schema	xmlschema	schema-valid	
+project/namespaces/import-namespace-empty/import-empty-namespace-located-used	schema	dotnet	schema-invalid	import-empty-namespace-located-used.xsd:1:95: The namespace attribute '' of an import should be the same value as the targetNamespace '' of the imported schema.
+project/namespaces/import-namespace-empty/import-empty-namespace-located-used	schema	libxml2	schema-invalid	import-empty-namespace-located-used.xsd:1: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'ref': References from this schema to components in no namespace are not allowed, since not indicated by an import statement.␊WXS schema import-empty-namespace-located-used.xsd failed to compile
+project/namespaces/import-namespace-empty/import-empty-namespace-located-used	schema	xerces	schema-invalid	nons.inc:1:56: src-import.3.1: The namespace attribute, '', of an <import> element information item must be identical to the targetNamespace attribute, 'null', of the imported document.
+project/namespaces/import-namespace-empty/import-empty-namespace-located-used	schema	xmlschema	schema-invalid	unknown element '{urn:t}n':␊␊Schema component:␊␊  <xs:element xmlns:xs="http://www.w3.org/2001/XMLSchema" ref="n" />␊␊Path: /xs:schema/xs:element/xs:complexType/xs:sequence/xs:element␊␊Schema URL: import-empty-namespace-located-used.xsd
+project/namespaces/import-namespace-empty/import-empty-namespace-with-target	schema	dotnet	schema-invalid	import-empty-namespace-with-target.xsd:1:81: The namespace attribute cannot have empty string as its value.
+project/namespaces/import-namespace-empty/import-empty-namespace-with-target	schema	libxml2	schema-valid	
+project/namespaces/import-namespace-empty/import-empty-namespace-with-target	schema	xerces	schema-valid	
+project/namespaces/import-namespace-empty/import-empty-namespace-with-target	schema	xmlschema	schema-valid	
+project/namespaces/import-namespace-empty/import-whitespace-namespace-with-target	schema	dotnet	schema-invalid	import-whitespace-namespace-with-target.xsd:1:81: The Namespace '   ' is an invalid URI.
+project/namespaces/import-namespace-empty/import-whitespace-namespace-with-target	schema	libxml2	schema-valid	
+project/namespaces/import-namespace-empty/import-whitespace-namespace-with-target	schema	xerces	schema-valid	
+project/namespaces/import-namespace-empty/import-whitespace-namespace-with-target	schema	xmlschema	schema-valid	
 project/namespaces/prefix-restoration/schema	restored-descendant	dotnet	valid	
 project/namespaces/prefix-restoration/schema	restored-descendant	libxml2	valid	
 project/namespaces/prefix-restoration/schema	restored-descendant	xerces	valid	

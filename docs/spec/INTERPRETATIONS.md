@@ -2005,7 +2005,16 @@ Its sibling schZ014_a, an `<xsd:import namespace=""/>` in a schema without
 targetNamespace, expects invalid under the same acceptance and decides the
 empty import namespace in [CMP-Q001](#remaining-source-integration-boundaries):
 Xerces-J and libxml2 accept that document, .NET and xmlschema reject it
-(`project/namespace-schema-import-namespace-cannot-be-empty`).
+(`project/namespace-schema-import-namespace-cannot-be-empty`). The same rule
+rejects `namespace=""` and `namespace="   "` in a schema with a
+targetNamespace, and `namespace=""` with a schemaLocation whose no-namespace
+element the importer references; an import without a `namespace` attribute in
+a schema with a targetNamespace imports no-namespace components and is valid
+(`project/namespaces/import-namespace-empty/*`). Xerces-J, libxml2 and
+xmlschema accept the empty and whitespace imports in a schema with a
+targetNamespace, and .NET rejects them. xmlschema also rejects the located
+import without a `namespace` attribute, resolving the reference `ref="n"`
+under `xmlns=""` in the importer's default namespace.
 
 Cases: `project/composition/conformance-schema-header-target-empty`,
 `project/composition/conformance-schema-header-target-whitespace` and

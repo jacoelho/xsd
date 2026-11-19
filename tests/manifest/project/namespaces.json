@@ -472,6 +472,211 @@
           "role": "instance"
         }
       ]
+    },
+    {
+      "id": "project/namespaces/import-namespace-empty/import-empty-namespace-with-target",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/namespaces/import-namespace-empty/import-empty-namespace-with-target.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import"
+        ],
+        "conditions": [
+          "A schema with a targetNamespace imports namespace=\"\"."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/namespaces/import-namespace-empty/import-empty-namespace-with-target.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-041--empty-target-namespace",
+          "clause": "Empty import namespace (schZ014_a) in I-041 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-041"
+          },
+          "xmlschema": {
+            "record": "I-041"
+          },
+          "libxml2": {
+            "record": "I-041"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/namespaces/import-namespace-empty/import-empty-namespace-with-target.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/namespaces/import-namespace-empty/import-whitespace-namespace-with-target",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/namespaces/import-namespace-empty/import-whitespace-namespace-with-target.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import"
+        ],
+        "conditions": [
+          "A schema with a targetNamespace imports namespace=\"   \", whose collapsed value is empty."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/namespaces/import-namespace-empty/import-whitespace-namespace-with-target.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-041--empty-target-namespace",
+          "clause": "Empty import namespace (schZ014_a) in I-041 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-041"
+          },
+          "xmlschema": {
+            "record": "I-041"
+          },
+          "libxml2": {
+            "record": "I-041"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/namespaces/import-namespace-empty/import-whitespace-namespace-with-target.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/namespaces/import-namespace-empty/import-absent-namespace-with-target",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/namespaces/import-namespace-empty/import-absent-namespace-with-target.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import"
+        ],
+        "conditions": [
+          "A schema with a targetNamespace imports with no namespace attribute, which imports no-namespace components."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/namespaces/import-namespace-empty/import-absent-namespace-with-target.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-041--empty-target-namespace",
+          "clause": "Empty import namespace (schZ014_a) in I-041 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/namespaces/import-namespace-empty/import-absent-namespace-with-target.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/namespaces/import-namespace-empty/import-empty-namespace-located-used",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/namespaces/import-namespace-empty/import-empty-namespace-located-used.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import"
+        ],
+        "conditions": [
+          "An import with namespace=\"\" and a schemaLocation whose document supplies a no-namespace element the importer references is still a schema error."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/namespaces/import-namespace-empty/import-empty-namespace-located-used.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-041--empty-target-namespace",
+          "clause": "Empty import namespace (schZ014_a) in I-041 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/namespaces/import-namespace-empty/import-empty-namespace-located-used.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/namespaces/import-namespace-empty/nons.inc",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "project/namespaces/import-namespace-empty/import-absent-namespace-located-used",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/namespaces/import-namespace-empty/import-absent-namespace-located-used.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import"
+        ],
+        "conditions": [
+          "The same import without a namespace attribute imports the no-namespace element the importer references."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/namespaces/import-namespace-empty/import-absent-namespace-located-used.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-041--empty-target-namespace",
+          "clause": "Empty import namespace (schZ014_a) in I-041 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xmlschema": {
+            "record": "I-041"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/namespaces/import-namespace-empty/import-absent-namespace-located-used.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/namespaces/import-namespace-empty/nons.inc",
+          "role": "dependency"
+        }
+      ]
     }
   ]
 }
