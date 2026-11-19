@@ -182,7 +182,7 @@ func (v contentRestrictionValidator) validateContentRestrictionRanges(baseID, de
 	if err != nil {
 		return err
 	}
-	if !occurrenceRangeSubset(derivedRange, baseRange) {
+	if !derivedRange.subsetOf(baseRange) {
 		return contentRestrictionMismatch("content restriction is not subset of base")
 	}
 	return nil
@@ -550,7 +550,7 @@ func (v contentRestrictionValidator) compareParticleRestriction(base, derived co
 	if err != nil {
 		return err
 	}
-	if !occurrenceRangeSubset(derivedRange, baseRange) {
+	if !derivedRange.subsetOf(baseRange) {
 		return contentRestrictionMismatch("particle restriction occurrence is not subset of base")
 	}
 	if derived.Kind == particleModel {

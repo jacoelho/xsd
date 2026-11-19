@@ -656,7 +656,7 @@ func (c *contentModelCompiler) appendParticleContinuations(out []contentParticle
 
 func (c *contentModelCompiler) particleCanOverlapFollowing(p contentParticle) (bool, error) {
 	r, err := c.analysis.ParticleCountRange(p)
-	return r.Unbounded || r.Max > r.Min, err
+	return r.counts.Unbounded || r.counts.Max > r.counts.Min, err
 }
 
 func (c *contentModelCompiler) sequenceHasWildcardEquivalentOverlap(model contentModelNode) (bool, error) {

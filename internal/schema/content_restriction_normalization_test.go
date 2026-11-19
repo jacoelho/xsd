@@ -375,7 +375,7 @@ func assertRestrictionBuildUnchanged(t *testing.T, rt *schemaBuild, before restr
 }
 
 type restrictionModelSemantic struct {
-	count     occurrence
+	count     countRange
 	emptiable bool
 }
 

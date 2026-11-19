@@ -219,6 +219,9 @@ type normalizedRestrictionChildren struct {
 	particles []contentParticle
 	order     restrictionChoiceOrder
 	changed   bool
+	// ignoredEmpty records that a child matching only the empty sequence was
+	// ignored, so a choice it belonged to admits the empty sequence.
+	ignoredEmpty bool
 }
 
 func (n *restrictionNormalizer) children(m contentModelNode, depth int) (normalizedRestrictionChildren, error) {
@@ -246,6 +249,9 @@ func (n *restrictionNormalizer) replaceChild(result *normalizedRestrictionChildr
 			return err
 		}
 		result.changed = true
+	}
+	if child.disposition == childIgnored {
+		result.ignoredEmpty = true
 	}
 	if parent.Kind == modelChoice && child.disposition == childSpliced {
 		if err = n.appendChildChoiceSpans(result, child); err != nil {
@@ -328,14 +334,27 @@ func (n *restrictionNormalizer) appendChild(particles []contentParticle, child n
 // declaredGroup is the normalized form of the declared group m once its
 // pointless children are ignored (Particle Valid (Restriction) clause 2.2). m
 // was not a pointless singleton as declared, so it stays a group whatever the
-// number of children left (I-028 in docs/spec/INTERPRETATIONS.md). It is empty
-// when no child is left, unless m is a required choice declared with no
-// members, which matches nothing (I-042).
+// number of children left (I-028 in docs/spec/INTERPRETATIONS.md), unless it
+// matches only the empty sequence, which emptyGroup decides.
 func (n *restrictionNormalizer) declaredGroup(m contentModelNode, occurs occurrence, children normalizedRestrictionChildren) (contentParticle, error) {
-	if len(children.particles) == 0 && (m.Kind != modelChoice || occurs.Min == 0 || len(m.Particles) != 0) {
+	if len(children.particles) == 0 && emptyGroup(m, occurs, children.ignoredEmpty) {
 		return n.addGroup(contentModelNode{Kind: modelEmpty}, occurrence{Min: 1, Max: 1}, children.order)
 	}
 	return n.addGroup(contentModelNode{Kind: m.Kind, Occurs: occurrence{Min: 1, Max: 1}, Particles: children.particles}, occurs, children.order)
+}
+
+// emptyGroup reports whether the declared group m, left with no children,
+// matches only the empty sequence and is ignored in its parent. A group
+// declared with no members is pointless by clause 2.2.1, except a choice that
+// must occur, which matches nothing (I-042). A group declared with members is
+// ignored only as a 1..1 group holding no element or wildcard (I-028); such a
+// choice matches the empty sequence only when one of its members did, and
+// otherwise matches nothing (I-042).
+func emptyGroup(m contentModelNode, occurs occurrence, ignoredEmpty bool) bool {
+	if len(m.Particles) == 0 {
+		return m.Kind != modelChoice || occurs.Min == 0
+	}
+	return occurs.IsExactlyOne() && (m.Kind != modelChoice || ignoredEmpty)
 }
 
 // substitutionChoice is the choice clause 2.1 generates for a head with an

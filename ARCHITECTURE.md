@@ -214,11 +214,14 @@ builds an extension's {content type} (clause 3.2), and the publication audit
 `complexContentExtendsBase` checks the same three forms. Each reader
 that reduces a model owns one rule: the restriction normalizer
 (`compareNormalizedRestriction`) owns Particle Valid (Restriction) clause 2.2
-and decides pointlessness on the declared group
-([I-028](docs/spec/INTERPRETATIONS.md#i-028--content-model-checks)); the
-execution projection (`executionModel`, `executionParticle`) owns
+and decides pointlessness on the declared group, and `emptyGroup` decides
+whether a group left with no members matches only the empty sequence or
+nothing ([I-028](docs/spec/INTERPRETATIONS.md#i-028--content-model-checks),
+[I-042](docs/spec/INTERPRETATIONS.md#i-042--empty-choice)); the execution
+projection (`executionModel`, `executionParticle`) owns
 language-preserving reduction before automaton construction and recognizes
-lax-any content by its shape. `restrictsUrType` alone decides the ur-type
+lax-any content by its shape. The count analysis (`countRange`) represents a
+term that matches nothing, so such a member adds no alternative to a choice. `restrictsUrType` alone decides the ur-type
 exemption of Derivation Valid (Restriction, Complex) clauses 5.1 and 4.3, from
 the restriction's base type.
 
@@ -1234,7 +1237,12 @@ graph preserves these ownership rules:
   ([I-028](docs/spec/INTERPRETATIONS.md#i-028--content-model-checks)), and a
   re-test makes a declared two-member group a singleton. Only the choice
   clause 2.1 generates for a substitution group, which is not declared, is
-  reduced by its member count (`substitutionChoice`).
+  reduced by its member count (`substitutionChoice`). Deciding that a group
+  left with no members is empty from its declared member count or its
+  occurrence was rejected: a required choice of required empty choices
+  matches nothing although it was declared with members, and an optional
+  group of empty groups is not pointless as declared. `emptyGroup` decides
+  from what the ignored members matched.
 - Keying the ur-type exemption on a content model kind or wildcard identity was
   rejected: a type that inherits xs:anyType's content shares that identity
   without being xs:anyType, and clause 5.1 names the base type. Particle

@@ -3505,6 +3505,18 @@ project/content-models/implicit-substitution-consistency/transitive-same-type	sc
 project/content-models/implicit-substitution-consistency/transitive-same-type	schema	libxml2	schema-valid	
 project/content-models/implicit-substitution-consistency/transitive-same-type	schema	xerces	schema-valid	
 project/content-models/implicit-substitution-consistency/transitive-same-type	schema	xmlschema	schema-valid	
+project/content-models/nested-choice-of-empty-choices-required	a	dotnet	valid	
+project/content-models/nested-choice-of-empty-choices-required	a	libxml2	invalid	a.xml:2: element a: Schemas validity error : Element 'a': This element is not expected. Expected is ( a ).
+project/content-models/nested-choice-of-empty-choices-required	a	xerces	valid	
+project/content-models/nested-choice-of-empty-choices-required	a	xmlschema	valid	
+project/content-models/nested-choice-of-empty-choices-required	empty	dotnet	invalid	empty.xml:2:2: The element 'root' has incomplete content. List of possible elements expected: 'a'.
+project/content-models/nested-choice-of-empty-choices-required	empty	libxml2	invalid	empty.xml:2: element root: Schemas validity error : Element 'root': Missing child element(s). Expected is ( a ).
+project/content-models/nested-choice-of-empty-choices-required	empty	xerces	invalid	empty.xml:2:8: cvc-complex-type.2.4.b: The content of element 'root' is not complete. One of '{a}' is expected.
+project/content-models/nested-choice-of-empty-choices-required	empty	xmlschema	invalid	line None: The content of element 'root' is not complete. Tag 'a' expected. (path /root)
+project/content-models/nested-choice-of-empty-choices-required	schema	dotnet	schema-valid	warning: schema.xsd:3:107: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/nested-choice-of-empty-choices-required	schema	libxml2	schema-valid	
+project/content-models/nested-choice-of-empty-choices-required	schema	xerces	schema-valid	
+project/content-models/nested-choice-of-empty-choices-required	schema	xmlschema	schema-valid	
 project/content-models/nested-empty-choice-optional	empty	dotnet	valid	
 project/content-models/nested-empty-choice-optional	empty	libxml2	valid	
 project/content-models/nested-empty-choice-optional	empty	xerces	valid	
@@ -4173,6 +4185,14 @@ project/content-models/pointless-groups/declared/base-seq-choiceofempties	schema
 project/content-models/pointless-groups/declared/base-seq-choiceofempties	schema	libxml2	schema-valid	
 project/content-models/pointless-groups/declared/base-seq-choiceofempties	schema	xerces	schema-valid	
 project/content-models/pointless-groups/declared/base-seq-choiceofempties	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choiceofemptychoiceandseq	schema	dotnet	schema-valid	warning: base-seq-choiceofemptychoiceandseq.xsd:3:92: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/base-seq-choiceofemptychoiceandseq	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choiceofemptychoiceandseq	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choiceofemptychoiceandseq	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choiceofemptychoices	schema	dotnet	schema-valid	warning: base-seq-choiceofemptychoices.xsd:3:92: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/base-seq-choiceofemptychoices	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choiceofemptychoices	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choiceofemptychoices	schema	xmlschema	schema-valid	
 project/content-models/pointless-groups/declared/base-seq-choicesingleton	schema	dotnet	schema-valid	
 project/content-models/pointless-groups/declared/base-seq-choicesingleton	schema	libxml2	schema-valid	
 project/content-models/pointless-groups/declared/base-seq-choicesingleton	schema	xerces	schema-valid	
@@ -4217,6 +4237,18 @@ project/content-models/pointless-groups/declared/base-seq-nestedempty-elt	schema
 project/content-models/pointless-groups/declared/base-seq-nestedempty-elt	schema	libxml2	schema-valid	
 project/content-models/pointless-groups/declared/base-seq-nestedempty-elt	schema	xerces	schema-valid	
 project/content-models/pointless-groups/declared/base-seq-nestedempty-elt	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-optchoiceofemptychoices	schema	dotnet	schema-valid	warning: base-seq-optchoiceofemptychoices.xsd:3:106: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/base-seq-optchoiceofemptychoices	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-optchoiceofemptychoices	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-optchoiceofemptychoices	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-ab-choiceofemptychoices	schema	dotnet	schema-valid	warning: derived-cho-ab-choiceofemptychoices.xsd:4:134: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/derived-cho-ab-choiceofemptychoices	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-ab-choiceofemptychoices	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-ab-choiceofemptychoices	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-ab-emptychoice1	schema	dotnet	schema-valid	warning: derived-cho-ab-emptychoice1.xsd:4:123: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/derived-cho-ab-emptychoice1	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-ab-emptychoice1	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-ab-emptychoice1	schema	xmlschema	schema-valid	
 project/content-models/pointless-groups/declared/derived-cho-both-any	schema	dotnet	schema-valid	
 project/content-models/pointless-groups/declared/derived-cho-both-any	schema	libxml2	schema-valid	
 project/content-models/pointless-groups/declared/derived-cho-both-any	schema	xerces	schema-valid	
@@ -4257,6 +4289,14 @@ project/content-models/pointless-groups/declared/derived-cho-nested-elt	schema	d
 project/content-models/pointless-groups/declared/derived-cho-nested-elt	schema	libxml2	schema-valid	
 project/content-models/pointless-groups/declared/derived-cho-nested-elt	schema	xerces	schema-valid	
 project/content-models/pointless-groups/declared/derived-cho-nested-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:choice><xs:choice><xs:element name="a" type="xs:string" /></xs:choice></xs:choice></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-cho-nested-elt.xsd
+project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoiceandseq-b	schema	dotnet	schema-valid	warning: derived-seq-a-choiceofemptychoiceandseq-b.xsd:4:136: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoiceandseq-b	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoiceandseq-b	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoiceandseq-b	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:element name="a" type="xs:string" /><xs:choice><xs:choice /><xs:sequence /></xs:choice><xs:element name="b" type="xs:string" /></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-a-choiceofemptychoiceandseq-b.xsd
+project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoices-b	schema	dotnet	schema-valid	warning: derived-seq-a-choiceofemptychoices-b.xsd:4:136: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoices-b	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoices-b	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoices-b	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:element name="a" type="xs:string" /><xs:choice><xs:choice /><xs:choice /></xs:choice><xs:element name="b" type="xs:string" /></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-a-choiceofemptychoices-b.xsd
 project/content-models/pointless-groups/declared/derived-seq-a-empty-b	schema	dotnet	schema-valid	
 project/content-models/pointless-groups/declared/derived-seq-a-empty-b	schema	libxml2	schema-valid	
 project/content-models/pointless-groups/declared/derived-seq-a-empty-b	schema	xerces	schema-valid	
@@ -4265,6 +4305,14 @@ project/content-models/pointless-groups/declared/derived-seq-a-emptychoice1-b	sc
 project/content-models/pointless-groups/declared/derived-seq-a-emptychoice1-b	schema	libxml2	schema-valid	
 project/content-models/pointless-groups/declared/derived-seq-a-emptychoice1-b	schema	xerces	schema-valid	
 project/content-models/pointless-groups/declared/derived-seq-a-emptychoice1-b	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-optchoiceofemptychoices-b	schema	dotnet	schema-valid	warning: derived-seq-a-optchoiceofemptychoices-b.xsd:4:150: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/derived-seq-a-optchoiceofemptychoices-b	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-optchoiceofemptychoices-b	schema	xerces	schema-invalid	derived-seq-a-optchoiceofemptychoices-b.xsd:4:28: rcase-Recurse.2: There is not a complete functional mapping between the particles.
+project/content-models/pointless-groups/declared/derived-seq-a-optchoiceofemptychoices-b	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:element name="a" type="xs:string" /><xs:choice minOccurs="0"><xs:choice /><xs:choice /></xs:choice><xs:element name="b" type="xs:string" /></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-a-optchoiceofemptychoices-b.xsd
+project/content-models/pointless-groups/declared/derived-seq-a-optseqofempty-b	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-optseqofempty-b	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-optseqofempty-b	schema	xerces	schema-invalid	derived-seq-a-optseqofempty-b.xsd:4:28: rcase-Recurse.2: There is not a complete functional mapping between the particles.
+project/content-models/pointless-groups/declared/derived-seq-a-optseqofempty-b	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:element name="a" type="xs:string" /><xs:sequence minOccurs="0"><xs:sequence /></xs:sequence><xs:element name="b" type="xs:string" /></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-a-optseqofempty-b.xsd
 project/content-models/pointless-groups/declared/derived-seq-both-any	schema	dotnet	schema-valid	
 project/content-models/pointless-groups/declared/derived-seq-both-any	schema	libxml2	schema-valid	
 project/content-models/pointless-groups/declared/derived-seq-both-any	schema	xerces	schema-valid	

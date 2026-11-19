@@ -30462,6 +30462,452 @@
       ]
     },
     {
+      "id": "project/content-models/pointless-groups/declared/base-seq-choiceofemptychoices",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-seq-choiceofemptychoices.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups, decided on the group as declared (I-028). A 1..1 group holding no element or wildcard is ignored when it matches the empty sequence; a choice left with no members matches the empty sequence only when one of its members did, and otherwise matches nothing (I-042), so it is ignored only inside a choice. A group that is not 1..1 and declared with members stays a group with whatever members are left."
+        ],
+        "description": "The base sequence holds a required choice of two required empty choices, which matches nothing; a restriction that drops it is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-seq-choiceofemptychoices.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-042--empty-choice",
+          "clause": "Empty choice in I-042 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-042"
+          },
+          "libxml2": {
+            "record": "I-042"
+          },
+          "xerces": {
+            "record": "I-042"
+          },
+          "xmlschema": {
+            "record": "I-042"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-seq-choiceofemptychoices.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-seq-choiceofemptychoiceandseq",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-seq-choiceofemptychoiceandseq.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups, decided on the group as declared (I-028). A 1..1 group holding no element or wildcard is ignored when it matches the empty sequence; a choice left with no members matches the empty sequence only when one of its members did, and otherwise matches nothing (I-042), so it is ignored only inside a choice. A group that is not 1..1 and declared with members stays a group with whatever members are left."
+        ],
+        "description": "The base sequence holds a required choice of a required empty choice and an empty sequence, which matches only the empty sequence and is ignored; a restriction that drops it is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-seq-choiceofemptychoiceandseq.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-seq-choiceofemptychoiceandseq.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-seq-optchoiceofemptychoices",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-seq-optchoiceofemptychoices.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups, decided on the group as declared (I-028). A 1..1 group holding no element or wildcard is ignored when it matches the empty sequence; a choice left with no members matches the empty sequence only when one of its members did, and otherwise matches nothing (I-042), so it is ignored only inside a choice. A group that is not 1..1 and declared with members stays a group with whatever members are left."
+        ],
+        "description": "The base sequence holds an optional choice of two required empty choices, which stays an emptiable group; a restriction that drops it is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-seq-optchoiceofemptychoices.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-seq-optchoiceofemptychoices.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoices-b",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoices-b.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups, decided on the group as declared (I-028). A 1..1 group holding no element or wildcard is ignored when it matches the empty sequence; a choice left with no members matches the empty sequence only when one of its members did, and otherwise matches nothing (I-042), so it is ignored only inside a choice. A group that is not 1..1 and declared with members stays a group with whatever members are left."
+        ],
+        "description": "The derived sequence adds a required choice of two required empty choices between a and b; that choice matches nothing, maps to no base particle, and the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoices-b.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-042--empty-choice",
+          "clause": "Empty choice in I-042 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-042"
+          },
+          "libxml2": {
+            "record": "I-042"
+          },
+          "xerces": {
+            "record": "I-042"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoices-b.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoiceandseq-b",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoiceandseq-b.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups, decided on the group as declared (I-028). A 1..1 group holding no element or wildcard is ignored when it matches the empty sequence; a choice left with no members matches the empty sequence only when one of its members did, and otherwise matches nothing (I-042), so it is ignored only inside a choice. A group that is not 1..1 and declared with members stays a group with whatever members are left."
+        ],
+        "description": "The derived sequence adds a required choice of a required empty choice and an empty sequence between a and b; it matches only the empty sequence, is ignored, and the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoiceandseq-b.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoiceandseq-b.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-a-optchoiceofemptychoices-b",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-a-optchoiceofemptychoices-b.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups, decided on the group as declared (I-028). A 1..1 group holding no element or wildcard is ignored when it matches the empty sequence; a choice left with no members matches the empty sequence only when one of its members did, and otherwise matches nothing (I-042), so it is ignored only inside a choice. A group that is not 1..1 and declared with members stays a group with whatever members are left."
+        ],
+        "description": "The derived sequence adds an optional choice of two required empty choices between a and b; the optional group stays a group, maps to no base particle, and the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-a-optchoiceofemptychoices-b.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-a-optchoiceofemptychoices-b.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-a-optseqofempty-b",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-a-optseqofempty-b.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups, decided on the group as declared (I-028). A 1..1 group holding no element or wildcard is ignored when it matches the empty sequence; a choice left with no members matches the empty sequence only when one of its members did, and otherwise matches nothing (I-042), so it is ignored only inside a choice. A group that is not 1..1 and declared with members stays a group with whatever members are left."
+        ],
+        "description": "The derived sequence adds an optional sequence holding an empty sequence between a and b; the optional group stays a group, maps to no base particle, and the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-a-optseqofempty-b.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-a-optseqofempty-b.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-cho-ab-choiceofemptychoices",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-cho-ab-choiceofemptychoices.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups, decided on the group as declared (I-028). A 1..1 group holding no element or wildcard is ignored when it matches the empty sequence; a choice left with no members matches the empty sequence only when one of its members did, and otherwise matches nothing (I-042), so it is ignored only inside a choice. A group that is not 1..1 and declared with members stays a group with whatever members are left."
+        ],
+        "description": "The derived choice holds a and a required choice of two required empty choices; inside a choice that member contributes nothing, and the restriction of choice(a, b) is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-ab-choiceofemptychoices.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-ab-choiceofemptychoices.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-cho-ab-emptychoice1",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-cho-ab-emptychoice1.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups, decided on the group as declared (I-028). A 1..1 group holding no element or wildcard is ignored when it matches the empty sequence; a choice left with no members matches the empty sequence only when one of its members did, and otherwise matches nothing (I-042), so it is ignored only inside a choice. A group that is not 1..1 and declared with members stays a group with whatever members are left."
+        ],
+        "description": "The derived choice holds a and a required empty choice, which contributes nothing inside a choice; the restriction of choice(a, b) is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-ab-emptychoice1.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-042--empty-choice",
+          "clause": "Empty choice in I-042 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-ab-emptychoice1.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/nested-choice-of-empty-choices-required",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/content-models/nested-choice-of-empty-choices-required/schema.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "A required choice whose members are required empty choices has no member any sequence is valid against, so a sequence that must hold it matches nothing (I-042)."
+        ],
+        "description": "A sequence of a and a required choice of two required empty choices rejects every instance, including one holding a."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/nested-choice-of-empty-choices-required/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "clause": "cvc-model-group clause 2 in XML Schema Part 1"
+        }
+      },
+      "instances": [
+        {
+          "testName": "a",
+          "file": "corpus/project/content-models/nested-choice-of-empty-choices-required/a.xml",
+          "expected": "invalid",
+          "errorCode": "validation.content",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+            "clause": "cvc-model-group clause 2 in XML Schema Part 1"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-042"
+            },
+            "dotnet": {
+              "record": "I-042"
+            },
+            "xmlschema": {
+              "record": "I-042"
+            }
+          }
+        },
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/nested-choice-of-empty-choices-required/empty.xml",
+          "expected": "invalid",
+          "errorCode": "validation.content",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+            "clause": "cvc-model-group clause 2 in XML Schema Part 1"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/nested-choice-of-empty-choices-required/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/nested-choice-of-empty-choices-required/a.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/nested-choice-of-empty-choices-required/empty.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
       "id": "project/content-models/type-derivation/extension-content/mixed-empty-all-extension",
       "expectedSource": "project",
       "source": {

@@ -13,7 +13,7 @@ type contentModelAnalysis struct {
 	work      contentModelWork
 	names     map[ElementID]particleAcceptedNames
 	emptiable map[contentModelID]bool
-	ranges    map[contentModelID]occurrence
+	ranges    map[contentModelID]countRange
 	emptyPath map[contentModelID]bool
 	rangePath map[contentModelID]bool
 }
@@ -52,7 +52,7 @@ func newContentModelAnalysis(rt *schemaBuild, work contentModelWork) (*contentMo
 		work:      work,
 		names:     make(map[ElementID]particleAcceptedNames),
 		emptiable: make(map[contentModelID]bool),
-		ranges:    make(map[contentModelID]occurrence),
+		ranges:    make(map[contentModelID]countRange),
 		emptyPath: make(map[contentModelID]bool),
 		rangePath: make(map[contentModelID]bool),
 	}, nil
@@ -73,95 +73,123 @@ func (a *contentModelAnalysis) ModelEmptiable(id contentModelID) (bool, error) {
 	return a.cachedModelEmptiable(id)
 }
 
+// countRange is the number of elements in the sequences a term matches. A
+// term that matches no sequence, such as a choice that must occur and has no
+// member that matches one (I-042 in docs/spec/INTERPRETATIONS.md), has no
+// count: it adds no alternative to a choice, and a sequence that must hold it
+// matches nothing.
+type countRange struct {
+	counts  occurrence
+	nothing bool
+}
+
+// subsetOf reports whether every count of r is a count of base.
+func (r countRange) subsetOf(base countRange) bool {
+	if r.nothing {
+		return true
+	}
+	return !base.nothing && occurrenceRangeSubset(r.counts, base.counts)
+}
+
+func (r countRange) repeated(occurs occurrence) countRange {
+	if r.nothing {
+		return countRange{nothing: occurs.Min != 0}
+	}
+	return countRange{counts: multiplyOccurrence(r.counts, occurs)}
+}
+
 // ModelCountRange derives the number of elements a model can consume,
 // charging and memoizing every nested-model derivation.
-func (a *contentModelAnalysis) ModelCountRange(id contentModelID) (occurrence, error) {
+func (a *contentModelAnalysis) ModelCountRange(id contentModelID) (countRange, error) {
 	if id == noContentModel {
-		return occurrence{}, nil
+		return countRange{}, nil
 	}
 	return a.cachedModelCountRange(id)
 }
 
 // ParticleCountRange derives the number of elements p can consume, charging
 // and memoizing every nested-model derivation.
-func (a *contentModelAnalysis) ParticleCountRange(p contentParticle) (occurrence, error) {
+func (a *contentModelAnalysis) ParticleCountRange(p contentParticle) (countRange, error) {
 	if err := spendContentModelWork(a.work); err != nil {
-		return occurrence{}, err
+		return countRange{}, err
 	}
-	var term occurrence
+	var term countRange
 	switch p.Kind {
 	case particleElement, particleWildcard:
-		term = occurrence{Min: 1, Max: 1}
+		term = countRange{counts: occurrence{Min: 1, Max: 1}}
 	case particleModel:
 		var err error
 		term, err = a.ModelCountRange(p.Model)
 		if err != nil {
-			return occurrence{}, err
+			return countRange{}, err
 		}
 	}
-	return multiplyOccurrence(term, p.Occurs), nil
+	return term.repeated(p.Occurs), nil
 }
 
-func (a *contentModelAnalysis) cachedModelCountRange(id contentModelID) (occurrence, error) {
+func (a *contentModelAnalysis) cachedModelCountRange(id contentModelID) (countRange, error) {
 	if result, ok := a.ranges[id]; ok {
 		return result, nil
 	}
 	if a.rangePath[id] {
-		return occurrence{}, errors.New("content model count analysis contains a cycle")
+		return countRange{}, errors.New("content model count analysis contains a cycle")
 	}
 	if err := spendContentModelWork(a.work); err != nil {
-		return occurrence{}, err
+		return countRange{}, err
 	}
 	model, ok := a.contentModel(id)
 	if !ok {
-		return occurrence{}, errors.New("content model count analysis references missing content model")
+		return countRange{}, errors.New("content model count analysis references missing content model")
 	}
 	a.rangePath[id] = true
 	defer delete(a.rangePath, id)
 	term, err := a.modelTermCountRange(model)
 	if err != nil {
-		return occurrence{}, err
+		return countRange{}, err
 	}
-	result := multiplyOccurrence(term, model.Occurs)
+	result := term.repeated(model.Occurs)
 	a.ranges[id] = result
 	return result, nil
 }
 
-func (a *contentModelAnalysis) modelTermCountRange(model contentModelNode) (occurrence, error) {
+func (a *contentModelAnalysis) modelTermCountRange(model contentModelNode) (countRange, error) {
 	switch model.Kind {
 	case modelEmpty:
-		return occurrence{}, nil
+		return countRange{}, nil
 	case modelSequence, modelAll:
 		return a.sequenceCountRange(model.Particles)
 	case modelChoice:
 		return a.choiceCountRange(model.Particles)
 	}
-	return occurrence{}, nil
+	return countRange{}, nil
 }
 
-func (a *contentModelAnalysis) sequenceCountRange(particles []contentParticle) (occurrence, error) {
-	var result occurrence
+func (a *contentModelAnalysis) sequenceCountRange(particles []contentParticle) (countRange, error) {
+	var result countRange
 	for _, particle := range particles {
 		child, err := a.ParticleCountRange(particle)
 		if err != nil {
-			return occurrence{}, err
+			return countRange{}, err
 		}
-		result = addOccurrenceRanges(result, child)
+		result.nothing = result.nothing || child.nothing
+		result.counts = addOccurrenceRanges(result.counts, child.counts)
 	}
 	return result, nil
 }
 
-func (a *contentModelAnalysis) choiceCountRange(particles []contentParticle) (occurrence, error) {
-	var result occurrence
-	for i, particle := range particles {
+func (a *contentModelAnalysis) choiceCountRange(particles []contentParticle) (countRange, error) {
+	result := countRange{nothing: true}
+	for _, particle := range particles {
 		child, err := a.ParticleCountRange(particle)
 		if err != nil {
-			return occurrence{}, err
+			return countRange{}, err
 		}
-		if i == 0 {
+		switch {
+		case child.nothing:
+		case result.nothing:
 			result = child
-		} else {
-			result = unionOccurrenceRanges(result, child)
+		default:
+			result.counts = unionOccurrenceRanges(result.counts, child.counts)
 		}
 	}
 	return result, nil
