@@ -18880,6 +18880,13 @@ project/elements/substitution-union-member/block-restriction-member-is-union-mem
 project/elements/substitution-union-member/block-restriction-member-is-union-member	schema	libxml2	error	timed out after 120s
 project/elements/substitution-union-member/block-restriction-member-is-union-member	schema	xerces	schema-valid	
 project/elements/substitution-union-member/block-restriction-member-is-union-member	schema	xmlschema	schema-valid	
+project/elements/substitution-union-member/block-restriction-member-is-union-member-restricting-a-later-member	member	dotnet	invalid	member.xml:1:19: Member element urn:t:m's type cannot be derived by restriction or extension from head element urn:t:h's type, because it has block='restriction' or 'extension'.
+project/elements/substitution-union-member/block-restriction-member-is-union-member-restricting-a-later-member	member	xerces	valid	
+project/elements/substitution-union-member/block-restriction-member-is-union-member-restricting-a-later-member	member	xmlschema	invalid	line None: substitution of XsdElement(ref='h', occurs=[1, 1]) is blocked (path /r/m)
+project/elements/substitution-union-member/block-restriction-member-is-union-member-restricting-a-later-member	schema	dotnet	schema-valid	
+project/elements/substitution-union-member/block-restriction-member-is-union-member-restricting-a-later-member	schema	libxml2	error	timed out after 120s
+project/elements/substitution-union-member/block-restriction-member-is-union-member-restricting-a-later-member	schema	xerces	schema-valid	
+project/elements/substitution-union-member/block-restriction-member-is-union-member-restricting-a-later-member	schema	xmlschema	schema-valid	
 project/elements/substitution-union-member/block-restriction-member-is-union-member-restricting-another-member	member	dotnet	invalid	member.xml:1:19: Member element urn:t:m's type cannot be derived by restriction or extension from head element urn:t:h's type, because it has block='restriction' or 'extension'.
 project/elements/substitution-union-member/block-restriction-member-is-union-member-restricting-another-member	member	xerces	valid	
 project/elements/substitution-union-member/block-restriction-member-is-union-member-restricting-another-member	member	xmlschema	invalid	line None: substitution of XsdElement(ref='h', occurs=[1, 1]) is blocked (path /r/m)
@@ -18936,6 +18943,13 @@ project/elements/substitution-union-member/nested-union-block-restriction-member
 project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member	schema	libxml2	error	timed out after 120s
 project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member	schema	xerces	schema-valid	
 project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member	schema	xmlschema	schema-valid	
+project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member-restricting-another-member	member	dotnet	invalid	member.xml:1:19: Member element urn:t:m's type cannot be derived by restriction or extension from head element urn:t:h's type, because it has block='restriction' or 'extension'.
+project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member-restricting-another-member	member	xerces	valid	
+project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member-restricting-another-member	member	xmlschema	invalid	line None: substitution of XsdElement(ref='h', occurs=[1, 1]) is blocked (path /r/m)
+project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member-restricting-another-member	schema	dotnet	schema-valid	
+project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member-restricting-another-member	schema	libxml2	error	timed out after 120s
+project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member-restricting-another-member	schema	xerces	schema-valid	
+project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member-restricting-another-member	schema	xmlschema	schema-valid	
 project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-union	schema	dotnet	schema-invalid	schema.xsd:5:4: 'urn:t:m' cannot be a member of substitution group with head element 'urn:t:h'.
 project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-union	schema	libxml2	schema-invalid	schema.xsd:5: element element: Schemas parser error : element decl. '{urn:t}m': The type definition '{urn:t}U' was either rejected by the substitution group affiliation '{urn:t}h', or not validly derived from its type definition '{urn:t}U2'.␊WXS schema schema.xsd failed to compile
 project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-union	schema	xerces	schema-invalid	schema.xsd:5:56: e-props-correct.4: The {type definition} of element 'm' is not validly derived from the {type definition} of the substitutionHead ':h', or the {substitution group exclusions} property of ':h' does not allow this derivation.

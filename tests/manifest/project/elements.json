@@ -73192,6 +73192,63 @@
       ]
     },
     {
+      "id": "project/elements/substitution-union-member/block-restriction-member-is-union-member-restricting-a-later-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/elements/substitution-union-member/block-restriction-member-is-union-member-restricting-a-later-member",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
+        ],
+        "conditions": [
+          "block=\"restriction\" does not block a member typed by a member of the head's union that also restricts a member listed after it: membership alone reaches the head type, whatever the member order."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/elements/substitution-union-member/block-restriction-member-is-union-member-restricting-a-later-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+          "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "member",
+          "file": "corpus/project/elements/substitution-union-member/block-restriction-member-is-union-member-restricting-a-later-member/member.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+            "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "dotnet": {
+              "record": "I-027"
+            },
+            "xmlschema": {
+              "record": "I-027"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/elements/substitution-union-member/block-restriction-member-is-union-member-restricting-a-later-member/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/elements/substitution-union-member/block-restriction-member-is-union-member-restricting-a-later-member/member.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
       "id": "project/elements/substitution-union-member/block-substitution-member-is-union-member",
       "expectedSource": "project",
       "source": {
@@ -73342,6 +73399,63 @@
         },
         {
           "file": "corpus/project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member/member.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member-restricting-another-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member-restricting-another-member",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
+        ],
+        "conditions": [
+          "block=\"restriction\" does not block a member typed by a member of an inner union that also restricts another member of that union: membership alone reaches the head type through nested unions."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member-restricting-another-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+          "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "member",
+          "file": "corpus/project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member-restricting-another-member/member.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+            "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "dotnet": {
+              "record": "I-027"
+            },
+            "xmlschema": {
+              "record": "I-027"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member-restricting-another-member/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member-restricting-another-member/member.xml",
           "role": "instance"
         }
       ]
