@@ -143,11 +143,10 @@ func record(inv *corpus.Inventory, results map[string]caseResult, all bool, dige
 }
 
 // imageInput is one file of the oracle image's build context: its path as git
-// lists it, its bytes and its permission bits.
+// lists it and its bytes.
 type imageInput struct {
 	path string
 	data []byte
-	mode fs.FileMode
 }
 
 // readImageInputs reads every file git tracks under dir except this command's
@@ -185,7 +184,7 @@ func readImageInput(name string) (imageInput, error) {
 	if err != nil {
 		return imageInput{}, err
 	}
-	return imageInput{path: name, data: data, mode: info.Mode().Perm()}, nil
+	return imageInput{path: name, data: data}, nil
 }
 
 func imageDigest(inputs []imageInput) string {
@@ -197,6 +196,11 @@ func imageDigest(inputs []imageInput) string {
 	return "sha256:" + hex.EncodeToString(h.Sum(nil))
 }
 
+// contextFileMode is the mode of every build context file. One fixed mode keeps
+// the image a function of the paths and bytes imageDigest covers; it is
+// executable so scripts run whatever their checkout mode.
+const contextFileMode = 0o755
+
 // buildContext returns a tar archive of inputs with paths relative to dir, the
 // build context docker reads from standard input.
 func buildContext(dir string, inputs []imageInput) ([]byte, error) {
@@ -207,11 +211,7 @@ func buildContext(dir string, inputs []imageInput) ([]byte, error) {
 		if !ok {
 			return nil, fmt.Errorf("image input %s is outside %s", in.path, dir)
 		}
-		mode := int64(0o644)
-		if in.mode&0o111 != 0 {
-			mode = 0o755
-		}
-		if err := tw.WriteHeader(&tar.Header{Typeflag: tar.TypeReg, Name: name, Mode: mode, Size: int64(len(in.data))}); err != nil {
+		if err := tw.WriteHeader(&tar.Header{Typeflag: tar.TypeReg, Name: name, Mode: contextFileMode, Size: int64(len(in.data))}); err != nil {
 			return nil, err
 		}
 		if _, err := tw.Write(in.data); err != nil {

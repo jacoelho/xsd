@@ -71,8 +71,8 @@ func TestRecordMeasuresACaseOfAShardWithNoObservationFile(t *testing.T) {
 
 func TestBuildContextHoldsExactlyTheInputsRelativeToTheContextRoot(t *testing.T) {
 	inputs := []imageInput{
-		{path: "tools/oracles/Dockerfile", data: []byte("FROM scratch\n"), mode: 0o644},
-		{path: "tools/oracles/libxml2/oracle.sh", data: []byte("#!/bin/sh\n"), mode: 0o755},
+		{path: "tools/oracles/Dockerfile", data: []byte("FROM scratch\n")},
+		{path: "tools/oracles/libxml2/oracle.sh", data: []byte("#!/bin/sh\n")},
 	}
 	data, err := buildContext("tools/oracles", inputs)
 	if err != nil {
@@ -99,7 +99,7 @@ func TestBuildContextHoldsExactlyTheInputsRelativeToTheContextRoot(t *testing.T)
 		}
 		got = append(got, entry{hdr.Name, hdr.Mode, string(body)})
 	}
-	want := []entry{{"Dockerfile", 0o644, "FROM scratch\n"}, {"libxml2/oracle.sh", 0o755, "#!/bin/sh\n"}}
+	want := []entry{{"Dockerfile", 0o755, "FROM scratch\n"}, {"libxml2/oracle.sh", 0o755, "#!/bin/sh\n"}}
 	if !slices.Equal(got, want) {
 		t.Fatalf("build context = %+v, want %+v", got, want)
 	}
