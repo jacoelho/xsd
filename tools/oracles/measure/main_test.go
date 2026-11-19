@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -67,6 +69,63 @@ func TestRecordMeasuresACaseOfAShardWithNoObservationFile(t *testing.T) {
 	if got := readTestTree(t, "oracles/top-level.tsv"); got != keptRow {
 		t.Fatalf("oracles/top-level.tsv = %q, want %q", got, keptRow)
 	}
+}
+
+func TestRecordRefusesAPartialRunAgainstAnotherProfileWithoutWriting(t *testing.T) {
+	tests := []struct {
+		name     string
+		digest   string
+		versions map[corpus.Provider]string
+	}{
+		{"image digest", "sha256:other", map[corpus.Provider]string{corpus.Xerces: "Xerces-J 2.12.2"}},
+		{"provider version", testDigest, map[corpus.Provider]string{corpus.Xerces: "Xerces-J 2.12.3"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Chdir(t.TempDir())
+			writeTestTree(t, map[string]string{
+				corpus.IndexPath:                  `{"version":"2.0","specification":"XSD 1.0","shards":["project/top-level","project/area"]}`,
+				"manifest/project/top-level.json": `{"cases":[{"id":"project/a","expectedSource":"project","schema":{"expected":"valid","documents":[{"file":"a.xsd"}]}}]}`,
+				"manifest/project/area.json":      `{"cases":[{"id":"project/area/b","expectedSource":"project","schema":{"expected":"valid","documents":[{"file":"b.xsd"}]}}]}`,
+				corpus.ProfilePath:                `{"providers":{"xerces":"Xerces-J 2.12.2","dotnet":".NET 10.0.14","xmlschema":"xmlschema 4.3.2","libxml2":"libxml2 2.9.13"},"date":"2026-11-19","image":"` + testDigest + `"}`,
+				"oracles/top-level.tsv":           "project/a\tschema\txerces\tschema-valid\t\n",
+			})
+			inv, err := corpus.LoadInventory(os.DirFS("tests"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			before := snapshotTestTree(t)
+			results := map[string]caseResult{"project/area/b": {
+				versions: tt.versions,
+				rows:     []corpus.Row{{CaseID: "project/area/b", Phase: corpus.SchemaPhase, Provider: corpus.Xerces, Verdict: corpus.SchemaValid}},
+			}}
+
+			if err := record(&inv, results, false, tt.digest); err == nil {
+				t.Fatal("record() error = nil, want a profile mismatch")
+			}
+
+			if after := snapshotTestTree(t); !maps.Equal(after, before) {
+				t.Fatalf("tree after refused run = %q, want %q", after, before)
+			}
+		})
+	}
+}
+
+func snapshotTestTree(t *testing.T) map[string]string {
+	t.Helper()
+	files := make(map[string]string)
+	err := filepath.WalkDir("tests", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		data, err := os.ReadFile(path) //nolint:gosec // The path comes from walking the test's own temporary tree.
+		files[path] = string(data)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return files
 }
 
 func TestBuildContextHoldsExactlyTheInputsRelativeToTheContextRoot(t *testing.T) {

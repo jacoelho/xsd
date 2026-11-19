@@ -44,6 +44,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"testing/fstest"
 	"time"
 
 	"github.com/jacoelho/xsd/internal/corpus"
@@ -608,11 +609,13 @@ func providerVersions(results map[string]caseResult) (map[corpus.Provider]string
 
 // unmeasuredRows returns the existing rows of every case not in results. The
 // profile they come from must name image digest and every version in versions.
+// It reads the tree without writing to it, so a refused run leaves it unchanged.
 func unmeasuredRows(inv *corpus.Inventory, results map[string]caseResult, digest string, versions map[corpus.Provider]string) ([]corpus.Row, error) {
-	if err := createMissingObservationFiles(inv); err != nil {
+	recorded, err := recordedObservations(inv)
+	if err != nil {
 		return nil, err
 	}
-	obs, err := corpus.LoadObservations(os.DirFS("tests"), inv)
+	obs, err := corpus.LoadObservations(recorded, inv)
 	if err != nil {
 		return nil, err
 	}
@@ -630,21 +633,24 @@ func unmeasuredRows(inv *corpus.Inventory, results map[string]caseResult, digest
 	}), nil
 }
 
-// createMissingObservationFiles writes an empty observation file for every
-// project shard that has none: a shard added since the last measurement, whose
-// cases have no rows to keep.
-func createMissingObservationFiles(inv *corpus.Inventory) error {
-	for _, name := range inv.ObservationPaths() {
-		path := filepath.Join("tests", filepath.FromSlash(name))
-		_, err := os.Stat(path)
-		if errors.Is(err, fs.ErrNotExist) {
-			err = writeFile(path, corpus.FormatRows(nil))
-		}
-		if err != nil {
-			return err
-		}
+// recordedObservations returns the profile and every observation file of inv
+// in memory. A project shard with no observation file, one added since the
+// last measurement, reads as an empty file: its cases have no rows to keep.
+func recordedObservations(inv *corpus.Inventory) (fs.FS, error) {
+	tree := os.DirFS("tests")
+	profile, err := fs.ReadFile(tree, corpus.ProfilePath)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	recorded := fstest.MapFS{corpus.ProfilePath: {Data: profile}}
+	for _, name := range inv.ObservationPaths() {
+		data, err := fs.ReadFile(tree, name)
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return nil, err
+		}
+		recorded[name] = &fstest.MapFile{Data: data}
+	}
+	return recorded, nil
 }
 
 // write replaces every observation file with the rows of results and kept,
