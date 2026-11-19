@@ -183,11 +183,16 @@ or a stated unresolved boundary. Report remaining coverage limits to the user.
   `docs/spec/INTERPRETATIONS.md` record (`I-NNN`) or the `<a id>` anchor of a
   qualification-table row, that lists the case as a backticked ID or `*`
   pattern and names the provider (Xerces, .NET, xmlschema or libxml2); the
-  record owns the rule and the diagnosis. A `{"note": ...}` entry keeps a
-  diagnosis recorded only in prose before records owned every difference, and
-  is accepted only where `oracle-notes.txt` lists it. Every entry explains such
-  a row. `TestObservedDifferencesAreDiagnosed` enforces both directions and
-  lists every undiagnosed row, except in cases listed in `oracle-backlog.txt`.
+  record owns the rule and the diagnosis. A `{"note": ...}` entry gives the
+  diagnosis as prose and is accepted only where `oracle-notes.txt` lists its
+  case, phase and provider. Every entry explains such a row.
+  `TestObservedDifferencesAreDiagnosed` enforces both directions and lists
+  every undiagnosed row, except in cases listed in `oracle-backlog.txt`. For a
+  record it checks only that the record exists, that its text lists the case,
+  and that the provider's name appears in it outside link targets; it cannot
+  tell whether that text describes the provider's behaviour on the case. Review
+  owns that: a change that adds or edits a `record` entry confirms the record
+  describes the provider's behaviour on the case.
   The test fails when the backlog is unsorted, lists a case that is not a
   project case, or lists a case whose differences are all owned. The backlog
   only shrinks: a new case is never listed, and a change that modifies a listed
