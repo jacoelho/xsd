@@ -1466,6 +1466,18 @@ sequence. Xerces-J, .NET and libxml2 accept both; xmlschema rejects both as
 extensions involving `xs:all`
 (`project/content-models/type-derivation/extension-content/mixed-empty-all-extension`
 and `project/content-models/type-derivation/extension-content/mixed-empty-all-base`).
+A mixed type with no particle or an empty sequence likewise has the synthetic
+empty sequence as its particle, not empty content, so a mixed extension that
+adds an `all` group puts it in a sequence; a group reference is not empty
+explicit content even when it names an empty `all` group (clause 2.1 lists only
+the `all`, `sequence` and `choice` elements), so a type whose content is that
+reference has the `all` group as its particle and an extension that adds a
+sequence violates All Group Limited. The text decides these, and Xerces-J and
+xmlschema reject them; .NET accepts all three and libxml2 accepts the group
+reference. An extension whose explicit content is an empty sequence keeps the
+`all` group of its base (clause 3.2.1), which xmlschema rejects as a sequence
+extending `xs:all`. Cases:
+`project/content-models/type-derivation/extension-content/all-extension/*`.
 
 NameAndTypeOK clause 3.2.3 requires that "R's declaration's {identity-constraint
 definitions} is a subset of B's declaration's {identity-constraint

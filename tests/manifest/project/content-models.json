@@ -31993,6 +31993,461 @@
           "role": "principal"
         }
       ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/all-extension/mixed-no-particle-base-all-extension",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/all-extension/mixed-no-particle-base-all-extension.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited"
+        ],
+        "conditions": [
+          "An extension's {content type} is the base {content type} when its effective content is empty (§3.4.2 complex content clause 3.2.1), its effective content when the base {content type} is empty (clause 3.2.2), and otherwise the sequence of the base particle and its effective content (clause 3.2.3). An all group may appear only as the whole {content type} particle (All Group Limited clause 1.2). Explicit content is empty only as no group, an all or sequence with no children, an optional choice with no children, or a group with maxOccurs 0 (clause 2.1); a mixed type with empty explicit content has the synthetic empty sequence as its particle (clause 2.1.4), so its {content type} is not empty."
+        ],
+        "description": "A mixed extension adds an all group to a mixed type with no particle, whose particle is the synthetic empty sequence; the all group lands in a sequence."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/all-extension/mixed-no-particle-base-all-extension.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited",
+          "clause": "1.2"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/all-extension/mixed-no-particle-base-all-extension.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/all-extension/mixed-empty-sequence-base-all-extension",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/all-extension/mixed-empty-sequence-base-all-extension.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited"
+        ],
+        "conditions": [
+          "An extension's {content type} is the base {content type} when its effective content is empty (§3.4.2 complex content clause 3.2.1), its effective content when the base {content type} is empty (clause 3.2.2), and otherwise the sequence of the base particle and its effective content (clause 3.2.3). An all group may appear only as the whole {content type} particle (All Group Limited clause 1.2). Explicit content is empty only as no group, an all or sequence with no children, an optional choice with no children, or a group with maxOccurs 0 (clause 2.1); a mixed type with empty explicit content has the synthetic empty sequence as its particle (clause 2.1.4), so its {content type} is not empty."
+        ],
+        "description": "A mixed extension adds an all group to a mixed type with an empty sequence, whose particle is the synthetic empty sequence; the all group lands in a sequence."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/all-extension/mixed-empty-sequence-base-all-extension.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited",
+          "clause": "1.2"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/all-extension/mixed-empty-sequence-base-all-extension.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/all-extension/empty-base-all-extension",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/all-extension/empty-base-all-extension.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited"
+        ],
+        "conditions": [
+          "An extension's {content type} is the base {content type} when its effective content is empty (§3.4.2 complex content clause 3.2.1), its effective content when the base {content type} is empty (clause 3.2.2), and otherwise the sequence of the base particle and its effective content (clause 3.2.3). An all group may appear only as the whole {content type} particle (All Group Limited clause 1.2). Explicit content is empty only as no group, an all or sequence with no children, an optional choice with no children, or a group with maxOccurs 0 (clause 2.1); a mixed type with empty explicit content has the synthetic empty sequence as its particle (clause 2.1.4), so its {content type} is not empty."
+        ],
+        "description": "An extension adds an all group to a type with empty content; its {content type} is the all group."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/all-extension/empty-base-all-extension.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "clause": "complex content {content type} clause 3.2"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/all-extension/empty-base-all-extension.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/all-extension/empty-sequence-base-all-extension",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/all-extension/empty-sequence-base-all-extension.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited"
+        ],
+        "conditions": [
+          "An extension's {content type} is the base {content type} when its effective content is empty (§3.4.2 complex content clause 3.2.1), its effective content when the base {content type} is empty (clause 3.2.2), and otherwise the sequence of the base particle and its effective content (clause 3.2.3). An all group may appear only as the whole {content type} particle (All Group Limited clause 1.2). Explicit content is empty only as no group, an all or sequence with no children, an optional choice with no children, or a group with maxOccurs 0 (clause 2.1); a mixed type with empty explicit content has the synthetic empty sequence as its particle (clause 2.1.4), so its {content type} is not empty."
+        ],
+        "description": "An extension adds an all group to a type whose explicit content is an empty sequence; its {content type} is the all group."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/all-extension/empty-sequence-base-all-extension.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "clause": "complex content {content type} clause 3.2"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/all-extension/empty-sequence-base-all-extension.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/all-extension/group-ref-empty-all-base-sequence-extension",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/all-extension/group-ref-empty-all-base-sequence-extension.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited"
+        ],
+        "conditions": [
+          "An extension's {content type} is the base {content type} when its effective content is empty (§3.4.2 complex content clause 3.2.1), its effective content when the base {content type} is empty (clause 3.2.2), and otherwise the sequence of the base particle and its effective content (clause 3.2.3). An all group may appear only as the whole {content type} particle (All Group Limited clause 1.2). Explicit content is empty only as no group, an all or sequence with no children, an optional choice with no children, or a group with maxOccurs 0 (clause 2.1); a mixed type with empty explicit content has the synthetic empty sequence as its particle (clause 2.1.4), so its {content type} is not empty."
+        ],
+        "description": "A type whose content is a group reference to an empty all group has that all group as its particle, so an extension that adds a sequence puts the all group in a sequence."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/all-extension/group-ref-empty-all-base-sequence-extension.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited",
+          "clause": "1.2"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/all-extension/group-ref-empty-all-base-sequence-extension.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/all-extension/group-ref-empty-all-base-no-extension",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/all-extension/group-ref-empty-all-base-no-extension.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited"
+        ],
+        "conditions": [
+          "An extension's {content type} is the base {content type} when its effective content is empty (§3.4.2 complex content clause 3.2.1), its effective content when the base {content type} is empty (clause 3.2.2), and otherwise the sequence of the base particle and its effective content (clause 3.2.3). An all group may appear only as the whole {content type} particle (All Group Limited clause 1.2). Explicit content is empty only as no group, an all or sequence with no children, an optional choice with no children, or a group with maxOccurs 0 (clause 2.1); a mixed type with empty explicit content has the synthetic empty sequence as its particle (clause 2.1.4), so its {content type} is not empty."
+        ],
+        "description": "An extension with no content of a type whose content is a group reference to an empty all group keeps the base {content type}."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/all-extension/group-ref-empty-all-base-no-extension.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "clause": "complex content {content type} clause 3.2"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/all-extension/group-ref-empty-all-base-no-extension.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/all-extension/empty-all-base-sequence-extension",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/all-extension/empty-all-base-sequence-extension.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited"
+        ],
+        "conditions": [
+          "An extension's {content type} is the base {content type} when its effective content is empty (§3.4.2 complex content clause 3.2.1), its effective content when the base {content type} is empty (clause 3.2.2), and otherwise the sequence of the base particle and its effective content (clause 3.2.3). An all group may appear only as the whole {content type} particle (All Group Limited clause 1.2). Explicit content is empty only as no group, an all or sequence with no children, an optional choice with no children, or a group with maxOccurs 0 (clause 2.1); a mixed type with empty explicit content has the synthetic empty sequence as its particle (clause 2.1.4), so its {content type} is not empty."
+        ],
+        "description": "A type whose explicit content is an empty all group has empty content, so an extension that adds a sequence has that sequence as its {content type}."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/all-extension/empty-all-base-sequence-extension.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "clause": "complex content {content type} clause 3.2"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/all-extension/empty-all-base-sequence-extension.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/all-extension/all-base-sequence-extension",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/all-extension/all-base-sequence-extension.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited"
+        ],
+        "conditions": [
+          "An extension's {content type} is the base {content type} when its effective content is empty (§3.4.2 complex content clause 3.2.1), its effective content when the base {content type} is empty (clause 3.2.2), and otherwise the sequence of the base particle and its effective content (clause 3.2.3). An all group may appear only as the whole {content type} particle (All Group Limited clause 1.2). Explicit content is empty only as no group, an all or sequence with no children, an optional choice with no children, or a group with maxOccurs 0 (clause 2.1); a mixed type with empty explicit content has the synthetic empty sequence as its particle (clause 2.1.4), so its {content type} is not empty."
+        ],
+        "description": "An extension adds a sequence to a type whose content is an all group with a member; the all group lands in a sequence."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/all-extension/all-base-sequence-extension.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited",
+          "clause": "1.2"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/all-extension/all-base-sequence-extension.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/all-extension/all-base-no-extension",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/all-extension/all-base-no-extension.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited"
+        ],
+        "conditions": [
+          "An extension's {content type} is the base {content type} when its effective content is empty (§3.4.2 complex content clause 3.2.1), its effective content when the base {content type} is empty (clause 3.2.2), and otherwise the sequence of the base particle and its effective content (clause 3.2.3). An all group may appear only as the whole {content type} particle (All Group Limited clause 1.2). Explicit content is empty only as no group, an all or sequence with no children, an optional choice with no children, or a group with maxOccurs 0 (clause 2.1); a mixed type with empty explicit content has the synthetic empty sequence as its particle (clause 2.1.4), so its {content type} is not empty."
+        ],
+        "description": "An extension with no content of an all-group type keeps the base {content type}."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/all-extension/all-base-no-extension.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "clause": "complex content {content type} clause 3.2"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/all-extension/all-base-no-extension.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/all-extension/empty-base-group-ref-all-extension",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/all-extension/empty-base-group-ref-all-extension.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited"
+        ],
+        "conditions": [
+          "An extension's {content type} is the base {content type} when its effective content is empty (§3.4.2 complex content clause 3.2.1), its effective content when the base {content type} is empty (clause 3.2.2), and otherwise the sequence of the base particle and its effective content (clause 3.2.3). An all group may appear only as the whole {content type} particle (All Group Limited clause 1.2). Explicit content is empty only as no group, an all or sequence with no children, an optional choice with no children, or a group with maxOccurs 0 (clause 2.1); a mixed type with empty explicit content has the synthetic empty sequence as its particle (clause 2.1.4), so its {content type} is not empty."
+        ],
+        "description": "An extension adds a group reference to an all group to a type with empty content; its {content type} is the all group."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/all-extension/empty-base-group-ref-all-extension.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "clause": "complex content {content type} clause 3.2"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/all-extension/empty-base-group-ref-all-extension.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/all-extension/all-base-empty-sequence-extension",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/all-extension/all-base-empty-sequence-extension.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited"
+        ],
+        "conditions": [
+          "An extension's {content type} is the base {content type} when its effective content is empty (§3.4.2 complex content clause 3.2.1), its effective content when the base {content type} is empty (clause 3.2.2), and otherwise the sequence of the base particle and its effective content (clause 3.2.3). An all group may appear only as the whole {content type} particle (All Group Limited clause 1.2). Explicit content is empty only as no group, an all or sequence with no children, an optional choice with no children, or a group with maxOccurs 0 (clause 2.1); a mixed type with empty explicit content has the synthetic empty sequence as its particle (clause 2.1.4), so its {content type} is not empty."
+        ],
+        "description": "An extension whose explicit content is an empty sequence has empty effective content and keeps the all-group {content type} of its base."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/all-extension/all-base-empty-sequence-extension.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "clause": "complex content {content type} clause 3.2"
+        },
+        "differences": {
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/all-extension/all-base-empty-sequence-extension.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/all-extension/sequence-base-all-extension",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/all-extension/sequence-base-all-extension.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited"
+        ],
+        "conditions": [
+          "An extension's {content type} is the base {content type} when its effective content is empty (§3.4.2 complex content clause 3.2.1), its effective content when the base {content type} is empty (clause 3.2.2), and otherwise the sequence of the base particle and its effective content (clause 3.2.3). An all group may appear only as the whole {content type} particle (All Group Limited clause 1.2). Explicit content is empty only as no group, an all or sequence with no children, an optional choice with no children, or a group with maxOccurs 0 (clause 2.1); a mixed type with empty explicit content has the synthetic empty sequence as its particle (clause 2.1.4), so its {content type} is not empty."
+        ],
+        "description": "An extension adds an all group to a sequence type; the all group lands in a sequence."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/all-extension/sequence-base-all-extension.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited",
+          "clause": "1.2"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/all-extension/sequence-base-all-extension.xsd",
+          "role": "principal"
+        }
+      ]
     }
   ]
 }
