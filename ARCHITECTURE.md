@@ -53,6 +53,7 @@ The package graph follows capability ownership:
 | `internal/format` | Repository-internal formatting and its input/output limits |
 | `internal/lex`, `internal/vocab`, `internal/uriref`, `xsderrors` | Shared lexical facts, vocabulary, URI-reference semantics, and structured errors |
 | `internal/valuebench` | Value-program benchmarks over the `internal/value` interface; no production code |
+| `internal/corpus` | Conformance corpus file layout and grammar for tests and tools: inventory shards, observation rows and profile; read through `fs.FS`, imported by no library package |
 | Root `xsd` | Sources, options, engines, and sessions delegated to their owners |
 | CLI, WASM, browser, and local web adapters | Wire translation, product composition, and process lifecycle |
 
@@ -549,7 +550,7 @@ immutable and safe to share. Scratch is owned by the caller, and no
 process-wide cache keeps patterns. The block catalog leaves out the XSD 1.0
 surrogate block names, including in complemented escapes. Corpus expectations
 follow that rule, and upstream disagreements are recorded as provenance in the
-authoritative test manifest.
+authoritative test inventory under `tests/manifest`.
 
 ### `internal/validate`
 
@@ -959,7 +960,7 @@ change-detector tests that mirror the implementation or assert their own setup.
 | `internal/value/value_laws_contract_test.go` | For every primitive, one order and one equality: equality decides identity keys and enumeration membership, the bound facets agree on one order that never separates equal values and separates unequal ones outside the declared duration exception, and canonical text denotes its value; checked on declared pairs and on a generated grid of lexical forms |
 | `schema_diagnostic_order_test.go` with the catalogue in `schema_diagnostic_catalogue_test.go` | The schema-document diagnostics order of `internal/schema`: a catalogue of single violations, each declaring its tier and stage from the contract and never from compiler output, and every ordered pair of them (as consecutive components, inside one component, on one start tag in both attribute orders, and across two documents) reports the violation that tier, decision point, stage and attribute order select. A rule decided later than the contract says is listed by name in `knownSchemaDiagnosticOrderGaps`, and a listed gap that holds fails as stale |
 | `tests/harness_test.go` (`checkDiagnosticLocations`) | Every compile diagnostic of a corpus case, and every validation or unsupported diagnostic of an instance run, carries a path and a line; a compile pass that reports outside a component scope fails the corpus |
-| `tests/harness_manifest_test.go` with `tests/oracle-backlog.txt` | Every project corpus case carries cross-validator oracle metadata for every provider and phase, as the `tests/README.md` Corpus Contract defines measured; only cases listed in the backlog are exempt, and a listed case that is unknown, measured, or has a phase every provider measured fails as stale |
+| `tests/oracle_observations_test.go` with `tests/oracle-backlog.txt` and `tests/oracle-notes.txt` | Every project corpus case has an observation row for every provider and phase, as the `tests/README.md` Corpus Contract defines measured, and no other rows. Every row whose validity differs from the project expectation has a `differences` entry citing an interpretation record or anchored row that lists the case and names the provider, or an allowlisted note; only cases listed in the backlog are exempt, and a listed case that is unknown or has every difference owned fails as stale |
 | `tests/schema_export_surface_test.go` | The exported top-level identifiers of `internal/schema`, `internal/value` and `internal/validate` equal an explicit allowlist of the surface consumed across packages |
 | `tests/resource_limits_doc_test.go` | `docs/RESOURCE_LIMITS.md` option tables list every public option with its code-owned default |
 | `tests/root_public_shape_test.go` and `tests/external_api_smoke_test.go` | External callers use only the supported public packages and interface |
@@ -1011,8 +1012,9 @@ graph preserves these ownership rules:
 - The libxml2 comparison target builds the CLI and runs the opt-in large
   benchmark harness against an explicitly selected libxml2 executable; it
   stays outside the verification contract.
-- The oracle image target builds the pinned cross-validator container. It
-  needs Docker and network and stays outside the verification contract.
+- The oracle image target builds the pinned cross-validator container, and the
+  oracle measurement target rewrites `tests/oracles` from it. Both need Docker
+  and stay outside the verification contract.
 
 `.github/workflows/test.yml` owns CI ordering and grouping.
 
@@ -1498,10 +1500,11 @@ graph preserves these ownership rules:
   `web/xsd.wasm` and `web/wasm_exec.js`. The Pages workflow publishes `web`,
   and `cmd/xsdweb` serves it by default.
 - `tools/oracles` owns the cross-validator image: provider pins, offline
-  adapters, and the `run.sh` interface. `tests/README.md` owns when and how its
-  results enter diagnosis.
+  adapters, the `run.sh` interface, and the measurement command that writes
+  `tests/oracles`. `tests/README.md` owns when and how its results enter
+  diagnosis.
 - `tests/README.md` documents corpus and harness operation. Counts and other
-  cheap derived facts come from the manifest or test commands rather than
+  cheap derived facts come from the inventory or test commands rather than
   manually maintained prose.
 - This file is the sole architecture source of truth. Other documentation may
   link here but must not restate a competing package graph or lifecycle model.

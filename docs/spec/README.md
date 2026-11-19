@@ -20,7 +20,7 @@ compare 2001 with 2004 and do not incorporate E1-56.
 
 [ARCHITECTURE.md](../../ARCHITECTURE.md) owns implementation boundaries;
 [tests/README.md](../../tests/README.md) owns corpus operation.
-`tests/manifest.json` remains the only inventory and expectation authority.
+`tests/manifest/` remains the only inventory and expectation authority.
 Cite the exact source rule for new cases. Preserve unresolved oracles,
 unobservable outputs and deliberate product limits separately from executed
 coverage; processor agreement is diagnostic evidence, not an oracle.
