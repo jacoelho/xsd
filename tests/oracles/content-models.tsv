@@ -4059,6 +4059,42 @@ project/content-models/particle-restriction/lax-unbounded-branch-reverse	schema	
 project/content-models/particle-restriction/lax-unbounded-branch-reverse	schema	libxml2	schema-valid	
 project/content-models/particle-restriction/lax-unbounded-branch-reverse	schema	xerces	schema-invalid	lax-unbounded-branch-reverse.xsd:4:37: rcase-RecurseLax.2: There is not a complete functional mapping between the particles.
 project/content-models/particle-restriction/lax-unbounded-branch-reverse	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="Restricted"><xs:complexContent><xs:restriction base="Base"><xs:choice><xs:element name="c" type="xs:string" /><xs:sequence><xs:element name="a" type="xs:string" maxOccurs="unbounded" /><xs:element name="b" type="xs:string" /></xs:sequence></xs:choice></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: lax-unbounded-branch-reverse.xsd
+project/content-models/particle-restriction/local-idc-base-none-derived-adds-key	schema	dotnet	schema-valid	
+project/content-models/particle-restriction/local-idc-base-none-derived-adds-key	schema	libxml2	schema-valid	
+project/content-models/particle-restriction/local-idc-base-none-derived-adds-key	schema	xerces	schema-valid	
+project/content-models/particle-restriction/local-idc-base-none-derived-adds-key	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="Derived"><xs:complexContent><xs:restriction base="Base"><xs:sequence><xs:element name="a" type="Rows"><xs:key name="DerivedKey"><xs:selector xpath="v" /><xs:field xpath="." /></xs:key></xs:element></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[3]␊␊Schema URL: base-none-derived-adds-key.xsd
+project/content-models/particle-restriction/local-idc-base-none-derived-adds-unique	schema	dotnet	schema-valid	
+project/content-models/particle-restriction/local-idc-base-none-derived-adds-unique	schema	libxml2	schema-valid	
+project/content-models/particle-restriction/local-idc-base-none-derived-adds-unique	schema	xerces	schema-valid	
+project/content-models/particle-restriction/local-idc-base-none-derived-adds-unique	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="Derived"><xs:complexContent><xs:restriction base="Base"><xs:sequence><xs:element name="a" type="Rows"><xs:unique name="DerivedUnique"><xs:selector xpath="v" /><xs:field xpath="." /></xs:unique></xs:element></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[3]␊␊Schema URL: base-none-derived-adds-unique.xsd
+project/content-models/particle-restriction/local-idc-base-none-derived-none	schema	dotnet	schema-valid	
+project/content-models/particle-restriction/local-idc-base-none-derived-none	schema	libxml2	schema-valid	
+project/content-models/particle-restriction/local-idc-base-none-derived-none	schema	xerces	schema-valid	
+project/content-models/particle-restriction/local-idc-base-none-derived-none	schema	xmlschema	schema-valid	
+project/content-models/particle-restriction/local-idc-base-unique-derived-adds-other-unique	schema	dotnet	schema-valid	
+project/content-models/particle-restriction/local-idc-base-unique-derived-adds-other-unique	schema	libxml2	schema-valid	
+project/content-models/particle-restriction/local-idc-base-unique-derived-adds-other-unique	schema	xerces	schema-valid	
+project/content-models/particle-restriction/local-idc-base-unique-derived-adds-other-unique	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="Derived"><xs:complexContent><xs:restriction base="Base"><xs:sequence><xs:element name="a" type="Rows"><xs:unique name="DerivedUnique"><xs:selector xpath="v" /><xs:field xpath="." /></xs:unique></xs:element></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[3]␊␊Schema URL: base-unique-derived-adds-other-unique.xsd
+project/content-models/particle-restriction/local-idc-base-unique-derived-adds-two	schema	dotnet	schema-valid	
+project/content-models/particle-restriction/local-idc-base-unique-derived-adds-two	schema	libxml2	schema-valid	
+project/content-models/particle-restriction/local-idc-base-unique-derived-adds-two	schema	xerces	schema-valid	
+project/content-models/particle-restriction/local-idc-base-unique-derived-adds-two	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="Derived"><xs:complexContent><xs:restriction base="Base"><xs:sequence><xs:element name="a" type="Rows"><xs:unique name="DerivedUnique"><xs:selector xpath="v" /><xs:field xpath="." /></xs:unique><xs:key name="DerivedKey"><xs:selector xpath="v" /><xs:field xpath="." /></xs:key></xs:element></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[3]␊␊Schema URL: base-unique-derived-adds-two.xsd
+project/content-models/particle-restriction/local-idc-base-unique-derived-none	schema	dotnet	schema-valid	
+project/content-models/particle-restriction/local-idc-base-unique-derived-none	schema	libxml2	schema-valid	
+project/content-models/particle-restriction/local-idc-base-unique-derived-none	schema	xerces	schema-valid	
+project/content-models/particle-restriction/local-idc-base-unique-derived-none	schema	xmlschema	schema-valid	
+project/content-models/particle-restriction/local-idc-base-unique-derived-replaces-with-key	schema	dotnet	schema-valid	
+project/content-models/particle-restriction/local-idc-base-unique-derived-replaces-with-key	schema	libxml2	schema-valid	
+project/content-models/particle-restriction/local-idc-base-unique-derived-replaces-with-key	schema	xerces	schema-valid	
+project/content-models/particle-restriction/local-idc-base-unique-derived-replaces-with-key	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="Derived"><xs:complexContent><xs:restriction base="Base"><xs:sequence><xs:element name="a" type="Rows"><xs:key name="DerivedKey"><xs:selector xpath="v" /><xs:field xpath="." /></xs:key></xs:element></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[3]␊␊Schema URL: base-unique-derived-replaces-with-key.xsd
+project/content-models/particle-restriction/local-idc-global-declaration-keeps-unique	schema	dotnet	schema-valid	
+project/content-models/particle-restriction/local-idc-global-declaration-keeps-unique	schema	libxml2	schema-valid	
+project/content-models/particle-restriction/local-idc-global-declaration-keeps-unique	schema	xerces	schema-valid	
+project/content-models/particle-restriction/local-idc-global-declaration-keeps-unique	schema	xmlschema	schema-valid	
+project/content-models/particle-restriction/local-idc-shared-group-declaration-keeps-unique	schema	dotnet	schema-valid	
+project/content-models/particle-restriction/local-idc-shared-group-declaration-keeps-unique	schema	libxml2	schema-valid	
+project/content-models/particle-restriction/local-idc-shared-group-declaration-keeps-unique	schema	xerces	schema-valid	
+project/content-models/particle-restriction/local-idc-shared-group-declaration-keeps-unique	schema	xmlschema	schema-valid	
 project/content-models/particle-restriction/mapandsum-maximum-control	base-three-a	dotnet	valid	
 project/content-models/particle-restriction/mapandsum-maximum-control	base-three-a	libxml2	valid	
 project/content-models/particle-restriction/mapandsum-maximum-control	base-three-a	xerces	valid	

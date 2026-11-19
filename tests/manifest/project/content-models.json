@@ -5657,6 +5657,367 @@
       }
     },
     {
+      "id": "project/content-models/particle-restriction/local-idc-base-none-derived-adds-key",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/particle-restriction/local-idc-restriction/base-none-derived-adds-key.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK"
+        ],
+        "conditions": [
+          "A restricting local declaration adds a key to a base declaration with no identity constraints."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/particle-restriction/local-idc-restriction/base-none-derived-adds-key.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "NameAndTypeOK clause 3.2.3 in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-028"
+          },
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/particle-restriction/local-idc-restriction/base-none-derived-adds-key.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/particle-restriction/local-idc-base-none-derived-adds-unique",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/particle-restriction/local-idc-restriction/base-none-derived-adds-unique.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK"
+        ],
+        "conditions": [
+          "A restricting local declaration adds a unique to a base declaration with no identity constraints."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/particle-restriction/local-idc-restriction/base-none-derived-adds-unique.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "NameAndTypeOK clause 3.2.3 in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-028"
+          },
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/particle-restriction/local-idc-restriction/base-none-derived-adds-unique.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/particle-restriction/local-idc-base-none-derived-none",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/particle-restriction/local-idc-restriction/base-none-derived-none.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK"
+        ],
+        "conditions": [
+          "Neither the base nor the restricting local declaration has identity constraints."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/particle-restriction/local-idc-restriction/base-none-derived-none.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "NameAndTypeOK clause 3.2.3 in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/particle-restriction/local-idc-restriction/base-none-derived-none.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/particle-restriction/local-idc-base-unique-derived-adds-other-unique",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/particle-restriction/local-idc-restriction/base-unique-derived-adds-other-unique.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK"
+        ],
+        "conditions": [
+          "A restricting local declaration replaces the base's unique with a different unique."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/particle-restriction/local-idc-restriction/base-unique-derived-adds-other-unique.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "NameAndTypeOK clause 3.2.3 in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-028"
+          },
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/particle-restriction/local-idc-restriction/base-unique-derived-adds-other-unique.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/particle-restriction/local-idc-base-unique-derived-adds-two",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/particle-restriction/local-idc-restriction/base-unique-derived-adds-two.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK"
+        ],
+        "conditions": [
+          "A restricting local declaration replaces the base's unique with a different unique and a key."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/particle-restriction/local-idc-restriction/base-unique-derived-adds-two.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "NameAndTypeOK clause 3.2.3 in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-028"
+          },
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/particle-restriction/local-idc-restriction/base-unique-derived-adds-two.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/particle-restriction/local-idc-base-unique-derived-none",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/particle-restriction/local-idc-restriction/base-unique-derived-none.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK"
+        ],
+        "conditions": [
+          "A restricting local declaration drops the base's unique: the empty set is a subset."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/particle-restriction/local-idc-restriction/base-unique-derived-none.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "NameAndTypeOK clause 3.2.3 in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/particle-restriction/local-idc-restriction/base-unique-derived-none.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/particle-restriction/local-idc-base-unique-derived-replaces-with-key",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/particle-restriction/local-idc-restriction/base-unique-derived-replaces-with-key.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK"
+        ],
+        "conditions": [
+          "A restricting local declaration replaces the base's unique with a key."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/particle-restriction/local-idc-restriction/base-unique-derived-replaces-with-key.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "NameAndTypeOK clause 3.2.3 in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-028"
+          },
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/particle-restriction/local-idc-restriction/base-unique-derived-replaces-with-key.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/particle-restriction/local-idc-global-declaration-keeps-unique",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/particle-restriction/local-idc-restriction/global-declaration-keeps-unique.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK"
+        ],
+        "conditions": [
+          "Base and restriction reference one global declaration, so the identity-constraint sets are the same."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/particle-restriction/local-idc-restriction/global-declaration-keeps-unique.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "NameAndTypeOK clause 3.2.3 in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/particle-restriction/local-idc-restriction/global-declaration-keeps-unique.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/particle-restriction/local-idc-shared-group-declaration-keeps-unique",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/particle-restriction/local-idc-restriction/shared-group-declaration-keeps-unique.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK"
+        ],
+        "conditions": [
+          "Base and restriction reference one named group, so they share the local declaration and its identity constraint."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/particle-restriction/local-idc-restriction/shared-group-declaration-keeps-unique.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "NameAndTypeOK clause 3.2.3 in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/particle-restriction/local-idc-restriction/shared-group-declaration-keeps-unique.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
       "id": "project/content-models/pointless-groups/erased-empty-forms",
       "expectedSource": "project",
       "source": {

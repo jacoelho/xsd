@@ -1337,8 +1337,12 @@ the processor tie-break is not applicable. Xerces-J 2.12.2, .NET 10.0.14 and
 libxml2 2.9.13 never enforce clause 3.2.3: they accept a derived declaration
 that adds a key or unique to a base with none, adds two, or replaces the
 base's unique with a different unique or with a key, and enforce an added
-unique at run time. xmlschema 4.3.2 rejects each such addition. Case:
-`project/structures-local-idc-addition` (invalid).
+unique at run time. xmlschema 4.3.2 rejects each such addition. Cases:
+`project/structures-local-idc-addition` (invalid) and
+`project/content-models/particle-restriction/local-idc-*` (an added key or
+unique, or a base unique replaced by another unique or a key, is invalid; a
+dropped constraint and a declaration shared through a global element or named
+group are valid).
 
 Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13:
 
@@ -1363,7 +1367,8 @@ Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13:
   base.
 - .NET and xmlschema miss ambiguity reached through group references.
 - Xerces-J gives the project result in every case listed except
-  `project/structures-local-idc-addition` (above).
+  `project/structures-local-idc-addition` and the invalid
+  `project/content-models/particle-restriction/local-idc-*` cases (above).
 
 Cases: `project/content-models/contrasts-particle-*`,
 `project/content-models/dispatch-all-sequence-forbidden`, `project/content-models/dispatch-choice-normalize-optional`, `project/content-models/dispatch-choice-normalize-repeated`, `project/content-models/dispatch-lax-missing-map`, `project/content-models/dispatch-lax-reverse`, `project/content-models/dispatch-mapandsum-count-three-minimum`, `project/content-models/dispatch-range-finite-unbounded`, `project/content-models/dispatch-sequence-required-gap`, `project/content-models/dispatch-sequence-reverse`, `project/content-models/dispatch-source-zero-elimination`, `project/content-models/dispatch-wrapper-all-required`, `project/content-models/dispatch-wrapper-choice-member-range`, `project/content-models/dispatch-wrapper-sequence-required`, `project/content-models/occurrence-boundaries/*`,
