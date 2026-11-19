@@ -562,25 +562,26 @@ func writeField(h hash.Hash, s string) {
 	h.Write(fmt.Appendf(nil, "%d:%s,", len(s), s))
 }
 
-// runOracles runs run.sh on the slot tag image. On timeout or interrupt it
-// removes the slot's container, which outlives the docker CLI: run.sh execs
-// the CLI, and the container's init process ignores the signals the CLI
-// forwards. The removal repeats after the run in case the container was
-// created after the first one looked.
+// runOracles runs run.sh on the slot tag image. On timeout or interrupt the
+// run.sh process, which execs the docker CLI, is killed, and once it has exited
+// the slot's container is removed: the container outlives the CLI, since its
+// init process ignores the signals the CLI forwards. Removing it once the CLI
+// has exited means the CLI cannot create a container after the removal looked.
+// A run that never started has no container to remove.
 func runOracles(ctx context.Context, slot string, args []string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, runTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "tools/oracles/run.sh", args...) //nolint:gosec // Arguments are inventory paths.
 	cmd.Env = append(os.Environ(), "XSD_ORACLES_IMAGE="+slot, "XSD_ORACLES_SKIP_BUILD=1")
-	cmd.Cancel = func() error {
-		return errors.Join(removeContainers(ctx, slot), cmd.Process.Kill())
-	}
 	cmd.WaitDelay = dockerCleanupTimeout
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if ctx.Err() != nil {
-		err = errors.Join(err, ctx.Err(), removeContainers(ctx, slot))
+		err = errors.Join(err, ctx.Err())
+		if cmd.Process != nil {
+			err = errors.Join(err, removeContainers(ctx, slot))
+		}
 	}
 	if err != nil {
 		return nil, fmt.Errorf("run.sh %s: %w: %s", strings.Join(args, " "), err, stderr.String())

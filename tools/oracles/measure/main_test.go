@@ -3,14 +3,18 @@ package main
 import (
 	"archive/tar"
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/jacoelho/xsd/internal/corpus"
 )
@@ -184,5 +188,70 @@ func TestCacheKeyChangesWithTheBytesOfEveryRunFile(t *testing.T) {
 			t.Errorf("cacheKey() after changing %s = the key before", name)
 		}
 		writeTestTree(t, map[string]string{name: data})
+	}
+}
+
+func installFakeDocker(t *testing.T, runScript string) string {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("the fake run.sh and docker are shell scripts")
+	}
+	dir := t.TempDir()
+	t.Chdir(dir)
+	calls := filepath.Join(dir, "docker-calls")
+	bin := filepath.Join(dir, "bin")
+	scripts := map[string]string{
+		filepath.Join(bin, "docker"):                "#!/bin/sh\necho \"$*\" >> '" + calls + "'\n",
+		filepath.Join("tools", "oracles", "run.sh"): runScript,
+	}
+	for name, body := range scripts {
+		if err := os.MkdirAll(filepath.Dir(name), 0o750); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(name, []byte(body), 0o700); err != nil { //nolint:gosec // The fake commands must be executable.
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	return calls
+}
+
+func dockerCalls(t *testing.T, calls string) []string {
+	t.Helper()
+	data, err := os.ReadFile(calls) //nolint:gosec // The path is the test's own temporary file.
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strings.Split(strings.TrimSuffix(string(data), "\n"), "\n")
+}
+
+func TestRunOraclesInterruptedRemovesTheSlotContainersOnce(t *testing.T) {
+	calls := installFakeDocker(t, "#!/bin/sh\necho started\nexec sleep 60\n")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	if _, err := runOracles(ctx, "slot", []string{"a.xsd"}); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("runOracles() error = %v, want a deadline", err)
+	}
+
+	if got, want := dockerCalls(t, calls), []string{"ps --all --no-trunc --format {{.ID}}\t{{.Image}}"}; !slices.Equal(got, want) {
+		t.Fatalf("docker calls = %q, want %q", got, want)
+	}
+}
+
+func TestRunOraclesThatNeverStartedRemovesNoContainers(t *testing.T) {
+	calls := installFakeDocker(t, "#!/bin/sh\n")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if _, err := runOracles(ctx, "slot", []string{"a.xsd"}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("runOracles() error = %v, want a cancellation", err)
+	}
+
+	if got := dockerCalls(t, calls); got != nil {
+		t.Fatalf("docker calls = %q, want none", got)
 	}
 }
