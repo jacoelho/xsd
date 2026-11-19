@@ -11487,11 +11487,11 @@
         "sourceFile": "project/runtime_integration_test.go",
         "sourceLine": 927,
         "conditions": [
-          "Selected cvc-au actual-value equality admits equal fixed-use aliases; independent floating-point or leap-second datatype qualifications remain visible."
+          "The fixed value 23:59:60+02:00 has a second 60, which no xs:time admits, so the schema is invalid before cvc-au actual-value equality applies."
         ]
       },
       "schema": {
-        "expected": "valid",
+        "expected": "invalid",
         "documents": [
           {
             "file": "corpus/project/attributes/attribute-fixed-time-leap-second-offset-equivalent-lexical/schema.xsd",
@@ -11499,20 +11499,14 @@
           }
         ],
         "rule": {
-          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html"
+          "specRef": "docs/spec/INTERPRETATIONS.md#time-midnight",
+          "clause": "the Second 60 clause of the Time midnight row of docs/spec/INTERPRETATIONS.md"
         },
-        "differences": {
-          "xerces": {
-            "note": "Observed offline with Apache Xerces-J2.12.2 on the current fixture: schema rejected. org.xml.sax.SAXParseException; systemId: file://tests/corpus/project/attributes/attribute-fixed-time-leap-second-offset-equivalent-lexical/schema.xsd; lineNumber: 5; columnNumber: 69; cvc-datatype-valid.1.2.1: '23:59:60+02:00' is not a valid value for 'time'. The project expectation follows its documented selected correction or datatype qualification; this is interoperability evidence, not a majority-vote oracle. Its 1 declared instance runs were not assessed after this schema rejection."
-          },
-          "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema10.0.9 on the current fixture: schema rejected. System.Xml.Schema.XmlSchemaException: The value '23:59:60+02:00' is invalid according to its schema type 'http://www.w3.org/2001/XMLSchema:time' - The string '23:59:60+02:00' is not a valid Time value. The project expectation follows its documented selected correction or datatype qualification; this is interoperability evidence, not a majority-vote oracle. Its 1 declared instance runs were not assessed after this schema rejection."
-          },
-          "xmlschema": {
-            "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 on the current fixture: schema rejected. fixed value '23:59:60+02:00' is not compatible with attribute's type: The project expectation follows its documented selected correction or datatype qualification; this is interoperability evidence, not a majority-vote oracle. Its 1 declared instance runs were not assessed after this schema rejection."
-          },
-          "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 on the current fixture: schema rejected. Element '{http://www.w3.org/2001/XMLSchema}attribute': '23:59:60+02:00' is not a valid value of the atomic type 'xs:time'. The project expectation follows its documented selected correction or datatype qualification; this is interoperability evidence, not a majority-vote oracle. Its 1 declared instance runs were not assessed after this schema rejection."
+        "oracle": {
+          "project": {
+            "expected": "valid",
+            "reason": "The previous expectation admitted the second 60 in the minute 23:59 under Appendix D.3.3, so the fixed 23:59:60+02:00 was the value 22:00:00Z. Accepted W3C msMeta/DataTypes_w3c.xml/time016_2024 rejects a second 60 and XSD 1.1 forbids leap seconds, so the value constraint is not a valid xs:time.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#isoformats"
           }
         }
       },
@@ -11556,7 +11550,7 @@
         "sourceLine": 931
       },
       "schema": {
-        "expected": "valid",
+        "expected": "invalid",
         "documents": [
           {
             "file": "corpus/project/attributes/attribute-fixed-time-leap-second-offset-equivalent-utc/schema.xsd",
@@ -11564,20 +11558,14 @@
           }
         ],
         "rule": {
-          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order"
+          "specRef": "docs/spec/INTERPRETATIONS.md#time-midnight",
+          "clause": "the Second 60 clause of the Time midnight row of docs/spec/INTERPRETATIONS.md"
         },
-        "differences": {
-          "dotnet": {
-            "record": "time-midnight"
-          },
-          "libxml2": {
-            "record": "time-midnight"
-          },
-          "xerces": {
-            "record": "time-midnight"
-          },
-          "xmlschema": {
-            "record": "time-midnight"
+        "oracle": {
+          "project": {
+            "expected": "valid",
+            "reason": "The previous expectation admitted the second 60 in the minute 23:59 under Appendix D.3.3, so the fixed 23:59:60+02:00 was the value 22:00:00Z. Accepted W3C msMeta/DataTypes_w3c.xml/time016_2024 rejects a second 60 and XSD 1.1 forbids leap seconds, so the value constraint is not a valid xs:time.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#isoformats"
           }
         }
       },
@@ -11617,7 +11605,7 @@
         "sourceLine": 908
       },
       "schema": {
-        "expected": "valid",
+        "expected": "invalid",
         "documents": [
           {
             "file": "corpus/project/elements/element-fixed-time-leap-second-offset-equivalent-lexical/schema.xsd",
@@ -11625,20 +11613,14 @@
           }
         ],
         "rule": {
-          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order"
+          "specRef": "docs/spec/INTERPRETATIONS.md#time-midnight",
+          "clause": "the Second 60 clause of the Time midnight row of docs/spec/INTERPRETATIONS.md"
         },
-        "differences": {
-          "dotnet": {
-            "record": "time-midnight"
-          },
-          "libxml2": {
-            "record": "time-midnight"
-          },
-          "xerces": {
-            "record": "time-midnight"
-          },
-          "xmlschema": {
-            "record": "time-midnight"
+        "oracle": {
+          "project": {
+            "expected": "valid",
+            "reason": "The previous expectation admitted the second 60 in the minute 23:59 under Appendix D.3.3, so the fixed 23:59:60+02:00 was the value 22:00:00Z. Accepted W3C msMeta/DataTypes_w3c.xml/time016_2024 rejects a second 60 and XSD 1.1 forbids leap seconds, so the value constraint is not a valid xs:time.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#isoformats"
           }
         }
       },
@@ -11678,7 +11660,7 @@
         "sourceLine": 912
       },
       "schema": {
-        "expected": "valid",
+        "expected": "invalid",
         "documents": [
           {
             "file": "corpus/project/elements/element-fixed-time-leap-second-offset-equivalent-utc/schema.xsd",
@@ -11686,20 +11668,14 @@
           }
         ],
         "rule": {
-          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order"
+          "specRef": "docs/spec/INTERPRETATIONS.md#time-midnight",
+          "clause": "the Second 60 clause of the Time midnight row of docs/spec/INTERPRETATIONS.md"
         },
-        "differences": {
-          "dotnet": {
-            "record": "time-midnight"
-          },
-          "libxml2": {
-            "record": "time-midnight"
-          },
-          "xerces": {
-            "record": "time-midnight"
-          },
-          "xmlschema": {
-            "record": "time-midnight"
+        "oracle": {
+          "project": {
+            "expected": "valid",
+            "reason": "The previous expectation admitted the second 60 in the minute 23:59 under Appendix D.3.3, so the fixed 23:59:60+02:00 was the value 22:00:00Z. Accepted W3C msMeta/DataTypes_w3c.xml/time016_2024 rejects a second 60 and XSD 1.1 forbids leap seconds, so the value constraint is not a valid xs:time.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#isoformats"
           }
         }
       },

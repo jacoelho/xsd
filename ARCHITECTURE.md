@@ -432,8 +432,8 @@ owner, `internal/schema`, because no value-owned parser exists for them.
   `xs:time` value is its timezone-normalized time of day, so `24:00:00` is
   `00:00:00` (Time midnight boundary in `docs/spec/INTERPRETATIONS.md`). One
   relation needs more than the two values: the same-side restriction clause
-  orders `xs:time` bounds by un-wrapped time. The day that the hour 24, a
-  second 60 or a timezone offset moves a bound to is a fact of the bound
+  orders `xs:time` bounds by un-wrapped time. The day that the hour 24 or a
+  timezone offset moves a bound to is a fact of the bound
   facet (`boundValue`), not of the value, and `compareDerivationBounds` is
   its only reader. Restriction derivation returns the effective facet
   program, and the compiler does not reconstruct that merge. `FacetAllowed`

@@ -483,7 +483,7 @@ func BenchmarkSessionValidateDateDecimalRows(b *testing.B) {
 	var doc strings.Builder
 	doc.WriteString("<rows>")
 	for i := range 100 {
-		fmt.Fprintf(&doc, "<row><when>12026-05-%02dT23:59:60.123456789123+14:00</when><amount>+000%d.4500</amount></row>", i%28+1, i)
+		fmt.Fprintf(&doc, "<row><when>12026-05-%02dT23:59:59.123456789123+14:00</when><amount>+000%d.4500</amount></row>", i%28+1, i)
 	}
 	doc.WriteString("</rows>")
 	text := doc.String()

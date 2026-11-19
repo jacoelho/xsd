@@ -89288,6 +89288,246 @@
       ]
     },
     {
+      "id": "project/datatypes/temporal/second-60",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/temporal/second-60",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#time",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#isoformats"
+        ],
+        "conditions": [
+          "The seconds field of xs:time and xs:dateTime never admits 60: not in the minute 23:59, with or without a timezone, nor with a zero fraction, while the second 59 of the same minute is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/temporal/second-60/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#time-midnight",
+          "clause": "the Second 60 clause of the Time midnight row of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "time-second-59",
+          "file": "corpus/project/datatypes/temporal/second-60/time-second-59.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#time-midnight",
+            "clause": "the Second 60 clause of the Time midnight row of docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "time-second-60-utc",
+          "file": "corpus/project/datatypes/temporal/second-60/time-second-60-utc.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#time-midnight",
+            "clause": "the Second 60 clause of the Time midnight row of docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "time-second-60-offset",
+          "file": "corpus/project/datatypes/temporal/second-60/time-second-60-offset.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#time-midnight",
+            "clause": "the Second 60 clause of the Time midnight row of docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "time-second-60-unzoned",
+          "file": "corpus/project/datatypes/temporal/second-60/time-second-60-unzoned.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#time-midnight",
+            "clause": "the Second 60 clause of the Time midnight row of docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "time-second-60-zero-fraction",
+          "file": "corpus/project/datatypes/temporal/second-60/time-second-60-zero-fraction.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#time-midnight",
+            "clause": "the Second 60 clause of the Time midnight row of docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "time-second-60-other-minute",
+          "file": "corpus/project/datatypes/temporal/second-60/time-second-60-other-minute.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#time-midnight",
+            "clause": "the Second 60 clause of the Time midnight row of docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "datetime-second-59",
+          "file": "corpus/project/datatypes/temporal/second-60/datetime-second-59.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#time-midnight",
+            "clause": "the Second 60 clause of the Time midnight row of docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "datetime-second-60-utc",
+          "file": "corpus/project/datatypes/temporal/second-60/datetime-second-60-utc.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#time-midnight",
+            "clause": "the Second 60 clause of the Time midnight row of docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "datetime-second-60-offset",
+          "file": "corpus/project/datatypes/temporal/second-60/datetime-second-60-offset.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#time-midnight",
+            "clause": "the Second 60 clause of the Time midnight row of docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "datetime-second-60-unzoned",
+          "file": "corpus/project/datatypes/temporal/second-60/datetime-second-60-unzoned.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#time-midnight",
+            "clause": "the Second 60 clause of the Time midnight row of docs/spec/INTERPRETATIONS.md"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/temporal/second-60/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/second-60/time-second-59.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/second-60/time-second-60-utc.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/second-60/time-second-60-offset.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/second-60/time-second-60-unzoned.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/second-60/time-second-60-zero-fraction.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/second-60/time-second-60-other-minute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/second-60/datetime-second-59.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/second-60/datetime-second-60-utc.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/second-60/datetime-second-60-offset.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/second-60/datetime-second-60-unzoned.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/restrict-maxInclusive-time-second-60",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/restrict-maxInclusive-time-second-60",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#time",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#isoformats"
+        ],
+        "conditions": [
+          "A maxInclusive literal 23:59:60Z has a second 60 and so is not in the xs:time value space."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/restrict-maxInclusive-time-second-60/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#time-midnight",
+          "clause": "the Second 60 clause of the Time midnight row of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/restrict-maxInclusive-time-second-60/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/restrict-maxInclusive-dateTime-second-60",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/restrict-maxInclusive-dateTime-second-60",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-maxInclusive",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#isoformats"
+        ],
+        "conditions": [
+          "A maxInclusive literal 2016-12-31T23:59:60Z has a second 60 and so is not in the xs:dateTime value space."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/restrict-maxInclusive-dateTime-second-60/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#time-midnight",
+          "clause": "the Second 60 clause of the Time midnight row of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/restrict-maxInclusive-dateTime-second-60/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
       "id": "project/datatypes/bounds/instance-maxInclusive-time-leap-second",
       "expectedSource": "project",
       "source": {
@@ -89299,7 +89539,7 @@
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#time"
         ],
         "conditions": [
-          "An instance 23:59:60Z wraps to 00:00:00Z, the value that 24:00:00Z also has, so both satisfy the maxInclusive 23:59:59Z."
+          "An instance 23:59:60Z is not an xs:time, since the seconds field never admits 60, while 24:00:00Z is 00:00:00Z and satisfies the maxInclusive 23:59:59Z."
         ]
       },
       "schema": {
@@ -89319,23 +89559,16 @@
         {
           "testName": "leap-second",
           "file": "corpus/project/datatypes/bounds/instance-maxInclusive-time-leap-second/leap-second.xml",
-          "expected": "valid",
+          "expected": "invalid",
           "rule": {
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-maxInclusive-valid",
-            "clause": "the maxInclusive Valid rule and the Midnight clause of the Time midnight row of docs/spec/INTERPRETATIONS.md; this observation is not a majority-vote oracle"
+            "specRef": "docs/spec/INTERPRETATIONS.md#time-midnight",
+            "clause": "the Second 60 clause of the Time midnight row of docs/spec/INTERPRETATIONS.md"
           },
-          "differences": {
-            "xerces": {
-              "record": "time-midnight"
-            },
-            "dotnet": {
-              "record": "time-midnight"
-            },
-            "xmlschema": {
-              "record": "time-midnight"
-            },
-            "libxml2": {
-              "record": "time-midnight"
+          "oracle": {
+            "project": {
+              "expected": "valid",
+              "reason": "The previous expectation admitted the second 60 in the minute 23:59 under Appendix D.3.3, so 23:59:60Z wrapped to 00:00:00Z and satisfied the maxInclusive. Accepted W3C msMeta/DataTypes_w3c.xml/time016_2024 rejects a second 60 and XSD 1.1 forbids leap seconds, so the instance is not a valid xs:time.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#isoformats"
             }
           }
         },

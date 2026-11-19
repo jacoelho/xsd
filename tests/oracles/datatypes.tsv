@@ -2386,6 +2386,10 @@ project/datatypes/bounds/restrict-maxExclusive-time-earlier-day-later-clock	sche
 project/datatypes/bounds/restrict-maxExclusive-time-earlier-day-later-clock	schema	libxml2	schema-valid	
 project/datatypes/bounds/restrict-maxExclusive-time-earlier-day-later-clock	schema	xerces	schema-invalid	schema.xsd:3:50: cvc-maxExclusive-valid: Value '02:00:00Z' is not facet-valid with respect to maxExclusive '01:00:00Z' for type 'B'.
 project/datatypes/bounds/restrict-maxExclusive-time-earlier-day-later-clock	schema	xmlschema	schema-valid	
+project/datatypes/bounds/restrict-maxInclusive-dateTime-second-60	schema	dotnet	schema-invalid	schema.xsd:2:61: The MaxInclusive constraining facet is invalid - The string '2016-12-31T23:59:60Z' is not a valid DateTime value.
+project/datatypes/bounds/restrict-maxInclusive-dateTime-second-60	schema	libxml2	schema-invalid	schema.xsd:2: element maxInclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxInclusive': '2016-12-31T23:59:60Z' is not a valid value of the atomic type 'xs:dateTime'.
+project/datatypes/bounds/restrict-maxInclusive-dateTime-second-60	schema	xerces	schema-invalid	schema.xsd:2:60: cvc-datatype-valid.1.2.1: '2016-12-31T23:59:60Z' is not a valid value for 'dateTime'.
+project/datatypes/bounds/restrict-maxInclusive-dateTime-second-60	schema	xmlschema	schema-invalid	invalid restriction: second must be in 0..59:␊␊Schema component:␊␊  <xs:maxInclusive xmlns:xs="http://www.w3.org/2001/XMLSchema" value="2016-12-31T23:59:60Z" />␊␊Path: /xs:schema/xs:simpleType/xs:restriction/xs:maxInclusive␊␊Schema URL: schema.xsd
 project/datatypes/bounds/restrict-maxInclusive-duration-years-at-days	above-max	dotnet	invalid	above-max.xml:1:14: The 'r' element is invalid - The value 'P400YT1S' is invalid according to its datatype 'D' - The MaxInclusive constraint failed.
 project/datatypes/bounds/restrict-maxInclusive-duration-years-at-days	above-max	xerces	invalid	above-max.xml:1:16: cvc-maxInclusive-valid: Value 'P400YT1S' is not facet-valid with respect to maxInclusive 'P400Y0M0DT0H0M0S' for type 'D'.
 project/datatypes/bounds/restrict-maxInclusive-duration-years-at-days	above-max	xmlschema	invalid	line None: value has to be less than or equal than Duration(months=0, seconds=12622780800) (path /r)
@@ -2449,6 +2453,10 @@ project/datatypes/bounds/restrict-maxInclusive-time-later-day-earlier-clock	sche
 project/datatypes/bounds/restrict-maxInclusive-time-later-day-earlier-clock	schema	libxml2	schema-valid	
 project/datatypes/bounds/restrict-maxInclusive-time-later-day-earlier-clock	schema	xerces	schema-valid	
 project/datatypes/bounds/restrict-maxInclusive-time-later-day-earlier-clock	schema	xmlschema	schema-invalid	invalid restriction: value has to be less than or equal than Time(0, 0, 0, tzinfo=Timezone(datetime.timedelta(seconds=3600))):␊␊Schema component:␊␊  <xs:maxInclusive xmlns:xs="http://www.w3.org/2001/XMLSchema" value="22:00:00Z" />␊␊Path: /xs:schema/xs:simpleType[2]/xs:restriction/xs:maxInclusive␊␊Schema URL: schema.xsd
+project/datatypes/bounds/restrict-maxInclusive-time-second-60	schema	dotnet	schema-invalid	schema.xsd:2:57: The MaxInclusive constraining facet is invalid - The string '23:59:60Z' is not a valid Time value.
+project/datatypes/bounds/restrict-maxInclusive-time-second-60	schema	libxml2	schema-invalid	schema.xsd:2: element maxInclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxInclusive': '23:59:60Z' is not a valid value of the atomic type 'xs:time'.
+project/datatypes/bounds/restrict-maxInclusive-time-second-60	schema	xerces	schema-invalid	schema.xsd:2:56: cvc-datatype-valid.1.2.1: '23:59:60Z' is not a valid value for 'time'.
+project/datatypes/bounds/restrict-maxInclusive-time-second-60	schema	xmlschema	schema-invalid	invalid restriction: second must be in 0..59:␊␊Schema component:␊␊  <xs:maxInclusive xmlns:xs="http://www.w3.org/2001/XMLSchema" value="23:59:60Z" />␊␊Path: /xs:schema/xs:simpleType/xs:restriction/xs:maxInclusive␊␊Schema URL: schema.xsd
 project/datatypes/bounds/restrict-minExclusive-time-later-day-earlier-clock	schema	dotnet	schema-valid	
 project/datatypes/bounds/restrict-minExclusive-time-later-day-earlier-clock	schema	libxml2	schema-invalid	schema.xsd:3: element minExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}minExclusive': [facet 'minExclusive'] The value '22:00:00Z' must be greater than '01:00:00+02:00'.
 project/datatypes/bounds/restrict-minExclusive-time-later-day-earlier-clock	schema	xerces	schema-invalid	schema.xsd:3:50: cvc-minExclusive-valid: Value '22:00:00Z' is not facet-valid with respect to minExclusive '23:00:00Z' for type 'B'.
@@ -17156,6 +17164,50 @@ project/datatypes/temporal/mixed-zone-boundary/zoned-min-inclusive	wrong-side	do
 project/datatypes/temporal/mixed-zone-boundary/zoned-min-inclusive	wrong-side	libxml2	invalid	wrong-side.xml:1: element r: Schemas validity error : Element 'r': [facet 'minInclusive'] The value '2000-01-14T21:00:00' is less than the minimum value allowed ('2000-01-15T12:00:00Z').
 project/datatypes/temporal/mixed-zone-boundary/zoned-min-inclusive	wrong-side	xerces	invalid	wrong-side.xml:1:27: cvc-minInclusive-valid: Value '2000-01-14T21:00:00' is not facet-valid with respect to minInclusive '2000-01-15T12:00:00Z' for type '#AnonType_r'.
 project/datatypes/temporal/mixed-zone-boundary/zoned-min-inclusive	wrong-side	xmlschema	invalid	line None: value has to be greater or equal than DateTime10(2000, 1, 15, 12, 0, 0, tzinfo=Timezone(datetime.timedelta(0))) (path /r)
+project/datatypes/temporal/second-60	datetime-second-59	dotnet	valid	
+project/datatypes/temporal/second-60	datetime-second-59	libxml2	valid	
+project/datatypes/temporal/second-60	datetime-second-59	xerces	valid	
+project/datatypes/temporal/second-60	datetime-second-59	xmlschema	valid	
+project/datatypes/temporal/second-60	datetime-second-60-offset	dotnet	invalid	datetime-second-60-offset.xml:1:32: The 'dt' element is invalid - The value '2016-12-31T23:59:60+02:00' is invalid according to its datatype 'http://www.w3.org/2001/XMLSchema:dateTime' - The string '2016-12-31T23:59:60+02:00' is not a valid DateTime value.
+project/datatypes/temporal/second-60	datetime-second-60-offset	libxml2	invalid	datetime-second-60-offset.xml:1: element dt: Schemas validity error : Element 'dt': '2016-12-31T23:59:60+02:00' is not a valid value of the atomic type 'xs:dateTime'.
+project/datatypes/temporal/second-60	datetime-second-60-offset	xerces	invalid	datetime-second-60-offset.xml:1:35: cvc-datatype-valid.1.2.1: '2016-12-31T23:59:60+02:00' is not a valid value for 'dateTime'.
+project/datatypes/temporal/second-60	datetime-second-60-offset	xmlschema	invalid	line None: second must be in 0..59 (path /dt)
+project/datatypes/temporal/second-60	datetime-second-60-unzoned	dotnet	invalid	datetime-second-60-unzoned.xml:1:26: The 'dt' element is invalid - The value '2016-12-31T23:59:60' is invalid according to its datatype 'http://www.w3.org/2001/XMLSchema:dateTime' - The string '2016-12-31T23:59:60' is not a valid DateTime value.
+project/datatypes/temporal/second-60	datetime-second-60-unzoned	libxml2	invalid	datetime-second-60-unzoned.xml:1: element dt: Schemas validity error : Element 'dt': '2016-12-31T23:59:60' is not a valid value of the atomic type 'xs:dateTime'.
+project/datatypes/temporal/second-60	datetime-second-60-unzoned	xerces	invalid	datetime-second-60-unzoned.xml:1:29: cvc-datatype-valid.1.2.1: '2016-12-31T23:59:60' is not a valid value for 'dateTime'.
+project/datatypes/temporal/second-60	datetime-second-60-unzoned	xmlschema	invalid	line None: second must be in 0..59 (path /dt)
+project/datatypes/temporal/second-60	datetime-second-60-utc	dotnet	invalid	datetime-second-60-utc.xml:1:27: The 'dt' element is invalid - The value '2016-12-31T23:59:60Z' is invalid according to its datatype 'http://www.w3.org/2001/XMLSchema:dateTime' - The string '2016-12-31T23:59:60Z' is not a valid DateTime value.
+project/datatypes/temporal/second-60	datetime-second-60-utc	libxml2	invalid	datetime-second-60-utc.xml:1: element dt: Schemas validity error : Element 'dt': '2016-12-31T23:59:60Z' is not a valid value of the atomic type 'xs:dateTime'.
+project/datatypes/temporal/second-60	datetime-second-60-utc	xerces	invalid	datetime-second-60-utc.xml:1:30: cvc-datatype-valid.1.2.1: '2016-12-31T23:59:60Z' is not a valid value for 'dateTime'.
+project/datatypes/temporal/second-60	datetime-second-60-utc	xmlschema	invalid	line None: second must be in 0..59 (path /dt)
+project/datatypes/temporal/second-60	schema	dotnet	schema-valid	
+project/datatypes/temporal/second-60	schema	libxml2	schema-valid	
+project/datatypes/temporal/second-60	schema	xerces	schema-valid	
+project/datatypes/temporal/second-60	schema	xmlschema	schema-valid	
+project/datatypes/temporal/second-60	time-second-59	dotnet	valid	
+project/datatypes/temporal/second-60	time-second-59	libxml2	valid	
+project/datatypes/temporal/second-60	time-second-59	xerces	valid	
+project/datatypes/temporal/second-60	time-second-59	xmlschema	valid	
+project/datatypes/temporal/second-60	time-second-60-offset	dotnet	invalid	time-second-60-offset.xml:1:20: The 't' element is invalid - The value '23:59:60+02:00' is invalid according to its datatype 'http://www.w3.org/2001/XMLSchema:time' - The string '23:59:60+02:00' is not a valid Time value.
+project/datatypes/temporal/second-60	time-second-60-offset	libxml2	invalid	time-second-60-offset.xml:1: element t: Schemas validity error : Element 't': '23:59:60+02:00' is not a valid value of the atomic type 'xs:time'.
+project/datatypes/temporal/second-60	time-second-60-offset	xerces	invalid	time-second-60-offset.xml:1:22: cvc-datatype-valid.1.2.1: '23:59:60+02:00' is not a valid value for 'time'.
+project/datatypes/temporal/second-60	time-second-60-offset	xmlschema	invalid	line None: second must be in 0..59 (path /t)
+project/datatypes/temporal/second-60	time-second-60-other-minute	dotnet	invalid	time-second-60-other-minute.xml:1:15: The 't' element is invalid - The value '12:00:60Z' is invalid according to its datatype 'http://www.w3.org/2001/XMLSchema:time' - The string '12:00:60Z' is not a valid Time value.
+project/datatypes/temporal/second-60	time-second-60-other-minute	libxml2	invalid	time-second-60-other-minute.xml:1: element t: Schemas validity error : Element 't': '12:00:60Z' is not a valid value of the atomic type 'xs:time'.
+project/datatypes/temporal/second-60	time-second-60-other-minute	xerces	invalid	time-second-60-other-minute.xml:1:17: cvc-datatype-valid.1.2.1: '12:00:60Z' is not a valid value for 'time'.
+project/datatypes/temporal/second-60	time-second-60-other-minute	xmlschema	invalid	line None: second must be in 0..59 (path /t)
+project/datatypes/temporal/second-60	time-second-60-unzoned	dotnet	invalid	time-second-60-unzoned.xml:1:14: The 't' element is invalid - The value '23:59:60' is invalid according to its datatype 'http://www.w3.org/2001/XMLSchema:time' - The string '23:59:60' is not a valid Time value.
+project/datatypes/temporal/second-60	time-second-60-unzoned	libxml2	invalid	time-second-60-unzoned.xml:1: element t: Schemas validity error : Element 't': '23:59:60' is not a valid value of the atomic type 'xs:time'.
+project/datatypes/temporal/second-60	time-second-60-unzoned	xerces	invalid	time-second-60-unzoned.xml:1:16: cvc-datatype-valid.1.2.1: '23:59:60' is not a valid value for 'time'.
+project/datatypes/temporal/second-60	time-second-60-unzoned	xmlschema	invalid	line None: second must be in 0..59 (path /t)
+project/datatypes/temporal/second-60	time-second-60-utc	dotnet	invalid	time-second-60-utc.xml:1:15: The 't' element is invalid - The value '23:59:60Z' is invalid according to its datatype 'http://www.w3.org/2001/XMLSchema:time' - The string '23:59:60Z' is not a valid Time value.
+project/datatypes/temporal/second-60	time-second-60-utc	libxml2	invalid	time-second-60-utc.xml:1: element t: Schemas validity error : Element 't': '23:59:60Z' is not a valid value of the atomic type 'xs:time'.
+project/datatypes/temporal/second-60	time-second-60-utc	xerces	invalid	time-second-60-utc.xml:1:17: cvc-datatype-valid.1.2.1: '23:59:60Z' is not a valid value for 'time'.
+project/datatypes/temporal/second-60	time-second-60-utc	xmlschema	invalid	line None: second must be in 0..59 (path /t)
+project/datatypes/temporal/second-60	time-second-60-zero-fraction	dotnet	invalid	time-second-60-zero-fraction.xml:1:17: The 't' element is invalid - The value '23:59:60.0Z' is invalid according to its datatype 'http://www.w3.org/2001/XMLSchema:time' - The string '23:59:60.0Z' is not a valid Time value.
+project/datatypes/temporal/second-60	time-second-60-zero-fraction	libxml2	invalid	time-second-60-zero-fraction.xml:1: element t: Schemas validity error : Element 't': '23:59:60.0Z' is not a valid value of the atomic type 'xs:time'.
+project/datatypes/temporal/second-60	time-second-60-zero-fraction	xerces	invalid	time-second-60-zero-fraction.xml:1:19: cvc-datatype-valid.1.2.1: '23:59:60.0Z' is not a valid value for 'time'.
+project/datatypes/temporal/second-60	time-second-60-zero-fraction	xmlschema	invalid	line None: second must be in 0..59 (path /t)
 project/datatypes/temporal/time-attribute-fixed-end-of-day	absent	libxml2	valid	
 project/datatypes/temporal/time-attribute-fixed-end-of-day	absent	xerces	valid	
 project/datatypes/temporal/time-attribute-fixed-end-of-day	absent	xmlschema	valid	

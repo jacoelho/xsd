@@ -33,7 +33,7 @@ func BenchmarkParseXSDDateTime(b *testing.B) {
 
 func BenchmarkParseXSDTime(b *testing.B) {
 	for b.Loop() {
-		if _, err := valuepkg.ParseTimeValue("23:59:60.123456789123-14:00"); err != nil {
+		if _, err := valuepkg.ParseTimeValue("23:59:59.123456789123-14:00"); err != nil {
 			b.Fatal(err)
 		}
 	}

@@ -1031,7 +1031,6 @@ func TestTemporalCanonicalProjectionOwnsBytes(t *testing.T) {
 		{builtinTime, "24:00:00", "00:00:00"},
 		{builtinTime, "24:00:00.000Z", "00:00:00Z"},
 		{builtinTime, "24:00:00-01:00", "01:00:00Z"},
-		{builtinTime, "23:59:60Z", "00:00:00Z"},
 		{builtinGMonth, "--02+00:00", "--02Z"},
 		{builtinGYearMonth, "-0001-02+14:00", "-0001-02+14:00"},
 		{builtinGYear, "0001", "0001"},

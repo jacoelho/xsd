@@ -44,8 +44,8 @@ type TemporalValue struct {
 // xsdDateTimePoint, it keeps fractional seconds as a digit string rather than
 // a fixed-precision number. second is the timezone-normalized time of day; a
 // parsed value has it below daySeconds, so 24:00:00 is 00:00:00 (Time
-// midnight in docs/spec/INTERPRETATIONS.md). The day that the hour 24, a
-// second 60 or a timezone moves a time to is not part of the value.
+// midnight in docs/spec/INTERPRETATIONS.md). The day that the hour 24 or a
+// timezone moves a time to is not part of the value.
 type TimeValue struct {
 	frac   string
 	second int
@@ -209,8 +209,8 @@ func ParseTimeValue(s string) (TimeValue, error) {
 }
 
 // parseTimeOnDay parses s as xs:time and also returns how many days
-// normalization moved the time from its lexical day: the hour 24, a second 60
-// and a timezone offset can each carry it across midnight. The day is not
+// normalization moved the time from its lexical day: the hour 24 and a
+// timezone offset can each carry it across midnight. The day is not
 // part of the value; only the restriction order of bound facets reads it
 // (boundValue.timeDayOffset).
 func parseTimeOnDay(s string) (TimeValue, int, error) {
@@ -710,7 +710,7 @@ func validTimeClock(hour, minute, second int, nonZeroFraction bool) bool {
 	if hour == 24 {
 		return minute == 0 && second == 0 && !nonZeroFraction
 	}
-	return second <= 59 || hour == 23 && minute == 59 && second == 60
+	return second <= 59
 }
 
 func parseTimeFraction[T byteText](raw T, i int) (bool, int, error) {

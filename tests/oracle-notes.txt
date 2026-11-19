@@ -1,9 +1,5 @@
 project/architecture-derived-model-particles-exceed-dependency-budget	schema	libxml2
 project/architecture-derived-model-particles-exceed-dependency-budget	schema	xmlschema
-project/attribute-fixed-time-leap-second-offset-equivalent-lexical	schema	dotnet
-project/attribute-fixed-time-leap-second-offset-equivalent-lexical	schema	libxml2
-project/attribute-fixed-time-leap-second-offset-equivalent-lexical	schema	xerces
-project/attribute-fixed-time-leap-second-offset-equivalent-lexical	schema	xmlschema
 project/attributes/use-value-constraint/default-over-declaration-fixed	schema	xmlschema
 project/attributes/use-value-constraint/extension-keeps-fixed-use	declaration-default	dotnet
 project/attributes/use-value-constraint/extension-keeps-fixed-use	declaration-default	libxml2
