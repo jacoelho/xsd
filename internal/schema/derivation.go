@@ -1092,6 +1092,46 @@ func (s *simpleTypeUnionDerivationSearch) pop(last int) {
 	s.stack = s.stack[:last]
 }
 
+// simpleTypeIsUnionMember reports whether derived equals base or is reached
+// from base through {member type definitions} alone, descending into members
+// that are themselves unions. Unions with facets contribute no members, as in
+// unionMemberCount. Such a derivation takes no base-chain step.
+func simpleTypeIsUnionMember(
+	rt *schemaBuild,
+	derived, base SimpleTypeID,
+	work func(int) error,
+) (bool, error) {
+	seen := map[SimpleTypeID]bool{base: true}
+	pending := []SimpleTypeID{base}
+	for len(pending) != 0 {
+		current := pending[len(pending)-1]
+		pending = pending[:len(pending)-1]
+		if current == derived {
+			return true, nil
+		}
+		typ, ok := rt.SimpleTypeDerivation(current)
+		if !ok {
+			continue
+		}
+		members := typ.Union[:unionMemberCount(typ)]
+		if err := work(1 + len(members)); err != nil {
+			return false, err
+		}
+		pending = appendUnseenSimpleTypes(pending, seen, members)
+	}
+	return false, nil
+}
+
+func appendUnseenSimpleTypes(pending []SimpleTypeID, seen map[SimpleTypeID]bool, ids []SimpleTypeID) []SimpleTypeID {
+	for _, id := range ids {
+		if !seen[id] {
+			seen[id] = true
+			pending = append(pending, id)
+		}
+	}
+	return pending
+}
+
 func simpleTypeDerivationPairLimit(count int) int {
 	if count <= 0 {
 		return int(^uint(0) >> 1)

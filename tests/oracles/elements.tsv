@@ -18814,6 +18814,152 @@ project/elements/substitution-union-member-restriction-block	schema	dotnet	schem
 project/elements/substitution-union-member-restriction-block	schema	libxml2	error	timed out after 120s
 project/elements/substitution-union-member-restriction-block	schema	xerces	schema-valid	
 project/elements/substitution-union-member-restriction-block	schema	xmlschema	schema-valid	
+project/elements/substitution-union-member/atomic-head-block-extension-member-restricts-head-type	member	dotnet	valid	
+project/elements/substitution-union-member/atomic-head-block-extension-member-restricts-head-type	member	libxml2	valid	
+project/elements/substitution-union-member/atomic-head-block-extension-member-restricts-head-type	member	xerces	valid	
+project/elements/substitution-union-member/atomic-head-block-extension-member-restricts-head-type	member	xmlschema	valid	
+project/elements/substitution-union-member/atomic-head-block-extension-member-restricts-head-type	schema	dotnet	schema-valid	
+project/elements/substitution-union-member/atomic-head-block-extension-member-restricts-head-type	schema	libxml2	schema-valid	
+project/elements/substitution-union-member/atomic-head-block-extension-member-restricts-head-type	schema	xerces	schema-valid	
+project/elements/substitution-union-member/atomic-head-block-extension-member-restricts-head-type	schema	xmlschema	schema-valid	
+project/elements/substitution-union-member/atomic-head-block-restriction-member-restricts-head-type	member	dotnet	invalid	member.xml:1:19: Member element urn:t:m's type cannot be derived by restriction or extension from head element urn:t:h's type, because it has block='restriction' or 'extension'.
+project/elements/substitution-union-member/atomic-head-block-restriction-member-restricts-head-type	member	libxml2	invalid	member.xml:1: element m: Schemas validity error : Element '{urn:t}m': This element is not expected. Expected is ( {urn:t}h ).
+project/elements/substitution-union-member/atomic-head-block-restriction-member-restricts-head-type	member	xerces	invalid	member.xml:1:21: cvc-complex-type.2.4.a: Invalid content was found starting with element '{"urn:t":m}'. One of '{"urn:t":h}' is expected.
+project/elements/substitution-union-member/atomic-head-block-restriction-member-restricts-head-type	member	xmlschema	invalid	line None: substitution of XsdElement(ref='h', occurs=[1, 1]) is blocked (path /r/m)
+project/elements/substitution-union-member/atomic-head-block-restriction-member-restricts-head-type	schema	dotnet	schema-valid	
+project/elements/substitution-union-member/atomic-head-block-restriction-member-restricts-head-type	schema	libxml2	schema-valid	
+project/elements/substitution-union-member/atomic-head-block-restriction-member-restricts-head-type	schema	xerces	schema-valid	
+project/elements/substitution-union-member/atomic-head-block-restriction-member-restricts-head-type	schema	xmlschema	schema-valid	
+project/elements/substitution-union-member/block-all-member-is-union-member	member	dotnet	invalid	member.xml:1:19: Element 'urn:t:m' cannot substitute in place of head element 'urn:t:h' because it has block='substitution'.
+project/elements/substitution-union-member/block-all-member-is-union-member	member	libxml2	invalid	member.xml:1: element m: Schemas validity error : Element '{urn:t}m': This element is not expected. Expected is ( {urn:t}h ).
+project/elements/substitution-union-member/block-all-member-is-union-member	member	xerces	invalid	member.xml:1:21: cvc-complex-type.2.4.a: Invalid content was found starting with element '{"urn:t":m}'. One of '{"urn:t":h}' is expected.
+project/elements/substitution-union-member/block-all-member-is-union-member	member	xmlschema	invalid	line None: Unexpected child with tag '{urn:t}m' at position 1. Tag '{urn:t}h' expected. (path /r)
+project/elements/substitution-union-member/block-all-member-is-union-member	schema	dotnet	schema-valid	
+project/elements/substitution-union-member/block-all-member-is-union-member	schema	libxml2	schema-valid	
+project/elements/substitution-union-member/block-all-member-is-union-member	schema	xerces	schema-valid	
+project/elements/substitution-union-member/block-all-member-is-union-member	schema	xmlschema	schema-valid	
+project/elements/substitution-union-member/block-default-restriction-member-is-union-member	member	dotnet	invalid	member.xml:1:19: Member element urn:t:m's type cannot be derived by restriction or extension from head element urn:t:h's type, because it has block='restriction' or 'extension'.
+project/elements/substitution-union-member/block-default-restriction-member-is-union-member	member	xerces	valid	
+project/elements/substitution-union-member/block-default-restriction-member-is-union-member	member	xmlschema	invalid	line None: substitution of XsdElement(ref='h', occurs=[1, 1]) is blocked (path /r/m)
+project/elements/substitution-union-member/block-default-restriction-member-is-union-member	schema	dotnet	schema-valid	
+project/elements/substitution-union-member/block-default-restriction-member-is-union-member	schema	libxml2	error	timed out after 120s
+project/elements/substitution-union-member/block-default-restriction-member-is-union-member	schema	xerces	schema-valid	
+project/elements/substitution-union-member/block-default-restriction-member-is-union-member	schema	xmlschema	schema-valid	
+project/elements/substitution-union-member/block-extension-member-complex-extends-union-member	member	dotnet	invalid	member.xml:1:19: Member element urn:t:m's type cannot be derived by restriction or extension from head element urn:t:h's type, because it has block='restriction' or 'extension'.
+project/elements/substitution-union-member/block-extension-member-complex-extends-union-member	member	xerces	invalid	member.xml:1:21: cvc-complex-type.2.4.a: Invalid content was found starting with element '{"urn:t":m}'. One of '{"urn:t":h}' is expected.
+project/elements/substitution-union-member/block-extension-member-complex-extends-union-member	member	xmlschema	invalid	line None: substitution of XsdElement(ref='h', occurs=[1, 1]) is blocked (path /r/m)
+project/elements/substitution-union-member/block-extension-member-complex-extends-union-member	schema	dotnet	schema-valid	
+project/elements/substitution-union-member/block-extension-member-complex-extends-union-member	schema	libxml2	error	timed out after 120s
+project/elements/substitution-union-member/block-extension-member-complex-extends-union-member	schema	xerces	schema-valid	
+project/elements/substitution-union-member/block-extension-member-complex-extends-union-member	schema	xmlschema	schema-valid	
+project/elements/substitution-union-member/block-extension-member-is-union-member	member	dotnet	valid	
+project/elements/substitution-union-member/block-extension-member-is-union-member	member	xerces	valid	
+project/elements/substitution-union-member/block-extension-member-is-union-member	member	xmlschema	invalid	line None: substitution of XsdElement(ref='h', occurs=[1, 1]) is blocked (path /r/m)
+project/elements/substitution-union-member/block-extension-member-is-union-member	schema	dotnet	schema-valid	
+project/elements/substitution-union-member/block-extension-member-is-union-member	schema	libxml2	error	timed out after 120s
+project/elements/substitution-union-member/block-extension-member-is-union-member	schema	xerces	schema-valid	
+project/elements/substitution-union-member/block-extension-member-is-union-member	schema	xmlschema	schema-valid	
+project/elements/substitution-union-member/block-extension-member-restricts-union-member	member	dotnet	valid	
+project/elements/substitution-union-member/block-extension-member-restricts-union-member	member	xerces	valid	
+project/elements/substitution-union-member/block-extension-member-restricts-union-member	member	xmlschema	valid	
+project/elements/substitution-union-member/block-extension-member-restricts-union-member	schema	dotnet	schema-valid	
+project/elements/substitution-union-member/block-extension-member-restricts-union-member	schema	libxml2	error	timed out after 120s
+project/elements/substitution-union-member/block-extension-member-restricts-union-member	schema	xerces	schema-valid	
+project/elements/substitution-union-member/block-extension-member-restricts-union-member	schema	xmlschema	schema-valid	
+project/elements/substitution-union-member/block-restriction-member-complex-extends-union-member	member	dotnet	invalid	member.xml:1:19: Member element urn:t:m's type cannot be derived by restriction or extension from head element urn:t:h's type, because it has block='restriction' or 'extension'.
+project/elements/substitution-union-member/block-restriction-member-complex-extends-union-member	member	xerces	valid	
+project/elements/substitution-union-member/block-restriction-member-complex-extends-union-member	member	xmlschema	valid	
+project/elements/substitution-union-member/block-restriction-member-complex-extends-union-member	schema	dotnet	schema-valid	
+project/elements/substitution-union-member/block-restriction-member-complex-extends-union-member	schema	libxml2	error	timed out after 120s
+project/elements/substitution-union-member/block-restriction-member-complex-extends-union-member	schema	xerces	schema-valid	
+project/elements/substitution-union-member/block-restriction-member-complex-extends-union-member	schema	xmlschema	schema-valid	
+project/elements/substitution-union-member/block-restriction-member-is-union-member	member	dotnet	invalid	member.xml:1:19: Member element urn:t:m's type cannot be derived by restriction or extension from head element urn:t:h's type, because it has block='restriction' or 'extension'.
+project/elements/substitution-union-member/block-restriction-member-is-union-member	member	xerces	valid	
+project/elements/substitution-union-member/block-restriction-member-is-union-member	member	xmlschema	invalid	line None: substitution of XsdElement(ref='h', occurs=[1, 1]) is blocked (path /r/m)
+project/elements/substitution-union-member/block-restriction-member-is-union-member	schema	dotnet	schema-valid	
+project/elements/substitution-union-member/block-restriction-member-is-union-member	schema	libxml2	error	timed out after 120s
+project/elements/substitution-union-member/block-restriction-member-is-union-member	schema	xerces	schema-valid	
+project/elements/substitution-union-member/block-restriction-member-is-union-member	schema	xmlschema	schema-valid	
+project/elements/substitution-union-member/block-restriction-member-restricts-union-member	member	dotnet	invalid	member.xml:1:19: Member element urn:t:m's type cannot be derived by restriction or extension from head element urn:t:h's type, because it has block='restriction' or 'extension'.
+project/elements/substitution-union-member/block-restriction-member-restricts-union-member	member	xerces	invalid	member.xml:1:21: cvc-complex-type.2.4.a: Invalid content was found starting with element '{"urn:t":m}'. One of '{"urn:t":h}' is expected.
+project/elements/substitution-union-member/block-restriction-member-restricts-union-member	member	xmlschema	invalid	line None: substitution of XsdElement(ref='h', occurs=[1, 1]) is blocked (path /r/m)
+project/elements/substitution-union-member/block-restriction-member-restricts-union-member	schema	dotnet	schema-valid	
+project/elements/substitution-union-member/block-restriction-member-restricts-union-member	schema	libxml2	error	timed out after 120s
+project/elements/substitution-union-member/block-restriction-member-restricts-union-member	schema	xerces	schema-valid	
+project/elements/substitution-union-member/block-restriction-member-restricts-union-member	schema	xmlschema	schema-valid	
+project/elements/substitution-union-member/block-restriction-transitive-via-member-typed-intermediate	member	dotnet	invalid	member.xml:1:19: Member element urn:t:mid's type cannot be derived by restriction or extension from head element urn:t:h's type, because it has block='restriction' or 'extension'.
+project/elements/substitution-union-member/block-restriction-transitive-via-member-typed-intermediate	member	xerces	invalid	member.xml:1:21: cvc-complex-type.2.4.a: Invalid content was found starting with element '{"urn:t":m}'. One of '{"urn:t":h}' is expected.
+project/elements/substitution-union-member/block-restriction-transitive-via-member-typed-intermediate	member	xmlschema	invalid	line None: substitution of XsdElement(ref='h', occurs=[1, 1]) is blocked (path /r/m)
+project/elements/substitution-union-member/block-restriction-transitive-via-member-typed-intermediate	mid	dotnet	invalid	mid.xml:1:19: Member element urn:t:mid's type cannot be derived by restriction or extension from head element urn:t:h's type, because it has block='restriction' or 'extension'.
+project/elements/substitution-union-member/block-restriction-transitive-via-member-typed-intermediate	mid	xerces	valid	
+project/elements/substitution-union-member/block-restriction-transitive-via-member-typed-intermediate	mid	xmlschema	invalid	line None: substitution of XsdElement(ref='h', occurs=[1, 1]) is blocked (path /r/mid)
+project/elements/substitution-union-member/block-restriction-transitive-via-member-typed-intermediate	schema	dotnet	schema-valid	
+project/elements/substitution-union-member/block-restriction-transitive-via-member-typed-intermediate	schema	libxml2	error	timed out after 120s
+project/elements/substitution-union-member/block-restriction-transitive-via-member-typed-intermediate	schema	xerces	schema-valid	
+project/elements/substitution-union-member/block-restriction-transitive-via-member-typed-intermediate	schema	xmlschema	schema-valid	
+project/elements/substitution-union-member/block-substitution-member-is-union-member	member	dotnet	invalid	member.xml:1:19: Element 'urn:t:m' cannot substitute in place of head element 'urn:t:h' because it has block='substitution'.
+project/elements/substitution-union-member/block-substitution-member-is-union-member	member	libxml2	invalid	member.xml:1: element m: Schemas validity error : Element '{urn:t}m': This element is not expected. Expected is ( {urn:t}h ).
+project/elements/substitution-union-member/block-substitution-member-is-union-member	member	xerces	invalid	member.xml:1:21: cvc-complex-type.2.4.a: Invalid content was found starting with element '{"urn:t":m}'. One of '{"urn:t":h}' is expected.
+project/elements/substitution-union-member/block-substitution-member-is-union-member	member	xmlschema	invalid	line None: Unexpected child with tag '{urn:t}m' at position 1. Tag '{urn:t}h' expected. (path /r)
+project/elements/substitution-union-member/block-substitution-member-is-union-member	schema	dotnet	schema-valid	
+project/elements/substitution-union-member/block-substitution-member-is-union-member	schema	libxml2	schema-valid	
+project/elements/substitution-union-member/block-substitution-member-is-union-member	schema	xerces	schema-valid	
+project/elements/substitution-union-member/block-substitution-member-is-union-member	schema	xmlschema	schema-valid	
+project/elements/substitution-union-member/final-extension-member-is-union-member	member	dotnet	valid	
+project/elements/substitution-union-member/final-extension-member-is-union-member	member	xerces	valid	
+project/elements/substitution-union-member/final-extension-member-is-union-member	schema	dotnet	schema-valid	
+project/elements/substitution-union-member/final-extension-member-is-union-member	schema	libxml2	error	timed out after 120s
+project/elements/substitution-union-member/final-extension-member-is-union-member	schema	xerces	schema-valid	
+project/elements/substitution-union-member/final-extension-member-is-union-member	schema	xmlschema	schema-invalid	head element XsdElement(name='h', occurs=[1, 1]) can't be substituted by an element that has an extension of its type:␊␊Schema component:␊␊  <xs:element xmlns:xs="http://www.w3.org/2001/XMLSchema" name="m" type="xs:int" substitutionGroup="h" />␊␊Path: /xs:schema/xs:element[2]␊␊Schema URL: schema.xsd
+project/elements/substitution-union-member/final-restriction-member-is-union-member	schema	dotnet	schema-invalid	schema.xsd:4:4: 'urn:t:m' cannot be a member of substitution group with head element 'urn:t:h'.
+project/elements/substitution-union-member/final-restriction-member-is-union-member	schema	libxml2	schema-invalid	schema.xsd:4: element element: Schemas parser error : element decl. '{urn:t}m': The type definition '{http://www.w3.org/2001/XMLSchema}int' was either rejected by the substitution group affiliation '{urn:t}h', or not validly derived from its type definition '{urn:t}U'.␊WXS schema schema.xsd failed to compile
+project/elements/substitution-union-member/final-restriction-member-is-union-member	schema	xerces	schema-invalid	schema.xsd:4:61: e-props-correct.4: The {type definition} of element 'm' is not validly derived from the {type definition} of the substitutionHead ':h', or the {substitution group exclusions} property of ':h' does not allow this derivation.
+project/elements/substitution-union-member/final-restriction-member-is-union-member	schema	xmlschema	schema-invalid	head element XsdElement(name='h', occurs=[1, 1]) can't be substituted by an element that has a restriction of its type:␊␊Schema component:␊␊  <xs:element xmlns:xs="http://www.w3.org/2001/XMLSchema" name="m" type="xs:int" substitutionGroup="h" />␊␊Path: /xs:schema/xs:element[2]␊␊Schema URL: schema.xsd
+project/elements/substitution-union-member/nested-union-block-none-member-is-inner-member	member	dotnet	valid	
+project/elements/substitution-union-member/nested-union-block-none-member-is-inner-member	member	xerces	valid	
+project/elements/substitution-union-member/nested-union-block-none-member-is-inner-member	member	xmlschema	valid	
+project/elements/substitution-union-member/nested-union-block-none-member-is-inner-member	schema	dotnet	schema-valid	
+project/elements/substitution-union-member/nested-union-block-none-member-is-inner-member	schema	libxml2	error	timed out after 120s
+project/elements/substitution-union-member/nested-union-block-none-member-is-inner-member	schema	xerces	schema-valid	
+project/elements/substitution-union-member/nested-union-block-none-member-is-inner-member	schema	xmlschema	schema-valid	
+project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member	member	dotnet	invalid	member.xml:1:19: Member element urn:t:m's type cannot be derived by restriction or extension from head element urn:t:h's type, because it has block='restriction' or 'extension'.
+project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member	member	xerces	valid	
+project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member	member	xmlschema	invalid	line None: substitution of XsdElement(ref='h', occurs=[1, 1]) is blocked (path /r/m)
+project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member	schema	dotnet	schema-valid	
+project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member	schema	libxml2	error	timed out after 120s
+project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member	schema	xerces	schema-valid	
+project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member	schema	xmlschema	schema-valid	
+project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-union	schema	dotnet	schema-invalid	schema.xsd:5:4: 'urn:t:m' cannot be a member of substitution group with head element 'urn:t:h'.
+project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-union	schema	libxml2	schema-invalid	schema.xsd:5: element element: Schemas parser error : element decl. '{urn:t}m': The type definition '{urn:t}U' was either rejected by the substitution group affiliation '{urn:t}h', or not validly derived from its type definition '{urn:t}U2'.␊WXS schema schema.xsd failed to compile
+project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-union	schema	xerces	schema-invalid	schema.xsd:5:56: e-props-correct.4: The {type definition} of element 'm' is not validly derived from the {type definition} of the substitutionHead ':h', or the {substitution group exclusions} property of ':h' does not allow this derivation.
+project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-union	schema	xmlschema	schema-valid	
+project/elements/substitution-union-member/no-block-member-is-union-member	member	dotnet	valid	
+project/elements/substitution-union-member/no-block-member-is-union-member	member	xerces	valid	
+project/elements/substitution-union-member/no-block-member-is-union-member	member	xmlschema	valid	
+project/elements/substitution-union-member/no-block-member-is-union-member	schema	dotnet	schema-valid	
+project/elements/substitution-union-member/no-block-member-is-union-member	schema	libxml2	error	timed out after 120s
+project/elements/substitution-union-member/no-block-member-is-union-member	schema	xerces	schema-valid	
+project/elements/substitution-union-member/no-block-member-is-union-member	schema	xmlschema	schema-valid	
+project/elements/substitution-union-member/restricted-union-head-member-is-union-member	schema	dotnet	schema-invalid	schema.xsd:4:4: 'urn:t:m' cannot be a member of substitution group with head element 'urn:t:h'.
+project/elements/substitution-union-member/restricted-union-head-member-is-union-member	schema	libxml2	schema-invalid	schema.xsd:4: element element: Schemas parser error : element decl. '{urn:t}m': The type definition '{http://www.w3.org/2001/XMLSchema}int' was either rejected by the substitution group affiliation '{urn:t}h', or not validly derived from its type definition '{urn:t}U'.␊WXS schema schema.xsd failed to compile
+project/elements/substitution-union-member/restricted-union-head-member-is-union-member	schema	xerces	schema-valid	
+project/elements/substitution-union-member/restricted-union-head-member-is-union-member	schema	xmlschema	schema-invalid	XsdElement(name='m', occurs=[1, 1]) type is not of the same or a derivation of the head element XsdElement(name='h', occurs=[1, 1]) type:␊␊Schema component:␊␊  <xs:element xmlns:xs="http://www.w3.org/2001/XMLSchema" name="m" type="xs:int" substitutionGroup="h" />␊␊Path: /xs:schema/xs:element[2]␊␊Schema URL: schema.xsd
+project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-none	schema	dotnet	schema-valid	
+project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-none	schema	libxml2	schema-valid	
+project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-none	schema	xerces	schema-valid	
+project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-none	schema	xmlschema	schema-valid	
+project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-none	xsitype	dotnet	valid	
+project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-none	xsitype	libxml2	valid	
+project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-none	xsitype	xerces	valid	
+project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-none	xsitype	xmlschema	valid	
+project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-restriction	schema	dotnet	schema-valid	
+project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-restriction	schema	libxml2	schema-valid	
+project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-restriction	schema	xerces	schema-valid	
+project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-restriction	schema	xmlschema	schema-valid	
+project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-restriction	xsitype	dotnet	invalid	xsitype.xml:1:117: The xsi:type attribute value 'http://www.w3.org/2001/XMLSchema:int' is not valid for the element 'urn:t:h', either because it is not a type validly derived from the type in the schema, or because it has xsi:type derivation blocked.
+project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-restriction	xsitype	libxml2	invalid	xsitype.xml:1: element h: Schemas validity error : Element '{urn:t}h', attribute '{http://www.w3.org/2001/XMLSchema-instance}type': The type definition '{http://www.w3.org/2001/XMLSchema}int', specified by xsi:type, is blocked or not validly derived from the type definition of the element declaration.
+project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-restriction	xsitype	xerces	invalid	xsitype.xml:1:137: cvc-elt.4.3: Type 'xs:int' is not validly derived from the type definition, 'U', of element 'h'.
+project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-restriction	xsitype	xmlschema	invalid	line None: usage of XsdAtomicBuiltin(name='xs:int') is blocked (path /r/h)
 project/elements/xsi-nil-without-declaration	anytype-child-nil-true-with-content	dotnet	valid	warning: anytype-child-nil-true-with-content.xml:1:112: Could not find schema information for the element 'u'.
 project/elements/xsi-nil-without-declaration	anytype-child-nil-true-with-content	libxml2	valid	
 project/elements/xsi-nil-without-declaration	anytype-child-nil-true-with-content	xerces	valid	

@@ -72639,7 +72639,7 @@
           "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-st-derived-ok",
           "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
         ],
-        "description": "A member typed by a union member type is derived by restriction from the union, so a head with block=\"restriction\" rejects it while an unblocked head accepts the same shape.",
+        "description": "A member typed by a union member type takes no derivation method from union membership, so a head with block=\"restriction\" accepts it as an unblocked head does.",
         "package": "validate",
         "sourceFile": "tests/corpus/project/elements/substitution-union-member-restriction-block/schema.xsd"
       },
@@ -72667,11 +72667,25 @@
         {
           "testName": "member-blocked",
           "file": "corpus/project/elements/substitution-union-member-restriction-block/member-blocked.xml",
-          "expected": "invalid",
-          "errorCode": "validation.element",
+          "expected": "valid",
+          "oracle": {
+            "project": {
+              "expected": "invalid",
+              "reason": "The previous expectation applied Type Derivation OK (Simple) clause 1's treatment of union membership as restriction to Substitution Group OK (Transitive) clause 2.3. No text, correction or accepted W3C test decides whether membership is a derivation method there, and the processor tie-break settles it by Xerces-J.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
+            }
+          },
           "rule": {
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-st-derived-ok",
-            "clause": "Type Derivation OK (Simple) clause 1, which treats union membership as restriction; this is interoperability evidence, not a majority-vote oracle"
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+            "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "dotnet": {
+              "record": "I-027"
+            },
+            "xmlschema": {
+              "record": "I-027"
+            }
           }
         },
         {
@@ -72698,6 +72712,1062 @@
         },
         {
           "file": "corpus/project/elements/substitution-union-member-restriction-block/member-unblocked.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/elements/substitution-union-member/block-all-member-is-union-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/elements/substitution-union-member/block-all-member-is-union-member",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
+        ],
+        "conditions": [
+          "block=\"#all\" on a union-typed head blocks a member typed by a union member through the substitution method itself."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/elements/substitution-union-member/block-all-member-is-union-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+          "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "member",
+          "file": "corpus/project/elements/substitution-union-member/block-all-member-is-union-member/member.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+            "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/elements/substitution-union-member/block-all-member-is-union-member/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/elements/substitution-union-member/block-all-member-is-union-member/member.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/elements/substitution-union-member/block-default-restriction-member-is-union-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/elements/substitution-union-member/block-default-restriction-member-is-union-member",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
+        ],
+        "conditions": [
+          "blockDefault=\"restriction\" does not block a member typed by a member of the head's union: union membership contributes no derivation method."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/elements/substitution-union-member/block-default-restriction-member-is-union-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+          "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "member",
+          "file": "corpus/project/elements/substitution-union-member/block-default-restriction-member-is-union-member/member.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+            "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "dotnet": {
+              "record": "I-027"
+            },
+            "xmlschema": {
+              "record": "I-027"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/elements/substitution-union-member/block-default-restriction-member-is-union-member/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/elements/substitution-union-member/block-default-restriction-member-is-union-member/member.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/elements/substitution-union-member/block-extension-member-complex-extends-union-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/elements/substitution-union-member/block-extension-member-complex-extends-union-member",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
+        ],
+        "conditions": [
+          "block=\"extension\" blocks a member whose complex type extends a member of the head's union: the extension step is a method."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/elements/substitution-union-member/block-extension-member-complex-extends-union-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+          "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "member",
+          "file": "corpus/project/elements/substitution-union-member/block-extension-member-complex-extends-union-member/member.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+            "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/elements/substitution-union-member/block-extension-member-complex-extends-union-member/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/elements/substitution-union-member/block-extension-member-complex-extends-union-member/member.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/elements/substitution-union-member/block-extension-member-is-union-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/elements/substitution-union-member/block-extension-member-is-union-member",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
+        ],
+        "conditions": [
+          "block=\"extension\" does not block a member typed by a member of the head's union."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/elements/substitution-union-member/block-extension-member-is-union-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+          "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "member",
+          "file": "corpus/project/elements/substitution-union-member/block-extension-member-is-union-member/member.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+            "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "xmlschema": {
+              "record": "I-027"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/elements/substitution-union-member/block-extension-member-is-union-member/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/elements/substitution-union-member/block-extension-member-is-union-member/member.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/elements/substitution-union-member/block-extension-member-restricts-union-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/elements/substitution-union-member/block-extension-member-restricts-union-member",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
+        ],
+        "conditions": [
+          "block=\"extension\" does not block a member whose type restricts a member of the head's union."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/elements/substitution-union-member/block-extension-member-restricts-union-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+          "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "member",
+          "file": "corpus/project/elements/substitution-union-member/block-extension-member-restricts-union-member/member.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+            "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/elements/substitution-union-member/block-extension-member-restricts-union-member/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/elements/substitution-union-member/block-extension-member-restricts-union-member/member.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/elements/substitution-union-member/block-restriction-member-complex-extends-union-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/elements/substitution-union-member/block-restriction-member-complex-extends-union-member",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
+        ],
+        "conditions": [
+          "block=\"restriction\" does not block a member whose complex type extends a member of the head's union: the only method is extension."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/elements/substitution-union-member/block-restriction-member-complex-extends-union-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+          "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "member",
+          "file": "corpus/project/elements/substitution-union-member/block-restriction-member-complex-extends-union-member/member.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+            "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "dotnet": {
+              "record": "I-027"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/elements/substitution-union-member/block-restriction-member-complex-extends-union-member/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/elements/substitution-union-member/block-restriction-member-complex-extends-union-member/member.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/elements/substitution-union-member/block-restriction-member-is-union-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/elements/substitution-union-member/block-restriction-member-is-union-member",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
+        ],
+        "conditions": [
+          "block=\"restriction\" does not block a member typed by a member of the head's union."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/elements/substitution-union-member/block-restriction-member-is-union-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+          "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "member",
+          "file": "corpus/project/elements/substitution-union-member/block-restriction-member-is-union-member/member.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+            "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "dotnet": {
+              "record": "I-027"
+            },
+            "xmlschema": {
+              "record": "I-027"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/elements/substitution-union-member/block-restriction-member-is-union-member/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/elements/substitution-union-member/block-restriction-member-is-union-member/member.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/elements/substitution-union-member/block-restriction-member-restricts-union-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/elements/substitution-union-member/block-restriction-member-restricts-union-member",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
+        ],
+        "conditions": [
+          "block=\"restriction\" blocks a member whose type restricts a member of the head's union: the base-chain step to the member is a restriction."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/elements/substitution-union-member/block-restriction-member-restricts-union-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+          "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "member",
+          "file": "corpus/project/elements/substitution-union-member/block-restriction-member-restricts-union-member/member.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+            "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/elements/substitution-union-member/block-restriction-member-restricts-union-member/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/elements/substitution-union-member/block-restriction-member-restricts-union-member/member.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/elements/substitution-union-member/block-substitution-member-is-union-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/elements/substitution-union-member/block-substitution-member-is-union-member",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
+        ],
+        "conditions": [
+          "block=\"substitution\" blocks every member, including one typed by a union member."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/elements/substitution-union-member/block-substitution-member-is-union-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+          "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "member",
+          "file": "corpus/project/elements/substitution-union-member/block-substitution-member-is-union-member/member.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+            "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/elements/substitution-union-member/block-substitution-member-is-union-member/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/elements/substitution-union-member/block-substitution-member-is-union-member/member.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/elements/substitution-union-member/nested-union-block-none-member-is-inner-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/elements/substitution-union-member/nested-union-block-none-member-is-inner-member",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
+        ],
+        "conditions": [
+          "An unblocked head typed by a union of unions accepts a member typed by a member of the inner union."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/elements/substitution-union-member/nested-union-block-none-member-is-inner-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+          "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "member",
+          "file": "corpus/project/elements/substitution-union-member/nested-union-block-none-member-is-inner-member/member.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+            "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/elements/substitution-union-member/nested-union-block-none-member-is-inner-member/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/elements/substitution-union-member/nested-union-block-none-member-is-inner-member/member.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
+        ],
+        "conditions": [
+          "block=\"restriction\" does not block a member typed by a member of an inner union: membership is transitive through nested unions and contributes no method."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+          "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "member",
+          "file": "corpus/project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member/member.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+            "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "dotnet": {
+              "record": "I-027"
+            },
+            "xmlschema": {
+              "record": "I-027"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-member/member.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-union",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-union",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct"
+        ],
+        "conditions": [
+          "XSD 1.0 replaces a union member of a union by that union's own members, so the inner union U is not among the {member type definitions} of the head's type U2. The member's type is not validly derived from the head's type, and Element Declaration Properties Correct clause 4 rejects the schema whatever the head blocks."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-union/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "clause": "Element Declaration Properties Correct clause 4 with Type Derivation OK (Simple) clause 2.2.4 in XML Schema Part 1"
+        },
+        "differences": {
+          "xmlschema": {
+            "record": "I-027"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/elements/substitution-union-member/nested-union-block-restriction-member-is-inner-union/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/elements/substitution-union-member/no-block-member-is-union-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/elements/substitution-union-member/no-block-member-is-union-member",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
+        ],
+        "conditions": [
+          "An unblocked union-typed head accepts a member typed by a union member."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/elements/substitution-union-member/no-block-member-is-union-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+          "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "member",
+          "file": "corpus/project/elements/substitution-union-member/no-block-member-is-union-member/member.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+            "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/elements/substitution-union-member/no-block-member-is-union-member/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/elements/substitution-union-member/no-block-member-is-union-member/member.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/elements/substitution-union-member/restricted-union-head-member-is-union-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/elements/substitution-union-member/restricted-union-head-member-is-union-member",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct"
+        ],
+        "conditions": [
+          "A union restricted by a facet keeps its constraints and contributes no members (I-010), so a member typed by the base union's member type is not validly derived from the head's type."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/elements/substitution-union-member/restricted-union-head-member-is-union-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-010--restricted-unions-retain-their-constraints",
+          "clause": "I-010 in docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-027"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/elements/substitution-union-member/restricted-union-head-member-is-union-member/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-none",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-none",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt"
+        ],
+        "conditions": [
+          "Without a block, xsi:type may select a member of the declared union type."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-none/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+          "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "xsitype",
+          "file": "corpus/project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-none/xsitype.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+            "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-none/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-none/xsitype.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-restriction",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-restriction",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt"
+        ],
+        "conditions": [
+          "block=\"restriction\" rejects an xsi:type that selects a member of the declared union type: cvc-elt clause 4.3 treats every distinct simple type as restriction."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-restriction/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+          "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "xsitype",
+          "file": "corpus/project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-restriction/xsitype.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+            "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-restriction/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/elements/substitution-union-member/xsi-type-union-member-declared-union-block-restriction/xsitype.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/elements/substitution-union-member/block-restriction-transitive-via-member-typed-intermediate",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/elements/substitution-union-member/block-restriction-transitive-via-member-typed-intermediate",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
+        ],
+        "conditions": [
+          "An intermediate member typed by a union member substitutes for a block=\"restriction\" head, while a member below it whose type restricts that member type is blocked."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/elements/substitution-union-member/block-restriction-transitive-via-member-typed-intermediate/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+          "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "member",
+          "file": "corpus/project/elements/substitution-union-member/block-restriction-transitive-via-member-typed-intermediate/member.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+            "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "mid",
+          "file": "corpus/project/elements/substitution-union-member/block-restriction-transitive-via-member-typed-intermediate/mid.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+            "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "dotnet": {
+              "record": "I-027"
+            },
+            "xmlschema": {
+              "record": "I-027"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/elements/substitution-union-member/block-restriction-transitive-via-member-typed-intermediate/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/elements/substitution-union-member/block-restriction-transitive-via-member-typed-intermediate/member.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/elements/substitution-union-member/block-restriction-transitive-via-member-typed-intermediate/mid.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/elements/substitution-union-member/final-extension-member-is-union-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/elements/substitution-union-member/final-extension-member-is-union-member",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct"
+        ],
+        "conditions": [
+          "final=\"extension\" on the head does not exclude a member typed by a union member."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/elements/substitution-union-member/final-extension-member-is-union-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+          "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xmlschema": {
+            "record": "I-027"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "member",
+          "file": "corpus/project/elements/substitution-union-member/final-extension-member-is-union-member/member.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+            "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/elements/substitution-union-member/final-extension-member-is-union-member/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/elements/substitution-union-member/final-extension-member-is-union-member/member.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/elements/substitution-union-member/final-restriction-member-is-union-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/elements/substitution-union-member/final-restriction-member-is-union-member",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct"
+        ],
+        "conditions": [
+          "final=\"restriction\" on the head excludes a member typed by a union member: Element Declaration Properties Correct clause 4 treats it as restriction."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/elements/substitution-union-member/final-restriction-member-is-union-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "clause": "Element Declaration Properties Correct clause 4 in XML Schema Part 1"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/elements/substitution-union-member/final-restriction-member-is-union-member/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/elements/substitution-union-member/atomic-head-block-extension-member-restricts-head-type",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/elements/substitution-union-member/atomic-head-block-extension-member-restricts-head-type",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
+        ],
+        "conditions": [
+          "block=\"extension\" on an atomic-typed head does not block a member whose type restricts the head's type."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/elements/substitution-union-member/atomic-head-block-extension-member-restricts-head-type/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+          "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "member",
+          "file": "corpus/project/elements/substitution-union-member/atomic-head-block-extension-member-restricts-head-type/member.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+            "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/elements/substitution-union-member/atomic-head-block-extension-member-restricts-head-type/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/elements/substitution-union-member/atomic-head-block-extension-member-restricts-head-type/member.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/elements/substitution-union-member/atomic-head-block-restriction-member-restricts-head-type",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/elements/substitution-union-member/atomic-head-block-restriction-member-restricts-head-type",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec"
+        ],
+        "conditions": [
+          "block=\"restriction\" on an atomic-typed head blocks a member whose type restricts the head's type."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/elements/substitution-union-member/atomic-head-block-restriction-member-restricts-head-type/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+          "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "member",
+          "file": "corpus/project/elements/substitution-union-member/atomic-head-block-restriction-member-restricts-head-type/member.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-027--derivation-control-and-actual-substitution-groups",
+            "clause": "Union membership in substitution blocking, I-027 of docs/spec/INTERPRETATIONS.md"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/elements/substitution-union-member/atomic-head-block-restriction-member-restricts-head-type/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/elements/substitution-union-member/atomic-head-block-restriction-member-restricts-head-type/member.xml",
           "role": "instance"
         }
       ]

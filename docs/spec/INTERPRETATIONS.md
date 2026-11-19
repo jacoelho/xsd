@@ -1161,8 +1161,9 @@ Xerces-J 2.12.2 rejects each.
 
 ## I-027 — derivation control and actual substitution groups
 
-**Status:** published XSD 1.0 rules; the text decides each case, so the
-[processor tie-break](#processor-tie-break) is not reached.
+**Status:** published XSD 1.0 rules; the text decides each case except union
+membership under clause 2.3, which the
+[processor tie-break](#processor-tie-break) settles below.
 
 [Substitution Group OK (Transitive)](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec)
 clause 2.3 blocks a member D for a head C when any derivation method involved in
@@ -1186,6 +1187,33 @@ including a member type selected by `xsi:type` under a union.
 [Element Declaration Properties Correct](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct)
 clause 4 checks a member's type against the head's {substitution group
 exclusions}, and cvc-elt clause 2 rejects an abstract declaration, nilled or not.
+
+**Union membership.** Whether membership in a union contributes a derivation
+method to clause 2.3 is doubtful. Type Derivation OK (Simple) clause 2.1 makes
+a block set containing restriction block every distinct simple type, while its
+clause 2.2.4 derives a member type from its union by membership, which is no
+{base type definition} step. No adopted correction decides it, and no accepted
+W3C test does: the union-typed heads of `particlesZ012`, `particlesZ015` and
+`particlesZ020` have no block, `elemT071` and `elemT072` are unblocked, and
+`addB114` exercises only `xsi:type`. The processor tie-break settles it by
+Xerces-J: for clause 2.3 the method set is the base-chain steps from D's type to
+C's type or, when C's type is a union, to the member that D's type derives
+from, through nested unions; membership itself contributes no method. A head
+with `block="restriction"` therefore accepts a member typed by a member of its
+union, and blocks a member whose type restricts that member type.
+Element Declaration Properties Correct clause 4 (`final`) and cvc-elt clause 4.3
+(`xsi:type`) still treat every distinct simple type as restriction. Cases:
+`project/elements/substitution-union-member-restriction-block` (instance
+`member-blocked` is valid) and `project/elements/substitution-union-member/*`.
+Xerces-J gives the project result on each, except that it accepts
+`restricted-union-head-member-is-union-member`, whose head type is a union
+restricted by a facet that [I-010](#i-010--restricted-unions-retain-their-constraints)
+gives no members. .NET treats membership as restriction under a block, and also
+blocks a complex extension of a member type under `block="restriction"`.
+xmlschema treats membership as restriction under a block and as extension under
+`block="extension"` and `final="extension"`, and accepts a member typed by an
+inner union of the head's union type. libxml2 times out on the union-headed
+schemas whose member it accepts.
 A facet-free simple-content restriction defines no new simple type, so only the
 base complex type's `final` applies to it
 ([Derivation Valid (Restriction, Complex)](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction)

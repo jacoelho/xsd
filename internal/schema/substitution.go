@@ -5,6 +5,8 @@ import (
 	"errors"
 	"math"
 	"slices"
+
+	valuepkg "github.com/jacoelho/xsd/internal/value"
 )
 
 // substitutionCycleError reports a cyclic substitution group rooted at Element.
@@ -125,15 +127,15 @@ func populateSubstitutionEntries(
 	for member := range elements {
 		memberID := ElementID(member)
 		memberDecl := elements[member]
-		var mask, blocks DerivationMask
+		var methods, blocks DerivationMask
 		for current, head := memberID, parents[member]; head != NoElement; current, head = head, parents[head] {
-			mask |= edges[current].mask
+			methods |= edges[current].methods
 			blocks |= edges[current].blocks
 			pos := next[head]
 			entries[pos] = substitutionEntry{
 				name:      memberDecl.Name,
 				member:    memberID,
-				effective: substitutionEffective(elements[head], memberDecl, mask, blocks),
+				effective: substitutionEffective(elements[head], memberDecl, methods, blocks),
 			}
 			next[head]++
 		}
@@ -461,8 +463,8 @@ func substitutionClosureSize(depth []int) (int, error) {
 }
 
 type substitutionEdge struct {
-	mask   DerivationMask
-	blocks DerivationMask
+	methods DerivationMask
+	blocks  DerivationMask
 }
 
 func validateSubstitutionEdges(
@@ -518,7 +520,80 @@ func validateSubstitutionEdge(
 	if err != nil {
 		return substitutionEdge{}, err
 	}
-	return substitutionEdge{mask: mask, blocks: blocks}, nil
+	methods, err := substitutionDerivationMethods(rt, elements[member].Type, elements[head].Type, mask, work)
+	if err != nil {
+		return substitutionEdge{}, err
+	}
+	return substitutionEdge{methods: methods, blocks: blocks}, nil
+}
+
+// substitutionDerivationMethods returns the derivation methods that Substitution
+// Group OK (Transitive) clause 2.3 tests against blocking. Union membership
+// contributes no method there, so a member type that reaches a union head type
+// through {member type definitions} alone carries only the complex steps above
+// its simple content. Element Declaration Properties Correct clause 4 still
+// tests the full mask against {final}. The project reading and its tie-break
+// are recorded in I-027 of docs/spec/INTERPRETATIONS.md.
+func substitutionDerivationMethods(
+	rt *schemaBuild,
+	memberType, headType TypeID,
+	mask DerivationMask,
+	work func(int) error,
+) (DerivationMask, error) {
+	head, isSimple := headType.Simple()
+	if !isSimple || !simpleTypeIsUnion(rt, head) {
+		return mask, nil
+	}
+	core, complexSteps, err := simpleContentCore(rt, memberType, work)
+	if err != nil || core == NoSimpleType {
+		return mask, err
+	}
+	member, err := simpleTypeIsUnionMember(rt, core, head, work)
+	if err != nil || !member {
+		return mask, err
+	}
+	return complexSteps, nil
+}
+
+func simpleTypeIsUnion(rt *schemaBuild, id SimpleTypeID) bool {
+	typ, ok := rt.SimpleTypeDerivation(id)
+	return ok && typ.Variety == valuepkg.Union
+}
+
+// simpleContentCore follows typ's complex derivation steps to the simple type
+// its simple content is derived from, returning that type and the methods of
+// the complex steps taken, or NoSimpleType when typ has no simple content.
+func simpleContentCore(rt *schemaBuild, typ TypeID, work func(int) error) (SimpleTypeID, DerivationMask, error) {
+	if simple, ok := typ.Simple(); ok {
+		return simple, 0, nil
+	}
+	current, ok := typ.Complex()
+	if !ok {
+		return NoSimpleType, 0, nil
+	}
+	return complexSimpleContentCore(rt, current, work)
+}
+
+func complexSimpleContentCore(rt *schemaBuild, current ComplexTypeID, work func(int) error) (SimpleTypeID, DerivationMask, error) {
+	var steps DerivationMask
+	for range len(rt.ComplexTypes) {
+		if err := work(1); err != nil {
+			return NoSimpleType, 0, err
+		}
+		derivation, found := rt.ComplexTypeDerivation(current)
+		if !found || current == rt.AnyType {
+			return NoSimpleType, 0, nil
+		}
+		steps |= derivationKindMask(derivation.Kind)
+		if simple, isSimple := derivation.Base.Simple(); isSimple {
+			return simple, steps, nil
+		}
+		var isComplex bool
+		if current, isComplex = derivation.Base.Complex(); !isComplex {
+			return NoSimpleType, 0, nil
+		}
+	}
+	return NoSimpleType, 0, nil
 }
 
 func compareSubstitutionEntry(a, b substitutionEntry) int {

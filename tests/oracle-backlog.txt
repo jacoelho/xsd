@@ -2,4 +2,3 @@ project/attribute-fixed-time-leap-second-offset-equivalent-utc
 project/content-models/particle-restriction/inherited-urtype-wildcard
 project/element-fixed-time-leap-second-offset-equivalent-lexical
 project/element-fixed-time-leap-second-offset-equivalent-utc
-project/elements/substitution-union-member-restriction-block
