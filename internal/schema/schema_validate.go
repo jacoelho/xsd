@@ -577,10 +577,10 @@ func validateBuiltinAnyType(rt *schemaValidation) error {
 		!validAttributeUseSetID(ct.Attrs, len(rt.build.AttributeUseSets)) {
 		return xsderrors.InternalInvariant("builtin anyType shape does not match handle")
 	}
-	return validateBuiltinAnyTypeWildcards(rt, ct)
+	return validateBuiltinAnyTypeComponents(rt, ct)
 }
 
-func validateBuiltinAnyTypeWildcards(rt *schemaValidation, ct complexTypeMetadata) error {
+func validateBuiltinAnyTypeComponents(rt *schemaValidation, ct complexTypeMetadata) error {
 	set := rt.build.AttributeUseSets[ct.Attrs]
 	if len(set.Uses) != 0 || len(set.Index) != 0 || set.Wildcard == NoWildcard ||
 		!validWildcardID(set.Wildcard, len(rt.build.Wildcards)) {
