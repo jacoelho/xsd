@@ -532,7 +532,7 @@ func (r typeDerivationRead) simpleDerivation(derived, base SimpleTypeID, scratch
 	if !validSimpleTypeID(base, len(index.simpleTypes)) {
 		return 0, false
 	}
-	if unionMemberCount(index.simpleTypes[base]) == 0 {
+	if len(unionMembers(index.simpleTypes[base])) == 0 {
 		return 0, false
 	}
 	if scratch == nil {
@@ -604,10 +604,7 @@ func (r typeDerivationRead) simpleUnionCandidate(
 	if !validSimpleTypeID(candidate, len(index.simpleTypes)) {
 		return nil, false, false
 	}
-	if index.simpleTypes[candidate].UnionHasFacets {
-		return nil, false, true
-	}
-	return index.simpleTypes[candidate].Union, false, true
+	return unionMembers(index.simpleTypes[candidate]), false, true
 }
 
 func (r typeDerivationRead) complexDerivation(derived, base ComplexTypeID) (DerivationMask, bool) {
@@ -717,60 +714,41 @@ func complexSimpleTypeDerivationMask(
 	base SimpleTypeID,
 	work func(int) error,
 ) (DerivationMask, bool, error) {
-	var mask DerivationMask
+	core, steps, err := complexSimpleContentCore(rt, derived, work)
+	if err != nil || core == NoSimpleType {
+		return 0, false, err
+	}
+	simpleMask, found, err := simpleTypeDerivationMaskOf(rt, core, base, work)
+	if err != nil || !found {
+		return 0, false, err
+	}
+	return steps | simpleMask, true, nil
+}
+
+// complexSimpleContentCore follows current's complex derivation steps to the
+// simple type its simple content is derived from, returning that type and the
+// methods of the complex steps taken, or NoSimpleType when the chain ends
+// without a simple base.
+func complexSimpleContentCore(rt *schemaBuild, current ComplexTypeID, work func(int) error) (SimpleTypeID, DerivationMask, error) {
+	var steps DerivationMask
 	for range len(rt.ComplexTypes) {
-		step, err := nextComplexSimpleDerivation(rt, derived, base, work)
-		if err != nil {
-			return 0, false, err
+		if err := work(1); err != nil {
+			return NoSimpleType, 0, err
 		}
-		if !step.valid {
-			return 0, false, nil
+		derivation, found := rt.ComplexTypeDerivation(current)
+		if !found {
+			return NoSimpleType, 0, nil
 		}
-		mask |= step.mask
-		if step.done {
-			return mask, true, nil
+		steps |= derivationKindMask(derivation.Kind)
+		if simple, isSimple := derivation.Base.Simple(); isSimple {
+			return simple, steps, nil
 		}
-		derived = step.next
-	}
-	return 0, false, nil
-}
-
-type complexSimpleDerivationStep struct {
-	next  ComplexTypeID
-	mask  DerivationMask
-	done  bool
-	valid bool
-}
-
-func nextComplexSimpleDerivation(
-	rt *schemaBuild,
-	derived ComplexTypeID,
-	base SimpleTypeID,
-	work func(int) error,
-) (complexSimpleDerivationStep, error) {
-	if err := work(1); err != nil {
-		return complexSimpleDerivationStep{}, err
-	}
-	typ, ok := rt.ComplexTypeDerivation(derived)
-	if !ok {
-		return complexSimpleDerivationStep{}, nil
-	}
-	step := complexSimpleDerivationStep{mask: derivationKindMask(typ.Kind), valid: true}
-	if simpleBase, simpleOK := typ.Base.Simple(); simpleOK {
-		simpleMask, found, err := simpleTypeDerivationMaskOf(rt, simpleBase, base, work)
-		if err != nil || !found {
-			return complexSimpleDerivationStep{}, err
+		var isComplex bool
+		if current, isComplex = derivation.Base.Complex(); !isComplex {
+			return NoSimpleType, 0, nil
 		}
-		step.mask |= simpleMask
-		step.done = true
-		return step, nil
 	}
-	next, ok := typ.Base.Complex()
-	if !ok {
-		return complexSimpleDerivationStep{}, nil
-	}
-	step.next = next
-	return step, nil
+	return NoSimpleType, 0, nil
 }
 
 func complexAnyTypeDerivationMask(
@@ -990,9 +968,10 @@ func (s *simpleTypeUnionDerivationSearch) advance() (bool, error) {
 	if handled, err := s.enter(last, frame); handled || err != nil {
 		return false, err
 	}
-	memberCount := unionMemberCount(base)
+	members := unionMembers(base)
+	memberCount := len(members)
 	if frame.next < memberCount {
-		return s.visitMember(frame, base.Union[frame.next])
+		return s.visitMember(frame, members[frame.next])
 	}
 	if frame.next == memberCount {
 		frame.next++
@@ -1042,11 +1021,14 @@ func (s *simpleTypeUnionDerivationSearch) enter(
 	return false, nil
 }
 
-func unionMemberCount(typ simpleTypeDerivation) int {
+// unionMembers returns the {member type definitions} a derivation can pass
+// through from typ: none unless typ is a union without facets, as I-010 of
+// docs/spec/INTERPRETATIONS.md records for restricted unions.
+func unionMembers(typ simpleTypeDerivation) []SimpleTypeID {
 	if typ.Variety != valuepkg.Union || typ.UnionHasFacets {
-		return 0
+		return nil
 	}
-	return len(typ.Union)
+	return typ.Union
 }
 
 func (s *simpleTypeUnionDerivationSearch) visitMember(
@@ -1094,8 +1076,8 @@ func (s *simpleTypeUnionDerivationSearch) pop(last int) {
 
 // simpleTypeIsUnionMember reports whether derived equals base or is reached
 // from base through {member type definitions} alone, descending into members
-// that are themselves unions. Unions with facets contribute no members, as in
-// unionMemberCount. Such a derivation takes no base-chain step.
+// that are themselves unions, along the edges unionMembers gives. Such a
+// derivation takes no base-chain step.
 func simpleTypeIsUnionMember(
 	rt *schemaBuild,
 	derived, base SimpleTypeID,
@@ -1113,7 +1095,7 @@ func simpleTypeIsUnionMember(
 		if !ok {
 			continue
 		}
-		members := typ.Union[:unionMemberCount(typ)]
+		members := unionMembers(typ)
 		if err := work(1 + len(members)); err != nil {
 			return false, err
 		}

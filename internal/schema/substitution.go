@@ -574,28 +574,6 @@ func simpleContentCore(rt *schemaBuild, typ TypeID, work func(int) error) (Simpl
 	return complexSimpleContentCore(rt, current, work)
 }
 
-func complexSimpleContentCore(rt *schemaBuild, current ComplexTypeID, work func(int) error) (SimpleTypeID, DerivationMask, error) {
-	var steps DerivationMask
-	for range len(rt.ComplexTypes) {
-		if err := work(1); err != nil {
-			return NoSimpleType, 0, err
-		}
-		derivation, found := rt.ComplexTypeDerivation(current)
-		if !found || current == rt.AnyType {
-			return NoSimpleType, 0, nil
-		}
-		steps |= derivationKindMask(derivation.Kind)
-		if simple, isSimple := derivation.Base.Simple(); isSimple {
-			return simple, steps, nil
-		}
-		var isComplex bool
-		if current, isComplex = derivation.Base.Complex(); !isComplex {
-			return NoSimpleType, 0, nil
-		}
-	}
-	return NoSimpleType, 0, nil
-}
-
 func compareSubstitutionEntry(a, b substitutionEntry) int {
 	if order := compareQName(a.name, b.name); order != 0 {
 		return order
