@@ -16,8 +16,8 @@ func row(caseID, phase string, p corpus.Provider, v corpus.Verdict) corpus.Row {
 func coverageCase(id string) (corpus.Case, []corpus.Row) {
 	c := corpus.Case{
 		ID: id, ExpectedSource: "project",
-		Schema:    &corpus.Schema{Expected: "valid"},
-		Instances: []corpus.Instance{{TestName: "i1", Expected: "valid"}},
+		Schema:    &corpus.Schema{Expected: corpus.ExpectedValid},
+		Instances: []corpus.Instance{{TestName: "i1", Expected: corpus.ExpectedValid}},
 	}
 	rows := []corpus.Row{
 		row(id, "schema", corpus.Xerces, corpus.SchemaValid),
@@ -32,7 +32,7 @@ func coverageCase(id string) (corpus.Case, []corpus.Row) {
 
 func TestCheckObservationCoverage(t *testing.T) {
 	measured, base := coverageCase("project/measured")
-	w3c := corpus.Case{ID: "w3c/a/b/c", ExpectedSource: "w3c", Schema: &corpus.Schema{Expected: "valid"}}
+	w3c := corpus.Case{ID: "w3c/a/b/c", ExpectedSource: "w3c", Schema: &corpus.Schema{Expected: corpus.ExpectedValid}}
 	inv := corpus.Inventory{Cases: []corpus.Case{measured, w3c}}
 	if err := checkObservationCoverage(&inv, base); err != nil {
 		t.Fatalf("checkObservationCoverage() error = %v, want nil", err)
@@ -64,7 +64,7 @@ func TestCheckDifferences(t *testing.T) {
 	records := parseRecords("## I-001 — first\n\nXerces-J rejects; .NET too.\n\nCases: `project/diff*`.\n## I-002 — second\n\nCases: `project/other`.\n\n## Qualifications\n\n" +
 		"| <a id=\"row-q\"></a>Row | libxml2 accepts `project/diff`. |\n| <a id=\"row-r\"></a>Other | libxml2 accepts `project/other`. |\n")
 	schemaDiff := func(d map[corpus.Provider]corpus.Difference) corpus.Case {
-		return corpus.Case{ID: "project/diff", ExpectedSource: "project", Schema: &corpus.Schema{Expected: "valid", Differences: d}}
+		return corpus.Case{ID: "project/diff", ExpectedSource: "project", Schema: &corpus.Schema{Expected: corpus.ExpectedValid, Differences: d}}
 	}
 	differing := []corpus.Row{row("project/diff", "schema", corpus.Xerces, corpus.SchemaInvalid)}
 	note := map[rowKey]bool{{phaseKey{"project/diff", "schema"}, corpus.Xerces}: true}
@@ -97,14 +97,14 @@ func TestCheckDifferences(t *testing.T) {
 		{name: "difference for a blocked row", c: schemaDiff(map[corpus.Provider]corpus.Difference{corpus.Xerces: {Record: "I-001"}}), rows: []corpus.Row{row("project/diff", "schema", corpus.Xerces, corpus.Blocked)}, want: "has a difference but no row whose validity differs"},
 		{
 			name: "instances of an invalid schema have no expectation to differ from",
-			c: corpus.Case{ID: "project/diff", ExpectedSource: "project", Schema: &corpus.Schema{Expected: "invalid", Differences: map[corpus.Provider]corpus.Difference{corpus.Xerces: {Record: "I-001"}}},
-				Instances: []corpus.Instance{{TestName: "i", Expected: "invalid"}}},
+			c: corpus.Case{ID: "project/diff", ExpectedSource: "project", Schema: &corpus.Schema{Expected: corpus.ExpectedInvalid, Differences: map[corpus.Provider]corpus.Difference{corpus.Xerces: {Record: "I-001"}}},
+				Instances: []corpus.Instance{{TestName: "i", Expected: corpus.ExpectedInvalid}}},
 			rows: []corpus.Row{row("project/diff", "schema", corpus.Xerces, corpus.SchemaValid), row("project/diff", "i", corpus.Xerces, corpus.Valid)},
 		},
 		{
 			name: "difference on an instance of an invalid schema",
-			c: corpus.Case{ID: "project/diff", ExpectedSource: "project", Schema: &corpus.Schema{Expected: "invalid", Differences: map[corpus.Provider]corpus.Difference{corpus.Xerces: {Record: "I-001"}}},
-				Instances: []corpus.Instance{{TestName: "i", Expected: "invalid", Differences: map[corpus.Provider]corpus.Difference{corpus.Xerces: {Record: "I-001"}}}}},
+			c: corpus.Case{ID: "project/diff", ExpectedSource: "project", Schema: &corpus.Schema{Expected: corpus.ExpectedInvalid, Differences: map[corpus.Provider]corpus.Difference{corpus.Xerces: {Record: "I-001"}}},
+				Instances: []corpus.Instance{{TestName: "i", Expected: corpus.ExpectedInvalid, Differences: map[corpus.Provider]corpus.Difference{corpus.Xerces: {Record: "I-001"}}}}},
 			rows: []corpus.Row{row("project/diff", "schema", corpus.Xerces, corpus.SchemaValid), row("project/diff", "i", corpus.Xerces, corpus.Valid)},
 			want: `case "project/diff" instance "i" has differences, but its schema is expected invalid`,
 		},

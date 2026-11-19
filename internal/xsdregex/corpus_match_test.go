@@ -47,7 +47,7 @@ func TestManifestRegexFixtures(t *testing.T) {
 			continue
 		}
 		found++
-		if entry.Schema == nil || entry.Schema.Expected != "valid" || entry.Schema.ErrorCode != "" {
+		if entry.Schema == nil || entry.Schema.Expected != corpus.ExpectedValid || entry.Schema.ErrorCode != "" {
 			t.Fatalf("manifest case %q changed outcome: schema=%+v", entry.ID, entry.Schema)
 		}
 		pattern := readPatternValue(t, fixture.path)

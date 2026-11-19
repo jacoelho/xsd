@@ -91,9 +91,9 @@ func TestUnsupportedAllowlistUseRequiresKnownCode(t *testing.T) {
 func TestHarnessRunCoverageRequiresFullCorpus(t *testing.T) {
 	m := corpus.Inventory{
 		Cases: []corpus.Case{
-			{Schema: &corpus.Schema{Expected: "valid"}, Instances: []corpus.Instance{{}, {}}},
-			{Schema: &corpus.Schema{Expected: "valid"}, Instances: []corpus.Instance{{}}},
-			{Schema: &corpus.Schema{Expected: "invalid"}, Instances: []corpus.Instance{{}}},
+			{Schema: &corpus.Schema{Expected: corpus.ExpectedValid}, Instances: []corpus.Instance{{}, {}}},
+			{Schema: &corpus.Schema{Expected: corpus.ExpectedValid}, Instances: []corpus.Instance{{}}},
+			{Schema: &corpus.Schema{Expected: corpus.ExpectedInvalid}, Instances: []corpus.Instance{{}}},
 			{Instances: []corpus.Instance{{}}},
 		},
 	}
@@ -121,12 +121,12 @@ func TestInvalidSchemaInstancesAreAccountedAsBlocked(t *testing.T) {
 		ID:             "invalid-schema",
 		ExpectedSource: "project",
 		Schema: &corpus.Schema{
-			Expected:  "invalid",
+			Expected:  corpus.ExpectedInvalid,
 			Documents: []corpus.Document{{File: "schema.xsd"}},
 		},
 		Instances: []corpus.Instance{
-			{TestName: "first", Expected: "valid"},
-			{TestName: "second", Expected: "invalid"},
+			{TestName: "first", Expected: corpus.ExpectedValid},
+			{TestName: "second", Expected: corpus.ExpectedInvalid},
 		},
 	}
 	var run harnessRunCoverage

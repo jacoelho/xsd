@@ -34,7 +34,7 @@ func TestLoadInventoryConcatenatesShardsInIndexOrder(t *testing.T) {
 		t.Fatalf("cases = %+v, want project/a then the W3C case", inv.Cases)
 	}
 	phases := inv.Cases[0].Phases()
-	if len(phases) != 2 || phases[0].Name != SchemaPhase || phases[1].Name != "i" || phases[1].Expected != "invalid" {
+	if len(phases) != 2 || phases[0].Name != SchemaPhase || phases[1].Name != "i" || phases[1].Expected != ExpectedInvalid {
 		t.Fatalf("Phases() = %+v, want schema then instance i", phases)
 	}
 	if got := phases[0].Differences[Xerces].Record; got != "I-001" {

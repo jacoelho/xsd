@@ -118,7 +118,7 @@ func runCase(t *testing.T, dir string, unsupported unsupportedAllowlist, tc corp
 		t.Fatalf("case %s schema: %v", tc.ID, locErr)
 	}
 	switch tc.Schema.Expected {
-	case "valid":
+	case corpus.ExpectedValid:
 		if err != nil {
 			if xsderrors.IsUnsupported(err) {
 				run.blockedInstanceRuns += len(tc.Instances)
@@ -126,7 +126,7 @@ func runCase(t *testing.T, dir string, unsupported unsupportedAllowlist, tc corp
 			skipUnsupported(t, unsupported, unsupportedSchemaKey(tc), err)
 			t.Fatalf("Compile() error = %v", err)
 		}
-	case "invalid":
+	case corpus.ExpectedInvalid:
 		if checkErr := checkExpectedFailure(err, tc.Schema.ErrorCode); checkErr != nil {
 			t.Fatalf("Compile(): %v", checkErr)
 		}
@@ -169,12 +169,12 @@ func validateInstance(t *testing.T, dir string, engine *xsd.Engine, unsupported 
 		t.Fatalf("case %s instance %s: %v", tc.ID, inst.File, locErr)
 	}
 	switch inst.Expected {
-	case "valid":
+	case corpus.ExpectedValid:
 		if err != nil {
 			skipUnsupported(t, unsupported, unsupportedInstanceKey(tc, inst), err)
 			t.Fatalf("Validate() error = %v", err)
 		}
-	case "invalid":
+	case corpus.ExpectedInvalid:
 		if checkErr := checkExpectedFailure(err, inst.ErrorCode); checkErr != nil {
 			t.Fatalf("Validate(): %v", checkErr)
 		}
