@@ -91839,6 +91839,576 @@
       ]
     },
     {
+      "id": "project/datatypes/temporal/bce-leap-year/lexical-february-29",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/temporal/bce-leap-year/lexical-february-29",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#adding-durations-to-dateTimes"
+        ],
+        "conditions": [
+          "February 29 is admitted in a BCE year exactly when the year as written is leap under Appendix E: -0004 and -0400 are leap; -0001, -0002, -0005, -0100, -0101 and -0401 are not."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/temporal/bce-leap-year/lexical-february-29/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+          "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "date-minus0001-feb29",
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/lexical-february-29/date-minus0001-feb29.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+            "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "date-minus0002-feb29",
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/lexical-february-29/date-minus0002-feb29.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+            "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "date-minus0004-feb29",
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/lexical-february-29/date-minus0004-feb29.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+            "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "dotnet": {
+              "record": "temporal-boundaries"
+            }
+          }
+        },
+        {
+          "testName": "date-minus0005-feb29",
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/lexical-february-29/date-minus0005-feb29.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+            "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "date-minus0100-feb29",
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/lexical-february-29/date-minus0100-feb29.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+            "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "date-minus0101-feb29",
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/lexical-february-29/date-minus0101-feb29.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+            "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "date-minus0400-feb29",
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/lexical-february-29/date-minus0400-feb29.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+            "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "dotnet": {
+              "record": "temporal-boundaries"
+            }
+          }
+        },
+        {
+          "testName": "date-minus0401-feb29",
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/lexical-february-29/date-minus0401-feb29.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+            "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "datetime-minus0001-feb29",
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/lexical-february-29/datetime-minus0001-feb29.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+            "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "datetime-minus0004-feb29",
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/lexical-february-29/datetime-minus0004-feb29.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+            "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "dotnet": {
+              "record": "temporal-boundaries"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/lexical-february-29/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/lexical-february-29/date-minus0001-feb29.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/lexical-february-29/date-minus0002-feb29.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/lexical-february-29/date-minus0004-feb29.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/lexical-february-29/date-minus0005-feb29.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/lexical-february-29/date-minus0100-feb29.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/lexical-february-29/date-minus0101-feb29.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/lexical-february-29/date-minus0400-feb29.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/lexical-february-29/date-minus0401-feb29.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/lexical-february-29/datetime-minus0001-feb29.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/lexical-february-29/datetime-minus0004-feb29.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/temporal/bce-leap-year/max-exclusive-minus0001-mar1",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/temporal/bce-leap-year/max-exclusive-minus0001-mar1",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#adding-durations-to-dateTimes"
+        ],
+        "conditions": [
+          "Timezone normalization of -0001-02-28T23:00:00-02:00 crosses into March 1 because -0001 is not leap, so the value fails maxExclusive -0001-03-01T00:00:00Z."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/temporal/bce-leap-year/max-exclusive-minus0001-mar1/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+          "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "temporal-boundaries"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "bound-minus0001-feb28-late-offset-before-march",
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/max-exclusive-minus0001-mar1/bound-minus0001-feb28-late-offset-before-march.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+            "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/max-exclusive-minus0001-mar1/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/max-exclusive-minus0001-mar1/bound-minus0001-feb28-late-offset-before-march.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/temporal/bce-leap-year/max-exclusive-minus0004-mar1",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/temporal/bce-leap-year/max-exclusive-minus0004-mar1",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#adding-durations-to-dateTimes"
+        ],
+        "conditions": [
+          "Timezone normalization of -0004-02-28T23:00:00-02:00 lands on February 29 because -0004 is leap, so the value satisfies maxExclusive -0004-03-01T00:00:00Z."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/temporal/bce-leap-year/max-exclusive-minus0004-mar1/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+          "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "temporal-boundaries"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "bound-minus0004-feb28-late-offset-before-march",
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/max-exclusive-minus0004-mar1/bound-minus0004-feb28-late-offset-before-march.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+            "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/max-exclusive-minus0004-mar1/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/max-exclusive-minus0004-mar1/bound-minus0004-feb28-late-offset-before-march.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/temporal/bce-leap-year/enumeration-minus0001-feb28-late",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/temporal/bce-leap-year/enumeration-minus0001-feb28-late",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#adding-durations-to-dateTimes"
+        ],
+        "conditions": [
+          "-0001-03-01T01:00:00+02:00 normalizes to -0001-02-28T23:00:00Z because -0001 has no February 29, matching the enumeration."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/temporal/bce-leap-year/enumeration-minus0001-feb28-late/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+          "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "temporal-boundaries"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "enum-minus0001-mar1-early-offset-is-feb28",
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/enumeration-minus0001-feb28-late/enum-minus0001-mar1-early-offset-is-feb28.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+            "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/enumeration-minus0001-feb28-late/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/enumeration-minus0001-feb28-late/enum-minus0001-mar1-early-offset-is-feb28.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/temporal/bce-leap-year/enumeration-minus0001-mar1-early",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/temporal/bce-leap-year/enumeration-minus0001-mar1-early",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#adding-durations-to-dateTimes"
+        ],
+        "conditions": [
+          "-0001-02-28T23:00:00-02:00 normalizes to -0001-03-01 because -0001 has no February 29, matching the enumeration."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/temporal/bce-leap-year/enumeration-minus0001-mar1-early/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+          "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "temporal-boundaries"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "enum-minus0001-feb28-late-offset-is-mar1",
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/enumeration-minus0001-mar1-early/enum-minus0001-feb28-late-offset-is-mar1.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+            "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/enumeration-minus0001-mar1-early/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/enumeration-minus0001-mar1-early/enum-minus0001-feb28-late-offset-is-mar1.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/temporal/bce-leap-year/enumeration-minus0004-feb29-early",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/temporal/bce-leap-year/enumeration-minus0004-feb29-early",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#adding-durations-to-dateTimes"
+        ],
+        "conditions": [
+          "An enumeration literal on -0004-02-29 is admitted, and -0004-02-28T23:00:00-02:00 normalizes onto it."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/temporal/bce-leap-year/enumeration-minus0004-feb29-early/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+          "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "temporal-boundaries"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "enum-minus0004-feb28-late-offset-is-feb29",
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/enumeration-minus0004-feb29-early/enum-minus0004-feb28-late-offset-is-feb29.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+            "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/enumeration-minus0004-feb29-early/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/enumeration-minus0004-feb29-early/enum-minus0004-feb28-late-offset-is-feb29.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/temporal/bce-leap-year/enumeration-minus0004-feb29-late",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/temporal/bce-leap-year/enumeration-minus0004-feb29-late",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#adding-durations-to-dateTimes"
+        ],
+        "conditions": [
+          "An enumeration literal on -0004-02-29 is admitted, and -0004-03-01T01:00:00+02:00 normalizes onto it."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/temporal/bce-leap-year/enumeration-minus0004-feb29-late/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+          "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "temporal-boundaries"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "enum-minus0004-mar1-early-offset-is-feb29",
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/enumeration-minus0004-feb29-late/enum-minus0004-mar1-early-offset-is-feb29.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+            "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/enumeration-minus0004-feb29-late/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/enumeration-minus0004-feb29-late/enum-minus0004-mar1-early-offset-is-feb29.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/temporal/bce-leap-year/enumeration-year-one-start",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/temporal/bce-leap-year/enumeration-year-one-start",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#adding-durations-to-dateTimes"
+        ],
+        "conditions": [
+          "There is no year 0: -0001-12-31T23:00:00-02:00 normalizes to 0001-01-01T01:00:00Z, matching the enumeration."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/temporal/bce-leap-year/enumeration-year-one-start/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+          "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "enum-minus0001-dec31-offset-is-year-one",
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/enumeration-year-one-start/enum-minus0001-dec31-offset-is-year-one.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+            "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "dotnet": {
+              "record": "temporal-boundaries"
+            },
+            "xmlschema": {
+              "record": "temporal-boundaries"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/enumeration-year-one-start/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/temporal/bce-leap-year/enumeration-year-one-start/enum-minus0001-dec31-offset-is-year-one.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
       "id": "project/datatypes/bounds/restrict-maxInclusive-time-hour-24-later-day",
       "expectedSource": "project",
       "source": {

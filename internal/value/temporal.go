@@ -401,7 +401,7 @@ func yearMod(y xsdYear, m int) int {
 	for i := range len(y.digits) {
 		out = (out*10 + int(y.digits[i]-'0')) % m
 	}
-	return astronomicalYearRemainder(out, m, y.neg)
+	return out
 }
 
 type xsdTimezone struct {

@@ -272,12 +272,12 @@ func durationAtReference(d durationValue, year, month int64) (durationInteger, s
 	months = months.add(durationInteger{small: year*12 + month - 1})
 	cycles, remainder := months.divFloor(4800)
 	y, m := remainder/12, remainder%12
-	// Each cycle starts on January 1 of a year divisible by 400. Year zero
-	// is astronomical 1 BCE and is a leap year in the proleptic calendar.
+	// Each cycle starts on January 1 of a year divisible by 400, so y is
+	// the year's offset within its 400-year cycle.
 	days := y*365 + (y+3)/4 - (y+99)/100 + (y+399)/400
 	beforeMonth := [...]int64{0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334}
 	days += beforeMonth[m]
-	if m >= 2 && y%4 == 0 && (y%100 != 0 || y%400 == 0) {
+	if m >= 2 && leapYearRule(int(y%400), int(y%100), int(y%4)) {
 		days++
 	}
 	point := cycles.mul(146097).add(durationInteger{small: days}).mul(86400).add(seconds)

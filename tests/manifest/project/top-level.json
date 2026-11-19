@@ -6648,70 +6648,63 @@
         {
           "testName": "bce-leap",
           "file": "corpus/project/datatypes/temporal/temporal-year-boundaries/bce-leap.xml",
-          "expected": "valid",
-          "rule": {
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime"
-          },
-          "differences": {
-            "xerces": {
-              "record": "I-036"
-            },
-            "dotnet": {
-              "record": "I-036"
-            },
-            "xmlschema": {
-              "record": "I-036"
-            },
-            "libxml2": {
-              "record": "I-036"
+          "expected": "invalid",
+          "oracle": {
+            "project": {
+              "expected": "valid",
+              "reason": "The previous expectation counted BCE years astronomically (-0001 as year 0, leap). Appendix E's maximumDayInMonthFor applies the leap rule to the year as written, and the processor tie-break settles the doubtful §3.2.7 note by Xerces-J.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#adding-durations-to-dateTimes"
             }
+          },
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+            "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
           }
         },
         {
           "testName": "bce-four-century",
           "file": "corpus/project/datatypes/temporal/temporal-year-boundaries/bce-four-century.xml",
-          "expected": "valid",
-          "rule": {
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime"
-          },
-          "differences": {
-            "xerces": {
-              "record": "I-036"
-            },
-            "dotnet": {
-              "record": "I-036"
-            },
-            "xmlschema": {
-              "record": "I-036"
-            },
-            "libxml2": {
-              "record": "I-036"
+          "expected": "invalid",
+          "oracle": {
+            "project": {
+              "expected": "valid",
+              "reason": "The previous expectation counted BCE years astronomically (-0001 as year 0, leap). Appendix E's maximumDayInMonthFor applies the leap rule to the year as written, and the processor tie-break settles the doubtful §3.2.7 note by Xerces-J.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#adding-durations-to-dateTimes"
             }
+          },
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+            "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
           }
         },
         {
           "testName": "bce-common-century",
           "file": "corpus/project/datatypes/temporal/temporal-year-boundaries/bce-common-century.xml",
           "expected": "invalid",
-          "errorCode": "validation.facet"
+          "errorCode": "validation.facet",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+            "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
+          }
         },
         {
           "testName": "bce-common-year",
           "file": "corpus/project/datatypes/temporal/temporal-year-boundaries/bce-common-year.xml",
-          "expected": "invalid",
-          "errorCode": "validation.facet",
+          "expected": "valid",
+          "oracle": {
+            "project": {
+              "expected": "invalid",
+              "reason": "The previous expectation counted BCE years astronomically (-0001 as year 0, leap). Appendix E's maximumDayInMonthFor applies the leap rule to the year as written, and the processor tie-break settles the doubtful §3.2.7 note by Xerces-J.",
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#adding-durations-to-dateTimes"
+            }
+          },
           "rule": {
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime"
+            "specRef": "docs/spec/INTERPRETATIONS.md#temporal-boundaries",
+            "clause": "BCE leap years in the Temporal boundaries row of docs/spec/INTERPRETATIONS.md"
           },
           "differences": {
-            "xerces": {
-              "record": "I-036"
-            },
-            "xmlschema": {
-              "record": "I-036"
-            },
-            "libxml2": {
-              "record": "I-036"
+            "dotnet": {
+              "record": "temporal-boundaries"
             }
           }
         },

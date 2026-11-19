@@ -16286,6 +16286,100 @@ project/datatypes/regex/conformance-subtraction-nested	schema	xmlschema	schema-v
 project/datatypes/regex/conformance-subtraction-nested	whole-mixed	dotnet	invalid	whole-mixed.xml:1:9: The 'r' element is invalid - The value 'bea' is invalid according to its datatype 'String' - The Pattern constraint failed.
 project/datatypes/regex/conformance-subtraction-nested	whole-mixed	xerces	invalid	whole-mixed.xml:1:11: cvc-pattern-valid: Value 'bea' is not facet-valid with respect to pattern '[a-z-[aeiou-[e]]]+' for type '#AnonType_r'.
 project/datatypes/regex/conformance-subtraction-nested	whole-mixed	xmlschema	invalid	line None: value doesn't match any pattern of ['[a-z-[aeiou-[e]]]+'] (path /r)
+project/datatypes/temporal/bce-leap-year/enumeration-minus0001-feb28-late	enum-minus0001-mar1-early-offset-is-feb28	libxml2	valid	
+project/datatypes/temporal/bce-leap-year/enumeration-minus0001-feb28-late	enum-minus0001-mar1-early-offset-is-feb28	xerces	valid	
+project/datatypes/temporal/bce-leap-year/enumeration-minus0001-feb28-late	enum-minus0001-mar1-early-offset-is-feb28	xmlschema	valid	
+project/datatypes/temporal/bce-leap-year/enumeration-minus0001-feb28-late	schema	dotnet	schema-invalid	schema.xsd:1:144: The Enumeration constraining facet is invalid - The string '-0001-02-28T23:00:00Z' is not a valid DateTime value.
+project/datatypes/temporal/bce-leap-year/enumeration-minus0001-feb28-late	schema	libxml2	schema-valid	
+project/datatypes/temporal/bce-leap-year/enumeration-minus0001-feb28-late	schema	xerces	schema-valid	
+project/datatypes/temporal/bce-leap-year/enumeration-minus0001-feb28-late	schema	xmlschema	schema-valid	
+project/datatypes/temporal/bce-leap-year/enumeration-minus0001-mar1-early	enum-minus0001-feb28-late-offset-is-mar1	libxml2	valid	
+project/datatypes/temporal/bce-leap-year/enumeration-minus0001-mar1-early	enum-minus0001-feb28-late-offset-is-mar1	xerces	valid	
+project/datatypes/temporal/bce-leap-year/enumeration-minus0001-mar1-early	enum-minus0001-feb28-late-offset-is-mar1	xmlschema	valid	
+project/datatypes/temporal/bce-leap-year/enumeration-minus0001-mar1-early	schema	dotnet	schema-invalid	schema.xsd:1:139: The Enumeration constraining facet is invalid - The string '-0001-03-01T01:00:00Z' is not a valid DateTime value.
+project/datatypes/temporal/bce-leap-year/enumeration-minus0001-mar1-early	schema	libxml2	schema-valid	
+project/datatypes/temporal/bce-leap-year/enumeration-minus0001-mar1-early	schema	xerces	schema-valid	
+project/datatypes/temporal/bce-leap-year/enumeration-minus0001-mar1-early	schema	xmlschema	schema-valid	
+project/datatypes/temporal/bce-leap-year/enumeration-minus0004-feb29-early	enum-minus0004-feb28-late-offset-is-feb29	libxml2	valid	
+project/datatypes/temporal/bce-leap-year/enumeration-minus0004-feb29-early	enum-minus0004-feb28-late-offset-is-feb29	xerces	valid	
+project/datatypes/temporal/bce-leap-year/enumeration-minus0004-feb29-early	enum-minus0004-feb28-late-offset-is-feb29	xmlschema	valid	
+project/datatypes/temporal/bce-leap-year/enumeration-minus0004-feb29-early	schema	dotnet	schema-invalid	schema.xsd:1:140: The Enumeration constraining facet is invalid - The string '-0004-02-29T01:00:00Z' is not a valid DateTime value.
+project/datatypes/temporal/bce-leap-year/enumeration-minus0004-feb29-early	schema	libxml2	schema-valid	
+project/datatypes/temporal/bce-leap-year/enumeration-minus0004-feb29-early	schema	xerces	schema-valid	
+project/datatypes/temporal/bce-leap-year/enumeration-minus0004-feb29-early	schema	xmlschema	schema-valid	
+project/datatypes/temporal/bce-leap-year/enumeration-minus0004-feb29-late	enum-minus0004-mar1-early-offset-is-feb29	libxml2	valid	
+project/datatypes/temporal/bce-leap-year/enumeration-minus0004-feb29-late	enum-minus0004-mar1-early-offset-is-feb29	xerces	valid	
+project/datatypes/temporal/bce-leap-year/enumeration-minus0004-feb29-late	enum-minus0004-mar1-early-offset-is-feb29	xmlschema	valid	
+project/datatypes/temporal/bce-leap-year/enumeration-minus0004-feb29-late	schema	dotnet	schema-invalid	schema.xsd:1:144: The Enumeration constraining facet is invalid - The string '-0004-02-29T23:00:00Z' is not a valid DateTime value.
+project/datatypes/temporal/bce-leap-year/enumeration-minus0004-feb29-late	schema	libxml2	schema-valid	
+project/datatypes/temporal/bce-leap-year/enumeration-minus0004-feb29-late	schema	xerces	schema-valid	
+project/datatypes/temporal/bce-leap-year/enumeration-minus0004-feb29-late	schema	xmlschema	schema-valid	
+project/datatypes/temporal/bce-leap-year/enumeration-year-one-start	enum-minus0001-dec31-offset-is-year-one	dotnet	invalid	enum-minus0001-dec31-offset-is-year-one.xml:1:40: The 'atYearOne' element is invalid - The value '-0001-12-31T23:00:00-02:00' is invalid according to its datatype 'DateTime' - The string '-0001-12-31T23:00:00-02:00' is not a valid DateTime value.
+project/datatypes/temporal/bce-leap-year/enumeration-year-one-start	enum-minus0001-dec31-offset-is-year-one	libxml2	valid	
+project/datatypes/temporal/bce-leap-year/enumeration-year-one-start	enum-minus0001-dec31-offset-is-year-one	xerces	valid	
+project/datatypes/temporal/bce-leap-year/enumeration-year-one-start	enum-minus0001-dec31-offset-is-year-one	xmlschema	invalid	line None: value must be one of [DateTime10(1, 1, 1, 1, 0, 0, tzinfo=Timezone(datetime.timedelta(0)))] (path /atYearOne)
+project/datatypes/temporal/bce-leap-year/enumeration-year-one-start	schema	dotnet	schema-valid	
+project/datatypes/temporal/bce-leap-year/enumeration-year-one-start	schema	libxml2	schema-valid	
+project/datatypes/temporal/bce-leap-year/enumeration-year-one-start	schema	xerces	schema-valid	
+project/datatypes/temporal/bce-leap-year/enumeration-year-one-start	schema	xmlschema	schema-valid	
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0001-feb29	dotnet	invalid	date-minus0001-feb29.xml:1:20: The 'date' element is invalid - The value '-0001-02-29' is invalid according to its datatype 'http://www.w3.org/2001/XMLSchema:date' - The string '-0001-02-29' is not a valid Date value.
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0001-feb29	libxml2	invalid	date-minus0001-feb29.xml:1: element date: Schemas validity error : Element 'date': '-0001-02-29' is not a valid value of the atomic type 'xs:date'.
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0001-feb29	xerces	invalid	date-minus0001-feb29.xml:1:25: cvc-datatype-valid.1.2.1: '-0001-02-29' is not a valid value for 'date'.
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0001-feb29	xmlschema	invalid	line None: day is out of range for month (path /date)
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0002-feb29	dotnet	invalid	date-minus0002-feb29.xml:1:20: The 'date' element is invalid - The value '-0002-02-29' is invalid according to its datatype 'http://www.w3.org/2001/XMLSchema:date' - The string '-0002-02-29' is not a valid Date value.
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0002-feb29	libxml2	invalid	date-minus0002-feb29.xml:1: element date: Schemas validity error : Element 'date': '-0002-02-29' is not a valid value of the atomic type 'xs:date'.
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0002-feb29	xerces	invalid	date-minus0002-feb29.xml:1:25: cvc-datatype-valid.1.2.1: '-0002-02-29' is not a valid value for 'date'.
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0002-feb29	xmlschema	invalid	line None: day is out of range for month (path /date)
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0004-feb29	dotnet	invalid	date-minus0004-feb29.xml:1:20: The 'date' element is invalid - The value '-0004-02-29' is invalid according to its datatype 'http://www.w3.org/2001/XMLSchema:date' - The string '-0004-02-29' is not a valid Date value.
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0004-feb29	libxml2	valid	
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0004-feb29	xerces	valid	
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0004-feb29	xmlschema	valid	
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0005-feb29	dotnet	invalid	date-minus0005-feb29.xml:1:20: The 'date' element is invalid - The value '-0005-02-29' is invalid according to its datatype 'http://www.w3.org/2001/XMLSchema:date' - The string '-0005-02-29' is not a valid Date value.
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0005-feb29	libxml2	invalid	date-minus0005-feb29.xml:1: element date: Schemas validity error : Element 'date': '-0005-02-29' is not a valid value of the atomic type 'xs:date'.
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0005-feb29	xerces	invalid	date-minus0005-feb29.xml:1:25: cvc-datatype-valid.1.2.1: '-0005-02-29' is not a valid value for 'date'.
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0005-feb29	xmlschema	invalid	line None: day is out of range for month (path /date)
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0100-feb29	dotnet	invalid	date-minus0100-feb29.xml:1:20: The 'date' element is invalid - The value '-0100-02-29' is invalid according to its datatype 'http://www.w3.org/2001/XMLSchema:date' - The string '-0100-02-29' is not a valid Date value.
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0100-feb29	libxml2	invalid	date-minus0100-feb29.xml:1: element date: Schemas validity error : Element 'date': '-0100-02-29' is not a valid value of the atomic type 'xs:date'.
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0100-feb29	xerces	invalid	date-minus0100-feb29.xml:1:25: cvc-datatype-valid.1.2.1: '-0100-02-29' is not a valid value for 'date'.
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0100-feb29	xmlschema	invalid	line None: day is out of range for month (path /date)
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0101-feb29	dotnet	invalid	date-minus0101-feb29.xml:1:20: The 'date' element is invalid - The value '-0101-02-29' is invalid according to its datatype 'http://www.w3.org/2001/XMLSchema:date' - The string '-0101-02-29' is not a valid Date value.
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0101-feb29	libxml2	invalid	date-minus0101-feb29.xml:1: element date: Schemas validity error : Element 'date': '-0101-02-29' is not a valid value of the atomic type 'xs:date'.
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0101-feb29	xerces	invalid	date-minus0101-feb29.xml:1:25: cvc-datatype-valid.1.2.1: '-0101-02-29' is not a valid value for 'date'.
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0101-feb29	xmlschema	invalid	line None: day is out of range for month (path /date)
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0400-feb29	dotnet	invalid	date-minus0400-feb29.xml:1:20: The 'date' element is invalid - The value '-0400-02-29' is invalid according to its datatype 'http://www.w3.org/2001/XMLSchema:date' - The string '-0400-02-29' is not a valid Date value.
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0400-feb29	libxml2	valid	
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0400-feb29	xerces	valid	
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0400-feb29	xmlschema	valid	
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0401-feb29	dotnet	invalid	date-minus0401-feb29.xml:1:20: The 'date' element is invalid - The value '-0401-02-29' is invalid according to its datatype 'http://www.w3.org/2001/XMLSchema:date' - The string '-0401-02-29' is not a valid Date value.
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0401-feb29	libxml2	invalid	date-minus0401-feb29.xml:1: element date: Schemas validity error : Element 'date': '-0401-02-29' is not a valid value of the atomic type 'xs:date'.
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0401-feb29	xerces	invalid	date-minus0401-feb29.xml:1:25: cvc-datatype-valid.1.2.1: '-0401-02-29' is not a valid value for 'date'.
+project/datatypes/temporal/bce-leap-year/lexical-february-29	date-minus0401-feb29	xmlschema	invalid	line None: day is out of range for month (path /date)
+project/datatypes/temporal/bce-leap-year/lexical-february-29	datetime-minus0001-feb29	dotnet	invalid	datetime-minus0001-feb29.xml:1:33: The 'dateTime' element is invalid - The value '-0001-02-29T00:00:00' is invalid according to its datatype 'http://www.w3.org/2001/XMLSchema:dateTime' - The string '-0001-02-29T00:00:00' is not a valid DateTime value.
+project/datatypes/temporal/bce-leap-year/lexical-february-29	datetime-minus0001-feb29	libxml2	invalid	datetime-minus0001-feb29.xml:1: element dateTime: Schemas validity error : Element 'dateTime': '-0001-02-29T00:00:00' is not a valid value of the atomic type 'xs:dateTime'.
+project/datatypes/temporal/bce-leap-year/lexical-february-29	datetime-minus0001-feb29	xerces	invalid	datetime-minus0001-feb29.xml:1:42: cvc-datatype-valid.1.2.1: '-0001-02-29T00:00:00' is not a valid value for 'dateTime'.
+project/datatypes/temporal/bce-leap-year/lexical-february-29	datetime-minus0001-feb29	xmlschema	invalid	line None: day is out of range for month (path /dateTime)
+project/datatypes/temporal/bce-leap-year/lexical-february-29	datetime-minus0004-feb29	dotnet	invalid	datetime-minus0004-feb29.xml:1:33: The 'dateTime' element is invalid - The value '-0004-02-29T00:00:00' is invalid according to its datatype 'http://www.w3.org/2001/XMLSchema:dateTime' - The string '-0004-02-29T00:00:00' is not a valid DateTime value.
+project/datatypes/temporal/bce-leap-year/lexical-february-29	datetime-minus0004-feb29	libxml2	valid	
+project/datatypes/temporal/bce-leap-year/lexical-february-29	datetime-minus0004-feb29	xerces	valid	
+project/datatypes/temporal/bce-leap-year/lexical-february-29	datetime-minus0004-feb29	xmlschema	valid	
+project/datatypes/temporal/bce-leap-year/lexical-february-29	schema	dotnet	schema-valid	
+project/datatypes/temporal/bce-leap-year/lexical-february-29	schema	libxml2	schema-valid	
+project/datatypes/temporal/bce-leap-year/lexical-february-29	schema	xerces	schema-valid	
+project/datatypes/temporal/bce-leap-year/lexical-february-29	schema	xmlschema	schema-valid	
+project/datatypes/temporal/bce-leap-year/max-exclusive-minus0001-mar1	bound-minus0001-feb28-late-offset-before-march	libxml2	invalid	bound-minus0001-feb28-late-offset-before-march.xml:1: element beforeMarchMinus1: Schemas validity error : Element 'beforeMarchMinus1': [facet 'maxExclusive'] The value '-0001-02-28T23:00:00-02:00' must be less than '-0001-03-01T00:00:00Z'.
+project/datatypes/temporal/bce-leap-year/max-exclusive-minus0001-mar1	bound-minus0001-feb28-late-offset-before-march	xerces	invalid	bound-minus0001-feb28-late-offset-before-march.xml:1:66: cvc-maxExclusive-valid: Value '-0001-02-28T23:00:00-02:00' is not facet-valid with respect to maxExclusive '-0001-03-01T00:00:00Z' for type '#AnonType_beforeMarchMinus1'.
+project/datatypes/temporal/bce-leap-year/max-exclusive-minus0001-mar1	bound-minus0001-feb28-late-offset-before-march	xmlschema	invalid	line None: value has to be lesser than DateTime10(-1, 3, 1, 0, 0, 0, tzinfo=Timezone(datetime.timedelta(0))) (path /beforeMarchMinus1)
+project/datatypes/temporal/bce-leap-year/max-exclusive-minus0001-mar1	schema	dotnet	schema-invalid	schema.xsd:1:144: The MaxExclusive constraining facet is invalid - The string '-0001-03-01T00:00:00Z' is not a valid DateTime value.
+project/datatypes/temporal/bce-leap-year/max-exclusive-minus0001-mar1	schema	libxml2	schema-valid	
+project/datatypes/temporal/bce-leap-year/max-exclusive-minus0001-mar1	schema	xerces	schema-valid	
+project/datatypes/temporal/bce-leap-year/max-exclusive-minus0001-mar1	schema	xmlschema	schema-valid	
+project/datatypes/temporal/bce-leap-year/max-exclusive-minus0004-mar1	bound-minus0004-feb28-late-offset-before-march	libxml2	valid	
+project/datatypes/temporal/bce-leap-year/max-exclusive-minus0004-mar1	bound-minus0004-feb28-late-offset-before-march	xerces	valid	
+project/datatypes/temporal/bce-leap-year/max-exclusive-minus0004-mar1	bound-minus0004-feb28-late-offset-before-march	xmlschema	valid	
+project/datatypes/temporal/bce-leap-year/max-exclusive-minus0004-mar1	schema	dotnet	schema-invalid	schema.xsd:1:144: The MaxExclusive constraining facet is invalid - The string '-0004-03-01T00:00:00Z' is not a valid DateTime value.
+project/datatypes/temporal/bce-leap-year/max-exclusive-minus0004-mar1	schema	libxml2	schema-valid	
+project/datatypes/temporal/bce-leap-year/max-exclusive-minus0004-mar1	schema	xerces	schema-valid	
+project/datatypes/temporal/bce-leap-year/max-exclusive-minus0004-mar1	schema	xmlschema	schema-valid	
 project/datatypes/temporal/conformance-date-lexical	april30	dotnet	valid	
 project/datatypes/temporal/conformance-date-lexical	april30	libxml2	valid	
 project/datatypes/temporal/conformance-date-lexical	april30	xerces	valid	

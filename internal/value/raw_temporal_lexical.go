@@ -125,7 +125,7 @@ func dateYearMod[T byteText](s T, y dateYear, m int) int {
 	for i := y.digitsStart; i < y.digitsEnd; i++ {
 		out = (out*10 + int(s[i]-'0')) % m
 	}
-	return astronomicalYearRemainder(out, m, y.neg)
+	return out
 }
 
 func validateTimezoneToEnd[T byteText](s T, i int, label string) error {
@@ -166,15 +166,4 @@ func isASCIIDigit(c byte) bool {
 
 func validTimezoneFields(hour, minute int) bool {
 	return hour <= 14 && minute <= 59 && (hour < 14 || minute == 0)
-}
-
-// XSD BCE years count from -1; astronomical numbering includes year zero.
-func astronomicalYearRemainder(remainder, modulus int, negative bool) int { //nolint:revive // Sign is a calendar fact, not an operation mode.
-	if negative {
-		remainder = (1 - remainder) % modulus
-		if remainder < 0 {
-			remainder += modulus
-		}
-	}
-	return remainder
 }
