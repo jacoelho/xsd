@@ -3,7 +3,6 @@ package corpus
 import (
 	"bytes"
 	"cmp"
-	"errors"
 	"fmt"
 	"io/fs"
 	"slices"
@@ -203,8 +202,7 @@ type Observations struct {
 
 // LoadObservations reads the profile and the observation file of every
 // project shard of inv from fsys, rooted at the tests directory. Each file must
-// hold sorted, unique rows of its own shard's cases; an absent file holds no
-// rows.
+// hold sorted, unique rows of its own shard's cases.
 func LoadObservations(fsys fs.FS, inv *Inventory) (Observations, error) {
 	var obs Observations
 	if err := readJSON(fsys, ProfilePath, &obs.Profile); err != nil {
@@ -215,9 +213,6 @@ func LoadObservations(fsys fs.FS, inv *Inventory) (Observations, error) {
 	}
 	for _, name := range inv.ObservationPaths() {
 		data, err := fs.ReadFile(fsys, name)
-		if errors.Is(err, fs.ErrNotExist) {
-			continue
-		}
 		if err != nil {
 			return Observations{}, err
 		}

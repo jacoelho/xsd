@@ -1,6 +1,8 @@
 package corpus
 
 import (
+	"errors"
+	"io/fs"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -158,19 +160,15 @@ func TestLoadObservations(t *testing.T) {
 	}
 }
 
-func TestLoadObservationsReadsAnAbsentShardFileAsNoRows(t *testing.T) {
+func TestLoadObservationsRejectsAnAbsentShardFile(t *testing.T) {
 	fsys := observationFS("")
 	delete(fsys, "oracles/top-level.tsv")
 	inv, err := LoadInventory(fsys)
 	if err != nil {
 		t.Fatal(err)
 	}
-	obs, err := LoadObservations(fsys, &inv)
-	if err != nil {
-		t.Fatalf("LoadObservations() error = %v", err)
-	}
-	if len(obs.Rows) != 0 {
-		t.Fatalf("rows = %+v, want none", obs.Rows)
+	if _, err := LoadObservations(fsys, &inv); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("LoadObservations() error = %v, want fs.ErrNotExist", err)
 	}
 }
 

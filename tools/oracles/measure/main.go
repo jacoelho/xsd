@@ -33,6 +33,7 @@ import (
 	"flag"
 	"fmt"
 	"hash"
+	"io/fs"
 	"maps"
 	"os"
 	"os/exec"
@@ -528,6 +529,9 @@ func providerVersions(results map[string]caseResult) (map[corpus.Provider]string
 // unmeasuredRows returns the existing rows of every case not in results. The
 // profile they come from must name image digest and every version in versions.
 func unmeasuredRows(inv *corpus.Inventory, results map[string]caseResult, digest string, versions map[corpus.Provider]string) ([]corpus.Row, error) {
+	if err := createMissingObservationFiles(inv); err != nil {
+		return nil, err
+	}
 	obs, err := corpus.LoadObservations(os.DirFS("tests"), inv)
 	if err != nil {
 		return nil, err
@@ -544,6 +548,23 @@ func unmeasuredRows(inv *corpus.Inventory, results map[string]caseResult, digest
 		_, measured := results[r.CaseID]
 		return measured
 	}), nil
+}
+
+// createMissingObservationFiles writes an empty observation file for every
+// project shard that has none: a shard added since the last measurement, whose
+// cases have no rows to keep.
+func createMissingObservationFiles(inv *corpus.Inventory) error {
+	for _, name := range inv.ObservationPaths() {
+		path := filepath.Join("tests", filepath.FromSlash(name))
+		_, err := os.Stat(path)
+		if errors.Is(err, fs.ErrNotExist) {
+			err = writeFile(path, corpus.FormatRows(nil))
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // write replaces every observation file with the rows of results and kept,
