@@ -465,8 +465,9 @@ func acceptedProviders(schemaRows []corpus.Row) []corpus.Provider {
 }
 
 func (m *measurer) measurePhase(ctx context.Context, slot string, c *corpus.Case, phase, instance string, res *caseResult) ([]corpus.Row, error) {
-	args := runArgs(c, instance)
-	key, err := cacheKey(m.digest, c, args)
+	in := phaseInputs(c, instance)
+	args := in.args()
+	key, err := cacheKey(m.digest, c, in)
 	if err != nil {
 		return nil, err
 	}
@@ -491,35 +492,57 @@ func (m *measurer) measurePhase(ctx context.Context, slot string, c *corpus.Case
 	return rows, nil
 }
 
-// runArgs returns the run.sh arguments for one phase: every schema root in
-// manifest order, then the instance. run.sh mounts the deepest directory
-// containing every argument.
-func runArgs(c *corpus.Case, instance string) []string {
-	var args []string
-	for _, doc := range c.Schema.Documents[1:] {
-		args = append(args, "--schema", filepath.Join("tests", doc.File))
+// runInputs is the files of one phase run: the case's schema documents in
+// manifest order and, for an instance phase, the instance.
+type runInputs struct {
+	instance string
+	schemas  []string
+}
+
+func phaseInputs(c *corpus.Case, instance string) runInputs {
+	in := runInputs{schemas: make([]string, 0, len(c.Schema.Documents))}
+	for _, doc := range c.Schema.Documents {
+		in.schemas = append(in.schemas, filepath.Join("tests", doc.File))
 	}
-	args = append(args, filepath.Join("tests", c.Schema.Documents[0].File))
 	if instance != "" {
-		args = append(args, filepath.Join("tests", instance))
+		in.instance = filepath.Join("tests", instance)
+	}
+	return in
+}
+
+// args returns the run.sh arguments: every schema document after the first as
+// a --schema option, then the first, then the instance. run.sh mounts the
+// deepest directory containing every argument.
+func (in runInputs) args() []string {
+	var args []string
+	for _, doc := range in.schemas[1:] {
+		args = append(args, "--schema", doc)
+	}
+	args = append(args, in.schemas[0])
+	if in.instance != "" {
+		args = append(args, in.instance)
 	}
 	return args
 }
 
+func (in runInputs) files() []string {
+	if in.instance == "" {
+		return in.schemas
+	}
+	return append(slices.Clip(in.schemas), in.instance)
+}
+
 // cacheKey covers the image digest, the case, the run arguments and the bytes
-// of each argument file and each declared case file, since a phase file need
-// not be listed among the case files.
-func cacheKey(digest string, c *corpus.Case, args []string) (string, error) {
+// of each run file and each declared case file, since a phase file need not be
+// listed among the case files.
+func cacheKey(digest string, c *corpus.Case, in runInputs) (string, error) {
 	h := sha256.New()
 	writeField(h, digest)
 	writeField(h, c.ID)
-	files := make([]string, 0, len(args)+len(c.Files))
-	for _, a := range args {
+	for _, a := range in.args() {
 		writeField(h, a)
-		if a != "--schema" {
-			files = append(files, a)
-		}
 	}
+	files := slices.Clone(in.files())
 	for _, f := range c.Files {
 		files = append(files, filepath.Join("tests", filepath.FromSlash(f.File)))
 	}

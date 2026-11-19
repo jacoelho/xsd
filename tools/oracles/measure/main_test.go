@@ -163,3 +163,26 @@ func TestBuildContextHoldsExactlyTheInputsRelativeToTheContextRoot(t *testing.T)
 		t.Fatalf("build context = %+v, want %+v", got, want)
 	}
 }
+
+func TestCacheKeyChangesWithTheBytesOfEveryRunFile(t *testing.T) {
+	t.Chdir(t.TempDir())
+	files := map[string]string{"a.xsd": "<a/>", "b.xsd": "<b/>", "i.xml": "<i/>"}
+	writeTestTree(t, files)
+	c := &corpus.Case{ID: "project/a", Schema: &corpus.Schema{Documents: []corpus.Document{{File: "a.xsd"}, {File: "b.xsd"}}}}
+	in := phaseInputs(c, "i.xml")
+	base, err := cacheKey(testDigest, c, in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, data := range files {
+		writeTestTree(t, map[string]string{name: data + " "})
+		got, err := cacheKey(testDigest, c, in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got == base {
+			t.Errorf("cacheKey() after changing %s = the key before", name)
+		}
+		writeTestTree(t, map[string]string{name: data})
+	}
+}
