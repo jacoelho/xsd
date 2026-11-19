@@ -41,8 +41,8 @@ type Verdict string
 const (
 	SchemaValid   Verdict = "schema-valid"
 	SchemaInvalid Verdict = "schema-invalid"
-	Valid         Verdict = "valid"
-	Invalid       Verdict = "invalid"
+	Valid         Verdict = "valid"   //nolint:goconst // A verdict, not an Expectation; the two vocabularies share this spelling.
+	Invalid       Verdict = "invalid" //nolint:goconst // A verdict, not an Expectation; the two vocabularies share this spelling.
 	Unassessed    Verdict = "unassessed"
 	Blocked       Verdict = "blocked"
 	Error         Verdict = "error"
@@ -77,14 +77,14 @@ func (v Verdict) Outcome() (Outcome, bool) {
 	return 0, false
 }
 
-// Validity returns the project expectation value, "valid" or "invalid", that
-// the verdict measured, and false when it measured no validity.
-func (v Verdict) Validity() (string, bool) {
+// Expectation returns the project expectation that the verdict's validity
+// matches, and false when the verdict measured no validity.
+func (v Verdict) Expectation() (Expectation, bool) {
 	switch o, _ := v.Outcome(); o {
 	case OutcomeValid:
-		return string(Valid), true
+		return ExpectedValid, true
 	case OutcomeInvalid:
-		return string(Invalid), true
+		return ExpectedInvalid, true
 	case OutcomeUnassessed, OutcomeBlocked:
 	}
 	return "", false

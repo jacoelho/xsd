@@ -54,7 +54,7 @@ type Schema struct {
 	Rule        *Rule                   `json:"rule"`
 	Oracle      map[string]Provenance   `json:"oracle"`
 	Differences map[Provider]Difference `json:"differences"`
-	Expected    string                  `json:"expected"`
+	Expected    Expectation             `json:"expected"`
 	ErrorCode   string                  `json:"errorCode"`
 	Documents   []Document              `json:"documents"`
 }
@@ -66,7 +66,7 @@ type Instance struct {
 	Differences map[Provider]Difference `json:"differences"`
 	TestName    string                  `json:"testName"`
 	File        string                  `json:"file"`
-	Expected    string                  `json:"expected"`
+	Expected    Expectation             `json:"expected"`
 	ErrorCode   string                  `json:"errorCode"`
 }
 
@@ -78,7 +78,7 @@ type Phase struct {
 	Oracle      map[string]Provenance
 	Differences map[Provider]Difference
 	Name        string
-	Expected    string
+	Expected    Expectation
 }
 
 // Document is a schema compilation root.
@@ -92,13 +92,27 @@ type File struct {
 	Role string `json:"role"`
 }
 
+// Expectation is the project's expected result of a schema or instance phase.
+type Expectation string
+
+// The project expectations.
+const (
+	ExpectedValid   Expectation = "valid"
+	ExpectedInvalid Expectation = "invalid"
+)
+
+// Known reports whether e is a project expectation.
+func (e Expectation) Known() bool {
+	return e == ExpectedValid || e == ExpectedInvalid
+}
+
 // Provenance is a hand-written original expectation under oracle.w3c or
 // oracle.project: the upstream or earlier project result that the effective
 // expectation corrects.
 type Provenance struct {
-	Expected string `json:"expected"`
-	Reason   string `json:"reason"`
-	SpecRef  string `json:"specRef"`
+	Expected Expectation `json:"expected"`
+	Reason   string      `json:"reason"`
+	SpecRef  string      `json:"specRef"`
 }
 
 // Rule names the specification clause or interpretation record that decides
@@ -309,7 +323,7 @@ func validateDocuments(id string, docs []Document) error {
 }
 
 func validatePhase(p *Phase) error {
-	if !validExpectation(p.Expected) {
+	if !p.Expected.Known() {
 		return fmt.Errorf("unknown expected value %q", p.Expected)
 	}
 	for _, key := range slices.Sorted(maps.Keys(p.Oracle)) {
@@ -317,7 +331,7 @@ func validatePhase(p *Phase) error {
 		switch {
 		case key != SourceW3C && key != SourceProject:
 			return fmt.Errorf("unknown oracle key %q", key)
-		case !validExpectation(entry.Expected):
+		case !entry.Expected.Known():
 			return fmt.Errorf("oracle %q has unknown expected value %q", key, entry.Expected)
 		case blank(entry.Reason):
 			return fmt.Errorf("oracle %q has no reason", key)
@@ -358,10 +372,6 @@ func isRecordName(s string) bool {
 		return len(digits) == 3 && strings.Trim(digits, "0123456789") == ""
 	}
 	return s != "" && strings.Trim(s, "abcdefghijklmnopqrstuvwxyz0123456789-") == ""
-}
-
-func validExpectation(s string) bool {
-	return s == string(Valid) || s == string(Invalid)
 }
 
 func blank(s string) bool {

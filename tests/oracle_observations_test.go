@@ -234,14 +234,14 @@ func checkDifferences(inv *corpus.Inventory, rows []corpus.Row, ev oracleEvidenc
 // expects the schema valid.
 func comparablePhases(c *corpus.Case) []corpus.Phase {
 	phases := c.Phases()
-	if c.Schema == nil || c.Schema.Expected == "valid" {
+	if c.Schema == nil || c.Schema.Expected == corpus.ExpectedValid {
 		return phases
 	}
 	return phases[:1]
 }
 
 func uncomparableDifferences(c *corpus.Case) []error {
-	if c.Schema == nil || c.Schema.Expected == "valid" {
+	if c.Schema == nil || c.Schema.Expected == corpus.ExpectedValid {
 		return nil
 	}
 	var errs []error
@@ -253,13 +253,13 @@ func uncomparableDifferences(c *corpus.Case) []error {
 	return errs
 }
 
-func rowDiffers(rows map[rowKey]corpus.Row, k rowKey, expected string) bool {
+func rowDiffers(rows map[rowKey]corpus.Row, k rowKey, expected corpus.Expectation) bool {
 	r, ok := rows[k]
 	if !ok {
 		return false
 	}
-	validity, ok := r.Verdict.Validity()
-	return ok && validity != expected
+	measured, ok := r.Verdict.Expectation()
+	return ok && measured != expected
 }
 
 // providerName returns the name an interpretation record uses for p.
