@@ -102,6 +102,24 @@ project/namespaces/import-namespace-empty/import-whitespace-namespace-with-targe
 project/namespaces/import-namespace-empty/import-whitespace-namespace-with-target	schema	libxml2	schema-valid	
 project/namespaces/import-namespace-empty/import-whitespace-namespace-with-target	schema	xerces	schema-valid	
 project/namespaces/import-namespace-empty/import-whitespace-namespace-with-target	schema	xmlschema	schema-valid	
+project/namespaces/locationless-import-root-order/importer-then-supplier	invalid	dotnet	invalid	invalid.xml:1:21: The 'urn:r:r' element is invalid - The value 'x' is invalid according to its datatype 'urn:a:T' - The string 'x' is not a valid Int32 value.
+project/namespaces/locationless-import-root-order/importer-then-supplier	invalid	xmlschema	invalid	line None: invalid literal for int() with base 10: 'x' (path /r)
+project/namespaces/locationless-import-root-order/importer-then-supplier	schema	dotnet	schema-valid	
+project/namespaces/locationless-import-root-order/importer-then-supplier	schema	libxml2	blocked	xmllint --schema accepts one schema root; 2 given
+project/namespaces/locationless-import-root-order/importer-then-supplier	schema	xerces	schema-invalid	importer.xsd:3:36: src-resolve: Cannot resolve the name 'a:T' to a(n) 'type definition' component.
+project/namespaces/locationless-import-root-order/importer-then-supplier	schema	xmlschema	schema-valid	
+project/namespaces/locationless-import-root-order/importer-then-supplier	valid	dotnet	valid	
+project/namespaces/locationless-import-root-order/importer-then-supplier	valid	xmlschema	valid	
+project/namespaces/locationless-import-root-order/supplier-then-importer	invalid	dotnet	invalid	invalid.xml:1:21: The 'urn:r:r' element is invalid - The value 'x' is invalid according to its datatype 'urn:a:T' - The string 'x' is not a valid Int32 value.
+project/namespaces/locationless-import-root-order/supplier-then-importer	invalid	xerces	invalid	invalid.xml:1:23: cvc-datatype-valid.1.2.1: 'x' is not a valid value for 'integer'.
+project/namespaces/locationless-import-root-order/supplier-then-importer	invalid	xmlschema	invalid	line None: invalid literal for int() with base 10: 'x' (path /r)
+project/namespaces/locationless-import-root-order/supplier-then-importer	schema	dotnet	schema-valid	
+project/namespaces/locationless-import-root-order/supplier-then-importer	schema	libxml2	blocked	xmllint --schema accepts one schema root; 2 given
+project/namespaces/locationless-import-root-order/supplier-then-importer	schema	xerces	schema-valid	
+project/namespaces/locationless-import-root-order/supplier-then-importer	schema	xmlschema	schema-valid	
+project/namespaces/locationless-import-root-order/supplier-then-importer	valid	dotnet	valid	
+project/namespaces/locationless-import-root-order/supplier-then-importer	valid	xerces	valid	
+project/namespaces/locationless-import-root-order/supplier-then-importer	valid	xmlschema	valid	
 project/namespaces/prefix-restoration/schema	restored-descendant	dotnet	valid	
 project/namespaces/prefix-restoration/schema	restored-descendant	libxml2	valid	
 project/namespaces/prefix-restoration/schema	restored-descendant	xerces	valid	

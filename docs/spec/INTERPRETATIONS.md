@@ -905,7 +905,15 @@ order, and libxml2 2.9.13 takes one root and reports blocked. Cases:
 `project/attribute-group-wildcard-expressible`,
 `project/local-attribute-wildcard-expressible`,
 `project/namespace-declarations-xlink-locationless-roots`,
-`project/namespace-declarations-xml-locationless-roots`,
+`project/namespace-declarations-xml-locationless-roots`, their supplier-first
+variants `project/attribute-group-wildcard-expressible-reversed`,
+`project/local-attribute-wildcard-expressible-reversed`,
+`project/namespace-declarations-xlink-locationless-roots-reversed` and
+`project/namespace-declarations-xml-locationless-roots-reversed`, which Xerces-J
+accepts,
+`project/namespaces/locationless-import-root-order/importer-then-supplier`
+(Xerces-J rejects),
+`project/namespaces/locationless-import-root-order/supplier-then-importer`,
 `project/xsd-components-attribute-group-imported`,
 `project/xsd-components-attribute-imported`,
 `project/xsd-components-element-imported`,

@@ -148,6 +148,13 @@ project/attribute-group-wildcard-expressible	schema	dotnet	schema-valid
 project/attribute-group-wildcard-expressible	schema	libxml2	blocked	xmllint --schema accepts one schema root; 3 given
 project/attribute-group-wildcard-expressible	schema	xerces	schema-invalid	root.xsd:6:37: src-resolve: Cannot resolve the name 'a:G' to a(n) 'attribute group' component.
 project/attribute-group-wildcard-expressible	schema	xmlschema	schema-valid	
+project/attribute-group-wildcard-expressible-reversed	root	dotnet	valid	
+project/attribute-group-wildcard-expressible-reversed	root	xerces	valid	
+project/attribute-group-wildcard-expressible-reversed	root	xmlschema	valid	
+project/attribute-group-wildcard-expressible-reversed	schema	dotnet	schema-valid	
+project/attribute-group-wildcard-expressible-reversed	schema	libxml2	blocked	xmllint --schema accepts one schema root; 3 given
+project/attribute-group-wildcard-expressible-reversed	schema	xerces	schema-valid	
+project/attribute-group-wildcard-expressible-reversed	schema	xmlschema	schema-valid	
 project/attribute-required-fixed-idref-no-default	missing-required-fixed-idref	dotnet	invalid	missing-required-fixed-idref.xml:1:2: The required attribute 'ref' is missing.
 project/attribute-required-fixed-idref-no-default	missing-required-fixed-idref	libxml2	invalid	missing-required-fixed-idref.xml:1: element root: Schemas validity error : Element 'root': The attribute 'ref' is required but missing.
 project/attribute-required-fixed-idref-no-default	missing-required-fixed-idref	xerces	invalid	missing-required-fixed-idref.xml:1:8: cvc-complex-type.4: Attribute 'ref' must appear on element 'root'.
@@ -1522,6 +1529,13 @@ project/local-attribute-wildcard-expressible	schema	dotnet	schema-valid
 project/local-attribute-wildcard-expressible	schema	libxml2	blocked	xmllint --schema accepts one schema root; 2 given
 project/local-attribute-wildcard-expressible	schema	xerces	schema-invalid	root.xsd:5:37: src-resolve: Cannot resolve the name 'a:G' to a(n) 'attribute group' component.
 project/local-attribute-wildcard-expressible	schema	xmlschema	schema-valid	
+project/local-attribute-wildcard-expressible-reversed	foreign-attribute	dotnet	valid	warning: foreign-attribute.xml:1:38: Could not find schema information for the attribute 'urn:c:note'.
+project/local-attribute-wildcard-expressible-reversed	foreign-attribute	xerces	valid	
+project/local-attribute-wildcard-expressible-reversed	foreign-attribute	xmlschema	valid	
+project/local-attribute-wildcard-expressible-reversed	schema	dotnet	schema-valid	
+project/local-attribute-wildcard-expressible-reversed	schema	libxml2	blocked	xmllint --schema accepts one schema root; 2 given
+project/local-attribute-wildcard-expressible-reversed	schema	xerces	schema-valid	
+project/local-attribute-wildcard-expressible-reversed	schema	xmlschema	schema-valid	
 project/mixed-extension-empty-base	invalid-missing-element	dotnet	invalid	invalid-missing-element.xml:2:24: The element 'root' has incomplete content. List of possible elements expected: 'e'.
 project/mixed-extension-empty-base	invalid-missing-element	libxml2	invalid	invalid-missing-element.xml:2: element root: Schemas validity error : Element 'root': Missing child element(s). Expected is ( e ).
 project/mixed-extension-empty-base	invalid-missing-element	xerces	invalid	invalid-missing-element.xml:2:29: cvc-complex-type.2.4.b: The content of element 'root' is not complete. One of '{e}' is expected.
@@ -1654,6 +1668,16 @@ project/namespace-declarations-xlink-locationless-roots	schema	xerces	schema-inv
 project/namespace-declarations-xlink-locationless-roots	schema	xmlschema	schema-valid	
 project/namespace-declarations-xlink-locationless-roots	valid	dotnet	valid	
 project/namespace-declarations-xlink-locationless-roots	valid	xmlschema	valid	
+project/namespace-declarations-xlink-locationless-roots-reversed	reject-type	dotnet	invalid	xlink-locationless-roots-reject-type.xml:1:47: The 'http://www.w3.org/1999/xlink:type' attribute is invalid - The value 'extended' is invalid according to its datatype 'Token' - The Enumeration constraint failed.
+project/namespace-declarations-xlink-locationless-roots-reversed	reject-type	xerces	invalid	xlink-locationless-roots-reject-type.xml:1:183: cvc-enumeration-valid: Value 'extended' is not facet-valid with respect to enumeration '[simple]'. It must be a value from the enumeration.
+project/namespace-declarations-xlink-locationless-roots-reversed	reject-type	xmlschema	invalid	line None: attribute xl:type='extended': value must be one of ['simple'] (path /root)
+project/namespace-declarations-xlink-locationless-roots-reversed	schema	dotnet	schema-valid	
+project/namespace-declarations-xlink-locationless-roots-reversed	schema	libxml2	blocked	xmllint --schema accepts one schema root; 2 given
+project/namespace-declarations-xlink-locationless-roots-reversed	schema	xerces	schema-valid	
+project/namespace-declarations-xlink-locationless-roots-reversed	schema	xmlschema	schema-valid	
+project/namespace-declarations-xlink-locationless-roots-reversed	valid	dotnet	valid	
+project/namespace-declarations-xlink-locationless-roots-reversed	valid	xerces	valid	
+project/namespace-declarations-xlink-locationless-roots-reversed	valid	xmlschema	valid	
 project/namespace-declarations-xlink-wildcard-lax	declared-enum-opponent	dotnet	invalid	xlink-wildcard-lax-declared-enum-opponent.xml:1:47: The 'http://www.w3.org/1999/xlink:type' attribute is invalid - The value 'extended' is invalid according to its datatype 'Token' - The Enumeration constraint failed.
 project/namespace-declarations-xlink-wildcard-lax	declared-enum-opponent	libxml2	invalid	xlink-wildcard-lax-declared-enum-opponent.xml:1: element root: Schemas validity error : Element 'root', attribute '{http://www.w3.org/1999/xlink}type': [facet 'enumeration'] The value 'extended' is not an element of the set {'simple'}.
 project/namespace-declarations-xlink-wildcard-lax	declared-enum-opponent	xerces	invalid	xlink-wildcard-lax-declared-enum-opponent.xml:1:67: cvc-enumeration-valid: Value 'extended' is not facet-valid with respect to enumeration '[simple]'. It must be a value from the enumeration.
@@ -1734,6 +1758,16 @@ project/namespace-declarations-xml-locationless-roots	schema	xerces	schema-inval
 project/namespace-declarations-xml-locationless-roots	schema	xmlschema	schema-valid	
 project/namespace-declarations-xml-locationless-roots	valid	dotnet	valid	
 project/namespace-declarations-xml-locationless-roots	valid	xmlschema	valid	
+project/namespace-declarations-xml-locationless-roots-reversed	reject-lang	dotnet	invalid	xml-locationless-roots-reject-lang.xml:1:56: The 'http://www.w3.org/XML/1998/namespace:lang' attribute is invalid - The value 'fr' is invalid according to its datatype 'Language' - The Enumeration constraint failed.
+project/namespace-declarations-xml-locationless-roots-reversed	reject-lang	xerces	invalid	xml-locationless-roots-reject-lang.xml:1:125: cvc-enumeration-valid: Value 'fr' is not facet-valid with respect to enumeration '[en]'. It must be a value from the enumeration.
+project/namespace-declarations-xml-locationless-roots-reversed	reject-lang	xmlschema	invalid	line None: attribute xml:lang='fr': value must be one of ['en'] (path /root)
+project/namespace-declarations-xml-locationless-roots-reversed	schema	dotnet	schema-valid	
+project/namespace-declarations-xml-locationless-roots-reversed	schema	libxml2	blocked	xmllint --schema accepts one schema root; 2 given
+project/namespace-declarations-xml-locationless-roots-reversed	schema	xerces	schema-valid	
+project/namespace-declarations-xml-locationless-roots-reversed	schema	xmlschema	schema-valid	
+project/namespace-declarations-xml-locationless-roots-reversed	valid	dotnet	valid	
+project/namespace-declarations-xml-locationless-roots-reversed	valid	xerces	valid	
+project/namespace-declarations-xml-locationless-roots-reversed	valid	xmlschema	valid	
 project/namespace-declarations-xml-missing-ref	schema	dotnet	schema-valid	
 project/namespace-declarations-xml-missing-ref	schema	libxml2	schema-invalid	xml-missing-ref.xsd:1: element attribute: Schemas parser error : attribute use (unknown), attribute 'ref': The QName value '{http://www.w3.org/XML/1998/namespace}lang' does not resolve to a(n) attribute declaration.␊WXS schema xml-missing-ref.xsd failed to compile
 project/namespace-declarations-xml-missing-ref	schema	xerces	schema-invalid	xml-missing-ref.xsd:1:236: src-resolve: Cannot resolve the name 'xml:lang' to a(n) 'attribute declaration' component.

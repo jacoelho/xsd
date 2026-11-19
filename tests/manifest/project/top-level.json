@@ -5169,6 +5169,81 @@
       ]
     },
     {
+      "id": "project/namespace-declarations-xlink-locationless-roots-reversed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/explicit-namespace-declarations",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-attribute",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xsi"
+        ],
+        "conditions": [
+          "Explicit compilation roots satisfy a locationless import; no retrieval.",
+          "The explicit roots are those of project/namespace-declarations-xlink-locationless-roots in reverse order; the verdicts do not depend on root order (I-019)."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/explicit-namespace-declarations/xlink-declared.xsd",
+            "role": "principal"
+          },
+          {
+            "file": "corpus/project/attributes/explicit-namespace-declarations/xlink-locationless-roots.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location",
+          "clause": "Locationless imports in I-019 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "valid",
+          "file": "corpus/project/attributes/explicit-namespace-declarations/xlink-locationless-roots-valid.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+            "clause": "QName resolution over the explicit roots in XML Schema Part 1"
+          }
+        },
+        {
+          "testName": "reject-type",
+          "file": "corpus/project/attributes/explicit-namespace-declarations/xlink-locationless-roots-reject-type.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-enumeration-valid",
+            "clause": "cvc-enumeration-valid in XML Schema Part 2"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/attributes/explicit-namespace-declarations/xlink-declared.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attributes/explicit-namespace-declarations/xlink-locationless-roots.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attributes/explicit-namespace-declarations/xlink-locationless-roots-valid.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/explicit-namespace-declarations/xlink-locationless-roots-reject-type.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
       "id": "project/namespace-declarations-xlink-wildcard-strict",
       "expectedSource": "project",
       "source": {
@@ -6288,6 +6363,80 @@
         {
           "file": "corpus/project/attributes/explicit-namespace-declarations/xml-declared.xsd",
           "role": "auxiliary"
+        },
+        {
+          "file": "corpus/project/attributes/explicit-namespace-declarations/xml-locationless-roots-valid.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/explicit-namespace-declarations/xml-locationless-roots-reject-lang.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/namespace-declarations-xml-locationless-roots-reversed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/explicit-namespace-declarations",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-attribute",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xsi"
+        ],
+        "conditions": [
+          "The explicit roots are those of project/namespace-declarations-xml-locationless-roots in reverse order; the verdicts do not depend on root order (I-019)."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/explicit-namespace-declarations/xml-declared.xsd",
+            "role": "principal"
+          },
+          {
+            "file": "corpus/project/attributes/explicit-namespace-declarations/xml-locationless-roots.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location",
+          "clause": "Locationless imports in I-019 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "valid",
+          "file": "corpus/project/attributes/explicit-namespace-declarations/xml-locationless-roots-valid.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+            "clause": "QName resolution over the explicit roots in XML Schema Part 1"
+          }
+        },
+        {
+          "testName": "reject-lang",
+          "file": "corpus/project/attributes/explicit-namespace-declarations/xml-locationless-roots-reject-lang.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-enumeration-valid",
+            "clause": "cvc-enumeration-valid in XML Schema Part 2"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/attributes/explicit-namespace-declarations/xml-declared.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attributes/explicit-namespace-declarations/xml-locationless-roots.xsd",
+          "role": "principal"
         },
         {
           "file": "corpus/project/attributes/explicit-namespace-declarations/xml-locationless-roots-valid.xml",
@@ -8224,6 +8373,68 @@
       ]
     },
     {
+      "id": "project/attribute-group-wildcard-expressible-reversed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/attributes/attribute-group-wildcard-expressible",
+        "conditions": [
+          "The explicit roots are those of project/attribute-group-wildcard-expressible in reverse order; the verdicts do not depend on root order (I-019)."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/attribute-group-wildcard-expressible/a.xsd",
+            "role": "principal"
+          },
+          {
+            "file": "corpus/project/attributes/attribute-group-wildcard-expressible/b.xsd",
+            "role": "principal"
+          },
+          {
+            "file": "corpus/project/attributes/attribute-group-wildcard-expressible/root.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location",
+          "clause": "Locationless imports in I-019 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "root",
+          "file": "corpus/project/attributes/attribute-group-wildcard-expressible/root.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+            "clause": "QName resolution over the explicit roots in XML Schema Part 1"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/attributes/attribute-group-wildcard-expressible/a.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attributes/attribute-group-wildcard-expressible/b.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attributes/attribute-group-wildcard-expressible/root.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attributes/attribute-group-wildcard-expressible/root.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
       "id": "project/local-attribute-wildcard-expressible",
       "expectedSource": "project",
       "source": {
@@ -8271,6 +8482,60 @@
         },
         {
           "file": "corpus/project/attributes/local-attribute-wildcard-expressible/a.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attributes/local-attribute-wildcard-expressible/foreign-attribute.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/local-attribute-wildcard-expressible-reversed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/attributes/local-attribute-wildcard-expressible",
+        "conditions": [
+          "The explicit roots are those of project/local-attribute-wildcard-expressible in reverse order; the verdicts do not depend on root order (I-019)."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/local-attribute-wildcard-expressible/a.xsd",
+            "role": "principal"
+          },
+          {
+            "file": "corpus/project/attributes/local-attribute-wildcard-expressible/root.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location",
+          "clause": "Locationless imports in I-019 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "foreign-attribute",
+          "file": "corpus/project/attributes/local-attribute-wildcard-expressible/foreign-attribute.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+            "clause": "QName resolution over the explicit roots in XML Schema Part 1"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/attributes/local-attribute-wildcard-expressible/a.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attributes/local-attribute-wildcard-expressible/root.xsd",
           "role": "principal"
         },
         {

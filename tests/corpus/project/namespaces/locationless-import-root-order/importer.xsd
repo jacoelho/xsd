@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:a="urn:a" targetNamespace="urn:r" elementFormDefault="qualified">
+  <xs:import namespace="urn:a"/>
+  <xs:element name="r" type="a:T"/>
+</xs:schema>

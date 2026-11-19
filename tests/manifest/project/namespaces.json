@@ -677,6 +677,151 @@
           "role": "dependency"
         }
       ]
+    },
+    {
+      "id": "project/namespaces/locationless-import-root-order/importer-then-supplier",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/namespaces/locationless-import-root-order",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#composition-schemaImport"
+        ],
+        "conditions": [
+          "A locationless import is satisfied by a later explicit root that supplies its namespace. The verdict does not depend on root order."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/namespaces/locationless-import-root-order/importer.xsd",
+            "role": "principal"
+          },
+          {
+            "file": "corpus/project/namespaces/locationless-import-root-order/supplier.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location",
+          "clause": "Locationless imports in I-019 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-019"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "valid",
+          "file": "corpus/project/namespaces/locationless-import-root-order/valid.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location",
+            "clause": "Locationless imports in I-019 of docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "invalid",
+          "file": "corpus/project/namespaces/locationless-import-root-order/invalid.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location",
+            "clause": "Locationless imports in I-019 of docs/spec/INTERPRETATIONS.md"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/namespaces/locationless-import-root-order/importer.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/namespaces/locationless-import-root-order/supplier.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/namespaces/locationless-import-root-order/valid.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/locationless-import-root-order/invalid.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/namespaces/locationless-import-root-order/supplier-then-importer",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/namespaces/locationless-import-root-order",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#composition-schemaImport"
+        ],
+        "conditions": [
+          "A locationless import is satisfied by an earlier explicit root that supplies its namespace. The verdict does not depend on root order."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/namespaces/locationless-import-root-order/supplier.xsd",
+            "role": "principal"
+          },
+          {
+            "file": "corpus/project/namespaces/locationless-import-root-order/importer.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location",
+          "clause": "Locationless imports in I-019 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "valid",
+          "file": "corpus/project/namespaces/locationless-import-root-order/valid.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location",
+            "clause": "Locationless imports in I-019 of docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "invalid",
+          "file": "corpus/project/namespaces/locationless-import-root-order/invalid.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location",
+            "clause": "Locationless imports in I-019 of docs/spec/INTERPRETATIONS.md"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/namespaces/locationless-import-root-order/supplier.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/namespaces/locationless-import-root-order/importer.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/namespaces/locationless-import-root-order/valid.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/locationless-import-root-order/invalid.xml",
+          "role": "instance"
+        }
+      ]
     }
   ]
 }
