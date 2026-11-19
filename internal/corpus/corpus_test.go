@@ -158,6 +158,22 @@ func TestLoadObservations(t *testing.T) {
 	}
 }
 
+func TestLoadObservationsReadsAnAbsentShardFileAsNoRows(t *testing.T) {
+	fsys := observationFS("")
+	delete(fsys, "oracles/top-level.tsv")
+	inv, err := LoadInventory(fsys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	obs, err := LoadObservations(fsys, &inv)
+	if err != nil {
+		t.Fatalf("LoadObservations() error = %v", err)
+	}
+	if len(obs.Rows) != 0 {
+		t.Fatalf("rows = %+v, want none", obs.Rows)
+	}
+}
+
 func TestLoadObservationsRejectsBadRows(t *testing.T) {
 	for _, tt := range []struct {
 		name, rows, want string
