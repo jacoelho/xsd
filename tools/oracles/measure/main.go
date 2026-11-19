@@ -113,11 +113,16 @@ func record(inv *corpus.Inventory, results map[string]caseResult, all bool, dige
 	if err != nil {
 		return err
 	}
-	profile := corpus.Profile{Providers: versions, Date: time.Now().UTC().Format(time.DateOnly), Image: digest}
 	if all {
+		for _, p := range corpus.Providers() {
+			if versions[p] == "" {
+				return fmt.Errorf("no run reported a %s version", p)
+			}
+		}
+		profile := corpus.Profile{Providers: versions, Date: time.Now().UTC().Format(time.DateOnly), Image: digest}
 		return write(inv, results, nil, &profile)
 	}
-	kept, err := unmeasuredRows(inv, results, profile)
+	kept, err := unmeasuredRows(inv, results, digest, versions)
 	if err != nil {
 		return err
 	}
@@ -505,7 +510,8 @@ func parseRun(caseID, phase string, out []byte) ([]corpus.Row, map[corpus.Provid
 }
 
 // providerVersions returns the one version each provider reported across
-// every run.
+// every run. A provider whose every run failed, which run.sh reports with
+// version "?", has none.
 func providerVersions(results map[string]caseResult) (map[corpus.Provider]string, error) {
 	versions := make(map[corpus.Provider]string)
 	for id, res := range results {
@@ -516,27 +522,22 @@ func providerVersions(results map[string]caseResult) (map[corpus.Provider]string
 			versions[p] = v
 		}
 	}
-	for _, p := range corpus.Providers() {
-		if versions[p] == "" {
-			return nil, fmt.Errorf("no run reported a %s version", p)
-		}
-	}
 	return versions, nil
 }
 
-// unmeasuredRows returns the existing rows of every case not in results. They
-// must come from the image and provider versions of profile.
-func unmeasuredRows(inv *corpus.Inventory, results map[string]caseResult, profile corpus.Profile) ([]corpus.Row, error) {
+// unmeasuredRows returns the existing rows of every case not in results. The
+// profile they come from must name image digest and every version in versions.
+func unmeasuredRows(inv *corpus.Inventory, results map[string]caseResult, digest string, versions map[corpus.Provider]string) ([]corpus.Row, error) {
 	obs, err := corpus.LoadObservations(os.DirFS("tests"), inv)
 	if err != nil {
 		return nil, err
 	}
-	if obs.Profile.Image != profile.Image {
-		return nil, fmt.Errorf("image inputs are %s in %s but %s now; measure every project case", obs.Profile.Image, corpus.ProfilePath, profile.Image)
+	if obs.Profile.Image != digest {
+		return nil, fmt.Errorf("image inputs are %s in %s but %s now; measure every project case", obs.Profile.Image, corpus.ProfilePath, digest)
 	}
 	for _, p := range corpus.Providers() {
-		if obs.Profile.Providers[p] != profile.Providers[p] {
-			return nil, fmt.Errorf("%s is %q in %s but %q now; measure every project case", p, obs.Profile.Providers[p], corpus.ProfilePath, profile.Providers[p])
+		if v, reported := versions[p]; reported && obs.Profile.Providers[p] != v {
+			return nil, fmt.Errorf("%s is %q in %s but %q now; measure every project case", p, obs.Profile.Providers[p], corpus.ProfilePath, v)
 		}
 	}
 	return slices.DeleteFunc(obs.Rows, func(r corpus.Row) bool {
