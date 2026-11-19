@@ -87,7 +87,12 @@ static class Program
     }
 
     static void Emit(string verdict, string message) =>
-        Console.WriteLine($".NET {Environment.Version}\t{verdict}\t{Regex.Replace(message, @"\s+", " ")}");
+        Console.WriteLine($".NET {Environment.Version}\t{verdict}\t{Visible(message.Trim())}");
+
+    // Keeps CR, LF and TAB distinguishable in a one-line row: they are the discriminator in
+    // end-of-line and whitespace cases.
+    static string Visible(string s) =>
+        s.Replace("\r", "\u240D").Replace("\n", "\u240A").Replace("\t", "\u2409");
 
     static int Main(string[] args)
     {

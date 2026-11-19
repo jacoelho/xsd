@@ -79,8 +79,14 @@ public final class XercesOracle {
     }
 
     private static void emit(String verdict, String message) {
-        String clean = message == null ? "" : message.replaceAll("\\s+", " ");
+        String clean = message == null ? "" : visible(message.strip());
         System.out.println(Version.getVersion() + "\t" + verdict + "\t" + clean);
+    }
+
+    // Keeps CR, LF and TAB distinguishable in a one-line row: they are the discriminator in
+    // end-of-line and whitespace cases.
+    private static String visible(String s) {
+        return s.replace("\r", "\u240D").replace("\n", "\u240A").replace("\t", "\u2409");
     }
 
     // The first warning often names the root cause, such as an unreadable include.
