@@ -15,8 +15,8 @@
 // rebuild yields a new image ID even from unchanged inputs, so the image is
 // identified by the digest of its inputs, every file git tracks under
 // tools/oracles outside this command. Each run's output is cached under a key
-// covering that digest, the run arguments and the bytes of every case file, so
-// an interrupted measurement resumes where it stopped. Runs that report an error
+// covering that digest, the run arguments and the bytes of every argument and
+// case file, so an interrupted measurement resumes where it stopped. Runs that report an error
 // verdict are not cached and are retried once, serially, after the parallel
 // pass.
 package main
@@ -348,24 +348,30 @@ func runArgs(c *corpus.Case, instance string) []string {
 	return args
 }
 
+// cacheKey covers the image digest, the case, the run arguments and the bytes
+// of each argument file and each declared case file, since a phase file need
+// not be listed among the case files.
 func cacheKey(digest string, c *corpus.Case, args []string) (string, error) {
 	h := sha256.New()
 	writeField(h, digest)
 	writeField(h, c.ID)
+	files := make([]string, 0, len(args)+len(c.Files))
 	for _, a := range args {
 		writeField(h, a)
+		if a != "--schema" {
+			files = append(files, a)
+		}
 	}
-	files := make([]string, 0, len(c.Files))
 	for _, f := range c.Files {
-		files = append(files, f.File)
+		files = append(files, filepath.Join("tests", filepath.FromSlash(f.File)))
 	}
 	slices.Sort(files)
 	for _, name := range slices.Compact(files) {
-		data, err := os.ReadFile(filepath.Join("tests", filepath.FromSlash(name)))
+		data, err := os.ReadFile(name) //nolint:gosec // Names are inventory paths under tests.
 		if err != nil {
 			return "", err
 		}
-		writeField(h, name)
+		writeField(h, filepath.ToSlash(name))
 		writeField(h, string(data))
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
