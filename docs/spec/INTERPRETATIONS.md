@@ -1472,8 +1472,9 @@ Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13:
   base.
 - .NET and xmlschema miss ambiguity reached through group references.
 - Xerces-J gives the project result in every case listed except
-  `project/structures-local-idc-addition` and the invalid
-  `project/content-models/particle-restriction/local-idc-*` cases (above).
+  `project/structures-local-idc-addition`, the invalid
+  `project/content-models/particle-restriction/local-idc-*` cases (above) and
+  the required empty choices [I-042](#i-042--empty-choice) owns.
 
 Cases: `project/content-models/contrasts-particle-*`,
 `project/content-models/dispatch-all-sequence-forbidden`, `project/content-models/dispatch-choice-normalize-optional`, `project/content-models/dispatch-choice-normalize-repeated`, `project/content-models/dispatch-lax-missing-map`, `project/content-models/dispatch-lax-reverse`, `project/content-models/dispatch-mapandsum-count-three-minimum`, `project/content-models/dispatch-range-finite-unbounded`, `project/content-models/dispatch-sequence-required-gap`, `project/content-models/dispatch-sequence-reverse`, `project/content-models/dispatch-source-zero-elimination`, `project/content-models/dispatch-wrapper-all-required`, `project/content-models/dispatch-wrapper-choice-member-range`, `project/content-models/dispatch-wrapper-sequence-required`, `project/content-models/occurrence-boundaries/*`,

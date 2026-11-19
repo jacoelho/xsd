@@ -202,6 +202,22 @@ builtin components are seeded before the caller's `MaxSchemaDependencySteps`
 budget is installed and spend none of it, so every dependency-limit failure
 has a schema document to locate it.
 
+The content model table holds declared components. Lowering drops zero-count
+particles and keeps every declared group as its own particle; xs:anyType's
+content is a 1..1 mixed sequence holding its lax `##any` wildcard
+0..unbounded. `extensionContentType` alone builds an extension's {content
+type} (Structures §3.4.2 complex content clause 3.2), and the publication
+audit `complexContentExtendsBase` checks the same three forms. Each reader
+that reduces a model owns one rule: the restriction normalizer
+(`compareNormalizedRestriction`) owns Particle Valid (Restriction) clause 2.2
+and decides pointlessness on the declared group
+([I-028](docs/spec/INTERPRETATIONS.md#i-028--content-model-checks)); the
+execution projection (`executionModel`, `executionParticle`) owns
+language-preserving reduction before automaton construction and recognizes
+lax-any content by its shape. `restrictsUrType` alone decides the ur-type
+exemption of Derivation Valid (Restriction, Complex) clauses 5.1 and 4.3, from
+the restriction's base type.
+
 Every diagnostic about schema document content carries the document path, line
 and column. Two other kinds carry less: a failure to obtain an explicit
 document (it cannot be opened or read, or exceeds `MaxSchemaSourceBytes`)
@@ -1209,6 +1225,16 @@ graph preserves these ownership rules:
 - Rebuilding unchanged groups to relocate occurrence bounds, and cloning child
   slices inside trusted analysis, were rejected: comparison already composes
   both layers, and wide groups amplify copying cost.
+- Testing a group for pointlessness again after its children are reduced was
+  rejected: the processor tie-break settles clause 2.2 on the declared group
+  ([I-028](docs/spec/INTERPRETATIONS.md#i-028--content-model-checks)), and a
+  re-test makes a declared two-member group a singleton. Only the choice
+  clause 2.1 generates for a substitution group, which is not declared, is
+  reduced by its member count (`substitutionChoice`).
+- Keying the ur-type exemption on a content model kind or wildcard identity was
+  rejected: a type that inherits xs:anyType's content shares that identity
+  without being xs:anyType, and clause 5.1 names the base type. Particle
+  comparison has no ur-type concept.
 - Discarding generated-choice provenance during flattening, or using global
   unordered flags with permutation search, was rejected: either reintroduces
   storage-order dependence or waives explicit sibling order (I-005).
