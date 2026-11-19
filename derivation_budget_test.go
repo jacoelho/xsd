@@ -148,11 +148,29 @@ func expectAllocUnder(t *testing.T, got uint64, limitMiB uint64) {
 	}
 }
 
+func expectSchemaLimit(t *testing.T, err error) {
+	t.Helper()
+	if err == nil {
+		t.Fatal("compilation succeeded, want schema.limit")
+	}
+	expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
+}
+
+func fanOutSchema(n, refs int) string {
+	var b strings.Builder
+	b.WriteString(`<xs:schema ` + xsNS + `>` + doublingGroups(n) + `<xs:complexType name="T"><xs:sequence>`)
+	for range refs {
+		fmt.Fprintf(&b, `<xs:group ref="g%d"/>`, n)
+	}
+	b.WriteString(`</xs:sequence></xs:complexType><xs:element name="root" type="T"/></xs:schema>`)
+	return b.String()
+}
+
 func TestExpandedGroupReferencesAreChargedToAnalysisBudget(t *testing.T) {
 	const analysis = "MaxContentModelAnalysisSteps"
 	t.Run("doubling groups at default", func(t *testing.T) {
 		alloc, err := compileAllocated(t, doublingSchema(20))
-		expectNamedLimit(t, err, analysis)
+		expectSchemaLimit(t, err)
 		expectAllocUnder(t, alloc, 128)
 	})
 	t.Run("doubling groups at small budget", func(t *testing.T) {
@@ -163,19 +181,21 @@ func TestExpandedGroupReferencesAreChargedToAnalysisBudget(t *testing.T) {
 		_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxContentModelAnalysisSteps: 1000}, xsd.Bytes("d.xsd", []byte(schema)))
 		expectNamedLimit(t, err, analysis)
 	})
-	t.Run("fan-out of a large group", func(t *testing.T) {
-		parent := func(refs int) string {
-			var b strings.Builder
-			b.WriteString(`<xs:schema ` + xsNS + `>` + doublingGroups(18) + `<xs:complexType name="T"><xs:sequence>`)
-			for range refs {
-				b.WriteString(`<xs:group ref="g18"/>`)
-			}
-			b.WriteString(`</xs:sequence></xs:complexType><xs:element name="root" type="T"/></xs:schema>`)
-			return b.String()
-		}
-		alloc, err := compileAllocated(t, parent(64))
-		expectNamedLimit(t, err, analysis)
+	t.Run("fan-out of a large group at default", func(t *testing.T) {
+		alloc, err := compileAllocated(t, fanOutSchema(18, 64))
+		expectSchemaLimit(t, err)
 		expectAllocUnder(t, alloc, 128)
+	})
+	t.Run("fan-out charges each reference once", func(t *testing.T) {
+		// One reference to g12 (4,096 elements) compiles in about 100,000
+		// steps, two need about 133,000, and charging the expansion of one
+		// reference twice needs about 137,000.
+		opts := xsd.CompileOptions{MaxContentModelAnalysisSteps: 115_000}
+		if _, err := xsd.CompileWithOptions(opts, xsd.Bytes("f.xsd", []byte(fanOutSchema(12, 1)))); err != nil {
+			t.Fatalf("one reference: %v", err)
+		}
+		_, err := xsd.CompileWithOptions(opts, xsd.Bytes("f.xsd", []byte(fanOutSchema(12, 2))))
+		expectNamedLimit(t, err, analysis)
 	})
 }
 

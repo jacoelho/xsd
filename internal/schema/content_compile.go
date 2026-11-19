@@ -550,7 +550,8 @@ func (c *contentModelCompiler) checkSequenceContinuation(candidate, next content
 		return false, err
 	}
 	if !overlap {
-		return next.Occurs.Min > 0, nil
+		emptiable, err := c.analysis.ParticleEmptiable(next)
+		return !emptiable, err
 	}
 	if !modelOccurs.IsExactlyOne() && c.wildcardEquivalentOverlap(candidate, next) {
 		return false, nil
@@ -558,6 +559,8 @@ func (c *contentModelCompiler) checkSequenceContinuation(candidate, next content
 	return false, c.upaError("UPA violation: duplicate element in sequence", name)
 }
 
+// particleContinuationParticles returns the particles of p that compete with
+// the particles following p in its parent sequence (cos-nonambig).
 func (c *contentModelCompiler) particleContinuationParticles(p contentParticle) ([]contentParticle, error) {
 	if err := c.work.spend(1); err != nil {
 		return nil, err
@@ -617,13 +620,35 @@ func (c *contentModelCompiler) modelContinuationParticles(model contentModelNode
 		return nil, err
 	}
 	switch model.Kind {
-	case modelSequence, modelChoice:
+	case modelSequence:
+		tail, err := c.sequenceTail(model.Particles)
+		if err != nil {
+			return nil, err
+		}
+		return c.appendParticleContinuations(out, tail)
+	case modelChoice:
 		return c.appendParticleContinuations(out, model.Particles)
 	case modelEmpty, modelAll:
 		return out, nil
 	default:
 	}
 	return out, nil
+}
+
+// sequenceTail returns the particles that can match the last element of a
+// sequence: an element matched before its last non-emptiable particle is
+// always followed by one that particle matches.
+func (c *contentModelCompiler) sequenceTail(particles []contentParticle) ([]contentParticle, error) {
+	for i, p := range slices.Backward(particles) {
+		emptiable, err := c.analysis.ParticleEmptiable(p)
+		if err != nil {
+			return nil, err
+		}
+		if !emptiable {
+			return particles[i:], nil
+		}
+	}
+	return particles, nil
 }
 
 func (c *contentModelCompiler) repeatedModelStartParticles(model contentModelNode) ([]contentParticle, error) {
@@ -697,8 +722,9 @@ func (c *contentModelCompiler) wildcardCandidateOverlaps(particles []contentPart
 		if c.wildcardEquivalentOverlap(candidate, particles[i]) {
 			return true, nil
 		}
-		if particles[i].Occurs.Min > 0 {
-			break
+		emptiable, err := c.analysis.ParticleEmptiable(particles[i])
+		if err != nil || !emptiable {
+			return false, err
 		}
 	}
 	return false, nil

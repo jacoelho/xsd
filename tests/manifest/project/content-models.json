@@ -31102,6 +31102,648 @@
           "role": "principal"
         }
       ]
+    },
+    {
+      "id": "project/content-models/attribution/nested-sequence-tail/nested-optional-before-required",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/attribution/nested-sequence-tail/nested-optional-before-required.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Unique Particle Attribution compares the particles that can match the last element of a nested group with those that may follow the group. Within a nested sequence only the last particle that is not emptiable, and the particles after it, can match its last element; a choice can end in any member."
+        ],
+        "description": "A nested sequence (x?, y) followed by x: the optional x is followed by the required y inside the nested sequence, so it never competes with the outer x."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/attribution/nested-sequence-tail/nested-optional-before-required.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "clause": "Unique Particle Attribution"
+        }
+      },
+      "instances": [
+        {
+          "testName": "y-x",
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/nested-optional-before-required-y-x.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "x-x",
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/nested-optional-before-required-x-x.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/nested-optional-before-required.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/nested-optional-before-required-y-x.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/nested-optional-before-required-x-x.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/attribution/nested-sequence-tail/group-ref-optional-before-required",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/attribution/nested-sequence-tail/group-ref-optional-before-required.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Unique Particle Attribution compares the particles that can match the last element of a nested group with those that may follow the group. Within a nested sequence only the last particle that is not emptiable, and the particles after it, can match its last element; a choice can end in any member."
+        ],
+        "description": "A group reference to (x?, y) followed by x is unambiguous."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/attribution/nested-sequence-tail/group-ref-optional-before-required.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "clause": "Unique Particle Attribution"
+        }
+      },
+      "instances": [
+        {
+          "testName": "y-x",
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/group-ref-optional-before-required-y-x.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/group-ref-optional-before-required.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/group-ref-optional-before-required-y-x.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/attribution/nested-sequence-tail/extension-optional-before-required",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/attribution/nested-sequence-tail/extension-optional-before-required.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Unique Particle Attribution compares the particles that can match the last element of a nested group with those that may follow the group. Within a nested sequence only the last particle that is not emptiable, and the particles after it, can match its last element; a choice can end in any member."
+        ],
+        "description": "An extension adds x to a base (x?, y); the base optional x never competes with the added x."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/attribution/nested-sequence-tail/extension-optional-before-required.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "clause": "Unique Particle Attribution"
+        }
+      },
+      "instances": [
+        {
+          "testName": "y-x",
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/extension-optional-before-required-y-x.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/extension-optional-before-required.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/extension-optional-before-required-y-x.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/attribution/nested-sequence-tail/choice-nested-optional-before-required",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/attribution/nested-sequence-tail/choice-nested-optional-before-required.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Unique Particle Attribution compares the particles that can match the last element of a nested group with those that may follow the group. Within a nested sequence only the last particle that is not emptiable, and the particles after it, can match its last element; a choice can end in any member."
+        ],
+        "description": "A choice of the sequence (x?, y) and z, followed by x, is unambiguous."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/attribution/nested-sequence-tail/choice-nested-optional-before-required.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "clause": "Unique Particle Attribution"
+        }
+      },
+      "instances": [
+        {
+          "testName": "z-x",
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/choice-nested-optional-before-required-z-x.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/choice-nested-optional-before-required.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/choice-nested-optional-before-required-z-x.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/attribution/nested-sequence-tail/choice-group-ref-optional-before-required",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/attribution/nested-sequence-tail/choice-group-ref-optional-before-required.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Unique Particle Attribution compares the particles that can match the last element of a nested group with those that may follow the group. Within a nested sequence only the last particle that is not emptiable, and the particles after it, can match its last element; a choice can end in any member."
+        ],
+        "description": "A choice of a group reference to (x?, y) and z, followed by x, is unambiguous."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/attribution/nested-sequence-tail/choice-group-ref-optional-before-required.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "clause": "Unique Particle Attribution"
+        }
+      },
+      "instances": [
+        {
+          "testName": "z-x",
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/choice-group-ref-optional-before-required-z-x.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/choice-group-ref-optional-before-required.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/choice-group-ref-optional-before-required-z-x.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/attribution/nested-sequence-tail/deep-nested-optional-before-required",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/attribution/nested-sequence-tail/deep-nested-optional-before-required.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Unique Particle Attribution compares the particles that can match the last element of a nested group with those that may follow the group. Within a nested sequence only the last particle that is not emptiable, and the particles after it, can match its last element; a choice can end in any member."
+        ],
+        "description": "A sequence of the sequences (x?, y) and (y?), followed by x: the optional x is followed by a required y, so it never competes with the outer x."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/attribution/nested-sequence-tail/deep-nested-optional-before-required.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "clause": "Unique Particle Attribution"
+        }
+      },
+      "instances": [
+        {
+          "testName": "y-x",
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/deep-nested-optional-before-required-y-x.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/deep-nested-optional-before-required.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/deep-nested-optional-before-required-y-x.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/attribution/nested-sequence-tail/nested-trailing-optional",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/attribution/nested-sequence-tail/nested-trailing-optional.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Unique Particle Attribution compares the particles that can match the last element of a nested group with those that may follow the group. Within a nested sequence only the last particle that is not emptiable, and the particles after it, can match its last element; a choice can end in any member."
+        ],
+        "description": "A nested sequence (y, x?) followed by x: the trailing optional x competes with the outer x."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/attribution/nested-sequence-tail/nested-trailing-optional.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "clause": "Unique Particle Attribution"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/nested-trailing-optional.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/attribution/nested-sequence-tail/choice-nested-trailing-optional",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/attribution/nested-sequence-tail/choice-nested-trailing-optional.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Unique Particle Attribution compares the particles that can match the last element of a nested group with those that may follow the group. Within a nested sequence only the last particle that is not emptiable, and the particles after it, can match its last element; a choice can end in any member."
+        ],
+        "description": "A choice of the sequence (y, x?) and z, followed by x: the trailing optional x competes with the outer x."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/attribution/nested-sequence-tail/choice-nested-trailing-optional.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "clause": "Unique Particle Attribution"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/choice-nested-trailing-optional.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/attribution/nested-sequence-tail/nested-repeated-required-tail",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/attribution/nested-sequence-tail/nested-repeated-required-tail.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Unique Particle Attribution compares the particles that can match the last element of a nested group with those that may follow the group. Within a nested sequence only the last particle that is not emptiable, and the particles after it, can match its last element; a choice can end in any member."
+        ],
+        "description": "A nested sequence (x?, y+) followed by y: the required but repeatable y ends the nested sequence and competes with the outer y."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/attribution/nested-sequence-tail/nested-repeated-required-tail.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "clause": "Unique Particle Attribution"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/nested-repeated-required-tail.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/attribution/nested-sequence-tail/deep-nested-trailing",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/attribution/nested-sequence-tail/deep-nested-trailing.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Unique Particle Attribution compares the particles that can match the last element of a nested group with those that may follow the group. Within a nested sequence only the last particle that is not emptiable, and the particles after it, can match its last element; a choice can end in any member."
+        ],
+        "description": "A sequence of the sequences (x?, y) and (y?), followed by y: both nested y particles can end the outer group and compete with the following y."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/attribution/nested-sequence-tail/deep-nested-trailing.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "clause": "Unique Particle Attribution"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/deep-nested-trailing.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/attribution/nested-sequence-tail/emptiable-group-between",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/attribution/nested-sequence-tail/emptiable-group-between.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Unique Particle Attribution compares the particles that can match the last element of a nested group with those that may follow the group. Within a nested sequence only the last particle that is not emptiable, and the particles after it, can match its last element; a choice can end in any member."
+        ],
+        "description": "An optional x, a required but emptiable sequence (y?), then x: the emptiable group does not separate the two x particles."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/attribution/nested-sequence-tail/emptiable-group-between.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "clause": "Unique Particle Attribution"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/emptiable-group-between.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/attribution/nested-sequence-tail/emptiable-group-ref-between",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/attribution/nested-sequence-tail/emptiable-group-ref-between.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Unique Particle Attribution compares the particles that can match the last element of a nested group with those that may follow the group. Within a nested sequence only the last particle that is not emptiable, and the particles after it, can match its last element; a choice can end in any member."
+        ],
+        "description": "An optional x, a required reference to the emptiable group (y?), then x: the emptiable group does not separate the two x particles."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/attribution/nested-sequence-tail/emptiable-group-ref-between.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "clause": "Unique Particle Attribution"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/emptiable-group-ref-between.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/attribution/nested-sequence-tail/nested-wildcard-before-required",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/attribution/nested-sequence-tail/nested-wildcard-before-required.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Unique Particle Attribution compares the particles that can match the last element of a nested group with those that may follow the group. Within a nested sequence only the last particle that is not emptiable, and the particles after it, can match its last element; a choice can end in any member."
+        ],
+        "description": "A nested sequence of an optional ##other wildcard and a required y, followed by an equal ##other wildcard, is unambiguous."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/attribution/nested-sequence-tail/nested-wildcard-before-required.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "clause": "Unique Particle Attribution"
+        }
+      },
+      "instances": [
+        {
+          "testName": "y-other",
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/nested-wildcard-before-required-y-other.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/nested-wildcard-before-required.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/nested-wildcard-before-required-y-other.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/attribution/nested-sequence-tail/repeated-nested-wildcard-before-required",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/attribution/nested-sequence-tail/repeated-nested-wildcard-before-required.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Unique Particle Attribution compares the particles that can match the last element of a nested group with those that may follow the group. Within a nested sequence only the last particle that is not emptiable, and the particles after it, can match its last element; a choice can end in any member."
+        ],
+        "description": "A repeated sequence of the nested sequence (##other?, y) and an equal ##other wildcard is unambiguous."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/attribution/nested-sequence-tail/repeated-nested-wildcard-before-required.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "clause": "Unique Particle Attribution"
+        }
+      },
+      "instances": [
+        {
+          "testName": "y-other-y-other",
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/repeated-nested-wildcard-before-required-y-other-y-other.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/repeated-nested-wildcard-before-required.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/repeated-nested-wildcard-before-required-y-other-y-other.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/attribution/nested-sequence-tail/nested-wildcard-trailing",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/attribution/nested-sequence-tail/nested-wildcard-trailing.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Unique Particle Attribution compares the particles that can match the last element of a nested group with those that may follow the group. Within a nested sequence only the last particle that is not emptiable, and the particles after it, can match its last element; a choice can end in any member."
+        ],
+        "description": "A nested sequence of y and an optional ##other wildcard, followed by an equal ##other wildcard: the two wildcards compete."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/attribution/nested-sequence-tail/nested-wildcard-trailing.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "clause": "Unique Particle Attribution"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/attribution/nested-sequence-tail/nested-wildcard-trailing.xsd",
+          "role": "principal"
+        }
+      ]
     }
   ]
 }

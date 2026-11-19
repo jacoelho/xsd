@@ -1354,6 +1354,14 @@ A particle with `minOccurs` and `maxOccurs` 0 maps to no component
 (§3.7.2). Where a particle shared through two group references makes Unique
 Particle Attribution doubtful (`project/structures-group-two-ref-choice`), the
 processor tie-break settles it by Xerces-J, which agrees with the project.
+Unique Particle Attribution compares the particles that can match the last
+element of a nested group with the particles that may follow it, and within a
+nested sequence only its last particle that is not emptiable and the particles
+after it can match that element, however the sequence is nested: in a
+sequence, a group reference, a choice or an extension. All four providers
+agree on these cases except that libxml2 accepts two equal `##other` wildcards
+that compete across a nested sequence
+(`project/content-models/attribution/nested-sequence-tail/*`).
 
 **Single-member all groups (rule P).** Clause 2.2 of Particle Valid
 (Restriction) calls a group with one member pointless, and its prose names the

@@ -225,7 +225,10 @@ particle visited and stopping when compilation stops, and `executionModel`
 lifts a model whose walk yields one particle and otherwise hands the declared
 model to automaton construction, which walks nested groups as declared;
 `executionParticle` reduces singleton particles for direct compilation, and
-the projection recognizes lax-any content by its shape. The count analysis
+the projection recognizes lax-any content by its shape. The direct Unique
+Particle Attribution check (`checkContentModelUPA`) also reads nested groups as
+declared, and `sequenceTail` alone decides which particles of a nested
+sequence can match its last element. The count analysis
 (`countRange`) represents a term that matches nothing, so such a member adds
 no alternative to a choice. `restrictsUrType` alone decides the ur-type
 exemption of Derivation Valid (Restriction, Complex) clauses 5.1 and 4.3, from
