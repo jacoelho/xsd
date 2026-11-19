@@ -555,3 +555,28 @@ func fixtureComplexTypes(in []complexTypeDerivation) []complexTypeMetadata {
 func (f derivationFixture) build() *schemaBuild {
 	return &schemaBuild{SimpleTypes: fixtureSimpleTypes(f.simple), ComplexTypes: fixtureComplexTypes(f.complex), AnyType: f.anyType}
 }
+
+func TestMarkSimpleTypeSeenTreatsAnIDBeyondTheSetAsUnmarkable(t *testing.T) {
+	for _, id := range []SimpleTypeID{64, 1 << 31, 1<<31 + 1, ^SimpleTypeID(0)} {
+		seen := make([]uint64, 1)
+		if markSimpleTypeSeen(seen, id) {
+			t.Errorf("markSimpleTypeSeen(%d) = true, want false for an ID beyond the set", id)
+		}
+		if seen[0] != 0 {
+			t.Errorf("markSimpleTypeSeen(%d) set %#x, want nothing", id, seen[0])
+		}
+	}
+}
+
+func TestMarkSimpleTypeSeenMarksAnIDOnce(t *testing.T) {
+	seen := make([]uint64, 2)
+	if !markSimpleTypeSeen(seen, 127) {
+		t.Fatal("first markSimpleTypeSeen(127) = false, want true")
+	}
+	if markSimpleTypeSeen(seen, 127) {
+		t.Fatal("second markSimpleTypeSeen(127) = true, want false")
+	}
+	if seen[0] != 0 || seen[1] != 1<<63 {
+		t.Fatalf("seen = %#x, want only bit 63 of word 1", seen)
+	}
+}

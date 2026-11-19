@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:simpleType name="T"><xs:restriction base="xs:gYear"><xs:pattern value="2000\+00:00"/></xs:restriction></xs:simpleType><xs:attribute name="a" type="T"/><xs:element name="root"><xs:complexType><xs:attribute ref="a" fixed="2000+00:00"/></xs:complexType></xs:element></xs:schema>

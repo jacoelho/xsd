@@ -1,0 +1,3938 @@
+{
+  "cases": [
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgA001",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgA001"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration with optional attribute id='a'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgA001",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgA001.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgA001.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgA002",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgA002"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration with optional attribute id='0'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgA002",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgA002.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgA002.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgA003",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgA003"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration with optional attribute id=''",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgA003",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgA003.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgA003.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgA004",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgA004"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration with attribute id=':a'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgA004",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgA004.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgA004.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgA005",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgA005"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroups: 2 global attributeGroups with same ID",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgA005",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgA005.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgA005.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgA006",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgA006"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroups: 2 attributeGroups, one is global and one is from 'redefine', with same ID",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgA006",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgA006.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgA006.imp",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgA006.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgA007",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgA007"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroups: 2 attributeGroup, one is from complexType and one is inside another attributeGroup of some extension, with same ID",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgA007",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgA007.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgA007.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgA008",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgA008"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroups: 2 attributeGroup, one is from imported xsd, and one is from included xsd, with same ID",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgA008",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgA008.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgA008.imp",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgA008.inc",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgA008.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgA009",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgA009"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroups: redefine an attributeGroup and give it an existing ID",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgA009",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgA009.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgA009.imp",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgA009.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgB001",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgB001"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration with attribute name='a'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgB001",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgB001.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB001.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgB002",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgB002"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: cannot have name attribute if not global, parent is attributeGroup, name='a'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgB002",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgB002.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB002.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgB003",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgB003"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: cannot have name attribute if not global, parent is complexType, name='a'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgB003",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgB003.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB003.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgB004",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgB004"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: cannot have name attribute if not global, parent is extension, name='a'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgB004",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgB004.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB004.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgB005",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgB005"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: cannot have name attribute if not global (redefining global is ok), parent is redefine, name='a'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgB005",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgB005.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB005.xsd"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB005vRed.xsd",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgB006",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgB006"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration with attribute name='0'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgB006",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgB006.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB006.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgB007",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgB007"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration with attribute name=''",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgB007",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgB007.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB007.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgB008",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgB008"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration with attribute name='msxml'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgB008",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgB008.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB008.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgB009",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgB009"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: 2 attributeGroups, one imported, one included with same name but different targetNamespace",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgB009",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgB009.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB009.imp",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB009.inc",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB009.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgB010",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgB010"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: 2 global attributeGroups with same name",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgB010",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgB010.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB010.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgB011",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgB011"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: 2 attributeGroups with same name both of them from different redefine, with same namespac.",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgB011",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgB011.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB011.imp",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB011.red",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB011.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgB012",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgB012"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: 2 attributeGroups with same name both of them from different import, with different namespac.",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgB012",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgB012.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB012.imp",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB012.red",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB012.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgB013",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgB013"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: 2 imported attributeGroups with same name and same targetNamespace",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgB013",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgB013.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB013.imp",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB013.xsd"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB013v1.imp",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgB014",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgB014"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: 2 imported attributeGroups with same name but different targetNamespace",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgB014",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgB014.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB014.imp",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB014.xsd"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB014vRed.xsd",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgB015",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgB015"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: 2 attributeGroups, one imported, one included with same name and same targetNamespace",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgB015",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgB015.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB015.imp",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB015.inc",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgB015.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC001",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC001"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: cannot have ref attribute on global, parent is schema, ref='name of a global attribute group '",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC001",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC001.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC001.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC002",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC002"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: parent is attributeGroup, ref='name of a global attribute group declared at the beginning of xsd'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC002",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC002.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC002.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC003",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC003"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: parent is attributeGroup, ref='name of a global attribute group from imported xsd'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC003",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC003.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC003.imp",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC003.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC004",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC004"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: parent is attributeGroup, ref='name of a global attribute group from included xsd'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC004",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC004.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC004.imp",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC004.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC005",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC005"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: can only reference global attributeGroup parent is attributeGroup, ref='name of global attribute group declared at the end of xsd'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC005",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC005.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC005.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC006",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC006"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: can only reference global attributeGroup parent is attributeGroup, ref='name of attribute group declared inside a redefine', and xml instant has value different what is defined as fixed in the redefined attributeGroup.",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC006",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC006.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgC006.i",
+          "file": "corpus/w3c/msData/attributeGroup/attgC006.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC006.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC006.xsd"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC006vRed.xsd",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC007",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC007"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: can only reference global attributeGroup parent is attributeGroup, ref='name of attribute group declared inside a redefine', and xml instant has value same as what is defined as fixed in the redefined attributeGroup.",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC007",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC007.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgC007.v",
+          "file": "corpus/w3c/msData/attributeGroup/attgC007.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC007.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC007.xsd"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC007vRed.xsd",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC008",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC008"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: can only reference global attributeGroup parent is attributeGroup, ref='foo (not a valid reference to an attributeGroup)'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC008",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC008.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC008.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC009",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC009"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: can only reference global attributeGroup parent is attributeGroup, ref=''",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC009",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC009.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC009.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC010",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC010"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: self referencing, name=\"test\", has child attributeGroup that also has, parent is attributeGroup, ref='test'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC010",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC010.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC010.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC011",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC011"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: can only reference global attributeGroup parent is attributeGroup, ref='foo (a name of a global attribute)'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC011",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC011.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC011.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC012",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC012"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: can only reference global attributeGroup parent is attributeGroup, ref='very very log string ( more than 9999 chars)'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC012",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC012.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC012.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC013",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC013"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: parent is complexType, ref='name of a global attribute group declared at the beginning of xsd'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC013",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC013.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC013.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC014",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC014"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: parent is complexType, ref='name of a global attribute group from imported xsd'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC014",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC014.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC014.imp",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC014.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC015",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC015"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: parent is complexType, ref='name of a global attribute group from included xsd'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC015",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC015.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC015.imp",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC015.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC016",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC016"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: can only reference global attributeGroup parent is complexType, ref='name of global attribute group declared at the end of xsd'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC016",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC016.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC016.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC017",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC017"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: can only reference global attributeGroup parent is complexType, ref='name of attribute group declared inside a redefine'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC017",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC017.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC017.imp",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC017.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC018",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC018"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: can only reference global attributeGroup parent is complexType, ref='foo (not a valid reference to an attributeGroup)'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC018",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC018.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC018.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC019",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC019"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: can only reference global attributeGroup parent is complexType, ref=''",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC019",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC019.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC019.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC020",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC020"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: self referencing, name=\"test\", has child attributeGroup that also has, parent is complexType, ref='test'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC020",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC020.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC020.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC021",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC021"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: can only reference global attributeGroup parent is complexType, ref='foo (a name of a global attribute)'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC021",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC021.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC021.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC022",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC022"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: can only reference global attributeGroup parent is complexType, ref='very very log string ( more than 9999 chars)'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC022",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC022.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC022.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC023",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC023"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: parent is extension, ref='name of a global attribute group declared at the beginning of xsd'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC023",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC023.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC023.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC024",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC024"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: parent is extension, ref='name of a global attribute group from imported xsd'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC024",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC024.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgC024.v",
+          "file": "corpus/w3c/msData/attributeGroup/attgC024.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC024.imp",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC024.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC024.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC025",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC025"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: parent is extension, ref='name of a global attribute group from included xsd'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC025",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC025.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgC025.i",
+          "file": "corpus/w3c/msData/attributeGroup/attgC025.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC025.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC025.xsd"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC025vInc.xsd",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC026",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC026"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: parent is extension, ref='name of a global attribute group from included xsd'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC026",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC026.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgC026.v",
+          "file": "corpus/w3c/msData/attributeGroup/attgC026.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC026.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC026.xsd"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC026vInc.xsd",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC027",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC027"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: can only reference global attributeGroup parent is extension, ref='name of global attribute group declared at the end of xsd'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC027",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC027.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC027.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC028",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC028"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: can only reference global attributeGroup parent is extension, ref='name of attribute group declared inside a redefine'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC028",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC028.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC028.imp",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC028.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC029",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC029"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: can only reference global attributeGroup parent is extension, ref='foo (not a valid reference to an attributeGroup)'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC029",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC029.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC029.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC030",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC030"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: can only reference global attributeGroup parent is extension, ref=''",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC030",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC030.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC030.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC031",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC031"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: self referencing, name=\"test\", has child attributeGroup that also has, parent is extension, ref='test'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC031",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC031.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC031.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC032",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC032"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: can only reference global attributeGroup parent is extension, ref='foo (a name of a global attribute)'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC032",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC032.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC032.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC033",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC033"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: can only reference global attributeGroup parent is extension, ref='very very log string ( more than 9999 chars)'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC033",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC033.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC033.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC034",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC034"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: parent is redefine, ref='name of a global attribute group declared at the beginning of xsd'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC034",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC034.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC034.imp",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC034.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC035",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC035"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: parent is redefine, ref='name of a global attribute group from imported xsd'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC035",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC035.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgC035.v",
+          "file": "corpus/w3c/msData/attributeGroup/attgC035.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC035.imp",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC035.red",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC035.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC035.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC036",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC036"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: parent is redefine, ref='name of a global attribute group from included xsd'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC036",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC036.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgC036.v",
+          "file": "corpus/w3c/msData/attributeGroup/attgC036.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC036.inc",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC036.red",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC036.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC036.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC037",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC037"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: can only reference global attributeGroup parent is redefine, ref='name of global attribute group declared at the end of xsd'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC037",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC037.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgC037.v",
+          "file": "corpus/w3c/msData/attributeGroup/attgC037.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC035.red",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC037.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC037.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC038",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC038"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: can only reference global attributeGroup parent is redefine, ref='name of attribute group declared inside a redefine'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC038",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC038.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgC038.v",
+          "file": "corpus/w3c/msData/attributeGroup/attgC038.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC038.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC038.xsd"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC038v1.red",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC038v2.red",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC039",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC039"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: can only reference global attributeGroup parent is redefine, ref='foo (not a valid reference to an attributeGroup)'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC039",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC039.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC039.red",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC039.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC040",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC040"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: can only reference global attributeGroup parent is redefine, ref=''",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC040",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC040.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC040.red",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC040.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC041",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC041"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: circular Ref is allow if parent is redefine, name=\"test\", has child attributeGroup that also has, parent is redefine, ref='test'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC041",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC041.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC041.red",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC041.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC042",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC042"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: can only reference global attributeGroup parent is redefine, ref='foo (a name of a global attribute)'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC042",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC042.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC042.red",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC042.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC043",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC043"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Test attributeGroup declaration: can only reference global attributeGroup parent is redefine, ref='very very log string ( more than 9999 chars)'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC043",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC043.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC043.red",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC043.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC044",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC044"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : attributeGroup with two attributeGroup as children, both has ref=\"foo\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC044",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC044.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC044.red",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC044.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgC045",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgC045"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : attributeGroup with name=\"foo\", complexType with name='foo'",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgC045",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgC045.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC044.red",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgC045.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD001",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD001"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : attributeGroup with annotation",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD001",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD001.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD001.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD002",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD002"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : attributeGroup with two annotation",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD002",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD002.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD002.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD003",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD003"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : attributeGroup with 2000 attribute decl as child, the xml has the 2000 attributes",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD003",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD003.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgD003.v",
+          "file": "corpus/w3c/msData/attributeGroup/attgD003.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD003.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD003.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD004",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD004"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : attributeGroup with just another attributeGroup, the xml has the attributes",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD004",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD004.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgD004.v",
+          "file": "corpus/w3c/msData/attributeGroup/attgD004.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD004.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD004.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD005",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD005"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : attributeGroup with child in the sequence of ( att, attg, att, attg, att), the xml has the attributes",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD005",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD005.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgD005.v",
+          "file": "corpus/w3c/msData/attributeGroup/attgD005.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD005.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD005.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD006",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD006"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : attributeGroup with two attribute, same name, same namespace",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD006",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD006.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD006.inc",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD006.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD007",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD007"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : attribute group with two attribute, where the name of one att is same as the ref value of the other",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD007",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD007.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD007.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD008",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD008"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : attributeGroup with two attribute, same name, same type",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD008",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD008.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD008.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD009",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD009"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : attributeGroup with two attribute, same name, different type",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD009",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD009.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD009.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD010",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD010"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : attributeGroup with child attribute and attributeGroup which intern reference to different attributeGroup containing attributes and attributeGroup",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD010",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD010.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD010.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD011",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD011"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : attributeGroup with child attributeGroup that reference to an element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD011",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD011.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD011.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD012",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD012"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : attributeGroup with child element declaration",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD012",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD012.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD012.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD013",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD013"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : attributeGroup with child attributeGroup that reference to a simpleType",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD013",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD013.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD013.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD014",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD014"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : attributeGroup with child attributeGroup that reference to complexType",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD014",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD014.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD014.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD015",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD015"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Basic AttributeGroup ( w/ name = foo and containing an attributeGroup with ref = foobar) and attributeGroup (w/ name=foobar and containing an attributeGroup with ref=foo)",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD015",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD015.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD015.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD016",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD016"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : attributeGroup that has two attributeGroups, which reference to two different attributeGroups that reference the same attribute",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD016",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD016.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD016.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD017",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD017"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : attributeGroup that has two attributeGroups, parent is redefined, attG1 reference a global attributeGroup which define an attribute 'foo', attG2 reference the redefining xsd's attributeGroup 'foo' with same namespace",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD017",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD017.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD017.imp",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD017.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD018",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD018"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Basic AttributeGroup with anyAttribute (w/ id)",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD018",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD018.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgD018.v",
+          "file": "corpus/w3c/msData/attributeGroup/attgD018.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD018.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD018.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD019",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD019"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Basic AttributeGroup with anyAttribute (w/ annotation)",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD019",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD019.xsd"
+          },
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD019a.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgD019.v",
+          "file": "corpus/w3c/msData/attributeGroup/attgD019.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD019.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD019.xsd"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD019a.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD020",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD020"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Basic AttributeGroup with anyAttribute (w/ namespace=##any), the xml has the attribute instance with no namespace",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD020",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD020.xsd"
+          },
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD020a.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgD020.v",
+          "file": "corpus/w3c/msData/attributeGroup/attgD020.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD020.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD020.xsd"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD020a.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD021",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD021"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Basic AttributeGroup with anyAttribute (w/ namespace=##any), the xml has the attribute instance with \"foo\" as its namespace",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD021",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD021.xsd"
+          },
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD021a.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgD021.v",
+          "file": "corpus/w3c/msData/attributeGroup/attgD021.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD021.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD021.xsd"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD021a.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD022",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD022"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Basic AttributeGroup with anyAttribute (w/ namespace=##other), the xml has the attribute instance with namespace different from the targetNamdspace of the xsd",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD022",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD022.xsd"
+          },
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD022a.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgD022.v",
+          "file": "corpus/w3c/msData/attributeGroup/attgD022.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD022.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD022.xsd"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD022a.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD023",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD023"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Basic AttributeGroup with anyAttribute (w/ namespace=##other), the xml has the attribute instance with namespace same as the targetNamdspace of the xsd",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD023",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD023.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgD023.i",
+          "file": "corpus/w3c/msData/attributeGroup/attgD023.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD023.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD023.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD024",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD024"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Basic AttributeGroup with anyAttribute (w/ namespace=##any), the xml has the attribute instance which fall under targetNS, but not defiled in the schema",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD024",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD024.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgD024.i",
+          "file": "corpus/w3c/msData/attributeGroup/attgD024.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD024.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD024.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD025",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD025"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Basic AttributeGroup with anyAttribute (w/ namespace=##local), the xml has the attribute instance which is namespace UNqualified",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD025",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD025.xsd"
+          },
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD025a.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgD025.v",
+          "file": "corpus/w3c/msData/attributeGroup/attgD025.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD025.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD025.xsd"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD025a.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD026",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD026"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Basic AttributeGroup with anyAttribute (w/ namespace=##local), the xml has the attribute instance which is namespace qualified",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD026",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD026.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgD026.i",
+          "file": "corpus/w3c/msData/attributeGroup/attgD026.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD026.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD026.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD027",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD027"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Basic AttributeGroup with anyAttribute (w/ namespace=\"foo\"), the xml has the attribute instance which is of namespace \"foo\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD027",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD027.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgD027.v",
+          "file": "corpus/w3c/msData/attributeGroup/attgD027.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD027.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD027.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD028",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD028"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Basic AttributeGroup with anyAttribute (w/ namespace=\"foo\"), the xml has the attribute instance which is of namespace \"bar\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD028",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD028.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgD028.i",
+          "file": "corpus/w3c/msData/attributeGroup/attgD028.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD028.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD028.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD029",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD029"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Basic AttributeGroup with anyAttribute (w/ namespace=##targetNamespace), the xml has the attribute instance which is of namespace targetNamespace",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD029",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD029.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgD029.v",
+          "file": "corpus/w3c/msData/attributeGroup/attgD029.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD029.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD029.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD030",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD030"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : Basic AttributeGroup with anyAttribute (w/ namespace=##targetNamespace), the xml has the attribute instance which is of namespace other than targetNamespace",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD030",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD030.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgD030.i",
+          "file": "corpus/w3c/msData/attributeGroup/attgD030.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD030.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD030.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD031",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD031"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : AttributeGroup (w/ namespace=other, processContents=##skip), the xml has the attribute instance which conatins attribute not declared in any schema",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD031",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD031.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgD031.v",
+          "file": "corpus/w3c/msData/attributeGroup/attgD031.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD031.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD031.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD032",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD032"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : AttributeGroup (w/ namespace=other, processContents=##lax), the xml has the attribute instance which conatins valid elements and attribute against schema",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD032",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD032.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgD032.v",
+          "file": "corpus/w3c/msData/attributeGroup/attgD032.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD032.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD032.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD033",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD033"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : AttributeGroup (w/ namespace=other, processContents=##lax), the xml has the attribute instance which conatins invalid attribute against schema",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD033",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD033.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgD033.v",
+          "file": "corpus/w3c/msData/attributeGroup/attgD033.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD033.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD033.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD034",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD034"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : AttributeGroup (w/ namespace=other, processContents=##strict), the xml has the attribute instance which conatins valid elements and attribute against schema",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD034",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD034.xsd"
+          },
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD034.inc"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgD034.v",
+          "file": "corpus/w3c/msData/attributeGroup/attgD034.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD034.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD034.xsd"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD034.inc"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD035",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD035"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : complexType's AttributeGroup with reference to attributeGroup from 'redefine', where there is an attribute declared as int, with value=\"37\", the xml has the attribute instance which \"36\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD035",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD035.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgD035.i",
+          "file": "corpus/w3c/msData/attributeGroup/attgD035.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD035.red",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD035.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD035.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD036",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD036"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : complexType's AttributeGroup with reference to attributeGroup from 'redefine', where there is an attribute declared as int, with value=\"37\", the xml has the attribute instance which \"37\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD036",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD036.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgD036.v",
+          "file": "corpus/w3c/msData/attributeGroup/attgD036.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD036.red",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD036.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD036.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD037",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD037"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : AttributeGroup with ref=\"foo\" and has attribute decl as child",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD037",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD037.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD037.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD038",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD038"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : AttributeGroup with ref=\"foo\" and has attributeGroup decl as child",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD038",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD038.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD038.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD039",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD039"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : AttributeGroup with ref=\"foo\" and has AnyAattribute decl as child",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD039",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD039.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD039.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD040",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD040"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : AttributeGroup with ref=\"foo\" and has annotation as child",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD040",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD040.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD040.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD041",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD041"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : circular reference, attG A ref to B which ref C which ref back to A",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD041",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD041.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD041.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgD042",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgD042"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : AttributeGroup (w/ namespace=other, processContents=##strict), the xml has the attribute instance which conatins invalid attribute against schema",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgD042",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgD042.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgD042.i",
+          "file": "corpus/w3c/msData/attributeGroup/attgD042.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD042.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgD042.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgZ001",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgZ001"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : xsd: global attribute reference in attributeGroup should be invalid if not qualified in the instance. (attributeFormDefault is qualified).",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgZ001",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgZ001.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "attgZ001.i",
+          "file": "corpus/w3c/msData/attributeGroup/attgZ001.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgZ001.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgZ001.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgZ002",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgZ002"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : XSD: test an attribute is eliminated from a redefined attribute group with no self reference,required",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgZ002",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgZ002.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgZ002.imp",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgZ002.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/AttributeGroup_w3c.xml/attgZ003",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/AttributeGroup_w3c.xml",
+        "testGroup": "attgZ003"
+      },
+      "title": "TEST :Syntax Checking for Attribute Declaration (ID) : XSD: test an attribute is eliminated from a redefined attribute group with no self reference,prohibited",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAttribute_Group_Definitions"
+      ],
+      "schema": {
+        "testName": "attgZ003",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/attributeGroup/attgZ003.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgZ003.imp",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/attributeGroup/attgZ003.xsd"
+        }
+      ]
+    }
+  ]
+}

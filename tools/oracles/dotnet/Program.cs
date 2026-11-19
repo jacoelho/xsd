@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Schema;
@@ -87,7 +88,28 @@ static class Program
     }
 
     static void Emit(string verdict, string message) =>
-        Console.WriteLine($".NET {Environment.Version}\t{verdict}\t{Regex.Replace(message, @"\s+", " ")}");
+        Console.WriteLine($".NET {Environment.Version}\t{verdict}\t{Visible(RootRelative(message.Trim()))}");
+
+    // Paths print relative to XSD_ORACLE_ROOT so a row is identical on every machine. File
+    // URIs percent-encode the root (RFC 3986 section 2.1), so its encoded form is removed too.
+    static string RootRelative(string s)
+    {
+        var root = Environment.GetEnvironmentVariable("XSD_ORACLE_ROOT")!;
+        return StripRoot(StripRoot(s, string.Join("/", root.Split('/').Select(Uri.EscapeDataString))), root);
+    }
+
+    static string StripRoot(string s, string root)
+    {
+        return s.Replace("file://" + root + "/", "")
+            .Replace("file:" + root + "/", "")
+            .Replace(root + "/", "")
+            .Replace(root, ".");
+    }
+
+    // Keeps CR, LF and TAB distinguishable in a one-line row: they are the discriminator in
+    // end-of-line and whitespace cases.
+    static string Visible(string s) =>
+        s.Replace("\r", "\u240D").Replace("\n", "\u240A").Replace("\t", "\u2409");
 
     static int Main(string[] args)
     {

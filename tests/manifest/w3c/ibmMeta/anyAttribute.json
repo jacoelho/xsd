@@ -1,0 +1,241 @@
+{
+  "cases": [
+    {
+      "id": "w3c/ibmMeta/anyAttribute.testSet/s3_10_6ii01",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/anyAttribute.testSet",
+        "testGroup": "s3_10_6ii01"
+      },
+      "title": "Tests notQName on xs:anyAttribute",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-Wildcards-NotQName",
+        "http://www.w3.org/TR/xmlschema11-1/#coss-wildcard"
+      ],
+      "schema": {
+        "testName": "s3_10_6v01s",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/instance_invalid/S3_10_6/s3_10_6ii01.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "s3_10_6v01i",
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_6/s3_10_6ii01.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_6/s3_10_6ii01.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_6/s3_10_6ii01.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/ibmMeta/anyAttribute.testSet/s3_10_6ii02",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/anyAttribute.testSet",
+        "testGroup": "s3_10_6ii02"
+      },
+      "title": "Tests notQName and notNamespace list in xs:anyAttribute",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-Wildcards-NotNS",
+        "../common/XSD1_1TestCategories.xml#xsd1_1-Wildcards-NotQName",
+        "http://www.w3.org/TR/xmlschema11-1/#coss-wildcard"
+      ],
+      "schema": {
+        "testName": "s3_10_6v02s",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/instance_invalid/S3_10_6/s3_10_6ii02.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "s3_10_6v02i",
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_6/s3_10_6ii02.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_6/s3_10_6ii02.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_6/s3_10_6ii02.xsd"
+        },
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_6/s3_10_6ii02b.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_6/s3_10_6ii02c.xsd",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "w3c/ibmMeta/anyAttribute.testSet/s3_10_6ii03",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/anyAttribute.testSet",
+        "testGroup": "s3_10_6ii03"
+      },
+      "title": "Tests namespace attribute on xs:anyAttribute",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-Wildcards-NotNS",
+        "http://www.w3.org/TR/xmlschema11-1/#coss-wildcard"
+      ],
+      "schema": {
+        "testName": "s3_10_6v03s",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/instance_invalid/S3_10_6/s3_10_6ii03.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "s3_10_6v03i",
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_6/s3_10_6ii03.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_6/s3_10_6ii03.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_6/s3_10_6ii03.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/ibmMeta/anyAttribute.testSet/s3_10_6ii04",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/anyAttribute.testSet",
+        "testGroup": "s3_10_6ii04"
+      },
+      "title": "Tests namespace attribute on xs:anyAttribute",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-Wildcards-NotNS",
+        "http://www.w3.org/TR/xmlschema11-1/#coss-wildcard"
+      ],
+      "schema": {
+        "testName": "s3_10_6v04s",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/instance_invalid/S3_10_6/s3_10_6ii04.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "s3_10_6v04i",
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_6/s3_10_6ii04.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_6/s3_10_6ii04.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_6/s3_10_6ii04.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/ibmMeta/anyAttribute.testSet/s3_10_6si01",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/anyAttribute.testSet",
+        "testGroup": "s3_10_6si01"
+      },
+      "title": "namespace and notNamespace attributes are not allowed to be both present in a wildcard",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-Wildcards-NotNS",
+        "http://www.w3.org/TR/xmlschema11-1/#coss-wildcard"
+      ],
+      "schema": {
+        "testName": "s3_10_6si01s",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/schema_invalid/S3_10_6/s3_10_6si01.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/schema_invalid/S3_10_6/s3_10_6si01.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/ibmMeta/anyAttribute.testSet/s3_10_6si02",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/anyAttribute.testSet",
+        "testGroup": "s3_10_6si02"
+      },
+      "title": "The namespace of each QName in disallowed is allowed by the namespace constraint",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-Wildcards-NotQName",
+        "http://www.w3.org/TR/xmlschema11-1/#coss-wildcard"
+      ],
+      "schema": {
+        "testName": "s3_10_6si02s",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/schema_invalid/S3_10_6/s3_10_6si02.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/schema_invalid/S3_10_6/s3_10_6si02.xsd"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="IntOrIDREF"><xs:union memberTypes="xs:int xs:IDREF"/></xs:simpleType>
+  <xs:simpleType name="IDREFList"><xs:list itemType="xs:IDREF"/></xs:simpleType>
+  <xs:simpleType name="RestrictedIDREF"><xs:restriction base="xs:IDREF"><xs:minLength value="1"/></xs:restriction></xs:simpleType>
+  <xs:attribute name="globalRef" type="xs:IDREF" default="target"/>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:choice maxOccurs="unbounded">
+        <xs:element name="target"><xs:complexType><xs:attribute name="id" type="xs:ID"/></xs:complexType></xs:element>
+        <xs:element name="physical"><xs:complexType><xs:attribute name="ref" type="xs:IDREF"/></xs:complexType></xs:element>
+        <xs:element name="attrDefault"><xs:complexType><xs:attribute name="ref" type="xs:IDREF" default="target"/></xs:complexType></xs:element>
+        <xs:element name="attrFixed"><xs:complexType><xs:attribute name="ref" type="xs:IDREF" fixed="target"/></xs:complexType></xs:element>
+        <xs:element name="attrGlobalDefault"><xs:complexType><xs:attribute ref="globalRef"/></xs:complexType></xs:element>
+        <xs:element name="attrRestrictedDefault"><xs:complexType><xs:attribute name="ref" type="RestrictedIDREF" default="target"/></xs:complexType></xs:element>
+        <xs:element name="attrIdrefsDefault"><xs:complexType><xs:attribute name="ref" type="xs:IDREFS" default="target"/></xs:complexType></xs:element>
+        <xs:element name="attrListDefault"><xs:complexType><xs:attribute name="ref" type="IDREFList" default="target"/></xs:complexType></xs:element>
+        <xs:element name="attrUnionDefault"><xs:complexType><xs:attribute name="ref" type="IntOrIDREF" default="target"/></xs:complexType></xs:element>
+        <xs:element name="eltDefault" type="xs:IDREF" default="target"/>
+        <xs:element name="eltFixed" type="xs:IDREF" fixed="target"/>
+        <xs:element name="eltUnionDefault" type="IntOrIDREF" default="target"/>
+        <xs:element name="eltAnyDefault" type="xs:anySimpleType" default="dup"/>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

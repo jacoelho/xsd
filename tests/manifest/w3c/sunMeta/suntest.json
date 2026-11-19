@@ -1,0 +1,3498 @@
+{
+  "cases": [
+    {
+      "id": "w3c/sunMeta/suntest.testSet/idc001.nogen",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "idc001.nogen"
+      },
+      "schema": {
+        "testName": "idc001.nogen",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/identity/idc001/idc001.nogen.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "idc001.nogen.n00",
+          "file": "corpus/w3c/sunData/combined/identity/idc001/idc001.nogen.n00.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "idc001.nogen.v00",
+          "file": "corpus/w3c/sunData/combined/identity/idc001/idc001.nogen.v00.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "idc001.nogen.v01",
+          "file": "corpus/w3c/sunData/combined/identity/idc001/idc001.nogen.v01.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/identity/idc001/idc001.nogen.n00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/identity/idc001/idc001.nogen.v00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/identity/idc001/idc001.nogen.v01.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/identity/idc001/idc001.nogen.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/idc002.e",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "idc002.e"
+      },
+      "schema": {
+        "testName": "idc002.e",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/identity/idc002/idc002.e.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/identity/idc002/idc002.e.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/idc002b.e",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "idc002b.e"
+      },
+      "schema": {
+        "testName": "idc002b.e",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/identity/idc002b/idc002b.e.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/identity/idc002b/idc002b.e.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/idc003.e",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "idc003.e"
+      },
+      "schema": {
+        "testName": "idc003.e",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/identity/idc003/idc003.e.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/identity/idc003/idc003.e.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/idc004.nogen",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "idc004.nogen"
+      },
+      "schema": {
+        "testName": "idc004.nogen",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/identity/idc004/idc004.nogen.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "idc004.nogen.n00",
+          "file": "corpus/w3c/sunData/combined/identity/idc004/idc004.nogen.n00.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "idc004.nogen.n01",
+          "file": "corpus/w3c/sunData/combined/identity/idc004/idc004.nogen.n01.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "idc004.nogen.n02",
+          "file": "corpus/w3c/sunData/combined/identity/idc004/idc004.nogen.n02.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "idc004.nogen.n03",
+          "file": "corpus/w3c/sunData/combined/identity/idc004/idc004.nogen.n03.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "idc004.nogen.v00",
+          "file": "corpus/w3c/sunData/combined/identity/idc004/idc004.nogen.v00.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/identity/idc004/idc004.nogen.n00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/identity/idc004/idc004.nogen.n01.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/identity/idc004/idc004.nogen.n02.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/identity/idc004/idc004.nogen.n03.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/identity/idc004/idc004.nogen.v00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/identity/idc004/idc004.nogen.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/idc004a.e",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "idc004a.e"
+      },
+      "schema": {
+        "testName": "idc004a.e",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/identity/idc004a/idc004a.e.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/identity/idc004a/idc004a.e.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/idc005.nogen",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "idc005.nogen"
+      },
+      "schema": {
+        "testName": "idc005.nogen",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/identity/idc005/idc005.nogen.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "idc005.nogen.n00",
+          "file": "corpus/w3c/sunData/combined/identity/idc005/idc005.nogen.n00.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "idc005.nogen.n01",
+          "file": "corpus/w3c/sunData/combined/identity/idc005/idc005.nogen.n01.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "idc005.nogen.v00",
+          "file": "corpus/w3c/sunData/combined/identity/idc005/idc005.nogen.v00.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/identity/idc005/idc005.nogen.n00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/identity/idc005/idc005.nogen.n01.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/identity/idc005/idc005.nogen.v00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/identity/idc005/idc005.nogen.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/idc006.nogen",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "idc006.nogen"
+      },
+      "schema": {
+        "testName": "idc006.nogen",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/identity/idc006/idc006.nogen.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "idc006.nogen.n00",
+          "file": "corpus/w3c/sunData/combined/identity/idc006/idc006.nogen.n00.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "idc006.nogen.n01",
+          "file": "corpus/w3c/sunData/combined/identity/idc006/idc006.nogen.n01.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "idc006.nogen.v00",
+          "file": "corpus/w3c/sunData/combined/identity/idc006/idc006.nogen.v00.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/identity/idc006/idc006.nogen.n00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/identity/idc006/idc006.nogen.n01.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/identity/idc006/idc006.nogen.v00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/identity/idc006/idc006.nogen.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/identitytestsuitetest001",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "identitytestsuitetest001"
+      },
+      "schema": {
+        "testName": "test",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/001/test.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "test.1.v",
+          "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/001/test.1.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.2.n",
+          "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/001/test.2.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/001/test.1.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/001/test.2.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/001/test.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/identitytestsuitetest002",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "identitytestsuitetest002"
+      },
+      "schema": {
+        "testName": "test",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/002/test.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "test.1.v",
+          "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/002/test.1.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.2.v",
+          "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/002/test.2.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.3.n",
+          "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/002/test.3.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/002/test.1.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/002/test.2.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/002/test.3.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/002/test.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/identitytestsuitetest003",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "identitytestsuitetest003"
+      },
+      "schema": {
+        "testName": "test",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/003/test.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "test.1.v",
+          "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/003/test.1.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.2.v",
+          "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/003/test.2.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.3.n",
+          "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/003/test.3.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/003/test.1.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/003/test.2.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/003/test.3.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/003/test.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/identitytestsuitetest004",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "identitytestsuitetest004"
+      },
+      "schema": {
+        "testName": "test",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/004/test.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "test.1.v",
+          "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/004/test.1.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.2.n",
+          "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/004/test.2.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.3.n",
+          "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/004/test.3.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/004/test.1.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/004/test.2.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/004/test.3.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/identity/IdentityTestSuite/004/test.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/test001",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "test001"
+      },
+      "schema": {
+        "testName": "test",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/001/test.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "test.1.v",
+          "file": "corpus/w3c/sunData/combined/001/test.1.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.2.n",
+          "file": "corpus/w3c/sunData/combined/001/test.2.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/001/test.1.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/001/test.2.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/001/test.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/test002",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "test002"
+      },
+      "schema": {
+        "testName": "test",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/002/test.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "test.1.v",
+          "file": "corpus/w3c/sunData/combined/002/test.1.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.2.n",
+          "file": "corpus/w3c/sunData/combined/002/test.2.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.3.n",
+          "file": "corpus/w3c/sunData/combined/002/test.3.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.4.n",
+          "file": "corpus/w3c/sunData/combined/002/test.4.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.5.n",
+          "file": "corpus/w3c/sunData/combined/002/test.5.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/002/test.1.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/002/test.2.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/002/test.3.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/002/test.4.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/002/test.5.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/002/test.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/test003",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "test003"
+      },
+      "schema": {
+        "testName": "test",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/003/test.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "test.1.v",
+          "file": "corpus/w3c/sunData/combined/003/test.1.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.2.n",
+          "file": "corpus/w3c/sunData/combined/003/test.2.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.3.n",
+          "file": "corpus/w3c/sunData/combined/003/test.3.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.4.n",
+          "file": "corpus/w3c/sunData/combined/003/test.4.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.5.n",
+          "file": "corpus/w3c/sunData/combined/003/test.5.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/003/test.1.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/003/test.2.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/003/test.3.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/003/test.4.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/003/test.5.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/003/test.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/test003a",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "test003a"
+      },
+      "schema": {
+        "testName": "test",
+        "expected": "valid",
+        "status": "submitted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/003a/test.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "test.1.v",
+          "file": "corpus/w3c/sunData/combined/003a/test.1.v.xml",
+          "expected": "valid",
+          "status": "submitted"
+        },
+        {
+          "testName": "test.2.n",
+          "file": "corpus/w3c/sunData/combined/003a/test.2.n.xml",
+          "expected": "invalid",
+          "status": "submitted"
+        },
+        {
+          "testName": "test.3.n",
+          "file": "corpus/w3c/sunData/combined/003a/test.3.n.xml",
+          "expected": "invalid",
+          "status": "submitted"
+        },
+        {
+          "testName": "test.4.n",
+          "file": "corpus/w3c/sunData/combined/003a/test.4.n.xml",
+          "expected": "invalid",
+          "status": "submitted"
+        },
+        {
+          "testName": "test.5.n",
+          "file": "corpus/w3c/sunData/combined/003a/test.5.n.xml",
+          "expected": "invalid",
+          "status": "submitted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/003a/test.1.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/003a/test.2.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/003a/test.3.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/003a/test.4.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/003a/test.5.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/003a/test.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/test003b",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "test003b"
+      },
+      "schema": {
+        "testName": "test",
+        "expected": "valid",
+        "status": "submitted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/003a/test.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "test.1.v",
+          "file": "corpus/w3c/sunData/combined/003a/test.1.v.xml",
+          "expected": "valid",
+          "status": "submitted"
+        },
+        {
+          "testName": "test.2.n",
+          "file": "corpus/w3c/sunData/combined/003a/test.2.n.xml",
+          "expected": "invalid",
+          "status": "submitted"
+        },
+        {
+          "testName": "test.3.n",
+          "file": "corpus/w3c/sunData/combined/003a/test.3.n.xml",
+          "expected": "invalid",
+          "status": "submitted"
+        },
+        {
+          "testName": "test.4.n",
+          "file": "corpus/w3c/sunData/combined/003a/test.4.n.xml",
+          "expected": "invalid",
+          "status": "submitted"
+        },
+        {
+          "testName": "test.5.n",
+          "file": "corpus/w3c/sunData/combined/003a/test.5.n.xml",
+          "expected": "invalid",
+          "status": "submitted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/003a/test.1.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/003a/test.2.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/003a/test.3.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/003a/test.4.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/003a/test.5.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/003a/test.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/test004",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "test004"
+      },
+      "schema": {
+        "testName": "test",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/004/test.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "test.1.v",
+          "file": "corpus/w3c/sunData/combined/004/test.1.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.2.n",
+          "file": "corpus/w3c/sunData/combined/004/test.2.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.3.n",
+          "file": "corpus/w3c/sunData/combined/004/test.3.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.4.n",
+          "file": "corpus/w3c/sunData/combined/004/test.4.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.5.n",
+          "file": "corpus/w3c/sunData/combined/004/test.5.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/004/test.1.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/004/test.2.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/004/test.3.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/004/test.4.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/004/test.5.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/004/test.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/test005",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "test005"
+      },
+      "schema": {
+        "testName": "test",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/005/test.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "test.1.v",
+          "file": "corpus/w3c/sunData/combined/005/test.1.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.2.n",
+          "file": "corpus/w3c/sunData/combined/005/test.2.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.3.n",
+          "file": "corpus/w3c/sunData/combined/005/test.3.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.4.n",
+          "file": "corpus/w3c/sunData/combined/005/test.4.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.5.n",
+          "file": "corpus/w3c/sunData/combined/005/test.5.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/005/test.1.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/005/test.2.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/005/test.3.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/005/test.4.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/005/test.5.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/005/test.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/test006",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "test006"
+      },
+      "schema": {
+        "testName": "test",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/006/test.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "test.1.v",
+          "file": "corpus/w3c/sunData/combined/006/test.1.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.10.n",
+          "file": "corpus/w3c/sunData/combined/006/test.10.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.11.n",
+          "file": "corpus/w3c/sunData/combined/006/test.11.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.12.n",
+          "file": "corpus/w3c/sunData/combined/006/test.12.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.13.n",
+          "file": "corpus/w3c/sunData/combined/006/test.13.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.14.n",
+          "file": "corpus/w3c/sunData/combined/006/test.14.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.15.n",
+          "file": "corpus/w3c/sunData/combined/006/test.15.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.16.n",
+          "file": "corpus/w3c/sunData/combined/006/test.16.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.17.n",
+          "file": "corpus/w3c/sunData/combined/006/test.17.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.18.n",
+          "file": "corpus/w3c/sunData/combined/006/test.18.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.19.n",
+          "file": "corpus/w3c/sunData/combined/006/test.19.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.2.v",
+          "file": "corpus/w3c/sunData/combined/006/test.2.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.20.n",
+          "file": "corpus/w3c/sunData/combined/006/test.20.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.21.n",
+          "file": "corpus/w3c/sunData/combined/006/test.21.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.22.n",
+          "file": "corpus/w3c/sunData/combined/006/test.22.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.23.n",
+          "file": "corpus/w3c/sunData/combined/006/test.23.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.24.n",
+          "file": "corpus/w3c/sunData/combined/006/test.24.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.25.n",
+          "file": "corpus/w3c/sunData/combined/006/test.25.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.26.n",
+          "file": "corpus/w3c/sunData/combined/006/test.26.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.27.n",
+          "file": "corpus/w3c/sunData/combined/006/test.27.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.28.n",
+          "file": "corpus/w3c/sunData/combined/006/test.28.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.29.n",
+          "file": "corpus/w3c/sunData/combined/006/test.29.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.3.n",
+          "file": "corpus/w3c/sunData/combined/006/test.3.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.30.n",
+          "file": "corpus/w3c/sunData/combined/006/test.30.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.31.n",
+          "file": "corpus/w3c/sunData/combined/006/test.31.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.32.n",
+          "file": "corpus/w3c/sunData/combined/006/test.32.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.33.n",
+          "file": "corpus/w3c/sunData/combined/006/test.33.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.34.n",
+          "file": "corpus/w3c/sunData/combined/006/test.34.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.4.n",
+          "file": "corpus/w3c/sunData/combined/006/test.4.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.5.n",
+          "file": "corpus/w3c/sunData/combined/006/test.5.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.6.n",
+          "file": "corpus/w3c/sunData/combined/006/test.6.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.7.n",
+          "file": "corpus/w3c/sunData/combined/006/test.7.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.8.n",
+          "file": "corpus/w3c/sunData/combined/006/test.8.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.9.n",
+          "file": "corpus/w3c/sunData/combined/006/test.9.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.1.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.10.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.11.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.12.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.13.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.14.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.15.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.16.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.17.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.18.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.19.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.2.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.20.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.21.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.22.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.23.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.24.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.25.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.26.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.27.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.28.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.29.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.3.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.30.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.31.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.32.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.33.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.34.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.4.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.5.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.6.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.7.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.8.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.9.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/006/test.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/test007",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "test007"
+      },
+      "schema": {
+        "testName": "test",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/007/test.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "test.1.v",
+          "file": "corpus/w3c/sunData/combined/007/test.1.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.6.v",
+          "file": "corpus/w3c/sunData/combined/007/test.6.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.2.n",
+          "file": "corpus/w3c/sunData/combined/007/test.2.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.3.n",
+          "file": "corpus/w3c/sunData/combined/007/test.3.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.4.n",
+          "file": "corpus/w3c/sunData/combined/007/test.4.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.5.n",
+          "file": "corpus/w3c/sunData/combined/007/test.5.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.7.n",
+          "file": "corpus/w3c/sunData/combined/007/test.7.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.8.n",
+          "file": "corpus/w3c/sunData/combined/007/test.8.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/007/test.1.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/007/test.2.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/007/test.3.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/007/test.4.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/007/test.5.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/007/test.6.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/007/test.7.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/007/test.8.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/007/test.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/test008",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "test008"
+      },
+      "schema": {
+        "testName": "test",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/008/test.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "test.1.n",
+          "file": "corpus/w3c/sunData/combined/008/test.1.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.10.n",
+          "file": "corpus/w3c/sunData/combined/008/test.10.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.11.n",
+          "file": "corpus/w3c/sunData/combined/008/test.11.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.12.n",
+          "file": "corpus/w3c/sunData/combined/008/test.12.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.5.n",
+          "file": "corpus/w3c/sunData/combined/008/test.5.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.7.n",
+          "file": "corpus/w3c/sunData/combined/008/test.7.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.8.n",
+          "file": "corpus/w3c/sunData/combined/008/test.8.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.9.n",
+          "file": "corpus/w3c/sunData/combined/008/test.9.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.2.v",
+          "file": "corpus/w3c/sunData/combined/008/test.2.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.3.v",
+          "file": "corpus/w3c/sunData/combined/008/test.3.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.4.v",
+          "file": "corpus/w3c/sunData/combined/008/test.4.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.6.v",
+          "file": "corpus/w3c/sunData/combined/008/test.6.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/008/test.1.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/008/test.10.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/008/test.11.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/008/test.12.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/008/test.2.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/008/test.3.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/008/test.4.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/008/test.5.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/008/test.6.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/008/test.7.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/008/test.8.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/008/test.9.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/008/test.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/test009",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "test009"
+      },
+      "schema": {
+        "testName": "test",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/009/test.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "test.13.n",
+          "file": "corpus/w3c/sunData/combined/009/test.13.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.8.n",
+          "file": "corpus/w3c/sunData/combined/009/test.8.n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.1.v",
+          "file": "corpus/w3c/sunData/combined/009/test.1.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.10.v",
+          "file": "corpus/w3c/sunData/combined/009/test.10.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.11.v",
+          "file": "corpus/w3c/sunData/combined/009/test.11.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.12.v",
+          "file": "corpus/w3c/sunData/combined/009/test.12.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.2.v",
+          "file": "corpus/w3c/sunData/combined/009/test.2.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.3.v",
+          "file": "corpus/w3c/sunData/combined/009/test.3.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.4.v",
+          "file": "corpus/w3c/sunData/combined/009/test.4.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.5.v",
+          "file": "corpus/w3c/sunData/combined/009/test.5.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.6.v",
+          "file": "corpus/w3c/sunData/combined/009/test.6.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.7.v",
+          "file": "corpus/w3c/sunData/combined/009/test.7.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "test.9.v",
+          "file": "corpus/w3c/sunData/combined/009/test.9.v.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/009/test.1.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/009/test.10.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/009/test.11.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/009/test.12.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/009/test.13.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/009/test.2.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/009/test.3.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/009/test.4.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/009/test.5.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/009/test.6.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/009/test.7.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/009/test.8.n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/009/test.9.v.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/009/test.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd001",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd001"
+      },
+      "schema": {
+        "testName": "xsd001",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd001/xsd001.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "xsd001.n00",
+          "file": "corpus/w3c/sunData/combined/xsd001/xsd001.n00.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd001.n01",
+          "file": "corpus/w3c/sunData/combined/xsd001/xsd001.n01.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd001.n02",
+          "file": "corpus/w3c/sunData/combined/xsd001/xsd001.n02.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd001.n03",
+          "file": "corpus/w3c/sunData/combined/xsd001/xsd001.n03.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd001.n04",
+          "file": "corpus/w3c/sunData/combined/xsd001/xsd001.n04.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd001.n05",
+          "file": "corpus/w3c/sunData/combined/xsd001/xsd001.n05.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd001.n06",
+          "file": "corpus/w3c/sunData/combined/xsd001/xsd001.n06.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd001.n07",
+          "file": "corpus/w3c/sunData/combined/xsd001/xsd001.n07.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd001.v00",
+          "file": "corpus/w3c/sunData/combined/xsd001/xsd001.v00.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd001.v01",
+          "file": "corpus/w3c/sunData/combined/xsd001/xsd001.v01.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd001.v02",
+          "file": "corpus/w3c/sunData/combined/xsd001/xsd001.v02.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd001.v03",
+          "file": "corpus/w3c/sunData/combined/xsd001/xsd001.v03.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd001/xsd001.n00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd001/xsd001.n01.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd001/xsd001.n02.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd001/xsd001.n03.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd001/xsd001.n04.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd001/xsd001.n05.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd001/xsd001.n06.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd001/xsd001.n07.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd001/xsd001.v00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd001/xsd001.v01.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd001/xsd001.v02.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd001/xsd001.v03.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd001/xsd001.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd002",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd002"
+      },
+      "schema": {
+        "testName": "xsd002",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd002/xsd002.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "xsd002.n00",
+          "file": "corpus/w3c/sunData/combined/xsd002/xsd002.n00.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd002.n01",
+          "file": "corpus/w3c/sunData/combined/xsd002/xsd002.n01.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd002.n02",
+          "file": "corpus/w3c/sunData/combined/xsd002/xsd002.n02.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd002.v00",
+          "file": "corpus/w3c/sunData/combined/xsd002/xsd002.v00.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd002.v01",
+          "file": "corpus/w3c/sunData/combined/xsd002/xsd002.v01.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd002/xsd002.n00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd002/xsd002.n01.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd002/xsd002.n02.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd002/xsd002.v00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd002/xsd002.v01.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd002/xsd002.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd003-1.e",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd003-1.e"
+      },
+      "schema": {
+        "testName": "xsd003-1.e",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd003/xsd003-1.e.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd003/xsd003-1.e.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd003/xsd003.xsdmod",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd003-2.e",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd003-2.e"
+      },
+      "schema": {
+        "testName": "xsd003-2.e",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd003/xsd003-2.e.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd003/xsd003-2.e.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd003/xsd003.xsdmod",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd003a",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd003a"
+      },
+      "schema": {
+        "testName": "xsd003a",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd003a/xsd003a.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "xsd003a.v00",
+          "file": "corpus/w3c/sunData/combined/xsd003a/xsd003a.v00.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd003a/xsd003.xsdmod",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd003a/xsd003a.v00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd003a/xsd003a.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd003b",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd003b"
+      },
+      "schema": {
+        "testName": "xsd003b",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd003b/xsd003b.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "xsd003b.n00",
+          "file": "corpus/w3c/sunData/combined/xsd003b/xsd003b.n00.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd003b.n01",
+          "file": "corpus/w3c/sunData/combined/xsd003b/xsd003b.n01.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd003b.v00",
+          "file": "corpus/w3c/sunData/combined/xsd003b/xsd003b.v00.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd003b.v01",
+          "file": "corpus/w3c/sunData/combined/xsd003b/xsd003b.v01.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd003b/xsd003.xsdmod",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd003b/xsd003b.n00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd003b/xsd003b.n01.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd003b/xsd003b.v00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd003b/xsd003b.v01.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd003b/xsd003b.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd003b.e",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd003b.e"
+      },
+      "schema": {
+        "testName": "xsd003b.e",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd003b/xsd003b.e.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd003b/xsd003.xsdmod",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd003b/xsd003b.e.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd004",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd004"
+      },
+      "schema": {
+        "testName": "xsd004",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd004/xsd004.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "xsd004.n00",
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.n00.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd004.n01",
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.n01.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd004.n02",
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.n02.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd004.n03",
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.n03.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd004.n04",
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.n04.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd004.n05",
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.n05.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd004.n06",
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.n06.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd004.n07",
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.n07.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd004.n08",
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.n08.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd004.n09",
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.n09.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd004.n10",
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.n10.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd004.n11",
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.n11.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd004.n12",
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.n12.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd004.v00",
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.v00.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.n00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.n01.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.n02.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.n03.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.n04.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.n05.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.n06.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.n07.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.n08.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.n09.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.n10.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.n11.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.n12.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.v00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004a.xsdmod",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd004/xsd004b.xsdmod",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd005",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd005"
+      },
+      "schema": {
+        "testName": "xsd005",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd005/xsd005.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "xsd005.n00",
+          "file": "corpus/w3c/sunData/combined/xsd005/xsd005.n00.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd005.n01",
+          "file": "corpus/w3c/sunData/combined/xsd005/xsd005.n01.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd005.n02",
+          "file": "corpus/w3c/sunData/combined/xsd005/xsd005.n02.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd005.n03",
+          "file": "corpus/w3c/sunData/combined/xsd005/xsd005.n03.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd005.n04",
+          "file": "corpus/w3c/sunData/combined/xsd005/xsd005.n04.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd005.n05",
+          "file": "corpus/w3c/sunData/combined/xsd005/xsd005.n05.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd005.n06",
+          "file": "corpus/w3c/sunData/combined/xsd005/xsd005.n06.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd005.v00",
+          "file": "corpus/w3c/sunData/combined/xsd005/xsd005.v00.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd005/xsd005.n00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd005/xsd005.n01.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd005/xsd005.n02.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd005/xsd005.n03.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd005/xsd005.n04.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd005/xsd005.n05.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd005/xsd005.n06.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd005/xsd005.v00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd005/xsd005.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd006",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd006"
+      },
+      "schema": {
+        "testName": "xsd006",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd006/xsd006.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "xsd006.n00",
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.n00.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd006.n01",
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.n01.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd006.n02",
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.n02.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd006.n03",
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.n03.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd006.n04",
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.n04.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd006.n05",
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.n05.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd006.n06",
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.n06.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd006.n07",
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.n07.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd006.n08",
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.n08.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd006.n09",
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.n09.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd006.n10",
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.n10.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd006.n11",
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.n11.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd006.v00",
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.v00.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.n00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.n01.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.n02.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.n03.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.n04.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.n05.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.n06.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.n07.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.n08.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.n09.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.n10.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.n11.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.v00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd006/xsd006.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd007.e",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd007.e"
+      },
+      "schema": {
+        "testName": "xsd007.e",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd007/xsd007.e.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd007/xsd007.e.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd008",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd008"
+      },
+      "schema": {
+        "testName": "xsd008",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd008/xsd008.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "xsd008.n00",
+          "file": "corpus/w3c/sunData/combined/xsd008/xsd008.n00.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd008.n01",
+          "file": "corpus/w3c/sunData/combined/xsd008/xsd008.n01.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd008.n02",
+          "file": "corpus/w3c/sunData/combined/xsd008/xsd008.n02.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd008.v00",
+          "file": "corpus/w3c/sunData/combined/xsd008/xsd008.v00.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd008/xsd008.n00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd008/xsd008.n01.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd008/xsd008.n02.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd008/xsd008.v00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd008/xsd008.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd009.e",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd009.e"
+      },
+      "schema": {
+        "testName": "xsd009.e",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd009/xsd009.e.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd009/xsd009.e.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd010.e",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd010.e"
+      },
+      "schema": {
+        "testName": "xsd010.e",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd010/xsd010.e.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd010/xsd010.e.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd011",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd011"
+      },
+      "schema": {
+        "testName": "xsd011",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd011/xsd011.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "xsd011.n00",
+          "file": "corpus/w3c/sunData/combined/xsd011/xsd011.n00.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd011.n01",
+          "file": "corpus/w3c/sunData/combined/xsd011/xsd011.n01.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd011.n02",
+          "file": "corpus/w3c/sunData/combined/xsd011/xsd011.n02.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd011.n03",
+          "file": "corpus/w3c/sunData/combined/xsd011/xsd011.n03.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd011.n04",
+          "file": "corpus/w3c/sunData/combined/xsd011/xsd011.n04.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd011.v00",
+          "file": "corpus/w3c/sunData/combined/xsd011/xsd011.v00.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd011/xsd011.n00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd011/xsd011.n01.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd011/xsd011.n02.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd011/xsd011.n03.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd011/xsd011.n04.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd011/xsd011.v00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd011/xsd011.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd012",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd012"
+      },
+      "schema": {
+        "testName": "xsd012",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd012/xsd012.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "xsd012.n00",
+          "file": "corpus/w3c/sunData/combined/xsd012/xsd012.n00.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd012.v00",
+          "file": "corpus/w3c/sunData/combined/xsd012/xsd012.v00.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd012/xsd012.n00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd012/xsd012.v00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd012/xsd012.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd013.e",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd013.e"
+      },
+      "schema": {
+        "testName": "xsd013.e",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd013/xsd013.e.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd013/xsd013.e.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd014.e",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd014.e"
+      },
+      "schema": {
+        "testName": "xsd014.e",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd014/xsd014.e.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd014/xsd014.e.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd017.e",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd017.e"
+      },
+      "schema": {
+        "testName": "xsd017.e",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd017/xsd017.e.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd017/xsd017.e.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd018.e",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd018.e"
+      },
+      "schema": {
+        "testName": "xsd018.e",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd018/xsd018.e.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd018/xsd018.e.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd019.e",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd019.e"
+      },
+      "schema": {
+        "testName": "xsd019.e",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd019/xsd019.e.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd019/xsd019.e.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd020-2.e",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd020-2.e"
+      },
+      "schema": {
+        "testName": "xsd020-2.e",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd020/xsd020-2.e.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd020/xsd020-2.e.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd020-3.e",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd020-3.e"
+      },
+      "schema": {
+        "testName": "xsd020-3.e",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd020/xsd020-3.e.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd020/xsd020-3.e.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd020-4.e",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd020-4.e"
+      },
+      "schema": {
+        "testName": "xsd020-4.e",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd020/xsd020-4.e.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd020/xsd020-4.e.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd020.e",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd020.e"
+      },
+      "schema": {
+        "testName": "xsd020.e",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd020/xsd020.e.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd020/xsd020.e.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd021",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd021"
+      },
+      "schema": {
+        "testName": "xsd021",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd021/xsd021.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "xsd021.n00",
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.n00.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd021.n01",
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.n01.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd021.n02",
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.n02.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd021.n03",
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.n03.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd021.n04",
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.n04.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd021.n05",
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.n05.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd021.n06",
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.n06.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd021.n07",
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.n07.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd021.n08",
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.n08.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd021.n09",
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.n09.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd021.n10",
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.n10.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd021.n11",
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.n11.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd021.v00",
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.v00.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.n00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.n01.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.n02.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.n03.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.n04.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.n05.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.n06.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.n07.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.n08.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.n09.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.n10.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.n11.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.v00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021a.xsdmod",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd021/xsd021b.xsdmod",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd022",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd022"
+      },
+      "schema": {
+        "testName": "xsd022",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd022/xsd022.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "xsd022.n00",
+          "file": "corpus/w3c/sunData/combined/xsd022/xsd022.n00.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "xsd022.v00",
+          "file": "corpus/w3c/sunData/combined/xsd022/xsd022.v00.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd022/xsd022.n00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd022/xsd022.v00.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd022/xsd022.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd023.e",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd023.e"
+      },
+      "schema": {
+        "testName": "xsd023.e",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd023/xsd023.e.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd023/xsd023.e.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/suntest.testSet/xsd024",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/suntest.testSet",
+        "testGroup": "xsd024"
+      },
+      "schema": {
+        "testName": "xsd024",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/combined/xsd024/xsd024.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "xsd024.v00",
+          "file": "corpus/w3c/sunData/combined/xsd024/xsd024.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/combined/xsd024/xsd024.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd024/xsd024.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/combined/xsd024/xsd024.xsdmod",
+          "role": "dependency"
+        }
+      ]
+    }
+  ]
+}

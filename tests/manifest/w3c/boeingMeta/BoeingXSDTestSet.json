@@ -1,0 +1,440 @@
+{
+  "cases": [
+    {
+      "id": "w3c/boeingMeta/BoeingXSDTestSet.testSet/ipo1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "S. Tsao, The Boeing Company + J. Zingoni, University of Bologna",
+        "testSet": "boeingMeta/BoeingXSDTestSet.testSet",
+        "testGroup": "ipo1"
+      },
+      "title": "International Purchase Order 1",
+      "docRefs": [
+        "../boeingData/Readme.doc",
+        "http://www.w3.org/TR/xmlschema-1/#Complex_Type_Definitions",
+        "http://www.w3.org/TR/xmlschema-1/#Model_Groups",
+        "http://www.w3.org/TR/xmlschema-1/#Schemas",
+        "http://www.w3.org/TR/xmlschema-1/#cAttribute_Group_Definitions",
+        "http://www.w3.org/TR/xmlschema-1/#composition-schemaImport",
+        "http://www.w3.org/TR/xmlschema-1/#cos-equiv-derived-ok-rec",
+        "http://www.w3.org/TR/xmlschema-1/#layer2",
+        "http://www.w3.org/TR/xmlschema-2/#derivation-by-restriction"
+      ],
+      "schema": {
+        "testName": "ipo1",
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/w3c/boeingData/ipo1/ipo.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "ipo_1",
+          "file": "corpus/w3c/boeingData/ipo1/ipo_1.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "ipo_2",
+          "file": "corpus/w3c/boeingData/ipo1/ipo_2.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/boeingData/ipo1/ipo.xsd"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo1/ipo_1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo1/ipo_2.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/boeingMeta/BoeingXSDTestSet.testSet/ipo2",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "S. Tsao, The Boeing Company + J. Zingoni, University of Bologna",
+        "testSet": "boeingMeta/BoeingXSDTestSet.testSet",
+        "testGroup": "ipo2"
+      },
+      "title": "International Purchase Order 2",
+      "docRefs": [
+        "../boeingData/Readme.doc",
+        "http://www.w3.org/TR/xmlschema-1/#Complex_Type_Definitions",
+        "http://www.w3.org/TR/xmlschema-1/#Model_Groups",
+        "http://www.w3.org/TR/xmlschema-1/#Schemas",
+        "http://www.w3.org/TR/xmlschema-1/#cAttribute_Group_Definitions",
+        "http://www.w3.org/TR/xmlschema-1/#composition-schemaImport",
+        "http://www.w3.org/TR/xmlschema-1/#cos-equiv-derived-ok-rec",
+        "http://www.w3.org/TR/xmlschema-1/#layer2",
+        "http://www.w3.org/TR/xmlschema-2/#derivation-by-restriction"
+      ],
+      "schema": {
+        "testName": "ipo2",
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/w3c/boeingData/ipo2/ipo.xsd"
+          },
+          {
+            "file": "corpus/w3c/boeingData/ipo2/address.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "ipo_1",
+          "file": "corpus/w3c/boeingData/ipo2/ipo_1.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "ipo_2",
+          "file": "corpus/w3c/boeingData/ipo2/ipo_2.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/boeingData/ipo2/address.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo2/address.xsd"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo2/ipo.xsd"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo2/ipo_1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo2/ipo_2.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/boeingMeta/BoeingXSDTestSet.testSet/ipo3",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "S. Tsao, The Boeing Company + J. Zingoni, University of Bologna",
+        "testSet": "boeingMeta/BoeingXSDTestSet.testSet",
+        "testGroup": "ipo3"
+      },
+      "title": "International Purchase Order 3",
+      "docRefs": [
+        "../boeingData/Readme.doc",
+        "http://www.w3.org/TR/xmlschema-1/#Complex_Type_Definitions",
+        "http://www.w3.org/TR/xmlschema-1/#Model_Groups",
+        "http://www.w3.org/TR/xmlschema-1/#Schemas",
+        "http://www.w3.org/TR/xmlschema-1/#cAttribute_Group_Definitions",
+        "http://www.w3.org/TR/xmlschema-1/#composition-schemaImport",
+        "http://www.w3.org/TR/xmlschema-1/#cos-equiv-derived-ok-rec",
+        "http://www.w3.org/TR/xmlschema-1/#layer2",
+        "http://www.w3.org/TR/xmlschema-2/#derivation-by-restriction"
+      ],
+      "schema": {
+        "testName": "ipo3",
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/w3c/boeingData/ipo3/ipo.xsd"
+          },
+          {
+            "file": "corpus/w3c/boeingData/ipo3/address.xsd"
+          },
+          {
+            "file": "corpus/w3c/boeingData/ipo3/itematt.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "ipo_1",
+          "file": "corpus/w3c/boeingData/ipo3/ipo_1.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "ipo_2",
+          "file": "corpus/w3c/boeingData/ipo3/ipo_2.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/boeingData/ipo3/address.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo3/address.xsd"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo3/ipo.xsd"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo3/ipo_1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo3/ipo_2.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo3/itematt.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo3/itematt.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/boeingMeta/BoeingXSDTestSet.testSet/ipo4",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "S. Tsao, The Boeing Company + J. Zingoni, University of Bologna",
+        "testSet": "boeingMeta/BoeingXSDTestSet.testSet",
+        "testGroup": "ipo4"
+      },
+      "title": "International Purchase Order 4",
+      "docRefs": [
+        "../boeingData/Readme.doc",
+        "http://www.w3.org/TR/xmlschema-1/#Complex_Type_Definitions",
+        "http://www.w3.org/TR/xmlschema-1/#Model_Groups",
+        "http://www.w3.org/TR/xmlschema-1/#Schemas",
+        "http://www.w3.org/TR/xmlschema-1/#cAttribute_Group_Definitions",
+        "http://www.w3.org/TR/xmlschema-1/#composition-schemaImport",
+        "http://www.w3.org/TR/xmlschema-1/#cos-equiv-derived-ok-rec",
+        "http://www.w3.org/TR/xmlschema-1/#layer2",
+        "http://www.w3.org/TR/xmlschema-2/#derivation-by-restriction"
+      ],
+      "schema": {
+        "testName": "ipo4",
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/w3c/boeingData/ipo4/ipo.xsd"
+          },
+          {
+            "file": "corpus/w3c/boeingData/ipo4/address.xsd"
+          },
+          {
+            "file": "corpus/w3c/boeingData/ipo4/itematt.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "ipo_1",
+          "file": "corpus/w3c/boeingData/ipo4/ipo_1.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "ipo_2",
+          "file": "corpus/w3c/boeingData/ipo4/ipo_2.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/boeingData/ipo4/address.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo4/address.xsd"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo4/ipo.xsd"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo4/ipo_1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo4/ipo_2.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo4/itematt.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo4/itematt.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/boeingMeta/BoeingXSDTestSet.testSet/ipo5",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "S. Tsao, The Boeing Company + J. Zingoni, University of Bologna",
+        "testSet": "boeingMeta/BoeingXSDTestSet.testSet",
+        "testGroup": "ipo5"
+      },
+      "title": "International Purchase Order 5",
+      "docRefs": [
+        "../boeingData/Readme.doc",
+        "http://www.w3.org/TR/xmlschema-1/#Complex_Type_Definitions",
+        "http://www.w3.org/TR/xmlschema-1/#Model_Groups",
+        "http://www.w3.org/TR/xmlschema-1/#Schemas",
+        "http://www.w3.org/TR/xmlschema-1/#cAttribute_Group_Definitions",
+        "http://www.w3.org/TR/xmlschema-1/#composition-schemaImport",
+        "http://www.w3.org/TR/xmlschema-1/#cos-equiv-derived-ok-rec",
+        "http://www.w3.org/TR/xmlschema-1/#layer2",
+        "http://www.w3.org/TR/xmlschema-2/#derivation-by-restriction"
+      ],
+      "schema": {
+        "testName": "ipo5",
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/w3c/boeingData/ipo5/ipo.xsd"
+          },
+          {
+            "file": "corpus/w3c/boeingData/ipo5/address.xsd"
+          },
+          {
+            "file": "corpus/w3c/boeingData/ipo5/itematt.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "ipo_1",
+          "file": "corpus/w3c/boeingData/ipo5/ipo_1.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "ipo_2",
+          "file": "corpus/w3c/boeingData/ipo5/ipo_2.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/boeingData/ipo5/address.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo5/address.xsd"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo5/ipo.xsd"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo5/ipo_1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo5/ipo_2.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo5/itematt.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo5/itematt.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/boeingMeta/BoeingXSDTestSet.testSet/ipo6",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "S. Tsao, The Boeing Company + J. Zingoni, University of Bologna",
+        "testSet": "boeingMeta/BoeingXSDTestSet.testSet",
+        "testGroup": "ipo6"
+      },
+      "title": "International Purchase Order 6",
+      "docRefs": [
+        "../boeingData/Readme.doc",
+        "http://www.w3.org/TR/xmlschema-1/#Complex_Type_Definitions",
+        "http://www.w3.org/TR/xmlschema-1/#Model_Groups",
+        "http://www.w3.org/TR/xmlschema-1/#Schemas",
+        "http://www.w3.org/TR/xmlschema-1/#cAttribute_Group_Definitions",
+        "http://www.w3.org/TR/xmlschema-1/#composition-schemaImport",
+        "http://www.w3.org/TR/xmlschema-1/#cos-equiv-derived-ok-rec",
+        "http://www.w3.org/TR/xmlschema-1/#layer2",
+        "http://www.w3.org/TR/xmlschema-2/#derivation-by-restriction"
+      ],
+      "schema": {
+        "testName": "ipo6",
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/w3c/boeingData/ipo6/ipo.xsd"
+          },
+          {
+            "file": "corpus/w3c/boeingData/ipo6/address.xsd"
+          },
+          {
+            "file": "corpus/w3c/boeingData/ipo6/itematt.xsd"
+          },
+          {
+            "file": "corpus/w3c/boeingData/ipo6/extend.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "ipo_1",
+          "file": "corpus/w3c/boeingData/ipo6/ipo_1.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "ipo_2",
+          "file": "corpus/w3c/boeingData/ipo6/ipo_2.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/boeingData/ipo6/address.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo6/address.xsd"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo6/extend.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo6/extend.xsd"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo6/ipo.xsd"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo6/ipo_1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo6/ipo_2.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo6/itematt.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/boeingData/ipo6/itematt.xsd"
+        }
+      ]
+    }
+  ]
+}

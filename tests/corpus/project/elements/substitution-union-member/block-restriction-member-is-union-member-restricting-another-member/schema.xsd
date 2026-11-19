@@ -1,0 +1,7 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="urn:t" targetNamespace="urn:t" elementFormDefault="qualified">
+  <xs:simpleType name="R"><xs:restriction base="xs:int"><xs:maxInclusive value="5"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="U"><xs:union memberTypes="xs:int R"/></xs:simpleType>
+  <xs:element name="h" type="U" block="restriction"/>
+  <xs:element name="m" type="R" substitutionGroup="h"/>
+  <xs:element name="r"><xs:complexType><xs:sequence><xs:element ref="h"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>

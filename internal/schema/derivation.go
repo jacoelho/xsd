@@ -321,53 +321,121 @@ func deriveTypeMask(
 	derived, base TypeID,
 	work func(int) error,
 ) (DerivationMask, bool, error) {
+	if baseID, ok := base.Simple(); ok {
+		d, found, err := deriveFromSimpleType(rt, derived, baseID, work)
+		return d.mask(), found, err
+	}
 	if err := work(1); err != nil {
 		return 0, false, err
 	}
 	if derived == base {
 		return 0, true, nil
 	}
+	derivedID, ok := derived.Complex()
 	if base == ComplexRef(rt.AnyType) {
-		if id, ok := derived.Complex(); ok {
-			return complexAnyTypeDerivationMask(rt, id, work)
+		if ok {
+			return complexAnyTypeDerivationMask(rt, derivedID, work)
 		}
 		return DerivationRestriction, true, nil
 	}
-	if derivedID, ok := derived.Complex(); ok {
-		return complexDerivedTypeDerivationMask(rt, derivedID, base, work)
-	}
-	if derivedID, ok := derived.Simple(); ok {
-		return simpleDerivedTypeDerivationMask(rt, derivedID, base, work)
-	}
-	return 0, false, nil
-}
-
-func complexDerivedTypeDerivationMask(
-	rt *schemaBuild,
-	derived ComplexTypeID,
-	base TypeID,
-	work func(int) error,
-) (DerivationMask, bool, error) {
-	if baseID, ok := base.Simple(); ok {
-		return complexSimpleTypeDerivationMask(rt, derived, baseID, work)
-	}
-	if baseID, ok := base.Complex(); ok {
-		return complexTypeDerivationMask(rt, derived, baseID, work)
-	}
-	return 0, false, nil
-}
-
-func simpleDerivedTypeDerivationMask(
-	rt *schemaBuild,
-	derived SimpleTypeID,
-	base TypeID,
-	work func(int) error,
-) (DerivationMask, bool, error) {
-	baseID, ok := base.Simple()
-	if !ok {
+	baseID, isComplex := base.Complex()
+	if !ok || !isComplex {
 		return 0, false, nil
 	}
-	return simpleTypeDerivationMaskOf(rt, derived, baseID, work)
+	return complexTypeDerivationMask(rt, derivedID, baseID, work)
+}
+
+// simpleBaseDerivation is a derivation to a simple base type in two parts: the
+// methods of the complex steps from the derived type down to core, the simple
+// type its simple content is derived from (the derived type itself when it is
+// simple), and the methods from core to the base.
+type simpleBaseDerivation struct {
+	core   SimpleTypeID
+	steps  DerivationMask
+	simple DerivationMask
+}
+
+func (d simpleBaseDerivation) mask() DerivationMask {
+	return d.steps | d.simple
+}
+
+func deriveFromSimpleType(
+	rt *schemaBuild,
+	derived TypeID,
+	base SimpleTypeID,
+	work func(int) error,
+) (simpleBaseDerivation, bool, error) {
+	if err := work(1); err != nil {
+		return simpleBaseDerivation{}, false, err
+	}
+	d := simpleBaseDerivation{core: NoSimpleType}
+	if id, ok := derived.Simple(); ok {
+		d.core = id
+	} else if id, ok := derived.Complex(); ok {
+		var err error
+		if d.core, d.steps, err = complexSimpleContentCore(rt, id, work); err != nil {
+			return simpleBaseDerivation{}, false, err
+		}
+	}
+	if d.core == NoSimpleType {
+		return simpleBaseDerivation{}, false, nil
+	}
+	simple, found, err := simpleTypeDerivationMaskOf(rt, d.core, base, work)
+	if err != nil || !found {
+		return simpleBaseDerivation{}, false, err
+	}
+	d.simple = simple
+	return d, true, nil
+}
+
+// substitutionDerivation is the derivation of a substitution group member's
+// type from its head's type. full is the method set Element Declaration
+// Properties Correct clause 4 tests against the head's {final}. blocking is the
+// method set Substitution Group OK (Transitive) clause 2.3 tests against
+// blocking, to which union membership contributes no method, as I-027 of
+// docs/spec/INTERPRETATIONS.md records.
+type substitutionDerivation struct {
+	full     DerivationMask
+	blocking DerivationMask
+}
+
+// deriveSubstitution derives member from head in one walk. When the member's
+// simple content core reaches a union head through {member type definitions}
+// alone, blocking keeps only the complex steps above that core.
+//
+// The union derivation search cannot also answer whether such a
+// membership-only path exists: it explores one member's whole subtree, base
+// steps included, before trying the next member, and stops at the first path
+// it finds. A type that is both a member and a restriction of an earlier member
+// is first found through the restriction, so memberWalk walks the member
+// edges separately, once, and only when the simple part has a method to remove.
+func deriveSubstitution(
+	rt *schemaBuild,
+	member, head TypeID,
+	memberWalk *unionMemberWalk,
+	work func(int) error,
+) (substitutionDerivation, bool, error) {
+	headID, ok := head.Simple()
+	if !ok {
+		mask, found, err := deriveTypeMask(rt, member, head, work)
+		return substitutionDerivation{full: mask, blocking: mask}, found, err
+	}
+	d, found, err := deriveFromSimpleType(rt, member, headID, work)
+	if err != nil || !found {
+		return substitutionDerivation{}, false, err
+	}
+	derivation := substitutionDerivation{full: d.mask(), blocking: d.mask()}
+	if d.simple == 0 {
+		return derivation, true, nil
+	}
+	membership, err := memberWalk.reaches(rt, d.core, headID, work)
+	if err != nil {
+		return substitutionDerivation{}, false, err
+	}
+	if membership {
+		derivation.blocking = d.steps
+	}
+	return derivation, true, nil
 }
 
 type typeDerivationPair struct {
@@ -532,7 +600,7 @@ func (r typeDerivationRead) simpleDerivation(derived, base SimpleTypeID, scratch
 	if !validSimpleTypeID(base, len(index.simpleTypes)) {
 		return 0, false
 	}
-	if unionMemberCount(index.simpleTypes[base]) == 0 {
+	if len(unionMembers(index.simpleTypes[base])) == 0 {
 		return 0, false
 	}
 	if scratch == nil {
@@ -604,10 +672,7 @@ func (r typeDerivationRead) simpleUnionCandidate(
 	if !validSimpleTypeID(candidate, len(index.simpleTypes)) {
 		return nil, false, false
 	}
-	if index.simpleTypes[candidate].UnionHasFacets {
-		return nil, false, true
-	}
-	return index.simpleTypes[candidate].Union, false, true
+	return unionMembers(index.simpleTypes[candidate]), false, true
 }
 
 func (r typeDerivationRead) complexDerivation(derived, base ComplexTypeID) (DerivationMask, bool) {
@@ -711,66 +776,30 @@ func derivationKindMask(kind derivationKind) DerivationMask {
 	return 0
 }
 
-func complexSimpleTypeDerivationMask(
-	rt *schemaBuild,
-	derived ComplexTypeID,
-	base SimpleTypeID,
-	work func(int) error,
-) (DerivationMask, bool, error) {
-	var mask DerivationMask
+// complexSimpleContentCore follows current's complex derivation steps to the
+// simple type its simple content is derived from, returning that type and the
+// methods of the complex steps taken, or NoSimpleType when the chain ends
+// without a simple base.
+func complexSimpleContentCore(rt *schemaBuild, current ComplexTypeID, work func(int) error) (SimpleTypeID, DerivationMask, error) {
+	var steps DerivationMask
 	for range len(rt.ComplexTypes) {
-		step, err := nextComplexSimpleDerivation(rt, derived, base, work)
-		if err != nil {
-			return 0, false, err
+		if err := work(1); err != nil {
+			return NoSimpleType, 0, err
 		}
-		if !step.valid {
-			return 0, false, nil
+		derivation, found := rt.ComplexTypeDerivation(current)
+		if !found {
+			return NoSimpleType, 0, nil
 		}
-		mask |= step.mask
-		if step.done {
-			return mask, true, nil
+		steps |= derivationKindMask(derivation.Kind)
+		if simple, isSimple := derivation.Base.Simple(); isSimple {
+			return simple, steps, nil
 		}
-		derived = step.next
-	}
-	return 0, false, nil
-}
-
-type complexSimpleDerivationStep struct {
-	next  ComplexTypeID
-	mask  DerivationMask
-	done  bool
-	valid bool
-}
-
-func nextComplexSimpleDerivation(
-	rt *schemaBuild,
-	derived ComplexTypeID,
-	base SimpleTypeID,
-	work func(int) error,
-) (complexSimpleDerivationStep, error) {
-	if err := work(1); err != nil {
-		return complexSimpleDerivationStep{}, err
-	}
-	typ, ok := rt.ComplexTypeDerivation(derived)
-	if !ok {
-		return complexSimpleDerivationStep{}, nil
-	}
-	step := complexSimpleDerivationStep{mask: derivationKindMask(typ.Kind), valid: true}
-	if simpleBase, simpleOK := typ.Base.Simple(); simpleOK {
-		simpleMask, found, err := simpleTypeDerivationMaskOf(rt, simpleBase, base, work)
-		if err != nil || !found {
-			return complexSimpleDerivationStep{}, err
+		var isComplex bool
+		if current, isComplex = derivation.Base.Complex(); !isComplex {
+			return NoSimpleType, 0, nil
 		}
-		step.mask |= simpleMask
-		step.done = true
-		return step, nil
 	}
-	next, ok := typ.Base.Complex()
-	if !ok {
-		return complexSimpleDerivationStep{}, nil
-	}
-	step.next = next
-	return step, nil
+	return NoSimpleType, 0, nil
 }
 
 func complexAnyTypeDerivationMask(
@@ -990,9 +1019,10 @@ func (s *simpleTypeUnionDerivationSearch) advance() (bool, error) {
 	if handled, err := s.enter(last, frame); handled || err != nil {
 		return false, err
 	}
-	memberCount := unionMemberCount(base)
+	members := unionMembers(base)
+	memberCount := len(members)
 	if frame.next < memberCount {
-		return s.visitMember(frame, base.Union[frame.next])
+		return s.visitMember(frame, members[frame.next])
 	}
 	if frame.next == memberCount {
 		frame.next++
@@ -1042,11 +1072,14 @@ func (s *simpleTypeUnionDerivationSearch) enter(
 	return false, nil
 }
 
-func unionMemberCount(typ simpleTypeDerivation) int {
+// unionMembers returns the {member type definitions} a derivation can pass
+// through from typ: none unless typ is a union without facets, as I-010 of
+// docs/spec/INTERPRETATIONS.md records for restricted unions.
+func unionMembers(typ simpleTypeDerivation) []SimpleTypeID {
 	if typ.Variety != valuepkg.Union || typ.UnionHasFacets {
-		return 0
+		return nil
 	}
-	return len(typ.Union)
+	return typ.Union
 }
 
 func (s *simpleTypeUnionDerivationSearch) visitMember(
@@ -1090,6 +1123,96 @@ func (s *simpleTypeUnionDerivationSearch) push(derived, base SimpleTypeID) {
 
 func (s *simpleTypeUnionDerivationSearch) pop(last int) {
 	s.stack = s.stack[:last]
+}
+
+// unionMemberWalk is the scratch state of union membership walks, reused
+// across the substitution edges of one compile. Between walks seen is empty:
+// each walk clears exactly the bits it set, so a walk costs what it visits,
+// not the number of simple types.
+type unionMemberWalk struct {
+	seen    []uint64
+	marked  []SimpleTypeID
+	pending []SimpleTypeID
+}
+
+// reaches reports whether derived equals base or is reached from base through
+// {member type definitions} alone, descending into members that are
+// themselves unions, along the edges unionMembers gives. Such a derivation
+// takes no base-chain step.
+func (w *unionMemberWalk) reaches(
+	rt *schemaBuild,
+	derived, base SimpleTypeID,
+	work func(int) error,
+) (bool, error) {
+	if derived == base {
+		return true, nil
+	}
+	typ, ok := rt.SimpleTypeDerivation(base)
+	if !ok || len(unionMembers(typ)) == 0 {
+		return false, nil
+	}
+	if words := (len(rt.SimpleTypes) + 63) / 64; len(w.seen) != words {
+		w.seen = make([]uint64, words)
+	}
+	defer w.reset()
+	w.mark(base)
+	w.pending = append(w.pending, base)
+	for len(w.pending) != 0 {
+		last := len(w.pending) - 1
+		current := w.pending[last]
+		w.pending = w.pending[:last]
+		if current == derived {
+			return true, nil
+		}
+		if err := w.pushUnseenMembers(rt, current, work); err != nil {
+			return false, err
+		}
+	}
+	return false, nil
+}
+
+func (w *unionMemberWalk) pushUnseenMembers(rt *schemaBuild, current SimpleTypeID, work func(int) error) error {
+	typ, ok := rt.SimpleTypeDerivation(current)
+	if !ok {
+		return nil
+	}
+	members := unionMembers(typ)
+	if err := work(1 + len(members)); err != nil {
+		return err
+	}
+	for _, id := range members {
+		if w.mark(id) {
+			w.pending = append(w.pending, id)
+		}
+	}
+	return nil
+}
+
+func (w *unionMemberWalk) mark(id SimpleTypeID) bool {
+	if !markSimpleTypeSeen(w.seen, id) {
+		return false
+	}
+	w.marked = append(w.marked, id)
+	return true
+}
+
+func (w *unionMemberWalk) reset() {
+	for _, id := range w.marked {
+		w.seen[uint64(id)/64] &^= uint64(1) << (uint64(id) % 64)
+	}
+	w.marked = w.marked[:0]
+	w.pending = w.pending[:0]
+}
+
+// markSimpleTypeSeen sets id in seen and reports whether it was unset. An ID
+// beyond seen names no simple type, so it reports false.
+func markSimpleTypeSeen(seen []uint64, id SimpleTypeID) bool {
+	word, bit := uint64(id)/64, uint64(1)<<(uint64(id)%64)
+	if word >= uint64(len(seen)) || seen[word]&bit != 0 {
+		return false
+	}
+	seen[word] |= bit
+	return true
 }
 
 func simpleTypeDerivationPairLimit(count int) int {

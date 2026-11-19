@@ -1,0 +1,172 @@
+{
+  "cases": [
+    {
+      "id": "w3c/ibmMeta/xml11Support.testSet/d3_4_6ii01",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/xml11Support.testSet",
+        "testGroup": "d3_4_6ii01"
+      },
+      "title": "invalid instance for value space of xs:Name",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-xml1_1Support-ValSpcOfXSNameEtc",
+        "http://www.w3.org/TR/xmlschema11-2/#Name"
+      ],
+      "schema": {
+        "testName": "d3_4_6ii01s",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/instance_invalid/D3_4_6/d3_4_6ii01.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "d3_4_6ii01i",
+          "file": "corpus/w3c/ibmData/instance_invalid/D3_4_6/d3_4_6ii01.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/D3_4_6/d3_4_6ii01.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/D3_4_6/d3_4_6ii01.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/ibmMeta/xml11Support.testSet/d3_4_6ii02",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/xml11Support.testSet",
+        "testGroup": "d3_4_6ii02"
+      },
+      "title": "invalid instance for value space of xs:NCName",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-xml1_1Support-ValSpcOfXSNameEtc",
+        "http://www.w3.org/TR/xmlschema11-2/#Name"
+      ],
+      "schema": {
+        "testName": "d3_4_6ii02s",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/instance_invalid/D3_4_6/d3_4_6ii02.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "d3_4_6ii02i",
+          "file": "corpus/w3c/ibmData/instance_invalid/D3_4_6/d3_4_6ii02.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/D3_4_6/d3_4_6ii02.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/D3_4_6/d3_4_6ii02.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/ibmMeta/xml11Support.testSet/d3_4_6ii03",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/xml11Support.testSet",
+        "testGroup": "d3_4_6ii03"
+      },
+      "title": "invalid instance for effect of \\i in regular expressions",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-xml1_1Support-EffectInRegex",
+        "http://www.w3.org/TR/xmlschema11-2/#Name"
+      ],
+      "schema": {
+        "testName": "d3_4_6ii03s",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/instance_invalid/D3_4_6/d3_4_6ii03.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "d3_4_6ii03i",
+          "file": "corpus/w3c/ibmData/instance_invalid/D3_4_6/d3_4_6ii03.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/D3_4_6/d3_4_6ii03.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/D3_4_6/d3_4_6ii03.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/ibmMeta/xml11Support.testSet/d3_4_6ii04",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/xml11Support.testSet",
+        "testGroup": "d3_4_6ii04"
+      },
+      "title": "invalid instance for effect of \\c in regular expressions",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-xml1_1Support-EffectInRegex",
+        "http://www.w3.org/TR/xmlschema11-2/#Name"
+      ],
+      "schema": {
+        "testName": "d3_4_6ii04s",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/instance_invalid/D3_4_6/d3_4_6ii04.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "d3_4_6ii04i",
+          "file": "corpus/w3c/ibmData/instance_invalid/D3_4_6/d3_4_6ii04.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/D3_4_6/d3_4_6ii04.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/D3_4_6/d3_4_6ii04.xsd"
+        }
+      ]
+    }
+  ]
+}

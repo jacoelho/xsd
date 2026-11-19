@@ -1,0 +1,16 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:choice maxOccurs="unbounded">
+        <xs:element name="target"><xs:complexType><xs:attribute name="id" type="xs:ID"/></xs:complexType></xs:element>
+        <xs:element name="k"><xs:complexType><xs:attribute name="v" type="xs:string"/></xs:complexType></xs:element>
+        <xs:element name="refDefault"><xs:complexType><xs:attribute name="ref" type="xs:IDREF" default="target"/></xs:complexType></xs:element>
+        <xs:element name="refFixed"><xs:complexType><xs:attribute name="ref" type="xs:IDREF" fixed="target"/></xs:complexType></xs:element>
+        <xs:element name="strDefault"><xs:complexType><xs:attribute name="ref" type="xs:string" default="target"/></xs:complexType></xs:element>
+      </xs:choice>
+    </xs:complexType>
+    <xs:key name="keys"><xs:selector xpath="k"/><xs:field xpath="@v"/></xs:key>
+    <xs:keyref name="refs" refer="keys"><xs:selector xpath="strDefault"/><xs:field xpath="@ref"/></xs:keyref>
+    <xs:unique name="refsUnique"><xs:selector xpath="refDefault"/><xs:field xpath="@ref"/></xs:unique>
+  </xs:element>
+</xs:schema>

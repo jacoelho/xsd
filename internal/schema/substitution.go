@@ -125,15 +125,15 @@ func populateSubstitutionEntries(
 	for member := range elements {
 		memberID := ElementID(member)
 		memberDecl := elements[member]
-		var mask, blocks DerivationMask
+		var methods, blocks DerivationMask
 		for current, head := memberID, parents[member]; head != NoElement; current, head = head, parents[head] {
-			mask |= edges[current].mask
+			methods |= edges[current].methods
 			blocks |= edges[current].blocks
 			pos := next[head]
 			entries[pos] = substitutionEntry{
 				name:      memberDecl.Name,
 				member:    memberID,
-				effective: substitutionEffective(elements[head], memberDecl, mask, blocks),
+				effective: substitutionEffective(elements[head], memberDecl, methods, blocks),
 			}
 			next[head]++
 		}
@@ -461,8 +461,8 @@ func substitutionClosureSize(depth []int) (int, error) {
 }
 
 type substitutionEdge struct {
-	mask   DerivationMask
-	blocks DerivationMask
+	methods DerivationMask
+	blocks  DerivationMask
 }
 
 func validateSubstitutionEdges(
@@ -472,11 +472,12 @@ func validateSubstitutionEdges(
 	work func(int) error,
 ) ([]substitutionEdge, error) {
 	edges := make([]substitutionEdge, len(elements))
+	var memberWalk unionMemberWalk
 	for member, head := range parents {
 		if head == NoElement {
 			continue
 		}
-		edge, err := validateSubstitutionEdge(rt, elements, member, head, work)
+		edge, err := validateSubstitutionEdge(rt, elements, member, head, &memberWalk, work)
 		if err != nil {
 			return nil, err
 		}
@@ -490,13 +491,14 @@ func validateSubstitutionEdge(
 	elements []elementDecl,
 	member int,
 	head ElementID,
+	memberWalk *unionMemberWalk,
 	work func(int) error,
 ) (substitutionEdge, error) {
 	memberID, ok := elementIndexID(member)
 	if !ok {
 		return substitutionEdge{}, errors.New("substitution member index exceeds element ID range")
 	}
-	mask, ok, err := deriveTypeMask(rt, elements[member].Type, elements[head].Type, work)
+	derivation, ok, err := deriveSubstitution(rt, elements[member].Type, elements[head].Type, memberWalk, work)
 	if err != nil {
 		return substitutionEdge{}, err
 	}
@@ -507,7 +509,7 @@ func validateSubstitutionEdge(
 			Head:   head,
 		}
 	}
-	if elements[head].Final&mask != 0 {
+	if elements[head].Final&derivation.full != 0 {
 		return substitutionEdge{}, substitutionMembershipError{
 			Cause:  errSubstitutionMemberTypeExcludedDerivation,
 			Member: memberID,
@@ -518,7 +520,7 @@ func validateSubstitutionEdge(
 	if err != nil {
 		return substitutionEdge{}, err
 	}
-	return substitutionEdge{mask: mask, blocks: blocks}, nil
+	return substitutionEdge{methods: derivation.blocking, blocks: blocks}, nil
 }
 
 func compareSubstitutionEntry(a, b substitutionEntry) int {

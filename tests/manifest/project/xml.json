@@ -1,0 +1,1566 @@
+{
+  "cases": [
+    {
+      "id": "project/xml/reference-eol-order",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "description": "Source CR and CRLF normalize before reference expansion. Referenced CR followed by literal LF remains CRLF; literal CR followed by referenced LF becomes two LFs.",
+        "specification": [
+          "https://www.w3.org/TR/2000/REC-xml-20001006#sec-line-ends",
+          "https://www.w3.org/TR/2000/REC-xml-20001006#sec-references",
+          "https://www.w3.org/TR/2000/REC-xml-20001006#AVNormalize"
+        ],
+        "package": "xmlstream",
+        "sourceFile": "tests/corpus/project/xml/reference-eol-order/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/xml/reference-eol-order/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-line-ends",
+          "clause": "End-of-Line Handling in XML 1.0 Fifth Edition"
+        }
+      },
+      "instances": [
+        {
+          "testName": "references-crlf",
+          "file": "corpus/project/xml/reference-eol-order/references-crlf.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-line-ends",
+            "clause": "End-of-Line Handling in XML 1.0 Fifth Edition"
+          }
+        },
+        {
+          "testName": "reference-cr-literal-lf",
+          "file": "corpus/project/xml/reference-eol-order/reference-cr-literal-lf.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-line-ends",
+            "clause": "End-of-Line Handling in XML 1.0 Fifth Edition"
+          }
+        },
+        {
+          "testName": "literal-crlf-not-crlf",
+          "file": "corpus/project/xml/reference-eol-order/literal-crlf-not-crlf.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-line-ends",
+            "clause": "End-of-Line Handling in XML 1.0 Fifth Edition"
+          }
+        },
+        {
+          "testName": "literal-cr-reference-lf",
+          "file": "corpus/project/xml/reference-eol-order/literal-cr-reference-lf.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-line-ends",
+            "clause": "End-of-Line Handling in XML 1.0 Fifth Edition"
+          }
+        },
+        {
+          "testName": "literal-crlf-not-lflf",
+          "file": "corpus/project/xml/reference-eol-order/literal-crlf-not-lflf.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-line-ends",
+            "clause": "End-of-Line Handling in XML 1.0 Fifth Edition"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/xml/reference-eol-order/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/xml/reference-eol-order/references-crlf.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/reference-eol-order/reference-cr-literal-lf.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/reference-eol-order/literal-crlf-not-crlf.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/reference-eol-order/literal-cr-reference-lf.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/reference-eol-order/literal-crlf-not-lflf.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/xml/lexical-end-name",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "xmlstream",
+        "sourceFile": "tests/corpus/project/xml/lexical-end-name/schema.xsd",
+        "description": "XML end-tag names must lexically match their start-tag names. Prefix aliases bound to the same namespace do not permit p:root to close as q:root; either consistently used prefix is valid. An end name that is longer, shorter, differs at one byte, drops or keeps only the prefix, or adds a colon does not match; whitespace before > and an unprefixed default-namespace name do.",
+        "specification": [
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#GIMatch"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/xml/lexical-end-name/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#GIMatch",
+          "clause": "Element Type Match well-formedness constraint in XML 1.0 Fifth Edition"
+        }
+      },
+      "instances": [
+        {
+          "testName": "alias-closing",
+          "file": "corpus/project/xml/lexical-end-name/alias-closing.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#GIMatch",
+            "clause": "Element Type Match well-formedness constraint in XML 1.0 Fifth Edition"
+          }
+        },
+        {
+          "testName": "prefix-p",
+          "file": "corpus/project/xml/lexical-end-name/prefix-p.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#GIMatch",
+            "clause": "Element Type Match well-formedness constraint in XML 1.0 Fifth Edition"
+          }
+        },
+        {
+          "testName": "prefix-q",
+          "file": "corpus/project/xml/lexical-end-name/prefix-q.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#GIMatch",
+            "clause": "Element Type Match well-formedness constraint in XML 1.0 Fifth Edition"
+          }
+        },
+        {
+          "testName": "default-namespace",
+          "file": "corpus/project/xml/lexical-end-name/default-namespace.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#GIMatch",
+            "clause": "Element Type Match well-formedness constraint in XML 1.0 Fifth Edition"
+          }
+        },
+        {
+          "testName": "end-extra-colon",
+          "file": "corpus/project/xml/lexical-end-name/end-extra-colon.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#GIMatch",
+            "clause": "Element Type Match well-formedness constraint in XML 1.0 Fifth Edition"
+          }
+        },
+        {
+          "testName": "end-longer",
+          "file": "corpus/project/xml/lexical-end-name/end-longer.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#GIMatch",
+            "clause": "Element Type Match well-formedness constraint in XML 1.0 Fifth Edition"
+          }
+        },
+        {
+          "testName": "end-prefix-only",
+          "file": "corpus/project/xml/lexical-end-name/end-prefix-only.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#GIMatch",
+            "clause": "Element Type Match well-formedness constraint in XML 1.0 Fifth Edition"
+          }
+        },
+        {
+          "testName": "end-same-length",
+          "file": "corpus/project/xml/lexical-end-name/end-same-length.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#GIMatch",
+            "clause": "Element Type Match well-formedness constraint in XML 1.0 Fifth Edition"
+          }
+        },
+        {
+          "testName": "end-shorter",
+          "file": "corpus/project/xml/lexical-end-name/end-shorter.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#GIMatch",
+            "clause": "Element Type Match well-formedness constraint in XML 1.0 Fifth Edition"
+          }
+        },
+        {
+          "testName": "end-trailing-space",
+          "file": "corpus/project/xml/lexical-end-name/end-trailing-space.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#GIMatch",
+            "clause": "Element Type Match well-formedness constraint in XML 1.0 Fifth Edition"
+          }
+        },
+        {
+          "testName": "end-unprefixed",
+          "file": "corpus/project/xml/lexical-end-name/end-unprefixed.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#GIMatch",
+            "clause": "Element Type Match well-formedness constraint in XML 1.0 Fifth Edition"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/xml/lexical-end-name/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/xml/lexical-end-name/alias-closing.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/lexical-end-name/prefix-p.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/lexical-end-name/prefix-q.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/lexical-end-name/default-namespace.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/lexical-end-name/end-extra-colon.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/lexical-end-name/end-longer.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/lexical-end-name/end-prefix-only.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/lexical-end-name/end-same-length.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/lexical-end-name/end-shorter.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/lexical-end-name/end-trailing-space.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/lexical-end-name/end-unprefixed.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/xml/pi-target-ncname",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/1999/REC-xml-names-19990114/#ns-using"
+        ],
+        "description": "Processing instruction targets contain no colon in a namespace-well-formed instance, in the prolog, content and epilog.",
+        "package": "xmlstream",
+        "sourceFile": "tests/corpus/project/xml/pi-target-ncname/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/xml/pi-target-ncname/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#Conformance",
+          "clause": "the conformance section of Namespaces in XML 1.0, under which no PI target contains a colon"
+        }
+      },
+      "instances": [
+        {
+          "testName": "ncname-targets",
+          "file": "corpus/project/xml/pi-target-ncname/ncname-targets.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#Conformance",
+            "clause": "the conformance section of Namespaces in XML 1.0, under which no PI target contains a colon"
+          }
+        },
+        {
+          "testName": "colon-target-in-content",
+          "file": "corpus/project/xml/pi-target-ncname/colon-target-in-content.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#Conformance",
+            "clause": "the conformance section of Namespaces in XML 1.0, under which no PI target contains a colon"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-043"
+            }
+          }
+        },
+        {
+          "testName": "colon-target-in-prolog",
+          "file": "corpus/project/xml/pi-target-ncname/colon-target-in-prolog.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#Conformance",
+            "clause": "the conformance section of Namespaces in XML 1.0, under which no PI target contains a colon"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-043"
+            }
+          }
+        },
+        {
+          "testName": "leading-colon-target-in-epilog",
+          "file": "corpus/project/xml/pi-target-ncname/leading-colon-target-in-epilog.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#Conformance",
+            "clause": "the conformance section of Namespaces in XML 1.0, under which no PI target contains a colon"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-043"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/xml/pi-target-ncname/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/xml/pi-target-ncname/ncname-targets.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/pi-target-ncname/colon-target-in-content.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/pi-target-ncname/colon-target-in-prolog.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/pi-target-ncname/leading-colon-target-in-epilog.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/xml/pi-target-colon-in-schema",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/1999/REC-xml-names-19990114/#ns-using",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#schema-loc"
+        ],
+        "description": "A schema document is namespace-well-formed XML, so a colon in a processing instruction target inside appinfo makes it invalid.",
+        "package": "xmlstream",
+        "sourceFile": "tests/corpus/project/xml/pi-target-colon-in-schema/schema.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "errorCode": "schema.xml",
+        "documents": [
+          {
+            "file": "corpus/project/xml/pi-target-colon-in-schema/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#Conformance",
+          "clause": "the conformance section of Namespaces in XML 1.0, under which no PI target contains a colon"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-043"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/xml/pi-target-colon-in-schema/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/xml/qname-admission-non-ascii",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameStartChar",
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameChar",
+          "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName"
+        ],
+        "description": "Non-ASCII markup names start with a NameStartChar and continue with NameChars: U+00B7 and U+0300 continue but do not start a name, and U+00D7 is excluded everywhere, including after a colon and in a prefix.",
+        "package": "xmlstream",
+        "sourceFile": "tests/corpus/project/xml/qname-admission-non-ascii/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/xml/qname-admission-non-ascii/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+          "clause": "the QName production in Namespaces in XML 1.0"
+        }
+      },
+      "instances": [
+        {
+          "testName": "v-local",
+          "file": "corpus/project/xml/qname-admission-non-ascii/v-local.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          }
+        },
+        {
+          "testName": "v-after-colon",
+          "file": "corpus/project/xml/qname-admission-non-ascii/v-after-colon.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          }
+        },
+        {
+          "testName": "v-prefix",
+          "file": "corpus/project/xml/qname-admission-non-ascii/v-prefix.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          }
+        },
+        {
+          "testName": "v-attribute",
+          "file": "corpus/project/xml/qname-admission-non-ascii/v-attribute.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          }
+        },
+        {
+          "testName": "v-mid-name-chars",
+          "file": "corpus/project/xml/qname-admission-non-ascii/v-mid-name-chars.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          }
+        },
+        {
+          "testName": "v-mid-name-chars-attribute",
+          "file": "corpus/project/xml/qname-admission-non-ascii/v-mid-name-chars-attribute.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          }
+        },
+        {
+          "testName": "i-middle-dot-start",
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-middle-dot-start.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          }
+        },
+        {
+          "testName": "i-combining-start",
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-combining-start.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          }
+        },
+        {
+          "testName": "i-middle-dot-start-attribute",
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-middle-dot-start-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          }
+        },
+        {
+          "testName": "i-multiplication-sign-start",
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-multiplication-sign-start.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          }
+        },
+        {
+          "testName": "i-multiplication-sign-mid",
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-multiplication-sign-mid.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          }
+        },
+        {
+          "testName": "i-multiplication-sign-attribute",
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-multiplication-sign-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          }
+        },
+        {
+          "testName": "i-after-colon-middle-dot",
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-after-colon-middle-dot.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-043"
+            }
+          }
+        },
+        {
+          "testName": "i-prefix-multiplication",
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-prefix-multiplication.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/v-local.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/v-after-colon.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/v-prefix.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/v-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/v-mid-name-chars.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/v-mid-name-chars-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-middle-dot-start.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-combining-start.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-middle-dot-start-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-multiplication-sign-start.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-multiplication-sign-mid.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-multiplication-sign-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-after-colon-middle-dot.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-non-ascii/i-prefix-multiplication.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/xml/qname-admission-fifth-edition-ranges",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameStartChar",
+          "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName"
+        ],
+        "description": "XML 1.0 fifth-edition name-start ranges: characters up to U+EFFFF outside the excluded ranges start a markup name; U+0300, U+037E, U+E000 and characters above U+EFFFF do not.",
+        "package": "xmlstream",
+        "sourceFile": "tests/corpus/project/xml/qname-admission-fifth-edition-ranges/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-020--xml-name-characters-follow-the-fifth-edition",
+          "clause": "I-020 in docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "v-U+10000-element",
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/v-U+10000-element.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-020--xml-name-characters-follow-the-fifth-edition",
+            "clause": "I-020 in docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-020"
+            },
+            "dotnet": {
+              "record": "I-020"
+            },
+            "xmlschema": {
+              "record": "I-020"
+            }
+          }
+        },
+        {
+          "testName": "v-U+10000-attribute",
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/v-U+10000-attribute.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-020--xml-name-characters-follow-the-fifth-edition",
+            "clause": "I-020 in docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-020"
+            },
+            "dotnet": {
+              "record": "I-020"
+            },
+            "xmlschema": {
+              "record": "I-020"
+            }
+          }
+        },
+        {
+          "testName": "v-U+EFFF0-element",
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/v-U+EFFF0-element.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-020--xml-name-characters-follow-the-fifth-edition",
+            "clause": "I-020 in docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-020"
+            },
+            "dotnet": {
+              "record": "I-020"
+            },
+            "xmlschema": {
+              "record": "I-020"
+            }
+          }
+        },
+        {
+          "testName": "v-U+02FF-element",
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/v-U+02FF-element.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-020--xml-name-characters-follow-the-fifth-edition",
+            "clause": "I-020 in docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-020"
+            },
+            "dotnet": {
+              "record": "I-020"
+            },
+            "xmlschema": {
+              "record": "I-020"
+            }
+          }
+        },
+        {
+          "testName": "v-U+037F-element",
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/v-U+037F-element.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-020--xml-name-characters-follow-the-fifth-edition",
+            "clause": "I-020 in docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-020"
+            },
+            "dotnet": {
+              "record": "I-020"
+            },
+            "xmlschema": {
+              "record": "I-020"
+            }
+          }
+        },
+        {
+          "testName": "i-U+0300-element",
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/i-U+0300-element.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-020--xml-name-characters-follow-the-fifth-edition",
+            "clause": "I-020 in docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "i-U+037E-element",
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/i-U+037E-element.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-020--xml-name-characters-follow-the-fifth-edition",
+            "clause": "I-020 in docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "i-U+F0000-element",
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/i-U+F0000-element.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-020--xml-name-characters-follow-the-fifth-edition",
+            "clause": "I-020 in docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "i-U+F0000-attribute",
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/i-U+F0000-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-020--xml-name-characters-follow-the-fifth-edition",
+            "clause": "I-020 in docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "i-U+E000-element",
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/i-U+E000-element.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-020--xml-name-characters-follow-the-fifth-edition",
+            "clause": "I-020 in docs/spec/INTERPRETATIONS.md"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/v-U+10000-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/v-U+10000-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/v-U+EFFF0-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/v-U+02FF-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/v-U+037F-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/i-U+0300-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/i-U+037E-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/i-U+F0000-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/i-U+F0000-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-fifth-edition-ranges/i-U+E000-element.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/xml/qname-admission-colon-forms",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameStartChar"
+        ],
+        "description": "A markup QName has at most one colon with a non-empty NCName on each side; leading, trailing and repeated colons, and a digit after the colon, are rejected for elements and attributes.",
+        "package": "xmlstream",
+        "sourceFile": "tests/corpus/project/xml/qname-admission-colon-forms/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/xml/qname-admission-colon-forms/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+          "clause": "the QName production in Namespaces in XML 1.0"
+        }
+      },
+      "instances": [
+        {
+          "testName": "v-prefixed",
+          "file": "corpus/project/xml/qname-admission-colon-forms/v-prefixed.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          }
+        },
+        {
+          "testName": "i-multi-colon-element",
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-multi-colon-element.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-043"
+            }
+          }
+        },
+        {
+          "testName": "i-multi-colon-attribute",
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-multi-colon-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-043"
+            }
+          }
+        },
+        {
+          "testName": "i-leading-colon-element",
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-leading-colon-element.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-043"
+            }
+          }
+        },
+        {
+          "testName": "i-leading-colon-attribute",
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-leading-colon-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-043"
+            }
+          }
+        },
+        {
+          "testName": "i-trailing-colon-element",
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-trailing-colon-element.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-043"
+            }
+          }
+        },
+        {
+          "testName": "i-trailing-colon-attribute",
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-trailing-colon-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-043"
+            }
+          }
+        },
+        {
+          "testName": "i-digit-after-colon",
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-digit-after-colon.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-043"
+            }
+          }
+        },
+        {
+          "testName": "i-non-ascii-multi-colon",
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-non-ascii-multi-colon.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-043"
+            }
+          }
+        },
+        {
+          "testName": "i-adjacent-colons-element",
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-adjacent-colons-element.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-043"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/xml/qname-admission-colon-forms/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-colon-forms/v-prefixed.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-multi-colon-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-multi-colon-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-leading-colon-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-leading-colon-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-trailing-colon-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-trailing-colon-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-digit-after-colon.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-non-ascii-multi-colon.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-colon-forms/i-adjacent-colons-element.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/xml/schema-document-invalid-non-ascii-qname",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameStartChar",
+          "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName"
+        ],
+        "description": "A schema document containing an element whose local name starts with U+00B7, a NameChar that cannot start a name, is rejected at the XML layer.",
+        "package": "xmlstream",
+        "sourceFile": "tests/corpus/project/xml/schema-document-invalid-non-ascii-qname/schema.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/xml/schema-document-invalid-non-ascii-qname/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "errorCode": "schema.xml",
+        "rule": {
+          "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+          "clause": "QName production in Namespaces in XML 1999"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/xml/schema-document-invalid-non-ascii-qname/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/xml/qname-admission-ascii-name-classes",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameStartChar",
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-NameChar"
+        ],
+        "description": "An NCName starts with a letter or underscore and continues with letters, digits, '-', '.', '_' or combining characters: '-' and '.' are rejected at the start of an element name, attribute name and the local part after a colon, a digit is rejected at the start of a prefix, '@' and '!' are rejected inside names, including before a non-ASCII character, and a bare ':' is not a name; prefix a-b.c1 is admitted.",
+        "package": "xmlstream",
+        "sourceFile": "tests/corpus/project/xml/qname-admission-ascii-name-classes/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/xml/qname-admission-ascii-name-classes/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+          "clause": "the QName production in Namespaces in XML 1.0"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/xml/qname-admission-ascii-name-classes/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-ascii-name-classes/i-at-before-non-ascii.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-ascii-name-classes/i-at-in-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-ascii-name-classes/i-bang-in-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-ascii-name-classes/i-bare-colon-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-ascii-name-classes/i-dash-after-colon.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-ascii-name-classes/i-dash-start-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-ascii-name-classes/i-dash-start-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-ascii-name-classes/i-digit-prefix.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-ascii-name-classes/i-dot-after-colon.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-ascii-name-classes/i-dot-start-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-ascii-name-classes/i-dot-start-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/qname-admission-ascii-name-classes/v-prefix-name-chars.xml",
+          "role": "instance"
+        }
+      ],
+      "instances": [
+        {
+          "testName": "i-at-before-non-ascii",
+          "file": "corpus/project/xml/qname-admission-ascii-name-classes/i-at-before-non-ascii.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          }
+        },
+        {
+          "testName": "i-at-in-element",
+          "file": "corpus/project/xml/qname-admission-ascii-name-classes/i-at-in-element.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          }
+        },
+        {
+          "testName": "i-bang-in-attribute",
+          "file": "corpus/project/xml/qname-admission-ascii-name-classes/i-bang-in-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          }
+        },
+        {
+          "testName": "i-bare-colon-element",
+          "file": "corpus/project/xml/qname-admission-ascii-name-classes/i-bare-colon-element.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-043"
+            }
+          }
+        },
+        {
+          "testName": "i-dash-after-colon",
+          "file": "corpus/project/xml/qname-admission-ascii-name-classes/i-dash-after-colon.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-043"
+            }
+          }
+        },
+        {
+          "testName": "i-dash-start-attribute",
+          "file": "corpus/project/xml/qname-admission-ascii-name-classes/i-dash-start-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          }
+        },
+        {
+          "testName": "i-dash-start-element",
+          "file": "corpus/project/xml/qname-admission-ascii-name-classes/i-dash-start-element.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          }
+        },
+        {
+          "testName": "i-digit-prefix",
+          "file": "corpus/project/xml/qname-admission-ascii-name-classes/i-digit-prefix.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          }
+        },
+        {
+          "testName": "i-dot-after-colon",
+          "file": "corpus/project/xml/qname-admission-ascii-name-classes/i-dot-after-colon.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-043"
+            }
+          }
+        },
+        {
+          "testName": "i-dot-start-attribute",
+          "file": "corpus/project/xml/qname-admission-ascii-name-classes/i-dot-start-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          }
+        },
+        {
+          "testName": "i-dot-start-element",
+          "file": "corpus/project/xml/qname-admission-ascii-name-classes/i-dot-start-element.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          }
+        },
+        {
+          "testName": "v-prefix-name-chars",
+          "file": "corpus/project/xml/qname-admission-ascii-name-classes/v-prefix-name-chars.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName",
+            "clause": "the QName production in Namespaces in XML 1.0"
+          }
+        }
+      ]
+    },
+    {
+      "id": "project/xml/opt-out-schema-doctype",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/xml/opt-out-schema-doctype",
+        "specification": [
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-prolog-dtd",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#schema-repr"
+        ],
+        "conditions": [
+          "A schema document with a document type declaration is well-formed and schema-valid; DTDs are an opt-out, so the library must report unsupported.dtd instead of accepting or ignoring the declaration."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/xml/opt-out-schema-doctype/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-prolog-dtd",
+          "clause": "XML 1.0 and the schema representation; the allowlist records the opt-out; this observation is not a majority-vote oracle"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/xml/opt-out-schema-doctype/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/xml/opt-out-instance-forms",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/xml/opt-out-instance-forms",
+        "specification": [
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-prolog-dtd",
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#charencoding",
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#wf-entdeclared",
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-VersionNum"
+        ],
+        "conditions": [
+          "Instances use doctype: a bare document type declaration; doctype-external-subset: an external DTD subset a non-validating processor need not read; doctype-internal-entity: an internal general entity; undeclared-entity: an undeclared entity reference, which XML 1.0 makes a well-formedness error and the library reports under the external-entity opt-out; latin1-declaration: a non-UTF-8 encoding declaration; xml-1-1: an XML 1.1 version declaration; utf8-declaration: a UTF-8 XML 1.0 declaration, the supported control. Every opt-out form must be reported as unsupported, never assessed as valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/xml/opt-out-instance-forms/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-prolog-dtd",
+          "clause": "XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle"
+        }
+      },
+      "instances": [
+        {
+          "testName": "doctype",
+          "file": "corpus/project/xml/opt-out-instance-forms/doctype.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-prolog-dtd",
+            "clause": "XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle"
+          }
+        },
+        {
+          "testName": "doctype-external-subset",
+          "file": "corpus/project/xml/opt-out-instance-forms/doctype-external-subset.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-prolog-dtd",
+            "clause": "XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle"
+          }
+        },
+        {
+          "testName": "doctype-internal-entity",
+          "file": "corpus/project/xml/opt-out-instance-forms/doctype-internal-entity.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#sec-prolog-dtd",
+            "clause": "XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle"
+          }
+        },
+        {
+          "testName": "undeclared-entity",
+          "file": "corpus/project/xml/opt-out-instance-forms/undeclared-entity.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#wf-entdeclared",
+            "clause": "XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle"
+          }
+        },
+        {
+          "testName": "latin1-declaration",
+          "file": "corpus/project/xml/opt-out-instance-forms/latin1-declaration.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#charencoding",
+            "clause": "XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle"
+          }
+        },
+        {
+          "testName": "xml-1-1",
+          "file": "corpus/project/xml/opt-out-instance-forms/xml-1-1.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#NT-VersionNum",
+            "clause": "XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle"
+          },
+          "differences": {
+            "dotnet": {
+              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. Version number '1.1' is invalid. Line 1, position 16. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle."
+            }
+          }
+        },
+        {
+          "testName": "utf8-declaration",
+          "file": "corpus/project/xml/opt-out-instance-forms/utf8-declaration.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#charencoding",
+            "clause": "XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/xml/opt-out-instance-forms/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/xml/opt-out-instance-forms/doctype.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/opt-out-instance-forms/doctype-external-subset.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/opt-out-instance-forms/doctype-internal-entity.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/opt-out-instance-forms/undeclared-entity.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/opt-out-instance-forms/latin1-declaration.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/opt-out-instance-forms/xml-1-1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/xml/opt-out-instance-forms/utf8-declaration.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/xml/opt-out-schema-undeclared-entity",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/xml/opt-out-schema-undeclared-entity",
+        "specification": [
+          "https://www.w3.org/TR/2008/REC-xml-20081126/#wf-entdeclared"
+        ],
+        "conditions": [
+          "A schema document references the general entity &e; without a declaration, which XML 1.0 makes a well-formedness error; entity references are an opt-out, so the library reports unsupported.external_entity and never accepts the document."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/xml/opt-out-schema-undeclared-entity/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2008/REC-xml-20081126/#wf-entdeclared",
+          "clause": "XML 1.0 WFC Entity Declared; the allowlist records the opt-out code; this observation is not a majority-vote oracle"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/xml/opt-out-schema-undeclared-entity/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    }
+  ]
+}

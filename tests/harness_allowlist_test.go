@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jacoelho/xsd/internal/corpus"
 )
 
 func TestParseUnsupportedAllowlistAcceptsSchemaAndInstance(t *testing.T) {
@@ -87,12 +89,12 @@ func TestUnsupportedAllowlistUseRequiresKnownCode(t *testing.T) {
 }
 
 func TestHarnessRunCoverageRequiresFullCorpus(t *testing.T) {
-	m := manifest{
-		Cases: []manifestCase{
-			{Schema: &manifestSchema{Expected: "valid"}, Instances: []manifestInstance{{}, {}}},
-			{Schema: &manifestSchema{Expected: "valid"}, Instances: []manifestInstance{{}}},
-			{Schema: &manifestSchema{Expected: "invalid"}, Instances: []manifestInstance{{}}},
-			{Instances: []manifestInstance{{}}},
+	m := corpus.Inventory{
+		Cases: []corpus.Case{
+			{Schema: &corpus.Schema{Expected: corpus.ExpectedValid}, Instances: []corpus.Instance{{}, {}}},
+			{Schema: &corpus.Schema{Expected: corpus.ExpectedValid}, Instances: []corpus.Instance{{}}},
+			{Schema: &corpus.Schema{Expected: corpus.ExpectedInvalid}, Instances: []corpus.Instance{{}}},
+			{Instances: []corpus.Instance{{}}},
 		},
 	}
 	if !(harnessRunCoverage{schemaCases: 3, schemaLessCases: 1, instanceRuns: 4, blockedInstanceRuns: 1}).complete(m) {
@@ -115,16 +117,16 @@ func TestHarnessRunCoverageRequiresFullCorpus(t *testing.T) {
 func TestInvalidSchemaInstancesAreAccountedAsBlocked(t *testing.T) {
 	dir := t.TempDir()
 	writeHarnessTestFile(t, filepath.Join(dir, "schema.xsd"), `<xs:schema`)
-	tc := manifestCase{
+	tc := corpus.Case{
 		ID:             "invalid-schema",
 		ExpectedSource: "project",
-		Schema: &manifestSchema{
-			Expected:  "invalid",
-			Documents: []manifestDocument{{File: "schema.xsd"}},
+		Schema: &corpus.Schema{
+			Expected:  corpus.ExpectedInvalid,
+			Documents: []corpus.Document{{File: "schema.xsd"}},
 		},
-		Instances: []manifestInstance{
-			{TestName: "first", Expected: "valid"},
-			{TestName: "second", Expected: "invalid"},
+		Instances: []corpus.Instance{
+			{TestName: "first", Expected: corpus.ExpectedValid},
+			{TestName: "second", Expected: corpus.ExpectedInvalid},
 		},
 	}
 	var run harnessRunCoverage

@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
 # Pinned XSD 1.0 oracle image: Xerces-J, .NET System.Xml, Python xmlschema, libxml2.
-# Verdicts are version-dependent; change a pin only together with re-recorded oracle metadata.
+# Verdicts are version-dependent; change a pin only together with a full make oracle-measure.
 
 FROM eclipse-temurin:21.0.13_9-jdk-jammy@sha256:4b1a74fbffbe6b4e7b6f0171a472478282fb463790a51edf10e465d578f22b69 AS xerces
 ADD --chmod=0644 --checksum=sha256:6fc991829af1708d15aea50c66f0beadcd2cfeb6968e0b2f55c1b0909883fe16 \
@@ -14,12 +14,12 @@ RUN dotnet publish /src/DotnetOracle.csproj -c Release -o /out --nologo
 
 FROM mcr.microsoft.com/dotnet/runtime:10.0.14-noble@sha256:a3f9f81954b9c810af2ed18849716c8dc74a4707bd0907fdbd69be81554c0f30 AS dotnet-runtime
 
-# Jammy ships libxml2 2.9.13, the version recorded in tests/manifest.json oracle metadata.
+# Jammy ships libxml2 2.9.13, the version recorded in tests/oracles/profile.json.
 FROM eclipse-temurin:21.0.13_9-jre-jammy@sha256:1eac8b8fee11ca7d6725a48bc5d41992ed1561504ebae25490d2d062847e8269
 # jammy-updates keeps only the newest package versions and ports.ubuntu.com has no snapshot
 # service, so these pins fail once superseded. To update, read the candidates with
 #   docker run --rm <this base> sh -c 'apt-get update -qq; apt-cache policy libxml2-utils python3.10 libicu70'
-# and re-record oracle metadata if the libxml2 version changes.
+# and re-measure every project case if the libxml2 version changes.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       libxml2-utils=2.9.13+dfsg-1ubuntu0.14 \
@@ -42,7 +42,7 @@ RUN for w in /tmp/wheels/*.whl; do python3.10 -m zipfile -e "$w" /opt/oracles/xm
  && rm -rf /tmp/wheels
 COPY xmlschema/oracle.py /opt/oracles/xmlschema/
 COPY libxml2/oracle.sh /opt/oracles/libxml2/
-COPY run-all.sh /opt/oracles/
+COPY run-all.sh root-relative.awk /opt/oracles/
 
 ENV HOME=/tmp DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 DOTNET_ROOT=/usr/share/dotnet
 WORKDIR /tmp

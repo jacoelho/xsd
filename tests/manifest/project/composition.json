@@ -1,0 +1,2116 @@
+{
+  "cases": [
+    {
+      "id": "project/composition/xml-base-acquisition/root-base",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/xml-base-acquisition/root-base.xsd",
+        "description": "Schema and include xml:base compose before acquisition; the included document supplies the base for its own relative include.",
+        "specification": [
+          "https://www.w3.org/TR/2001/REC-xmlbase-20010627/",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/xml-base-acquisition/root-base.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include",
+          "clause": "src-include clause 1 in XML Schema Part 1"
+        }
+      },
+      "instances": [
+        {
+          "testName": "selected-value",
+          "file": "corpus/project/composition/xml-base-acquisition/root-base-selected-value.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include",
+            "clause": "src-include clause 1 in XML Schema Part 1"
+          }
+        },
+        {
+          "testName": "wrong-value",
+          "file": "corpus/project/composition/xml-base-acquisition/root-base-wrong-value.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-enumeration-valid",
+            "clause": "cvc-enumeration-valid in XML Schema Part 2"
+          }
+        },
+        {
+          "testName": "empty-value",
+          "file": "corpus/project/composition/xml-base-acquisition/root-base-empty-value.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-enumeration-valid",
+            "clause": "cvc-enumeration-valid in XML Schema Part 2"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/root-base.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/sub/nested/child.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/sub/nested/types.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/root-base-selected-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/root-base-wrong-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/root-base-empty-value.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/xml-base-acquisition/edge-base",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/xml-base-acquisition/edge-base.xsd",
+        "description": "Schema and include xml:base compose before acquisition; the included document supplies the base for its own relative include.",
+        "specification": [
+          "https://www.w3.org/TR/2001/REC-xmlbase-20010627/",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/xml-base-acquisition/edge-base.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include",
+          "clause": "src-include clause 1 in XML Schema Part 1"
+        }
+      },
+      "instances": [
+        {
+          "testName": "selected-value",
+          "file": "corpus/project/composition/xml-base-acquisition/edge-base-selected-value.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include",
+            "clause": "src-include clause 1 in XML Schema Part 1"
+          }
+        },
+        {
+          "testName": "wrong-value",
+          "file": "corpus/project/composition/xml-base-acquisition/edge-base-wrong-value.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-enumeration-valid",
+            "clause": "cvc-enumeration-valid in XML Schema Part 2"
+          }
+        },
+        {
+          "testName": "empty-value",
+          "file": "corpus/project/composition/xml-base-acquisition/edge-base-empty-value.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-enumeration-valid",
+            "clause": "cvc-enumeration-valid in XML Schema Part 2"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/edge-base.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/sub/nested/child.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/sub/nested/types.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/edge-base-selected-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/edge-base-wrong-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/edge-base-empty-value.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/xml-base-acquisition/nested-base",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/xml-base-acquisition/nested-base.xsd",
+        "description": "Schema and include xml:base compose before acquisition; the included document supplies the base for its own relative include.",
+        "specification": [
+          "https://www.w3.org/TR/2001/REC-xmlbase-20010627/",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/xml-base-acquisition/nested-base.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include",
+          "clause": "src-include clause 1 in XML Schema Part 1"
+        }
+      },
+      "instances": [
+        {
+          "testName": "selected-value",
+          "file": "corpus/project/composition/xml-base-acquisition/nested-base-selected-value.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include",
+            "clause": "src-include clause 1 in XML Schema Part 1"
+          }
+        },
+        {
+          "testName": "wrong-value",
+          "file": "corpus/project/composition/xml-base-acquisition/nested-base-wrong-value.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-enumeration-valid",
+            "clause": "cvc-enumeration-valid in XML Schema Part 2"
+          }
+        },
+        {
+          "testName": "empty-value",
+          "file": "corpus/project/composition/xml-base-acquisition/nested-base-empty-value.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-enumeration-valid",
+            "clause": "cvc-enumeration-valid in XML Schema Part 2"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/nested-base.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/sub/nested/child.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/sub/nested/types.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/nested-base-selected-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/nested-base-wrong-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-acquisition/nested-base-empty-value.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/conformance-schema-header-target-empty",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/composition/conformance-schema-header-target-empty",
+        "conditions": [
+          "schema-construction:SDCS011"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/conformance-schema-header-target-empty/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-schema",
+          "clause": "§3.15.2 of XML Schema Part 1 as accepted W3C msMeta schZ014_b reads it"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-041"
+          },
+          "libxml2": {
+            "record": "I-041"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/composition/conformance-schema-header-target-empty/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/conformance-schema-header-target-whitespace",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/composition/conformance-schema-header-target-whitespace",
+        "conditions": [
+          "schema-construction:SDCS011"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/conformance-schema-header-target-whitespace/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-schema",
+          "clause": "§3.15.2 of XML Schema Part 1 as accepted W3C msMeta schZ014_b reads it"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-041"
+          },
+          "libxml2": {
+            "record": "I-041"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/composition/conformance-schema-header-target-whitespace/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/conformance-schema-header-target-absent",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/composition/conformance-schema-header-target-absent",
+        "conditions": [
+          "schema-construction:SDCS011"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/conformance-schema-header-target-absent/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "clause": "the <schema> XML representation in XML Schema Part 1"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/composition/conformance-schema-header-target-absent/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/conformance-schema-header-form-empty",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/composition/conformance-schema-header-form-empty",
+        "conditions": [
+          "schema-construction:SDCS015"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/conformance-schema-header-form-empty/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "clause": "the <schema> XML representation in XML Schema Part 1"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/composition/conformance-schema-header-form-empty/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/conformance-schema-header-form-multiple",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/composition/conformance-schema-header-form-multiple",
+        "conditions": [
+          "schema-construction:SDCS015"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/conformance-schema-header-form-multiple/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "clause": "the <schema> XML representation in XML Schema Part 1"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/composition/conformance-schema-header-form-multiple/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/conformance-schema-header-form-case",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/composition/conformance-schema-header-form-case",
+        "conditions": [
+          "schema-construction:SDCS015"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/conformance-schema-header-form-case/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "clause": "the <schema> XML representation in XML Schema Part 1"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/composition/conformance-schema-header-form-case/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/conformance-schema-header-block-empty",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/composition/conformance-schema-header-block-empty",
+        "conditions": [
+          "schema-construction:SDCS017"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/conformance-schema-header-block-empty/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "clause": "the <schema> XML representation in XML Schema Part 1"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/composition/conformance-schema-header-block-empty/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/conformance-schema-header-block-whitespace",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/composition/conformance-schema-header-block-whitespace",
+        "conditions": [
+          "schema-construction:SDCS017"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/conformance-schema-header-block-whitespace/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "clause": "the <schema> XML representation in XML Schema Part 1"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/composition/conformance-schema-header-block-whitespace/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/conformance-schema-header-block-all",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/composition/conformance-schema-header-block-all",
+        "conditions": [
+          "schema-construction:SDCS017"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/conformance-schema-header-block-all/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "clause": "the <schema> XML representation in XML Schema Part 1"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/composition/conformance-schema-header-block-all/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/conformance-schema-header-block-list",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/composition/conformance-schema-header-block-list",
+        "conditions": [
+          "schema-construction:SDCS017"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/conformance-schema-header-block-list/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "clause": "the <schema> XML representation in XML Schema Part 1"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/composition/conformance-schema-header-block-list/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/conformance-schema-header-block-duplicate",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/composition/conformance-schema-header-block-duplicate",
+        "conditions": [
+          "schema-construction:SDCS017"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/conformance-schema-header-block-duplicate/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "clause": "the <schema> XML representation in XML Schema Part 1"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/composition/conformance-schema-header-block-duplicate/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/conformance-schema-header-block-mixture",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/composition/conformance-schema-header-block-mixture",
+        "conditions": [
+          "schema-construction:SDCS017"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/conformance-schema-header-block-mixture/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "clause": "the <schema> XML representation in XML Schema Part 1"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/composition/conformance-schema-header-block-mixture/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/conformance-schema-header-block-list-token",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/composition/conformance-schema-header-block-list-token",
+        "conditions": [
+          "schema-construction:SDCS017"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/conformance-schema-header-block-list-token/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "clause": "the <schema> XML representation in XML Schema Part 1"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/composition/conformance-schema-header-block-list-token/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/conformance-schema-header-final-empty",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/composition/conformance-schema-header-final-empty",
+        "conditions": [
+          "schema-construction:SDCS018"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/conformance-schema-header-final-empty/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "clause": "the <schema> XML representation in XML Schema Part 1"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/composition/conformance-schema-header-final-empty/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/conformance-schema-header-final-list",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/composition/conformance-schema-header-final-list",
+        "conditions": [
+          "schema-construction:SDCS018"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/conformance-schema-header-final-list/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "clause": "the <schema> XML representation in XML Schema Part 1"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/composition/conformance-schema-header-final-list/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/conformance-schema-header-final-duplicate",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/composition/conformance-schema-header-final-duplicate",
+        "conditions": [
+          "schema-construction:SDCS018"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/conformance-schema-header-final-duplicate/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "clause": "the <schema> XML representation in XML Schema Part 1"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/composition/conformance-schema-header-final-duplicate/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/conformance-schema-header-final-mixture",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/composition/conformance-schema-header-final-mixture",
+        "conditions": [
+          "schema-construction:SDCS018"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/conformance-schema-header-final-mixture/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "clause": "the <schema> XML representation in XML Schema Part 1"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/composition/conformance-schema-header-final-mixture/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/conformance-schema-header-final-substitution",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/composition/conformance-schema-header-final-substitution",
+        "conditions": [
+          "schema-construction:SDCS018"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/conformance-schema-header-final-substitution/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "clause": "the <schema> XML representation in XML Schema Part 1"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/composition/conformance-schema-header-final-substitution/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/conformance-schema-header-id-collapsed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/composition/conformance-schema-header-id-collapsed",
+        "conditions": [
+          "schema-construction:SDCS013"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/conformance-schema-header-id-collapsed/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "clause": "the schema for schemas, which types schema/@id as xs:ID with collapsed whitespace"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-039"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/composition/conformance-schema-header-id-collapsed/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/conformance-schema-header-id-invalid",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/composition/conformance-schema-header-id-invalid",
+        "conditions": [
+          "schema-construction:SDCS013"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema"
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/conformance-schema-header-id-invalid/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#normative-schemaSchema",
+          "clause": "the schema for schemas in XML Schema Part 1"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/composition/conformance-schema-header-id-invalid/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/conformance-schema-id-duplicate-normalized",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/composition/conformance-schema-id-duplicate-normalized",
+        "conditions": [
+          "schema-construction:SDCS013"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-schema"
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/conformance-schema-id-duplicate-normalized/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id",
+          "clause": "cvc-id clause 2 in XML Schema Part 1"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/composition/conformance-schema-id-duplicate-normalized/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/conformance-symbol-space-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/composition/conformance-symbol-space-attribute",
+        "conditions": [
+          "schema-construction:SDCS020",
+          "schema-construction:SDCS023",
+          "schema-construction:SDCS024"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#sch-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#concepts-nameSymbolSpaces"
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/conformance-symbol-space-attribute/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#concepts-nameSymbolSpaces",
+          "clause": "symbol spaces in XML Schema Part 1"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/composition/conformance-symbol-space-attribute/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/conformance-symbol-space-attribute-group",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/composition/conformance-symbol-space-attribute-group",
+        "conditions": [
+          "schema-construction:SDCS020",
+          "schema-construction:SDCS023",
+          "schema-construction:SDCS024"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#sch-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#concepts-nameSymbolSpaces"
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/conformance-symbol-space-attribute-group/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#sch-props-correct",
+          "clause": "sch-props-correct clause 2 in XML Schema Part 1"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/composition/conformance-symbol-space-attribute-group/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/conformance-symbol-space-element-type",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/composition/conformance-symbol-space-element-type",
+        "conditions": [
+          "schema-construction:SDCS020",
+          "schema-construction:SDCS023",
+          "schema-construction:SDCS024"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#sch-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#concepts-nameSymbolSpaces"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/conformance-symbol-space-element-type/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#sch-props-correct",
+          "clause": "sch-props-correct clause 2 in XML Schema Part 1"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/composition/conformance-symbol-space-element-type/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/chameleon-includes-same-tns",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import",
+          "docs/spec/INTERPRETATIONS.md#i-021--chameleon-reference-checks-use-the-effective-target-namespace"
+        ],
+        "description": "A chameleon document included into urn:t may include a urn:t document, because src-include 2.1 compares the namespace the chameleon adopts.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/chameleon-includes-same-tns/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/chameleon-includes-same-tns/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-021--chameleon-reference-checks-use-the-effective-target-namespace",
+          "clause": "I-021 in docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "int-value",
+          "file": "corpus/project/composition/chameleon-includes-same-tns/int-value.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-021--chameleon-reference-checks-use-the-effective-target-namespace",
+            "clause": "I-021 in docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "non-int-value",
+          "file": "corpus/project/composition/chameleon-includes-same-tns/non-int-value.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-datatype-valid",
+            "clause": "cvc-datatype-valid clause 1 in XML Schema Part 2"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/composition/chameleon-includes-same-tns/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/composition/chameleon-includes-same-tns/chameleon.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/composition/chameleon-includes-same-tns/named.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/composition/chameleon-includes-same-tns/int-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/chameleon-includes-same-tns/non-int-value.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/chameleon-imports-effective-ns",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import",
+          "docs/spec/INTERPRETATIONS.md#i-021--chameleon-reference-checks-use-the-effective-target-namespace"
+        ],
+        "description": "A chameleon document included into urn:t may not import urn:t, because src-import 1.1 compares the namespace the chameleon adopts.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/chameleon-imports-effective-ns/schema.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "errorCode": "schema.reference",
+        "documents": [
+          {
+            "file": "corpus/project/composition/chameleon-imports-effective-ns/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-021--chameleon-reference-checks-use-the-effective-target-namespace",
+          "clause": "I-021 in docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-021"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/composition/chameleon-imports-effective-ns/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/composition/chameleon-imports-effective-ns/chameleon.xsd",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/chameleon-import-without-namespace",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import",
+          "docs/spec/INTERPRETATIONS.md#i-021--chameleon-reference-checks-use-the-effective-target-namespace"
+        ],
+        "description": "A chameleon document included into urn:t may import without a namespace attribute, because src-import 1.2 compares the namespace the chameleon adopts.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/chameleon-import-without-namespace/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/chameleon-import-without-namespace/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-021--chameleon-reference-checks-use-the-effective-target-namespace",
+          "clause": "I-021 in docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-021"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "int-value",
+          "file": "corpus/project/composition/chameleon-import-without-namespace/int-value.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-021--chameleon-reference-checks-use-the-effective-target-namespace",
+            "clause": "I-021 in docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "non-int-value",
+          "file": "corpus/project/composition/chameleon-import-without-namespace/non-int-value.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-021--chameleon-reference-checks-use-the-effective-target-namespace",
+            "clause": "I-021 in docs/spec/INTERPRETATIONS.md"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/composition/chameleon-import-without-namespace/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/composition/chameleon-import-without-namespace/chameleon.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/composition/chameleon-import-without-namespace/unqualified.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/composition/chameleon-import-without-namespace/int-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/chameleon-import-without-namespace/non-int-value.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/chameleon-transitive-import-effective-ns",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import",
+          "docs/spec/INTERPRETATIONS.md#i-021--chameleon-reference-checks-use-the-effective-target-namespace"
+        ],
+        "description": "A chameleon included through another chameleon adopts urn:t, so its import of urn:t violates src-import 1.1.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/chameleon-transitive-import-effective-ns/schema.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "errorCode": "schema.reference",
+        "documents": [
+          {
+            "file": "corpus/project/composition/chameleon-transitive-import-effective-ns/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-021--chameleon-reference-checks-use-the-effective-target-namespace",
+          "clause": "I-021 in docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-021"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/composition/chameleon-transitive-import-effective-ns/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/composition/chameleon-transitive-import-effective-ns/inner.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/composition/chameleon-transitive-import-effective-ns/outer.xsd",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/chameleon-transitive-import-without-namespace",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-include",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import",
+          "docs/spec/INTERPRETATIONS.md#i-021--chameleon-reference-checks-use-the-effective-target-namespace"
+        ],
+        "description": "A chameleon included through another chameleon adopts urn:t, so an import without namespace is allowed and its declarations are in urn:t.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/chameleon-transitive-import-without-namespace/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/chameleon-transitive-import-without-namespace/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-021--chameleon-reference-checks-use-the-effective-target-namespace",
+          "clause": "I-021 in docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-021"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "adopted-namespace",
+          "file": "corpus/project/composition/chameleon-transitive-import-without-namespace/adopted-namespace.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-021--chameleon-reference-checks-use-the-effective-target-namespace",
+            "clause": "I-021 in docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "no-namespace-child",
+          "file": "corpus/project/composition/chameleon-transitive-import-without-namespace/no-namespace-child.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type",
+            "clause": "cvc-complex-type clause 2.4 in XML Schema Part 1"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/composition/chameleon-transitive-import-without-namespace/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/composition/chameleon-transitive-import-without-namespace/adopted-namespace.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/chameleon-transitive-import-without-namespace/no-namespace-child.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/chameleon-transitive-import-without-namespace/inner.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/composition/chameleon-transitive-import-without-namespace/outer.xsd",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/unresolved-references/xsd-namespace-type-missing",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/unresolved-references/xsd-namespace-type-missing",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+        ],
+        "conditions": [
+          "An element type QName in the XML Schema namespace names a component that neither a built-in nor an explicit source supplies. No accepted W3C expectation has such a type as its only defect, so the processor tie-break settles it by Xerces-J: the reference is rejected rather than tolerated as missing. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/unresolved-references/xsd-namespace-type-missing/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "clause": "I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): a name in the XML Schema namespace is never tolerated as missing; this observation is not a majority-vote oracle"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/composition/unresolved-references/xsd-namespace-type-missing/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/unresolved-references/xsd-namespace-member-missing",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/unresolved-references/xsd-namespace-member-missing",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+        ],
+        "conditions": [
+          "A union member QName in the XML Schema namespace names a component that neither a built-in nor an explicit source supplies. Accepted W3C msMeta/SimpleType_w3c.xml stK002 decides that it is rejected rather than tolerated as missing. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/unresolved-references/xsd-namespace-member-missing/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "clause": "I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): a name in the XML Schema namespace is never tolerated as missing; this observation is not a majority-vote oracle"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/composition/unresolved-references/xsd-namespace-member-missing/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/unresolved-references/type-unimported-namespace",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/unresolved-references/type-unimported-namespace",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+        ],
+        "conditions": [
+          "A type QName in a namespace the document does not import is rejected by src-resolve clause 4 before any missing-component tolerance applies. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/unresolved-references/type-unimported-namespace/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "clause": "I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): src-resolve clause 4 rejects a reference into a namespace the document does not import; this observation is not a majority-vote oracle"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/composition/unresolved-references/type-unimported-namespace/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/unresolved-references/group-ref-zero-unimported",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/unresolved-references/group-ref-zero-unimported",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-namedModelGroup"
+        ],
+        "conditions": [
+          "An xs:group reference with minOccurs and maxOccurs 0 into a namespace the document does not import corresponds to no component (Structures 3.7.2), so it is neither resolved nor authorized, as in project/group-zero-occurrence-absent-content. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/unresolved-references/group-ref-zero-unimported/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "clause": "I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an xs:group reference with minOccurs and maxOccurs 0 corresponds to no component at all (Structures 3.7.2), so it is neither resolved nor import-authorized; this observation is not a majority-vote oracle"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-023"
+          },
+          "xmlschema": {
+            "record": "I-023"
+          },
+          "libxml2": {
+            "record": "I-023"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "empty",
+          "file": "corpus/project/composition/unresolved-references/group-ref-zero-unimported/empty.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+            "clause": "I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an xs:group reference with minOccurs and maxOccurs 0 corresponds to no component at all (Structures 3.7.2), so it is neither resolved nor import-authorized; this observation is not a majority-vote oracle"
+          }
+        },
+        {
+          "testName": "sibling",
+          "file": "corpus/project/composition/unresolved-references/group-ref-zero-unimported/sibling.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+            "clause": "I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an xs:group reference with minOccurs and maxOccurs 0 corresponds to no component at all (Structures 3.7.2), so it is neither resolved nor import-authorized; this observation is not a majority-vote oracle"
+          }
+        },
+        {
+          "testName": "foreign-child",
+          "file": "corpus/project/composition/unresolved-references/group-ref-zero-unimported/foreign-child.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+            "clause": "I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an xs:group reference with minOccurs and maxOccurs 0 corresponds to no component at all (Structures 3.7.2), so it is neither resolved nor import-authorized; this observation is not a majority-vote oracle"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/composition/unresolved-references/group-ref-zero-unimported/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/composition/unresolved-references/group-ref-zero-unimported/empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/unresolved-references/group-ref-zero-unimported/sibling.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/unresolved-references/group-ref-zero-unimported/foreign-child.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/unresolved-references/element-ref-missing",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/unresolved-references/element-ref-missing",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+        ],
+        "conditions": [
+          "An xs:element reference that occurs has a particle whose term must resolve, so a missing referenced element declaration is rejected. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/unresolved-references/element-ref-missing/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "clause": "I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an unresolved reference of this kind is rejected, as the accepted W3C expectations for msMeta elemL002, groupB008, attE002, attgC008 and idC038 decide for element, model group, attribute, attribute group and keyref refer references; this observation is not a majority-vote oracle"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/composition/unresolved-references/element-ref-missing/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/unresolved-references/group-ref-missing",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/unresolved-references/group-ref-missing",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+        ],
+        "conditions": [
+          "An xs:group reference that occurs has a particle whose term must resolve, so a missing model group definition is rejected. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/unresolved-references/group-ref-missing/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "clause": "I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an unresolved reference of this kind is rejected, as the accepted W3C expectations for msMeta elemL002, groupB008, attE002, attgC008 and idC038 decide for element, model group, attribute, attribute group and keyref refer references; this observation is not a majority-vote oracle"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/composition/unresolved-references/group-ref-missing/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/unresolved-references/attribute-ref-missing",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/unresolved-references/attribute-ref-missing",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+        ],
+        "conditions": [
+          "An attribute reference with use other than prohibited maps to an attribute use whose declaration must resolve, so a missing attribute declaration is rejected. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/unresolved-references/attribute-ref-missing/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "clause": "I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an unresolved reference of this kind is rejected, as the accepted W3C expectations for msMeta elemL002, groupB008, attE002, attgC008 and idC038 decide for element, model group, attribute, attribute group and keyref refer references; this observation is not a majority-vote oracle"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/composition/unresolved-references/attribute-ref-missing/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/unresolved-references/attribute-group-ref-missing",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/unresolved-references/attribute-group-ref-missing",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
+        ],
+        "conditions": [
+          "An xs:attributeGroup reference contributes the uses of the definition it names, so a missing attribute group definition is rejected. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/unresolved-references/attribute-group-ref-missing/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "clause": "I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an unresolved reference of this kind is rejected, as the accepted W3C expectations for msMeta elemL002, groupB008, attE002, attgC008 and idC038 decide for element, model group, attribute, attribute group and keyref refer references; this observation is not a majority-vote oracle"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/composition/unresolved-references/attribute-group-ref-missing/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/unresolved-references/keyref-refer-missing",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/unresolved-references/keyref-refer-missing",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-props-correct"
+        ],
+        "conditions": [
+          "A keyref refer must name a key or unique constraint (c-props-correct), so a missing identity-constraint definition is rejected. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/unresolved-references/keyref-refer-missing/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "clause": "I-023 in docs/spec/INTERPRETATIONS.md (unresolved references): an unresolved reference of this kind is rejected, as the accepted W3C expectations for msMeta elemL002, groupB008, attE002, attgC008 and idC038 decide for element, model group, attribute, attribute group and keyref refer references; this observation is not a majority-vote oracle"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/composition/unresolved-references/keyref-refer-missing/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/unresolved-references/union-member-missing",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/unresolved-references/union-member-missing",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-union"
+        ],
+        "conditions": [
+          "A union whose memberTypes names a missing type and xs:int loads, but the union is a missing component, so an element of that type is invalid even for 12, which the xs:int member would accept. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/unresolved-references/union-member-missing/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "clause": "Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-023"
+          },
+          "dotnet": {
+            "record": "I-023"
+          },
+          "xmlschema": {
+            "record": "I-023"
+          },
+          "libxml2": {
+            "record": "I-023"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "union-int-value",
+          "file": "corpus/project/composition/unresolved-references/union-member-missing/union-int-value.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "int-control",
+          "file": "corpus/project/composition/unresolved-references/union-member-missing/int-control.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/composition/unresolved-references/union-member-missing/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/composition/unresolved-references/union-member-missing/union-int-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/unresolved-references/union-member-missing/int-control.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/unresolved-references/attribute-type-missing",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/unresolved-references/attribute-type-missing",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve"
+        ],
+        "conditions": [
+          "An attribute declaration whose type is missing loads; an element that omits the attribute is valid and one that carries it is invalid. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/unresolved-references/attribute-type-missing/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "clause": "Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-023"
+          },
+          "dotnet": {
+            "record": "I-023"
+          },
+          "xmlschema": {
+            "record": "I-023"
+          },
+          "libxml2": {
+            "record": "I-023"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "attribute-absent",
+          "file": "corpus/project/composition/unresolved-references/attribute-type-missing/attribute-absent.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "attribute-present",
+          "file": "corpus/project/composition/unresolved-references/attribute-type-missing/attribute-present.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/composition/unresolved-references/attribute-type-missing/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/composition/unresolved-references/attribute-type-missing/attribute-absent.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/unresolved-references/attribute-type-missing/attribute-present.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/unresolved-references/element-type-missing-default",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/unresolved-references/element-type-missing-default",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct"
+        ],
+        "conditions": [
+          "An element declaration whose type is missing loads with a default that no type checks at schema load; the element is invalid when it occurs, and other declarations remain usable. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/unresolved-references/element-type-missing-default/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "clause": "Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-023"
+          },
+          "dotnet": {
+            "record": "I-023"
+          },
+          "xmlschema": {
+            "record": "I-023"
+          },
+          "libxml2": {
+            "record": "I-023"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "missing-type-element",
+          "file": "corpus/project/composition/unresolved-references/element-type-missing-default/missing-type-element.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "other-element",
+          "file": "corpus/project/composition/unresolved-references/element-type-missing-default/other-element.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/composition/unresolved-references/element-type-missing-default/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/composition/unresolved-references/element-type-missing-default/missing-type-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/unresolved-references/element-type-missing-default/other-element.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/unresolved-references/attribute-type-missing-value-constraint",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/unresolved-references/attribute-type-missing-value-constraint",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-resolve",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#a-props-correct"
+        ],
+        "conditions": [
+          "Attribute declarations whose type is missing load with a default and a fixed value that no type checks at schema load; an attribute assessed against one is invalid, and other declarations remain usable. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/unresolved-references/attribute-type-missing-value-constraint/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "clause": "Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-023"
+          },
+          "dotnet": {
+            "record": "I-023"
+          },
+          "xmlschema": {
+            "record": "I-023"
+          },
+          "libxml2": {
+            "record": "I-023"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "other-element",
+          "file": "corpus/project/composition/unresolved-references/attribute-type-missing-value-constraint/other-element.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "default-attribute-present",
+          "file": "corpus/project/composition/unresolved-references/attribute-type-missing-value-constraint/default-attribute-present.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "fixed-attribute-present",
+          "file": "corpus/project/composition/unresolved-references/attribute-type-missing-value-constraint/fixed-attribute-present.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/composition/unresolved-references/attribute-type-missing-value-constraint/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/composition/unresolved-references/attribute-type-missing-value-constraint/other-element.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/unresolved-references/attribute-type-missing-value-constraint/default-attribute-present.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/unresolved-references/attribute-type-missing-value-constraint/fixed-attribute-present.xml",
+          "role": "instance"
+        }
+      ]
+    }
+  ]
+}

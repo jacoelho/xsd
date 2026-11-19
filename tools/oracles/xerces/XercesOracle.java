@@ -79,8 +79,40 @@ public final class XercesOracle {
     }
 
     private static void emit(String verdict, String message) {
-        String clean = message == null ? "" : message.replaceAll("\\s+", " ");
+        String clean = message == null ? "" : visible(rootRelative(message.strip()));
         System.out.println(Version.getVersion() + "\t" + verdict + "\t" + clean);
+    }
+
+    // Paths print relative to XSD_ORACLE_ROOT so a row is identical on every machine. File
+    // URIs percent-encode the root (RFC 3986 section 2.1), so its encoded form is removed too.
+    private static String rootRelative(String s) {
+        return stripRoot(stripRoot(s, percentEncoded(ROOT)), ROOT);
+    }
+
+    private static String stripRoot(String s, String root) {
+        return s.replace("file://" + root + "/", "")
+                .replace("file:" + root + "/", "")
+                .replace(root + "/", "")
+                .replace(root, ".");
+    }
+
+    private static String percentEncoded(String s) {
+        StringBuilder out = new StringBuilder();
+        for (byte b : s.getBytes(java.nio.charset.StandardCharsets.UTF_8)) {
+            char c = (char) (b & 0xff);
+            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || "-._~/".indexOf(c) >= 0) {
+                out.append(c);
+            } else {
+                out.append(String.format("%%%02X", b & 0xff));
+            }
+        }
+        return out.toString();
+    }
+
+    // Keeps CR, LF and TAB distinguishable in a one-line row: they are the discriminator in
+    // end-of-line and whitespace cases.
+    private static String visible(String s) {
+        return s.replace("\r", "\u240D").replace("\n", "\u240A").replace("\t", "\u2409");
     }
 
     // The first warning often names the root cause, such as an unreadable include.

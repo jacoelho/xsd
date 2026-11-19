@@ -1,0 +1,148 @@
+{
+  "cases": [
+    {
+      "id": "w3c/ibmMeta/cyclicRedefineIncludeImportOverride.testSet/s4_2_4si01",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/cyclicRedefineIncludeImportOverride.testSet",
+        "testGroup": "s4_2_4si01"
+      },
+      "title": "invalid schema for cyclic dependencies redefine",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-SchemaComposition-CyclicDependenciesRedefineIncludeImportOverride",
+        "http://www.w3.org/TR/xmlschema11-1/#modify-schema"
+      ],
+      "schema": {
+        "testName": "s4_2_4si01s",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/schema_invalid/S4_2_4/s4_2_4si01.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/schema_invalid/S4_2_4/s4_2_4si01.xsd"
+        },
+        {
+          "file": "corpus/w3c/ibmData/schema_invalid/S4_2_4/s4_2_4si01b.xsd",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "w3c/ibmMeta/cyclicRedefineIncludeImportOverride.testSet/s4_2_4si01b",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/cyclicRedefineIncludeImportOverride.testSet",
+        "testGroup": "s4_2_4si01b"
+      },
+      "title": "invalid schema for cyclic dependencies redefine",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-SchemaComposition-CyclicDependenciesRedefineIncludeImportOverride",
+        "http://www.w3.org/TR/xmlschema11-1/#modify-schema"
+      ],
+      "schema": {
+        "testName": "s4_2_4si01bs",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/schema_invalid/S4_2_4/s4_2_4si01b.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/schema_invalid/S4_2_4/s4_2_4si01.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/ibmData/schema_invalid/S4_2_4/s4_2_4si01b.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/ibmMeta/cyclicRedefineIncludeImportOverride.testSet/s4_2_4si02",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/cyclicRedefineIncludeImportOverride.testSet",
+        "testGroup": "s4_2_4si02"
+      },
+      "title": "invalid schema for cyclic dependencies redefine_2",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-SchemaComposition-CyclicDependenciesRedefineIncludeImportOverride",
+        "http://www.w3.org/TR/xmlschema11-1/#modify-schema"
+      ],
+      "schema": {
+        "testName": "s4_2_4si02s",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/schema_invalid/S4_2_4/s4_2_4si02.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/schema_invalid/S4_2_4/s4_2_4si02.xsd"
+        },
+        {
+          "file": "corpus/w3c/ibmData/schema_invalid/S4_2_4/s4_2_4si02b.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/ibmData/schema_invalid/S4_2_4/s4_2_4si02c.xsd",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "w3c/ibmMeta/cyclicRedefineIncludeImportOverride.testSet/s4_2_4si02b",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/cyclicRedefineIncludeImportOverride.testSet",
+        "testGroup": "s4_2_4si02b"
+      },
+      "title": "invalid schema for cyclic dependencies redefine_2",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-SchemaComposition-CyclicDependenciesRedefineIncludeImportOverride",
+        "http://www.w3.org/TR/xmlschema11-1/#modify-schema"
+      ],
+      "schema": {
+        "testName": "s4_2_4si02bs",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/schema_invalid/S4_2_4/s4_2_4si02b.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/schema_invalid/S4_2_4/s4_2_4si02.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/ibmData/schema_invalid/S4_2_4/s4_2_4si02b.xsd"
+        },
+        {
+          "file": "corpus/w3c/ibmData/schema_invalid/S4_2_4/s4_2_4si02c.xsd",
+          "role": "dependency"
+        }
+      ]
+    }
+  ]
+}

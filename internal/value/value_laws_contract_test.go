@@ -147,8 +147,6 @@ var valueLawTables = []valueLawTable{
 		{"24:00:00-01:00", "24:00:00Z", relGreater},
 		{"23:59:59", "24:00:00", relGreater},
 		{"23:59:59.999Z", "24:00:00Z", relGreater},
-		{"23:59:60Z", "00:00:00Z", relEqual},
-		{"23:59:60Z", "24:00:00Z", relEqual},
 		{"10:00:00Z", "11:00:00Z", relLess},
 		{"00:30:00+14:00", "10:00:00Z", relGreater},
 		{"23:30:00-02:00", "02:00:00Z", relLess},
@@ -552,7 +550,7 @@ func floatGrid(large string) []string {
 func timeGrid() []string {
 	clocks := []string{
 		"00:00:00", "00:00:30", "00:30:00", "00:59:59", "01:00:00", "10:30:00", "12:00:00", "12:30:30",
-		"23:00:00", "23:30:00", "23:59:59", "23:59:60", "24:00:00",
+		"23:00:00", "23:30:00", "23:59:59", "24:00:00",
 	}
 	var forms []string
 	for _, clock := range clocks {

@@ -1,0 +1,669 @@
+{
+  "cases": [
+    {
+      "id": "w3c/msMeta/Errata10_w3c.xml/errA001",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Errata10_w3c.xml",
+        "testGroup": "errA001"
+      },
+      "title": "TEST :Primer Errata : E0-23 Clarification: test that facet fractionDigits can be added to all numeric datatypes as long as value is 0 (except for decimal which takes any value)",
+      "docRefs": [
+        "http://www.w3.org/2004/03/xmlschema-errata"
+      ],
+      "schema": {
+        "testName": "errA001",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/errata10/errA001.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "errA001.v",
+          "file": "corpus/w3c/msData/errata10/errA001.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/errata10/errA001.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/errata10/errA001.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Errata10_w3c.xml/errA002",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Errata10_w3c.xml",
+        "testGroup": "errA002"
+      },
+      "title": "TEST :Primer Errata : E0-10 Error, E1-11 Error: test that ##other namespace is any namespace other than the target namespace",
+      "docRefs": [
+        "http://www.w3.org/2004/03/xmlschema-errata"
+      ],
+      "schema": {
+        "testName": "errA002",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/errata10/errA002.xsd"
+          },
+          {
+            "file": "corpus/w3c/msData/errata10/errA002a.xsd"
+          },
+          {
+            "file": "corpus/w3c/msData/errata10/errA002b.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "errA002.i",
+          "file": "corpus/w3c/msData/errata10/errA002.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/errata10/errA002.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/errata10/errA002.xsd"
+        },
+        {
+          "file": "corpus/w3c/msData/errata10/errA002a.xsd"
+        },
+        {
+          "file": "corpus/w3c/msData/errata10/errA002b.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Errata10_w3c.xml/errA003",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Errata10_w3c.xml",
+        "testGroup": "errA003"
+      },
+      "title": "TEST :Primer Errata : E0-15 Error, E2-12 Error: test lexical representation of gMonth",
+      "docRefs": [
+        "http://www.w3.org/2004/03/xmlschema-errata"
+      ],
+      "schema": {
+        "testName": "errA003",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/errata10/errA003.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "errA003.v",
+          "file": "corpus/w3c/msData/errata10/errA003.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/errata10/errA003.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/errata10/errA003.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Errata10_w3c.xml/errC001",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Errata10_w3c.xml",
+        "testGroup": "errC001"
+      },
+      "title": "TEST :Primer Errata : E1-40 Clarification: test that anySimpleType whitespace normalization is set to preserve",
+      "docRefs": [
+        "http://www.w3.org/2004/03/xmlschema-errata"
+      ],
+      "schema": {
+        "testName": "errC001",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/errata10/errC001.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "errC001.v",
+          "file": "corpus/w3c/msData/errata10/errC001.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/errata10/errC001.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/errata10/errC001.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Errata10_w3c.xml/errC002",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Errata10_w3c.xml",
+        "testGroup": "errC002"
+      },
+      "title": "TEST :Primer Errata : E1-9 Error: version definition of 'schema' is now a normalizedString instead of token",
+      "docRefs": [
+        "http://www.w3.org/2004/03/xmlschema-errata"
+      ],
+      "schema": {
+        "testName": "errC002",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/errata10/errC002.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/errata10/errC002.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Errata10_w3c.xml/errC003",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Errata10_w3c.xml",
+        "testGroup": "errC003"
+      },
+      "title": "TEST :Primer Errata : E1-3 Error: change representation of Model Group Definition",
+      "docRefs": [
+        "http://www.w3.org/2004/03/xmlschema-errata"
+      ],
+      "schema": {
+        "testName": "errC003",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/errata10/errC003.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/errata10/errC003.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Errata10_w3c.xml/errC004",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Errata10_w3c.xml",
+        "testGroup": "errC004"
+      },
+      "title": "TEST :Primer Errata : E1-16 Error: public attribute is now optional and has a value space of token",
+      "docRefs": [
+        "http://www.w3.org/2004/03/xmlschema-errata"
+      ],
+      "schema": {
+        "testName": "errC004",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/errata10/errC004.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/errata10/errC004.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Errata10_w3c.xml/errC005",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Errata10_w3c.xml",
+        "testGroup": "errC005"
+      },
+      "title": "TEST :Primer Errata : E1-13 Error: local element must not have abstract attribute with value true",
+      "docRefs": [
+        "http://www.w3.org/2004/03/xmlschema-errata"
+      ],
+      "schema": {
+        "testName": "errC005",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/errata10/errC005.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/errata10/errC005.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Errata10_w3c.xml/errC006",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Errata10_w3c.xml",
+        "testGroup": "errC006"
+      },
+      "title": "TEST :Primer Errata : E1-13 Error: local element must not have abstract attribute with value true",
+      "docRefs": [
+        "http://www.w3.org/2004/03/xmlschema-errata"
+      ],
+      "schema": {
+        "testName": "errC006",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/errata10/errC006.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/errata10/errC006.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Errata10_w3c.xml/errC007",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Errata10_w3c.xml",
+        "testGroup": "errC007"
+      },
+      "title": "TEST :Primer Errata : E1-22 Error: R-117 Process contents for ur-type need to be lax",
+      "docRefs": [
+        "http://www.w3.org/2004/03/xmlschema-errata"
+      ],
+      "schema": {
+        "testName": "errC007",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/errata10/errC007.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "errC007.v",
+          "file": "corpus/w3c/msData/errata10/errC007.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/errata10/errC007.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/errata10/errC007.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Errata10_w3c.xml/errC008",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Errata10_w3c.xml",
+        "testGroup": "errC008"
+      },
+      "title": "TEST :Primer Errata : Errata E1-21 - processContents of restriction must be identical or stronger than that of base,xs:any",
+      "docRefs": [
+        "http://www.w3.org/2004/03/xmlschema-errata"
+      ],
+      "schema": {
+        "testName": "errC008",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/errata10/errC008.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/errata10/errC008.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Errata10_w3c.xml/errC009",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Errata10_w3c.xml",
+        "testGroup": "errC009"
+      },
+      "title": "TEST :Primer Errata : Errata E1-21 - processContents of restriction must be identical or stronger than that of base,xs:anyAttribute",
+      "docRefs": [
+        "http://www.w3.org/2004/03/xmlschema-errata"
+      ],
+      "schema": {
+        "testName": "errC009",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/errata10/errC009.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/errata10/errC009.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Errata10_w3c.xml/errE001",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Errata10_w3c.xml",
+        "testGroup": "errE001"
+      },
+      "title": "TEST :Primer Errata : E2-27 Error: test that nonPositiveIntegers support a '+' on zero",
+      "docRefs": [
+        "http://www.w3.org/2004/03/xmlschema-errata"
+      ],
+      "schema": {
+        "testName": "errE001",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/errata10/errE001.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "errE001.v",
+          "file": "corpus/w3c/msData/errata10/errE001.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/errata10/errE001.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/errata10/errE001.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Errata10_w3c.xml/errE002",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Errata10_w3c.xml",
+        "testGroup": "errE002"
+      },
+      "title": "TEST :Primer Errata : E2-27 Error: test that nonNegativeIntegers support a '-' on zero",
+      "docRefs": [
+        "http://www.w3.org/2004/03/xmlschema-errata"
+      ],
+      "schema": {
+        "testName": "errE002",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/errata10/errE002.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "errE002.v",
+          "file": "corpus/w3c/msData/errata10/errE002.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/errata10/errE002.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/errata10/errE002.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Errata10_w3c.xml/errE003",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Errata10_w3c.xml",
+        "testGroup": "errE003"
+      },
+      "title": "TEST :Primer Errata : E2-25 Error: test support for the new language pattern ([a-zA-Z]{1,8})-([a-zA-Z0-9]{1,8})*",
+      "docRefs": [
+        "http://www.w3.org/2004/03/xmlschema-errata"
+      ],
+      "schema": {
+        "testName": "errE003",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/errata10/errE003.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "errE003.v",
+          "file": "corpus/w3c/msData/errata10/errE003.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/errata10/errE003.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/errata10/errE003.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Errata10_w3c.xml/errE004",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Errata10_w3c.xml",
+        "testGroup": "errE004"
+      },
+      "title": "TEST :Primer Errata : E2-24 Error: test that absent 'T' is enforced when no time elements are present",
+      "docRefs": [
+        "http://www.w3.org/2004/03/xmlschema-errata"
+      ],
+      "schema": {
+        "testName": "errE004",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/errata10/errE004.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "errE004.i",
+          "file": "corpus/w3c/msData/errata10/errE004.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/errata10/errE004.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/errata10/errE004.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Errata10_w3c.xml/errE006",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Errata10_w3c.xml",
+        "testGroup": "errE006"
+      },
+      "title": "TEST :Primer Errata : E2-22 Clarification: test date, gYearMonth, gMonthDay, gDay, gMonth and gYear permit an optional, trailing time zone specification.",
+      "docRefs": [
+        "http://www.w3.org/2004/03/xmlschema-errata"
+      ],
+      "schema": {
+        "testName": "errE006",
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/errata10/errE006.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "errE006.v",
+          "file": "corpus/w3c/msData/errata10/errE006.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/errata10/errE006.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/errata10/errE006.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Errata10_w3c.xml/errE008",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Errata10_w3c.xml",
+        "testGroup": "errE008"
+      },
+      "title": "TEST :Primer Errata : E2-17 Error: Do not allow carriage return in token values",
+      "docRefs": [
+        "http://www.w3.org/2004/03/xmlschema-errata"
+      ],
+      "schema": {
+        "testName": "errE008",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/errata10/errE008.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "errE008.v",
+          "file": "corpus/w3c/msData/errata10/errE008.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/errata10/errE008.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/errata10/errE008.xsd"
+        }
+      ]
+    }
+  ]
+}

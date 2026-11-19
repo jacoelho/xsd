@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	valuepkg "github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -392,11 +393,11 @@ func TestValidateSubstitutionEdgeMembership(t *testing.T) {
 		},
 	}
 	elements := []elementDecl{{Type: ComplexRef(0)}, {Type: ComplexRef(1)}}
-	if _, err := validateSubstitutionEdge(rt.build(), elements, 1, 0, unboundedTypeDerivationWork); err != nil {
+	if _, err := validateSubstitutionEdge(rt.build(), elements, 1, 0, new(unionMemberWalk), unboundedTypeDerivationWork); err != nil {
 		t.Fatalf("derived member rejected: %v", err)
 	}
 	elements[0].Final = DerivationExtension
-	_, err := validateSubstitutionEdge(rt.build(), elements, 1, 0, unboundedTypeDerivationWork)
+	_, err := validateSubstitutionEdge(rt.build(), elements, 1, 0, new(unionMemberWalk), unboundedTypeDerivationWork)
 	if !errors.Is(err, errSubstitutionMemberTypeExcludedDerivation) {
 		t.Fatalf("final error = %v", err)
 	}
@@ -406,7 +407,7 @@ func TestValidateSubstitutionEdgeMembership(t *testing.T) {
 	}
 	elements[0] = elementDecl{Type: ComplexRef(0)}
 	elements[1] = elementDecl{Type: ComplexRef(2)}
-	_, err = validateSubstitutionEdge(rt.build(), elements, 1, 0, unboundedTypeDerivationWork)
+	_, err = validateSubstitutionEdge(rt.build(), elements, 1, 0, new(unionMemberWalk), unboundedTypeDerivationWork)
 	if !errors.Is(err, errSubstitutionMemberTypeNotDerived) {
 		t.Fatalf("unrelated error = %v", err)
 	}
@@ -560,4 +561,107 @@ func TestSubstitutionClosureLimitNeverExceedsTheEntriesAPositionCanAddress(t *te
 			t.Fatalf("substitutionClosureLimit(%d) = %d, want %d", tt.configured, got, tt.want)
 		}
 	}
+}
+
+func TestValidateSubstitutionEdgeOmitsUnionMembershipFromBlockingMethodsButNotFromFinal(t *testing.T) {
+	t.Parallel()
+
+	const (
+		atomic SimpleTypeID = iota
+		restrictsAtomic
+		unionAtomicFirst
+		unionRestrictionFirst
+		unionOfAtomic
+		facetedUnion
+		restrictsFacetedUnion
+		nestedUnion
+		selfListingUnion
+	)
+	const (
+		anyType ComplexTypeID = iota
+		extendsAtomic
+		restrictsExtension
+		extendsUnion
+	)
+	rt := derivationFixture{
+		anyType: anyType,
+		simple: []simpleTypeDerivation{
+			atomic:                {Base: NoSimpleType, Variety: valuepkg.Atomic},
+			restrictsAtomic:       {Base: atomic, Variety: valuepkg.Atomic},
+			unionAtomicFirst:      {Base: NoSimpleType, Variety: valuepkg.Union, Union: []SimpleTypeID{atomic, restrictsAtomic}},
+			unionRestrictionFirst: {Base: NoSimpleType, Variety: valuepkg.Union, Union: []SimpleTypeID{restrictsAtomic, atomic}},
+			unionOfAtomic:         {Base: NoSimpleType, Variety: valuepkg.Union, Union: []SimpleTypeID{atomic}},
+			facetedUnion:          {Base: unionOfAtomic, Variety: valuepkg.Union, Union: []SimpleTypeID{atomic}, UnionHasFacets: true},
+			restrictsFacetedUnion: {Base: facetedUnion, Variety: valuepkg.Union, Union: []SimpleTypeID{atomic}, UnionHasFacets: true},
+			nestedUnion:           {Base: NoSimpleType, Variety: valuepkg.Union, Union: []SimpleTypeID{unionAtomicFirst}},
+			selfListingUnion:      {Base: NoSimpleType, Variety: valuepkg.Union, Union: []SimpleTypeID{selfListingUnion, atomic}},
+		},
+		complex: []complexTypeDerivation{
+			anyType:            {Kind: derivationKindNone},
+			extendsAtomic:      {Base: SimpleRef(atomic), Kind: derivationKindExtension},
+			restrictsExtension: {Base: ComplexRef(extendsAtomic), Kind: derivationKindRestriction},
+			extendsUnion:       {Base: SimpleRef(unionAtomicFirst), Kind: derivationKindExtension},
+		},
+	}
+	const (
+		ext  = DerivationExtension
+		rest = DerivationRestriction
+	)
+	tests := []struct {
+		name          string
+		member, head  TypeID
+		methods, full DerivationMask
+	}{
+		{name: "restriction of a non-union head", member: SimpleRef(restrictsAtomic), head: SimpleRef(atomic), methods: rest, full: rest},
+		{name: "member type equal to the union head", member: SimpleRef(unionAtomicFirst), head: SimpleRef(unionAtomicFirst)},
+		{name: "union member", member: SimpleRef(atomic), head: SimpleRef(unionAtomicFirst), full: rest},
+		{name: "member of a member union", member: SimpleRef(atomic), head: SimpleRef(nestedUnion), full: rest},
+		{name: "restriction of a union member", member: SimpleRef(restrictsAtomic), head: SimpleRef(unionOfAtomic), methods: rest, full: rest},
+		{name: "member that restricts an earlier member", member: SimpleRef(restrictsAtomic), head: SimpleRef(unionAtomicFirst), full: rest},
+		{name: "member that restricts a later member", member: SimpleRef(restrictsAtomic), head: SimpleRef(unionRestrictionFirst), full: rest},
+		{name: "member of a union that lists itself", member: SimpleRef(atomic), head: SimpleRef(selfListingUnion), full: rest},
+		{name: "restriction of a member of a union that lists itself", member: SimpleRef(restrictsAtomic), head: SimpleRef(selfListingUnion), methods: rest, full: rest},
+		{name: "restriction of a faceted union", member: SimpleRef(restrictsFacetedUnion), head: SimpleRef(facetedUnion), methods: rest, full: rest},
+		{name: "simple content extending a union member", member: ComplexRef(extendsAtomic), head: SimpleRef(unionAtomicFirst), methods: ext, full: ext | rest},
+		{name: "restricted simple content over a union member", member: ComplexRef(restrictsExtension), head: SimpleRef(unionAtomicFirst), methods: ext | rest, full: ext | rest},
+		{name: "simple content extending the union head", member: ComplexRef(extendsUnion), head: SimpleRef(unionAtomicFirst), methods: ext, full: ext},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			elements := []elementDecl{{Type: tt.head}, {Type: tt.member, SubstHead: 0}}
+			edge, err := validateSubstitutionEdge(rt.build(), elements, 1, 0, new(unionMemberWalk), unboundedTypeDerivationWork)
+			if err != nil {
+				t.Fatalf("validateSubstitutionEdge() error = %v", err)
+			}
+			if edge.methods != tt.methods {
+				t.Fatalf("methods = %08b, want %08b", edge.methods, tt.methods)
+			}
+			for _, final := range []DerivationMask{ext, rest} {
+				elements[0].Final = final
+				_, err := validateSubstitutionEdge(rt.build(), elements, 1, 0, new(unionMemberWalk), unboundedTypeDerivationWork)
+				if excluded := errors.Is(err, errSubstitutionMemberTypeExcludedDerivation); excluded != (tt.full&final != 0) {
+					t.Fatalf("head final %08b: error = %v, want excluded = %v", final, err, tt.full&final != 0)
+				}
+			}
+		})
+	}
+	t.Run("one walk across every edge in both orders", func(t *testing.T) {
+		t.Parallel()
+
+		reversed := slices.Clone(tests)
+		slices.Reverse(reversed)
+		walk := new(unionMemberWalk)
+		for _, tt := range append(slices.Clone(tests), reversed...) {
+			elements := []elementDecl{{Type: tt.head}, {Type: tt.member, SubstHead: 0}}
+			edge, err := validateSubstitutionEdge(rt.build(), elements, 1, 0, walk, unboundedTypeDerivationWork)
+			if err != nil {
+				t.Fatalf("%s: validateSubstitutionEdge() error = %v", tt.name, err)
+			}
+			if edge.methods != tt.methods {
+				t.Fatalf("%s: methods = %08b, want %08b", tt.name, edge.methods, tt.methods)
+			}
+		}
+	})
 }

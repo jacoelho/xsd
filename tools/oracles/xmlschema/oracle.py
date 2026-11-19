@@ -5,6 +5,7 @@ Prints "version<TAB>verdict<TAB>message".
 import os
 import re
 import sys
+import urllib.parse
 import urllib.request
 import warnings
 from urllib.error import URLError
@@ -49,11 +50,34 @@ def report_blocked(caught):
     return True
 
 
+def visible(text):
+    """Keep CR, LF and TAB distinguishable in a one-line row: they are the discriminator in
+    end-of-line and whitespace cases. Object addresses vary per run, so they are dropped."""
+    text = root_relative(OBJECT_ADDRESS.sub(">", str(text).strip()))
+    return text.replace("\r", "\u240d").replace("\n", "\u240a").replace("\t", "\u2409")
+
+
+OBJECT_ADDRESS = re.compile(r" at 0x[0-9a-f]+>")
+
+
+def root_relative(text):
+    """Paths print relative to XSD_ORACLE_ROOT so a row is identical on every machine. File
+    URIs percent-encode the root (RFC 3986 section 2.1), so its encoded form is removed too."""
+    for root in (ENCODED_ROOT, ROOT):
+        for prefix in (f"file://{root}/", f"file:{root}/", f"{root}/"):
+            text = text.replace(prefix, "")
+        text = text.replace(root, ".")
+    return text
+
+
+ENCODED_ROOT = urllib.parse.quote(ROOT, safe="/")
+
+
 def emit(verdict, message, caught):
-    message = re.sub(r"\s+", " ", str(message))
+    message = visible(message)
     # The first warning often names the root cause, such as an unreadable include.
     if caught:
-        warning = re.sub(r"\s+", " ", str(caught[0].message))
+        warning = visible(caught[0].message)
         message = f"{message} | warning: {warning}" if message else f"warning: {warning}"
     print(f"xmlschema {xmlschema.__version__}\t{verdict}\t{message}")
 

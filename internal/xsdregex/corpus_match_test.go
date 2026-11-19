@@ -1,42 +1,22 @@
 package xsdregex
 
 import (
-	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"io"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/jacoelho/xsd/internal/corpus"
 )
 
 // TestManifestRegexFixtures verifies the three architecture fixtures now
 // compile as valid schemas and that their migrated regexes retain their
 // intended positive and negative matches.
 func TestManifestRegexFixtures(t *testing.T) {
-	testsRoot := filepath.Join("..", "..", "tests")
-	manifestFile, err := os.OpenInRoot(testsRoot, "manifest.json")
-	if errors.Is(err, os.ErrNotExist) {
-		t.Skip("test manifest is not present")
-	}
+	inventory, err := corpus.LoadInventory(os.DirFS(filepath.Join("..", "..", "tests")))
 	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if closeErr := manifestFile.Close(); closeErr != nil {
-			t.Errorf("close test manifest: %v", closeErr)
-		}
-	}()
-	var manifest struct {
-		Cases []struct {
-			Schema *struct {
-				Expected  string `json:"expected"`
-				ErrorCode string `json:"errorCode"`
-			} `json:"schema"`
-			ID string `json:"id"`
-		} `json:"cases"`
-	}
-	if err := json.NewDecoder(manifestFile).Decode(&manifest); err != nil {
 		t.Fatal(err)
 	}
 	want := map[string]struct {
@@ -61,13 +41,13 @@ func TestManifestRegexFixtures(t *testing.T) {
 		},
 	}
 	found := 0
-	for _, entry := range manifest.Cases {
+	for _, entry := range inventory.Cases {
 		fixture, ok := want[entry.ID]
 		if !ok {
 			continue
 		}
 		found++
-		if entry.Schema == nil || entry.Schema.Expected != "valid" || entry.Schema.ErrorCode != "" {
+		if entry.Schema == nil || entry.Schema.Expected != corpus.ExpectedValid || entry.Schema.ErrorCode != "" {
 			t.Fatalf("manifest case %q changed outcome: schema=%+v", entry.ID, entry.Schema)
 		}
 		pattern := readPatternValue(t, fixture.path)

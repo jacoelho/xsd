@@ -8,13 +8,19 @@ set -eu
 version=$(xmllint --version 2>&1 | sed -n '1s/.*libxml version \([0-9]*\).*/\1/p')
 version="libxml2 $((version / 10000)).$((version / 100 % 100)).$((version % 100))"
 
+# Paths print relative to XSD_ORACLE_ROOT. CR, LF and TAB become visible symbols so a row stays
+# one line and they remain distinguishable: they are the discriminator in end-of-line and
+# whitespace cases.
 emit() {
-    printf '%s\t%s\t%s\n' "$version" "$1" "$(printf '%s' "$2" | tr '\n\t' '  ')"
+    printf '%s\t%s\t%s\n' "$version" "$1" "$(printf '%s' "$2" | LC_ALL=C awk -f /opt/oracles/root-relative.awk | sed -e 's/\r/␍/g' -e 's/\t/␉/g' | awk 'NR > 1 { printf "␊" } { printf "%s", $0 }')"
 }
 
-# First diagnostic other than xmllint's per-file summary lines.
+# First diagnostic other than xmllint's per-file summary lines. A diagnostic continues on the
+# following lines when the reported value contains a line break; it ends where the next one
+# starts with its "file:line:" location.
 first_diagnostic() {
-    printf '%s\n' "$1" | grep -v -e ' validates$' -e ' fails to validate$' -e '^-:' | sed -n 1p
+    printf '%s\n' "$1" | grep -v -e ' validates$' -e ' fails to validate$' -e '^-:' |
+        awk 'NR == 1 { out = $0; next } /^[^ ]*:[0-9]+: / { exit } { out = out "\n" $0 } END { printf "%s", out }'
 }
 
 instance=$1

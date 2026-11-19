@@ -34,6 +34,8 @@ can read an existing image file named by an absolute reference.
 
 Environment:
   XSD_ORACLES_IMAGE    image tag to build and run (default xsd-oracles:local)
+  XSD_ORACLES_SKIP_BUILD  when non-empty, run XSD_ORACLES_IMAGE (a tag or image
+                       ID) without rebuilding it; for callers that built it once
   XSD_ORACLE_TIMEOUT   per-validator time limit in seconds (default 120)
 EOF
 }
@@ -109,7 +111,7 @@ set +f
 
 image=${XSD_ORACLES_IMAGE:-xsd-oracles:local}
 here=$(cd "$(dirname "$0")" && pwd -P)
-docker build --quiet --tag "$image" "$here" >/dev/null
+[ -n "${XSD_ORACLES_SKIP_BUILD:-}" ] || docker build --quiet --tag "$image" "$here" >/dev/null
 
 exec docker run --rm --network none --read-only --tmpfs /tmp \
     --user "$(id -u):$(id -g)" \

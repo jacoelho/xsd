@@ -1,0 +1,882 @@
+{
+  "cases": [
+    {
+      "id": "w3c/saxonMeta/Complex.testSet/complex011",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Saxonica",
+        "testSet": "saxonMeta/Complex.testSet",
+        "testGroup": "complex011"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/xmlschema-1/#d0e13819"
+      ],
+      "schema": {
+        "testName": "complex011.xsd",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/saxonData/Complex/complex011.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "complex011.v1.xml",
+          "file": "corpus/w3c/saxonData/Complex/complex011.v1.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "complex011.v2.xml",
+          "file": "corpus/w3c/saxonData/Complex/complex011.v2.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "complex011.n1.xml",
+          "file": "corpus/w3c/saxonData/Complex/complex011.n1.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "complex011.n2.xml",
+          "file": "corpus/w3c/saxonData/Complex/complex011.n2.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "complex011.n3.xml",
+          "file": "corpus/w3c/saxonData/Complex/complex011.n3.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex011.n1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex011.n2.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex011.n3.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex011.v1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex011.v2.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex011.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/saxonMeta/Complex.testSet/complex012",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Saxonica",
+        "testSet": "saxonMeta/Complex.testSet",
+        "testGroup": "complex012"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/xmlschema-1/#d0e13819"
+      ],
+      "schema": {
+        "testName": "complex012.xsd",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/saxonData/Complex/complex012.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "complex012.v1.xml",
+          "file": "corpus/w3c/saxonData/Complex/complex012.v1.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "complex012.v2.xml",
+          "file": "corpus/w3c/saxonData/Complex/complex012.v2.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "complex012.v3.xml",
+          "file": "corpus/w3c/saxonData/Complex/complex012.v3.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "complex012.v4.xml",
+          "file": "corpus/w3c/saxonData/Complex/complex012.v4.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "complex012.v5.xml",
+          "file": "corpus/w3c/saxonData/Complex/complex012.v5.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "complex012.v6.xml",
+          "file": "corpus/w3c/saxonData/Complex/complex012.v6.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "complex012.n1.xml",
+          "file": "corpus/w3c/saxonData/Complex/complex012.n1.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "complex012.n2.xml",
+          "file": "corpus/w3c/saxonData/Complex/complex012.n2.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "complex012.n3.xml",
+          "file": "corpus/w3c/saxonData/Complex/complex012.n3.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex012.n1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex012.n2.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex012.n3.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex012.v1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex012.v2.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex012.v3.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex012.v4.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex012.v5.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex012.v6.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex012.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/saxonMeta/Complex.testSet/complex013",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Saxonica",
+        "testSet": "saxonMeta/Complex.testSet",
+        "testGroup": "complex013"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/xmlschema-1/#d0e13819"
+      ],
+      "schema": {
+        "testName": "complex013.xsd",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/saxonData/Complex/complex013.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "complex013.v1.xml",
+          "file": "corpus/w3c/saxonData/Complex/complex013.v1.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "complex013.v2.xml",
+          "file": "corpus/w3c/saxonData/Complex/complex013.v2.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "complex013.n1.xml",
+          "file": "corpus/w3c/saxonData/Complex/complex013.n1.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "complex013.n2.xml",
+          "file": "corpus/w3c/saxonData/Complex/complex013.n2.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex013.n1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex013.n2.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex013.v1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex013.v2.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex013.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/saxonMeta/Complex.testSet/complex014",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Saxonica",
+        "testSet": "saxonMeta/Complex.testSet",
+        "testGroup": "complex014"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/xmlschema-1/#d0e13819"
+      ],
+      "schema": {
+        "testName": "complex014.xsd",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/saxonData/Complex/complex014.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "complex014.v1.xml",
+          "file": "corpus/w3c/saxonData/Complex/complex013.v1.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "complex014.v2.xml",
+          "file": "corpus/w3c/saxonData/Complex/complex013.v2.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "complex014.n1.xml",
+          "file": "corpus/w3c/saxonData/Complex/complex013.n1.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "complex014.n2.xml",
+          "file": "corpus/w3c/saxonData/Complex/complex013.n2.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex013.n1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex013.n2.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex013.v1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex013.v2.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex014.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/saxonMeta/Complex.testSet/complex015",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Saxonica",
+        "testSet": "saxonMeta/Complex.testSet",
+        "testGroup": "complex015"
+      },
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-Misc-XSITypeMustResolve",
+        "http://www.w3.org/TR/xmlschema-1/#d0e13819"
+      ],
+      "schema": {
+        "testName": "complex015.xsd",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/saxonData/Complex/complex015.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "complex015.n1.xml",
+          "file": "corpus/w3c/saxonData/Complex/complex015.n1.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex015.n1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex015.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/saxonMeta/Complex.testSet/complex016",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Saxonica",
+        "testSet": "saxonMeta/Complex.testSet",
+        "testGroup": "complex016"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/xmlschema-1/#d0e13819"
+      ],
+      "schema": {
+        "testName": "complex016.xsd",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/saxonData/Complex/complex016.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex016.xsd"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex016a.xsd",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "w3c/saxonMeta/Complex.testSet/complex017",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Saxonica",
+        "testSet": "saxonMeta/Complex.testSet",
+        "testGroup": "complex017"
+      },
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-Misc-MixedInCTAndCC",
+        "http://www.w3.org/TR/xmlschema-1/#d0e13819"
+      ],
+      "schema": {
+        "testName": "complex017.xsd",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/saxonData/Complex/complex017.bad.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex017.bad.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/saxonMeta/Complex.testSet/complex018",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Saxonica",
+        "testSet": "saxonMeta/Complex.testSet",
+        "testGroup": "complex018"
+      },
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-Misc-MixedInCTAndCC",
+        "http://www.w3.org/TR/xmlschema-1/#d0e13819"
+      ],
+      "schema": {
+        "testName": "complex018.xsd",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/saxonData/Complex/complex018.bad.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex018.bad.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/saxonMeta/Complex.testSet/complex019",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Saxonica",
+        "testSet": "saxonMeta/Complex.testSet",
+        "testGroup": "complex019"
+      },
+      "schema": {
+        "testName": "complex019.xsd",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/saxonData/Complex/complex019.bad.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex019.bad.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/saxonMeta/Complex.testSet/complex020",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Saxonica",
+        "testSet": "saxonMeta/Complex.testSet",
+        "testGroup": "complex020"
+      },
+      "schema": {
+        "testName": "complex020.xsd",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/saxonData/Complex/complex020.bad.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex020.bad.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/saxonMeta/Complex.testSet/complex021",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Saxonica",
+        "testSet": "saxonMeta/Complex.testSet",
+        "testGroup": "complex021"
+      },
+      "schema": {
+        "testName": "complex021.xsd",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/saxonData/Complex/complex021.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "complex021.n1.xml",
+          "file": "corpus/w3c/saxonData/Complex/complex021.n1.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex021.n1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex021.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/saxonMeta/Complex.testSet/complex022",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Saxonica",
+        "testSet": "saxonMeta/Complex.testSet",
+        "testGroup": "complex022"
+      },
+      "schema": {
+        "testName": "complex022.xsd",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/saxonData/Complex/complex022.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "complex022.n1.xml",
+          "file": "corpus/w3c/saxonData/Complex/complex022.n1.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "complex022.n2.xml",
+          "file": "corpus/w3c/saxonData/Complex/complex022.n2.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex022.n1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex022.n2.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex022.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/saxonMeta/Complex.testSet/complex023",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Saxonica",
+        "testSet": "saxonMeta/Complex.testSet",
+        "testGroup": "complex023"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/xmlschema-1/#d0e13819",
+        "https://stackoverflow.com/questions/78940667"
+      ],
+      "schema": {
+        "testName": "complex001.xsd",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/saxonData/Complex/complex023.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex023.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/saxonMeta/Complex.testSet/complex024",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Saxonica",
+        "testSet": "saxonMeta/Complex.testSet",
+        "testGroup": "complex024"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/xmlschema-1/#d0e13819",
+        "https://stackoverflow.com/questions/78940667"
+      ],
+      "schema": {
+        "testName": "complex001.xsd",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/saxonData/Complex/complex024.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex024.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/saxonMeta/Complex.testSet/complex025",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Saxonica",
+        "testSet": "saxonMeta/Complex.testSet",
+        "testGroup": "complex025"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/xmlschema-1/#d0e13819",
+        "https://stackoverflow.com/questions/78940667"
+      ],
+      "schema": {
+        "testName": "complex001.xsd",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/saxonData/Complex/complex025.bad.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex025.bad.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/saxonMeta/Complex.testSet/complex026",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Saxonica",
+        "testSet": "saxonMeta/Complex.testSet",
+        "testGroup": "complex026"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/xmlschema-1/#d0e13819",
+        "https://stackoverflow.com/questions/78940667"
+      ],
+      "schema": {
+        "testName": "complex001.xsd",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/saxonData/Complex/complex026.bad.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/saxonData/Complex/complex026.bad.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/saxonMeta/Complex.testSet/unique001",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Saxonica",
+        "testSet": "saxonMeta/Complex.testSet",
+        "testGroup": "unique001"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/xmlschema-1/#d0e13819"
+      ],
+      "schema": {
+        "testName": "unique001.xsd",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/saxonData/Complex/unique001.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "unique001.v1.xml",
+          "file": "corpus/w3c/saxonData/Complex/unique001.v1.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "unique001.n1.xml",
+          "file": "corpus/w3c/saxonData/Complex/unique001.n1.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/saxonData/Complex/unique001.n1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/unique001.v1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/unique001.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/saxonMeta/Complex.testSet/unique002",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Saxonica",
+        "testSet": "saxonMeta/Complex.testSet",
+        "testGroup": "unique002"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/xmlschema-1/#d0e13819"
+      ],
+      "schema": {
+        "testName": "unique002.xsd",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/saxonData/Complex/unique002.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "unique002.n1.xml",
+          "file": "corpus/w3c/saxonData/Complex/unique002.n1.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/saxonData/Complex/unique002.n1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/unique002.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/saxonMeta/Complex.testSet/unique003",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Saxonica",
+        "testSet": "saxonMeta/Complex.testSet",
+        "testGroup": "unique003"
+      },
+      "schema": {
+        "testName": "unique003.xsd",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/saxonData/Complex/unique003.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "unique003.v1.xml",
+          "file": "corpus/w3c/saxonData/Complex/unique003.v1.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "unique003.v2.xml",
+          "file": "corpus/w3c/saxonData/Complex/unique003.v2.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "unique003.n1.xml",
+          "file": "corpus/w3c/saxonData/Complex/unique003.n1.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        },
+        {
+          "testName": "unique003.n2.xml",
+          "file": "corpus/w3c/saxonData/Complex/unique003.n2.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/saxonData/Complex/unique003.n1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/unique003.n2.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/unique003.v1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/unique003.v2.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonData/Complex/unique003.xsd"
+        }
+      ]
+    }
+  ]
+}

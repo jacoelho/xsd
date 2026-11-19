@@ -1,0 +1,10 @@
+{
+  "providers": {
+    "dotnet": ".NET 10.0.14",
+    "libxml2": "libxml2 2.9.13",
+    "xerces": "Xerces-J 2.12.2",
+    "xmlschema": "xmlschema 4.3.2"
+  },
+  "date": "2026-11-19",
+  "image": "sha256:40503a2c9da998713282a7b5301540dbf4f009680818cd05ebf385b30e42628e"
+}

@@ -11,3 +11,6 @@ tests/corpus/project/elements/structures-empty-and-element-only-character-items/
 
 # Literal line endings distinguish source normalization from character references.
 tests/corpus/project/xml/reference-eol-order/*.xml -text whitespace=cr-at-eol
+
+# A trailing tab ends a row whose message is empty.
+tests/oracles/*.tsv whitespace=-blank-at-eol

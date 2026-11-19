@@ -1,7 +1,6 @@
 package tests_test
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -11,215 +10,15 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"unicode"
 
 	"github.com/jacoelho/xsd"
+	"github.com/jacoelho/xsd/internal/corpus"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-type manifest struct {
-	Totals manifestTotals `json:"totals"`
-	Cases  []manifestCase `json:"cases"`
-}
-
-type manifestTotals struct {
-	Cases        int `json:"cases"`
-	SchemaCases  int `json:"schemaCases"`
-	InstanceRuns int `json:"instanceRuns"`
-	W3CCases     int `json:"w3cCases"`
-	InternalRuns int `json:"internalRuns"`
-	XercesJCases int `json:"xercesJCases"`
-}
-
-type manifestCase struct {
-	ID             string             `json:"id"`
-	ExpectedSource string             `json:"expectedSource"`
-	Schema         *manifestSchema    `json:"schema"`
-	Instances      []manifestInstance `json:"instances"`
-	Files          []manifestFile     `json:"files"`
-}
-
-type manifestSchema struct {
-	Expected  string                    `json:"expected"`
-	ErrorCode string                    `json:"errorCode"`
-	Documents []manifestDocument        `json:"documents"`
-	Oracle    map[string]manifestOracle `json:"oracle"`
-}
-
-type manifestDocument struct {
-	File string `json:"file"`
-}
-
-type manifestInstance struct {
-	TestName  string                    `json:"testName"`
-	File      string                    `json:"file"`
-	Expected  string                    `json:"expected"`
-	ErrorCode string                    `json:"errorCode"`
-	Oracle    map[string]manifestOracle `json:"oracle"`
-}
-
-// manifestOracle is provenance for one phase, as the tests/README.md Corpus
-// Contract defines: a measured or corrected result in Expected, or, for a
-// cross-validator provider only, a Status recording that no validity result
-// exists. The harness never merges it into the project expectation.
-type manifestOracle struct {
-	Expected string `json:"expected"`
-	Status   string `json:"status"`
-	Reason   string `json:"reason"`
-}
-
-func validateOracle(phase string, oracle map[string]manifestOracle) error {
-	for _, key := range slices.Sorted(maps.Keys(oracle)) {
-		entry := oracle[key]
-		var provider bool
-		switch key {
-		case "xerces", "dotnet", "xmlschema", "libxml2":
-			provider = true
-		case "w3c", "project":
-		default:
-			return fmt.Errorf("%s has unknown oracle key %q", phase, key)
-		}
-		switch {
-		case entry.Expected != "" && entry.Status != "":
-			return fmt.Errorf("%s oracle %q has both expected and status", phase, key)
-		case entry.Expected != "":
-			if entry.Expected != "valid" && entry.Expected != "invalid" {
-				return fmt.Errorf("%s oracle %q has unknown expected value %q", phase, key, entry.Expected)
-			}
-		case entry.Status != "":
-			if !provider {
-				return fmt.Errorf("%s oracle %q has status, which only cross-validator providers record", phase, key)
-			}
-			if entry.Status != "blocked" && entry.Status != "unassessed" {
-				return fmt.Errorf("%s oracle %q has unknown status %q", phase, key, entry.Status)
-			}
-		default:
-			return fmt.Errorf("%s oracle %q has neither expected nor status", phase, key)
-		}
-		if strings.TrimFunc(entry.Reason, unicode.IsSpace) == "" {
-			return fmt.Errorf("%s oracle %q has no reason", phase, key)
-		}
-	}
-	return nil
-}
-
-type manifestFile struct {
-	File string `json:"file"`
-	Role string `json:"role"`
-}
-
-func (m *manifest) UnmarshalJSON(data []byte) error {
-	var decoded struct {
-		Totals manifestTotals `json:"totals"`
-		Cases  []manifestCase `json:"cases"`
-	}
-	if err := json.Unmarshal(data, &decoded); err != nil {
-		return err
-	}
-	*m = manifest{Totals: decoded.Totals, Cases: decoded.Cases}
-	return m.validate()
-}
-
-func (m *manifest) validate() error {
-	caseIdentities := make(map[string]bool, len(m.Cases))
-	observed := manifestTotals{Cases: len(m.Cases)}
-	for i, tc := range m.Cases {
-		if tc.ExpectedSource == "" || tc.ID == "" {
-			return fmt.Errorf("manifest case %d has empty expectedSource or id", i)
-		}
-		identity := tc.ExpectedSource + "\x00" + tc.ID
-		if caseIdentities[identity] {
-			return fmt.Errorf("manifest duplicates case identity %q/%q", tc.ExpectedSource, tc.ID)
-		}
-		caseIdentities[identity] = true
-
-		if tc.Schema != nil {
-			observed.SchemaCases++
-			documents := make(map[string]bool, len(tc.Schema.Documents))
-			for _, doc := range tc.Schema.Documents {
-				if documents[doc.File] {
-					return fmt.Errorf("manifest case %q/%q duplicates schema document %q", tc.ExpectedSource, tc.ID, doc.File)
-				}
-				documents[doc.File] = true
-			}
-		}
-
-		instances := make(map[string]bool, len(tc.Instances))
-		for _, inst := range tc.Instances {
-			name := instanceName(inst)
-			if instances[name] {
-				return fmt.Errorf("manifest case %q/%q duplicates instance name %q", tc.ExpectedSource, tc.ID, name)
-			}
-			instances[name] = true
-		}
-		observed.InstanceRuns += len(tc.Instances)
-		switch tc.ExpectedSource {
-		case "w3c":
-			observed.W3CCases++
-		case "project":
-			observed.InternalRuns++
-		case "xerces-j":
-			observed.XercesJCases++
-		default:
-			return fmt.Errorf("manifest case %q has unknown expectedSource %q", tc.ID, tc.ExpectedSource)
-		}
-	}
-	if m.Totals != observed {
-		return fmt.Errorf("manifest totals = %+v, want %+v", m.Totals, observed)
-	}
-	return nil
-}
-
-func (c *manifestCase) UnmarshalJSON(data []byte) error {
-	var decoded struct {
-		ID             string             `json:"id"`
-		ExpectedSource string             `json:"expectedSource"`
-		Schema         json.RawMessage    `json:"schema"`
-		Instances      []manifestInstance `json:"instances"`
-		Files          []manifestFile     `json:"files"`
-	}
-	if err := json.Unmarshal(data, &decoded); err != nil {
-		return err
-	}
-	var schema *manifestSchema
-	if decoded.Schema != nil {
-		if err := json.Unmarshal(decoded.Schema, &schema); err != nil {
-			return fmt.Errorf("manifest case %q schema: %w", decoded.ID, err)
-		}
-	}
-	if schema != nil {
-		switch schema.Expected {
-		case "valid", "invalid":
-		default:
-			return fmt.Errorf("manifest case %q has unknown schema expected value %q", decoded.ID, schema.Expected)
-		}
-		if err := validateOracle(fmt.Sprintf("manifest case %q schema", decoded.ID), schema.Oracle); err != nil {
-			return err
-		}
-	}
-	for _, inst := range decoded.Instances {
-		switch inst.Expected {
-		case "valid", "invalid":
-		default:
-			return fmt.Errorf("manifest case %q instance %q has unknown expected value %q", decoded.ID, instanceName(inst), inst.Expected)
-		}
-		if err := validateOracle(fmt.Sprintf("manifest case %q instance %q", decoded.ID, instanceName(inst)), inst.Oracle); err != nil {
-			return err
-		}
-	}
-	*c = manifestCase{
-		ID:             decoded.ID,
-		ExpectedSource: decoded.ExpectedSource,
-		Schema:         schema,
-		Instances:      decoded.Instances,
-		Files:          decoded.Files,
-	}
-	return nil
-}
-
 func TestHarness(t *testing.T) {
 	dir := testDir(t)
-	m := readManifest(t, filepath.Join(dir, "manifest.json"))
+	m := loadInventory(t, dir)
 	unsupported := readUnsupportedAllowlist(t, filepath.Join(dir, "unsupported.txt"))
 	var run harnessRunCoverage
 	for _, source := range manifestSources(m) {
@@ -246,14 +45,14 @@ type harnessRunCoverage struct {
 	blockedInstanceRuns int
 }
 
-func (r harnessRunCoverage) complete(m manifest) bool {
+func (r harnessRunCoverage) complete(m corpus.Inventory) bool {
 	schemaCases, schemaLessCases, instanceRuns := manifestRunCounts(m)
 	return r.schemaCases == schemaCases &&
 		r.schemaLessCases == schemaLessCases &&
 		r.instanceRuns+r.blockedInstanceRuns == instanceRuns
 }
 
-func manifestRunCounts(m manifest) (schemaCases, schemaLessCases, instanceRuns int) {
+func manifestRunCounts(m corpus.Inventory) (schemaCases, schemaLessCases, instanceRuns int) {
 	for _, tc := range m.Cases {
 		instanceRuns += len(tc.Instances)
 		if tc.Schema == nil {
@@ -277,20 +76,16 @@ func testDir(t *testing.T) string {
 	return filepath.Dir(file)
 }
 
-func readManifest(t *testing.T, path string) manifest {
+func loadInventory(t *testing.T, dir string) corpus.Inventory {
 	t.Helper()
-	data, err := os.ReadFile(path) //nolint:gosec // Test harness reads repository-owned manifest path.
+	inv, err := corpus.LoadInventory(os.DirFS(dir))
 	if err != nil {
-		t.Fatalf("ReadFile() error = %v", err)
+		t.Fatalf("LoadInventory() error = %v", err)
 	}
-	var m manifest
-	if err := json.Unmarshal(data, &m); err != nil {
-		t.Fatalf("Unmarshal() error = %v", err)
-	}
-	return m
+	return inv
 }
 
-func manifestSources(m manifest) []string {
+func manifestSources(m corpus.Inventory) []string {
 	seen := make(map[string]bool)
 	for _, tc := range m.Cases {
 		seen[tc.ExpectedSource] = true
@@ -305,12 +100,12 @@ func manifestSources(m manifest) []string {
 	return append(sources, slices.Sorted(maps.Keys(seen))...)
 }
 
-func runCase(t *testing.T, dir string, unsupported unsupportedAllowlist, tc manifestCase, run *harnessRunCoverage) {
+func runCase(t *testing.T, dir string, unsupported unsupportedAllowlist, tc corpus.Case, run *harnessRunCoverage) {
 	t.Helper()
 	if tc.Schema == nil {
 		run.schemaLessCases++
 		for _, inst := range tc.Instances {
-			t.Run(instanceName(inst), func(t *testing.T) {
+			t.Run(inst.TestName, func(t *testing.T) {
 				run.instanceRuns++
 				t.Skip("schema-less assessment is unsupported by the precompiled Engine harness")
 			})
@@ -323,7 +118,7 @@ func runCase(t *testing.T, dir string, unsupported unsupportedAllowlist, tc mani
 		t.Fatalf("case %s schema: %v", tc.ID, locErr)
 	}
 	switch tc.Schema.Expected {
-	case "valid":
+	case corpus.ExpectedValid:
 		if err != nil {
 			if xsderrors.IsUnsupported(err) {
 				run.blockedInstanceRuns += len(tc.Instances)
@@ -331,7 +126,7 @@ func runCase(t *testing.T, dir string, unsupported unsupportedAllowlist, tc mani
 			skipUnsupported(t, unsupported, unsupportedSchemaKey(tc), err)
 			t.Fatalf("Compile() error = %v", err)
 		}
-	case "invalid":
+	case corpus.ExpectedInvalid:
 		if checkErr := checkExpectedFailure(err, tc.Schema.ErrorCode); checkErr != nil {
 			t.Fatalf("Compile(): %v", checkErr)
 		}
@@ -342,7 +137,7 @@ func runCase(t *testing.T, dir string, unsupported unsupportedAllowlist, tc mani
 			skipUnsupported(t, unsupported, unsupportedSchemaKey(tc), err)
 		}
 		for _, inst := range tc.Instances {
-			t.Run(instanceName(inst), func(t *testing.T) {
+			t.Run(inst.TestName, func(t *testing.T) {
 				run.blockedInstanceRuns++
 				t.Skip("instance assessment is blocked by the expected-invalid schema")
 			})
@@ -352,14 +147,14 @@ func runCase(t *testing.T, dir string, unsupported unsupportedAllowlist, tc mani
 		t.Fatalf("unknown schema expected value %q", tc.Schema.Expected)
 	}
 	for _, inst := range tc.Instances {
-		t.Run(instanceName(inst), func(t *testing.T) {
+		t.Run(inst.TestName, func(t *testing.T) {
 			run.instanceRuns++
 			validateInstance(t, dir, engine, unsupported, tc, inst)
 		})
 	}
 }
 
-func validateInstance(t *testing.T, dir string, engine *xsd.Engine, unsupported unsupportedAllowlist, tc manifestCase, inst manifestInstance) {
+func validateInstance(t *testing.T, dir string, engine *xsd.Engine, unsupported unsupportedAllowlist, tc corpus.Case, inst corpus.Instance) {
 	t.Helper()
 	f, err := os.Open(harnessFile(dir, inst.File))
 	if err != nil {
@@ -374,12 +169,12 @@ func validateInstance(t *testing.T, dir string, engine *xsd.Engine, unsupported 
 		t.Fatalf("case %s instance %s: %v", tc.ID, inst.File, locErr)
 	}
 	switch inst.Expected {
-	case "valid":
+	case corpus.ExpectedValid:
 		if err != nil {
 			skipUnsupported(t, unsupported, unsupportedInstanceKey(tc, inst), err)
 			t.Fatalf("Validate() error = %v", err)
 		}
-	case "invalid":
+	case corpus.ExpectedInvalid:
 		if checkErr := checkExpectedFailure(err, inst.ErrorCode); checkErr != nil {
 			t.Fatalf("Validate(): %v", checkErr)
 		}
@@ -602,12 +397,12 @@ func (unsupported unsupportedAllowlist) requireAllUsed(t *testing.T) {
 	t.Fatalf("unsupported allowlist has %d unused entries; first unused:\n%s", len(unused), strings.Join(unused[:n], "\n"))
 }
 
-func unsupportedSchemaKey(tc manifestCase) unsupportedKey {
+func unsupportedSchemaKey(tc corpus.Case) unsupportedKey {
 	return unsupportedKey{kind: unsupportedSchema, source: tc.ExpectedSource, caseID: tc.ID}
 }
 
-func unsupportedInstanceKey(tc manifestCase, inst manifestInstance) unsupportedKey {
-	return unsupportedKey{kind: unsupportedInstance, source: tc.ExpectedSource, caseID: tc.ID, instance: instanceName(inst)}
+func unsupportedInstanceKey(tc corpus.Case, inst corpus.Instance) unsupportedKey {
+	return unsupportedKey{kind: unsupportedInstance, source: tc.ExpectedSource, caseID: tc.ID, instance: inst.TestName}
 }
 
 func unsupportedErrorCode(err error) string {
@@ -617,7 +412,7 @@ func unsupportedErrorCode(err error) string {
 	return "unsupported"
 }
 
-func schemaSources(dir string, tc manifestCase) []xsd.SchemaSource {
+func schemaSources(dir string, tc corpus.Case) []xsd.SchemaSource {
 	files := schemaDocumentFiles(tc)
 	sources := make([]xsd.SchemaSource, 0, len(files))
 	for _, file := range files {
@@ -626,7 +421,7 @@ func schemaSources(dir string, tc manifestCase) []xsd.SchemaSource {
 	return sources
 }
 
-func schemaDocumentFiles(tc manifestCase) []string {
+func schemaDocumentFiles(tc corpus.Case) []string {
 	if tc.Schema == nil {
 		return nil
 	}
@@ -639,14 +434,4 @@ func schemaDocumentFiles(tc manifestCase) []string {
 
 func harnessFile(dir, name string) string {
 	return filepath.Join(dir, filepath.FromSlash(name))
-}
-
-func instanceName(inst manifestInstance) string {
-	if inst.TestName != "" {
-		return inst.TestName
-	}
-	if inst.File != "" {
-		return filepath.Base(inst.File)
-	}
-	return fmt.Sprintf("instance-%s", inst.Expected)
 }
