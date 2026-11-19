@@ -42,7 +42,7 @@ RUN for w in /tmp/wheels/*.whl; do python3.10 -m zipfile -e "$w" /opt/oracles/xm
  && rm -rf /tmp/wheels
 COPY xmlschema/oracle.py /opt/oracles/xmlschema/
 COPY libxml2/oracle.sh /opt/oracles/libxml2/
-COPY run-all.sh /opt/oracles/
+COPY run-all.sh root-relative.awk /opt/oracles/
 
 ENV HOME=/tmp DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 DOTNET_ROOT=/usr/share/dotnet
 WORKDIR /tmp

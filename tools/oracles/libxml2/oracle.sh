@@ -8,10 +8,11 @@ set -eu
 version=$(xmllint --version 2>&1 | sed -n '1s/.*libxml version \([0-9]*\).*/\1/p')
 version="libxml2 $((version / 10000)).$((version / 100 % 100)).$((version % 100))"
 
-# CR, LF and TAB become visible symbols so a row stays one line and they remain distinguishable:
-# they are the discriminator in end-of-line and whitespace cases.
+# Paths print relative to XSD_ORACLE_ROOT. CR, LF and TAB become visible symbols so a row stays
+# one line and they remain distinguishable: they are the discriminator in end-of-line and
+# whitespace cases.
 emit() {
-    printf '%s\t%s\t%s\n' "$version" "$1" "$(printf '%s' "$2" | sed -e 's/\r/␍/g' -e 's/\t/␉/g' | awk 'NR > 1 { printf "␊" } { printf "%s", $0 }')"
+    printf '%s\t%s\t%s\n' "$version" "$1" "$(printf '%s' "$2" | LC_ALL=C awk -f /opt/oracles/root-relative.awk | sed -e 's/\r/␍/g' -e 's/\t/␉/g' | awk 'NR > 1 { printf "␊" } { printf "%s", $0 }')"
 }
 
 # First diagnostic other than xmllint's per-file summary lines. A diagnostic continues on the

@@ -19,7 +19,7 @@ row() {
     if [ "$rc" -eq 124 ]; then
         out="?	error	timed out after ${timeout_s}s"
     elif [ "$rc" -ne 0 ] || [ -z "$out" ]; then
-        out="?	error	exit $rc: $(tail -n 3 "$err" | tr '\n\t' '  ')"
+        out="?	error	exit $rc: $(tail -n 3 "$err" | LC_ALL=C awk -f /opt/oracles/root-relative.awk | tr '\n\t' '  ')"
     fi
     printf '%s\t%s\n' "$key" "$out"
 }
