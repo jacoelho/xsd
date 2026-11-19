@@ -4262,6 +4262,186 @@ project/identity/keyref-refer-resolution/scoping/keyref-in-group-key-on-ancestor
 project/identity/keyref-refer-resolution/scoping/keyref-in-group-key-on-ancestor	schema	libxml2	schema-valid	
 project/identity/keyref-refer-resolution/scoping/keyref-in-group-key-on-ancestor	schema	xerces	schema-valid	
 project/identity/keyref-refer-resolution/scoping/keyref-in-group-key-on-ancestor	schema	xmlschema	schema-valid	
+project/identity/list-identity-item-types/key	empty-and-nonempty	dotnet	valid	
+project/identity/list-identity-item-types/key	empty-and-nonempty	libxml2	invalid	empty-and-nonempty.xml:1: element ls: Schemas validity error : Element 'ls', attribute 'v': Warning: No precomputed value available, the value was either invalid or something strange happened.
+project/identity/list-identity-item-types/key	empty-and-nonempty	xerces	valid	
+project/identity/list-identity-item-types/key	empty-and-nonempty	xmlschema	valid	
+project/identity/list-identity-item-types/key	empty-int-integer-lists	dotnet	invalid	empty-int-integer-lists.xml:1:18: There is a duplicate key sequence '' for the 'values' key or unique identity constraint.
+project/identity/list-identity-item-types/key	empty-int-integer-lists	libxml2	invalid	empty-int-integer-lists.xml:1: element li: Schemas validity error : Element 'li', attribute 'v': Warning: No precomputed value available, the value was either invalid or something strange happened.
+project/identity/list-identity-item-types/key	empty-int-integer-lists	xerces	invalid	empty-int-integer-lists.xml:1:27: cvc-identity-constraint.4.2.2: Duplicate key value [] found for identity constraint "values" of element "root".
+project/identity/list-identity-item-types/key	empty-int-integer-lists	xmlschema	invalid	line None: duplicated value ((),) for XsdKey(name='values') (path /root/lg)
+project/identity/list-identity-item-types/key	empty-int-string-lists	dotnet	valid	
+project/identity/list-identity-item-types/key	empty-int-string-lists	libxml2	invalid	empty-int-string-lists.xml:1: element li: Schemas validity error : Element 'li', attribute 'v': Warning: No precomputed value available, the value was either invalid or something strange happened.
+project/identity/list-identity-item-types/key	empty-int-string-lists	xerces	valid	
+project/identity/list-identity-item-types/key	empty-int-string-lists	xmlschema	invalid	line None: duplicated value ((),) for XsdKey(name='values') (path /root/ls)
+project/identity/list-identity-item-types/key	empty-list-and-empty-string	dotnet	valid	
+project/identity/list-identity-item-types/key	empty-list-and-empty-string	libxml2	invalid	empty-list-and-empty-string.xml:1: element ls: Schemas validity error : Element 'ls', attribute 'v': Warning: No precomputed value available, the value was either invalid or something strange happened.
+project/identity/list-identity-item-types/key	empty-list-and-empty-string	xerces	valid	
+project/identity/list-identity-item-types/key	empty-list-and-empty-string	xmlschema	valid	
+project/identity/list-identity-item-types/key	empty-same-list-type	dotnet	invalid	empty-same-list-type.xml:1:18: There is a duplicate key sequence '' for the 'values' key or unique identity constraint.
+project/identity/list-identity-item-types/key	empty-same-list-type	libxml2	invalid	empty-same-list-type.xml:1: element ls: Schemas validity error : Element 'ls', attribute 'v': Warning: No precomputed value available, the value was either invalid or something strange happened.
+project/identity/list-identity-item-types/key	empty-same-list-type	xerces	invalid	empty-same-list-type.xml:1:27: cvc-identity-constraint.4.2.2: Duplicate key value [] found for identity constraint "values" of element "root".
+project/identity/list-identity-item-types/key	empty-same-list-type	xmlschema	invalid	line None: duplicated value ((),) for XsdKey(name='values') (path /root/ls[2])
+project/identity/list-identity-item-types/key	empty-string-list-types	dotnet	invalid	empty-string-list-types.xml:1:18: There is a duplicate key sequence '' for the 'values' key or unique identity constraint.
+project/identity/list-identity-item-types/key	empty-string-list-types	libxml2	invalid	empty-string-list-types.xml:1: element ls: Schemas validity error : Element 'ls', attribute 'v': Warning: No precomputed value available, the value was either invalid or something strange happened.
+project/identity/list-identity-item-types/key	empty-string-list-types	xerces	invalid	empty-string-list-types.xml:1:27: cvc-identity-constraint.4.2.2: Duplicate key value [] found for identity constraint "values" of element "root".
+project/identity/list-identity-item-types/key	empty-string-list-types	xmlschema	invalid	line None: duplicated value ((),) for XsdKey(name='values') (path /root/lo)
+project/identity/list-identity-item-types/key	one-item-int-integer-lists	dotnet	invalid	one-item-int-integer-lists.xml:1:19: There is a duplicate key sequence '01' for the 'values' key or unique identity constraint.
+project/identity/list-identity-item-types/key	one-item-int-integer-lists	libxml2	invalid	one-item-int-integer-lists.xml:1: element lg: Schemas validity error : Element 'lg': Duplicate key-sequence ['1'] in key identity-constraint 'values'.
+project/identity/list-identity-item-types/key	one-item-int-integer-lists	xerces	invalid	one-item-int-integer-lists.xml:1:30: cvc-identity-constraint.4.2.2: Duplicate key value [1] found for identity constraint "values" of element "root".
+project/identity/list-identity-item-types/key	one-item-int-integer-lists	xmlschema	invalid	line None: duplicated value (Decimal('1'),) for XsdKey(name='values') (path /root/lg)
+project/identity/list-identity-item-types/key	one-item-int-string-lists	dotnet	valid	
+project/identity/list-identity-item-types/key	one-item-int-string-lists	libxml2	valid	
+project/identity/list-identity-item-types/key	one-item-int-string-lists	xerces	valid	
+project/identity/list-identity-item-types/key	one-item-int-string-lists	xmlschema	valid	
+project/identity/list-identity-item-types/key	one-item-list-and-atomic-int	dotnet	invalid	one-item-list-and-atomic-int.xml:1:18: There is a duplicate key sequence '1' for the 'values' key or unique identity constraint.
+project/identity/list-identity-item-types/key	one-item-list-and-atomic-int	libxml2	invalid	one-item-list-and-atomic-int.xml:1: element li: Schemas validity error : Element 'li': Duplicate key-sequence ['1'] in key identity-constraint 'values'.
+project/identity/list-identity-item-types/key	one-item-list-and-atomic-int	xerces	valid	
+project/identity/list-identity-item-types/key	one-item-list-and-atomic-int	xmlschema	invalid	line None: duplicated value (Decimal('1'),) for XsdKey(name='values') (path /root/li)
+project/identity/list-identity-item-types/key	one-item-string-list-types	dotnet	invalid	one-item-string-list-types.xml:1:19: There is a duplicate key sequence 'a' for the 'values' key or unique identity constraint.
+project/identity/list-identity-item-types/key	one-item-string-list-types	libxml2	invalid	one-item-string-list-types.xml:1: element lo: Schemas validity error : Element 'lo': Duplicate key-sequence ['a'] in key identity-constraint 'values'.
+project/identity/list-identity-item-types/key	one-item-string-list-types	xerces	invalid	one-item-string-list-types.xml:1:29: cvc-identity-constraint.4.2.2: Duplicate key value [a] found for identity constraint "values" of element "root".
+project/identity/list-identity-item-types/key	one-item-string-list-types	xmlschema	invalid	line None: duplicated value ('a',) for XsdKey(name='values') (path /root/lo)
+project/identity/list-identity-item-types/key	schema	dotnet	schema-valid	
+project/identity/list-identity-item-types/key	schema	libxml2	schema-valid	
+project/identity/list-identity-item-types/key	schema	xerces	schema-valid	
+project/identity/list-identity-item-types/key	schema	xmlschema	schema-valid	
+project/identity/list-identity-item-types/keyref	atomic-int-to-one-item-list	dotnet	valid	
+project/identity/list-identity-item-types/keyref	atomic-int-to-one-item-list	libxml2	valid	
+project/identity/list-identity-item-types/keyref	atomic-int-to-one-item-list	xerces	invalid	atomic-int-to-one-item-list.xml:1:40: cvc-identity-constraint.4.3: Key 'refs' with value '1' not found for identity constraint of element 'root'.
+project/identity/list-identity-item-types/keyref	atomic-int-to-one-item-list	xmlschema	valid	
+project/identity/list-identity-item-types/keyref	empty-integer-to-int-list	dotnet	valid	
+project/identity/list-identity-item-types/keyref	empty-integer-to-int-list	libxml2	invalid	empty-integer-to-int-list.xml:1: element ki: Schemas validity error : Element 'ki', attribute 'v': Warning: No precomputed value available, the value was either invalid or something strange happened.
+project/identity/list-identity-item-types/keyref	empty-integer-to-int-list	xerces	valid	
+project/identity/list-identity-item-types/keyref	empty-integer-to-int-list	xmlschema	valid	
+project/identity/list-identity-item-types/keyref	empty-same-list-type	dotnet	valid	
+project/identity/list-identity-item-types/keyref	empty-same-list-type	libxml2	invalid	empty-same-list-type.xml:1: element ks: Schemas validity error : Element 'ks', attribute 'v': Warning: No precomputed value available, the value was either invalid or something strange happened.
+project/identity/list-identity-item-types/keyref	empty-same-list-type	xerces	valid	
+project/identity/list-identity-item-types/keyref	empty-same-list-type	xmlschema	valid	
+project/identity/list-identity-item-types/keyref	empty-string-list-types	dotnet	valid	
+project/identity/list-identity-item-types/keyref	empty-string-list-types	libxml2	invalid	empty-string-list-types.xml:1: element ks: Schemas validity error : Element 'ks', attribute 'v': Warning: No precomputed value available, the value was either invalid or something strange happened.
+project/identity/list-identity-item-types/keyref	empty-string-list-types	xerces	valid	
+project/identity/list-identity-item-types/keyref	empty-string-list-types	xmlschema	valid	
+project/identity/list-identity-item-types/keyref	empty-string-to-empty-list	dotnet	invalid	empty-string-to-empty-list.xml:1:18: The key sequence '' in 'keys' Keyref fails to refer to some key.
+project/identity/list-identity-item-types/keyref	empty-string-to-empty-list	libxml2	invalid	empty-string-to-empty-list.xml:1: element ks: Schemas validity error : Element 'ks', attribute 'v': Warning: No precomputed value available, the value was either invalid or something strange happened.
+project/identity/list-identity-item-types/keyref	empty-string-to-empty-list	xerces	invalid	empty-string-to-empty-list.xml:1:38: cvc-identity-constraint.4.3: Key 'refs' with value '' not found for identity constraint of element 'root'.
+project/identity/list-identity-item-types/keyref	empty-string-to-empty-list	xmlschema	invalid	line None: value ('',) not found for XsdKey(name='keys') (path /root)
+project/identity/list-identity-item-types/keyref	empty-string-to-int-list	dotnet	invalid	empty-string-to-int-list.xml:1:18: The key sequence '' in 'keys' Keyref fails to refer to some key.
+project/identity/list-identity-item-types/keyref	empty-string-to-int-list	libxml2	invalid	empty-string-to-int-list.xml:1: element ki: Schemas validity error : Element 'ki', attribute 'v': Warning: No precomputed value available, the value was either invalid or something strange happened.
+project/identity/list-identity-item-types/keyref	empty-string-to-int-list	xerces	invalid	empty-string-to-int-list.xml:1:36: cvc-identity-constraint.4.3: Key 'refs' with value '' not found for identity constraint of element 'root'.
+project/identity/list-identity-item-types/keyref	empty-string-to-int-list	xmlschema	valid	
+project/identity/list-identity-item-types/keyref	empty-to-nonempty	dotnet	invalid	empty-to-nonempty.xml:1:19: The key sequence '' in 'keys' Keyref fails to refer to some key.
+project/identity/list-identity-item-types/keyref	empty-to-nonempty	libxml2	invalid	empty-to-nonempty.xml:1: element rs: Schemas validity error : Element 'rs', attribute 'ref': Warning: No precomputed value available, the value was either invalid or something strange happened.
+project/identity/list-identity-item-types/keyref	empty-to-nonempty	xerces	invalid	empty-to-nonempty.xml:1:37: cvc-identity-constraint.4.3: Key 'refs' with value '' not found for identity constraint of element 'root'.
+project/identity/list-identity-item-types/keyref	empty-to-nonempty	xmlschema	invalid	line None: value ((),) not found for XsdKey(name='keys') (path /root)
+project/identity/list-identity-item-types/keyref	one-item-integer-to-int-list	dotnet	valid	
+project/identity/list-identity-item-types/keyref	one-item-integer-to-int-list	libxml2	valid	
+project/identity/list-identity-item-types/keyref	one-item-integer-to-int-list	xerces	valid	
+project/identity/list-identity-item-types/keyref	one-item-integer-to-int-list	xmlschema	valid	
+project/identity/list-identity-item-types/keyref	one-item-string-list-types	dotnet	valid	
+project/identity/list-identity-item-types/keyref	one-item-string-list-types	libxml2	valid	
+project/identity/list-identity-item-types/keyref	one-item-string-list-types	xerces	valid	
+project/identity/list-identity-item-types/keyref	one-item-string-list-types	xmlschema	valid	
+project/identity/list-identity-item-types/keyref	one-item-string-to-int-list	dotnet	invalid	one-item-string-to-int-list.xml:1:19: The key sequence '1' in 'keys' Keyref fails to refer to some key.
+project/identity/list-identity-item-types/keyref	one-item-string-to-int-list	libxml2	invalid	one-item-string-to-int-list.xml:1: Schemas validity error : Element 'rs': No match found for key-sequence ['1'] of keyref 'refs'.
+project/identity/list-identity-item-types/keyref	one-item-string-to-int-list	xerces	invalid	one-item-string-to-int-list.xml:1:38: cvc-identity-constraint.4.3: Key 'refs' with value '1' not found for identity constraint of element 'root'.
+project/identity/list-identity-item-types/keyref	one-item-string-to-int-list	xmlschema	invalid	line None: value ('1',) not found for XsdKey(name='keys') (path /root)
+project/identity/list-identity-item-types/keyref	schema	dotnet	schema-valid	
+project/identity/list-identity-item-types/keyref	schema	libxml2	schema-valid	
+project/identity/list-identity-item-types/keyref	schema	xerces	schema-valid	
+project/identity/list-identity-item-types/keyref	schema	xmlschema	schema-valid	
+project/identity/list-identity-item-types/union-items	empty-reordered-union-and-int-lists	dotnet	valid	
+project/identity/list-identity-item-types/union-items	empty-reordered-union-and-int-lists	libxml2	invalid	empty-reordered-union-and-int-lists.xml:1: element lr: Schemas validity error : Element 'lr', attribute 'v': Warning: No precomputed value available, the value was either invalid or something strange happened.
+project/identity/list-identity-item-types/union-items	empty-reordered-union-and-int-lists	xerces	valid	
+project/identity/list-identity-item-types/union-items	empty-reordered-union-and-int-lists	xmlschema	invalid	line None: duplicated value ((),) for XsdUnique(name='values') (path /root/li)
+project/identity/list-identity-item-types/union-items	empty-reordered-union-and-string-lists	dotnet	valid	
+project/identity/list-identity-item-types/union-items	empty-reordered-union-and-string-lists	libxml2	invalid	empty-reordered-union-and-string-lists.xml:1: element lr: Schemas validity error : Element 'lr', attribute 'v': Warning: No precomputed value available, the value was either invalid or something strange happened.
+project/identity/list-identity-item-types/union-items	empty-reordered-union-and-string-lists	xerces	valid	
+project/identity/list-identity-item-types/union-items	empty-reordered-union-and-string-lists	xmlschema	invalid	line None: duplicated value ((),) for XsdUnique(name='values') (path /root/ls)
+project/identity/list-identity-item-types/union-items	empty-reordered-union-lists	dotnet	invalid	empty-reordered-union-lists.xml:1:18: There is a duplicate key sequence '' for the 'values' key or unique identity constraint.
+project/identity/list-identity-item-types/union-items	empty-reordered-union-lists	libxml2	invalid	empty-reordered-union-lists.xml:1: element lu: Schemas validity error : Element 'lu', attribute 'v': Warning: No precomputed value available, the value was either invalid or something strange happened.
+project/identity/list-identity-item-types/union-items	empty-reordered-union-lists	xerces	invalid	empty-reordered-union-lists.xml:1:27: cvc-identity-constraint.4.1: Duplicate unique value [] found for identity constraint "values" of element "root".
+project/identity/list-identity-item-types/union-items	empty-reordered-union-lists	xmlschema	invalid	line None: duplicated value ((),) for XsdUnique(name='values') (path /root/lr)
+project/identity/list-identity-item-types/union-items	empty-same-union-list	dotnet	invalid	empty-same-union-list.xml:1:18: There is a duplicate key sequence '' for the 'values' key or unique identity constraint.
+project/identity/list-identity-item-types/union-items	empty-same-union-list	libxml2	invalid	empty-same-union-list.xml:1: element lu: Schemas validity error : Element 'lu', attribute 'v': Warning: No precomputed value available, the value was either invalid or something strange happened.
+project/identity/list-identity-item-types/union-items	empty-same-union-list	xerces	invalid	empty-same-union-list.xml:1:27: cvc-identity-constraint.4.1: Duplicate unique value [] found for identity constraint "values" of element "root".
+project/identity/list-identity-item-types/union-items	empty-same-union-list	xmlschema	invalid	line None: duplicated value ((),) for XsdUnique(name='values') (path /root/lu[2])
+project/identity/list-identity-item-types/union-items	empty-union-and-int-lists	dotnet	valid	
+project/identity/list-identity-item-types/union-items	empty-union-and-int-lists	libxml2	invalid	empty-union-and-int-lists.xml:1: element lu: Schemas validity error : Element 'lu', attribute 'v': Warning: No precomputed value available, the value was either invalid or something strange happened.
+project/identity/list-identity-item-types/union-items	empty-union-and-int-lists	xerces	valid	
+project/identity/list-identity-item-types/union-items	empty-union-and-int-lists	xmlschema	invalid	line None: duplicated value ((),) for XsdUnique(name='values') (path /root/li)
+project/identity/list-identity-item-types/union-items	empty-union-and-string-lists	dotnet	valid	
+project/identity/list-identity-item-types/union-items	empty-union-and-string-lists	libxml2	invalid	empty-union-and-string-lists.xml:1: element lu: Schemas validity error : Element 'lu', attribute 'v': Warning: No precomputed value available, the value was either invalid or something strange happened.
+project/identity/list-identity-item-types/union-items	empty-union-and-string-lists	xerces	valid	
+project/identity/list-identity-item-types/union-items	empty-union-and-string-lists	xmlschema	invalid	line None: duplicated value ((),) for XsdUnique(name='values') (path /root/ls)
+project/identity/list-identity-item-types/union-items	mixed-items-reordered-union-lists	dotnet	valid	
+project/identity/list-identity-item-types/union-items	mixed-items-reordered-union-lists	libxml2	valid	
+project/identity/list-identity-item-types/union-items	mixed-items-reordered-union-lists	xerces	valid	
+project/identity/list-identity-item-types/union-items	mixed-items-reordered-union-lists	xmlschema	valid	
+project/identity/list-identity-item-types/union-items	one-item-same-union-list	dotnet	invalid	one-item-same-union-list.xml:1:19: There is a duplicate key sequence '1' for the 'values' key or unique identity constraint.
+project/identity/list-identity-item-types/union-items	one-item-same-union-list	libxml2	invalid	one-item-same-union-list.xml:1: element lu: Schemas validity error : Element 'lu': Duplicate key-sequence ['1'] in unique identity-constraint 'values'.
+project/identity/list-identity-item-types/union-items	one-item-same-union-list	xerces	invalid	one-item-same-union-list.xml:1:29: cvc-identity-constraint.4.1: Duplicate unique value [1] found for identity constraint "values" of element "root".
+project/identity/list-identity-item-types/union-items	one-item-same-union-list	xmlschema	invalid	line None: duplicated value (1,) for XsdUnique(name='values') (path /root/lu[2])
+project/identity/list-identity-item-types/union-items	one-item-string-reordered-union-lists	dotnet	invalid	one-item-string-reordered-union-lists.xml:1:19: There is a duplicate key sequence 'a' for the 'values' key or unique identity constraint.
+project/identity/list-identity-item-types/union-items	one-item-string-reordered-union-lists	libxml2	invalid	one-item-string-reordered-union-lists.xml:1: element lr: Schemas validity error : Element 'lr': Duplicate key-sequence ['a'] in unique identity-constraint 'values'.
+project/identity/list-identity-item-types/union-items	one-item-string-reordered-union-lists	xerces	invalid	one-item-string-reordered-union-lists.xml:1:29: cvc-identity-constraint.4.1: Duplicate unique value [a] found for identity constraint "values" of element "root".
+project/identity/list-identity-item-types/union-items	one-item-string-reordered-union-lists	xmlschema	invalid	line None: duplicated value ('a',) for XsdUnique(name='values') (path /root/lr)
+project/identity/list-identity-item-types/union-items	one-item-union-int-and-int-list	dotnet	valid	
+project/identity/list-identity-item-types/union-items	one-item-union-int-and-int-list	libxml2	invalid	one-item-union-int-and-int-list.xml:1: element li: Schemas validity error : Element 'li': Duplicate key-sequence ['1'] in unique identity-constraint 'values'.
+project/identity/list-identity-item-types/union-items	one-item-union-int-and-int-list	xerces	valid	
+project/identity/list-identity-item-types/union-items	one-item-union-int-and-int-list	xmlschema	invalid	line None: duplicated value (Decimal('1'),) for XsdUnique(name='values') (path /root/li)
+project/identity/list-identity-item-types/union-items	one-item-union-string-and-string-list	dotnet	valid	
+project/identity/list-identity-item-types/union-items	one-item-union-string-and-string-list	libxml2	invalid	one-item-union-string-and-string-list.xml:1: element ls: Schemas validity error : Element 'ls': Duplicate key-sequence ['a'] in unique identity-constraint 'values'.
+project/identity/list-identity-item-types/union-items	one-item-union-string-and-string-list	xerces	valid	
+project/identity/list-identity-item-types/union-items	one-item-union-string-and-string-list	xmlschema	invalid	line None: duplicated value ('a',) for XsdUnique(name='values') (path /root/ls)
+project/identity/list-identity-item-types/union-items	schema	dotnet	schema-valid	
+project/identity/list-identity-item-types/union-items	schema	libxml2	schema-valid	
+project/identity/list-identity-item-types/union-items	schema	xerces	schema-valid	
+project/identity/list-identity-item-types/union-items	schema	xmlschema	schema-valid	
+project/identity/list-identity-item-types/unique	empty-and-nonempty	dotnet	valid	
+project/identity/list-identity-item-types/unique	empty-and-nonempty	libxml2	invalid	empty-and-nonempty.xml:1: element ls: Schemas validity error : Element 'ls', attribute 'v': Warning: No precomputed value available, the value was either invalid or something strange happened.
+project/identity/list-identity-item-types/unique	empty-and-nonempty	xerces	valid	
+project/identity/list-identity-item-types/unique	empty-and-nonempty	xmlschema	valid	
+project/identity/list-identity-item-types/unique	empty-int-integer-lists	dotnet	invalid	empty-int-integer-lists.xml:1:18: There is a duplicate key sequence '' for the 'values' key or unique identity constraint.
+project/identity/list-identity-item-types/unique	empty-int-integer-lists	libxml2	invalid	empty-int-integer-lists.xml:1: element li: Schemas validity error : Element 'li', attribute 'v': Warning: No precomputed value available, the value was either invalid or something strange happened.
+project/identity/list-identity-item-types/unique	empty-int-integer-lists	xerces	invalid	empty-int-integer-lists.xml:1:27: cvc-identity-constraint.4.1: Duplicate unique value [] found for identity constraint "values" of element "root".
+project/identity/list-identity-item-types/unique	empty-int-integer-lists	xmlschema	invalid	line None: duplicated value ((),) for XsdUnique(name='values') (path /root/lg)
+project/identity/list-identity-item-types/unique	empty-int-string-lists	dotnet	valid	
+project/identity/list-identity-item-types/unique	empty-int-string-lists	libxml2	invalid	empty-int-string-lists.xml:1: element li: Schemas validity error : Element 'li', attribute 'v': Warning: No precomputed value available, the value was either invalid or something strange happened.
+project/identity/list-identity-item-types/unique	empty-int-string-lists	xerces	valid	
+project/identity/list-identity-item-types/unique	empty-int-string-lists	xmlschema	invalid	line None: duplicated value ((),) for XsdUnique(name='values') (path /root/ls)
+project/identity/list-identity-item-types/unique	empty-list-and-empty-string	dotnet	valid	
+project/identity/list-identity-item-types/unique	empty-list-and-empty-string	libxml2	invalid	empty-list-and-empty-string.xml:1: element ls: Schemas validity error : Element 'ls', attribute 'v': Warning: No precomputed value available, the value was either invalid or something strange happened.
+project/identity/list-identity-item-types/unique	empty-list-and-empty-string	xerces	valid	
+project/identity/list-identity-item-types/unique	empty-list-and-empty-string	xmlschema	valid	
+project/identity/list-identity-item-types/unique	empty-same-list-type	dotnet	invalid	empty-same-list-type.xml:1:18: There is a duplicate key sequence '' for the 'values' key or unique identity constraint.
+project/identity/list-identity-item-types/unique	empty-same-list-type	libxml2	invalid	empty-same-list-type.xml:1: element ls: Schemas validity error : Element 'ls', attribute 'v': Warning: No precomputed value available, the value was either invalid or something strange happened.
+project/identity/list-identity-item-types/unique	empty-same-list-type	xerces	invalid	empty-same-list-type.xml:1:27: cvc-identity-constraint.4.1: Duplicate unique value [] found for identity constraint "values" of element "root".
+project/identity/list-identity-item-types/unique	empty-same-list-type	xmlschema	invalid	line None: duplicated value ((),) for XsdUnique(name='values') (path /root/ls[2])
+project/identity/list-identity-item-types/unique	empty-string-list-types	dotnet	invalid	empty-string-list-types.xml:1:18: There is a duplicate key sequence '' for the 'values' key or unique identity constraint.
+project/identity/list-identity-item-types/unique	empty-string-list-types	libxml2	invalid	empty-string-list-types.xml:1: element ls: Schemas validity error : Element 'ls', attribute 'v': Warning: No precomputed value available, the value was either invalid or something strange happened.
+project/identity/list-identity-item-types/unique	empty-string-list-types	xerces	invalid	empty-string-list-types.xml:1:27: cvc-identity-constraint.4.1: Duplicate unique value [] found for identity constraint "values" of element "root".
+project/identity/list-identity-item-types/unique	empty-string-list-types	xmlschema	invalid	line None: duplicated value ((),) for XsdUnique(name='values') (path /root/lo)
+project/identity/list-identity-item-types/unique	one-item-int-integer-lists	dotnet	invalid	one-item-int-integer-lists.xml:1:19: There is a duplicate key sequence '01' for the 'values' key or unique identity constraint.
+project/identity/list-identity-item-types/unique	one-item-int-integer-lists	libxml2	invalid	one-item-int-integer-lists.xml:1: element lg: Schemas validity error : Element 'lg': Duplicate key-sequence ['1'] in unique identity-constraint 'values'.
+project/identity/list-identity-item-types/unique	one-item-int-integer-lists	xerces	invalid	one-item-int-integer-lists.xml:1:30: cvc-identity-constraint.4.1: Duplicate unique value [1] found for identity constraint "values" of element "root".
+project/identity/list-identity-item-types/unique	one-item-int-integer-lists	xmlschema	invalid	line None: duplicated value (Decimal('1'),) for XsdUnique(name='values') (path /root/lg)
+project/identity/list-identity-item-types/unique	one-item-int-string-lists	dotnet	valid	
+project/identity/list-identity-item-types/unique	one-item-int-string-lists	libxml2	valid	
+project/identity/list-identity-item-types/unique	one-item-int-string-lists	xerces	valid	
+project/identity/list-identity-item-types/unique	one-item-int-string-lists	xmlschema	valid	
+project/identity/list-identity-item-types/unique	one-item-list-and-atomic-int	dotnet	invalid	one-item-list-and-atomic-int.xml:1:18: There is a duplicate key sequence '1' for the 'values' key or unique identity constraint.
+project/identity/list-identity-item-types/unique	one-item-list-and-atomic-int	libxml2	invalid	one-item-list-and-atomic-int.xml:1: element li: Schemas validity error : Element 'li': Duplicate key-sequence ['1'] in unique identity-constraint 'values'.
+project/identity/list-identity-item-types/unique	one-item-list-and-atomic-int	xerces	valid	
+project/identity/list-identity-item-types/unique	one-item-list-and-atomic-int	xmlschema	invalid	line None: duplicated value (Decimal('1'),) for XsdUnique(name='values') (path /root/li)
+project/identity/list-identity-item-types/unique	one-item-string-list-types	dotnet	invalid	one-item-string-list-types.xml:1:19: There is a duplicate key sequence 'a' for the 'values' key or unique identity constraint.
+project/identity/list-identity-item-types/unique	one-item-string-list-types	libxml2	invalid	one-item-string-list-types.xml:1: element lo: Schemas validity error : Element 'lo': Duplicate key-sequence ['a'] in unique identity-constraint 'values'.
+project/identity/list-identity-item-types/unique	one-item-string-list-types	xerces	invalid	one-item-string-list-types.xml:1:29: cvc-identity-constraint.4.1: Duplicate unique value [a] found for identity constraint "values" of element "root".
+project/identity/list-identity-item-types/unique	one-item-string-list-types	xmlschema	invalid	line None: duplicated value ('a',) for XsdUnique(name='values') (path /root/lo)
+project/identity/list-identity-item-types/unique	schema	dotnet	schema-valid	
+project/identity/list-identity-item-types/unique	schema	libxml2	schema-valid	
+project/identity/list-identity-item-types/unique	schema	xerces	schema-valid	
+project/identity/list-identity-item-types/unique	schema	xmlschema	schema-valid	
 project/identity/list-identity-keys	duplicate-empty-lists	dotnet	valid	
 project/identity/list-identity-keys	duplicate-empty-lists	libxml2	invalid	duplicate-empty-lists.xml:1: element l: Schemas validity error : Element 'l', attribute 'v': Warning: No precomputed value available, the value was either invalid or something strange happened.
 project/identity/list-identity-keys	duplicate-empty-lists	xerces	valid	

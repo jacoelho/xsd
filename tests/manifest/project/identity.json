@@ -3965,6 +3965,830 @@
       ]
     },
     {
+      "id": "project/identity/list-identity-item-types/keyref",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/identity/list-identity-item-types/keyref",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+          "https://www.w3.org/TR/2012/REC-xmlschema11-2-20120405/#identity"
+        ],
+        "conditions": [
+          "A keyref matches a key when the lists are equal: same length and pairwise equal items, whatever their list or item types. An atomic value never matches a list."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/list-identity-item-types/keyref/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+          "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "atomic-int-to-one-item-list",
+          "file": "corpus/project/identity/list-identity-item-types/keyref/atomic-int-to-one-item-list.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "dotnet": {
+              "record": "I-017"
+            },
+            "xmlschema": {
+              "record": "I-017"
+            },
+            "libxml2": {
+              "record": "I-017"
+            }
+          }
+        },
+        {
+          "testName": "empty-integer-to-int-list",
+          "file": "corpus/project/identity/list-identity-item-types/keyref/empty-integer-to-int-list.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-017"
+            }
+          }
+        },
+        {
+          "testName": "empty-same-list-type",
+          "file": "corpus/project/identity/list-identity-item-types/keyref/empty-same-list-type.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-017"
+            }
+          }
+        },
+        {
+          "testName": "empty-string-list-types",
+          "file": "corpus/project/identity/list-identity-item-types/keyref/empty-string-list-types.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-017"
+            }
+          }
+        },
+        {
+          "testName": "empty-string-to-empty-list",
+          "file": "corpus/project/identity/list-identity-item-types/keyref/empty-string-to-empty-list.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "empty-string-to-int-list",
+          "file": "corpus/project/identity/list-identity-item-types/keyref/empty-string-to-int-list.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-017"
+            },
+            "dotnet": {
+              "record": "I-017"
+            },
+            "libxml2": {
+              "record": "I-017"
+            }
+          }
+        },
+        {
+          "testName": "empty-to-nonempty",
+          "file": "corpus/project/identity/list-identity-item-types/keyref/empty-to-nonempty.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "one-item-integer-to-int-list",
+          "file": "corpus/project/identity/list-identity-item-types/keyref/one-item-integer-to-int-list.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "one-item-string-list-types",
+          "file": "corpus/project/identity/list-identity-item-types/keyref/one-item-string-list-types.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "one-item-string-to-int-list",
+          "file": "corpus/project/identity/list-identity-item-types/keyref/one-item-string-to-int-list.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/list-identity-item-types/keyref/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/keyref/atomic-int-to-one-item-list.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/keyref/empty-integer-to-int-list.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/keyref/empty-same-list-type.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/keyref/empty-string-list-types.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/keyref/empty-string-to-empty-list.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/keyref/empty-string-to-int-list.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/keyref/empty-to-nonempty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/keyref/one-item-integer-to-int-list.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/keyref/one-item-string-list-types.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/keyref/one-item-string-to-int-list.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/identity/list-identity-item-types/unique",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/identity/list-identity-item-types/unique",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+          "https://www.w3.org/TR/2012/REC-xmlschema11-2-20120405/#identity"
+        ],
+        "conditions": [
+          "Two lists are equal when they have the same length and pairwise equal items, whatever their list or item types; a list never equals an atomic value. A unique rejects the second of two equal values."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/list-identity-item-types/unique/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+          "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "empty-and-nonempty",
+          "file": "corpus/project/identity/list-identity-item-types/unique/empty-and-nonempty.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-017"
+            }
+          }
+        },
+        {
+          "testName": "empty-int-integer-lists",
+          "file": "corpus/project/identity/list-identity-item-types/unique/empty-int-integer-lists.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "empty-int-string-lists",
+          "file": "corpus/project/identity/list-identity-item-types/unique/empty-int-string-lists.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-017"
+            },
+            "dotnet": {
+              "record": "I-017"
+            }
+          }
+        },
+        {
+          "testName": "empty-list-and-empty-string",
+          "file": "corpus/project/identity/list-identity-item-types/unique/empty-list-and-empty-string.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-017"
+            }
+          }
+        },
+        {
+          "testName": "empty-same-list-type",
+          "file": "corpus/project/identity/list-identity-item-types/unique/empty-same-list-type.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "empty-string-list-types",
+          "file": "corpus/project/identity/list-identity-item-types/unique/empty-string-list-types.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "one-item-int-integer-lists",
+          "file": "corpus/project/identity/list-identity-item-types/unique/one-item-int-integer-lists.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "one-item-int-string-lists",
+          "file": "corpus/project/identity/list-identity-item-types/unique/one-item-int-string-lists.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "one-item-list-and-atomic-int",
+          "file": "corpus/project/identity/list-identity-item-types/unique/one-item-list-and-atomic-int.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "dotnet": {
+              "record": "I-017"
+            },
+            "xmlschema": {
+              "record": "I-017"
+            },
+            "libxml2": {
+              "record": "I-017"
+            }
+          }
+        },
+        {
+          "testName": "one-item-string-list-types",
+          "file": "corpus/project/identity/list-identity-item-types/unique/one-item-string-list-types.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/list-identity-item-types/unique/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/unique/empty-and-nonempty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/unique/empty-int-integer-lists.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/unique/empty-int-string-lists.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/unique/empty-list-and-empty-string.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/unique/empty-same-list-type.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/unique/empty-string-list-types.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/unique/one-item-int-integer-lists.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/unique/one-item-int-string-lists.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/unique/one-item-list-and-atomic-int.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/unique/one-item-string-list-types.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/identity/list-identity-item-types/key",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/identity/list-identity-item-types/key",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+          "https://www.w3.org/TR/2012/REC-xmlschema11-2-20120405/#identity"
+        ],
+        "conditions": [
+          "Two lists are equal when they have the same length and pairwise equal items, whatever their list or item types; a list never equals an atomic value. A key rejects the second of two equal values."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/list-identity-item-types/key/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+          "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "empty-and-nonempty",
+          "file": "corpus/project/identity/list-identity-item-types/key/empty-and-nonempty.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-017"
+            }
+          }
+        },
+        {
+          "testName": "empty-int-integer-lists",
+          "file": "corpus/project/identity/list-identity-item-types/key/empty-int-integer-lists.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "empty-int-string-lists",
+          "file": "corpus/project/identity/list-identity-item-types/key/empty-int-string-lists.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-017"
+            },
+            "dotnet": {
+              "record": "I-017"
+            }
+          }
+        },
+        {
+          "testName": "empty-list-and-empty-string",
+          "file": "corpus/project/identity/list-identity-item-types/key/empty-list-and-empty-string.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-017"
+            }
+          }
+        },
+        {
+          "testName": "empty-same-list-type",
+          "file": "corpus/project/identity/list-identity-item-types/key/empty-same-list-type.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "empty-string-list-types",
+          "file": "corpus/project/identity/list-identity-item-types/key/empty-string-list-types.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "one-item-int-integer-lists",
+          "file": "corpus/project/identity/list-identity-item-types/key/one-item-int-integer-lists.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "one-item-int-string-lists",
+          "file": "corpus/project/identity/list-identity-item-types/key/one-item-int-string-lists.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "one-item-list-and-atomic-int",
+          "file": "corpus/project/identity/list-identity-item-types/key/one-item-list-and-atomic-int.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "dotnet": {
+              "record": "I-017"
+            },
+            "xmlschema": {
+              "record": "I-017"
+            },
+            "libxml2": {
+              "record": "I-017"
+            }
+          }
+        },
+        {
+          "testName": "one-item-string-list-types",
+          "file": "corpus/project/identity/list-identity-item-types/key/one-item-string-list-types.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/list-identity-item-types/key/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/key/empty-and-nonempty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/key/empty-int-integer-lists.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/key/empty-int-string-lists.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/key/empty-list-and-empty-string.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/key/empty-same-list-type.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/key/empty-string-list-types.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/key/one-item-int-integer-lists.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/key/one-item-int-string-lists.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/key/one-item-list-and-atomic-int.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/key/one-item-string-list-types.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/identity/list-identity-item-types/union-items",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/identity/list-identity-item-types/union-items",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+          "https://www.w3.org/TR/2012/REC-xmlschema11-2-20120405/#identity"
+        ],
+        "conditions": [
+          "List items of a union item type compare by the member each item selects. Empty lists are all equal; 1 a under union(int, string) items is int 1 and string a, while under union(string, int) items both are strings, so those lists differ."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/list-identity-item-types/union-items/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+          "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "empty-reordered-union-and-int-lists",
+          "file": "corpus/project/identity/list-identity-item-types/union-items/empty-reordered-union-and-int-lists.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-017"
+            },
+            "dotnet": {
+              "record": "I-017"
+            }
+          }
+        },
+        {
+          "testName": "empty-reordered-union-and-string-lists",
+          "file": "corpus/project/identity/list-identity-item-types/union-items/empty-reordered-union-and-string-lists.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-017"
+            },
+            "dotnet": {
+              "record": "I-017"
+            }
+          }
+        },
+        {
+          "testName": "empty-reordered-union-lists",
+          "file": "corpus/project/identity/list-identity-item-types/union-items/empty-reordered-union-lists.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "empty-same-union-list",
+          "file": "corpus/project/identity/list-identity-item-types/union-items/empty-same-union-list.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "empty-union-and-int-lists",
+          "file": "corpus/project/identity/list-identity-item-types/union-items/empty-union-and-int-lists.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-017"
+            },
+            "dotnet": {
+              "record": "I-017"
+            }
+          }
+        },
+        {
+          "testName": "empty-union-and-string-lists",
+          "file": "corpus/project/identity/list-identity-item-types/union-items/empty-union-and-string-lists.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-017"
+            },
+            "dotnet": {
+              "record": "I-017"
+            }
+          }
+        },
+        {
+          "testName": "mixed-items-reordered-union-lists",
+          "file": "corpus/project/identity/list-identity-item-types/union-items/mixed-items-reordered-union-lists.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "one-item-same-union-list",
+          "file": "corpus/project/identity/list-identity-item-types/union-items/one-item-same-union-list.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "one-item-string-reordered-union-lists",
+          "file": "corpus/project/identity/list-identity-item-types/union-items/one-item-string-reordered-union-lists.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          }
+        },
+        {
+          "testName": "one-item-union-int-and-int-list",
+          "file": "corpus/project/identity/list-identity-item-types/union-items/one-item-union-int-and-int-list.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-017"
+            },
+            "dotnet": {
+              "record": "I-017"
+            }
+          }
+        },
+        {
+          "testName": "one-item-union-string-and-string-list",
+          "file": "corpus/project/identity/list-identity-item-types/union-items/one-item-union-string-and-string-list.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-017--list-identity-and-equality",
+            "clause": "I-017 in docs/spec/INTERPRETATIONS.md"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-017"
+            },
+            "dotnet": {
+              "record": "I-017"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/list-identity-item-types/union-items/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/union-items/empty-reordered-union-and-int-lists.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/union-items/empty-reordered-union-and-string-lists.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/union-items/empty-reordered-union-lists.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/union-items/empty-same-union-list.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/union-items/empty-union-and-int-lists.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/union-items/empty-union-and-string-lists.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/union-items/mixed-items-reordered-union-lists.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/union-items/one-item-same-union-list.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/union-items/one-item-string-reordered-union-lists.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/union-items/one-item-union-int-and-int-list.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/list-identity-item-types/union-items/one-item-union-string-and-string-list.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
       "id": "project/identity/id-carriers/element-content",
       "expectedSource": "project",
       "source": {

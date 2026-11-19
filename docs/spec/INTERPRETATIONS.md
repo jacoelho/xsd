@@ -802,7 +802,10 @@ Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2
 - libxml2 fails on every empty-list attribute ("No precomputed value
   available").
 
-Case: `project/identity/list-identity-keys`.
+Cases: `project/identity/list-identity-keys` and
+`project/identity/list-identity-item-types/*` (key, unique and keyref over
+empty and one-item lists of `xs:int`, `xs:integer`, `xs:string` and union item
+types, against each other and against atomic values).
 
 ## I-018 — nilled requires a governing declaration
 

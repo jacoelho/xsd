@@ -1,0 +1,19 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="StringList"><xs:list itemType="xs:string"/></xs:simpleType>
+  <xs:simpleType name="OtherStringList"><xs:list itemType="xs:string"/></xs:simpleType>
+  <xs:simpleType name="IntList"><xs:list itemType="xs:int"/></xs:simpleType>
+  <xs:simpleType name="IntegerList"><xs:list itemType="xs:integer"/></xs:simpleType>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:choice maxOccurs="unbounded">
+        <xs:element name="s"><xs:complexType><xs:attribute name="v" type="xs:string" use="required"/></xs:complexType></xs:element>
+        <xs:element name="a"><xs:complexType><xs:attribute name="v" type="xs:int" use="required"/></xs:complexType></xs:element>
+        <xs:element name="ls"><xs:complexType><xs:attribute name="v" type="StringList" use="required"/></xs:complexType></xs:element>
+        <xs:element name="lo"><xs:complexType><xs:attribute name="v" type="OtherStringList" use="required"/></xs:complexType></xs:element>
+        <xs:element name="li"><xs:complexType><xs:attribute name="v" type="IntList" use="required"/></xs:complexType></xs:element>
+        <xs:element name="lg"><xs:complexType><xs:attribute name="v" type="IntegerList" use="required"/></xs:complexType></xs:element>
+      </xs:choice>
+    </xs:complexType>
+    <xs:unique name="values"><xs:selector xpath="*"/><xs:field xpath="@v"/></xs:unique>
+  </xs:element>
+</xs:schema>
