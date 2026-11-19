@@ -1888,6 +1888,9 @@ Cases: `project/datatypes/bounds/continuation-b20-equal`,
 `project/datatypes/bounds/continuation-b26-equal`,
 `project/datatypes/bounds/continuation-b31-equal`,
 `project/datatypes/bounds/inherited-opposing-exclusive-equality`,
+`project/datatypes/bounds/opposite-bound-equal/*` (each derived bound equal to an
+inherited opposite bound: invalid when either bound is exclusive, valid for two
+inclusive bounds, also through a facet-only middle step),
 `project/datatypes/facets/conformance-inherit-length-less`,
 `project/datatypes/length/continuation-both-maximum-numeric-false`, `project/datatypes/length/continuation-both-minimum-numeric-false`, `project/datatypes/length/continuation-fixed-length-equal-false-middle-change`, `project/datatypes/length/continuation-fixed-maxlength-equal-false-middle-change`, `project/datatypes/length/continuation-fixed-minlength-equal-false-middle-change`, `project/datatypes/length/continuation-inherit-length-empty-middle-less`, `project/datatypes/length/continuation-maximum-changed-in-length-step`, `project/datatypes/length/continuation-maximum-numeric-false`, `project/datatypes/length/continuation-minimum-changed-in-length-step`, `project/datatypes/length/continuation-minimum-numeric-false` and
 `project/datatypes/whitespace/conformance-nonstring-*-replace`.

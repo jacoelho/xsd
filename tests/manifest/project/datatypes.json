@@ -92626,6 +92626,361 @@
           "role": "principal"
         }
       ]
+    },
+    {
+      "id": "project/datatypes/bounds/opposite-bound-equal/step-derived-maxExclusive-over-base-minExclusive-equal",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/opposite-bound-equal/step-derived-maxExclusive-over-base-minExclusive-equal.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction"
+        ],
+        "conditions": [
+          "Derived maxExclusive 10 over inherited minExclusive 10."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/opposite-bound-equal/step-derived-maxExclusive-over-base-minExclusive-equal.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-038--restriction-steps-read-the-bases-effective-facets",
+          "clause": "Opposite-bound comparisons in I-038 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-038"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/opposite-bound-equal/step-derived-maxExclusive-over-base-minExclusive-equal.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/opposite-bound-equal/step-derived-maxExclusive-over-base-minInclusive-equal",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/opposite-bound-equal/step-derived-maxExclusive-over-base-minInclusive-equal.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction"
+        ],
+        "conditions": [
+          "Derived maxExclusive 10 over inherited minInclusive 10 (maxExclusive clause 3)."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/opposite-bound-equal/step-derived-maxExclusive-over-base-minInclusive-equal.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-038--restriction-steps-read-the-bases-effective-facets",
+          "clause": "Opposite-bound comparisons in I-038 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-038"
+          },
+          "dotnet": {
+            "record": "I-038"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/opposite-bound-equal/step-derived-maxExclusive-over-base-minInclusive-equal.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/opposite-bound-equal/step-derived-maxInclusive-over-base-minExclusive-equal",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/opposite-bound-equal/step-derived-maxInclusive-over-base-minExclusive-equal.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction"
+        ],
+        "conditions": [
+          "Derived maxInclusive 10 over inherited minExclusive 10 (maxInclusive clause 4)."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/opposite-bound-equal/step-derived-maxInclusive-over-base-minExclusive-equal.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-038--restriction-steps-read-the-bases-effective-facets",
+          "clause": "Opposite-bound comparisons in I-038 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-038"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/opposite-bound-equal/step-derived-maxInclusive-over-base-minExclusive-equal.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/opposite-bound-equal/step-derived-maxInclusive-over-base-minInclusive-equal",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/opposite-bound-equal/step-derived-maxInclusive-over-base-minInclusive-equal.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction"
+        ],
+        "conditions": [
+          "Derived maxInclusive 10 over inherited minInclusive 10: equal inclusive opposite bounds are allowed."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/opposite-bound-equal/step-derived-maxInclusive-over-base-minInclusive-equal.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-038--restriction-steps-read-the-bases-effective-facets",
+          "clause": "Opposite-bound comparisons in I-038 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/opposite-bound-equal/step-derived-maxInclusive-over-base-minInclusive-equal.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/opposite-bound-equal/step-derived-minExclusive-over-base-maxExclusive-equal",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/opposite-bound-equal/step-derived-minExclusive-over-base-maxExclusive-equal.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction"
+        ],
+        "conditions": [
+          "Derived minExclusive 10 under inherited maxExclusive 10."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/opposite-bound-equal/step-derived-minExclusive-over-base-maxExclusive-equal.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-038--restriction-steps-read-the-bases-effective-facets",
+          "clause": "Opposite-bound comparisons in I-038 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/opposite-bound-equal/step-derived-minExclusive-over-base-maxExclusive-equal.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/opposite-bound-equal/step-derived-minExclusive-over-base-maxInclusive-equal",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/opposite-bound-equal/step-derived-minExclusive-over-base-maxInclusive-equal.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction"
+        ],
+        "conditions": [
+          "Derived minExclusive 10 under inherited maxInclusive 10 (minExclusive clause 2 as repaired by the selected correction)."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/opposite-bound-equal/step-derived-minExclusive-over-base-maxInclusive-equal.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-038--restriction-steps-read-the-bases-effective-facets",
+          "clause": "Opposite-bound comparisons in I-038 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-038"
+          },
+          "dotnet": {
+            "record": "I-038"
+          },
+          "libxml2": {
+            "record": "I-038"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/opposite-bound-equal/step-derived-minExclusive-over-base-maxInclusive-equal.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/opposite-bound-equal/step-derived-minInclusive-over-base-maxExclusive-equal",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/opposite-bound-equal/step-derived-minInclusive-over-base-maxExclusive-equal.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction"
+        ],
+        "conditions": [
+          "Derived minInclusive 10 under inherited maxExclusive 10 (minInclusive clause 4)."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/opposite-bound-equal/step-derived-minInclusive-over-base-maxExclusive-equal.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-038--restriction-steps-read-the-bases-effective-facets",
+          "clause": "Opposite-bound comparisons in I-038 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/opposite-bound-equal/step-derived-minInclusive-over-base-maxExclusive-equal.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/opposite-bound-equal/step-derived-minInclusive-over-base-maxInclusive-equal",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/opposite-bound-equal/step-derived-minInclusive-over-base-maxInclusive-equal.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction"
+        ],
+        "conditions": [
+          "Derived minInclusive 10 under inherited maxInclusive 10: equal inclusive opposite bounds are allowed."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/opposite-bound-equal/step-derived-minInclusive-over-base-maxInclusive-equal.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-038--restriction-steps-read-the-bases-effective-facets",
+          "clause": "Opposite-bound comparisons in I-038 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/opposite-bound-equal/step-derived-minInclusive-over-base-maxInclusive-equal.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/opposite-bound-equal/two-step-derived-minExclusive-over-grandbase-maxInclusive-equal",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/opposite-bound-equal/two-step-derived-minExclusive-over-grandbase-maxInclusive-equal.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-valid-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction"
+        ],
+        "conditions": [
+          "Derived minExclusive 10 under a maxInclusive 10 inherited through a facet-only middle step."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/opposite-bound-equal/two-step-derived-minExclusive-over-grandbase-maxInclusive-equal.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-038--restriction-steps-read-the-bases-effective-facets",
+          "clause": "Opposite-bound comparisons in I-038 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-038"
+          },
+          "dotnet": {
+            "record": "I-038"
+          },
+          "libxml2": {
+            "record": "I-038"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/opposite-bound-equal/two-step-derived-minExclusive-over-grandbase-maxInclusive-equal.xsd",
+          "role": "principal"
+        }
+      ]
     }
   ]
 }
